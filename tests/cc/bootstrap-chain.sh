@@ -90,8 +90,9 @@ arch_base() {
 # ---------------------------------------------------------------------------
 step 0 "prereqs"
 # ---------------------------------------------------------------------------
-[ -f "$M2_PLANET/cc.c" ] || fail 0 "M2_PLANET=$M2_PLANET is not initialized (run git submodule update --init)"
-[ -f "$MESCC_TOOLS/M1-macro.c" ] || fail 0 "MESCC_TOOLS=$MESCC_TOOLS is not initialized (run git submodule update --init)"
+[ -f "$M2_PLANET/cc.c" ] || fail 0 "M2_PLANET=$M2_PLANET is not initialized (run git submodule update --init --recursive)"
+[ -f "$M2_PLANET/M2libc/bootstrappable.c" ] || fail 0 "M2_PLANET/M2libc is not initialized (run git submodule update --init --recursive)"
+[ -f "$MESCC_TOOLS/M1-macro.c" ] || fail 0 "MESCC_TOOLS=$MESCC_TOOLS is not initialized (run git submodule update --init --recursive)"
 command -v gcc >/dev/null || fail 0 "gcc not on PATH (needed for reference + M1/hex2)"
 
 # seed-forth

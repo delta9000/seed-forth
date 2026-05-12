@@ -28,7 +28,8 @@ fail() { printf 'stage-a-check: FAIL: %s\n' "$1" >&2; exit 1; }
 [ -x seed-forth ] || ./build.sh >/dev/null
 [ -x seed-forth ] || fail "seed-forth build failed"
 
-[ -f "$M2_PLANET/cc.c" ] || fail "M2_PLANET=$M2_PLANET is not initialized (run git submodule update --init)"
+[ -f "$M2_PLANET/cc.c" ] || fail "M2_PLANET=$M2_PLANET is not initialized (run git submodule update --init --recursive)"
+[ -f "$M2_PLANET/M2libc/bootstrappable.c" ] || fail "M2_PLANET/M2libc is not initialized (run git submodule update --init --recursive)"
 
 # --- Build m2-ref (gcc reference) if needed ---
 if [ ! -x "$BUILDROOT/m2-ref" ]; then

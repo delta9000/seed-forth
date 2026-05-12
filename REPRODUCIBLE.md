@@ -12,10 +12,11 @@ The repository carries upstreams as submodules:
 | M2-Planet | `vendor/M2-Planet` | `0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb` |
 | mescc-tools | `vendor/mescc-tools` | `9b1375115f9175d876c360dbbfd7e231dd9f2a2f` |
 
-Initialize them before running the checks:
+Initialize them (recursively — `vendor/M2-Planet` has its own nested
+`M2libc` submodule) before running the checks:
 
 ```sh
-git submodule update --init
+git submodule update --init --recursive
 ```
 
 The scripts also accept `M2_PLANET`, `MESCC_TOOLS`, and `BUILDROOT`

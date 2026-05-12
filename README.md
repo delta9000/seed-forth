@@ -14,11 +14,14 @@ byte-identical M1 output against a GCC-built M2-Planet reference.
 From the repository root:
 
 ```sh
-git submodule update --init
+git submodule update --init --recursive
 ./build.sh
 ./test.sh
 tests/cc/stage-a-check.sh
 ```
+
+`--recursive` is needed because `vendor/M2-Planet` carries its own nested
+`M2libc` submodule.
 
 `stage-a-check.sh` builds `/tmp/cc-out` with seed-forth, uses it to compile
 M2-Planet for `amd64`, and compares that `.M1` output byte-for-byte with the
