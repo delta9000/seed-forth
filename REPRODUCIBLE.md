@@ -46,8 +46,7 @@ stage-a-check: self-v1-amd64.M1 == self-ref-amd64.M1 (2367260 bytes)
 stage-a-check: PASS
 ```
 
-Shared artifact sizes (current source `000-seed.hex0`; build artifacts
-shown at the same Stage-A snapshot — re-run the checks to refresh):
+Shared artifact sizes (verified by running `tests/cc/stage-a-check.sh`):
 
 | File | Bytes |
 |------|------:|
@@ -56,7 +55,7 @@ shown at the same Stage-A snapshot — re-run the checks to refresh):
 | `cc-out-v1` | 203,241 |
 | `self-v1-amd64.M1` | 2,367,260 |
 
-Hashes:
+Hashes for the same run:
 
 ```text
 18bef4a7df46706c1ac9c71d74e9ac252d21200b41a1025ce64c989051decbf6  000-seed.hex0
@@ -65,9 +64,9 @@ Hashes:
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
 
-Only the `000-seed.hex0` hash is checkable from a fresh clone without
-running the toolchain; the others are produced by `stage-a-check.sh`.
-If `000-seed.hex0` ever changes, all four lines need re-generating.
+`build.sh` strips comments/whitespace before hex-decoding, so edits limited
+to comments leave `seed-forth` (and every downstream artifact) byte-identical
+even when the `000-seed.hex0` hash changes.
 
 ## Full Chain
 

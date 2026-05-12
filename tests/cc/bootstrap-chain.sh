@@ -44,6 +44,13 @@ ARCHES=${ARCHES:-"x86 amd64"}
 
 mkdir -p "$BUILDROOT"
 
+# Resolve to absolute paths — the M1/hex2 build cd's into MESCC_TOOLS, and the
+# per-arch chain cd's into M2_PLANET, so relative paths to the other tree
+# stop resolving after the cd.
+M2_PLANET=$(cd "$M2_PLANET" && pwd)
+MESCC_TOOLS=$(cd "$MESCC_TOOLS" && pwd)
+BUILDROOT=$(cd "$BUILDROOT" && pwd)
+
 step() { printf '\n=== STAGE %s: %s ===\n' "$1" "$2"; }
 fail() { printf 'FAIL (stage %s): %s\n' "$1" "$2" >&2; exit "$1"; }
 
