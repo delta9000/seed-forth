@@ -147,6 +147,43 @@ demonstrate that the two paths converge when the codegen quirk is
 neutralised, which is the byte-level proof that matters to the
 Bootstrappable / Guix Full Source Bootstrap audience.
 
+### Connection to the existing "host-arch nudge"
+
+`STAGE0_COMPAT` is not a new behaviour.  It is the same codegen the
+existing `bootstrap-chain.sh` chain reaches naturally at stage v2:
+
+| Path | self-host `.M1` sha256 |
+|------|------------------------|
+| default cc-out-v1 | `22465aa1...` (uses optimization) |
+| default cc-out-v2 (M1+hex2-assembled from v1's output) | `02d98f86...` |
+| default cc-out-v3 (M1+hex2-assembled from v2's output) | `02d98f86...` |
+| **STAGE0_COMPAT cc-out-v1** | **`02d98f86...`** |
+| stage0-posix-derived `m2-cross` (0a67a68 source) | `02d98f86...` |
+
+So `cc-out-v1` under `STAGE0_COMPAT` is byte-identical, at the
+compile-output level, to:
+
+- The chain's own v2 / v3 (verified via `cmp /tmp/seed-bootstrap/self-v2-amd64.M1`).
+- A stage0-posix-chain-built M2-Planet compiled from the same
+  `vendor/M2-Planet` pin source.
+
+Practical consequence: with `STAGE0_COMPAT=1`, the v1 → v2 → v3
+fixed-point closes at v1 (`self-v1.M1 == self-v2.M1 == self-v3.M1`),
+eliminating the "M2-Planet host-arch nudge" that the default chain
+documents at `bootstrap-chain.sh:198–211`.  The nudge is a symptom
+of one of the two binaries in the comparison having the optimization
+and the other not having it; under `STAGE0_COMPAT`, neither does.
+
+### Verification summary
+
+| Check | Default mode | `STAGE0_COMPAT=1` |
+|-------|--------------|--------------------|
+| `./test.sh` (seed primitives + lib + cc layers) | PASS | (unchanged — seed is the same) |
+| `./tests/cc/stage-a-check.sh` (vs GCC reference) | PASS (`22465aa1...`) | would FAIL by design |
+| `bootstrap-chain.sh` Stage 2 fixed-point (v2 == v3) | PASS (`02d98f86...`) | v1 == v2 == v3 (`02d98f86...`) |
+| `bootstrap-chain.sh` Stage 3 M2-Planet test parity | 36/36 vs GCC reference | 36/36 vs stage0-derived `m2-cross` |
+| `hello.c` end-to-end smoke (Stage G) | PASS (x86 + amd64) | (unchanged structurally) |
+
 ## Full Chain
 
 The slower closure check is:
