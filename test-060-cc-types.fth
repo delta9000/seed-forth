@@ -1,7 +1,7 @@
 \ test-060-cc-types.fth — smoke test for 060-cc-types.fth.
 \ Run via:
-\   cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 050-cc-lex.fth 060-cc-types.fth \
-\       test-060-cc-types.fth | strip_forth | seed/seed-forth ; echo $?
+\   cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth 050-cc-lex.fth \
+\       060-cc-types.fth test-060-cc-types.fth | strip_forth | ./seed-forth ; echo $?
 \
 \ AND-accumulator pattern: first comparison seeds the accumulator,
 \ subsequent ones AND themselves in.  Final `0= die` turns acc=-1

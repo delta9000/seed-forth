@@ -14,12 +14,14 @@ byte-identical M1 output against a GCC-built M2-Planet reference.
 From the repository root:
 
 ```sh
-git submodule update --init
-cd seed
+git submodule update --init --recursive
 ./build.sh
 ./test.sh
 tests/cc/stage-a-check.sh
 ```
+
+`--recursive` is needed because `vendor/M2-Planet` carries its own nested
+`M2libc` submodule.
 
 `stage-a-check.sh` builds `/tmp/cc-out` with seed-forth, uses it to compile
 M2-Planet for `amd64`, and compares that `.M1` output byte-for-byte with the
@@ -46,7 +48,7 @@ tests/cc/bootstrap-chain.sh
 | `010-lib.fth` | Forth helpers: syscalls, booleans, comparisons, control-flow combinators, defining words. |
 | `020-cc-arena.fth` .. `110-cc-decl.fth` | C-subset compiler layers loaded by seed-forth. |
 | `120-cc-main.fth` | Compiler entry point; reads C from stdin and writes `/tmp/cc-out`. |
-| `test.sh` / `test-*.fth` | Local unit and smoke tests for the seed and compiler layers. |
+| `test.sh` / `test-*.fth` | Local unit/smoke tests for layers 010–070; the upper layers (080–110) are exercised end-to-end by `tests/cc/`. |
 | `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, and full bootstrap-chain scripts. |
 | `tests/cc/G*.c`, `M*.c`, headers | Small tracked cases that document the C subset. |
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |
@@ -57,7 +59,7 @@ Generated binaries such as `seed-forth` and `/tmp/cc-out` are not source.
 
 The checked-in files are the source of record.  Start with `000-seed.hex0`, which
 annotates the hand-written ELF bytes, then read the numbered `.fth` files in
-lexical order.  The full compiler loaders use `seed/[0-9][0-9][0-9]-*.fth`,
+lexical order.  The full compiler loaders glob `[0-9][0-9][0-9]-*.fth`,
 so the filenames carry the load order.
 
 ## Seed Vocabulary

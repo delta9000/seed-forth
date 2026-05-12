@@ -48,28 +48,31 @@ The gate discipline wasn't the model's idea. After a few false starts on the C s
 The C compiler was built one feature at a time, each behind a passing test. No gate opened until the previous one's test was green.
 
 ```
-G0   int main() { return N; }
-G1   locals, arithmetic, precedence
-G2   if/else, comparisons
-G3   user functions, SysV ABI calls
-G4   while/for
-G5   arrays
-G6   struct member access
-G7   pointers, address-of
-G8   string literals
-G9   enum
-G10  typedef
-G11  function pointers
-G12  hex literals
-G13  nested includes
-G14  switch/case/default with fall-through
-M1a  built-in constants (__FILE__, __LINE__, …)
-M1b  forward decls, globals, prototypes
-M.1  full struct/enum/typedef — nested, pointer fields
-M.2  byte-identical M2-Planet self-host
+G0   int main() { return N; }                                     [G0.c]
+G1   locals, arithmetic, precedence                               [G1.c]
+G2   if/else, comparisons                                         [G2.c]
+G3   user functions, SysV ABI calls                               [G3.c]
+G4   while/for                                                    [G4.c]
+G5   arrays                                                       [G5.c]
+G6   struct member access                                         [G6a.c, G6b.c]
+G7   pointers, address-of                                         [G7.c]
+G8   string literals                                              [G8.c]
+G9   enum                                                         [G9a.c, G9b.c]
+G10  typedef                                                      [G10a.c..G10c.c]
+G11  function pointers                                            [G11.c]
+G12  hex literals                                                 [G12.c]
+G13  nested includes                                              [G13.c]
+G14  switch/case/default with fall-through                        [G14a.c..G14d.c]
+M1a  built-in libc constants (NULL, EOF, EXIT_*, std{in,out,err}) [M1a.c]
+M1b  forward decls, globals, cross-function calls                 [M1b.c]
+M1   M2-Planet's own cc.c entry point: angle-bracket includes,    [M1.c]
+     struct token_list*, FILE* I/O, calloc, recursive_output
 ```
 
-G = compiler gate. M = milestone toward the M2-Planet self-host. The `M1a/M1b` versus `M.1/M.2` inconsistency is real — that's how it grew.
+G = compiler gate. M = milestone toward the M2-Planet self-host. Tracked
+fixtures live in `tests/cc/`; the byte-identical self-host itself has no
+per-feature `.c` fixture — it is verified end-to-end by
+`tests/cc/stage-a-check.sh`.
 
 The swarm executor enforced this at the harness layer: every agent worked in its own git worktree, with `stage-a-check.sh` (a 5-second parity check against the GCC reference) gating each commit. Outputs that passed got merged; everything else was discarded silently. The Claude Code sessions worked on the main checkout and ran the same check on demand — same oracle, no automatic enforcement.
 
@@ -88,6 +91,8 @@ This was tooling, not magic. LLMs forget. Putting intent in a file the next agen
 **Multi-model handoffs.** Sessions passed between models when one got stuck. Gemini started the struct descriptor work and Claude Opus finished it. DeepSeek ran autonomous passes that Claude reviewed. Different models, different blind spots — switching was usually a practical unsticking move rather than a planned strategy.
 
 **Semantic workspace indexing.** `index_workspace.py`, `semantic_search.py`, `forth_outline.py`. Useful so agents didn't have to read every file. Not a strategy, just infrastructure.
+
+(The per-phase markdown specs, the Ralph progress file, and the indexing scripts mentioned in this document lived in the working tree during development and aren't checked into this repo — they belong to the build process, not the artifact.)
 
 ## What it cost
 

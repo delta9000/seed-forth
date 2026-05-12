@@ -9,18 +9,19 @@
 # Output: /tmp/cc-out is the seed-forth-built M2-Planet-compatible compiler
 # used by the Stage-A parity and bootstrap-chain checks.
 set -euo pipefail
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/../.."
 
-M2=${M2_PLANET:-seed/vendor/M2-Planet}
+M2=${M2_PLANET:-vendor/M2-Planet}
 MONOLITH=/tmp/m2planet-monolith.c
 OUT=/tmp/cc-out
 
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 
-[ -f "$M2/cc.c" ] || { echo "FAIL: M2_PLANET=$M2 is not initialized (run git submodule update --init)" >&2; exit 1; }
+[ -f "$M2/cc.c" ] || { echo "FAIL: M2_PLANET=$M2 is not initialized (run git submodule update --init --recursive)" >&2; exit 1; }
+[ -f "$M2/M2libc/bootstrappable.c" ] || { echo "FAIL: M2_PLANET/M2libc is not initialized (run git submodule update --init --recursive)" >&2; exit 1; }
 
 # Build seed-forth if missing.
-[ -x seed/seed-forth ] || (cd seed && ./build.sh) >/dev/null
+[ -x seed-forth ] || ./build.sh >/dev/null
 
 # Step 1: monolith = headers (once) + .c files (with quote-includes stripped).
 {
@@ -34,10 +35,10 @@ strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$';
 # Step 2: feed (stripped vocab + monolith) to seed-forth.
 TMP_VOCAB=$(mktemp)
 trap 'rm -f "$TMP_VOCAB"' EXIT
-cat seed/[0-9][0-9][0-9]-*.fth | strip_forth > "$TMP_VOCAB"
+cat [0-9][0-9][0-9]-*.fth | strip_forth > "$TMP_VOCAB"
 
 rm -f "$OUT"
-cat "$TMP_VOCAB" "$MONOLITH" | seed/seed-forth
+cat "$TMP_VOCAB" "$MONOLITH" | ./seed-forth
 rc=$?
 
 if [ ! -f "$OUT" ]; then

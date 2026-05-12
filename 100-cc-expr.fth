@@ -1,4 +1,4 @@
-\ seed/100-cc-expr.fth — recursive-descent expression parser for the C subset.
+\ 100-cc-expr.fth — recursive-descent expression parser for the C subset.
 \ Emits code that leaves the expression's value in rdi.  Uses 090-cc-emit.fth's
 \ instruction encoders.
 \

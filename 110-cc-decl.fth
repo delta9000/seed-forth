@@ -1,4 +1,4 @@
-\ seed/110-cc-decl.fth — function/declaration parser for the C-subset compiler.
+\ 110-cc-decl.fth — function/declaration parser for the C-subset compiler.
 \
 \ Parses top-level declarations, function definitions, local declarations,
 \ statements, structs, enums, typedefs, and prototypes for the C subset needed

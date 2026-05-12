@@ -1,4 +1,4 @@
-\ seed/070-cc-sym.fth — symbol table for the C-subset compiler.
+\ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
 \ Five parallel arrays indexed by symbol id (0..cc-sym-count-1):
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins

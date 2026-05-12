@@ -12,18 +12,18 @@
 # compared against it (after `$(...)` trims a single trailing newline).
 set -e
 
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/../.."
 
-GATE_FILE="seed/tests/cc/$1"
+GATE_FILE="tests/cc/$1"
 EXPECTED="$2"
 EXPECTED_STDOUT="$3"
 OUT=/tmp/cc-out
 
-# Inline strip_forth (matches seed/test.sh).
+# Inline strip_forth (matches test.sh).
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 
 # Build seed-forth if missing.
-[ -x seed/seed-forth ] || (cd seed && ./build.sh) >/dev/null
+[ -x seed-forth ] || ./build.sh >/dev/null
 
 # Step 1: write stripped vocab to a temp file (so we can concatenate it as raw
 # bytes with the un-stripped C source — strip_forth would otherwise mangle the
@@ -32,12 +32,12 @@ TMP_VOCAB=$(mktemp)
 TMP_STDOUT=$(mktemp)
 trap 'rm -f "$TMP_VOCAB" "$TMP_STDOUT"' EXIT
 
-cat seed/[0-9][0-9][0-9]-*.fth | strip_forth > "$TMP_VOCAB"
+cat [0-9][0-9][0-9]-*.fth | strip_forth > "$TMP_VOCAB"
 
 # Step 2: feed (vocab + C source) into seed-forth.  The REPL parses the
 # Forth, hits `cc-main` and invokes it; cc-main reads the remaining bytes
 # (the C source) via cc-load-stdin.
-cat "$TMP_VOCAB" "$GATE_FILE" | seed/seed-forth
+cat "$TMP_VOCAB" "$GATE_FILE" | ./seed-forth
 
 [ -f "$OUT" ] || { echo "FAIL: $1 — $OUT not produced"; exit 1; }
 chmod +x "$OUT" 2>/dev/null || true

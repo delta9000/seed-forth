@@ -1,4 +1,4 @@
-\ seed/120-cc-main.fth — main entry for the C-subset compiler.
+\ 120-cc-main.fth — main entry for the C-subset compiler.
 \
 \ Reads C source from stdin; emits ELF executable to /tmp/cc-out.
 \

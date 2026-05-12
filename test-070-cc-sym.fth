@@ -1,7 +1,7 @@
 \ test-070-cc-sym.fth — smoke test for 070-cc-sym.fth.
 \ Run via:
-\   cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 050-cc-lex.fth 060-cc-types.fth 070-cc-sym.fth \
-\       test-070-cc-sym.fth | strip_forth | seed/seed-forth ; echo $?
+\   cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth 050-cc-lex.fth \
+\       060-cc-types.fth 070-cc-sym.fth test-070-cc-sym.fth | strip_forth | ./seed-forth ; echo $?
 \
 \ AND-accumulator pattern; final `0= die` -> exit 0 on pass.
 

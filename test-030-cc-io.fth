@@ -1,6 +1,6 @@
 \ test-030-cc-io.fth — smoke test for 030-cc-io.fth.
 \ Run via:
-\   cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth test-030-cc-io.fth | strip_forth | seed/seed-forth
+\   cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth test-030-cc-io.fth | strip_forth | ./seed-forth
 \   echo $?    # 0 = pass, 255 = fail
 \
 \ Pattern matches test-020-cc-arena.fth: the first test seeds the AND-accumulator,
