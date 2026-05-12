@@ -31,6 +31,11 @@ fail() { printf 'stage-a-check: FAIL: %s\n' "$1" >&2; exit 1; }
 [ -f "$M2_PLANET/cc.c" ] || fail "M2_PLANET=$M2_PLANET is not initialized (run git submodule update --init --recursive)"
 [ -f "$M2_PLANET/M2libc/bootstrappable.c" ] || fail "M2_PLANET/M2libc is not initialized (run git submodule update --init --recursive)"
 
+# Resolve to absolute paths — the per-arch self-compile cd's into M2_PLANET
+# and references BUILDROOT, so a relative BUILDROOT override would break.
+M2_PLANET=$(cd "$M2_PLANET" && pwd)
+BUILDROOT=$(cd "$BUILDROOT" && pwd)
+
 # --- Build m2-ref (gcc reference) if needed ---
 if [ ! -x "$BUILDROOT/m2-ref" ]; then
     (cd "$M2_PLANET" && make >/dev/null 2>&1) || fail "make M2-Planet (reference) failed"
