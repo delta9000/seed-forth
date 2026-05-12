@@ -1,0 +1,752 @@
+;; 000-seed.hex0 — x86-64 Linux Forth Seed
+;;
+;; This file is a synthesis artifact of AI-collaborative research.
+;; Co-authored by an ensemble of LLMs (Claude, Gemini, Codex, DeepSeek,
+;; Qwen, Kimi, Gemma, MiniMax) under human architectural direction.
+;;
+;; License: MIT (see /LICENSE)
+;;
+;; ===== ELF64 header (64 bytes) =====
+;; Layout reference: man 5 elf, Elf64_Ehdr
+7F 45 4C 46                               ; e_ident[0..3] = magic "\x7fELF"
+02
+01
+01
+00
+00
+00 00 00 00 00 00 00
+02 00                                     ; e_type = ET_EXEC
+3E 00                                     ; e_machine = EM_X86_64
+01 00 00 00                               ; e_version = 1
+78 00 40 00 00 00 00 00                   ; e_entry = 0x400078
+40 00 00 00 00 00 00 00                   ; e_phoff = 64
+00 00 00 00 00 00 00 00                   ; e_shoff = 0
+00 00 00 00                               ; e_flags
+40 00                                     ; e_ehsize = 64
+38 00                                     ; e_phentsize = 56
+01 00                                     ; e_phnum = 1
+00 00
+00 00
+00 00
+
+;; ===== Program header (56 bytes), one PT_LOAD =====
+01 00 00 00                               ; p_type = PT_LOAD
+07 00 00 00                               ; p_flags = R|W|X
+00 00 00 00 00 00 00 00                   ; p_offset = 0
+00 00 40 00 00 00 00 00                   ; p_vaddr = 0x400000
+00 00 40 00 00 00 00 00                   ; p_paddr = 0x400000
+F8 07 00 00 00 00 00 00                   ; p_filesz = 2040
+00 00 00 01 00 00 00 00                   ; p_memsz  = 0x1000000 (16 MiB) for compiler buffers
+00 10 00 00 00 00 00 00                   ; p_align = 0x1000
+
+;; ===== Code at 0x400078 =====
+;;   rbp = data-stack pointer (grows down)
+;;   rdi = TOS register
+;;   0x412000 = single-byte I/O scratch (emit/key)
+;;   0x412800 = token buffer (read_word)
+;;   0x411000 = data-stack top
+;;   0x413000 sysvar page: STATE/LATEST/HERE/LAST_FOUND/NUMBER_HOOK/INPUT_FD
+;;
+;; @ 0x078: _start
+48 BD 00 10 41 00 00 00 00 00             ; mov rbp, 0x411000
+48 31 FF                                  ; xor rdi, rdi
+
+;; ----- sysvar init @ 0x085 -----
+48 C7 04 25 00 30 41 00 00 00 00 00       ; mov [STATE], 0
+48 C7 04 25 08 30 41 00 E8 07 40 00       ; mov [LATEST], 0x4007E8  ("'" entry)
+48 C7 04 25 10 30 41 00 00 10 40 00       ; mov [HERE], 0x401000
+48 C7 04 25 18 30 41 00 00 00 00 00       ; mov [LAST_FOUND], 0
+48 C7 04 25 20 30 41 00 00 00 00 00       ; mov [NUMBER_HOOK], 0
+48 C7 04 25 28 30 41 00 00 00 00 00       ; mov [INPUT_FD], 0
+
+;; ----- @ 0x0CD: jmp repl (rel32 = 0x35E - 0x0D2 = 0x0000028C) -----
+E9 8C 02 00 00
+
+;; ----- bye_code @ 0x0D2 -----
+B8 3C 00 00 00
+BF 00 00 00 00
+0F 05
+
+;; ----- emit_code @ 0x0DE -----
+48 C7 C0 00 20 41 00
+40 88 38
+B8 01 00 00 00
+BF 01 00 00 00
+48 BE 00 20 41 00 00 00 00 00
+BA 01 00 00 00
+0F 05
+48 8B 7D 00
+48 83 C5 08
+C3
+
+;; ----- key_code @ 0x10C -----
+48 83 ED 08
+48 89 7D 00
+B8 00 00 00 00
+BF 00 00 00 00
+48 C7 C6 00 20 41 00
+BA 01 00 00 00
+0F 05
+48 85 C0
+74 06
+48 0F B6 3E
+EB 03
+48 31 FF
+C3
+
+;; ----- dup_code @ 0x13B -----
+48 83 ED 08
+48 89 7D 00
+C3
+
+;; ----- drop_code @ 0x144 -----
+48 8B 7D 00
+48 83 C5 08
+C3
+
+;; ----- swap_code @ 0x14D -----
+48 8B 45 00
+48 89 7D 00
+48 89 C7
+C3
+
+;; ----- to_r_code @ 0x159 -----
+58
+57
+50
+48 8B 7D 00
+48 83 C5 08
+C3
+
+;; ----- r_from_code @ 0x165 -----
+48 83 ED 08
+48 89 7D 00
+58
+5F
+50
+C3
+
+;; ----- fetch_code @ 0x171 -----
+48 8B 3F
+C3
+
+;; ----- store_code @ 0x175 -----
+48 8B 45 00
+48 89 07
+48 83 C5 08
+48 8B 7D 00
+48 83 C5 08
+C3
+
+;; ----- cfetch_code @ 0x189 -----
+48 0F B6 3F
+C3
+
+;; ----- cstore_code @ 0x18E -----
+48 8B 45 00
+88 07
+48 83 C5 08
+48 8B 7D 00
+48 83 C5 08
+C3
+
+;; ----- plus_code @ 0x1A1 -----
+48 03 7D 00
+48 83 C5 08
+C3
+
+;; ----- nand_code @ 0x1AA -----
+48 23 7D 00
+48 F7 D7
+48 83 C5 08
+C3
+
+;; ----- zeq_code @ 0x1B6 -----
+48 85 FF
+40 0F 94 C7
+48 0F B6 FF
+48 F7 DF
+C3
+
+;; ----- find_code @ 0x1C5 -----
+48 8B 75 00
+48 83 C5 08
+48 8B 0C 25 08 30 41 00
+48 85 C9
+74 3D
+48 0F B6 41 09
+48 39 F8
+75 2E
+48 89 FA
+4C 8D 41 0A
+49 89 F1
+48 85 D2
+74 13
+41 8A 00
+41 3A 01
+75 17
+49 FF C0
+49 FF C1
+48 FF CA
+EB E8
+48 89 0C 25 18 30 41 00
+4C 89 C7
+C3
+48 8B 09
+EB BE
+48 31 FF
+C3
+
+;; ----- here_code @ 0x21B -----
+48 83 ED 08
+48 89 7D 00
+48 8B 3C 25 10 30 41 00
+C3
+
+;; ----- comma_code @ 0x22C -----
+48 8B 04 25 10 30 41 00
+48 89 38
+48 83 C0 08
+48 89 04 25 10 30 41 00
+48 8B 7D 00
+48 83 C5 08
+C3
+
+;; ----- execute_code @ 0x24C -----
+48 89 F8
+48 8B 7D 00
+48 83 C5 08
+FF E0
+
+;; ----- read_word @ 0x259 ( -- ; rax = token len, 0 on EOF ) -----
+;; Uses rbx (callee-saved across syscalls) for byte count;
+;; rcx is clobbered by syscall in key_code.
+48 31 DB                                  ; xor rbx, rbx
+;; @0x25C: call key_code (rel32 = 0x10C - 0x261 = -341)
+E8 AB FE FF FF
+48 89 FA                                  ; mov rdx, rdi
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+48 85 D2                                  ; test rdx, rdx
+74 5F                                     ; jz .done
+48 83 FA 20                               ; cmp rdx, 0x20
+74 E5                                     ; je .skipws
+48 83 FA 09                               ; cmp rdx, 0x09
+74 DF                                     ; je .skipws
+48 83 FA 0A                               ; cmp rdx, 0x0A
+74 D9                                     ; je .skipws
+48 83 FA 0D                               ; cmp rdx, 0x0D
+74 D3                                     ; je .skipws
+88 14 25 00 28 41 00                      ; mov [0x412800], dl
+48 C7 C3 01 00 00 00                      ; mov rbx, 1
+;; @0x297: call key_code (rel32 = 0x10C - 0x29C = -400)
+E8 70 FE FF FF
+48 89 FA
+48 8B 7D 00
+48 83 C5 08
+48 85 D2
+74 24
+48 83 FA 20
+74 1E
+48 83 FA 09
+74 18
+48 83 FA 0A
+74 12
+48 83 FA 0D
+74 0C
+88 14 1D 00 28 41 00                      ; mov [0x412800 + rbx], dl
+48 FF C3                                  ; inc rbx
+EB C7
+48 89 D8                                  ; mov rax, rbx
+C3
+
+;; ----- colon_code @ 0x2D4 ( -- ) parse name, build header, STATE=1 -----
+;; @0x2D4: call read_word (rel32 = 0x259 - 0x2D9 = -128)
+E8 80 FF FF FF
+48 8B 0C 25 08 30 41 00                   ; mov rcx, [LATEST]
+48 8B 14 25 10 30 41 00                   ; mov rdx, [HERE]
+48 89 0A                                  ; mov [rdx], rcx       ; entry.link = LATEST
+C6 42 08 00                               ; mov byte [rdx+8], 0  ; flags
+88 42 09                                  ; mov [rdx+9], al      ; nlen
+48 89 C1                                  ; mov rcx, rax
+48 C7 C6 00 28 41 00                      ; mov rsi, 0x412800
+4C 8D 42 0A                               ; lea r8, [rdx+10]
+;; .copy: while (rcx) { *r8++ = *rsi++; rcx-- }
+48 85 C9                                  ; test rcx, rcx
+74 11                                     ; jz .done_copy
+44 8A 0E                                  ; mov r9b, [rsi]
+45 88 08                                  ; mov [r8], r9b
+48 FF C6                                  ; inc rsi
+49 FF C0                                  ; inc r8
+48 FF C9                                  ; dec rcx
+EB EA                                     ; jmp .copy
+;; .done_copy:
+48 89 14 25 08 30 41 00                   ; mov [LATEST], rdx    ; LATEST = new entry
+48 83 C2 0A                               ; add rdx, 10
+48 01 C2                                  ; add rdx, rax
+48 89 14 25 10 30 41 00                   ; mov [HERE], rdx       ; HERE += 10 + nlen
+48 C7 04 25 00 30 41 00 01 00 00 00       ; mov [STATE], 1
+C3
+
+;; ----- semicolon_code @ 0x33B ( -- ) IMMEDIATE: append RET, STATE=0 -----
+48 8B 04 25 10 30 41 00                   ; mov rax, [HERE]
+C6 00 C3                                  ; mov byte [rax], 0xC3
+48 FF C0                                  ; inc rax
+48 89 04 25 10 30 41 00                   ; mov [HERE], rax
+48 C7 04 25 00 30 41 00 00 00 00 00       ; mov [STATE], 0
+C3
+
+;; ----- repl @ 0x35E -----
+;; Read tokens, find them, execute (or compile, depending on STATE).
+;; On EOF: jmp bye_code.
+;;
+;; @0x35E: call read_word (rel32 = 0x259 - 0x363 = -266)
+E8 F6 FE FF FF
+48 85 C0                                  ; test rax, rax
+;; @0x366: jz .repl_done rel32 (target 0x414, rel = 0xA8)
+0F 84 A8 00 00 00
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi   ; spill old TOS
+48 C7 C7 00 28 41 00                      ; mov rdi, 0x412800
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi   ; spill addr
+48 89 C7                                  ; mov rdi, rax     ; TOS = length
+;; @0x386: call find_code (rel32 = 0x1C5 - 0x38B = -454)
+E8 3A FE FF FF
+48 85 FF                                  ; test rdi, rdi
+75 32                                     ; jnz .have_xt (rel8 +0x32 → 0x3C2)
+;; miss: drop the 0; print '?\n'; loop
+48 8B 7D 00
+48 83 C5 08
+48 83 ED 08
+48 89 7D 00
+48 C7 C7 3F 00 00 00                      ; mov rdi, '?'
+;; @0x3A7: call emit_code (rel32 = 0x0DE - 0x3AC = -718)
+E8 32 FD FF FF
+48 83 ED 08
+48 89 7D 00
+48 C7 C7 0A 00 00 00                      ; mov rdi, '\n'
+;; @0x3BB: call emit_code (rel32 = 0x0DE - 0x3C0 = -738)
+E8 1E FD FF FF
+EB 9C                                     ; jmp repl (rel8 -0x64 → 0x35E)
+;; .have_xt @ 0x3C2: handle interpret-vs-compile
+48 8B 04 25 18 30 41 00                   ; mov rax, [LAST_FOUND]
+0F B6 48 08                               ; movzx ecx, byte [rax+8]   ; flags
+F6 C1 01                                  ; test cl, 1
+75 37                                     ; jnz .interpret (rel8 +0x37 → 0x40A)
+48 8B 04 25 00 30 41 00                   ; mov rax, [STATE]
+48 85 C0                                  ; test rax, rax
+74 2A                                     ; jz .interpret (rel8 +0x2A → 0x40A)
+;; compile mode: emit CALL <xt = rdi> at HERE
+48 8B 04 25 10 30 41 00                   ; mov rax, [HERE]
+C6 00 E8                                  ; mov byte [rax], 0xE8     ; CALL opcode
+48 83 C0 05                               ; add rax, 5                ; next-ip
+48 29 C7                                  ; sub rdi, rax              ; rdi = xt - next-ip = rel32
+89 78 FC                                  ; mov [rax-4], edi          ; store rel32
+48 89 04 25 10 30 41 00                   ; mov [HERE], rax           ; HERE += 5
+48 8B 7D 00                               ; mov rdi, [rbp]            ; refill TOS
+48 83 C5 08                               ; add rbp, 8
+;; @0x405: jmp repl (rel32 = 0x35E - 0x40A = -0xAC)
+E9 54 FF FF FF
+;; .interpret @ 0x40A:
+;; @0x40A: call execute_code (rel32 = 0x24C - 0x40F = -451)
+E8 3D FE FF FF
+;; @0x40F: jmp repl (rel32 = 0x35E - 0x414 = -0xB6)
+E9 4A FF FF FF
+;; .repl_done @ 0x414: jmp bye_code (rel32 = 0x0D2 - 0x419 = -0x347)
+E9 B9 FC FF FF
+
+;; ----- lit_code @ 0x419 ( -- v ) reads inline 8-byte cell after CALL site -----
+58                                        ; pop rax
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 8B 38                                  ; mov rdi, [rax]   ; load inline cell
+48 83 C0 08                               ; add rax, 8
+50                                        ; push rax
+C3                                        ; ret
+
+;; ----- branch_code @ 0x42B ( -- ) unconditional, target = inline cell -----
+58                                        ; pop rax
+48 8B 00                                  ; mov rax, [rax]
+50
+C3
+
+;; ----- zbranch_code @ 0x431 ( flag -- ) branch if flag==0 -----
+48 89 FA                                  ; mov rdx, rdi    ; save flag
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+58                                        ; pop rax          ; ret addr (-> inline cell)
+48 85 D2                                  ; test rdx, rdx
+75 05                                     ; jnz .skip
+48 8B 00                                  ; mov rax, [rax]
+EB 04                                     ; jmp .push
+48 83 C0 08                               ; add rax, 8       ; .skip
+50                                        ; push rax         ; .push
+C3
+
+;; --- bye @ 0x44D (xt = 0x45A) ---
+00 00 00 00 00 00 00 00
+00
+03
+62 79 65
+E9 73 FC FF FF                              ; jmp bye_code (rel = 0x0D2 - 0x45F = -909)
+
+;; --- emit @ 0x45F (xt = 0x46D) ---
+4D 04 40 00 00 00 00 00
+00
+04
+65 6D 69 74
+E9 6C FC FF FF                              ; jmp emit_code (rel = 0x0DE - 0x472 = -916)
+
+;; --- key @ 0x472 (xt = 0x47F) ---
+5F 04 40 00 00 00 00 00
+00
+03
+6B 65 79
+E9 88 FC FF FF                              ; jmp key_code (rel = 0x10C - 0x484 = -888)
+
+;; --- dup @ 0x484 (xt = 0x491) ---
+72 04 40 00 00 00 00 00
+00
+03
+64 75 70
+E9 A5 FC FF FF                              ; jmp dup_code (rel = 0x13B - 0x496 = -859)
+
+;; --- drop @ 0x496 (xt = 0x4A4) ---
+84 04 40 00 00 00 00 00
+00
+04
+64 72 6F 70
+E9 9B FC FF FF                              ; jmp drop_code (rel = 0x144 - 0x4A9 = -869)
+
+;; --- swap @ 0x4A9 (xt = 0x4B7) ---
+96 04 40 00 00 00 00 00
+00
+04
+73 77 61 70
+E9 91 FC FF FF                              ; jmp swap_code (rel = 0x14D - 0x4BC = -879)
+
+;; --- >r @ 0x4BC (xt = 0x4C8) ---
+A9 04 40 00 00 00 00 00
+00
+02
+3E 72
+E9 8C FC FF FF                              ; jmp to_r_code (rel = 0x159 - 0x4CD = -884)
+
+;; --- r> @ 0x4CD (xt = 0x4D9) ---
+BC 04 40 00 00 00 00 00
+00
+02
+72 3E
+E9 87 FC FF FF                              ; jmp r_from_code (rel = 0x165 - 0x4DE = -889)
+
+;; --- @ @ 0x4DE (xt = 0x4E9) ---
+CD 04 40 00 00 00 00 00
+00
+01
+40
+E9 83 FC FF FF                              ; jmp fetch_code (rel = 0x171 - 0x4EE = -893)
+
+;; --- ! @ 0x4EE (xt = 0x4F9) ---
+DE 04 40 00 00 00 00 00
+00
+01
+21
+E9 77 FC FF FF                              ; jmp store_code (rel = 0x175 - 0x4FE = -905)
+
+;; --- c@ @ 0x4FE (xt = 0x50A) ---
+EE 04 40 00 00 00 00 00
+00
+02
+63 40
+E9 7A FC FF FF                              ; jmp cfetch_code (rel = 0x189 - 0x50F = -902)
+
+;; --- c! @ 0x50F (xt = 0x51B) ---
+FE 04 40 00 00 00 00 00
+00
+02
+63 21
+E9 6E FC FF FF                              ; jmp cstore_code (rel = 0x18E - 0x520 = -914)
+
+;; --- + @ 0x520 (xt = 0x52B) ---
+0F 05 40 00 00 00 00 00
+00
+01
+2B
+E9 71 FC FF FF                              ; jmp plus_code (rel = 0x1A1 - 0x530 = -911)
+
+;; --- nand @ 0x530 (xt = 0x53E) ---
+20 05 40 00 00 00 00 00
+00
+04
+6E 61 6E 64
+E9 67 FC FF FF                              ; jmp nand_code (rel = 0x1AA - 0x543 = -921)
+
+;; --- 0= @ 0x543 (xt = 0x54F) ---
+30 05 40 00 00 00 00 00
+00
+02
+30 3D
+E9 62 FC FF FF                              ; jmp zeq_code (rel = 0x1B6 - 0x554 = -926)
+
+;; --- find @ 0x554 (xt = 0x562) ---
+43 05 40 00 00 00 00 00
+00
+04
+66 69 6E 64
+E9 5E FC FF FF                              ; jmp find_code (rel = 0x1C5 - 0x567 = -930)
+
+;; --- here @ 0x567 (xt = 0x575) ---
+54 05 40 00 00 00 00 00
+00
+04
+68 65 72 65
+E9 A1 FC FF FF                              ; jmp here_code (rel = 0x21B - 0x57A = -863)
+
+;; --- , @ 0x57A (xt = 0x585) ---
+67 05 40 00 00 00 00 00
+00
+01
+2C
+E9 A2 FC FF FF                              ; jmp comma_code (rel = 0x22C - 0x58A = -862)
+
+;; --- execute @ 0x58A (xt = 0x59B) ---
+7A 05 40 00 00 00 00 00
+00
+07
+65 78 65 63 75 74 65
+E9 AC FC FF FF                              ; jmp execute_code (rel = 0x24C - 0x5A0 = -852)
+
+;; --- : @ 0x5A0 (xt = 0x5AB) ---
+8A 05 40 00 00 00 00 00
+00
+01
+3A
+E9 24 FD FF FF                              ; jmp colon_code (rel = 0x2D4 - 0x5B0 = -732)
+
+;; --- ; @ 0x5B0 (xt = 0x5BB) ---  IMMEDIATE
+A0 05 40 00 00 00 00 00
+01
+01
+3B
+E9 7B FD FF FF                              ; jmp semicolon_code (rel = 0x33B - 0x5C0 = -645)
+
+;; --- lit @ 0x5C0 (xt = 0x5CD) ---
+B0 05 40 00 00 00 00 00
+00
+03
+6C 69 74
+E9 47 FE FF FF                              ; jmp lit_code (rel = 0x419 - 0x5D2 = -441)
+
+;; --- branch @ 0x5D2 (xt = 0x5E2) ---
+C0 05 40 00 00 00 00 00
+00
+06
+62 72 61 6E 63 68
+E9 44 FE FF FF                              ; jmp branch_code (rel = 0x42B - 0x5E7 = -444)
+
+;; --- 0branch @ 0x5E7 (xt = 0x5F8) ---
+D2 05 40 00 00 00 00 00
+00
+07
+30 62 72 61 6E 63 68
+E9 34 FE FF FF                              ; jmp zbranch_code (rel = 0x431 - 0x5FD = -460)
+
+;; ----- parse_decimal_code @ 0x5FD ( c-addr u -- n true | 0 false ) -----
+;; Pure-decimal parser. Empty length or any non-digit byte => fail (0, 0).
+;; Success => (n, -1) where n = sum of digits * 10.
+48 8B 75 00                               ; mov rsi, [rbp]   ; rsi = c-addr
+48 83 C5 08                               ; add rbp, 8
+48 85 FF                                  ; test rdi, rdi
+74 38                                     ; jz .Lfail (rel8 +0x38 → 0x642)
+48 31 C0                                  ; xor rax, rax     ; accumulator
+48 89 F9                                  ; mov rcx, rdi     ; remaining count
+;; .Lloop:
+48 0F B6 16                               ; movzx rdx, byte [rsi]
+48 83 EA 30                               ; sub rdx, '0'
+78 28                                     ; js .Lfail (rel8 +0x28)  ; signed: < '0'
+48 83 FA 09                               ; cmp rdx, 9
+7F 22                                     ; jg .Lfail (rel8 +0x22)  ; > '9'
+48 8D 04 80                               ; lea rax, [rax+rax*4]    ; rax * 5
+48 01 C0                                  ; add rax, rax              ; rax * 10
+48 01 D0                                  ; add rax, rdx              ; + digit
+48 FF C6                                  ; inc rsi
+48 FF C9                                  ; dec rcx
+75 DE                                     ; jne .Lloop (rel8 -34)
+;; success:
+48 83 ED 08                               ; sub rbp, 8
+48 89 45 00                               ; mov [rbp], rax            ; spill n
+48 C7 C7 FF FF FF FF                      ; mov rdi, -1               ; success flag
+C3
+;; .Lfail:
+48 83 ED 08                               ; sub rbp, 8
+48 C7 45 00 00 00 00 00                   ; mov qword [rbp], 0
+48 31 FF                                  ; xor rdi, rdi
+C3
+
+;; ----- bracket_lit_code @ 0x652 ( -- ) IMMEDIATE -----
+;; In interpret mode: parse next token as decimal, push value.
+;; In compile mode: parse next token as decimal, compile CALL lit_code + cell.
+;; @0x652: call read_word (rel32 = 0x259 - 0x657 = -1022)
+E8 02 FC FF FF
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 C7 C7 00 28 41 00                      ; mov rdi, 0x412800
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 89 C7                                  ; mov rdi, rax
+;; @0x671: call parse_decimal_code (rel32 = 0x5FD - 0x676 = -121)
+E8 87 FF FF FF
+48 8B 7D 00                               ; mov rdi, [rbp]   ; rdi = n (or 0)
+48 83 C5 08                               ; add rbp, 8
+48 8B 04 25 00 30 41 00                   ; mov rax, [STATE]
+48 85 C0                                  ; test rax, rax
+75 01                                     ; jnz .Lcompile
+C3                                        ; interpret: leave n as TOS
+;; .Lcompile:
+48 8B 04 25 10 30 41 00                   ; mov rax, [HERE]
+C6 00 E8                                  ; mov byte [rax], 0xE8
+48 83 C0 05                               ; add rax, 5
+48 C7 C2 19 04 40 00                      ; mov rdx, 0x400419 (lit_code body)
+48 29 C2                                  ; sub rdx, rax
+89 50 FC                                  ; mov [rax-4], edx
+48 89 38                                  ; mov [rax], rdi   ; inline 8-byte cell
+48 83 C0 08                               ; add rax, 8
+48 89 04 25 10 30 41 00                   ; mov [HERE], rax  ; HERE += 13
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3
+
+;; --- [lit] @ 0x6C0 (xt = 0x6CF) ---  IMMEDIATE
+E7 05 40 00 00 00 00 00                     ; link = 0x4005E7 (0branch)
+01                                        ; flags = IMMEDIATE
+05                                        ; nlen = 5
+5B 6C 69 74 5D                            ; "[lit]"
+E9 7E FF FF FF                              ; jmp bracket_lit_code (rel = 0x652 - 0x6D4 = -130)
+
+;; ----- syscall6_code @ 0x6D4 ( a b c d e f n -- rax ) -----
+;; Linux x86-64: rax=n, rdi=a, rsi=b, rdx=c, r10=d, r8=e, r9=f
+;; Pops 6 args; new TOS = syscall return.
+48 89 F8                                  ; mov rax, rdi
+4C 8B 4D 00                               ; mov r9, [rbp]      ; f
+4C 8B 45 08                               ; mov r8, [rbp+8]    ; e
+4C 8B 55 10                               ; mov r10, [rbp+16]  ; d
+48 8B 55 18                               ; mov rdx, [rbp+24]  ; c
+48 8B 75 20                               ; mov rsi, [rbp+32]  ; b
+48 8B 7D 28                               ; mov rdi, [rbp+40]  ; a
+0F 05                                     ; syscall  (rcx,r11 clobbered; unused)
+48 83 C5 30                               ; add rbp, 48        ; pop 6 args
+48 89 C7                                  ; mov rdi, rax       ; new TOS = result
+C3
+
+;; --- syscall6 @ 0x6F9 (xt = 0x70B) ---
+C0 06 40 00 00 00 00 00                     ; link = 0x4006C0 ([lit])
+00
+08                                        ; nlen = 8
+73 79 73 63 61 6C 6C 36                   ; "syscall6"
+E9 C4 FF FF FF                              ; jmp syscall6_code (rel = 0x6D4 - 0x710 = -60)
+
+;; ----- divide_code @ 0x710 ( a b -- a/b ) unsigned 64-bit divide -----
+;; rdx:rax / rdi → rax=quot, rdx=rem.  We treat dividend as 64-bit
+;; (rdx zeroed) — divide-by-zero traps the process; that's acceptable for now.
+48 8B 45 00                               ; mov rax, [rbp]   ; rax = a (dividend)
+48 31 D2                                  ; xor rdx, rdx     ; high half = 0
+48 F7 F7                                  ; div rdi          ; rdx:rax / rdi
+48 83 C5 08                               ; add rbp, 8        ; pop a
+48 89 C7                                  ; mov rdi, rax     ; TOS = quot
+C3                                        ; ret
+
+;; --- / @ 0x722 (xt = 0x72D) ---
+F9 06 40 00 00 00 00 00                     ; link = 0x4006F9 (syscall6)
+00                                        ; flags
+01                                        ; nlen
+2F                                        ; "/"
+E9 DE FF FF FF                              ; jmp divide_code (rel = 0x710 - 0x732 = -34)
+
+;; ----- r_at_code @ 0x732 ( -- v ) peek caller's top-of-rstack -----
+;; r@ is CALL'd, so [rsp+0] = our own ret addr; caller's saved value is at [rsp+8].
+;; Existing precedent: to_r_code (lines 105-111) and r_from_code (lines 113-119)
+;; both pop their own ret addr to manipulate rstack across the CALL boundary.
+48 8B 44 24 08                            ; mov rax, [rsp+8]   ; skip our ret addr; rax = caller's TOR
+48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
+48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS to rbp
+48 89 C7                                  ; mov rdi, rax       ; new TOS = TOR
+C3                                        ; ret
+
+;; ----- star_code @ 0x743 ( a b -- a*b ) signed 64-bit multiply -----
+;; b is in TOS (rdi); a is at [rbp]. Result low half in rax -> TOS.
+48 89 F8                                  ; mov rax, rdi       ; rax = b
+48 0F AF 45 00                            ; imul rax, [rbp]    ; signed 64x64->64 (low half)
+48 83 C5 08                               ; add rbp, 8         ; pop a
+48 89 C7                                  ; mov rdi, rax       ; new TOS = a*b
+C3                                        ; ret
+
+;; ----- state_code @ 0x753 ( -- addr ) push absolute address of STATE sysvar -----
+;; Sysvar layout (from header line 40): STATE/LATEST/HERE/LAST_FOUND/NUMBER_HOOK/INPUT_FD
+;; live at 0x413000+8N. This pushes 0x413000 (= STATE).
+48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
+48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS
+48 BF 00 30 41 00 00 00 00 00             ; movabs rdi, 0x413000  ; = &STATE
+C3                                        ; ret
+
+;; ----- latest_code @ 0x766 ( -- addr ) push absolute address of LATEST sysvar -----
+48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
+48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS
+48 BF 08 30 41 00 00 00 00 00             ; movabs rdi, 0x413008  ; = &LATEST
+C3                                        ; ret
+
+;; ----- tick_code @ 0x779 ( -- xt ) read next word and look up its xt -----
+;; Calls read_word to fill TIB and return token length in rax.
+;; Then sets up find_code's calling convention: pushes (TIB, len) onto the
+;; data stack with len in rdi and TIB at [rbp]. Mirrors the repl pattern at
+;; lines 296-307 (the repl's read_word + find_code sequence).
+;;
+;; Returns 0 in rdi if word not found -- find_code already does `xor rdi,rdi; ret`
+;; on miss (lines 189-190), so we inherit that behavior for free.
+;;
+;; @0x779: call read_word (rel32 = 0x259 - 0x77E = -1317)
+E8 DB FA FF FF
+48 83 ED 08                               ; sub rbp, 8         ; make room for spilled TOS
+48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS
+48 C7 C7 00 28 41 00                      ; mov rdi, 0x412800  ; rdi = c-addr (TIB)
+48 83 ED 08                               ; sub rbp, 8         ; make room to spill c-addr
+48 89 7D 00                               ; mov [rbp], rdi     ; [rbp] = c-addr
+48 89 C7                                  ; mov rdi, rax       ; rdi = u (token len)
+;; @0x798: call find_code (rel32 = 0x1C5 - 0x79D = -1496)
+E8 28 FA FF FF
+C3                                        ; ret  ; rdi = xt (or 0 if not found)
+
+;; --- r@ @ 0x79E (xt = 0x7AA) ---
+22 07 40 00 00 00 00 00                     ; link = 0x400722 (/)
+00                                        ; flags
+02                                        ; nlen
+72 40                                     ; "r@"
+E9 83 FF FF FF                              ; jmp r_at_code (rel = 0x732 - 0x7AF = -125)
+
+;; --- * @ 0x7AF (xt = 0x7BA) ---
+9E 07 40 00 00 00 00 00                     ; link = 0x40079E (r@)
+00
+01
+2A                                        ; "*"
+E9 84 FF FF FF                              ; jmp star_code (rel = 0x743 - 0x7BF = -124)
+
+;; --- state @ 0x7BF (xt = 0x7CE) ---
+AF 07 40 00 00 00 00 00                     ; link = 0x4007AF (*)
+00
+05
+73 74 61 74 65                            ; "state"
+E9 80 FF FF FF                              ; jmp state_code (rel = 0x753 - 0x7D3 = -128)
+
+;; --- latest @ 0x7D3 (xt = 0x7E3) ---
+BF 07 40 00 00 00 00 00                     ; link = 0x4007BF (state)
+00
+06
+6C 61 74 65 73 74                         ; "latest"
+E9 7E FF FF FF                              ; jmp latest_code (rel = 0x766 - 0x7E8 = -130)
+
+;; --- ' @ 0x7E8 (xt = 0x7F3) ---  <-- LATEST
+D3 07 40 00 00 00 00 00                     ; link = 0x4007D3 (latest)
+00
+01
+27                                        ; "'"
+E9 81 FF FF FF                              ; jmp tick_code (rel = 0x779 - 0x7F8 = -127)

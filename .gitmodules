@@ -1,0 +1,6 @@
+[submodule "vendor/M2-Planet"]
+	path = vendor/M2-Planet
+	url = https://github.com/oriansj/M2-Planet
+[submodule "vendor/mescc-tools"]
+	path = vendor/mescc-tools
+	url = https://github.com/oriansj/mescc-tools
