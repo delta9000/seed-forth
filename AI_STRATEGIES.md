@@ -65,11 +65,14 @@ G13  nested includes
 G14  switch/case/default with fall-through
 M1a  built-in constants (__FILE__, __LINE__, …)
 M1b  forward decls, globals, prototypes
-M.1  full struct/enum/typedef — nested, pointer fields
-M.2  byte-identical M2-Planet self-host
+M1   full struct/enum/typedef — nested, pointer fields
+     + byte-identical M2-Planet self-host
 ```
 
-G = compiler gate. M = milestone toward the M2-Planet self-host. The `M1a/M1b` versus `M.1/M.2` inconsistency is real — that's how it grew.
+G = compiler gate. M = milestone toward the M2-Planet self-host. Tracked
+gate fixtures live in `tests/cc/G*.c` and `tests/cc/M1*.c`; the final
+self-host milestone has no per-feature `.c` fixture — it is verified
+end-to-end by `tests/cc/stage-a-check.sh`.
 
 The swarm executor enforced this at the harness layer: every agent worked in its own git worktree, with `stage-a-check.sh` (a 5-second parity check against the GCC reference) gating each commit. Outputs that passed got merged; everything else was discarded silently. The Claude Code sessions worked on the main checkout and ran the same check on demand — same oracle, no automatic enforcement.
 
@@ -88,6 +91,8 @@ This was tooling, not magic. LLMs forget. Putting intent in a file the next agen
 **Multi-model handoffs.** Sessions passed between models when one got stuck. Gemini started the struct descriptor work and Claude Opus finished it. DeepSeek ran autonomous passes that Claude reviewed. Different models, different blind spots — switching was usually a practical unsticking move rather than a planned strategy.
 
 **Semantic workspace indexing.** `index_workspace.py`, `semantic_search.py`, `forth_outline.py`. Useful so agents didn't have to read every file. Not a strategy, just infrastructure.
+
+(The per-phase markdown specs, the Ralph progress file, and the indexing scripts mentioned in this document lived in the working tree during development and aren't checked into this repo — they belong to the build process, not the artifact.)
 
 ## What it cost
 

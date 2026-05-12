@@ -1,4 +1,4 @@
-\ seed/030-cc-io.fth — Source-buffer reader, output-buffer emitter, and file I/O
+\ 030-cc-io.fth — Source-buffer reader, output-buffer emitter, and file I/O
 \ wrappers for the C-subset compiler.  Loaded after 010-lib.fth.
 \
 \ Three responsibilities:

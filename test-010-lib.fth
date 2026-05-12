@@ -1,4 +1,4 @@
-\ test-010-lib.fth — comparison-ops smoke test for seed/010-lib.fth.
+\ test-010-lib.fth — comparison-ops smoke test for 010-lib.fth.
 \
 \ Test pattern: each line evaluates a comparison expression that must leave
 \ -1 (true) on the stack.  The first test seeds the accumulator; every
@@ -8,7 +8,7 @@
 \   all-pass: acc = -1, 0= -> 0, exit code 0.
 \   any-fail: acc =  0, 0= -> -1 (low byte 0xFF = 255), exit code 255.
 \
-\ Run via:  cat 010-lib.fth test-010-lib.fth | strip_forth | seed/seed-forth
+\ Run via:  cat 010-lib.fth test-010-lib.fth | strip_forth | ./seed-forth
 \           echo $?    # 0 = pass, nonzero = fail
 
 \ ----- = and <> -----

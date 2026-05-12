@@ -1,4 +1,4 @@
-\ seed/040-cc-prep.fth — preprocessor for the C-subset compiler.
+\ 040-cc-prep.fth — preprocessor for the C-subset compiler.
 \
 \ Responsibilities:
 \   1. Process #include "FILE" / #include <FILE>.
@@ -23,7 +23,7 @@
 \
 \ Include search paths (first match wins):
 \   1. Path verbatim (absolute, or relative to cwd).
-\   2. seed/tests/cc/<path>  — tracked local test fallback.
+\   2. tests/cc/<path>  — tracked local test fallback.
 \
 \ Depends on 010-lib.fth (open/read/close, digit?/alpha?, bytes-eq, control-flow)
 \ and 030-cc-io.fth (cc-src-buf, cc-src-len).
@@ -203,14 +203,12 @@ create cc-prep-path-buf  cc-prep-path-cap allot
 variable cc-prep-path-out
 
 create cc-prep-tests-prefix
-[lit] 115 c, [lit] 101 c, [lit] 101 c, [lit] 100 c,    \ seed
-[lit]  47 c,                                            \ /
 [lit] 116 c, [lit] 101 c, [lit] 115 c, [lit] 116 c, [lit] 115 c,  \ tests
 [lit]  47 c,                                            \ /
 [lit]  99 c, [lit]  99 c,                               \ cc
 [lit]  47 c,                                            \ /
 
-[lit] 14 constant cc-prep-tests-prefix-len
+[lit] 9 constant cc-prep-tests-prefix-len
 
 \ cc-prep-append ( src-addr src-len -- )  Append bytes to cc-prep-path-buf.
 : cc-prep-append
@@ -265,7 +263,7 @@ variable cc-prep-load-name-a
 variable cc-prep-load-name-u
 
 \ cc-prep-load-file ( path-a path-u -- buf-a buf-u )
-\ Opens the file (tries literal path, then seed/tests/cc/<path>), reads it
+\ Opens the file (tries literal path, then tests/cc/<path>), reads it
 \ into the include-pool slot for the current depth.  Exits status 70 if
 \ neither path opens or include depth exceeds the pool.
 : cc-prep-load-file

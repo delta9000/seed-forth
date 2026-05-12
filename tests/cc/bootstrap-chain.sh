@@ -27,18 +27,18 @@
 # canonical reproducibility target).
 #
 # Env overrides:
-#   M2_PLANET     - path to M2-Planet checkout    (default seed/vendor/M2-Planet)
-#   MESCC_TOOLS   - path to mescc-tools checkout  (default seed/vendor/mescc-tools)
+#   M2_PLANET     - path to M2-Planet checkout    (default vendor/M2-Planet)
+#   MESCC_TOOLS   - path to mescc-tools checkout  (default vendor/mescc-tools)
 #   BUILDROOT     - where artifacts land          (default /tmp/seed-bootstrap)
 #   ARCHES        - space-separated arches        (default "x86 amd64")
 #
 # Exit code is the failing stage number (1..) on failure, 0 on full pass.
 
 set -euo pipefail
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/../.."
 
-M2_PLANET=${M2_PLANET:-seed/vendor/M2-Planet}
-MESCC_TOOLS=${MESCC_TOOLS:-seed/vendor/mescc-tools}
+M2_PLANET=${M2_PLANET:-vendor/M2-Planet}
+MESCC_TOOLS=${MESCC_TOOLS:-vendor/mescc-tools}
 BUILDROOT=${BUILDROOT:-/tmp/seed-bootstrap}
 ARCHES=${ARCHES:-"x86 amd64"}
 
@@ -88,8 +88,8 @@ step 0 "prereqs"
 command -v gcc >/dev/null || fail 0 "gcc not on PATH (needed for reference + M1/hex2)"
 
 # seed-forth
-[ -x seed/seed-forth ] || (cd seed && ./build.sh) >/dev/null
-[ -x seed/seed-forth ] || fail 0 "seed-forth did not build"
+[ -x seed-forth ] || ./build.sh >/dev/null
+[ -x seed-forth ] || fail 0 "seed-forth did not build"
 
 # gcc-built reference M2-Planet, for byte-identical comparisons
 if [ ! -x "$BUILDROOT/m2-ref" ]; then
@@ -124,7 +124,7 @@ M2REF=$BUILDROOT/m2-ref
 step 1 "build cc-out-v1 (seed-forth compiles M2-Planet monolith)"
 # ---------------------------------------------------------------------------
 rm -f /tmp/cc-out
-./seed/tests/cc/build-m2planet-monolith.sh >/dev/null || fail 1 "monolith build failed"
+./tests/cc/build-m2planet-monolith.sh >/dev/null || fail 1 "monolith build failed"
 [ -x /tmp/cc-out ] || fail 1 "/tmp/cc-out not produced"
 cp /tmp/cc-out "$BUILDROOT/cc-out-v1"
 v1_size=$(wc -c < "$BUILDROOT/cc-out-v1")

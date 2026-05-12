@@ -11,13 +11,13 @@
 # M2-Planet's self-hosting properties, not our compiler's correctness.
 #
 # Env overrides:
-#   M2_PLANET   - path to M2-Planet checkout  (default seed/vendor/M2-Planet)
+#   M2_PLANET   - path to M2-Planet checkout  (default vendor/M2-Planet)
 #   BUILDROOT   - artifact directory          (default /tmp/seed-bootstrap)
 
 set -euo pipefail
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/../.."
 
-M2_PLANET=${M2_PLANET:-seed/vendor/M2-Planet}
+M2_PLANET=${M2_PLANET:-vendor/M2-Planet}
 BUILDROOT=${BUILDROOT:-/tmp/seed-bootstrap}
 
 mkdir -p "$BUILDROOT"
@@ -25,8 +25,8 @@ mkdir -p "$BUILDROOT"
 fail() { printf 'stage-a-check: FAIL: %s\n' "$1" >&2; exit 1; }
 
 # --- Build seed-forth if needed ---
-[ -x seed/seed-forth ] || (cd seed && ./build.sh) >/dev/null
-[ -x seed/seed-forth ] || fail "seed-forth build failed"
+[ -x seed-forth ] || ./build.sh >/dev/null
+[ -x seed-forth ] || fail "seed-forth build failed"
 
 [ -f "$M2_PLANET/cc.c" ] || fail "M2_PLANET=$M2_PLANET is not initialized (run git submodule update --init)"
 
@@ -39,7 +39,7 @@ fi
 
 # --- Build cc-out-v1 (seed-forth compiles M2-Planet monolith) ---
 rm -f /tmp/cc-out
-./seed/tests/cc/build-m2planet-monolith.sh >/dev/null || fail "monolith build failed"
+./tests/cc/build-m2planet-monolith.sh >/dev/null || fail "monolith build failed"
 [ -x /tmp/cc-out ] || fail "/tmp/cc-out not produced"
 cp /tmp/cc-out "$BUILDROOT/cc-out-v1"
 

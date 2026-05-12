@@ -1,4 +1,4 @@
-\ seed/020-cc-arena.fth — bump allocator for variable-size compiler data.
+\ 020-cc-arena.fth — bump allocator for variable-size compiler data.
 \ Used by the C compiler for: struct descriptors, label fixup overflow lists,
 \ string pool overflow — anything that doesn't fit a fixed slot in a parallel
 \ array.  Most compiler state lives in fixed-size buffers (parallel arrays

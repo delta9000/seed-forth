@@ -1,4 +1,4 @@
-\ seed/050-cc-lex.fth — C tokenizer (one-token lookahead) for the C-subset compiler.
+\ 050-cc-lex.fth — C tokenizer (one-token lookahead) for the C-subset compiler.
 \ Reads bytes from cc-src-buf via cc-peek-char/cc-next-char/cc-eof? (030-cc-io.fth).
 \ Stores the current token in 5 globals: tok-kind, tok-num, tok-str-addr,
 \ tok-str-len, tok-kw-id.  Caller drives the lexer via cc-next-token.

@@ -1,4 +1,4 @@
-\ seed/060-cc-types.fth — C type encoding for the C-subset compiler.
+\ 060-cc-types.fth — C type encoding for the C-subset compiler.
 \
 \ A type is one machine word:
 \   bits[ 0.. 7] = pointer depth (0 = scalar T, 1 = T*, 2 = T**, ...)

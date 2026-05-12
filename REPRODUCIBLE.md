@@ -9,8 +9,8 @@ The repository carries upstreams as submodules:
 
 | Upstream | Submodule path | Commit |
 |----------|----------------|--------|
-| M2-Planet | `seed/vendor/M2-Planet` | `0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb` |
-| mescc-tools | `seed/vendor/mescc-tools` | `9b1375115f9175d876c360dbbfd7e231dd9f2a2f` |
+| M2-Planet | `vendor/M2-Planet` | `0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb` |
+| mescc-tools | `vendor/mescc-tools` | `9b1375115f9175d876c360dbbfd7e231dd9f2a2f` |
 
 Initialize them before running the checks:
 
@@ -23,7 +23,7 @@ environment overrides.  `BUILDROOT` defaults to `/tmp/seed-bootstrap`.
 
 ## Checks
 
-Run from `seed/`:
+Run from the repository root:
 
 ```sh
 ./build.sh
@@ -46,23 +46,28 @@ stage-a-check: self-v1-amd64.M1 == self-ref-amd64.M1 (2367260 bytes)
 stage-a-check: PASS
 ```
 
-Current shared artifact sizes:
+Shared artifact sizes (current source `000-seed.hex0`; build artifacts
+shown at the same Stage-A snapshot — re-run the checks to refresh):
 
 | File | Bytes |
 |------|------:|
-| `000-seed.hex0` | 26,775 |
+| `000-seed.hex0` | 27,067 |
 | `seed-forth` | 2,040 |
 | `cc-out-v1` | 203,241 |
 | `self-v1-amd64.M1` | 2,367,260 |
 
-Current hashes for the same Stage-A run:
+Hashes:
 
 ```text
-88c32728eecb3d9fbc31d90e55ea3610aa8a9c894882449c528dcee6e7fc96cf  000-seed.hex0
+18bef4a7df46706c1ac9c71d74e9ac252d21200b41a1025ce64c989051decbf6  000-seed.hex0
 131bf3ab73917a5a1c39db8114ab5c20f12ca28627f3fdc969ee34d86e41dc74  seed-forth
 957ed9d9b1b7aa2a2abfbbf757086dbe2161f0b457b362c492bf78a7f0b4f101  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
+
+Only the `000-seed.hex0` hash is checkable from a fresh clone without
+running the toolchain; the others are produced by `stage-a-check.sh`.
+If `000-seed.hex0` ever changes, all four lines need re-generating.
 
 ## Full Chain
 

@@ -1,4 +1,4 @@
-\ seed/090-cc-emit.fth — code-emission helpers for the C-subset compiler.
+\ 090-cc-emit.fth — code-emission helpers for the C-subset compiler.
 \ Builds tiny instruction-encoders on top of cc-emit-byte / cc-emit-4le from
 \ 030-cc-io.fth.  All output goes to cc-out-buf; nothing here touches the seed's
 \ HERE pointer.

@@ -1,4 +1,4 @@
-\ seed/010-lib.fth — minimal helpers built on top of the 28 hand-encoded primitives.
+\ 010-lib.fth — minimal helpers built on top of the 32 hand-encoded primitives.
 \ Loaded before any Forth-level vocabulary.
 \
 \ Conventions:

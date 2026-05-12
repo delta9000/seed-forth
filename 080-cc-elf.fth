@@ -1,4 +1,4 @@
-\ seed/080-cc-elf.fth — ELF64 header + program header emission for our compiled output.
+\ 080-cc-elf.fth — ELF64 header + program header emission for our compiled output.
 \
 \ Layout: 64-byte ELF64_Ehdr + 56-byte Elf64_Phdr (one PT_LOAD) = 120 bytes.
 \ Code begins at vaddr 0x400078, file offset 120.

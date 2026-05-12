@@ -107,11 +107,11 @@ ec=$?
 [ "$ec" = "0" ] && pass "cc-lex: tokens (kw/id/punct/num/str/chr/comment/escape)" || fail "cc-lex got exit code $ec"
 
 # T-cc-types: ty-make, ty-base, ty-ptr, ty-size
-out=$(cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 050-cc-lex.fth 060-cc-types.fth test-060-cc-types.fth | strip_forth | timeout 5 ./seed-forth)
+out=$(cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth 050-cc-lex.fth 060-cc-types.fth test-060-cc-types.fth | strip_forth | timeout 5 ./seed-forth)
 ec=$?
 [ "$ec" = "0" ] && pass "cc-types: make/base/ptr/size" || fail "cc-types got exit code $ec"
 
 # T-cc-sym: symbol table
-out=$(cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 050-cc-lex.fth 060-cc-types.fth 070-cc-sym.fth test-070-cc-sym.fth | strip_forth | timeout 5 ./seed-forth)
+out=$(cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth 050-cc-lex.fth 060-cc-types.fth 070-cc-sym.fth test-070-cc-sym.fth | strip_forth | timeout 5 ./seed-forth)
 ec=$?
 [ "$ec" = "0" ] && pass "cc-sym: add/find/kind/val/scope" || fail "cc-sym got exit code $ec"

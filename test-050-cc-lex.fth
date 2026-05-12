@@ -1,7 +1,7 @@
 \ test-050-cc-lex.fth — smoke test for 050-cc-lex.fth.
 \ Run via:
 \   cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth 050-cc-lex.fth \
-\       test-050-cc-lex.fth | strip_forth | seed/seed-forth ; echo $?
+\       test-050-cc-lex.fth | strip_forth | ./seed-forth ; echo $?
 \     # 0 = pass, 255 = fail
 \
 \ Pattern: first test seeds the AND-accumulator, every subsequent test ANDs
