@@ -20,8 +20,14 @@ git submodule update --init --recursive
 tests/cc/stage-a-check.sh
 ```
 
-`--recursive` is needed because `vendor/M2-Planet` carries its own nested
-`M2libc` submodule.
+`--recursive` is needed because both `vendor/M2-Planet` and
+`vendor/stage0-posix` carry nested submodules
+(`M2libc` and `bootstrap-seeds`, respectively).
+
+`build.sh` assembles `000-seed.hex0` with stage0-posix's 229-byte
+`hex0-seed` — the same trust-root assembler Guix uses for its Full
+Source Bootstrap.  No `xxd` / `vim` dependency.  Override with
+`HEX0=/path/to/your/hex0 ./build.sh` to use a different assembler.
 
 `stage-a-check.sh` builds `/tmp/cc-out` with seed-forth, uses it to compile
 M2-Planet for `amd64`, and compares that `.M1` output byte-for-byte with the
@@ -52,6 +58,7 @@ tests/cc/bootstrap-chain.sh
 | `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, and full bootstrap-chain scripts. |
 | `tests/cc/G*.c`, `M*.c`, headers | Small tracked cases that document the C subset. |
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |
+| `vendor/stage0-posix` | Pinned upstream containing the `hex0-seed` assembler `build.sh` uses. |
 
 Generated binaries such as `seed-forth` and `/tmp/cc-out` are not source.
 

@@ -7,20 +7,34 @@ M2-Planet-compatible compiler output.
 
 The repository carries upstreams as submodules:
 
-| Upstream | Submodule path | Commit |
-|----------|----------------|--------|
-| M2-Planet | `vendor/M2-Planet` | `0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb` |
-| mescc-tools | `vendor/mescc-tools` | `9b1375115f9175d876c360dbbfd7e231dd9f2a2f` |
+| Upstream | Submodule path | Commit | Release |
+|----------|----------------|--------|---------|
+| M2-Planet | `vendor/M2-Planet` | `0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb` | — |
+| mescc-tools | `vendor/mescc-tools` | `9b1375115f9175d876c360dbbfd7e231dd9f2a2f` | — |
+| stage0-posix | `vendor/stage0-posix` | `45d90f5955b6907dc6cdea9ebafce558359edcd3` | `Release_1.9.1` |
 
 Initialize them (recursively — `vendor/M2-Planet` has its own nested
-`M2libc` submodule) before running the checks:
+`M2libc` submodule, and `vendor/stage0-posix` has its own nested
+`bootstrap-seeds` submodule) before running the checks:
 
 ```sh
 git submodule update --init --recursive
 ```
 
-The scripts also accept `M2_PLANET`, `MESCC_TOOLS`, and `BUILDROOT`
-environment overrides.  `BUILDROOT` defaults to `/tmp/seed-bootstrap`.
+The scripts also accept `M2_PLANET`, `MESCC_TOOLS`, `HEX0`, and
+`BUILDROOT` environment overrides.  `BUILDROOT` defaults to
+`/tmp/seed-bootstrap`; `HEX0` defaults to
+`vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed`.
+
+### License notes
+
+The vendored upstreams (`vendor/M2-Planet`, `vendor/mescc-tools`,
+`vendor/stage0-posix`) are GPL-3.0-or-later.  The seed-forth source
+files at the repository root remain MIT.  Distributions that bundle
+the vendored trees must comply with GPLv3+ for those subtrees.
+`build.sh` invokes stage0-posix's `hex0-seed` as a tool; the
+resulting `seed-forth` binary is the byte-for-byte assembly of
+`000-seed.hex0` and is not a derivative work of the assembler.
 
 ## Checks
 
@@ -65,9 +79,17 @@ Hashes for the same run:
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
 
-`build.sh` strips comments/whitespace before hex-decoding, so edits limited
-to comments leave `seed-forth` (and every downstream artifact) byte-identical
-even when the `000-seed.hex0` hash changes.
+`build.sh` runs `000-seed.hex0` through stage0-posix's `hex0-seed`
+assembler, which strips `;`-line-comments and whitespace before
+hex-decoding.  Edits limited to comments leave `seed-forth` (and
+every downstream artifact) byte-identical even when the
+`000-seed.hex0` hash changes.
+
+The `seed-forth` byte-identity also serves as an independent
+cross-check on the bootstrap trust root: stage0-posix's 229-byte
+`hex0-seed` and any other hex0-equivalent assembler (xxd, hand-keyed,
+etc.) must all produce the same 2040-byte binary.  Disagreement
+between two assemblers on this input would be a bug in one of them.
 
 ## Full Chain
 
