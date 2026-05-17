@@ -80,3 +80,47 @@ read it next to the file it discusses, in a side-by-side editor.
 Wherever you see a citation like `010-lib.fth:33`, open that file at
 that line and read it before continuing.  The book exists to make the
 source readable; it is not a substitute for it.
+
+## The book is literate
+
+Every fenced code block tagged with `file=<path>` is the canonical
+source for that file.  Running
+
+```sh
+tools/tangle.sh extract /tmp/out
+```
+
+writes those blocks (concatenated in chapter order, with `<<name>>`
+chunk references expanded for `000-seed.hex0`) into
+`/tmp/out/010-lib.fth`, `/tmp/out/000-seed.hex0`, and so on.
+
+`tools/tangle.sh verify` is wired into `./test.sh` and checks that every
+quoted block appears, in order, in the matching repository source file.
+That is the cheap consistency check that runs on every test run.
+
+The full literate-program claim — *the book compiles* — is
+
+```sh
+tools/tangle.sh verify --strict
+```
+
+which passes only when the tangled files are byte-identical to the
+checked-in source.  Until Chapters 1–17 are all drafted, strict mode
+fails (and shows you exactly which sections of source still need
+prose).  Coverage progress is visible with
+
+```sh
+tools/tangle.sh status
+```
+
+This migration plan is per-file:
+
+1. **Mirror phase (current).**  The standalone `.fth`/`.hex0` files in
+   the repository root remain the source of record.  The book mirrors
+   them; the tangler enforces consistency.
+2. **Source-of-truth phase (per file).**  Once a file is fully covered
+   by the book and `verify --strict` passes for it, we delete the
+   standalone copy and let `tangle.sh extract` produce it before the
+   build.
+
+When every file has flipped, the book *is* the codebase.

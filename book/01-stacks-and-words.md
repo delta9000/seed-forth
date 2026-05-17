@@ -3,19 +3,41 @@
 > "Forth is the language you would have invented if you were given a
 > computer with 4 KB of RAM and a weekend."
 
-This chapter teaches you the two ideas that everything else in this
-codebase is built on:
+This chapter teaches you the two ideas that everything in this codebase
+is built on:
 
-1. **The data stack.**  Forth has no expressions, no operator precedence,
-   no parentheses.  Every computation pushes and pops values from one
-   shared stack.
+1. **The data stack.**  Forth has no expressions, no operator
+   precedence, no parentheses.  Every computation pushes and pops
+   values from one shared stack.
 2. **Words.**  A "word" is what Forth calls a named, callable thing —
    what C calls a function and Python calls a callable.  Every word
    takes its inputs from the stack and leaves its outputs on the stack.
 
 That is the whole language model.  By the end of this chapter you will
-read six real words from `010-lib.fth`, in this repository, and predict
-what each one does to the stack before you run it.
+have read six real words from `010-lib.fth` — *literally* read them,
+because the code you see below is the source, tangled by
+`tools/tangle.sh` into the actual file.
+
+---
+
+## A note on this book
+
+This is a literate program.  Every Forth definition in a fenced code
+block tagged with `file=` is the canonical source for that file.
+Running `tools/tangle.sh extract /tmp/out` extracts those blocks into
+`/tmp/out/010-lib.fth`, `/tmp/out/000-seed.hex0`, and so on.  The check
+that the book "compiles" is
+
+```
+tools/tangle.sh verify --strict
+```
+
+which passes when the tangled files are byte-identical to the
+checked-in source.  Until every chapter is written, we use the looser
+`tools/tangle.sh verify` (no `--strict`), which only requires every
+line you see in a `file=`-tagged block to appear, in order, in the
+real source file.  That is the contract: anything you read here, you
+could have read in the source.
 
 ---
 
@@ -48,10 +70,10 @@ before reading any more code:
   off the stack and leaves one.  It is not built into the parser;
   it is a dictionary entry like any other.  In this codebase it is
   defined in `000-seed.hex0` as a 5-byte machine-code routine at
-  offset `0x1A1`.
-- **There is no return value.**  A word "returns" by leaving things on
-  the stack.  A word can leave zero, one, two, or any number of values
-  — and *which* word it is determines how many.
+  offset `0x1A1` — Chapter 2 will read its bytes.
+- **There is no "return value".**  A word "returns" by leaving things
+  on the stack.  A word can leave zero, one, two, or any number of
+  values — and *which* word it is determines how many.
 
 The last point is the one that takes adjustment.  In Python, `len(xs)`
 gives you one number back.  In Forth, the equivalent word might leave
@@ -63,62 +85,71 @@ word the way you learn type signatures in C.
 
 ## 1.2  Stack-effect comments
 
-Open `010-lib.fth` at line 33 (`010-lib.fth:33`).  You will see:
+Forth comments come in two flavours: `\ to end of line` and `( ... )`
+inline.  By convention, the `( ... )` comments are reserved for stack
+effects, and you put one on every word you define.  Here is the
+convention applied to a word you are about to read, `over`:
 
-```forth
-\ over ( a b -- a b a )  copy second-from-top to top.
-: over  >r dup r> swap ;
+```
+\ over ( a b -- a b a )
 ```
 
-Ignore the body for now — Chapter 6 explains `>r` and `r>`.  Focus on
-the comment `( a b -- a b a )`.
-
-This is the universal Forth convention for documenting a word: write
-what the stack looks like just **before** the word runs, then `--`,
-then what the stack looks like **after**.  The rightmost name in each
-half is the top of the stack.  So:
-
-- `( a b -- a b a )` — `over` consumes nothing, but copies the value
-  one slot down to the top.  Before: `a` is below `b`, `b` on top.
-  After: `a`, then `b`, then `a` again on top.
+This means: before `over` runs, the stack has `a` below `b`; after it
+runs, the stack has `a`, then `b`, then `a` again on top.  Rightmost is
+top-of-stack.  The `--` separates before from after.
 
 You will see hundreds of these comments throughout this codebase.  They
-are not optional decoration — they are how you read Forth.  Pencilling
+are not optional decoration; they are how you read Forth.  Pencilling
 them in as you trace through unfamiliar code is the equivalent of
 running a debugger.
 
-A few more from `010-lib.fth`:
+---
 
-```forth
-\ nip ( a b -- b )                                 line 126
-\ rot ( a b c -- b c a )                           line 129
-\ 2dup ( a b -- a b a b )                          line 132
-\ 2drop ( a b -- )                                 line 135
+## 1.3  The file you are about to build
+
+The file `010-lib.fth` is the first layer above the bare seed.  Its
+header tells you that:
+
+```forth file=010-lib.fth
+\ 010-lib.fth — minimal helpers built on top of the 32 hand-encoded primitives.
+\ Loaded before any Forth-level vocabulary.
+\
+\ Conventions:
+\   - All arithmetic constants use [lit] (the decimal literal compiler)
+\     because the seed has no number parser in interpret mode by default.
+\   - Sysvar absolute addresses are baked in (decimal) since [lit] needs a
+\     literal.  Update if 000-seed.hex0's sysvar layout ever moves.
 ```
 
-You can already predict everything those words do.  `nip` drops the
-second-from-top.  `rot` brings the third-from-top to the top.  `2dup`
-duplicates the top pair.  `2drop` discards two values.  These are
-*stack shufflers*, and they will appear in every Forth program you ever
-read.
+The block above is tagged `file=010-lib.fth`.  When you run
+`tools/tangle.sh extract /tmp/out`, those exact eight lines become the
+first eight lines of `/tmp/out/010-lib.fth`.  The book is the source.
+
+The two conventions in the header mention `[lit]` and "sysvar absolute
+addresses" — both will be explained in their own chapters.  For now,
+treat them as warnings on the door: this file is allowed to assume
+nothing it does not say.
 
 ---
 
-## 1.3  Your first six words
+## 1.4  `over`, the first non-primitive word
 
-We will now read six words from `010-lib.fth` end to end.  All six are
-defined in the first hundred lines of the file.  This is not a curated
-toy subset — it is what the C compiler in this repo is built on.
+Forth's seed gives us `dup`, `drop`, `swap`, `>r`, and `r>` as
+stack-manipulation primitives.  Conspicuously absent: `over`, which
+copies the second-from-top value up.  Almost every interesting Forth
+program needs `over`, so it is defined immediately in `010-lib.fth`:
 
-### `over` (line 33)
+```forth file=010-lib.fth
 
-```forth
+\ over ( a b -- a b a )  copy second-from-top to top.
+\ Standard Forth idiom, missing from our seed primitives.
 : over  >r dup r> swap ;
 ```
 
-This is the canonical way to build `over` from the four primitives
-`>r`, `dup`, `r>`, `swap`.  Trace it with the stack `( a b -- )` on
-the left and the *return stack* `[ ]` on the right:
+Read the body slowly.  The trick uses a *second* stack — the return
+stack — which Chapter 6 will introduce in full.  For now, take it on
+faith that `>r` moves the top of the data stack onto the return stack,
+and `r>` moves it back.  Trace it:
 
 | step  | data stack    | return stack | what happened           |
 |-------|--------------|--------------|-------------------------|
@@ -128,22 +159,97 @@ the left and the *return stack* `[ ]` on the right:
 | `r>`  | `a a b`      | `[ ]`        | pull `b` back           |
 | `swap`| `a b a`      | `[ ]`        | swap top two            |
 
-We end with `( a b a )`, exactly as the comment promises.  Don't worry
-yet about *why* `>r r>` exists — Chapter 6 — only that the trick works.
+We end with `( a b a )`, exactly as the comment promised.  Do not worry
+yet about *why* `>r r>` exists at all — only that the trick works.
 
-### `nip` and `rot` (lines 126, 129)
+This is also your first colon definition.  The syntax is
 
-```forth
-: nip   swap drop ;
-: rot   >r swap r> swap ;
+```
+: NAME  body... ;
 ```
 
-`nip` is obvious once you know `swap` and `drop`: swap brings the
-second-from-top up, drop discards it.  Try `rot` yourself before
-reading on:
+— a colon, the name, the body (any sequence of words separated by
+whitespace), and a semicolon.  No commas, no parentheses, no return
+type, no argument list.  Forth's only metasyntactic feature is
+whitespace.
+
+Chapter 4 will tell you the full truth about `:` and `;` — that they
+are themselves ordinary words, that `:` builds a dictionary header and
+switches the system into "compile mode", and that `;` appends a `ret`
+instruction and switches back.  You do not need that truth yet.  You
+do need to be comfortable with the syntax.
+
+---
+
+## 1.5  `-`, or: subtraction from nothing
+
+The seed has `+`, but no `-`.  How do you subtract without a subtract?
+
+```forth file=010-lib.fth
+
+\ - ( a b -- a-b )  subtract via 2's complement (we have + and nand).
+\ Used by classifier helpers and the local rel32 CALL encoder below.
+: -  dup nand [lit] 1 + + ;
+```
+
+Two's-complement says `-b == (~b) + 1`, and `~b == b nand b`.  So
+
+```
+a - b  ==  a + (~b) + 1
+       ==  a + (b nand b) + 1
+```
+
+Read the body again with that in mind:
+
+- `dup`             — duplicate `b`, giving `... a b b`.
+- `nand`            — combine top two with nand, giving `... a ~b`.
+- `[lit] 1 +`       — push the literal `1`, add: `... a (~b+1)` = `... a -b`.
+- `+`               — add: `... (a + -b)` = `... (a - b)`.
+
+Two things to notice.
+
+**First**, the codebase types `[lit] 1` rather than just `1`.  That is
+this codebase's wrinkle: the seed does not auto-parse numbers in
+interpret mode, and uses an explicit word `[lit]` to mark "the next
+token is a decimal literal to be pushed."  Chapter 5 walks the parser
+that makes this work; for now, read `[lit] N` as "the number `N`".
+
+**Second**, this is your first hint of what makes the seed special.
+The whole bitwise universe — `and`, `or`, `xor`, `not` — and now
+subtraction itself, all derive from just `nand` + `+`.  The codebase
+does this everywhere, and the rest of Part I is mostly about watching
+the trick scale up.
+
+---
+
+## 1.6  Stack shufflers: `nip`, `rot`, `2dup`, `2drop`
+
+Skipping ahead in the file past the syscall wrappers, character
+classifiers, and comparison operators (each will get its own chapter),
+we arrive at the `===== Stack shuffles =====` section.  These are the
+last names you'll meet in this chapter; they round out the standard
+Forth shuffler vocabulary.
+
+```forth file=010-lib.fth
+
+\ nip ( a b -- b )  drop second-from-top.
+: nip   swap drop ;
+
+\ rot ( a b c -- b c a )  rotate third-from-top to top.
+: rot   >r swap r> swap ;
+
+\ 2dup ( a b -- a b a b )  duplicate the top pair.
+: 2dup  over over ;
+
+\ 2drop ( a b -- )  drop the top pair.
+: 2drop drop drop ;
+```
+
+Four definitions, four lines each, no surprises.  Try `rot` on paper
+before reading the trace:
 
 <details>
-<summary>Trace</summary>
+<summary>Trace of <code>rot</code></summary>
 
 | step  | data stack | return stack |
 |-------|-----------|--------------|
@@ -156,99 +262,19 @@ reading on:
 Net effect: `( a b c -- b c a )`.  ✓
 </details>
 
-### `+` and `-` (line 37)
-
-`+` is a primitive — it lives in the seed at `0x1A1` and is not
-defined in Forth at all.  But `-` is:
-
-```forth
-: -  dup nand [lit] 1 + + ;
-```
-
-This is your first taste of how minimal the seed really is.  There is
-no subtract primitive; instead, the seed gives us `+` and the
-single bitwise primitive `nand`.  Two's-complement arithmetic says
-that `-b == (~b) + 1`, and `~b == b nand b`, so:
-
-```
-a - b  ==  a + (~b) + 1
-       ==  a + (b nand b) + 1
-```
-
-Read the definition again with that in mind: `dup` makes `b b`,
-`nand` reduces it to `~b`, `[lit] 1 +` adds one (giving `-b`), and
-the final `+` adds it to the `a` that was waiting two slots down.
-
-You will eventually stop being surprised by definitions like this.
-The entire codebase is the same recipe applied at larger and larger
-scales: derive everything from a handful of primitives, name the
-result, and reuse it.
-
-### `2dup` and `2drop` (lines 132, 135)
-
-```forth
-: 2dup  over over ;
-: 2drop drop drop ;
-```
-
-`2dup` is a one-line gem.  After the first `over` the stack reads
-`a b a`; after the second `over` it reads `a b a b`, which is
-exactly the pair duplicated.  Walk through it on paper if you don't
-believe it.
+`2dup` is a little gem.  After the first `over` the stack reads
+`a b a`; after the second `over` it reads `a b a b`, which is exactly
+the pair duplicated.  This is the kind of "just trust the algebra"
+move that becomes natural after a week.
 
 ---
 
-## 1.4  What a colon definition is, at this stage
+## 1.7  Try it
 
-You have already seen the surface syntax six times.  It looks like
-this:
-
-```forth
-: name  body ;
-```
-
-For now, treat that as: "define a new word called *name* whose body
-is the words between the colon and the semicolon."  That is *almost*
-true and is enough to read Part I.
-
-The full truth — that `:` and `;` are themselves ordinary words, that
-`:` builds a dictionary header and switches the system into "compile
-mode", and that `;` appends a `ret` instruction and switches back —
-is the subject of Chapter 4.  You do not need it yet.  You do need
-to be comfortable with the syntax.
-
-One thing to notice: there is no comma between body words, no
-parentheses, no return type, no argument list.  Forth's only
-metasyntactic feature is whitespace.  Anywhere you can put a
-character is a place where a word might end and a new word might
-begin.
-
----
-
-## 1.5  Why `[lit] 1`?  A note you can skip on first reading
-
-In the `-` definition above you saw `[lit] 1 +` rather than just
-`1 +`.  That is unusual; classical Forth lets you type `1` and have
-it pushed automatically.  This codebase has a wrinkle: the seed does
-not auto-parse numbers in interpret mode, and uses the explicit word
-`[lit]` to mark "the next token is a decimal literal to be pushed."
-Chapter 5 explains exactly why; for now just read `[lit] 1` as "the
-number 1" wherever you see it.
-
-If this annoys you, good — it should.  The annoyance is informative:
-it is telling you that even *number parsing* is not built in.  Like
-everything else in Forth, it is a word, and you can read its source
-in `000-seed.hex0` at `parse_decimal_code @ 0x5FD`.  Chapter 5 takes
-that walk.
-
----
-
-## 1.6  Try it
-
-You cannot yet run a REPL — the seed-forth binary does not have a
-prompt in the usual sense; it reads its program from `stdin` and
-exits.  But you can run the unit tests, which exercise exactly the
-words this chapter introduced.  From the repo root:
+You cannot yet run a REPL — the seed-forth binary reads its program
+from `stdin` and exits.  But you can run the unit tests, which
+exercise exactly the words this chapter introduced.  From the repo
+root:
 
 ```sh
 ./build.sh
@@ -256,16 +282,28 @@ words this chapter introduced.  From the repo root:
 ```
 
 Then open `test-010-lib.fth` and read the assertions.  You will see
-the same `over`, `nip`, `rot`, `2dup`, `2drop`, `-` from this chapter,
-each followed by an expected stack picture.  When you can predict the
-expected stack for every test in that file without running it,
-you are done with Chapter 1.
+the same `over`, `nip`, `rot`, `2dup`, `2drop`, and `-` from this
+chapter, each followed by an expected stack picture.  When you can
+predict the expected stack for every test in that file without
+running it, you are done with Chapter 1.
+
+You can also verify the literate side:
+
+```sh
+tools/tangle.sh verify
+```
+
+That extracts every code block tagged `file=010-lib.fth` from the book
+(currently, just the six in this chapter) and checks that each one
+appears, in order, in the real `010-lib.fth`.  As more chapters land,
+coverage grows; when it reaches 100% and the `--strict` mode passes,
+the book *is* the source.
 
 ---
 
-## 1.7  Exercises
+## 1.8  Exercises
 
-1.  Write the stack effect comment for this definition without running
+1.  Write the stack-effect comment for this definition without running
     it:
 
     ```forth
@@ -275,36 +313,40 @@ you are done with Chapter 1.
 2.  `tuck` is a classical Forth word with effect `( a b -- b a b )`.
     Define it using only `over`, `swap`, `dup`, `drop`, `>r`, `r>`.
     Multiple correct answers exist.  Compare yours to the one-liner
-    that uses just two words.
+    `swap over`.
 
 3.  `pick` is `( ... n -- ... x_n )` — push a copy of the element `n`
     deep in the stack, where `0 pick` ≡ `dup` and `1 pick` ≡ `over`.
     Why is `pick` *not* defined in `010-lib.fth`?  (Hint: read what
     Chapter 2 will tell you about the seed primitives, and ask
     yourself how you would implement `pick` using only `dup`, `swap`,
-    `drop`, `>r`, `r>`.  The answer is "you can't, in O(1) time" —
+    `drop`, `>r`, `r>`.  The answer is "you can't in O(1) time" —
     why?)
 
-4.  Open `010-lib.fth` at line 71 and read the definition of
-    `digit?`.  Write its stack-effect comment, then explain in one
-    English sentence what the strategy `(c - 48) / 10 == 0` is doing
-    and why it does not need any conditional.
+4.  Open `010-lib.fth` at the line `: digit?  [lit] 48 - [lit] 10 / 0= ;`
+    Write its stack-effect comment, then explain in one English
+    sentence what the strategy `(c - 48) / 10 == 0` is doing and why
+    it does not need any conditional.
 
 Solutions appear in Appendix D once that chapter is written.
 
 ---
 
-## 1.8  Takeaways
+## 1.9  Takeaways
 
 - Forth has one data stack.  Every word consumes and produces values
   on that stack.
 - Stack-effect comments `( before -- after )` are how you read Forth.
-  Read them; pencil them in if they aren't there.
-- A colon definition `: name  body ;` is the surface syntax for
+  Read them; pencil them in when they aren't there.
+- A colon definition `: NAME  body ;` is the surface syntax for
   defining a new word.  Treat it as "function definition" for now.
 - The codebase you are reading derives everything from a tiny set of
-  primitives.  Even `-` is built from `+` and `nand`.  The next nine
-  chapters will widen that lens.
+  primitives.  `-` is built from `+` and `nand`; `over` from
+  `>r dup r> swap`; the bigger stack-shufflers from `over`.  The next
+  nine chapters widen that lens.
+- This book is literate.  The code blocks you read are the source.
+  `tools/tangle.sh verify` checks that the book and the source
+  agree.
 
 Next: [Chapter 2 — The Seed Vocabulary](02-the-seed-vocabulary.md),
 where we leave `010-lib.fth` and read the hand-encoded machine code in
