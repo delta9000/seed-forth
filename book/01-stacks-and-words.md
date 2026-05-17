@@ -271,33 +271,95 @@ move that becomes natural after a week.
 
 ## 1.7  Try it
 
-You cannot yet run a REPL — the seed-forth binary reads its program
-from `stdin` and exits.  But you can run the unit tests, which
-exercise exactly the words this chapter introduced.  From the repo
-root:
+You have two ways to run Chapter 1's code, depending on how much
+ceremony you want.
+
+### The fast path: gforth
+
+Install gforth from your package manager:
 
 ```sh
-./build.sh
-./test.sh
+# Debian / Ubuntu
+sudo apt install gforth
+# macOS (Homebrew)
+brew install gforth
 ```
 
-Then open `test-010-lib.fth` and read the assertions.  You will see
-the same `over`, `nip`, `rot`, `2dup`, `2drop`, and `-` from this
-chapter, each followed by an expected stack picture.  When you can
-predict the expected stack for every test in that file without
-running it, you are done with Chapter 1.
+The seed Forth in this repository is missing only two words that
+standard Forth (and gforth) has under different names: `nand` (gforth
+calls it `and invert`) and `[lit]` (gforth auto-parses numeric
+tokens, so `[lit]` is unneeded).  A 5-line shim at
+[`book/playground.fth`](playground.fth) defines both as
+compatibility wrappers; with that loaded, every code block in this
+chapter pastes verbatim into gforth.
 
-You can also verify the literate side:
+```sh
+gforth book/playground.fth
+```
+
+You should see a `seed-forth playground loaded.` banner, then a
+prompt.  Try:
+
+```
+3 4 + 5 *  .   \ prints 35
+1 2 over .s    \ shows <3> 1 2 1
+10 3 - .       \ prints 7  (using gforth's built-in -)
+bye
+```
+
+To exercise the chapter's *own* definitions (rather than gforth's
+built-ins), paste them in:
+
+```
+: over  >r dup r> swap ;
+: -  dup nand [lit] 1 + + ;
+: nip   swap drop ;
+: rot   >r swap r> swap ;
+: 2dup  over over ;
+: 2drop drop drop ;
+```
+
+gforth will print `redefined over redefined - ...` warnings — that is
+expected, you are deliberately shadowing the built-ins with the seed
+definitions.  Now `10 3 -` runs the seed's two's-complement-via-nand
+implementation, not gforth's native subtract, and produces the same 7.
+
+### The full path: build the seed
+
+Once you want to leave Chapter 1's gforth playground and actually run
+the seed Forth this book is about, you need the hex0 assembler.  From
+the repo root:
+
+```sh
+git submodule update --init --recursive
+./build.sh         # produces ./seed-forth (2040 bytes)
+./test.sh          # runs the unit tests, including this chapter's words
+```
+
+`build.sh` uses stage0-posix's 229-byte `hex0-seed` to assemble
+`000-seed.hex0` into the executable Forth.  Chapter 2 explains every
+byte; for now, treat it as a black box.  `test.sh` exercises the
+words you just read — `over`, `-`, `nip`, etc. — by feeding
+`010-lib.fth` plus `test-010-lib.fth` into the seed.
+
+Open `test-010-lib.fth` and read the assertions.  You will see the
+same definitions from this chapter, each followed by an expected
+stack picture.  When you can predict the expected stack for every
+test in that file without running it, you are done with Chapter 1.
+
+### And: verify the book
+
+Whichever path you take, you can verify the literate side:
 
 ```sh
 tools/tangle.sh verify
 ```
 
-That extracts every code block tagged `file=010-lib.fth` from the book
-(currently, just the six in this chapter) and checks that each one
-appears, in order, in the real `010-lib.fth`.  As more chapters land,
-coverage grows; when it reaches 100% and the `--strict` mode passes,
-the book *is* the source.
+That extracts every code block tagged `file=010-lib.fth` from the
+book (currently, just the six in this chapter) and checks that each
+one appears, in order, in the real `010-lib.fth`.  As more chapters
+land, coverage grows; when it reaches 100% and the `--strict` mode
+passes, the book *is* the source.
 
 ---
 
