@@ -13,31 +13,20 @@ is built on:
    what C calls a function and Python calls a callable.  Every word
    takes its inputs from the stack and leaves its outputs on the stack.
 
-That is the whole language model.  By the end of this chapter you will
-have read six real words from `010-lib.fth` — *literally* read them,
-because the code you see below is the source, tangled by
-`tools/tangle.sh` into the actual file.
+That is the whole language model.  By the end of this chapter you
+will have *previewed* six words from `010-lib.fth` and built enough
+intuition to read the systematic walk that begins in Chapter 2.
 
----
-
-## A note on this book
-
-This is a literate program.  Every Forth definition in a fenced code
-block tagged with `file=` is the canonical source for that file.
-Running `tools/tangle.sh extract /tmp/out` extracts those blocks into
-`/tmp/out/010-lib.fth`, `/tmp/out/000-seed.hex0`, and so on.  The check
-that the book "compiles" is
-
-```
-tools/tangle.sh verify --strict
-```
-
-which passes when the tangled files are byte-identical to the
-checked-in source.  Until every chapter is written, we use the looser
-`tools/tangle.sh verify` (no `--strict`), which only requires every
-line you see in a `file=`-tagged block to appear, in order, in the
-real source file.  That is the contract: anything you read here, you
-could have read in the source.
+A navigation note before we start.  Every fenced code block tagged
+`file=<path>` in this book is the canonical source for that file —
+when the strict tangle check passes, those blocks reconstruct the
+checked-in `.fth` and `.hex0` files byte-for-byte.  In this chapter,
+the only canonical block is `010-lib.fth`'s file header, near the
+end of §1.3.  The six definitions we read in §§1.4–1.6 are
+*illustrative* here; their canonical, line-numbered, source-of-record
+appearances live in Chapter 4 (`over`, `-`) and Chapter 8 (`nip`,
+`rot`, `2dup`, `2drop`).  This split keeps the book's chapter order
+matching the source order of `010-lib.fth`.
 
 ---
 
@@ -139,8 +128,7 @@ stack-manipulation primitives.  Conspicuously absent: `over`, which
 copies the second-from-top value up.  Almost every interesting Forth
 program needs `over`, so it is defined immediately in `010-lib.fth`:
 
-```forth file=010-lib.fth
-
+```forth
 \ over ( a b -- a b a )  copy second-from-top to top.
 \ Standard Forth idiom, missing from our seed primitives.
 : over  >r dup r> swap ;
@@ -185,8 +173,7 @@ do need to be comfortable with the syntax.
 
 The seed has `+`, but no `-`.  How do you subtract without a subtract?
 
-```forth file=010-lib.fth
-
+```forth
 \ - ( a b -- a-b )  subtract via 2's complement (we have + and nand).
 \ Used by classifier helpers and the local rel32 CALL encoder below.
 : -  dup nand [lit] 1 + + ;
@@ -230,8 +217,7 @@ we arrive at the `===== Stack shuffles =====` section.  These are the
 last names you'll meet in this chapter; they round out the standard
 Forth shuffler vocabulary.
 
-```forth file=010-lib.fth
-
+```forth
 \ nip ( a b -- b )  drop second-from-top.
 : nip   swap drop ;
 
@@ -410,6 +396,7 @@ Solutions appear in Appendix D once that chapter is written.
   `tools/tangle.sh verify` checks that the book and the source
   agree.
 
-Next: [Chapter 2 — The Seed Vocabulary](02-the-seed-vocabulary.md),
-where we leave `010-lib.fth` and read the hand-encoded machine code in
-`000-seed.hex0` that everything in this chapter ultimately runs on.
+Next: Chapter 2 — Code Emission and the HERE Pointer, where we begin
+the systematic walk of `010-lib.fth` from its first two definitions
+(`here-addr` and `c,`) and discover that the very first thing this
+file does is teach Forth how to write bytes into memory.
