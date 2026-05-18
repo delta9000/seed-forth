@@ -72,7 +72,7 @@ Status legend: ✏️ stub awaiting prose · 📝 prose in progress · ✅ done.
 |---|---|---|---|
 | 1 | [Stacks and words](01-stacks-and-words.md) | RPN, stack-effect comments, the dictionary concept; `010-lib.fth` file header | 📝 |
 | 2 | [Code emission and the HERE pointer](02-code-emission-and-here.md) | `here-addr`, `c,` | ✏️ |
-| 3 | [Logic from one primitive](03-logic-from-nand.md) | `and`, `or` | ✏️ |
+| 3 | [Logic from one primitive](03-logic-from-nand.md) | `and`, `or` | ✅ |
 | 4 | [The return stack: `over` and subtract](04-return-stack-over-subtract.md) | `over`, `-` | ✏️ |
 | 5 | [Talking to Linux: syscall6 wrappers](05-syscalls.md) | `open`, `read`, `write`, `close`, `die` | ✏️ |
 | 6 | [Character classification](06-character-classification.md) | `digit?`, `alpha?`, `space?` | ✏️ |
@@ -133,6 +133,8 @@ chapters so the reader sees one coherent idea per chapter.
 - **[CONCEPTS.md](CONCEPTS.md)** — concept index (where is *X*
   introduced?) and chapter dependency graph (which chapters can I
   write next?).
+- **[GLOSSARY.md](GLOSSARY.md)** — quick definitions for every term
+  used across the book (Forth, x86-64, C compiler, bootstrapping).
 - **[WRITING.md](WRITING.md)** — protocol for turning a chapter stub
   into prose: panes layout, validation steps, common pitfalls,
   done-criteria.
