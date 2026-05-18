@@ -128,6 +128,15 @@ chapters so the reader sees one coherent idea per chapter.
 - **C.** Reproducibility: the full hex0 → seed → M2-Planet chain.
 - **D.** Exercises with worked solutions.
 
+## Companion docs
+
+- **[CONCEPTS.md](CONCEPTS.md)** — concept index (where is *X*
+  introduced?) and chapter dependency graph (which chapters can I
+  write next?).
+- **[WRITING.md](WRITING.md)** — protocol for turning a chapter stub
+  into prose: panes layout, validation steps, common pitfalls,
+  done-criteria.
+
 ## How to read this book
 
 Open the book in one editor pane and the file under discussion in
