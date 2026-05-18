@@ -132,7 +132,6 @@ header that documents the calling convention:
 ## Canonical source
 
 ```forth file=010-lib.fth
-
 \ ===== Control-flow combinators =====
 \ Compile-time helpers that emit calls to the seed's `branch` and `0branch`
 \ primitives, plus inline 8-byte target slots, structured per traditional
