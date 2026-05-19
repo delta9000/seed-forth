@@ -124,9 +124,9 @@ them through `./seed-forth`.
 47 116 109 112 47 99 99 45 111 117 116 0
 ```
 
-Each byte is laid out via `c,` (Ch 9 §2).  This is the same
+Each byte is laid out via `c,` (Ch 2).  This is the same
 literate-bytes technique we saw for the keyword table (Ch 23
-§2) and the libc-shim names (Ch 31 §6).
+§2) and the libc-shim names (Ch 31 §8).
 
 `cc-write-output` (Ch 21 §2) takes the buffer's address and
 opens it with `O_WRONLY|O_CREAT|O_TRUNC` mode `0755`.  Hard-
@@ -174,7 +174,7 @@ Read `cc-main` as a sequence of phases:
    `O_WRONLY|O_CREAT|O_TRUNC` mode 0755, write all of
    `cc-out-buf`, close.
 
-Then `bye` (Ch 5) — `exit(0)`.
+Then `bye` (Ch 1 use; Ch 16 asm) — `exit(0)`.
 
 The trailing call to `cc-main` after the colon definition is
 the auto-execution.  Loading `120-cc-main.fth` defines `cc-main`

@@ -182,74 +182,90 @@ Where in the recursion does left-associativity fall out?
 
 ### The structure of `cc-parse-add`
 
-From `100-cc-expr.fth` (read it in Ch 27 §3):
+From `100-cc-expr.fth` (Ch 27 §3 walks this in detail):
 
 ```forth
-: cc-parse-add                            ( -- )
-  cc-parse-mul                            \ parse leftmost mul-expression
+: cc-parse-add
+  cc-parse-mul
   begin,
-    cc-peek-add-or-sub                    \ is the next token + or - ?
+    cc-next-token-keep
+    cc-add-op?
   while,
-    cc-consume-token                      \ eat it
-    >r                                    \ stash the op byte on R
-    cc-emit-push-rax                      \ save left result
-    cc-parse-mul                          \ parse the right operand
-    cc-emit-pop-rcx                       \ left was on stack; pop into rcx
-    r>                                    \ retrieve op
-    cc-emit-arith-op                      \ emit "sub rcx, rax" or "add rcx, rax"
-    cc-emit-mov-rax-rcx                   \ result back to rax for the next round
-  repeat, ;
+    cc-emit-materialize                           \ left must be a value
+    tok-num @ >r                                  ( ; R: op )
+    cc-emit-push-rdi
+    cc-parse-mul
+    cc-emit-materialize                           \ right must be a value
+    cc-emit-mov-rcx-rdi
+    cc-emit-pop-rdi
+    r>                                            ( op )
+    [lit] 43 = if,
+      cc-emit-add-rdi-rcx
+    else,
+      cc-emit-sub-rdi-rcx
+    then,
+    cc-mark-not-lvalue
+  repeat,
+  cc-putback-token ;
 ```
 
-The loop body is a `begin, … while, … repeat,` — pure iteration,
-not recursion-on-tail.  Each pass of the loop:
+The accumulator is `rdi` — the seed VM's TOS register cache (Ch
+13 §4), which the compiler reuses as the expression-evaluation
+register.  The loop body is a `begin, … while, … repeat,` —
+pure iteration, not recursion-on-tail.  Each pass of the loop:
 
-1. asks "is there another `+` or `-`?";
-2. if yes, eats it, pushes the current left, parses *one*
-   mul-expression as the next right;
-3. emits the op on `(left, right)`, leaving the result in `rax`;
-4. loops.
+1. peeks the next token and asks "is it `+` or `-`?";
+2. if yes, materializes the left so it's a value (not an lvalue),
+   stashes the op byte (43 = `+`, 45 = `-`) on R, pushes the
+   running left;
+3. parses *one* mul-expression as the next right (which lands in
+   `rdi`), materializes it, moves it to `rcx`, pops the saved
+   left back into `rdi`;
+4. emits `add rdi, rcx` or `sub rdi, rcx` depending on the op;
+5. loops.
 
 ### The trace for `a - b - c`
 
-Start: `rax` is empty; the input is `a - b - c`.
+Start: `rdi` is the eval register; the input is `a - b - c`.
 
 **Pass 0** (the call into `cc-parse-add` itself):
-1. `cc-parse-mul` consumes `a` and emits "load a into rax".  rax = `a`.
+1. `cc-parse-mul` consumes `a` and emits a load.  rdi = `a`.
 
-**Loop iteration 1**: next token is `-`.
-1. Consume `-`.  Push op byte onto R.
-2. Emit `push rax` (save `a` on the eval stack).
-3. `cc-parse-mul` consumes `b`.  rax = `b`.
-4. Emit `pop rcx`.  rcx = `a`, rax = `b`.
-5. Pop op from R; emit `sub rcx, rax`.  rcx = `a - b`.
-6. Emit `mov rax, rcx`.  rax = `a - b`.
+**Loop iteration 1**: peek finds `-` (token byte 45).
+1. Materialize left.  Push op (45) onto R.
+2. Emit `push rdi` (save `a`).
+3. `cc-parse-mul` consumes `b`.  rdi = `b`.  Materialize.
+4. Emit `mov rcx, rdi`.  rcx = `b`.
+5. Emit `pop rdi`.  rdi = `a`, rcx = `b`.
+6. Pop op (45) from R; op ≠ 43, so emit `sub rdi, rcx`.
+   rdi = `a - b`.
 
-**Loop iteration 2**: next token is `-`.
-1. Consume `-`.  Push op byte.
-2. Emit `push rax` (save `(a - b)`).
-3. `cc-parse-mul` consumes `c`.  rax = `c`.
-4. Emit `pop rcx`.  rcx = `a - b`, rax = `c`.
-5. Pop op; emit `sub rcx, rax`.  rcx = `(a - b) - c`.
-6. Emit `mov rax, rcx`.  rax = `(a - b) - c`.
+**Loop iteration 2**: peek finds `-` again.
+1. Materialize left.  Push op (45).
+2. Emit `push rdi` (save `(a - b)`).
+3. `cc-parse-mul` consumes `c`.  rdi = `c`.  Materialize.
+4. Emit `mov rcx, rdi`.  rcx = `c`.
+5. Emit `pop rdi`.  rdi = `a - b`, rcx = `c`.
+6. Pop op; emit `sub rdi, rcx`.  rdi = `(a - b) - c`.
 
-**Loop iteration 3**: next token is not `+` or `-` — exit the
-loop.  Final rax = `(a - b) - c`.
+**Loop iteration 3**: peek finds something that isn't `+` or `-`
+— exit the loop.  `cc-putback-token` returns the peeked token.
+Final rdi = `(a - b) - c`.
 
 ### Where left-associativity comes from
 
 Two design choices, both in the loop body:
 
 1. **The current left value is `push`ed before the next right is
-   parsed.**  That means the next mul-expression sees a clean
-   `rax` to write into, and the running left result is preserved
+   parsed.**  That means the next mul-expression sees a free
+   `rdi` to write into, and the running left result is preserved
    in stack order.
 
-2. **The op is applied with `rcx` as the destination** (left
-   operand) and `rax` as the source (right operand): `sub rcx,
-   rax` computes `left - right` and puts it in `rcx`, which is
-   then `mov`'d back to `rax`.  This means *each iteration sees
-   the cumulative left-so-far as its left operand*.
+2. **The op is applied with `rdi` as the destination** (left
+   operand) and `rcx` as the source (right operand): `sub rdi,
+   rcx` computes `left - right` and puts it in `rdi`, ready for
+   the next iteration.  This means *each iteration sees the
+   cumulative left-so-far as its left operand*.
 
 If you wanted right-associativity instead, you'd recurse: instead
 of looping, you'd call `cc-parse-add` on the right operand,

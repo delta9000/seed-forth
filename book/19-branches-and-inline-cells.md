@@ -337,7 +337,7 @@ EOF
 
 - `branch` and `0branch` are 26 bytes total and implement every
   control structure in this codebase — every `if`, `else`, `while`,
-  `for`, and `return` you'll meet from Ch 22 onward sits on top of
+  `for`, and `return` you'll meet from Ch 30 onward sits on top of
   one of these two primitives.
 - The inline-slot convention puts branch targets next to the CALL
   site, which simplifies the compiler (no separate target table)

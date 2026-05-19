@@ -72,7 +72,7 @@ header that documents the calling convention:
 ## Concepts deferred
 
 - The seed's `branch`, `0branch`, and `'` primitives in machine code —
-  Part II, Chs 18 and 19.
+  Part II, Chs 17 (`'`) and 19 (`branch`, `0branch`).
 - The full ELF + memory layout that makes absolute target addresses
   work — Part II, Ch 13.
 

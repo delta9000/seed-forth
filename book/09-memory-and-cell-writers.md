@@ -46,7 +46,8 @@ By the end of this chapter the reader can:
 - Big-endian writers: never needed (x86-64 is LE; ELF is LE; M1
   output is LE-token text).
 - The use of `,8` in `constant`, `create`, `variable` for the
-  `movabs` imm64 slot — Ch 10.
+  `movabs` imm64 slot — Ch 10 (`constant`) and Ch 12 (`create`,
+  `variable`).
 
 ---
 
@@ -211,9 +212,9 @@ two specific clients:
   is `E8` followed by a 4-byte `rel32`.  `comma-call` emits the `E8`
   with `c,` and the offset with `,4`.
 
-- **`,8` ← `constant`, `create`, `variable` in Ch 10.**  Each of
-  these defining words emits a 19-byte runtime body that ends with
-  `movabs rdi, imm64`; the `imm64` is written with `,8`.
+- **`,8` ← `constant` in Ch 10; `create`, `variable` in Ch 12.**
+  Each of these defining words emits a 19-byte runtime body that
+  ends with `movabs rdi, imm64`; the `imm64` is written with `,8`.
 
 Beyond these, both writers see occasional one-off use anywhere the
 codebase needs to drop a multi-byte value into HERE.  The C

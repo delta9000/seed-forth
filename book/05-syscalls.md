@@ -42,7 +42,7 @@ By the end of this chapter the reader can:
   Ch 16.
 - Reading and writing files end-to-end (we use `open`/`read`/`write`
   here but the file-loading machinery sits in Part III's
-  `030-cc-io.fth`, Ch 22).
+  `030-cc-io.fth`, Ch 21).
 
 ---
 

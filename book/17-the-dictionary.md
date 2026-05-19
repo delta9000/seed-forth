@@ -64,8 +64,8 @@ their dictionary entries and the trailing `r@`, `*`, `state`,
 ## Concepts deferred
 
 - The REPL's use of `find_code` and `execute_code` — Ch 20.
-- The `[lit]` IMMEDIATE entry — Ch 20 (it lives in source after the
-  parse_decimal/bracket_lit primitives).
+- The `[lit]` IMMEDIATE entry — Ch 18 §5 (the `<<bracket-lit-dict>>`
+  header that flips the IMMEDIATE bit).
 
 ---
 

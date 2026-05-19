@@ -31,8 +31,9 @@ explains the region in detail.
 | `0x4000CD` — `0x4000D1` | 5     | `jmp repl`                        | seed image | Ch 13 |
 | `0x4000D2` — `0x40078F` | ~1.7K | the 32 primitive bodies + dictionary entries | seed image | Chs 14–20 |
 | `0x4007F0` — `0x400FFF` |  2K | unused tail of file image (padding to page boundary) | — | Ch 13 |
-| `0x401000` — `0x40FFFF` | 60K | dictionary heap (`HERE` walks here as `010-lib.fth` loads + REPL definitions) | seed code | Chs 2, 17 |
-| `0x410000` — `0x410FFF` | 4K  | data-stack underflow guard region (stack initialised at top) | seed code | Ch 13 |
+| `0x401000` — *(grows up)* | up to ~12K | dictionary heap, low part: headers + bodies that `010-lib.fth` and `020-cc-arena.fth` define before `030-cc-io.fth` jumps `HERE` to `0x414000` | seed code | Chs 2, 17, 21 |
+| tail of low heap | 32K | C compiler's **arena** (`create cc-arena-base  cc-arena-cap allot` — the 32 KiB slab sits at the *end* of the low dictionary heap, just before the HERE-jump) | `cc-alloc` | Ch 21 |
+| `0x410000` — `0x410FFF` | 4K  | data-stack underflow guard region (stack initialised at top); `HERE` is jumped *past* this before the C compiler's big buffers are created | seed code | Ch 13 |
 | `0x411000`              | —   | initial data-stack base (grows *down* in `rbp`) | seed code | Chs 13, 14 |
 | `0x412000`              | 1   | I/O scratch byte (`emit`/`key` buffer) | seed code | Ch 16 |
 | `0x412800` — `0x4128FF` | 256 | token buffer (`read_word` assembles here) | seed code | Chs 13, 17 |
@@ -44,14 +45,17 @@ explains the region in detail.
 | `0x413028`              | 8   | `INPUT_FD` sysvar (stdin by default)   | seed init | Ch 13 |
 | `0x414000` — `0x513FFF` | 1 MiB | C compiler's **source buffer** (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
 | `0x514000` — `0x613FFF` | 1 MiB | C compiler's **output buffer** (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
-| `0x614000` — `0x61BFFF` | 32K | C compiler's **arena** (struct descriptors, fixup overflow) | `cc-alloc` | Ch 21 |
-| `0x61C000` — `0x13FFFFF` | ~14 MiB | unused tail of the 16 MiB `PT_LOAD` | — | Ch 13 |
+| `0x614000` — `0x13FFFFF` | ~14 MiB | unused tail of the 16 MiB `PT_LOAD` | — | Ch 13 |
 
-The numbers in the bottom rows come from `020-cc-arena.fth` and
-`030-cc-io.fth`: the source buffer is sized to `[lit] 4276224
-here-addr !` (= `0x414000`), and the arena is `[lit] 32768
-constant cc-arena-cap`.  These are not separately mmapped; they
-are `create … allot`'d inside the existing `PT_LOAD` segment.
+The numbers come from `020-cc-arena.fth` and `030-cc-io.fth`: the
+arena is `[lit] 32768 constant cc-arena-cap` followed by `create
+cc-arena-base  cc-arena-cap allot` — allotted at the current
+`HERE`, so it sits at the tail of the dictionary heap *before*
+`030-cc-io.fth`'s `[lit] 4276224 here-addr !` jumps `HERE` to
+`0x414000`.  After the jump the source buffer (1 MiB) is created
+at `0x414000` and the output buffer (1 MiB) at `0x514000`.  None
+of these are separately mmapped; they are `create … allot`'d
+inside the existing `PT_LOAD` segment.
 
 ## The C-compiler runtime heap (compiled-program memory)
 

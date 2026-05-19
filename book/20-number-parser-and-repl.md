@@ -45,7 +45,8 @@ the REPL at `0x35E` (lines 299–357).
 ## Concepts carried in
 
 - `read_word`, `find_code`, `execute_code` from Ch 17.
-- The IMMEDIATE flag and the STATE sysvar from Ch 10 and Ch 18.
+- The IMMEDIATE flag and the STATE sysvar from Ch 10; `state_code`
+  as an address-pusher from Ch 17; STATE-as-mode-switch from Ch 18.
 - `comma_code` and `lit_code` from Chs 17–18 (used in compile
   mode).
 

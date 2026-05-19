@@ -52,7 +52,7 @@ By the end of this chapter the reader can:
 
 - How the parser consumes `cc-next-token` and the token state —
   Chs 27–31.
-- The string pool — Ch 25 (the lexer just records `(addr, len)`
+- The string pool — Ch 26 (the lexer just records `(addr, len)`
   into `cc-src-buf`; escape decoding happens at codegen).
 
 ---

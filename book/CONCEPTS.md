@@ -89,12 +89,13 @@ their introducing chapter.
 - **Struct descriptor (16 + 40·N bytes)** — Ch 24; *Ch 28*
 - **Symbol table (parallel arrays)** — Ch 24; *Chs 26–31*
 - **Scope stack (push/pop count)** — Ch 24; *Chs 30, 31*
-- **System V AMD64 calling convention** — Ch 26; *Ch 28, 31*
-- **Frame pointer `rbp` + local-at-`-8n` addressing** — Ch 26;
-  *Chs 28, 31*
+- **System V AMD64 calling convention** — Ch 25; *Chs 26, 28, 31*
+- **Frame pointer `rbp` + local-at-`-8n` addressing** — Ch 25;
+  *Chs 26, 28, 31*
 - **Lvalue vs rvalue** — Ch 28
 - **Precedence climbing** — Ch 27
-- **Frame-size back-patching** — Ch 31
+- **Fixed 256-byte function frame** — Ch 31 (every function
+  reserves the same conservative slab; no per-function back-patch)
 - **Stage-A parity (byte-identical M1 output)** — Ch 32
 
 ## Dependency graph

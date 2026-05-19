@@ -70,7 +70,7 @@ about C, not about `mmap`.
 
 Most of the compiler's state lives in *fixed-size parallel arrays*
 that we'll meet in later chapters: the symbol table (Ch 24), the
-macro table (Ch 22), the label fixup table (Ch 25).  Each is a
+macro table (Ch 22), the label fixup table (Ch 30).  Each is a
 `create NAME N allot` of pre-sized storage with a separate counter
 variable.  That works for anything whose maximum count we can pin
 down at compile time.
