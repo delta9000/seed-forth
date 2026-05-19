@@ -1,9 +1,5 @@
 # Chapter 5 — Talking to Linux: `syscall6` Wrappers
 
-> **Status:** ✅ complete.  Prose covers every section-plan beat; the
-> Try-it path runs through `./test.sh`.  Canonical blocks cover
-> `010-lib.fth` lines 39–62.
-
 ## Goal
 
 By the end of this chapter the reader can:

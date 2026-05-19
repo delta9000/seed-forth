@@ -1,10 +1,5 @@
 # Chapter 11 — Control-Flow Combinators (the climax of Part I)
 
-> **Status:** ✅ complete.  Prose covers all nine section-plan beats;
-> the seed-forth Try-it path verifies `if,`/`else,`/`then,` and
-> `begin,`/`while,`/`repeat,` end-to-end.  Canonical blocks cover
-> `010-lib.fth` lines 194–290.
-
 ## Goal
 
 By the end of this chapter the reader can:

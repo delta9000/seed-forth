@@ -1,9 +1,5 @@
 # Chapter 8 — Stack Shufflers
 
-> **Status:** ✅ complete.  Prose covers every section-plan beat; both
-> Try-it paths (gforth and seed-forth) verified.  Canonical blocks
-> cover `010-lib.fth` lines 121–136.
-
 ## Goal
 
 By the end of this chapter the reader can:

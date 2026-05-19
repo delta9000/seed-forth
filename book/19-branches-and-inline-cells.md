@@ -1,8 +1,5 @@
 # Chapter 19 — Branches and Inline Cells
 
-> **Status:** ✅ complete.  Defines chunks `<<branch-code>>` and
-> `<<zbranch-code>>`; bodies match `000-seed.hex0` lines 368–386.
-
 ## Goal
 
 By the end of this chapter the reader can:

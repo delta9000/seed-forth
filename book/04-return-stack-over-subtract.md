@@ -1,9 +1,5 @@
 # Chapter 4 — The Return Stack: `over` and Subtract
 
-> **Status:** ✅ complete.  Prose covers every section-plan beat; both
-> Try-it paths (gforth and seed-forth) verified.  Canonical blocks
-> cover `010-lib.fth` lines 31–38.
-
 ## Goal
 
 By the end of this chapter the reader can:

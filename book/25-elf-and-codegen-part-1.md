@@ -1,8 +1,5 @@
 # Chapter 25 — ELF Emission and Codegen, Part 1: Instructions
 
-> **Status:** ✅ complete.  Tangles `080-cc-elf.fth` byte-identically
-> and contributes the first half of `090-cc-emit.fth` (lines 1–411).
-
 ## Goal
 
 By the end of this chapter the reader can:

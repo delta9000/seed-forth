@@ -1,8 +1,5 @@
 # Chapter 32 — End to End: Main and the Bootstrap Chain
 
-> **Status:** ✅ complete.  Tangles `120-cc-main.fth`
-> byte-identically.
-
 ## Goal
 
 By the end of this chapter the reader can:

@@ -1,10 +1,5 @@
 # Chapter 1 — Stacks and Words
 
-> **Status:** ✅ complete.  Prose previews six words from later
-> chapters; both Try-it paths (gforth playground and built seed)
-> verified.  The only canonical block here is `010-lib.fth`'s file
-> header.
-
 > "Forth is the language you would have invented if you were given a
 > computer with 4 KB of RAM and a weekend."
 

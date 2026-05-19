@@ -1,9 +1,5 @@
 # Chapter 20 — The Number Parser and REPL
 
-> **Status:** ✅ complete.  Defines chunks `<<repl>>` and
-> `<<parse-decimal-code>>`; bodies match `000-seed.hex0` lines
-> 299–358 and 555–586.
-
 ## Goal
 
 By the end of this chapter the reader can:

@@ -1,9 +1,5 @@
 # Chapter 14 — Stack Primitives in Machine Code
 
-> **Status:** ✅ complete.  Defines chunks `<<dup-code>>` through
-> `<<cstore-code>>` plus `<<r-at-code>>`; bodies match
-> `000-seed.hex0` lines 97–152 and 666–675.
-
 ## Goal
 
 By the end of this chapter the reader can:

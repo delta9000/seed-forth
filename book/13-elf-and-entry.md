@@ -1,9 +1,5 @@
 # Chapter 13 — The ELF and the Entry Point
 
-> **Status:** ✅ complete.  Canonical chunks cover `000-seed.hex0`
-> lines 1–63 (file header through the trailing blank that separates
-> `jmp repl` from `bye_code`).
-
 ## Goal
 
 By the end of this chapter the reader can:

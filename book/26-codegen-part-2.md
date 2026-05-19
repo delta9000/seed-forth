@@ -1,9 +1,5 @@
 # Chapter 26 — Codegen, Part 2: Calls, Shims, and Globals
 
-> **Status:** ✅ complete.  Contributes the second half of
-> `090-cc-emit.fth` (lines 412–1027); together with Ch 25 the file
-> tangles byte-identically.
-
 ## Goal
 
 By the end of this chapter the reader can:

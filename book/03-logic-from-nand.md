@@ -1,9 +1,5 @@
 # Chapter 3 — Logic from One Primitive
 
-> **Status:** ✅ complete.  Prose covers every section-plan beat; both
-> Try-it paths (gforth and seed-forth) verified.  Canonical blocks
-> cover `010-lib.fth` lines 22–30.  Model chapter — use as reference.
-
 ## Goal
 
 By the end of this chapter the reader can:

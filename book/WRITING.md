@@ -84,21 +84,28 @@ Match the tone of [00-prologue.md](00-prologue.md) and
 
 ### Part I (`010-lib.fth`) — gforth playground
 
+The playground is intentionally minimal: it shims `nand` and `[lit]`
+and lets you paste *individual chapter snippets*.  Do **not** try to
+`include 010-lib.fth` under the playground — `010-lib.fth` uses
+`syscall6`, `' branch`, and `' 0branch` (all seed-only), so gforth
+errors at the first occurrence.
+
+To test a snippet:
+
 ```sh
 cd seed-forth
-gforth book/playground.fth -e "include 010-lib.fth  bye"
+echo "your snippet here" > /tmp/snip.fth
+gforth book/playground.fth /tmp/snip.fth -e bye
 ```
 
-Or run a single snippet:
+The playground supports Chs 1-4, 6-9, and 12 directly.  Chs 5
+(syscalls), 10 (IMMEDIATE / `constant`), and 11 (branch-slot
+emission) must be exercised on the built seed — their Try-it
+sections say as much.  See `book/playground.fth`'s header for the
+covered-chapter list.
 
-```sh
-echo "your snippet here" | gforth book/playground.fth -e \
-  "include 010-lib.fth"
-```
-
-If gforth's behaviour differs from the seed's (e.g. `[lit]` is not a
-gforth primitive), the playground shim should cover the gap — but
-test before claiming the snippet works.
+If gforth's behaviour differs from the seed's, the playground shim
+should cover the gap — but test before claiming the snippet works.
 
 ### Parts II & III — built seed-forth
 

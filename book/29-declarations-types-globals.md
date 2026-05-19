@@ -1,12 +1,5 @@
 # Chapter 29 — Declarations: Types, Structs, Locals
 
-> **Status:** ✅ complete.  Contributes lines 1–587 of
-> `110-cc-decl.fth` — file header, expectation helpers, struct
-> definition parsing, type-spec / pointer parsing, function-pointer
-> declarations, local declarations, struct-local declarations, and
-> `cc-parse-return`.  Chs 30 and 31 contribute the remaining 2163
-> lines.
-
 ## Goal
 
 By the end of this chapter the reader can:

@@ -1,9 +1,5 @@
 # Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`
 
-> **Status:** ✅ complete.  Prose covers every section-plan beat;
-> seed-forth Try-it paths verify `create`/`allot` and `bytes-eq`.
-> Canonical blocks cover `010-lib.fth` lines 292–373 (end of file).
-
 ## Goal
 
 By the end of this chapter the reader can:

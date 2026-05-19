@@ -1,9 +1,5 @@
 # Chapter 7 — Comparisons from Unsigned Division
 
-> **Status:** ✅ complete.  Prose covers every section-plan beat; both
-> Try-it paths (gforth and seed-forth) verified.  Canonical blocks
-> cover `010-lib.fth` lines 87–120.
-
 ## Goal
 
 By the end of this chapter the reader can:

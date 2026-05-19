@@ -122,3 +122,18 @@ This project is licensed under the **MIT License**. See the `LICENSE` file for d
 - `tests/cc/stage-a-check.sh` must report `self-v1-amd64.M1 == self-ref-amd64.M1`.
 
 See `REPRODUCIBLE.md` for the full fixed-point chain.
+
+## Reading the book
+
+The 32-chapter book lives under `book/` as Markdown.  Render it
+with [mdBook](https://rust-lang.github.io/mdBook/):
+
+```sh
+cargo install mdbook         # one-time
+mdbook serve                  # live preview at http://localhost:3000
+mdbook build                  # static HTML in docs/ (gitignored)
+```
+
+The Markdown sources in `book/` are the source of record — every
+`file=…` fenced code block tangles back to the actual `.fth` /
+`.hex0` file via `tools/tangle.sh verify --strict`.

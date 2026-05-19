@@ -1,10 +1,5 @@
 # Chapter 16 — I/O: `emit`, `key`, `syscall6`
 
-> **Status:** ✅ complete.  Defines chunks `<<syscall6-code>>` and
-> `<<syscall6-dict>>`; bodies for `<<bye-code>>`, `<<emit-code>>`,
-> `<<key-code>>` live in Ch 14 (to keep the master root contiguous)
-> but are *explained* here.
-
 ## Goal
 
 By the end of this chapter the reader can:

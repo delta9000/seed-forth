@@ -1,8 +1,5 @@
 # Chapter 21 — Arena and I/O Buffers
 
-> **Status:** ✅ complete.  Tangles `020-cc-arena.fth` and
-> `030-cc-io.fth` byte-identically.
-
 ## Goal
 
 By the end of this chapter the reader can:

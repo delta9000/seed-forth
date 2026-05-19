@@ -1,11 +1,5 @@
 # Chapter 30 — Statements: `if`, `while`, `for`, `switch`, `break`, `continue`, `goto`
 
-> **Status:** ✅ complete.  Contributes lines 588–1438 of
-> `110-cc-decl.fth` — the statement parsers including the
-> control-flow combinators, break/continue fixup-list machinery,
-> switch dispatch, label/goto support, and the `cc-parse-stmt`
-> top-level dispatcher.
-
 ## Goal
 
 By the end of this chapter the reader can:

@@ -4,3 +4,7 @@ seed-forth
 # mescc-tools intermediate tapes
 tape_01
 tape_02
+
+# mdBook build output (see book.toml; rendered HTML, regenerate with `mdbook build`).
+# Do NOT put hand-written notes in docs/ — mdBook wipes the dir on every build.
+docs/

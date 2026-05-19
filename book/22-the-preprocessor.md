@@ -1,7 +1,5 @@
 # Chapter 22 — The Preprocessor
 
-> **Status:** ✅ complete.  Tangles `040-cc-prep.fth` byte-identically.
-
 ## Goal
 
 By the end of this chapter the reader can:

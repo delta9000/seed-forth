@@ -1,12 +1,5 @@
 # Chapter 31 — Functions: Parameters, Calls, Globals, Entry Stub
 
-> **Status:** ✅ complete.  Contributes lines 1439–2750 of
-> `110-cc-decl.fth` — function-call codegen, parameter list
-> parsing, function definitions, enum / typedef parsing,
-> top-level driver, file-scope globals, entry stub, libc shim
-> registration, and the `cc-parse-program` driver that ties
-> everything together.
-
 ## Goal
 
 By the end of this chapter the reader can:
@@ -1440,7 +1433,11 @@ The flow:
      local) → `cc-emit-load-local-into-rax`, then
      `cc-emit-call-rax` for an indirect call.
 4. After the call, `cc-emit-mov-rdi-rax` moves the return value
-   into the caller's evaluation register.
+   into the caller's *evaluation register* — `rdi`, the register
+   this compiler threads every expression result through (the
+   System V return-value register `rax` is the callee's slot, and
+   the caller copies out to `rdi` so the next expression step
+   finds it where the rest of `100-cc-expr.fth` expects it).
 
 The cap of 6 args (status 37 on overflow) is the SYS-V limit
 before args spill onto the stack.  M2-Planet doesn't have any

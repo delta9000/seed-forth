@@ -1,11 +1,5 @@
 # Chapter 17 — The Dictionary
 
-> **Status:** ✅ complete.  Defines chunks `<<find-code>>`,
-> `<<here-code>>`, `<<comma-code>>`, `<<execute-code>>`,
-> `<<read-word>>`, `<<dictionary-entries>>`, `<<state-code>>`,
-> `<<latest-code>>`, `<<tick-code>>`, `<<late-dicts>>`; bodies
-> match `000-seed.hex0` lines 171–262, 387–554, and 684–752.
-
 ## Goal
 
 By the end of this chapter the reader can:

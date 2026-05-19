@@ -1,7 +1,5 @@
 # Chapter 23 — The Lexer
 
-> **Status:** ✅ complete.  Tangles `050-cc-lex.fth` byte-identically.
-
 ## Goal
 
 By the end of this chapter the reader can:

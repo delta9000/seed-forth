@@ -1,11 +1,5 @@
 # Chapter 27 — Expressions, Part 1: Precedence Climbing
 
-> **Status:** ✅ complete.  Defines the canonical `file=` root block
-> for `100-cc-expr.fth` and contributes the binary-cascade chunks.
-> Ch 28 contributes the lvalue / primary / unary / ternary /
-> assign / top-level chunks.  Combined, the file tangles
-> byte-identically.
-
 ## Goal
 
 By the end of this chapter the reader can:

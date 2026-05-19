@@ -78,6 +78,12 @@ initialises them; Ch 17 and Ch 20 use them.
 **TOS / 2OS** — top of stack / second-on-stack.  In the seed, TOS
 is cached in `rdi`; 2OS is at `[rbp]`.
 
+**Under-TOS** — the cell immediately below TOS, i.e. 2OS viewed
+positionally rather than as a slot index.  Used in Chs 14, 15,
+16, 20 to describe binary operations that fold the under-TOS
+slot into `rdi` (e.g. `add rdi, [rbp] ; add rbp, 8`).
+Synonymous with 2OS.
+
 **Word** — a named entry in the dictionary.  Identified by its
 name; called by its xt.  May be a primitive or a colon definition
 or a `create`d data word.

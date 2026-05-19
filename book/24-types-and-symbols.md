@@ -1,8 +1,5 @@
 # Chapter 24 — Types and Symbols
 
-> **Status:** ✅ complete.  Tangles `060-cc-types.fth` and
-> `070-cc-sym.fth` byte-identically.
-
 ## Goal
 
 By the end of this chapter the reader can:

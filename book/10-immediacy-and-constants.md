@@ -1,11 +1,5 @@
 # Chapter 10 — Immediacy and Constants
 
-> **Status:** ✅ complete.  Prose covers every section-plan beat; the
-> seed-forth Try-it path is verified.  (The gforth playground
-> diverges meaningfully from the seed here, so only the seed path
-> exercises real `immediate`/`constant`.)  Canonical blocks cover
-> `010-lib.fth` lines 162–193.
-
 ## Goal
 
 By the end of this chapter the reader can:

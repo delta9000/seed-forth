@@ -1,10 +1,5 @@
 # Chapter 18 — The Colon Compiler
 
-> **Status:** ✅ complete.  Defines chunks `<<colon-code>>`,
-> `<<semicolon-code>>`, `<<lit-code>>`, `<<bracket-lit-code>>`,
-> `<<bracket-lit-dict>>`; bodies match `000-seed.hex0` lines
-> 263–298, 359–367, and 587–626.
-
 ## Goal
 
 By the end of this chapter the reader can:

@@ -1,10 +1,5 @@
 # Chapter 28 — Expressions, Part 2: Primary, Unary, Assignment
 
-> **Status:** ✅ complete.  Contributes the chunks Ch 27's root
-> block expects but doesn't define — lvalue tracking, struct/
-> array postfix, primary, unary, ternary, assignment, and the
-> top-level driver.
-
 ## Goal
 
 By the end of this chapter the reader can:

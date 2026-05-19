@@ -1,10 +1,5 @@
 # Chapter 15 — Arithmetic, Logic, Comparison
 
-> **Status:** ✅ complete.  Defines chunks `<<plus-code>>`,
-> `<<nand-code>>`, `<<zeq-code>>`, `<<divide-code>>`,
-> `<<divide-dict>>`, `<<star-code>>`; bodies match `000-seed.hex0`
-> lines 153–170 and 649–683.
-
 ## Goal
 
 By the end of this chapter the reader can:
