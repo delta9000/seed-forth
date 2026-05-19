@@ -88,6 +88,27 @@ target, and patch the placeholder.  We met it in Ch 11 (Forth
 combinators) and Ch 27 (logical operators).  This chapter is
 where it gets used at scale.
 
+**How this chapter is organized.**  The chapter has two big
+sections.  Section §1 is the source listing — the full 800-line
+slab of `110-cc-decl.fth` that defines `cc-parse-stmt` and all
+its specialised sub-parsers.  Reading §1 once gives you the
+shape; you don't have to absorb it all.  Section §2 *walks the
+listing* statement by statement: `cc-parse-if`, `cc-parse-while`,
+`cc-parse-for`, `cc-parse-do-while`, `cc-parse-switch`,
+`cc-parse-break`/`continue`, `cc-parse-goto` and labels, then
+the dispatcher `cc-parse-stmt` and the compound-statement parser.
+If you want only one statement (say, how `for` is compiled), find
+its subsection in §2 and read forward; the listing in §1 is the
+canonical source the subsection is paraphrasing.
+
+> The dispatch through `cc-parse-stmt-vec` is a trampoline
+> pattern: the dispatcher fills in its function pointers from a
+> table Ch 31 sets up.  Ch 31 (functions and scope) is where the
+> trampoline gets populated and where you'll see the matching
+> `cc-parse-stmt` call site.  This chapter explains the
+> statements themselves; Ch 31 explains how they get invoked
+> from a function body.
+
 ## 1. The source listing
 
 ```forth file=110-cc-decl.fth

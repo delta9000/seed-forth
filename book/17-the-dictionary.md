@@ -82,6 +82,18 @@ you want for shadowing: redefining `dup` later in the source pushes
 a new entry whose name matches the lookup first, and the original
 becomes invisible.
 
+**How this chapter is organized.**  The chapter has three logical
+units packed together.  *Dictionary core* (§§1–4) is the header
+layout, lookup, and the two primitives that build entries (`here`,
+`,`) plus the one that runs them (`execute`).  *The token reader
+and sysvar accessors* (§§5–7) covers `read_word`, `state`,
+`latest`, and `tick` — the support layer that lets the REPL feed
+the dictionary at parse time.  *The actual dictionary entries*
+(§§8–9) lists the entries the seed bakes in: the 32 primitives'
+headers and the few late entries that depend on `read_word`.  If
+you only want the lookup algorithm, §§1–2 are self-contained; if
+you only want how the REPL connects to the dictionary, skip to §5.
+
 ## 1. The header layout
 
 Each dictionary entry is:

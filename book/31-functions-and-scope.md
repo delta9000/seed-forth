@@ -80,6 +80,23 @@ list, prologue, statement body, and epilogue together; the
 top-level driver coordinates the whole compilation and ties
 the entry stub to `main`.
 
+**How this chapter is organized.**  Section §1 is the source
+listing — the 1,300-line tail of `110-cc-decl.fth` from
+`cc-parse-call` through `cc-main`'s entry stub.  As with Ch 30,
+you read §1 once for shape, then return to it as the later
+sections walk specific pieces.  The walks split into three
+groups.  *Function machinery* (§§2–4) covers call codegen,
+parameter parsing with register-spill, and function definitions
+with the prologue/epilogue glue that wires Ch 26's call
+convention into the body.  *Top-level declarators* (§§5–7) covers
+enums, typedefs, top-level forms that elide to nothing, and
+file-scope globals with their deferred vaddr fixups.  *The
+program* (§8) covers the entry stub at `0x400000`, the
+top-level driver `cc-parse-program` that loops over file-scope
+declarations, and how the executable is finalised.  If you want
+to know how a single function gets compiled, read §§2–4.  If you
+want to know how the *whole* binary gets assembled, read §8.
+
 ## 1. The source listing
 
 ```forth file=110-cc-decl.fth

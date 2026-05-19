@@ -82,6 +82,20 @@ a load — the small piece of compiler-side state that makes the
 parser handle `*p = q;` and `p[i] = c;` and `head->next->prev`
 without each one needing a separate code path.
 
+**How this chapter is organized.**  Section §1 establishes the
+lvalue-tracking machinery the rest of the chapter relies on.
+Sections §§2–4 are the *recursive-descent floor*: struct fields,
+array indexing, and `cc-parse-primary` — the leaf parser that
+handles identifiers, literals, parenthesised sub-expressions, and
+the postfix chain (`.field`, `->field`, `[idx]`, `(args)`,
+`++`/`--`).  Sections §§5–7 are the *right-associative tail*:
+unary prefix operators (§5), the ternary `?:` (§6), and the
+assignment operators (§7).  Sections §§8–9 are the top-level
+driver `cc-parse-expr` and a worked walk through a multi-stage
+expression that touches every layer.  Readers who already know
+expression parsing can use this chapter as a reference: each
+section corresponds to one C grammar production.
+
 ## 1. Lvalue tracking: five globals, three kinds
 
 ```forth chunk=expr-lvalue
