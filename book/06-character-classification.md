@@ -1,7 +1,8 @@
 # Chapter 6 — Character Classification
 
-> **Status:** stub.  Canonical blocks below cover `010-lib.fth`
-> lines 63–86.  Prose goes between them.
+> **Status:** ✅ complete.  Prose covers every section-plan beat; both
+> Try-it paths (gforth and seed-forth) verified.  Canonical blocks
+> cover `010-lib.fth` lines 63–86.
 
 ## Goal
 
@@ -42,28 +43,171 @@ By the end of this chapter the reader can:
   (`050-cc-lex.fth`, Ch 23).
 - The seed's `/` primitive in x86-64 — Part II, Ch 15.
 
-## Section plan
+---
 
-1. **Why classifiers matter.**  Every lexer in this codebase calls
-   `digit?`, `alpha?`, `space?` thousands of times.  Cheap classifiers
-   are a lexer's whole budget.
-2. **The range-check trick.**  Walk `(c - 48) / 10 == 0`:
-   - `c == '5' == 53`: `(53 - 48) / 10 == 0`, then `0= == -1`.  ✓
-   - `c == 'A' == 65`: `(65 - 48) / 10 == 1`, then `0= == 0`.  ✓
-   - `c == 0`:   `(0 - 48)` underflows to `2^64 - 48`, divides to
-     `~1.84e18`, then `0= == 0`.  ✓
-   Three branchless tokens, one truth value.
-3. **`digit?`, `alpha-lower?`, `alpha-upper?`.**  Same idiom with
-   different `base`/`range` pairs.  Note that `alpha?` then ORs the
-   two case-classifiers together.
-4. **`space?`: four-way OR.**  Read the chained `over [lit] N - 0=
-   or` pattern.  Each iteration produces a flag, ORs it into the
-   accumulator that started as `dup [lit] 32 - 0=`.  Trace stack
-   shape at each step.
-5. **What's not here.**  ASCII control-char detection, punctuation
-   classes, locale-aware predicates.  None of them matter for a C
-   tokenizer; the lexer in Ch 23 handles punctuation as a separate
-   token class instead.
+A lexer is, at its core, a loop that asks "what kind of character is
+this?" for every byte of input.  When the C compiler in Part III
+reads a 600-line `.c` file, it asks that question several thousand
+times.  The cost of each call adds up, so the classifiers want to be
+fast — ideally branch-free, ideally a handful of tokens.  This
+chapter shows the three-token range-check trick that makes them so.
+
+## 1. Why classifiers matter
+
+The whole shape of a lexer is `read a byte; classify it; dispatch.`
+The dispatch is rarely the hot path — keywords, punctuation, and
+identifiers all flow through it once each.  The classification, by
+contrast, runs on *every* byte: every space between tokens, every
+character of every identifier, every digit of every number.  If
+`digit?` takes ten tokens, you've slowed the lexer by an order of
+magnitude on number-heavy input.  If it takes three, you've spent the
+budget where it matters.
+
+There's a second reason classifiers are worth obsessing over.  The
+seed's lexer is written in Forth and compiled by the seed's own
+compiler.  Every classifier call is a CALL instruction in the
+output; every token inside the classifier is part of its body.
+Shorter classifiers mean a shorter compiled lexer, which means a
+smaller binary, which feeds back into the byte budget we keep talking
+about.  Three-token classifiers are an aesthetic and a performance
+choice at once.
+
+## 2. The range-check trick
+
+The idiom is:
+
+```
+( c -- flag )   c base - range / 0=
+```
+
+Read it as: subtract `base` from `c`, divide by `range`, test if zero.
+The result is true exactly when `c ∈ [base, base+range)`.  Let's see
+why, walking three cases through `digit?  ( c -- )  [lit] 48 -
+[lit] 10 / 0= ;` (digits are `'0'..'9'` = ASCII 48..57):
+
+- `c == '5' == 53`: `53 - 48 == 5`; `5 / 10 == 0`; `0=` → `-1`.  ✓ digit.
+- `c == 'A' == 65`: `65 - 48 == 17`; `17 / 10 == 1`; `0=` → `0`.  ✓ not a digit.
+- `c == 0`: `0 - 48` underflows to `2^64 - 48 ≈ 1.84×10^19`; dividing
+  that by 10 leaves a huge number; `0=` → `0`.  ✓ not a digit.
+
+The third case is the load-bearing one.  In a signed-arithmetic
+language you'd worry that `0 - 48 == -48` and `-48 / 10 == -4` (or
+`-5`, depending on rounding) — non-zero, so `0=` still returns 0,
+fine.  But the seed's `/` is the x86 `DIV` instruction, which is
+*unsigned*.  Negative values reinterpreted as unsigned become huge,
+the division still produces a huge quotient, and `0=` still gives 0.
+Both interpretations land on the same answer.  This isn't a happy
+accident: the seed authors chose unsigned `/` partly so this trick
+would keep working without sign-juggling.
+
+The trick generalises.  Any contiguous range `[base, base+range)`
+becomes a three-token classifier by plugging in the right two
+literals.  No conditionals, no comparisons, no temporaries.
+
+## 3. `digit?`, `alpha-lower?`, `alpha-upper?`, `alpha?`
+
+Three classifiers fall out of the trick with no further work:
+
+```forth
+: digit?         [lit] 48 - [lit] 10 / 0= ;     \ '0'..'9'
+: alpha-lower?   [lit] 97 - [lit] 26 / 0= ;     \ 'a'..'z'
+: alpha-upper?   [lit] 65 - [lit] 26 / 0= ;     \ 'A'..'Z'
+```
+
+Each is the same three-token shape with a different `(base, range)`
+pair: `(48, 10)` for digits, `(97, 26)` for lowercase, `(65, 26)` for
+uppercase.  The ranges are chosen to cover the relevant ASCII block
+exactly — 26 lowercase letters, 26 uppercase, 10 digits.
+
+`alpha?` is the union of upper and lower:
+
+```forth
+: alpha?  dup alpha-lower? swap alpha-upper? or ;
+```
+
+Trace it on input `( c -- )`:
+
+| token             | stack                                  |
+|-------------------|----------------------------------------|
+| (in)              | `c`                                    |
+| `dup`             | `c c`                                  |
+| `alpha-lower?`    | `c (c-is-lower?)`                      |
+| `swap`            | `(c-is-lower?) c`                      |
+| `alpha-upper?`    | `(c-is-lower?) (c-is-upper?)`          |
+| `or`              | `c-is-lower? ∨ c-is-upper?`            |
+
+The `dup` is the key move.  We need `c` twice — once for each
+sub-classifier — so we copy it first, run the first classifier,
+shuffle the copy of `c` up with `swap`, run the second classifier,
+then `or` the two flags.  Identical pattern shows up wherever a
+compound predicate is built from independent tests.
+
+## 4. `space?`: four-way OR
+
+Whitespace in C source means space (32), tab (9), newline (10), or
+carriage return (13).  None of those are contiguous, so the
+range-check trick doesn't apply.  Instead the classifier chains four
+single-codepoint equality tests:
+
+```forth
+: space?  dup [lit] 32 - 0= over [lit]  9 - 0= or
+          over [lit] 10 - 0= or  swap [lit] 13 - 0= or ;
+```
+
+A single-codepoint equality test is just `c X - 0=`: subtract the
+target, check if zero.  Four of those, ORed together.
+
+The stack-management here is the subtle part because we need `c` four
+times.  Trace it with `c` on top:
+
+| token            | stack                                    |
+|------------------|------------------------------------------|
+| (in)             | `c`                                      |
+| `dup`            | `c c`                                    |
+| `[lit] 32 -`     | `c (c-32)`                               |
+| `0=`             | `c (c==32?)`                             |
+| `over`           | `c (c==32?) c`                           |
+| `[lit] 9 -`      | `c (c==32?) (c-9)`                       |
+| `0=`             | `c (c==32?) (c==9?)`                     |
+| `or`             | `c (c∈{32,9}?)`                          |
+| `over`           | `c (c∈{32,9}?) c`                        |
+| `[lit] 10 -`     | `c (c∈{32,9}?) (c-10)`                   |
+| `0=`             | `c (c∈{32,9}?) (c==10?)`                 |
+| `or`             | `c (c∈{32,9,10}?)`                       |
+| `swap`           | `(c∈{32,9,10}?) c`                       |
+| `[lit] 13 -`     | `(c∈{32,9,10}?) (c-13)`                  |
+| `0=`             | `(c∈{32,9,10}?) (c==13?)`                |
+| `or`             | `(c∈{32,9,10,13}?)`                      |
+
+The first test uses `dup` (keep `c` underneath for next round), the
+middle two use `over` (still need `c` after this round), and the last
+uses `swap` (we're done with `c`; bring it up to be consumed).  That
+asymmetry — `dup` once, `over` twice, `swap` once — is the signature
+of "use a value N times" in raw Forth.  It's the same shape Ch 8
+codifies as the `nip`/`rot`/`2dup` family.
+
+## 5. What's not here
+
+The seed's classifier set has only what the C lexer needs.  No
+`punct?`, no `printable?`, no `xdigit?`, no `cntrl?` — those either
+fall out as exercises or are folded into the lexer's
+token-class-dispatch code instead.
+
+In particular, **C punctuation** (`+`, `-`, `*`, `/`, `(`, `)`, `;`,
+`,`, etc.) is handled in Ch 23 by direct codepoint comparison inside
+the lexer, not by a classifier.  That's because the lexer needs to
+know *which* punctuation character it saw, not just "yes, it's
+punctuation" — the binary flag isn't useful.  When you only need to
+classify, the trick from this chapter applies; when you need to
+identify, you reach for the lexer's switch-style dispatch.
+
+There's also no locale awareness here.  ASCII is the only encoding
+the seed deals with — both `010-lib.fth` and the C source it compiles
+in Part III are 7-bit ASCII.  Everything from `0` to `127` is in
+range; everything above is treated as bytes-of-an-identifier or
+syntax error.  No UTF-8, no extended Latin, no character properties.
+A self-bootstrapping compiler doesn't need them, and adding them
+would multiply both the byte cost and the conceptual surface area.
 
 ## Canonical source
 
@@ -96,20 +240,52 @@ By the end of this chapter the reader can:
 
 ## Try it
 
-```forth
-\ In the gforth playground:
-: nand and invert ;  : [lit] ;
-: -  dup nand 1 + + ;
-: digit?  48 - 10 / 0= ;
-: alpha-lower?  97 - 26 / 0= ;
-: alpha-upper?  65 - 26 / 0= ;
-: alpha?  dup alpha-lower? swap alpha-upper? or ;
+### The fast path: gforth
 
-char 5 digit?    .   \ -1
-char A digit?    .   \ 0
-char A alpha?    .   \ -1
-char ! alpha?    .   \ 0
+Save as `/tmp/ch6.fth` and run `gforth book/playground.fth /tmp/ch6.fth`:
+
+```forth
+: digit?         48 - 10 / 0= ;
+: alpha-lower?   97 - 26 / 0= ;
+: alpha-upper?   65 - 26 / 0= ;
+: alpha?         dup alpha-lower? swap alpha-upper? or ;
+: space?         dup 32 - 0= over 9 - 0= or
+                 over 10 - 0= or  swap 13 - 0= or ;
+
+." 5 digit? = "  char 5 digit? . cr        \ -1
+." A digit? = "  char A digit? . cr        \  0
+." A alpha? = "  char A alpha? . cr        \ -1
+." ! alpha? = "  char ! alpha? . cr        \  0
+." sp space? = " bl space?      . cr       \ -1
+." TAB space? = " 9 space?      . cr       \ -1
+." X space? = "  char X space?  . cr       \  0
+bye
 ```
+
+The seed's `[lit]` is a no-op in standard Forth, so the playground
+omits it; numbers parse directly.  Other than that the definitions
+are byte-identical to the seed source.
+
+### The full path: build the seed
+
+```sh
+./build.sh
+{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+  echo '[lit] 53 digit?  0= [lit] 49 + emit'      \ true  -> '1'
+  echo '[lit] 65 digit?  0= [lit] 49 + emit'      \ false -> '0'
+  echo '[lit] 65 alpha?  0= [lit] 49 + emit'      \ true  -> '1'
+  echo '[lit] 33 alpha?  0= [lit] 49 + emit'      \ false -> '0'
+  echo '[lit] 32 space?  0= [lit] 49 + emit'      \ true  -> '1'
+  echo '[lit] 88 space?  0= [lit] 49 + emit'      \ false -> '0'
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+```
+
+The seed has no `.` for printing decimals.  The trick `0= [lit] 49 +
+emit` turns a Forth flag into the ASCII character `'1'` (true) or
+`'0'` (false): an extra `0=` flips `-1` to `0` and `0` to `-1`, then
+adding 49 lands on `49` (`'1'`) or `48` (`'0'`).  The expected output
+is `101010` — six classifications, alternating true and false in the
+test order above.
 
 ## Exercises
 

@@ -1,8 +1,8 @@
 # Chapter 3 — Logic from One Primitive
 
-> **Status:** 📝 model chapter — full prose.  Use this as the
-> reference for what a finished chapter looks like.  Canonical
-> blocks below cover `010-lib.fth` lines 22–30.
+> **Status:** ✅ complete.  Prose covers every section-plan beat; both
+> Try-it paths (gforth and seed-forth) verified.  Canonical blocks
+> cover `010-lib.fth` lines 22–30.  Model chapter — use as reference.
 
 ## Goal
 

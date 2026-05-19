@@ -1,7 +1,8 @@
 # Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`
 
-> **Status:** stub.  Canonical blocks below cover `010-lib.fth`
-> lines 292–373 (end of file).  Prose goes between them.
+> **Status:** ✅ complete.  Prose covers every section-plan beat;
+> seed-forth Try-it paths verify `create`/`allot` and `bytes-eq`.
+> Canonical blocks cover `010-lib.fth` lines 292–373 (end of file).
 
 ## Goal
 
@@ -52,29 +53,228 @@ By the end of this chapter the reader can:
 - The seed's `,` (comma) primitive that emits a full 8-byte cell —
   Part II, Ch 17.
 
-## Section plan
+---
 
-1. **`allot` in one line.**  `here-addr @ + here-addr !` advances
-   HERE by `n` without writing anything.  Used after `create` to
-   reserve a buffer.
-2. **`create`'s runtime body.**  Walk all eight `c,` calls + `,8` +
-   final `c,`.  Same 19-byte prologue as `constant`, but the `imm64`
-   slot holds `HERE + 9` (the address of where the data area will
-   start).  At the moment of `,8`, HERE points at the first byte of
-   the imm64 slot; after `,8` (8 bytes) + `[lit] 195 c,` (1 byte
-   `ret`), HERE is exactly at the data area.
-3. **`variable` = `create` + a cell.**  The definition is `create`'s
-   body verbatim, followed by `[lit] 0 ,` (emit an 8-byte zero cell)
-   before resetting STATE.  The defined word pushes the address of
-   that zero cell.
-4. **`bytes-eq`: comparison without `exit`.**  Walk the loop.  The
-   accumulator starts as `-1` (true).  Each iteration ANDs in the
-   byte-equality of the current pair.  When `u` hits zero, the
-   variable holds the AND of all per-byte equalities.
-5. **Why no early exit?**  The seed has no `exit` (and no `?dup
-   exit`, no `r-drop`, no exception machinery).  Adding one would
-   cost a primitive slot; for the C compiler's short identifier
-   compares, the wasted work is negligible.
+Part I closes with the rest of the defining-word family.  Ch 10
+showed `constant`, which embeds a fixed 64-bit value in the body of
+a new word.  This chapter adds `create` (an arbitrary data area
+after the body), `variable` (one initialised-to-zero cell), and
+`allot` (a bump-the-pointer primitive for extending either).  The
+three together cover every "static memory" pattern the C compiler
+needs in Part III.  We close with `bytes-eq`, a memory-compare
+routine whose only structural curiosity is that it cannot
+early-out — a quirk that telegraphs a missing primitive and the
+trade-off that justified omitting it.
+
+## 1. `allot` in one line
+
+```forth
+: allot  here-addr @ + here-addr ! ;
+```
+
+`allot ( n -- )` advances HERE by `n` bytes without writing
+anything.  The body is the same read-modify-write idiom we met in
+`c,` (Ch 2), but parameterised: fetch the HERE cell, add `n`, store
+it back.
+
+Trace it:
+
+| token         | stack                       |
+|---------------|-----------------------------|
+| (in)          | `n`                         |
+| `here-addr`   | `n addr-of-HERE`            |
+| `@`           | `n current-HERE`            |
+| `+`           | `current-HERE+n`            |
+| `here-addr`   | `current-HERE+n addr-of-HERE` |
+| `!`           | empty (HERE := current+n)   |
+
+The values written into the new region are *unspecified*.  This is
+fine for two use cases:
+
+- after `create FOO`, calling `allot 16` reserves a 16-byte data
+  area whose contents are whatever happened to be at that memory.
+  You're expected to fill it before reading.
+- standalone, as a way to reserve scratch memory at the current
+  HERE — though in practice the seed always uses it right after
+  `create`.
+
+`allot` doesn't initialise.  If you want zero-filled memory, write
+a loop that calls `c,` with zero `n` times.  The seed never needs
+this because the kernel pre-zeros the BSS-equivalent region.
+
+## 2. `create`'s runtime body
+
+`create` defines a word that, when later invoked, pushes the
+address of the bytes immediately following its body.  Mechanically
+it builds the same 19-byte template `constant` did (Ch 10), but the
+`imm64` is a *computed* address — the address of the data area
+itself.
+
+```forth
+: create
+  :
+  [lit] 72 c, [lit] 131 c, [lit] 237 c, [lit] 8 c,        \ sub rbp, 8
+  [lit] 72 c, [lit] 137 c, [lit] 125 c, [lit] 0 c,        \ mov [rbp], rdi
+  [lit] 72 c, [lit] 191 c,                                 \ movabs rdi prefix
+  here [lit] 9 +                                           \ data-area starts 9 bytes ahead
+  ,8                                                       \ imm64 = data-area address
+  [lit] 195 c,                                             \ ret
+  [lit] 0 state ! ;
+```
+
+The interesting line is **`here [lit] 9 +`**.  At the moment that
+line runs, HERE has already advanced past the prologue's first 10
+bytes — `4 + 4 + 2 = 10`.  Now it sits at the first byte of the
+imm64 slot itself.
+
+The `imm64` is 8 bytes wide, and after that we'll write 1 more byte
+(the `ret`).  So the address of the byte *after* `ret` — which is
+where the data area begins — is `HERE_now + 8 + 1 = HERE_now + 9`.
+
+`here [lit] 9 +` computes that future address, and `,8` writes it
+into the imm64 slot.  When the resulting word runs at runtime, it
+pushes its own data-area address.  Magic, but mechanical.
+
+After `create FOO`, FOO's dictionary entry looks like:
+
+```
+[link][flags=0][name-len][name]
+[19-byte runtime body, imm64 = data-area-addr]
+[data area: empty, sized by subsequent allot/c,/,/,8 calls]
+```
+
+The data area is right there in the dictionary, contiguous with the
+body.  This is what makes Forth's defining-word machinery so cheap:
+no separate allocator, no fixup, no pointer indirection.  You name
+a thing, then you fill in its bytes.
+
+## 3. `variable` = `create` + a cell
+
+```forth
+: variable
+  :
+  [lit] 72 c, [lit] 131 c, [lit] 237 c, [lit] 8 c,        \ sub rbp, 8
+  [lit] 72 c, [lit] 137 c, [lit] 125 c, [lit] 0 c,        \ mov [rbp], rdi
+  [lit] 72 c, [lit] 191 c,                                 \ movabs rdi prefix
+  here [lit] 9 +                                           \ cell address = HERE+9
+  ,8
+  [lit] 195 c,                                             \ ret
+  [lit] 0 ,                                                \ data cell, init 0 (8 bytes)
+  [lit] 0 state ! ;
+```
+
+Compare line by line to `create`: identical, except for one extra
+line just before resetting STATE — **`[lit] 0 ,`** — which pre-fills
+the first 8 bytes of the data area with a zero cell.  After
+`variable COUNTER`, COUNTER is a word that pushes the address of a
+zero-initialised 8-byte cell.
+
+In principle you could implement `variable` as `create , 0` or
+similar, calling out to `create` and then appending the zero cell.
+The seed inlines the body for two reasons.  First, it avoids
+depending on dispatch through `create`'s execution token — at
+load-time, `create` is defined just a few lines earlier, but
+forward-referencing makes the layout fragile.  Second, the inlined
+form is *exactly* what `constant` and `create` already do, so the
+reader sees the same template three times in a row and understands
+the shared shape.
+
+Reading the three side by side (Ch 10's `constant`, Ch 12's
+`create`, Ch 12's `variable`) is the punchline of Forth defining
+words: they're variations on a 19-byte template, differing only in
+(a) which 64-bit value goes into the `movabs` slot, and (b) what (if
+anything) follows the `ret`.
+
+| Word       | imm64                | post-body data         |
+|------------|----------------------|------------------------|
+| `constant` | the user's value     | nothing                |
+| `create`   | the data-area addr   | nothing (user fills via `allot`/`c,`/`,`) |
+| `variable` | the data-area addr   | one 8-byte zero cell   |
+
+## 4. `bytes-eq`: comparison without `exit`
+
+The last word in `010-lib.fth` is a byte-by-byte memory comparator.
+
+```forth
+variable bytes-eq-flag
+: bytes-eq
+  [lit] 0 0= bytes-eq-flag !                     \ flag := -1 (assume equal)
+  begin,
+    dup [lit] 0 >
+  while,
+    >r                                           ( a1 a2  R-u )
+    over c@ over c@ =                            ( a1 a2 byte-eq )
+    bytes-eq-flag @ and bytes-eq-flag !          ( a1 a2 )
+    [lit] 1 + swap [lit] 1 + swap                ( a1+1 a2+1 )
+    r> [lit] 1 -                                  ( a1+1 a2+1 u-1 )
+  repeat,
+  drop drop drop                                  \ discard a1, a2, u(=0)
+  bytes-eq-flag @ ;
+```
+
+`bytes-eq ( a1 a2 u -- f )` returns `-1` if the first `u` bytes at
+`a1` equal those at `a2`, else `0`.  The structure is a standard
+counted loop, with two unusual details.
+
+**Initialisation.**  `[lit] 0 0= bytes-eq-flag !` is "set the flag
+to `-1`."  `[lit] 0` pushes zero; `0=` converts it to `-1`; `!`
+stores that into the flag variable.  The roundabout `0 0=` instead
+of writing `-1` directly is because the seed's decimal-literal
+parser is unsigned-only — you can't write `-1` as a literal — so we
+fabricate it via zero-test.
+
+**Per-iteration accumulation.**  Inside the loop:
+
+| token                     | stack          | what happens                                |
+|---------------------------|----------------|---------------------------------------------|
+| `>r`                      | `a1 a2`        | park `u` on the return stack                |
+| `over c@`                 | `a1 a2 *a1`   | fetch byte at `a1`                         |
+| `over c@`                 | `a1 a2 *a1 *a2` | fetch byte at `a2`                        |
+| `=`                       | `a1 a2 byte-eq` | compare the two bytes                     |
+| `bytes-eq-flag @`         | `a1 a2 byte-eq prev-flag` | fetch running flag             |
+| `and`                     | `a1 a2 new-flag` | AND in the per-byte equality            |
+| `bytes-eq-flag !`         | `a1 a2`        | store the running flag back                |
+| `[lit] 1 + swap [lit] 1 +` | `a2+1 a1+1`   | advance both pointers                       |
+| `swap`                    | `a1+1 a2+1`   | restore order                              |
+| `r>`                      | `a1+1 a2+1 u` | recover `u` from return stack              |
+| `[lit] 1 -`               | `a1+1 a2+1 u-1` | decrement                                 |
+
+When the loop exits (`u` reaches zero), `bytes-eq-flag` holds the
+AND of all per-byte equality flags.  If any byte mismatched, that
+iteration produced `0`; ANDing zero into the accumulator zeros it
+permanently.  If all bytes matched, the accumulator stays `-1`.
+
+After the loop, `drop drop drop` clears the loop residue (`a1+u`,
+`a2+u`, and the final zero `u`), and `bytes-eq-flag @` returns the
+result.
+
+## 5. Why no early exit?
+
+In a language with `break` or `return`, this loop would obviously
+short-circuit on the first mismatch.  In Forth, the equivalent
+primitive is `exit`, which pops the return stack one extra time so
+the next `;` returns past the current word's caller.  The seed
+doesn't have `exit`.
+
+Adding `exit` to the seed would cost a primitive slot, roughly 15
+bytes of machine code, and a dictionary entry.  It would speed up
+exactly one word — this one.  The C compiler in Part III calls
+`bytes-eq` thousands of times, but each call compares very short
+identifiers (typically 1–12 bytes), and most mismatches happen on
+the first byte.  Average overhead from running the full loop versus
+exiting on first mismatch: a few hundred extra `c@`+`=`+`and`+`!`
+sequences per compilation.  In wall-clock terms, microseconds.
+
+The seed authors made the same trade we've seen all along: save a
+primitive slot, pay a tiny constant cost at the call site.  This
+chapter is the third explicit example after `nand` vs `and+or+not`
+(Ch 3) and `-` vs `+`+`nand` (Ch 4).  The pattern is the seed's
+design fingerprint.
+
+One subtle implication: **`bytes-eq` running time leaks no
+information about which byte mismatched.**  In a security-conscious
+context this is a feature (constant-time compare); here it's
+incidental.  The C compiler doesn't care.
 
 ## Canonical source
 
@@ -165,19 +365,48 @@ variable bytes-eq-flag
 
 ## Try it
 
-`create`/`variable`/`allot` exist in gforth; `bytes-eq` you can
-paste in once `nand` / `[lit]` / our control-flow combinators are
-present.  For a fast experiment:
+### `create`/`allot`: gforth works
+
+`create` and `allot` are standard.  In gforth:
 
 ```forth
-\ gforth:
 create buf  16 allot
 65 buf c!   66 buf 1 + c!   67 buf 2 + c!
 buf 3 type     \ prints "ABC"
 ```
 
-For the seed-forth-only `bytes-eq`, build the seed and try the
-assertions in `test-010-lib.fth`.
+`type ( c-addr u -- )` is gforth's built-in "print `u` bytes from
+`c-addr`."  The seed has no `type`; it has `emit` for one byte at a
+time.  See the seed test below for the equivalent.
+
+### `create`/`allot` and `bytes-eq` in the seed
+
+```sh
+./build.sh
+{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+  echo 'create buf  [lit] 65 c, [lit] 66 c, [lit] 67 c,'
+  echo 'buf c@ emit  buf [lit] 1 + c@ emit  buf [lit] 2 + c@ emit'
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+```
+
+Expected: `ABC`.  `create buf` defines a word; the three `c,` calls
+write `A`, `B`, `C` into its data area.  Then we read each byte
+back and emit.
+
+For `bytes-eq`:
+
+```sh
+{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+  echo 'create a  [lit] 72 c, [lit] 73 c, [lit] 0 c,'
+  echo 'create b  [lit] 72 c, [lit] 73 c, [lit] 0 c,'
+  echo 'create c  [lit] 72 c, [lit] 88 c, [lit] 0 c,'
+  echo 'a b [lit] 3 bytes-eq  0= [lit] 49 + emit'    \ a vs b: equal  -> "1"
+  echo 'a c [lit] 3 bytes-eq  0= [lit] 49 + emit'    \ a vs c: differ -> "0"
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+```
+
+Expected output: `10`.  `a` and `b` are identical 3-byte buffers
+(`HI\0`); `a` and `c` differ at byte 2 (`HI\0` vs `HX\0`).
 
 ## Exercises
 

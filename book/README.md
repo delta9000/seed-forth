@@ -70,18 +70,18 @@ Status legend: ✏️ stub awaiting prose · 📝 prose in progress · ✅ done.
 
 | # | Chapter | Covers | Status |
 |---|---|---|---|
-| 1 | [Stacks and words](01-stacks-and-words.md) | RPN, stack-effect comments, the dictionary concept; `010-lib.fth` file header | 📝 |
-| 2 | [Code emission and the HERE pointer](02-code-emission-and-here.md) | `here-addr`, `c,` | ✏️ |
+| 1 | [Stacks and words](01-stacks-and-words.md) | RPN, stack-effect comments, the dictionary concept; `010-lib.fth` file header | ✅ |
+| 2 | [Code emission and the HERE pointer](02-code-emission-and-here.md) | `here-addr`, `c,` | ✅ |
 | 3 | [Logic from one primitive](03-logic-from-nand.md) | `and`, `or` | ✅ |
-| 4 | [The return stack: `over` and subtract](04-return-stack-over-subtract.md) | `over`, `-` | ✏️ |
-| 5 | [Talking to Linux: syscall6 wrappers](05-syscalls.md) | `open`, `read`, `write`, `close`, `die` | ✏️ |
-| 6 | [Character classification](06-character-classification.md) | `digit?`, `alpha?`, `space?` | ✏️ |
-| 7 | [Comparisons from unsigned division](07-comparisons-from-division.md) | `=`, `<>`, `<`, `>`, `<=`, `>=`, `neg-flag`, `2^63` | ✏️ |
-| 8 | [Stack shufflers](08-stack-shufflers.md) | `nip`, `rot`, `2dup`, `2drop` | ✏️ |
-| 9 | [Memory updates and cell writers](09-memory-and-cell-writers.md) | `+!`, `-!`, `,4`, `,8` | ✏️ |
-| 10 | [Immediacy and constants](10-immediacy-and-constants.md) | `immediate`, `constant` | ✏️ |
-| 11 | [Control-flow combinators *(climax)*](11-control-flow-combinators.md) | `branch-xt`, `0branch-xt`, `comma-call`, `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,` | ✏️ |
-| 12 | [`allot`, `create`, `variable`, `bytes-eq`](12-defining-words-and-bytes-eq.md) | the rest of `010-lib.fth` | ✏️ |
+| 4 | [The return stack: `over` and subtract](04-return-stack-over-subtract.md) | `over`, `-` | ✅ |
+| 5 | [Talking to Linux: syscall6 wrappers](05-syscalls.md) | `open`, `read`, `write`, `close`, `die` | ✅ |
+| 6 | [Character classification](06-character-classification.md) | `digit?`, `alpha?`, `space?` | ✅ |
+| 7 | [Comparisons from unsigned division](07-comparisons-from-division.md) | `=`, `<>`, `<`, `>`, `<=`, `>=`, `neg-flag`, `2^63` | ✅ |
+| 8 | [Stack shufflers](08-stack-shufflers.md) | `nip`, `rot`, `2dup`, `2drop` | ✅ |
+| 9 | [Memory updates and cell writers](09-memory-and-cell-writers.md) | `+!`, `-!`, `,4`, `,8` | ✅ |
+| 10 | [Immediacy and constants](10-immediacy-and-constants.md) | `immediate`, `constant` | ✅ |
+| 11 | [Control-flow combinators *(climax)*](11-control-flow-combinators.md) | `branch-xt`, `0branch-xt`, `comma-call`, `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,` | ✅ |
+| 12 | [`allot`, `create`, `variable`, `bytes-eq`](12-defining-words-and-bytes-eq.md) | the rest of `010-lib.fth` | ✅ |
 
 ### Part II — The seed VM
 
