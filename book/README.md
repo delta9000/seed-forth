@@ -123,10 +123,10 @@ chapters so the reader sees one coherent idea per chapter.
 
 ### Appendices
 
-- **A.** The 32 seed primitives — one-line reference card.
-- **B.** The memory map.
-- **C.** Reproducibility: the full hex0 → seed → M2-Planet chain.
-- **D.** Exercises with worked solutions.
+- **A.** [The 32 seed primitives](A1-32-seed-primitives.md) — one-line reference card.
+- **B.** [The memory map](A2-memory-map.md).
+- **C.** [Reproducibility: the full hex0 → seed → M2-Planet chain](A3-reproducibility-chain.md).
+- **D.** [Exercises with worked solutions](A4-worked-exercises.md).
 
 ## Companion docs
 
