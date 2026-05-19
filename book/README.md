@@ -108,18 +108,18 @@ chapters so the reader sees one coherent idea per chapter.
 
 | # | Chapter | Covers | Status |
 |---|---|---|---|
-| 21 | [Arena and I/O buffers](21-arena-and-io-buffers.md) | `020-cc-arena.fth`, `030-cc-io.fth` | ✏️ |
-| 22 | [The preprocessor](22-the-preprocessor.md) | `040-cc-prep.fth` | ✏️ |
-| 23 | [The lexer](23-the-lexer.md) | `050-cc-lex.fth` | ✏️ |
-| 24 | [Types and symbols](24-types-and-symbols.md) | `060-cc-types.fth`, `070-cc-sym.fth` | ✏️ |
-| 25 | [ELF emission and codegen, part 1](25-elf-and-codegen-part-1.md) | `080-cc-elf.fth`, `090-cc-emit.fth` (instructions) | ✏️ |
-| 26 | [Codegen, part 2: calls and locals](26-codegen-part-2.md) | the rest of `090-cc-emit.fth` | ✏️ |
-| 27 | [Expressions, part 1: precedence climbing](27-expressions-part-1.md) | `100-cc-expr.fth` (operators) | ✏️ |
-| 28 | [Expressions, part 2: assignment, postfix, struct access](28-expressions-part-2.md) | the rest of `100-cc-expr.fth` | ✏️ |
-| 29 | [Declarations: types and globals](29-declarations-types-globals.md) | `110-cc-decl.fth` (part 1) | ✏️ |
-| 30 | [Statements: if, while, for, return](30-statements-if-while-for-return.md) | `110-cc-decl.fth` (part 2) | ✏️ |
-| 31 | [Functions: parameters, locals, scope](31-functions-and-scope.md) | `110-cc-decl.fth` (part 3) | ✏️ |
-| 32 | [End to end: main and the bootstrap chain](32-main-and-bootstrap-chain.md) | `120-cc-main.fth` + `tests/cc/` | ✏️ |
+| 21 | [Arena and I/O buffers](21-arena-and-io-buffers.md) | `020-cc-arena.fth`, `030-cc-io.fth` | ✅ |
+| 22 | [The preprocessor](22-the-preprocessor.md) | `040-cc-prep.fth` | ✅ |
+| 23 | [The lexer](23-the-lexer.md) | `050-cc-lex.fth` | ✅ |
+| 24 | [Types and symbols](24-types-and-symbols.md) | `060-cc-types.fth`, `070-cc-sym.fth` | ✅ |
+| 25 | [ELF emission and codegen, part 1](25-elf-and-codegen-part-1.md) | `080-cc-elf.fth`, `090-cc-emit.fth` (instructions) | ✅ |
+| 26 | [Codegen, part 2: calls and locals](26-codegen-part-2.md) | the rest of `090-cc-emit.fth` | ✅ |
+| 27 | [Expressions, part 1: precedence climbing](27-expressions-part-1.md) | `100-cc-expr.fth` (operators) | ✅ |
+| 28 | [Expressions, part 2: assignment, postfix, struct access](28-expressions-part-2.md) | the rest of `100-cc-expr.fth` | ✅ |
+| 29 | [Declarations: types and globals](29-declarations-types-globals.md) | `110-cc-decl.fth` (part 1) | ✅ |
+| 30 | [Statements: if, while, for, return](30-statements-if-while-for-return.md) | `110-cc-decl.fth` (part 2) | ✅ |
+| 31 | [Functions: parameters, locals, scope](31-functions-and-scope.md) | `110-cc-decl.fth` (part 3) | ✅ |
+| 32 | [End to end: main and the bootstrap chain](32-main-and-bootstrap-chain.md) | `120-cc-main.fth` + `tests/cc/` | ✅ |
 
 ### Appendices
 
