@@ -278,6 +278,16 @@ Ch 24.
 bootstrappable.org tracking efforts to reduce binary-blob
 dependence in software builds.
 
+**`cc-out`** — the output path of our C compiler.  The driver in
+`120-cc-main.fth` is hard-coded to write to `/tmp/cc-out`; tests
+and the bootstrap chain copy or rename this file as needed.  See
+Ch 32.
+
+**Entry stub** — the 26-byte prologue at vaddr `0x400078` that our
+compiled binaries begin with: argc/argv setup, `call <main>`, exit
+syscall.  Emitted by `cc-emit-entry-stub` in `110-cc-decl.fth`.
+Ch 31 §8.
+
 **Full Source Bootstrap** — the Guix project's chain from ~512
 bytes of hex up to a self-hosting GCC, entirely from auditable
 source.  This book covers the segment from stage0's `hex0-seed`
@@ -286,6 +296,28 @@ through M2-Planet's output.
 **hex0** — a minimal assembler format: each line is hex bytes plus
 optional `;`-introduced comments.  No labels, no macros.  Assembled
 by stage0-posix's `hex0-seed`.
+
+**hex2** — a slightly richer hex assembler in the stage0 family
+that supports labels and rel32 patching.  M1 output is fed to hex2
+to produce flat binaries downstream of M2-Planet.
+
+**M1** — the macro-assembly format that M2-Planet emits.  Each
+M2-Planet output is a sequence of mnemonic lines (`PUSH_RAX`, `ADD
+RAX,RCX`, label definitions, etc.) consumed by `M1` (a small
+assembler in mescc-tools) to produce hex2-input.
+
+**Macro table** — the preprocessor's parallel-array storage for
+`#define`s: 256 entries × name/body/length triples plus a 16 KiB
+name pool.  Ch 22 §4.
+
+**mescc-tools** — the small toolchain (`M1`, `hex2`, `blood-elf`,
+`get_machine`) that turns M2-Planet's `.M1` output into a working
+ELF binary.  Maintained at github.com/oriansj/mescc-tools.
+
+**Monolith** — the concatenated single-file form of M2-Planet's C
+source produced by `tests/cc/build-m2planet-monolith.sh`.  Our
+compiler has no `#ifndef`/`#endif` support, so includes must be
+inlined manually before compilation.  See Ch 32 §4.
 
 **Reproducible build** — same inputs produce byte-identical outputs.
 Required for any link in the bootstrap chain to be auditable.

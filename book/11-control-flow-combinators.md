@@ -236,20 +236,23 @@ exactly where the user's code resumed after `then,`.  Conditional
 forward branch achieved.
 
 Trace a tiny example.  `: maybe  if, [lit] 65 emit then, ;` where
-the caller pushes a flag.  Compile-time byte stream into HERE:
+the caller pushes a flag.  `[lit] 65` compiles to `CALL lit` (5 bytes)
+plus the inline 8-byte cell holding 65 — 13 bytes in all — and `emit`
+compiles to a 5-byte `CALL`.  So the byte stream HERE accumulates is:
 
 ```
-[at HERE+0]  E8 ?? ?? ?? ??     ; CALL 0branch (rel32 to be filled)
-[at HERE+5]  ?? ?? ?? ?? ?? ?? ?? ??  ; 8-byte target slot (zero-filled)
-[at HERE+13] <body of [lit] 65 emit>
-[then,  patches the slot at HERE+5 to contain HERE+13+|emit|]
+[at HERE+0]   E8 ?? ?? ?? ??               ; CALL 0branch (rel32, patched by if,)
+[at HERE+5]   ?? ?? ?? ?? ?? ?? ?? ??      ; 8-byte target slot (zero-filled)
+[at HERE+13]  E8 ?? ?? ?? ?? <8-byte cell> ; CALL lit + literal 65 (13 bytes)
+[at HERE+26]  E8 ?? ?? ?? ??               ; CALL emit (5 bytes)
+[at HERE+31]  then, patches the slot at HERE+5 to contain HERE+31]
 ```
 
 If the flag is zero at runtime, `0branch` reads the slot at HERE+5
-(which `then,` filled with the address just past `emit`) and jumps
-there — skipping the `[lit] 65 emit` entirely.  If the flag is
-non-zero, `0branch` skips its own slot and falls through into
-`[lit] 65 emit`.
+(which `then,` filled with the address HERE+31, just past `emit`) and
+jumps there — skipping the `[lit] 65 emit` entirely.  If the flag is
+non-zero, `0branch` skips its own slot and falls through into the
+literal-push and emit.
 
 ## 6. `else,`: chained fixups
 
@@ -363,33 +366,33 @@ Compile this:
   repeat, drop ;
 ```
 
-Walk every combinator:
+Walk every combinator.  Recall the byte budget per compiled token:
+each ordinary word compiles to a 5-byte `CALL`, and `[lit] N`
+compiles to `CALL lit` (5 bytes) plus an 8-byte cell holding `N` —
+13 bytes total.
 
 1. `:` parses the name `cnt`, builds the dictionary header, sets
    STATE=1.  HERE is at the start of `cnt`'s body — call it `B`.
 2. `begin,` runs immediately: pushes `B` to the data stack.  Stack: `( B )`.
-3. `dup [lit] 0 >` is compiled normally — emits CALLs to `dup`,
-   `lit`, `0`, `>`.  HERE advances by 4×5 = 20 bytes.  Now HERE = `B+20`.
+3. `dup [lit] 0 >` is compiled normally — `dup` (5) + `[lit] 0` (13)
+   + `>` (5) = 23 bytes.  Now HERE = `B+23`.
 4. `while,` runs immediately.  Stack on entry: `( B )`.
-   - `0branch-xt comma-call` emits 5 bytes.  HERE = `B+25`.
-   - `here [lit] 0 ,` pushes `B+25` and reserves 8 bytes.  HERE = `B+33`.
-   - Stack: `( B B+25 )` — back-target, then loop-exit fixup.
-5. `dup [lit] 48 + emit [lit] 1 -` compiles to roughly 30 bytes
-   of CALLs.  HERE = `B+63`.
-6. `repeat,` runs immediately.  Stack on entry: `( B B+25 )`.
-   - `swap` → `( B+25 B )`.
-   - `branch-xt comma-call` emits 5 bytes (HERE=`B+68`), leaving
-     `( B+25 B )` since `comma-call` consumed `branch-xt`.
-
-     Wait — let's re-trace carefully.  `branch-xt comma-call` first
-     pushes `branch-xt` (the captured constant value), then
-     `comma-call` pops it.  Net effect on the underlying stack:
-     unchanged from `( B+25 B )`.
+   - `0branch-xt comma-call` emits 5 bytes.  HERE = `B+28`.
+   - `here [lit] 0 ,` pushes `B+28` (the address of the fixup slot)
+     and reserves 8 bytes for the slot.  HERE = `B+36`.
+   - Stack: `( B B+28 )` — back-target, then loop-exit fixup.
+5. `dup [lit] 48 + emit [lit] 1 -` compiles to 5 + 13 + 5 + 5 + 13 +
+   5 = 46 bytes.  HERE = `B+82`.
+6. `repeat,` runs immediately.  Stack on entry: `( B B+28 )`.
+   - `swap` → `( B+28 B )`.
+   - `branch-xt comma-call` emits 5 bytes (HERE = `B+87`); the stack
+     is back to `( B+28 B )` because `comma-call` consumed the
+     `branch-xt` it had just pushed.
    - `,` pops `B` and writes its 8 bytes as the back-target cell.
-     HERE = `B+76`.  Stack: `( B+25 )`.
-   - `here swap !` — stores `B+76` into the slot at `B+25`.  Stack:
+     HERE = `B+95`.  Stack: `( B+28 )`.
+   - `here swap !` — stores `B+95` into the slot at `B+28`.  Stack:
      `( )`.
-7. `drop` compiles normally — emits a CALL.  HERE = `B+81`.
+7. `drop` compiles normally — emits a 5-byte CALL.  HERE = `B+100`.
 8. `;` closes the definition with a `ret`, sets STATE=0.
 
 At runtime, with `5` on the stack and a call to `cnt`:
@@ -533,9 +536,8 @@ immediate
 ## Try it
 
 These words use seed-specific machinery (`'`, `,`, the in-line branch
-slots) that the gforth playground does not reproduce.  This is the
-first chapter in Part I where the playground stops being sufficient
-and you need a built seed-forth.
+slots) that the gforth playground does not reproduce.  The Try-it
+snippets below run against a built seed-forth.
 
 Forward branch with else-arm:
 

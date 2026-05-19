@@ -1,11 +1,12 @@
 # Appendix A — The 32 seed primitives
 
-The `000-seed.hex0` image contains 32 user-visible primitives.  Each
-has a hand-written x86-64 body, a dictionary entry in the seed, and
-(usually) further Forth-level use in `010-lib.fth` and beyond.  Two
-extra `_code` blocks in the seed — `read_word` and `lit_code` — are
-*internal* helpers without their own dictionary entries; they are
-called from the REPL and from `[lit]`'s runtime path.
+The `000-seed.hex0` image contains 32 dictionary entries (32 user-
+visible primitives) plus a small number of unnamed internal helpers.
+Each primitive has a hand-written x86-64 body, a dictionary entry in
+the seed, and (usually) further Forth-level use in `010-lib.fth` and
+beyond.  Two `_code` blocks have no dictionary entry of their own:
+`read_word` (used by the REPL and by `:`, `[lit]`, and `'`) and
+`parse_decimal_code` (used by `[lit]`'s runtime path).
 
 The choice of 32 is not symbolic.  It is the minimum that lets
 `010-lib.fth` be a normal Forth program: arithmetic, stack
@@ -42,14 +43,14 @@ site" is the Part II chapter that explains the hex body.
 | 19 | `execute`    | ( xt -- )                         | `0x24C` | Ch 11 | Ch 17 |
 | 20 | `:`          | ( -- ) start colon definition     | `0x2D4` | Ch 10 | Ch 18 |
 | 21 | `;`          | ( -- ) end colon definition (IMM) | `0x33B` | Ch 10 | Ch 18 |
-| 22 | `branch`     | ( -- ) inline target              | `0x42B` | Ch 11 | Ch 19 |
-| 23 | `0branch`    | ( flag -- ) inline target         | `0x431` | Ch 11 | Ch 19 |
-| 24 | `parse_decimal` | ( c-addr u -- n true &#124; 0 false ) | `0x5FD` | Ch 20 | Ch 20 |
-| 25 | `[lit]`      | ( -- ) parse word, push n (IMM)   | `0x652` | Ch 2  | Ch 18 |
+| 22 | `lit`        | ( -- v ) read inline cell, push n | `0x419` | Ch 11 | Ch 18 |
+| 23 | `branch`     | ( -- ) inline target              | `0x42B` | Ch 11 | Ch 19 |
+| 24 | `0branch`    | ( flag -- ) inline target         | `0x431` | Ch 11 | Ch 19 |
+| 25 | `[lit]`      | ( -- ) parse word, push n (IMM)   | `0x652` | Ch 1  | Ch 18 |
 | 26 | `syscall6`   | ( a b c d e f n -- rax )          | `0x6D4` | Ch 5  | Ch 16 |
 | 27 | `/`          | ( a b -- a/b ) unsigned           | `0x710` | Ch 7  | Ch 15 |
-| 28 | `r@`         | ( -- n ; R: n -- n )              | `0x732` | Ch 4  | Ch 14 |
-| 29 | `*`          | ( a b -- a*b ) signed             | `0x743` | Ch 6  | Ch 15 |
+| 28 | `r@`         | ( -- n ; R: n -- n )              | `0x732` | Ch 3  | Ch 14 |
+| 29 | `*`          | ( a b -- a*b ) signed             | `0x743` | Ch 7  | Ch 15 |
 | 30 | `state`      | ( -- addr ) STATE sysvar addr     | `0x753` | Ch 10 | Ch 17 |
 | 31 | `latest`     | ( -- addr ) LATEST sysvar addr    | `0x766` | Ch 10 | Ch 17 |
 | 32 | `'`          | ( -- xt ) tick: read word, find   | `0x779` | Ch 10 | Ch 17 |
@@ -62,8 +63,9 @@ code or from other primitives.
 
 | Helper | Stack effect | Body @ | Called by | Asm site |
 |---|---|---|---|---|
-| `read_word` | ( -- ; len in `rax`, 0 on EOF ) | `0x259` | REPL, `:`, `[lit]`, `'` | Ch 17 |
-| `lit_code` | ( -- v ) inline 8-byte cell after the CALL site | `0x419` | compiled `[lit]` | Ch 18 |
+| `read_word`         | ( -- ; len in `rax`, 0 on EOF )                  | `0x259` | REPL, `:`, `[lit]`, `'` | Ch 17 |
+| `parse_decimal_code`| ( c-addr u -- n true &#124; 0 false )            | `0x5FD` | compiled `[lit]`        | Ch 20 |
+| `bracket_lit_code`  | ( -- ) IMMEDIATE: parse, push, or compile `lit` | `0x652` | the `[lit]` dict entry  | Ch 18 |
 
 ## What is *not* a primitive
 

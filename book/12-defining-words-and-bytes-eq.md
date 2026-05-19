@@ -169,8 +169,9 @@ the first 8 bytes of the data area with a zero cell.  After
 `variable COUNTER`, COUNTER is a word that pushes the address of a
 zero-initialised 8-byte cell.
 
-In principle you could implement `variable` as `create , 0` or
-similar, calling out to `create` and then appending the zero cell.
+In principle you could implement `variable` as `: variable  create
+[lit] 0 , ;` — calling out to `create` and then appending the zero
+cell with `,`.
 The seed inlines the body for two reasons.  First, it avoids
 depending on dispatch through `create`'s execution token — at
 load-time, `create` is defined just a few lines earlier, but

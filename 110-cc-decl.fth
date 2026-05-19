@@ -4,7 +4,7 @@
 \ statements, structs, enums, typedefs, and prototypes for the C subset needed
 \ to compile M2-Planet.
 \
-\ The compiled output begins with a 17-byte entry stub at vaddr 0x400078:
+\ The compiled output begins with a 26-byte entry stub at vaddr 0x400078:
 \     call <main>      ; E8 <rel32>             (5 bytes)
 \     mov rdi, rax     ; 48 89 C7                (3 bytes)
 \     mov rax, 60      ; 48 C7 C0 3C 00 00 00    (7 bytes)
@@ -2568,7 +2568,7 @@ variable cc-gdecl-ptr-depth
 \ Built-in libc shim emission + symtab registration.
 \ ===========================================================================
 \ The shims (putchar, exit, getchar) live at the very start of the code
-\ segment, immediately after the 17-byte entry stub.  Registering them in
+\ segment, immediately after the 26-byte entry stub.  Registering them in
 \ the symbol table BEFORE parsing user functions means cc-parse-call's
 \ name-lookup path finds them just like any user-defined function.
 

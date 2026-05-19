@@ -767,7 +767,7 @@
 
 \ -- calloc(size_t n, size_t sz) -> zeroed memory or NULL.  113 bytes.
 \
-\ Bump allocator backed by a single 16 MB mmap.  heap_base and heap_pos
+\ Bump allocator backed by a single 256 MB mmap.  heap_base and heap_pos
 \ are stored as inline 8-byte data slots immediately after the ret.
 \ All RIP-relative displacements are fixed because the shim is a closed
 \ region; the offsets below are exact (verified by hand):
@@ -782,7 +782,7 @@
 \   test rax, rax               48 85 C0
 \   jnz +48  (.have_heap)       75 30
 \   xor edi, edi                31 FF
-\   mov esi, 0x1000000          BE 00 00 00 01
+\   mov esi, 0x10000000         BE 00 00 00 10
 \   mov edx, 3                  BA 03 00 00 00   (PROT_READ|PROT_WRITE)
 \   mov r10d, 0x22              41 BA 22 00 00 00  (MAP_PRIVATE|MAP_ANONYMOUS)
 \   mov r8d, -1                 41 B8 FF FF FF FF  (no fd)

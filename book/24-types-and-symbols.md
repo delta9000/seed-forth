@@ -31,9 +31,9 @@ By the end of this chapter the reader can:
   16 field records (40 bytes each).  Field records hold name,
   type, byte offset, and (for struct-pointer fields) a pointee
   descriptor for chained `->` resolution.
-- **Symbol-table parallel arrays.**  Six 8-byte-wide columns
-  (`name-addr`, `name-len`, `kind`, `type`, `val`, `extra` plus
-  a second `extra2`) indexed by symbol id.
+- **Symbol-table parallel arrays.**  Seven 8-byte-wide columns
+  (`name-addr`, `name-len`, `kind`, `type`, `val`, `extra`,
+  `extra2`) indexed by symbol id.
 - **Scope stack.**  `cc-scope-push` / `cc-scope-pop` mark and
   restore the symbol-table count to give lexical scopes — no tree,
   no parent pointer.
@@ -68,9 +68,9 @@ The type system is exactly five base kinds: `void`, `char`,
 generalises to any level (`T**`, `T***`, …) so the compiler can
 follow whatever indirection M2-Planet's source asks for.
 
-The name table is six columns of 4096 8-byte slots each — 192 KiB
-total.  Every global, local, function, struct tag, enum constant,
-and typedef gets one row.
+The name table is seven columns of 4096 8-byte slots each —
+224 KiB total.  Every global, local, function, struct tag, enum
+constant, and typedef gets one row.
 
 These choices push complexity into the *encoding*, not the
 runtime representation.  By the end of the chapter you should be
@@ -509,27 +509,35 @@ That's the only protocol every later chapter needs to know.
 `test-070-cc-sym.fth` exercises `cc-sym-add`, `cc-sym-find`, and
 the scope push/pop dance.
 
-To see the parallel-array layout by hand, write a small smoke test:
+To see the parallel-array layout by hand, write a small smoke test
+that loads the seven Forth files, adds one symbol, and prints its id
+and the resulting count.  We define a one-shot word `probe` and call
+it; seed-forth has no `-e` flag, so everything goes through stdin:
 
 ```sh
 ./build.sh
-cat <<'EOF' | ./seed-forth -e '
-  s" 010-lib.fth" included
-  s" 020-cc-arena.fth" included
-  s" 030-cc-io.fth" included
-  s" 040-cc-prep.fth" included
-  s" 050-cc-lex.fth" included
-  s" 060-cc-types.fth" included
-  s" 070-cc-sym.fth" included
-  s" foo" drop  3  sk-global  ty-int [lit] 0 ty-make  [lit] 1024
-  cc-sym-add  . cr
-  cc-sym-count @ . cr
-  bye'
-EOF
+{
+  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
+           040-cc-prep.fth 050-cc-lex.fth \
+           060-cc-types.fth 070-cc-sym.fth; do
+    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
+  done
+  cat <<'FORTH'
+    here  [lit] 102 c, [lit] 111 c, [lit] 111 c,   \ write "foo" at HERE
+    [lit] 3                                         \ name-len
+    sk-global                                       \ kind
+    ty-int [lit] 0 ty-make                          \ type
+    [lit] 1024                                      \ val
+    cc-sym-add
+    [lit] 48 + emit                                 \ print id as ASCII digit
+    cc-sym-count @ [lit] 48 + emit
+    bye
+FORTH
+} | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
-The first `.` prints `0` (the id of the first symbol).  The second
-prints `1` (the new count).
+Expected output: `01` — the new symbol's id is `0`, and the count
+after the add is `1`.
 
 ## Exercises
 

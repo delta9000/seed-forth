@@ -91,7 +91,7 @@ is to keep the *chapter* order matching source order.
 \ statements, structs, enums, typedefs, and prototypes for the C subset needed
 \ to compile M2-Planet.
 \
-\ The compiled output begins with a 17-byte entry stub at vaddr 0x400078:
+\ The compiled output begins with a 26-byte entry stub at vaddr 0x400078:
 \     call <main>      ; E8 <rel32>             (5 bytes)
 \     mov rdi, rax     ; 48 89 C7                (3 bytes)
 \     mov rax, 60      ; 48 C7 C0 3C 00 00 00    (7 bytes)
@@ -786,11 +786,13 @@ The peek-and-dispatch reads the `;` only if it's actually
 present, putting back if not — the trailing `cc-expect-punct-c`
 catches missing semicolons in the expression form.
 
-The epilogue is the standard `mov rsp, rbp ; pop rbp ; ret`
-(Ch 25 §5).  Ch 31's `cc-parse-function` *also* emits this
-epilogue at function-body close, which means a function ending
-with explicit `return` has an extra unreachable epilogue tacked
-on.  That's wasted bytes (5 of them) but harmless.
+`cc-parse-return` emits `xor rax, rax` (3 bytes, the default return
+value when no expression is supplied) followed by the standard
+`mov rsp, rbp ; pop rbp ; ret` epilogue (5 bytes; Ch 25 §5).
+Ch 31's `cc-parse-function` *also* emits the epilogue at function-
+body close, which means a function ending with explicit `return`
+has an extra unreachable epilogue tacked on.  That's a wasted 8
+bytes (zero+epilogue) but harmless.
 
 ## Try it
 
@@ -800,8 +802,10 @@ on.  That's wasted bytes (5 of them) but harmless.
 tests/cc/stage-a-check.sh
 ```
 
-`tests/cc/G3.c` tests basic local declarations; `G9b.c` tests
-struct fields and `->`; `G14a.c` tests array declarations.
+`tests/cc/G3.c` exercises basic local declarations inside function
+bodies; `G9b.c` exercises struct declarations and field arithmetic;
+`G14d.c` exercises global variables (`g_counter`) and global arrays
+(`g_array[5]`).  `G10b.c` tests `typedef`.
 
 ## Exercises
 

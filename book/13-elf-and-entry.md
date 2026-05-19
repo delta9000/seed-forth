@@ -1,7 +1,7 @@
 # Chapter 13 — The ELF and the Entry Point
 
 > **Status:** ✅ complete.  Canonical chunks cover `000-seed.hex0`
-> lines 1–64 (file header through the trailing blank that separates
+> lines 1–63 (file header through the trailing blank that separates
 > `jmp repl` from `bye_code`).
 
 ## Goal
@@ -67,7 +67,7 @@ bodies yet — those start in Ch 14.
 
 ## 1. Why we start at the top
 
-Every primitive in the next six chapters is found by its address.
+Every primitive in the next seven chapters is found by its address.
 `dup_code` lives at `0x40013B`.  `nand_code` at `0x4001AA`.
 `lit_code` at `0x400419`.  The dictionary headers near the bottom of
 the file each contain a relative jump back to a primitive body — and
@@ -448,7 +448,7 @@ field.  `e_entry` should be `0x400078`; `e_phoff` should be `64`;
 - The seed maps one big R|W|X segment that includes its own
   compile-time-allocated buffers, avoiding any need for `mmap` or
   `mprotect` during normal operation.
-- Every primitive in the next six chapters is reachable from
+- Every primitive in the next seven chapters is reachable from
   `_start` by direct address; the seed resolves at assembly time
   anything that can be resolved at assembly time.
 

@@ -902,29 +902,38 @@ punctuation, the keyword table, the comment skipper, and the
 macro-substitution hook.  Read it to see what each entry point is
 supposed to produce.
 
-You can also drive the lexer by hand:
+You can also drive the lexer by hand.  Seed-forth has no
+`-e` flag or `include` word, so we concatenate the five files
+(stripped of Forth comments) onto stdin, then the C source.  A
+one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
+runs the lexer in a loop, and emits each token's kind as an ASCII
+digit until end-of-input:
 
 ```sh
 ./build.sh
-cat <<'EOF' | ./seed-forth -e '
-  s" 010-lib.fth" included
-  s" 020-cc-arena.fth" included
-  s" 030-cc-io.fth" included
-  s" 040-cc-prep.fth" included
-  s" 050-cc-lex.fth" included
-  cc-load-stdin cc-preprocess
-  begin,
-    cc-next-token
-    tok-kind @ tk-eof = if, exit then,
-    tok-kind @ . ." k=" tok-num @ . cr
-  again,
-  bye'
+{
+  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
+           040-cc-prep.fth 050-cc-lex.fth; do
+    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
+  done
+  cat <<'FORTH'
+    : dump-tokens
+      cc-load-stdin cc-preprocess
+      begin, cc-next-token  tok-kind @ tk-eof = 0=  while,
+        tok-kind @ [lit] 48 + emit [lit] 32 emit
+      repeat, bye ;
+    dump-tokens
+FORTH
+  cat <<'C'
 int x = 42;
-EOF
+C
+} | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
-(The exact harness incantation depends on the driver — `./test.sh`
-is easier.)
+You'll see a short sequence of small digits, one per token, ending
+when the lexer hits EOF.  For a deeper inspection — every token's
+text and numeric value — `./test.sh` runs `test-050-cc-lex.fth`,
+which is a more complete harness.
 
 ## Exercises
 

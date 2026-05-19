@@ -155,10 +155,11 @@ deallocation makes all three impossible.
 
 **`die 7` on OOM.**  The compiler has no way to recover from
 arena exhaustion, so it doesn't try.  Status 7 distinguishes this
-failure mode from other `die`s the compiler uses (`die 1` for
-write-failed in Ch 21, `die 2` for unknown-token in the lexer, and
-so on).  Status codes are the compiler's only error-reporting
-channel; we'll see them used throughout Part III.
+failure mode from the other `die`s the compiler uses (`die 1` when
+the output file cannot be opened, in `030-cc-io.fth`; `die 70`/`71`/
+`72` for various pool overflows in the preprocessor and codegen,
+introduced in Chs 22 and 26).  Status codes are the compiler's only
+error-reporting channel; we'll see them used throughout Part III.
 
 ## 2. The source reader
 
@@ -329,9 +330,10 @@ here-addr !` is the small trick: before `create cc-src-buf
 cc-src-cap allot` reserves a megabyte of dictionary space, we slide
 `here-addr` (the dictionary's HERE pointer, Ch 2) forward to
 `0x414000` so the buffer lives clear of the seed's reserved pages
-— the data stack at `0x410000`, the I/O scratch byte at `0x412000`,
-the token buffer at `0x412800`, the sysvars at `0x413000`.  We met
-those addresses in Chs 13–20.
+— the data-stack page at `0x410000–0x411000` (with the stack itself
+growing down from the top), the I/O scratch byte at `0x412000`, the
+token buffer at `0x412800`, the sysvars at `0x413000`.  We met those
+addresses in Chs 13–20.
 
 `cc-load-stdin` is one `begin, while, repeat,`.  Each iteration
 calls `read` with `(fd=0, buf=cc-src-buf+len, count=4096)`,

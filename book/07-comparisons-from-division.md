@@ -240,7 +240,8 @@ Two implementation caveats worth flagging:
 \ yields 0.  Then `0= 0=` canonicalises (1 -> -1, 0 -> 0).
 \ The literal 9223372036854775808 = 2^63 = 0x8000000000000000 round-trips
 \ through parse_decimal_code because that parser uses an unsigned 64-bit
-\ 2^63 = 0x8000000000000000, the sign bit of a 64-bit signed integer.
+\ accumulator; the value also happens to be the sign bit of a 64-bit
+\ signed integer.
 : 2^63  [lit] 9223372036854775808 ;
 
 \ neg-flag ( n -- f )  return true if n is negative (sign bit set).

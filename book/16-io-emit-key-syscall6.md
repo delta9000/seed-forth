@@ -261,22 +261,32 @@ defers to `syscall6` for everything else.
 echo "[lit] 72 emit [lit] 105 emit bye" | ./seed-forth
 # prints "Hi"
 
-# Read a byte and echo it back:
-printf 'A' | ./seed-forth -e 'key emit bye' 2>/dev/null || \
-  echo "(seed-forth has no -e; pipe stdin instead)"
+# Read a byte and echo it back.  seed-forth has no -e flag; we put
+# both the program and its input on stdin.  Defining the work in a
+# colon definition ensures the REPL has finished parsing tokens
+# before `key` reads — so the byte `key` consumes is the 'A' that
+# follows the program, not part of the program itself:
+{ echo ': read-one key emit bye ;'; echo 'read-one'; printf 'A'; } | ./seed-forth
+# prints "A".
 
 # Demonstrate EOF:
 printf '' | ./seed-forth
 # exits cleanly via the REPL's EOF path
 
-# Use the Forth-level wrappers from 010-lib.fth (which call syscall6
-# internally) — this requires loading the library first:
+# Drive syscall6 directly to call write(fd=1, buf, count=1).  The
+# buffer must be a real address; we get one by writing 'A' (65) into
+# scratch space at the current HERE, capturing that address first.
+# The library's `c,` writes the byte and advances HERE by 1.
 { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
-  echo '[lit] 1 [lit] 65 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 1 syscall6 drop bye'
+  echo 'here [lit] 65 c, [lit] 1 swap [lit] 1 [lit] 0 [lit] 0 [lit] 0 [lit] 1 syscall6 drop bye'
 } | grep -v '^[[:space:]]*$' | ./seed-forth
-# write(1, 0x41, 0, 0, 0, 0) — well, the 2nd arg is treated as buffer
-# address, so this writes whatever bytes happen to live at 0x41.
-# A real test would put a real address in there.
+# Stack going into syscall6: ( 1 buf 1 0 0 0 1 )
+#                              ^ ^   ^ ^ ^ ^ ^---- syscall number (write)
+#                              | |   | d e f
+#                              | |   `--- count
+#                              | `------- buf
+#                              `--------- fd=1 (stdout)
+# Prints "A".
 ```
 
 ## Exercises

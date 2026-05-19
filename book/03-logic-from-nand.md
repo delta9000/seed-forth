@@ -211,6 +211,9 @@ two inputs differ when at least one is set *and* not both are set.
   nand ;                   ( ... )
 ```
 
+(`r@` peeks the top of the return stack without removing it; the
+seed provides it as one more primitive alongside `>r` and `r>`.)
+
 Four NANDs and some shuffling.  This is the form a textbook would
 show for "XOR using only NAND gates."  It's longer than the
 `or`/`and` version because we refuse to reuse intermediate logic

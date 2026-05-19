@@ -156,7 +156,7 @@ Read `cc-main` as a sequence of phases:
    `p_memsz` start as 0 and will be back-patched.
 6. **`cc-parse-program`** (Ch 31 §8) — the big one.  Six
    sub-steps:
-   - Emit the 21-byte entry stub.
+   - Emit the 26-byte entry stub.
    - Emit the 11 libc shims and register their symbols.
    - Register the `memset` external prototype.
    - Register the 11 libc typedefs (`FILE`, `uint8_t`, ...).
@@ -204,8 +204,11 @@ cp vendor/M2-Planet/bin/M2-Planet /tmp/seed-bootstrap/m2-ref
 ./tests/cc/build-m2planet-monolith.sh  # produces /tmp/cc-out
 cp /tmp/cc-out /tmp/seed-bootstrap/cc-out-v1
 
-# 4. Have both compilers compile M2-Planet itself (the monolithic .c files)
-#    and compare their .M1 outputs.
+# 4. Have both M2-Planet binaries (cc-out-v1 = our compiler's output,
+#    and m2-ref = GCC's output) compile M2-Planet itself, then compare
+#    the resulting .M1 assembly outputs.  Note the flags here are
+#    M2-Planet's own, not our compiler's; our compiler is a single-
+#    input stdin → /tmp/cc-out tool with no flags.
 /tmp/seed-bootstrap/cc-out-v1 --architecture amd64 --expand-includes \
     -f M2libc/bootstrappable.c -f cc.c ... \
     -o /tmp/seed-bootstrap/self-v1-amd64.M1
@@ -316,24 +319,27 @@ If `stage-a-check.sh` reports
 `self-v1-amd64.M1 == self-ref-amd64.M1`, you have reproduced
 the project's central claim.
 
-To compile a small program by hand:
+To compile a small program by hand, concatenate the twelve .fth
+files (stripped of Forth comments) onto stdin first, then append
+the C source.  The last .fth file (`120-cc-main.fth`) ends by
+calling `cc-main`, which slurps whatever's left on stdin as the C
+input, compiles, writes `/tmp/cc-out`, and exits:
 
 ```sh
 ./build.sh
-cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth \
-    050-cc-lex.fth 060-cc-types.fth 070-cc-sym.fth 080-cc-elf.fth \
-    090-cc-emit.fth 100-cc-expr.fth 110-cc-decl.fth 120-cc-main.fth \
-  | { echo 'int main(void) { return 42; }'; cat; } \
-  | ./seed-forth
-./tmp/cc-out
+{
+  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth \
+      050-cc-lex.fth 060-cc-types.fth 070-cc-sym.fth 080-cc-elf.fth \
+      090-cc-emit.fth 100-cc-expr.fth 110-cc-decl.fth 120-cc-main.fth \
+    | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  echo 'int main(void) { return 42; }'
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+chmod +x /tmp/cc-out && /tmp/cc-out
 echo $?      # 42
 ```
 
-(The piping shape depends on how the compiler reads its source —
-in this implementation the C source is stdin, and the .fth
-files are concatenated for `seed-forth` to interpret.  See
-`tests/cc/build-m2planet-monolith.sh` for the canonical
-invocation.)
+`tests/cc/build-m2planet-monolith.sh` runs the same pattern at
+full scale.
 
 ## Exercises
 
@@ -386,10 +392,14 @@ converge here.  They are the same story told from two ends.
 
 The four appendices that follow are the reference cards a reader
 will want on a second pass:
-[A](A1-32-seed-primitives.md) — the 32 primitives in one table;
-[B](A2-memory-map.md) — every fixed address in the book;
-[C](A3-reproducibility-chain.md) — the hex0 → seed → M2-Planet
-chain with commands and expected hashes;
-[D](A4-worked-exercises.md) — three exercises worked end to end.
+
+- **[A — The 32 seed primitives](A1-32-seed-primitives.md):** every
+  primitive in one table.
+- **[B — The memory map](A2-memory-map.md):** every fixed address
+  the book referenced.
+- **[C — The reproducibility chain](A3-reproducibility-chain.md):**
+  hex0 → seed → M2-Planet with commands and expected hashes.
+- **[D — Worked exercises](A4-worked-exercises.md):** three
+  exercises walked end to end.
 
 Turn the page.

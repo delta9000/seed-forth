@@ -89,9 +89,9 @@ startup and never another.
 
 | Address | Authority |
 |---|---|
-| Sysvar layout      | `000-seed.hex0:48` (header comment) and `:683+` (sysvar accessors) |
-| Data-stack base    | `000-seed.hex0:181` (`mov rbp, 0x411000`) |
-| Token buffer       | `000-seed.hex0:259` (`read_word`)  |
-| I/O scratch        | `000-seed.hex0:78` (`emit_code`) and `:108` (`key_code`) |
+| Sysvar layout      | `000-seed.hex0:48` (header comment); sysvar accessors are the `state`/`latest` dictionary entries near the end of the file |
+| Data-stack base    | `000-seed.hex0:51` (`mov rbp, 0x411000`) |
+| Token buffer       | `000-seed.hex0:221` (`read_word`) |
+| I/O scratch        | `000-seed.hex0:70` (`emit_code`) and `:82` (`key_code`) |
 | Source buffer base | `020-cc-arena.fth` and `030-cc-io.fth` |
 | 256 MiB heap mmap  | `090-cc-emit.fth` `cc-emit-calloc-shim` (Ch 26) |

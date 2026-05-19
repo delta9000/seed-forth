@@ -512,7 +512,7 @@ with C's `printf` / `puts`-style functions out of the box.
 
 \ -- calloc(size_t n, size_t sz) -> zeroed memory or NULL.  113 bytes.
 \
-\ Bump allocator backed by a single 16 MB mmap.  heap_base and heap_pos
+\ Bump allocator backed by a single 256 MB mmap.  heap_base and heap_pos
 \ are stored as inline 8-byte data slots immediately after the ret.
 \ All RIP-relative displacements are fixed because the shim is a closed
 \ region; the offsets below are exact (verified by hand):
@@ -527,7 +527,7 @@ with C's `printf` / `puts`-style functions out of the box.
 \   test rax, rax               48 85 C0
 \   jnz +48  (.have_heap)       75 30
 \   xor edi, edi                31 FF
-\   mov esi, 0x1000000          BE 00 00 00 01
+\   mov esi, 0x10000000         BE 00 00 00 10
 \   mov edx, 3                  BA 03 00 00 00   (PROT_READ|PROT_WRITE)
 \   mov r10d, 0x22              41 BA 22 00 00 00  (MAP_PRIVATE|MAP_ANONYMOUS)
 \   mov r8d, -1                 41 B8 FF FF FF FF  (no fd)
@@ -937,23 +937,27 @@ output-side picture of the compiler.
 tests/cc/stage-a-check.sh        # full bootstrap-gate
 ```
 
-To exercise just the shim emission, compile a one-line program:
+To exercise just the shim emission, compile a one-line program.
+Seed-forth has no `-e` flag or `include` word, so we feed the
+twelve numbered `.fth` files (stripped of Forth comments) followed
+by the C source on a single stdin.  The last file
+(`120-cc-main.fth`) ends by invoking `cc-main`, which reads the
+remaining stdin as the C input, compiles, writes `/tmp/cc-out`,
+and exits:
 
 ```sh
 ./build.sh
-echo 'int main(void) { putchar(42); return 0; }' \
-  | ./seed-forth -e 'include 010-lib.fth  include 020-cc-arena.fth
-                     include 030-cc-io.fth  include 040-cc-prep.fth
-                     include 050-cc-lex.fth  include 060-cc-types.fth
-                     include 070-cc-sym.fth  include 080-cc-elf.fth
-                     include 090-cc-emit.fth  include 100-cc-expr.fth
-                     include 110-cc-decl.fth  include 120-cc-main.fth
-                     cc-compile  bye'
-chmod +x a.out && ./a.out         # prints '*'
+{
+  cat [0-9][0-9][0-9]-*.fth | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  cat <<'C'
+int main(void) { putchar(42); return 0; }
+C
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'
 ```
 
-(The wiring command depends on which top-level driver your build
-calls; the stage-A check is easier and tests everything.)
+`tests/cc/build-m2planet-monolith.sh` runs the same pattern at full
+scale, building M2-Planet itself with this pipe.
 
 ## Exercises
 

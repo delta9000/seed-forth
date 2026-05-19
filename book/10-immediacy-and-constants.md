@@ -234,9 +234,11 @@ its work*.  Look at how the colon body opens and closes:
   raw bytes.  We do that by calling `c,` and `,8` directly, which
   bypass STATE entirely.
 - `[lit] 0 state !` — manually reset STATE to 0.  We can't use `;`
-  here because `;` would compile a final `ret` and exit *constant
-  itself*, not the word constant just defined.  So we exit compile
-  mode by hand.
+  here because `:` ... `;` is parsed by the seed as a single
+  compile-mode bracket: the very first `;` the interpreter sees
+  after the surrounding `:` closes *constant* itself, not the new
+  word `constant` is building.  Two `;` tokens cannot share one
+  outer colon definition.  So we exit compile mode by hand.
 
 Notice that `constant` ends in `;`, which closes *constant*'s own
 definition.  Inside constant's body, we manually call `:` and

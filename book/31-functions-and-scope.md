@@ -45,7 +45,7 @@ Chs 29 and 30 covered 1–1438.
 - **Top-level elision rules.**  Forward declarations, file-scope
   variables, and angle-bracket-included headers are all parsed
   to completion but only function *definitions* generate code.
-- **Entry stub.**  17 bytes at `0x400078`: argc/argv setup, call
+- **Entry stub.**  26 bytes at `0x400078`: argc/argv setup, call
   main, exit with main's return value.
 - **Libc shim registration.**  Each of the eleven shims (Ch 26)
   gets its bytes emitted, its vaddr captured, and a `sk-func`
@@ -1232,7 +1232,7 @@ variable cc-gdecl-ptr-depth
 \ Built-in libc shim emission + symtab registration.
 \ ===========================================================================
 \ The shims (putchar, exit, getchar) live at the very start of the code
-\ segment, immediately after the 17-byte entry stub.  Registering them in
+\ segment, immediately after the 26-byte entry stub.  Registering them in
 \ the symbol table BEFORE parsing user functions means cc-parse-call's
 \ name-lookup path finds them just like any user-defined function.
 
@@ -1416,9 +1416,9 @@ create cc-name-ssize_t
 
 ## 2. The call codegen
 
-`cc-parse-call` (lines 82–167 of the listing) is the only entry
-point for the call-codegen path.  Ch 27's `cc-parse-primary`
-calls it via `cc-parse-call-vec` once it has spotted `IDENT (`.
+`cc-parse-call` is the only entry point for the call-codegen path.
+Ch 27's `cc-parse-primary` calls it via `cc-parse-call-vec` once it
+has spotted `IDENT (`.
 
 The flow:
 
@@ -1471,9 +1471,8 @@ The rest of the compiler doesn't know the difference.
 
 ## 4. Function definitions
 
-`cc-parse-function` (lines 385–473) is the chapter's centrepiece.
-The eleven-step layout in the source comment is the complete
-flow:
+`cc-parse-function` is the chapter's centrepiece.  The eleven-step
+layout in the source comment is the complete flow:
 
 1. Consume return type, NAME, `(`.
 2. Capture the function's start vaddr and `cc-sym-add` it
@@ -1494,9 +1493,9 @@ flow:
 8. Emit the prologue with a 256-byte frame.
 9. Spill the SYS-V argument registers into the parameter slots.
 10. Loop: parse statements until `}`.
-11. Emit the implicit return — `xor rax, rax ; epilogue` —
-    in case the body fell off the end without a `return`.
-12. `cc-scope-pop`.
+11. Emit the implicit return — `xor rax, rax ; epilogue` — in case
+    the body fell off the end without a `return`, then
+    `cc-scope-pop` to discard the function-body scope.
 
 Step 3 is the deferred-resolution payoff.  Every forward call
 that emitted a placeholder `E8 00 00 00 00` (Ch 26 §1) now
@@ -1585,16 +1584,16 @@ imm64` placeholder to its actual global vaddr.
 
 ## 8. The entry stub and the top-level driver
 
-`cc-emit-entry-stub` emits 21 bytes at vaddr `0x400078` (right
+`cc-emit-entry-stub` emits 26 bytes at vaddr `0x400078` (right
 after the ELF header + program header):
 
 ```
-mov rdi, [rsp]       ; argc, kernel-supplied
-lea rsi, [rsp+8]     ; argv
-call <main>          ; rel32 placeholder
-mov rdi, rax         ; main's return → exit code
-mov rax, 60          ; exit syscall
-syscall
+mov rdi, [rsp]       ; 4 bytes — argc, kernel-supplied
+lea rsi, [rsp+8]     ; 5 bytes — argv
+call <main>          ; 5 bytes — rel32 placeholder
+mov rdi, rax         ; 3 bytes — main's return → exit code
+mov rax, 60          ; 7 bytes — exit syscall
+syscall              ; 2 bytes
 ```
 
 The `call <main>` placeholder is patched by `cc-patch-call-main`
@@ -1610,7 +1609,7 @@ After this, user code calling `putchar(c)` resolves to a normal
 
 `cc-parse-program` is the orchestrator.  Six steps:
 
-1. `cc-emit-entry-stub` — 21 bytes at the entry vaddr.
+1. `cc-emit-entry-stub` — 26 bytes at the entry vaddr.
 2. `cc-emit-shims` — emit the 11 libc shims and register them.
 3. `cc-emit-external-protos` — register one external proto
    (`memset`) for tests.
@@ -1631,11 +1630,14 @@ together.
 tests/cc/stage-a-check.sh                    # end-to-end gate
 ```
 
-`tests/cc/G14a.c` exercises function definitions with multiple
-params; `M1.c` is the full M2-Planet monolith.  The
-`stage-a-check.sh` driver compiles M2-Planet via seed-forth +
-all the `cc-*.fth` files and diffs the resulting .M1 output
-against the GCC-built reference.
+`tests/cc/G3.c` exercises function definitions with multiple
+params (`square`, `sum`); `G12.c` exercises function pointers;
+`G14d.c` exercises globals accessed from a function (`bump()`
+reading and writing `g_counter`).  The big M2-Planet monolith
+exercises every path at once: the `stage-a-check.sh` driver
+compiles M2-Planet via seed-forth plus all the `cc-*.fth` files
+and diffs the resulting .M1 output against the GCC-built
+reference.
 
 ## Exercises
 

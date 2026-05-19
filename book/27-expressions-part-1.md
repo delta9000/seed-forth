@@ -79,8 +79,9 @@ file uses *precedence climbing*: each operator level is one
 function that calls the next-tighter level, then loops on its
 own operators.
 
-Ch 27 covers the binary cascade — eleven layers from `mul`
-through `log-or`.  Ch 28 covers everything above and below: the
+Ch 27 covers the binary cascade — ten layers from `mul` through
+`log-or` (mul, add, shift, rel, eq, bit-and, bit-xor, bit-or,
+log-and, log-or).  Ch 28 covers everything above and below: the
 top-level driver, the right-associative `=` and `?:`, the unary
 operators, and `primary` itself (where actual identifiers,
 literals, and calls live).
@@ -146,7 +147,7 @@ The grammar comment is the file's contract.  The expression
 grammar shown is the *simplified* set: the actual file extends
 it with shift, bitwise, logical, ternary, and the postfix
 operators (`[]`, `.`, `->`, `()`, `++`, `--`).  The shape is
-the same: every productive parses an operand at the next-tighter
+the same: every production parses an operand at the next-tighter
 precedence, then loops on its own operator set.
 
 ## 3. The one-token putback layer
@@ -759,19 +760,23 @@ precedence table.
 tests/cc/stage-a-check.sh              # end-to-end bootstrap gate
 ```
 
-The unit tests under `tests/cc/` start at `G0.c` (return 0) and
-walk up through `G14*.c`.  `G2.c` exercises basic arithmetic;
-`G5.c` tests precedence; `G7.c` brings in `&&`/`||`.
+The unit tests under `tests/cc/` start at `G0.c` (return 42) and
+walk up through `G14*.c`.  `G1.c` exercises basic arithmetic
+precedence (`a + b * 2 - 1`); `G11.c` is the full sweep — shifts,
+bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
+— in a single fixture.
 
 ## Exercises
 
 1. Trace `cc-parse-add` parsing `a - b - c`.  Where does
    left-associativity come from?
 
-2. Add `<<` and `>>` as compound-assign forms in the binary
-   cascade (they're already in `cc-assign-op?`, Ch 28).  Where
-   would *binary* `<<=` go in this file?  Hint: it doesn't.
-   Why?
+2. The shift cascade `cc-parse-shift` handles `<<` and `>>` as
+   binary operators.  Their compound-assign counterparts `<<=`
+   and `>>=` already live in `cc-assign-op?` (Ch 28).  Why don't
+   the compound forms live in this file alongside the binary
+   forms?  (Hint: where does the parse tree branch into
+   right-associative territory?)
 
 3. The short-circuit `&&` produces `1` on success.  Modify it
    to produce the *right operand's value* instead (the C

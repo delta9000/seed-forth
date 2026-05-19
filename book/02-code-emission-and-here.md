@@ -128,12 +128,14 @@ encodes.
 
 `c,` emits one byte.  Every byte in every dictionary header, every
 opcode in every colon definition, every absolute address in every
-`constant` body, every rel32 offset in a branch instruction —
-eventually, every machine-code byte the C compiler writes in Part III
-— travels through `c,` (or one of its multi-byte cousins `,4` and
-`,8`, which call `c,` four or eight times).  This is the first word
-after the file header because it is the word everything else builds
-on.
+`constant` body, every rel32 offset in a branch instruction inside
+the Forth itself travels through `c,` (or one of its multi-byte cousins
+`,4` and `,8`, which call `c,` four or eight times).  Part III's C
+compiler runs a parallel emission path of its own — its `cc-emit-byte`
+writes into an arena buffer rather than HERE — but the *idea* is the
+same: a single one-byte primitive at the bottom of the world.  This is
+the first word after the file header because it is the word everything
+else in `010-lib.fth` builds on.
 
 ## Canonical source
 
@@ -217,14 +219,15 @@ with `c@` and print it with `emit`.  The seed should print `ABC`.
 
 ## Takeaways
 
-- Every byte the system emits — every dictionary header, every machine
-  instruction inside a colon definition, every cell in a `create`d
-  array — passes through `c,`.
+- Every byte the Forth system emits — every dictionary header, every
+  machine instruction inside a colon definition, every cell in a
+  `create`d array — passes through `c,`.
 - The sysvar page at 0x413000 is hard-coded throughout `010-lib.fth`
   by absolute address.  When 000-seed.hex0 changes layout, those
   literals must be updated in lockstep.
 - Forth's "compiler" is not a separate program.  It is a chain of
-  Forth words that ultimately call `c,`.
+  Forth words that ultimately call `c,`.  The C compiler in Part III
+  follows the same shape with its own emitter.
 
 Next: Chapter 3 — Logic from One Primitive, where we use `nand` (and
 nothing else) to build the full Boolean vocabulary.

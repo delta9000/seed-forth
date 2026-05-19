@@ -66,7 +66,8 @@ Its job is to read tokens forever, look each one up in the
 dictionary, and either *execute* it (interpret mode) or *compile a
 call to it* (compile mode).  On a lookup miss, it prints `?`; on
 EOF, it jumps to `bye_code`.  That's the whole loop, expressible
-in eight English words, encoded in 95 bytes of hex.
+in eight English words, encoded in 187 bytes of hex (offsets
+`0x35E`–`0x418`).
 
 The number parser is the supporting cast.  `parse_decimal_code`
 is what `[lit]` (Ch 18) calls to convert a token like `"42"` into
@@ -265,19 +266,27 @@ path.
 **Step 4 — miss path.**
 
 ```
-mov rdi, [rbp]; add rbp, 8       ; drop the 0 that find_code left on the data stack
-sub rbp, 8; mov [rbp], rdi       ; spill that (whatever-it-was) back
-mov rdi, '?'
+mov rdi, [rbp]; add rbp, 8       ; drop the 0 find_code left on data stack
+sub rbp, 8; mov [rbp], rdi       ; re-spill in preparation for the '?' push
+mov rdi, '?'                     ; new TOS = '?'
 call emit_code
-sub rbp, 8; mov [rbp], rdi
-mov rdi, '\n'
+sub rbp, 8; mov [rbp], rdi       ; spill again for '\n'
+mov rdi, '\n'                    ; new TOS = '\n'
 call emit_code
 jmp .repl
 ```
 
-Print `?\n` and loop back to read the next token.  Notice that the
-miss path doesn't consult `NUMBER_HOOK` — that's a feature that
-exists in the sysvar layout but isn't wired up here.
+The pop/spill pair at the top is the Forth-stack "drop and replace
+TOS" idiom: the seed's calling convention keeps TOS in `rdi`, so to
+*replace* what's on top we have to pop the spilled cell (restoring
+the next-below value into `rdi`), then push a new value (spilling
+`rdi` and loading the new one).  Net effect: the `0` that
+`find_code` left on the data stack is gone, and `'?'` takes its
+place.  The second pair does the same for `'\n'`.  Print, then loop
+back to read the next token.
+
+Notice that the miss path doesn't consult `NUMBER_HOOK` — that's a
+feature that exists in the sysvar layout but isn't wired up here.
 
 **Step 5 — dispatch path (`.have_xt`).**
 
@@ -471,7 +480,7 @@ echo "thisisnotaword bye" | ./seed-forth
 
 ## Takeaways
 
-- The REPL is ~95 bytes of hex.  Its loop is read-token →
+- The REPL is 187 bytes of hex.  Its loop is read-token →
   find-word → dispatch-by-IMMEDIATE-and-STATE, with a print-`?`
   miss path and a `jmp bye_code` EOF path.
 - The seed *deliberately does not* auto-parse numbers in the REPL

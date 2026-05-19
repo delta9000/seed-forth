@@ -731,7 +731,7 @@ common `is_digit(s[i])` patterns.
 
 ```
 
-`cc-parse-primary` is the longest single word in the file (315
+`cc-parse-primary` is the longest single word in the file (~307
 lines) because it does five jobs:
 
 1. **Dispatch on token kind** — numbers, character literals,
@@ -1396,10 +1396,11 @@ complexity.
 tests/cc/stage-a-check.sh                   # full bootstrap-gate
 ```
 
-`tests/cc/G7.c` (struct postfix), `G9a.c` (`->`), `G10*` (string
-literals and complex unary), `G11.c` (sizeof), and `G14*.c`
-(arrays + assignment) are the cases that exercise this
-chapter's machinery in isolation.
+`tests/cc/G7.c` (pointer `&`/`*`), `G8.c` (array indexing), `G9a.c`
+(struct `.` access), `G9b.c` (struct field arithmetic), `G10c.c`
+(`sizeof`), and `G11.c` (postfix `++`/`--` and compound assignment
+in a dense mix) are the cases that exercise this chapter's
+machinery in isolation.
 
 ## Exercises
 

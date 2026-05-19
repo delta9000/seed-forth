@@ -72,11 +72,12 @@ gets *compiled* (turned into a `CALL` to its xt, plus inline cells
 where needed) rather than executed.  Then `;` runs — it appends a
 `ret` byte and flips STATE back to 0.
 
-The whole compiler is two primitives, 130 bytes of hex between
-them.  Most of `colon_code` is parsing the name and copying it into
-the header; the actual "open a definition" is a flag flip and a
-pointer update.  Most of `semicolon_code` is the *same* flag flip
-in reverse, plus the appended `ret`.
+The whole compiler is two primitives, 138 bytes of hex between
+them (103 for `colon_code`, 35 for `semicolon_code`).  Most of
+`colon_code` is parsing the name and copying it into the header; the
+actual "open a definition" is a flag flip and a pointer update.
+Most of `semicolon_code` is the *same* flag flip in reverse, plus
+the appended `ret`.
 
 `lit_code` and `bracket_lit_code` are the supporting cast: how
 literals reach the data stack when the source has nothing but
@@ -226,8 +227,8 @@ C3                                        ; ret
 
 ```
 
-Seven bytes plus `ret`.  Read it once and the convention will lock
-in for the rest of Part II.
+Six instructions plus `ret` — 18 bytes total.  Read it once and the
+convention will lock in for the rest of Part II.
 
 When the compiler wants to push a constant `V` at runtime, it emits:
 
@@ -393,9 +394,9 @@ Try it for `: five [lit] 5 ;` and verify the body is `5 + 13 + 1 =
 ./build.sh
 
 echo ": square dup * ; [lit] 7 square [lit] 48 + emit bye" | ./seed-forth
-# 7*7 = 49; 49 + 48 = 97 = 'a'. Wait — should be '1' if we want a digit.
-# Trace: 7 squared is 49 (ASCII '1'), so the answer is "1".
-# Actually 49 in ASCII *is* '1'. Adding 48 produces 97 = 'a'. So this prints 'a'.
+# 7*7 = 49; 49 + 48 = 97 = ASCII 'a'.  Prints "a".
+# (If you wanted to see the digit '1', the second `[lit] 48` would
+# be redundant: 49 itself already is ASCII '1'.)
 
 echo ": five [lit] 5 ; five [lit] 48 + emit bye" | ./seed-forth
 # 5 + 48 = 53 = '5'. prints "5".

@@ -97,11 +97,11 @@ C3
 C3              ret            ; jump there
 ```
 
-Four bytes of opcode (plus `ret`).  The trick is **the cell is
-consumed**: we popped the slot's address, dereferenced it to get
-the target, and pushed the *target* back.  When `ret` runs, the
-return stack has only the new target on top — the slot's address is
-gone.
+Six bytes total: five bytes of opcode plus a one-byte `ret`.  The
+trick is **the cell is consumed**: we popped the slot's address,
+dereferenced it to get the target, and pushed the *target* back.
+When `ret` runs, the return stack has only the new target on top —
+the slot's address is gone.
 
 If we had left the slot's address on the stack and just dereferenced
 to jump, `ret` would have gone to the slot, executed the 8 raw
@@ -128,11 +128,9 @@ C3
 
 ```
 
-Wait — the comment says `test rdx, rdx`, but the bytes say `48 85
-D2`.  Let me decode that: `48` = REX.W; `85` = TEST r/m64, r64
-opcode; `D2` = ModR/M byte with `mod=11, reg=010, r/m=010` = `rdx,
-rdx`.  So it *is* `test rdx, rdx`.  The comment matches the bytes;
-my paraphrase above just listed the wrong register.
+The encoding `48 85 D2` decodes as `test rdx, rdx`: `48` is REX.W,
+`85` is the `TEST r/m64, r64` opcode, and the ModR/M byte `D2`
+(`mod=11, reg=010, r/m=010`) names rdx in both operand slots.
 
 Pseudocode:
 
@@ -170,12 +168,9 @@ when the flag is true (non-zero), you *enter* the `if`-body;
 ## 4. Why `push rax; ret` and not `jmp rax`?
 
 `JMP r/m64` is a real x86 instruction (`FF E0` for `jmp rax`, two
-bytes).  Why does the seed use the longer `push rax; ret`
-(`50 C3`, two bytes) instead?
-
-Actually they're the same length — *two bytes*.  The choice between
-them is stylistic, not size-driven.  The seed's authors picked
-`push/ret` because:
+bytes).  `push rax; ret` (`50 C3`) is also two bytes.  The choice
+between them is stylistic, not size-driven.  The seed's authors
+picked `push/ret` because:
 
 - The instruction we're "returning from" is a `CALL`, so structuring
   the primitive as "pop the call's return address, fiddle with it,
@@ -256,22 +251,19 @@ At runtime:
 
 1. The compiled definition executes its body up to the `CALL
    zbranch_code` instruction.
-2. The flag is popped off the data stack.  If it's zero, we want
-   to *skip* the `if,` body; if non-zero, we want to *enter* it.
+2. The flag is popped off the data stack.  In Forth, `flag if ...
+   then` enters the body when the flag is true, and `then,` patches
+   the placeholder slot with the *post-body* address — so the
+   primitive's job is to *skip* the body when the flag is **false**
+   and fall through when it is true:
+   - Flag non-zero: `zbranch_code` skips past the slot → next
+     instruction is the body → body runs.
+   - Flag zero: `zbranch_code` reads the slot → jump to the
+     post-body address → body is skipped.
 
-Wait — that's backwards from Forth convention!  Let me re-read.
-In Forth, `flag if ... then` *enters* the body when the flag is
-true.  And `then,` patches the placeholder with the
-*post-body* address.  So:
-
-- Flag is true (non-zero): `zbranch_code` skips past the slot →
-  next instruction is the body → body runs.
-- Flag is false (zero): `zbranch_code` reads the slot → jump to
-  the post-body address → body is skipped.
-
-Yes, that matches.  The naming `zbranch` = "branch if zero" is
-correct: zero flag → take the branch (skip the body).  Non-zero
-flag → fall through (enter the body).
+The naming `zbranch` = "branch if zero" matches: zero flag → take
+the branch (skip the body); non-zero flag → fall through (enter the
+body).
 
 Walk this end-to-end for `: pos? [lit] 0 > if, [lit] 89 emit
 else, [lit] 78 emit then, ;` and you'll find the runtime emits

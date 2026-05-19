@@ -681,11 +681,12 @@ etc.) survive intact.  `cc-emit-call-rax` then dispatches.
 
 ## 5. Register-to-register moves, ALU, and prologue/epilogue
 
-Five register-to-register moves: `mov rcx, rdi`, `mov rax, rdi`,
-`mov rdi, rax`, `mov rbx, rdi`, plus `cmp rbx, imm32` and `xor
-rax, rax`.  Each is 3 bytes (`48 89 <ModR/M>` for moves; `48 81
-<ModR/M> <imm32>` for `cmp`).  The `xor rax, rax` is the standard
-3-byte register-zeroing idiom — shorter than `mov rax, 0` would be.
+Four register-to-register moves — `mov rcx, rdi`, `mov rax, rdi`,
+`mov rdi, rax`, `mov rbx, rdi` — alongside `cmp rbx, imm32` and
+`xor rax, rax`.  Each move is 3 bytes (`48 89 <ModR/M>`); `cmp
+rbx, imm32` is `48 81 <ModR/M> <imm32>`.  The `xor rax, rax` is the
+standard 3-byte register-zeroing idiom — shorter than `mov rax, 0`
+would be.
 
 The ALU section codes the four basic arithmetic operators: `add`,
 `sub`, `imul`, plus signed `idiv` in two flavours (`cc-emit-idiv-
@@ -697,11 +698,13 @@ either `mov rdi, rax` (quotient) or `mov rdi, rdx` (remainder).
 
 `cc-emit-prologue` and `cc-emit-epilogue` are the standard SYS-V
 AMD64 frame builders.  Prologue: `push rbp ; mov rbp, rsp ; sub
-rsp, <frame-bytes>` — 9 bytes.  Epilogue: `mov rsp, rbp ; pop rbp
-; ret` — 5 bytes.  The prologue takes a frame-size argument
-because the parser knows the local count by the time it emits it
-(Chs 30–31 cover the parser; the prologue is "emit me 9 bytes,
-with this 32-bit frame size baked in").
+rsp, <frame-bytes>` — 1 + 3 + 7 = 11 bytes, where the `sub` carries
+a 4-byte immediate `<frame-bytes>` behind a 3-byte opcode prefix.
+Epilogue: `mov rsp, rbp ; pop rbp ; ret` — 5 bytes.  The prologue
+takes a frame-size argument because the parser knows the local
+count by the time it emits it (Chs 30–31 cover the parser; the
+prologue is "emit me 11 bytes, with this 32-bit frame size baked
+in").
 
 ## 6. Comparisons and conditional set
 
@@ -775,28 +778,40 @@ tests/cc/stage-a-check.sh   # builds M2-Planet via cc-out and compares
 If `stage-a-check.sh` passes, the codegen is producing byte-correct
 machine code at scale.
 
-To inspect individual encoders, run a small program through the
-compiler and disassemble the output:
+To inspect individual encoders, drive the compiler from stdin with
+a one-shot Forth word that emits a few encoded instructions to a
+NUL-terminated path and writes the result.  We use the pre-baked
+`cc-out-path` from `120-cc-main.fth` instead of `s"`, since `s"` is
+not NUL-terminated and `cc-write-output` requires NUL termination:
 
 ```sh
 ./build.sh
-cat <<'EOF' | ./seed-forth -e '
-  s" 010-lib.fth" included
-  s" 020-cc-arena.fth" included
-  s" 030-cc-io.fth" included
-  s" 040-cc-prep.fth" included
-  s" 050-cc-lex.fth" included
-  s" 060-cc-types.fth" included
-  s" 070-cc-sym.fth" included
-  s" 080-cc-elf.fth" included
-  s" 090-cc-emit.fth" included
-  cc-out-init  cc-emit-elf-header
-  [lit] 42 cc-emit-mov-rdi-imm32
-  cc-emit-push-rdi
-  cc-emit-add-rdi-rcx
-  s" out.bin" drop cc-write-output
-  bye'
-objdump -D -b binary -m i386:x86-64 -M intel out.bin | tail -10
+{
+  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
+           040-cc-prep.fth 050-cc-lex.fth \
+           060-cc-types.fth 070-cc-sym.fth \
+           080-cc-elf.fth 090-cc-emit.fth; do
+    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
+  done
+  cat <<'FORTH'
+    \ NUL-terminated path "/tmp/cc-out\0" in the dictionary
+    create probe-path
+    [lit]  47 c, [lit] 116 c, [lit] 109 c, [lit] 112 c,
+    [lit]  47 c, [lit]  99 c, [lit]  99 c, [lit]  45 c,
+    [lit] 111 c, [lit] 117 c, [lit] 116 c, [lit]   0 c,
+
+    : probe
+      cc-out-init  cc-emit-elf-header
+      [lit] 42 cc-emit-mov-rdi-imm32
+      cc-emit-push-rdi
+      cc-emit-add-rdi-rcx
+      probe-path cc-write-output
+      bye ;
+    probe
+FORTH
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+
+objdump -D -b binary -m i386:x86-64 -M intel /tmp/cc-out | tail -10
 EOF
 ```
 

@@ -283,9 +283,12 @@ echo "[lit] 100 [lit] 13 / [lit] 48 + emit bye" | ./seed-forth
 echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
 # 6*7=42, +48 = 'Z' (ASCII 90 = 'Z'), prints "Z"
 
-echo "[lit] 0 0= [lit] 48 - emit bye" | ./seed-forth
-# 0= on 0 returns -1; -1 - 48 = -49; emit's low byte is 0xCF — non-printable
-# but you can spot it with `| xxd | head -1`.
+{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+  echo "[lit] 0 0= [lit] 48 - emit bye"
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+# 0= on 0 returns -1 (the canonical Forth true).  Library-level `-`
+# (Ch 4) computes -1 - 48 = -49; emit's low byte is 0xCF — non-printable,
+# so spot it with `| xxd | head -1`.
 ```
 
 ## Exercises

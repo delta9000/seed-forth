@@ -107,7 +107,7 @@ offset  size  field
  10+N    M    body        — machine code for the word
 ```
 
-After hex-assembly, the seed contains 21 hand-laid-out headers in a
+After hex-assembly, the seed contains 24 hand-laid-out headers in a
 single block running from `0x44D` (`bye`) to `0x5F8` (`0branch`),
 followed by the later additions at the end of the file.
 
@@ -152,7 +152,8 @@ sit far apart in the file: the JMP makes the layout topology-free.
 
 ## 2. `find_code` ( c-addr u -- xt-or-0 )
 
-The largest primitive in the seed: 28 bytes plus a 4-byte tail.
+The largest primitive in the seed: 86 bytes of machine code, twice
+the size of anything else in `000-seed.hex0`.
 
 ```hex0 chunk=find-code
 ;; ----- find_code @ 0x1C5 -----
@@ -228,8 +229,9 @@ mov rcx, [LATEST]     ; rcx = head of chain
   ret
 ```
 
-The hex preserves all of the above in 28 bytes of opcodes plus the
-two tail blocks.  Three details are worth pointing out.
+The hex preserves all of the above — outer loop, byte-compare inner
+loop, hit path, and miss path — in 86 bytes.  Three details are worth
+pointing out.
 
 **`LAST_FOUND` is a side channel.**  On a hit, `find_code` stores
 the address of the matched entry's link cell into the sysvar at
@@ -474,7 +476,7 @@ seed's smallest example.
 
 ## 8. The dictionary entries
 
-The 21 entries from `bye` to `0branch` live in one contiguous block
+The 24 entries from `bye` to `0branch` live in one contiguous block
 running from `0x44D` to `0x5F8`.  Each is 14–18 bytes; the whole
 block is 167 lines of hex.  Rather than chunk each separately, we
 ship them as one big chunk that the master root block references
@@ -726,9 +728,8 @@ echo "' emit [lit] 65 swap execute bye" | ./seed-forth
 echo 'wibble' | ./seed-forth
 # prints "?"
 
-# Walk the chain by hand:
-echo "latest @  here . bye" | ./seed-forth   # won't actually print without `.` ...
-# The seed has no `.`, so use this trick to peek instead:
+# Walk the chain by hand.  The seed has no `.`, so peek by treating
+# the byte at LATEST as a small number and adding 48 to land in ASCII:
 echo "latest @ c@ [lit] 48 + emit bye" | ./seed-forth
 # prints the first byte of (LATEST @)'s link cell, as a digit.
 ```
@@ -760,7 +761,7 @@ echo "latest @ c@ [lit] 48 + emit bye" | ./seed-forth
 
 - The dictionary is the seed's only data structure: a singly linked
   list of headers walked by `find_code`.  No hash, no symbol table.
-- `find_code` does name comparison inline in ~80 bytes.  Forth-level
+- `find_code` does name comparison inline in 86 bytes.  Forth-level
   code (`bytes-eq`, Ch 12) re-implements the same logic in 13 lines.
 - `read_word`, `find_code`, `'`, `execute` together are the
   metacompiler hatch: from a token, you can reach an xt; from an

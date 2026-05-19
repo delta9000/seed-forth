@@ -305,8 +305,8 @@ Expected output: `87654321`.  The decimal `72623859790382856` is
 ## Exercises
 
 1. Define `,2 ( w -- )` that writes a 16-bit value in little-endian.
-   Use it to write the ELF magic `0x457F` (note the byte order in
-   the file is `7F 45`).
+   Use it to write `0x457F` (the first two bytes of the four-byte ELF
+   magic `7F 45 4C 46`); note the byte order in the file is `7F 45`.
 
 2. Why does `+!` use `over` rather than `dup swap`?  Both
    alternatives leave the same final stack — count tokens.

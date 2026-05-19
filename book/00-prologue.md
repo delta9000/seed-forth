@@ -136,7 +136,7 @@ under discussion in another.  Citations like `010-lib.fth:33` mean
 "open `010-lib.fth` at line 33 before continuing."
 
 **Try the playground first.**  Part I uses Forth syntax that you can
-run interactively in `gforth` (`apt install gforth`) with the five-line
+run interactively in `gforth` (`apt install gforth`) with the small
 shim at [`book/playground.fth`](playground.fth) loaded.  You do not
 need to build seed-forth itself until Part II, when we start reading
 the hex.

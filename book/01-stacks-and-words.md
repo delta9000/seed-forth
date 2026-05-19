@@ -64,7 +64,7 @@ before reading any more code:
   off the stack and leaves one.  It is not built into the parser;
   it is a dictionary entry like any other.  In this codebase it is
   defined in `000-seed.hex0` as a 5-byte machine-code routine at
-  offset `0x1A1` — Chapter 2 will read its bytes.
+  offset `0x1A1` — Chapter 15 will read its bytes.
 - **There is no "return value".**  A word "returns" by leaving things
   on the stack.  A word can leave zero, one, two, or any number of
   values — and *which* word it is determines how many.
@@ -140,7 +140,7 @@ program needs `over`, so it is defined immediately in `010-lib.fth`:
 ```
 
 Read the body slowly.  The trick uses a *second* stack — the return
-stack — which Chapter 6 will introduce in full.  For now, take it on
+stack — which Chapter 4 will introduce in full.  For now, take it on
 faith that `>r` moves the top of the data stack onto the return stack,
 and `r>` moves it back.  Trace it:
 
@@ -166,7 +166,7 @@ whitespace), and a semicolon.  No commas, no parentheses, no return
 type, no argument list.  Forth's only metasyntactic feature is
 whitespace.
 
-Chapter 4 will tell you the full truth about `:` and `;` — that they
+Chapter 18 will tell you the full truth about `:` and `;` — that they
 are themselves ordinary words, that `:` builds a dictionary header and
 switches the system into "compile mode", and that `;` appends a `ret`
 instruction and switches back.  You do not need that truth yet.  You
@@ -203,7 +203,7 @@ Two things to notice.
 **First**, the codebase types `[lit] 1` rather than just `1`.  That is
 this codebase's wrinkle: the seed does not auto-parse numbers in
 interpret mode, and uses an explicit word `[lit]` to mark "the next
-token is a decimal literal to be pushed."  Chapter 5 walks the parser
+token is a decimal literal to be pushed."  Chapter 20 walks the parser
 that makes this work; for now, read `[lit] N` as "the number `N`".
 
 **Second**, this is your first hint of what makes the seed special.
@@ -216,8 +216,8 @@ the trick scale up.
 
 ## 1.6  Stack shufflers: `nip`, `rot`, `2dup`, `2drop`
 
-Skipping ahead in the file past the syscall wrappers, character
-classifiers, and comparison operators (each will get its own chapter),
+Skipping ahead in the file past the syscall wrappers (Ch 5), the
+character classifiers (Ch 6), and the comparison operators (Ch 7),
 we arrive at the `===== Stack shuffles =====` section.  These are the
 last names you'll meet in this chapter; they round out the standard
 Forth shuffler vocabulary.
@@ -370,18 +370,18 @@ passes, the book *is* the source.
 
 3.  `pick` is `( ... n -- ... x_n )` — push a copy of the element `n`
     deep in the stack, where `0 pick` ≡ `dup` and `1 pick` ≡ `over`.
-    Why is `pick` *not* defined in `010-lib.fth`?  (Hint: read what
-    Chapter 2 will tell you about the seed primitives, and ask
-    yourself how you would implement `pick` using only `dup`, `swap`,
-    `drop`, `>r`, `r>`.  The answer is "you can't in O(1) time" —
-    why?)
+    Why is `pick` *not* defined in `010-lib.fth`?  (Hint: the seed's
+    stack primitives are `dup`, `swap`, `drop`, `>r`, `r>`, plus the
+    arithmetic and memory words listed in Appendix A.  Ask yourself
+    how you would implement `pick` using only those.  The answer is
+    "you can't in O(1) time" — why?)
 
 4.  Open `010-lib.fth` at the line `: digit?  [lit] 48 - [lit] 10 / 0= ;`
     Write its stack-effect comment, then explain in one English
     sentence what the strategy `(c - 48) / 10 == 0` is doing and why
     it does not need any conditional.
 
-Solutions appear in Appendix D once that chapter is written.
+Solutions appear in Appendix D.
 
 ---
 

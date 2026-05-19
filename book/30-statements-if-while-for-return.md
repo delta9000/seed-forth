@@ -1142,9 +1142,11 @@ function.
 tests/cc/stage-a-check.sh
 ```
 
-`tests/cc/G6a.c` exercises if/while; `G10a.c` and `G10b.c`
-exercise for; `G13.c` exercises switch.  The big M2-Planet
-monolith exercises all of it.
+`tests/cc/G2.c` exercises nested `if`/`else`; `G5.c` exercises
+`while` and `for` in the same body; `G6a.c` exercises `do-while`
+with `break` and `continue`; `G6b.c` exercises `goto` and labels;
+`G13.c` exercises `switch` with `case` fall-through and `default`.
+The big M2-Planet monolith exercises all of them at once.
 
 ## Exercises
 

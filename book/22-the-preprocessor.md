@@ -891,8 +891,9 @@ The remaining wrinkle is that macros that *evaluate* (not just
 parse) at substitution time are still in the table.  When the lexer
 reads `NULL` it calls `cc-macro-find-int` and emits a numeric token
 with value 0; same for `EOF`, `EXIT_FAILURE`, and any user-defined
-`#define` that survived this pass.  That's why §3's docstring says
-"macro substitution happens at LEX time."
+`#define` that survived this pass.  That's why §4's docstring at the
+top of `040-cc-prep.fth` says "macro substitution happens at LEX
+time."
 
 ## Try it
 
@@ -905,27 +906,50 @@ tests/cc/stage-a-check.sh         # exercises the preprocessor end to end
 preprocessor features in isolation.  Read them to see exactly which
 M2-Planet patterns the preprocessor must cope with.
 
-You can also run the compiler directly on a small input to inspect
-its behaviour:
+You can also run the preprocessor directly on a small input by
+loading the four Forth files seed-forth needs and then driving it
+from stdin.  The seed-forth tokenizer has no file-`include` or `-e`
+flag, so we concatenate everything onto stdin and strip Forth
+comments first.  The driver defines a one-shot word `dump-prep` that
+calls `cc-load-stdin` (which slurps whatever remains on stdin — i.e.,
+the C source we put after it), runs `cc-preprocess`, and walks the
+rewritten buffer byte by byte:
 
 ```sh
 ./build.sh
-cat <<'EOF' | ./seed-forth -e '
-  s" 010-lib.fth" included
-  s" 020-cc-arena.fth" included
-  s" 030-cc-io.fth" included
-  s" 040-cc-prep.fth" included
-  cc-load-stdin cc-preprocess
-  cr ." len=" cc-src-len @ . cr
-  cc-src-len @ 0 do  cc-src-buf i + c@ emit  loop
-  bye'
+{
+  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth; do
+    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
+  done
+  cat <<'FORTH'
+    : dump-prep
+      cc-load-stdin cc-preprocess
+      [lit] 0
+      begin, dup cc-src-len @ < while,
+        dup cc-src-buf + c@ emit
+        [lit] 1 +
+      repeat, drop
+      bye ;
+    dump-prep
+FORTH
+  cat <<'C'
 #define ANSWER 42
 int x = ANSWER;
-EOF
+C
+} | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
-(The exact incantation depends on which test harness driver you
-use; `tests/cc/stage-a-check.sh` is the path of least resistance.)
+After the REPL executes the final `dump-prep` token, `cc-load-stdin`
+reads the rest of stdin (the C source) into `cc-src-buf`,
+`cc-preprocess` runs, and the loop prints the rewritten buffer.
+Expected output ends with `int x = ANSWER;` — note that `ANSWER`
+itself is *not* substituted in the buffer.  The preprocessor only
+records `ANSWER → 42` in the macro table and strips the `#define`
+directive from the source; the actual substitution happens at lex
+time (Ch 23), when `cc-next-token` consults `cc-macro-find-int`
+and emits a numeric token in place of the identifier.  This
+two-stage design — register at prep, substitute at lex — is what
+makes object-like macros virtually free.
 
 ## Exercises
 

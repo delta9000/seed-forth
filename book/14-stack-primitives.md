@@ -348,10 +348,10 @@ memory; the rest is lost.
 
 ## 8. The arithmetic of bytes saved
 
-Eleven primitives, 89 bytes of code.  `@` is 4 bytes; `dup` is 9;
-`store_code` and `cstore_code` are 20 and 19 respectively.  Compare
-that to the Forth-level definitions in `010-lib.fth` of `over`,
-`nip`, `rot`, etc., which average around 5–10 tokens each and
+Ten stack primitives, 119 bytes of code in total: `dup` 9, `drop` 9,
+`swap` 12, `>r` 12, `r>` 12, `@` 4, `!` 20, `c@` 5, `c!` 19, `r@` 17.
+Compare that to the Forth-level definitions in `010-lib.fth` of
+`over`, `nip`, `rot`, etc., which average around 5–10 tokens each and
 compile (at runtime, via `:`) to roughly the same total byte count
 once the `CALL` instructions are emitted.
 
@@ -424,7 +424,7 @@ prose above.)
 ```sh
 ./build.sh
 echo "[lit] 65 [lit] 66 swap emit emit bye" | ./seed-forth
-# prints "AB" — swap reverses the push order so 65 ('A') emits last
+# prints "AB" — after swap TOS is 65 ('A'), so it emits first, then 66 ('B')
 echo "[lit] 67 dup emit emit bye"           | ./seed-forth
 # prints "CC"
 echo "[lit] 68 [lit] 69 drop emit bye"      | ./seed-forth
@@ -469,7 +469,7 @@ each step from the table in §1.
   hex-assembly time.
 - `>r`, `r>`, and `r@` bridge the data and return stacks by
   threading values around the x86 `CALL` return address; `r@` is
-  the cheapest because it doesn't have to put the return address
-  back.
+  the simplest semantically (a peek that leaves both stacks
+  otherwise unchanged), even though it isn't the smallest in bytes.
 
 Next: Chapter 15 — Arithmetic, Logic, Comparison.

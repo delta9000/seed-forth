@@ -213,17 +213,18 @@ says `( n -- )` rather than `( n -- err )` because `die` never
 returns; control transfers to the kernel and the Forth interpreter is
 gone.
 
-A typical error path in Part III's C compiler looks like:
+A typical error path in Part III's C compiler eventually reads, in
+the control-flow combinators of Ch 11, like
 
 ```
 unexpected? if, [lit] 1 die then,
 ```
 
-Read it as: "if the unexpected? predicate is true, push exit status 1
-and die."  No cleanup, no resource release — the OS handles that when
-the process exits.  This is a deliberate simplification: the C
-compiler is a one-shot tool that runs, produces an ELF binary, and
-exits.  Nothing it allocates needs to live past its own lifetime.
+— "if the unexpected? predicate is true, push exit status 1 and die."
+No cleanup, no resource release; the OS handles that when the process
+exits.  This is a deliberate simplification: the C compiler is a
+one-shot tool that runs, produces an ELF binary, and exits.  Nothing
+it allocates needs to live past its own lifetime.
 
 ## Canonical source
 
