@@ -820,23 +820,23 @@ disassembly after the 120-byte ELF preamble.
 
 ## Exercises
 
-1. Read `cc-emit-elf-header`.  Why does it emit zeros for
+1. **★** Read `cc-emit-elf-header`.  Why does it emit zeros for
    `p_filesz`?  What's the alternative (and what would it cost)?
 
-2. The single R-W-X segment is unusual.  Real-world ELFs separate
+2. **★★** The single R-W-X segment is unusual.  Real-world ELFs separate
    `.text` (R-X) from `.data` (R-W) for memory safety.  What
    would adding a second program header cost in bytes and in
    complexity?
 
-3. Tabulate every instruction encoder by name and bytes-emitted.
+3. **★★** Tabulate every instruction encoder by name and bytes-emitted.
    Roughly how many distinct x86-64 instructions does this
    codegen know?
 
-4. Add an `imul rax, rbx, imm32` encoder.  Where would it be
+4. **★★★** Add an `imul rax, rbx, imm32` encoder.  Where would it be
    useful?  (Hint: scalar multiplication by a constant could
    replace `mov rcx, imm ; imul rdi, rcx` for known constants.)
 
-5. The `cmp-set` helpers emit 11 bytes; a tighter encoding would
+5. **★★★** The `cmp-set` helpers emit 11 bytes; a tighter encoding would
    use `setX r/m8` directly into `dil` and `movzx rdi, dil`.
    Estimate the saving and decide whether it's worth the code
    change.

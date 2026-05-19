@@ -17,8 +17,12 @@ these.
 ## The table
 
 Source order matches `000-seed.hex0` order.  "Use site" is the
-first Part I chapter where the word appears in user code; "Asm
-site" is the Part II chapter that explains the hex body.
+first Part I chapter where the word appears in user code or
+chapter prose; "Asm site" is the Part II chapter that explains
+the hex body.  `find`, `execute`, and `read_word` are REPL-
+internal — they have no user-code uses in `010-lib.fth`, so
+their Use-site column points to the first chapter that mentions
+them in prose.
 
 | # | Word | Stack effect | Body @ | Use site | Asm site |
 |---|------|---|---|---|---|
@@ -53,7 +57,7 @@ site" is the Part II chapter that explains the hex body.
 | 29 | `*`          | ( a b -- a*b ) signed             | `0x743` | Ch 7  | Ch 15 |
 | 30 | `state`      | ( -- addr ) STATE sysvar addr     | `0x753` | Ch 10 | Ch 17 |
 | 31 | `latest`     | ( -- addr ) LATEST sysvar addr    | `0x766` | Ch 10 | Ch 17 |
-| 32 | `'`          | ( -- xt ) tick: read word, find   | `0x779` | Ch 10 | Ch 17 |
+| 32 | `'`          | ( -- xt ) tick: read word, find   | `0x779` | Ch 11 | Ch 17 |
 
 ## Internal helpers (not user-visible)
 

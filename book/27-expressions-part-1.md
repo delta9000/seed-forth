@@ -768,27 +768,27 @@ bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
 
 ## Exercises
 
-1. Trace `cc-parse-add` parsing `a - b - c`.  Where does
+1. **★★** Trace `cc-parse-add` parsing `a - b - c`.  Where does
    left-associativity come from?
 
-2. The shift cascade `cc-parse-shift` handles `<<` and `>>` as
+2. **★★** The shift cascade `cc-parse-shift` handles `<<` and `>>` as
    binary operators.  Their compound-assign counterparts `<<=`
    and `>>=` already live in `cc-assign-op?` (Ch 28).  Why don't
    the compound forms live in this file alongside the binary
    forms?  (Hint: where does the parse tree branch into
    right-associative territory?)
 
-3. The short-circuit `&&` produces `1` on success.  Modify it
+3. **★★★** The short-circuit `&&` produces `1` on success.  Modify it
    to produce the *right operand's value* instead (the C
    standard leaves this implementation-defined — many compilers
    don't canonicalise to 0/1).  How many bytes does that save?
 
-4. The three return-stack pushes in `cc-parse-log-and` are
+4. **★★** The three return-stack pushes in `cc-parse-log-and` are
    delicate — get the order wrong and the wrong fixup gets
    patched first.  Sketch a diagram showing each `>r`/`r>` and
    verify the comment's `R:` annotations match the code.
 
-5. Add an `>>>` unsigned-right-shift operator (it's not in C,
+5. **★★★** Add an `>>>` unsigned-right-shift operator (it's not in C,
    but imagine it).  What would it touch in the lexer (Ch 23),
    the instruction encoders (Ch 25), and this file?
 

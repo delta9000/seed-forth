@@ -1404,24 +1404,24 @@ machinery in isolation.
 
 ## Exercises
 
-1. Trace what `cc-parse-primary` emits for the literal `'X'`.
+1. **★** Trace what `cc-parse-primary` emits for the literal `'X'`.
    Where does the character value end up?
 
-2. Construct a C expression that uses every postfix operator
+2. **★★** Construct a C expression that uses every postfix operator
    in `cc-parse-primary` (`.`, `->`, `[]`, `++`, `--`) in one
    chain.  Sketch the lvalue-kind transitions as it parses.
 
-3. Compound assignment of dereference targets (`*p += 1`) is
+3. **★★★** Compound assignment of dereference targets (`*p += 1`) is
    *not* supported (§7's kind=2 branch errors on anything but
    plain `=`).  Sketch a patch.  What new state would
    `cc-parse-assign` need to thread?
 
-4. `cc-parse-sizeof` accepts `sizeof(struct TAG)` and
+4. **★★★** `cc-parse-sizeof` accepts `sizeof(struct TAG)` and
    `sizeof(typedef-name)` but not `sizeof(*p)`.  Add the
    missing case.  What does the compile-time evaluation look
    like?
 
-5. The forward-call placeholder in §4 walks a linked list via
+5. **★★** The forward-call placeholder in §4 walks a linked list via
    `cc-sym-extra2`.  Trace how Ch 31's `cc-parse-function`
    patches that list when the definition arrives.  How is the
    list head set to 0 again?

@@ -343,27 +343,27 @@ full scale.
 
 ## Exercises
 
-1. Run `tests/cc/bootstrap-chain.sh` and time each step.  Which
+1. **★★** Run `tests/cc/bootstrap-chain.sh` and time each step.  Which
    is slowest?  Could you speed it up without breaking
    byte-identity?
 
-2. Add a primitive to `000-seed.hex0` (say, `mod` from Ch 15's
+2. **★★★** Add a primitive to `000-seed.hex0` (say, `mod` from Ch 15's
    exercises).  Rebuild and run `./test.sh` plus
    `stage-a-check.sh`.  What invariants might you have
    broken?
 
-3. The `cc-out-path` is hard-coded to `/tmp/cc-out`.  Modify
+3. **★★★** The `cc-out-path` is hard-coded to `/tmp/cc-out`.  Modify
    the compiler to read a path from stdin's first line (the
    seed doesn't expose argv directly; a stdin-prefix is the
    minimal change).  What's the smallest patch?
 
-4. Sketch what it would take to extend the compiler to a
+4. **★★★** Sketch what it would take to extend the compiler to a
    different target architecture (RISC-V, ARM64).  Which files
    change?  Which are reusable?  Hint: only `090-cc-emit.fth`
    and the ELF header in `080-cc-elf.fth` need rewriting;
    everything else is target-agnostic.
 
-5. The full chain is *reproducible* end-to-end.  Construct a
+5. **★★★** The full chain is *reproducible* end-to-end.  Construct a
    diff that proves you've changed the seed-forth output
    without breaking the parity claim.  (Hint: most changes
    *do* break it; the trick is finding one that doesn't.)

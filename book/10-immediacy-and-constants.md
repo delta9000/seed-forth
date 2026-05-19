@@ -323,19 +323,19 @@ through the dictionary header by hand, which Ch 17 makes easier.)
 
 ## Exercises
 
-1. Define `2constant ( hi lo -- )` that defines a word pushing two
+1. **★★** Define `2constant ( hi lo -- )` that defines a word pushing two
    cells.  How many bytes is its runtime body?
 
-2. Why does `constant` end with `[lit] 0 state !` instead of just
+2. **★★** Why does `constant` end with `[lit] 0 state !` instead of just
    `;`?  (Hint: trace what STATE is at each point.  Can `constant`
    even *use* `;` directly?)
 
-3. The flags byte has eight bits.  What might the other seven be
+3. **★★★** The flags byte has eight bits.  What might the other seven be
    used for in a fuller Forth?  This seed uses only bit 0 — would
    you add `compile-only`, `hidden`, or `inline` bits?  Why or
    why not?
 
-4. Predict the bytes emitted by `[lit] 12345 constant n`.  Compare
+4. **★★** Predict the bytes emitted by `[lit] 12345 constant n`.  Compare
    to the disassembly of a built seed-forth by hand-computing the
    `imm64` slot's contents.
 

@@ -309,26 +309,26 @@ EOF
 
 ## Exercises
 
-1. The `push rax; ret` indirect-jump trick is two bytes long.  So
+1. **★★★** The `push rax; ret` indirect-jump trick is two bytes long.  So
    is `jmp rax`.  Replace one of the branches in a copy of
    `000-seed.hex0` with the `jmp rax` form and rebuild.  Does
    anything observable change?  Why might the seed still prefer
    the original form?
 
-2. The conditional branch tests `rdx` directly with `TEST rdx, rdx`.
+2. **★★** The conditional branch tests `rdx` directly with `TEST rdx, rdx`.
    Which x86 flag does this set?  Which `J*` instruction does the
    following byte (`75 05`) encode?  Trace: what would change if
    you replaced it with `74 05`?
 
-3. Add an `again_code` primitive (unconditional, no flag).  Wait —
+3. **★** Add an `again_code` primitive (unconditional, no flag).  Wait —
    isn't that just `branch_code`?  Confirm by reading both bodies
    and identifying any difference.
 
-4. Why doesn't `branch_code` or `zbranch_code` need to know whether
+4. **★** Why doesn't `branch_code` or `zbranch_code` need to know whether
    the destination is forward or backward?  (Hint: the slot holds
    an *absolute* address.)
 
-5. The inline-cell convention shares its mechanism with `lit_code`
+5. **★★** The inline-cell convention shares its mechanism with `lit_code`
    (Ch 18).  Could `lit_code` *be* `branch_code` if we always
    treated the inline cell as "push and jump past"?  Why does the
    seed have both?

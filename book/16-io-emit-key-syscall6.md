@@ -291,26 +291,26 @@ printf '' | ./seed-forth
 
 ## Exercises
 
-1. `emit` writes to fd `1` (stdout) hard-coded.  Sketch the changes
+1. **★★** `emit` writes to fd `1` (stdout) hard-coded.  Sketch the changes
    needed to make `emit-to-fd ( c fd -- )` that takes the file
    descriptor from the stack.  How many extra bytes?
 
-2. The scratch byte at `0x412000` is shared between `emit` and `key`.
+2. **★** The scratch byte at `0x412000` is shared between `emit` and `key`.
    In what scenario could this corrupt something?  (Hint: signal
    handlers running during a syscall — not possible in this seed,
    but worth thinking about.)
 
-3. `key`'s push-shape is `sub rbp, 8; mov [rbp], rdi; ...; mov rdi,
+3. **★★** `key`'s push-shape is `sub rbp, 8; mov [rbp], rdi; ...; mov rdi,
    X`.  Why doesn't it use the Ch 14 "push" pattern of `48 83 ED
    08; 48 89 7D 00; 48 89 C7` (which would require loading `X` into
    a temp first)?  Compare the byte counts.
 
-4. Implement a `keys ( c-addr u -- u-actually-read )` primitive in
+4. **★★★** Implement a `keys ( c-addr u -- u-actually-read )` primitive in
    hex that calls `read(0, c-addr, u)` directly.  Why doesn't the
    seed expose it, given that bulk reads are obviously cheaper than
    N calls to `key`?  (Hint: who would call it?)
 
-5. `syscall6_code` clobbers `rcx` and `r11` but the seed doesn't
+5. **★** `syscall6_code` clobbers `rcx` and `r11` but the seed doesn't
    save them.  Why is that safe in this calling convention?  (Hint:
    none of the Forth primitives use `rcx` or `r11` across calls.)
 

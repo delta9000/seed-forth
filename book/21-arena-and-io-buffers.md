@@ -450,23 +450,23 @@ the same script will be the compiler's full proof of life.
 
 ## Exercises
 
-1. The arena is 32 KiB.  Could you reduce it to 16 KiB without
+1. **★★★** The arena is 32 KiB.  Could you reduce it to 16 KiB without
    breaking M2-Planet compilation?  How would you measure?  (Hint:
    instrument `cc-alloc` to record peak `cc-arena-ptr`.)
 
-2. The source buffer is 1 MiB.  What's the actual peak source size
+2. **★★★** The source buffer is 1 MiB.  What's the actual peak source size
    for M2-Planet?  Could you tighten this and save 800 KiB of
    virtual address space?
 
-3. `cc-out-patch-4le` writes 4 bytes one at a time.  Could you
+3. **★★** `cc-out-patch-4le` writes 4 bytes one at a time.  Could you
    write a faster `patch-cell-le` using `!` and some shuffling?
    Would it be worth the bytes-of-code?
 
-4. Add `cc-emit-string ( c-addr u -- )` that emits `u` bytes from
+4. **★★** Add `cc-emit-string ( c-addr u -- )` that emits `u` bytes from
    `c-addr` to the output buffer.  Use it to emit a hardcoded
    "Hi\n" greeting and confirm.
 
-5. The arena's OOM path exits with status 7.  Trace which
+5. **★★** The arena's OOM path exits with status 7.  Trace which
    compiler-side failures use which status (`die N`) and assemble
    a table.  Where should new failure modes draw their numbers
    from?

@@ -937,23 +937,23 @@ which is a more complete harness.
 
 ## Exercises
 
-1. Add a `tk-*` constant and a new keyword (e.g. `inline`) to the
+1. **★★★** Add a `tk-*` constant and a new keyword (e.g. `inline`) to the
    table.  How many lines of patch?  Where does the `kw-*` ID
    need to be inserted to keep ordering stable?
 
-2. The lexer treats tab (9), space (32), `\r` (13), and `\n`
+2. **★★** The lexer treats tab (9), space (32), `\r` (13), and `\n`
    (10) all as whitespace via `space?`.  Does it handle CRLF
    line endings?  Construct a test case and observe.
 
-3. `cc-lex-string` doesn't decode escapes — codegen does.  Find
+3. **★★** `cc-lex-string` doesn't decode escapes — codegen does.  Find
    where in `090-cc-emit.fth` (Chs 25–26) the string pool walks
    the slice and turns `\n` into byte 10.  Trace one byte.
 
-4. The keyword table is walked linearly.  At 30 entries and a
+4. **★★** The keyword table is walked linearly.  At 30 entries and a
    short average length, that's fine.  Could a hash table be
    faster, and would it be worth the bytes-of-code?
 
-5. The lexer has no error path — every malformed token (e.g. an
+5. **★★** The lexer has no error path — every malformed token (e.g. an
    unterminated string at EOF) ends with the lexer just
    stopping.  Trace what happens downstream when the parser sees
    the resulting `tk-eof` mid-expression.  Is silent truncation

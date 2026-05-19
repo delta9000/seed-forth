@@ -1150,23 +1150,23 @@ The big M2-Planet monolith exercises all of them at once.
 
 ## Exercises
 
-1. The `for`-step rewind is a unique trick.  Could `for` be
+1. **★★** The `for`-step rewind is a unique trick.  Could `for` be
    compiled by recording the step's token range instead of
    byte range?  What would change?
 
-2. Switch dispatch is linear in the number of cases.  At what
+2. **★★★** Switch dispatch is linear in the number of cases.  At what
    case count does a binary-search or jump-table approach
    start to pay?  How would the codegen change?
 
-3. `break outside any loop` is undefined here.  Add a depth
+3. **★★★** `break outside any loop` is undefined here.  Add a depth
    counter and emit a compile-time error when it underflows.
    How many bytes does the check cost?
 
-4. Labels are function-local.  M2-Planet's monolith has 891
+4. **★★** Labels are function-local.  M2-Planet's monolith has 891
    global references but how many gotos?  Grep the source and
    estimate.
 
-5. The if/while/for/do-while/switch parsers all save and
+5. **★★★** The if/while/for/do-while/switch parsers all save and
    restore break/continue heads via `>r >r ... r> r>`.  Could
    you factor this into a single helper?  What would the
    helper's interface look like?

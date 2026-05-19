@@ -356,19 +356,19 @@ passes, the book *is* the source.
 
 ## 1.8  Exercises
 
-1.  Write the stack-effect comment for this definition without running
+1.  **★★** Write the stack-effect comment for this definition without running
     it:
 
     ```forth
     : -rot  rot rot ;
     ```
 
-2.  `tuck` is a classical Forth word with effect `( a b -- b a b )`.
+2.  **★★** `tuck` is a classical Forth word with effect `( a b -- b a b )`.
     Define it using only `over`, `swap`, `dup`, `drop`, `>r`, `r>`.
     Multiple correct answers exist.  Compare yours to the one-liner
     `swap over`.
 
-3.  `pick` is `( ... n -- ... x_n )` — push a copy of the element `n`
+3.  **★★★** `pick` is `( ... n -- ... x_n )` — push a copy of the element `n`
     deep in the stack, where `0 pick` ≡ `dup` and `1 pick` ≡ `over`.
     Why is `pick` *not* defined in `010-lib.fth`?  (Hint: the seed's
     stack primitives are `dup`, `swap`, `drop`, `>r`, `r>`, plus the
@@ -376,7 +376,7 @@ passes, the book *is* the source.
     how you would implement `pick` using only those.  The answer is
     "you can't in O(1) time" — why?)
 
-4.  Open `010-lib.fth` at the line `: digit?  [lit] 48 - [lit] 10 / 0= ;`
+4.  **★★** Open `010-lib.fth` at the line `: digit?  [lit] 48 - [lit] 10 / 0= ;`
     Write its stack-effect comment, then explain in one English
     sentence what the strategy `(c - 48) / 10 == 0` is doing and why
     it does not need any conditional.

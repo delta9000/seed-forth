@@ -809,26 +809,26 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
 
 ## Exercises
 
-1. Pre-registration of struct tags makes `struct T { struct T*
+1. **★★** Pre-registration of struct tags makes `struct T { struct T*
    next; }` work.  What about `struct A { struct B* b; };
    struct B { struct A* a; };` — mutual recursion?  Trace what
    happens.
 
-2. Storage qualifiers are all no-ops.  Construct a program where
+2. **★★** Storage qualifiers are all no-ops.  Construct a program where
    omitting `static` from a local variable would cause a bug
    (e.g. expecting cross-call persistence) and verify the
    compiler's behaviour.
 
-3. Function-pointer decls use 2-token lookahead.  How could you
+3. **★★★** Function-pointer decls use 2-token lookahead.  How could you
    reduce this to 1?  Hint: `(*` is two ASCII bytes; you could
    peek the next byte after `(` via the lexer's `cc-peek-char-2`.
 
-4. `cc-parse-decl-with-base` accepts at most one initializer
+4. **★★★** `cc-parse-decl-with-base` accepts at most one initializer
    expression.  Could you extend it to handle `int arr[N] =
    {a, b, c};`?  What new vocabulary in the codegen would
    that need?
 
-5. Every field is 8 bytes regardless of `char` vs `int`.  This
+5. **★★★** Every field is 8 bytes regardless of `char` vs `int`.  This
    wastes memory on a struct full of `char` fields.  What
    would change in `cc-sd-append-field` to support packed
    layouts?

@@ -305,17 +305,17 @@ Expected output: `87654321`.  The decimal `72623859790382856` is
 
 ## Exercises
 
-1. Define `,2 ( w -- )` that writes a 16-bit value in little-endian.
+1. **★★** Define `,2 ( w -- )` that writes a 16-bit value in little-endian.
    Use it to write `0x457F` (the first two bytes of the four-byte ELF
    magic `7F 45 4C 46`); note the byte order in the file is `7F 45`.
 
-2. Why does `+!` use `over` rather than `dup swap`?  Both
+2. **★** Why does `+!` use `over` rather than `dup swap`?  Both
    alternatives leave the same final stack — count tokens.
 
-3. Trace `0x123456789ABCDEF0 ,8` byte by byte.  What sequence does
+3. **★★** Trace `0x123456789ABCDEF0 ,8` byte by byte.  What sequence does
    HERE contain after the call?
 
-4. The shift cascade `[lit] 256 / [lit] 256 / [lit] 256 / [lit] 256 /`
+4. **★★** The shift cascade `[lit] 256 / [lit] 256 / [lit] 256 / [lit] 256 /`
    takes 12 tokens.  A hypothetical `shr32 ( v -- v>>32 )` primitive
    would take 1.  Why didn't the seed authors add it?  (Hint: how
    often does `,8` actually run during a compiler build?)

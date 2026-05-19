@@ -115,8 +115,8 @@ Ch 7   comparisons        — Chs 1, 4, 6
 Ch 8   stack shufflers    — Chs 1, 4
 Ch 9   memory writers     — Chs 1, 2, 4
 Ch 10  immediate/constant — Chs 1, 2, 9
-Ch 11  control flow       — Chs 1, 2, 9, 10
-Ch 12  defining words     — Chs 2, 9, 10, 11
+Ch 11  control flow       — Chs 1, 2, 4, 9, 10
+Ch 12  defining words     — Chs 2, 3, 4, 7, 9, 10, 11
         (---- Part I complete; 010-lib.fth fully literate ----)
 Ch 13  ELF + entry        — Ch 1                              (opens seed)
 Ch 14  stack prims        — Chs 1, 13

@@ -57,7 +57,13 @@ per Part I chapter, ~80–180 for Parts II and III.
   "Validating Try-it" below.
 - **Exercises:** keep 3–5.  At least one should be hands-on (touch
   source or run a script), at least one should be analytical (read
-  + reason), at least one should be open-ended.
+  + reason), at least one should be open-ended.  Prepend a
+  difficulty tag using `**★**` / `**★★**` / `**★★★**` per the
+  rubric:
+  - **★** *warm-up* — re-reading the chapter answers it (<10 min).
+  - **★★** *standard* — synthesise two or three ideas (10–30 min).
+  - **★★★** *depth* — hack the codebase, run tools, design a
+    variant, or genuinely reach beyond the chapter.
 - **Takeaways:** three bullets, each one a single sentence.  They
   are the cliff-notes; if a reader reads only the bullets they
   should understand the chapter's payload.

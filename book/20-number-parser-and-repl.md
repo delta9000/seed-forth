@@ -456,26 +456,26 @@ echo "thisisnotaword bye" | ./seed-forth
 
 ## Exercises
 
-1. Install a `NUMBER_HOOK` that parses hex literals (e.g., `0x1F`).
+1. **★★★** Install a `NUMBER_HOOK` that parses hex literals (e.g., `0x1F`).
    Where in the REPL does it need to be consulted?  How many bytes
    of patching?  (Hint: you'll need to modify the miss path to call
    the hook instead of jumping straight to `?\n`.)
 
-2. Why does `[lit]` need to be IMMEDIATE?  Trace what would happen
+2. **★★** Why does `[lit]` need to be IMMEDIATE?  Trace what would happen
    if you cleared the IMMEDIATE bit in its dictionary entry and
    then compiled `: foo [lit] 5 ;`.
 
-3. Modify the REPL's miss path to print the unknown token before
+3. **★★★** Modify the REPL's miss path to print the unknown token before
    the `?`.  Where in `000-seed.hex0` does the change go?  How
    many extra bytes does it cost?  (Hint: you have to call
    `emit_code` in a loop over the token bytes; `0x412800` is the
    buffer address.)
 
-4. The REPL has no `quit` / `abort` mechanism beyond `bye`.  Search
+4. **★★** The REPL has no `quit` / `abort` mechanism beyond `bye`.  Search
    the `*-cc-*.fth` files for `die` and explain how the C compiler
    handles compile errors instead.
 
-5. `parse_decimal_code` doesn't handle leading `-`.  Sketch the
+5. **★★★** `parse_decimal_code` doesn't handle leading `-`.  Sketch the
    smallest patch that adds negative-number support.  How many
    bytes?  Where does the sign-extension happen?
 

@@ -1641,25 +1641,25 @@ reference.
 
 ## Exercises
 
-1. The forward-fixup walk in `cc-parse-function` step 3 handles
+1. **★★** The forward-fixup walk in `cc-parse-function` step 3 handles
    both `cc-sym-extra` (rel32 calls) and `cc-sym-extra2`
    (imm64 movabs).  Trace how both lists get populated and
    which path each fixup type originates from.
 
-2. The 256-byte frame caps locals at 32.  Find the largest
+2. **★★** The 256-byte frame caps locals at 32.  Find the largest
    M2-Planet function (most locals) and confirm it fits.
    What changes if you bump the cap?
 
-3. Parameter spill is hard-coded for 6 args.  Add a 7th param
+3. **★★★** Parameter spill is hard-coded for 6 args.  Add a 7th param
    path that reads from `[rbp + 16]` (caller-allocated stack
    slot).  Where would the prologue change?
 
-4. The libc shim registration emits the bytes *and* the symbol
+4. **★★** The libc shim registration emits the bytes *and* the symbol
    in one pass.  Could you split this into "emit bytes" and
    "register symbol" phases?  What does the new ordering buy
    you?
 
-5. `cc-top-peek-is-fn-def?` walks all tokens to the next `{`
+5. **★★** `cc-top-peek-is-fn-def?` walks all tokens to the next `{`
    or `;` at depth 0.  Could it stop after seeing a single
    `(` (since a function definition must have one)?  Construct
    a counterexample.

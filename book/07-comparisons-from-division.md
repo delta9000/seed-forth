@@ -312,18 +312,18 @@ instruction.
 
 ## Exercises
 
-1. `<>` is defined as `= 0=`.  Why isn't it `- 0= 0=` (one fewer
+1. **★★** `<>` is defined as `= 0=`.  Why isn't it `- 0= 0=` (one fewer
    colon-call indirection)?  Count tokens; consider future readers.
 
-2. The `2^63` literal is `0x8000000000000000`, which equals the
+2. **★★★** The `2^63` literal is `0x8000000000000000`, which equals the
    most-negative signed 64-bit integer.  What does
    `9223372036854775808 .` print on a built seed-forth?  On gforth?
    Why the difference?
 
-3. Define `0< ( n -- f )` (true if `n < 0`) and `0> ( n -- f )` (true
+3. **★★** Define `0< ( n -- f )` (true if `n < 0`) and `0> ( n -- f )` (true
    if `n > 0`).  Compare to the standard Forth names.
 
-4. The `0= 0=` canonicalisation appears here for the first time.
+4. **★★★** The `0= 0=` canonicalisation appears here for the first time.
    Find at least one other place in `010-lib.fth` where the same
    pattern would simplify a definition.  (Hint: look at the
    comparison chains.)

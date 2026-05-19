@@ -953,26 +953,26 @@ makes object-like macros virtually free.
 
 ## Exercises
 
-1. M2-Planet uses a small set of preprocessor features.  Skim
+1. **★★** M2-Planet uses a small set of preprocessor features.  Skim
    `tests/cc/M*.c` and `tests/cc/G*.c`, then list every directive
    you find.  Compare against §5's grammar — anything not covered?
 
-2. The macro table is 256 entries × 8 bytes per column, plus a 16
+2. **★★★** The macro table is 256 entries × 8 bytes per column, plus a 16
    KiB name pool.  Could you shrink either without breaking the
    bootstrap?  Instrument `cc-macro-count` and
    `cc-macro-name-pool-pos` at the end of `cc-preprocess` to find
    out.
 
-3. Function-style macros (`#define FOO(x) ((x)+1)`) are not
+3. **★★★** Function-style macros (`#define FOO(x) ((x)+1)`) are not
    supported.  Construct a test case that depends on this missing
    feature and observe how the compiler handles it.  Where would
    the smallest possible patch go?
 
-4. `#include` cycles would loop forever.  Read §4 and find the
+4. **★★** `#include` cycles would loop forever.  Read §4 and find the
    (deliberately missing) cycle check.  Sketch the smallest patch
    that would detect a cycle without parsing.
 
-5. `#undef NAME` and `#ifdef NAME` are absent.  Estimate the
+5. **★★** `#undef NAME` and `#ifdef NAME` are absent.  Estimate the
    complexity cost of adding each.  Which would touch more code?
 
 ## Takeaways

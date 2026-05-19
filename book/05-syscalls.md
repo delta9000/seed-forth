@@ -291,17 +291,17 @@ This stores byte `65` (`A`) at HERE, then calls
 
 ## Exercises
 
-1. Add `lseek ( fd offset whence -- pos )` as `SYS_lseek=8`.  How many
+1. **★★** Add `lseek ( fd offset whence -- pos )` as `SYS_lseek=8`.  How many
    `[lit] 0` padding tokens does it need?
 
-2. Why does the seed expose `syscall6` rather than `syscall0`,
+2. **★★** Why does the seed expose `syscall6` rather than `syscall0`,
    `syscall1`, ..., `syscall6` separately?  (Hint: dictionary size.)
 
-3. The `die` wrapper passes its argument as the *first* syscall arg
+3. **★★★** The `die` wrapper passes its argument as the *first* syscall arg
    (`rdi`).  Look up `_exit(2)` — does that match?  What does the
    second arg do?
 
-4. Why does `write` *not* check whether its return value equals
+4. **★★★** Why does `write` *not* check whether its return value equals
    `count`?  (Hint: trace a partial-write scenario and decide who
    should retry.)  How would you build a `write-all` wrapper?
 

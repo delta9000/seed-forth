@@ -961,24 +961,24 @@ scale, building M2-Planet itself with this pipe.
 
 ## Exercises
 
-1. The `calloc` shim is 113 bytes and uses hand-counted RIP-
+1. **★★★** The `calloc` shim is 113 bytes and uses hand-counted RIP-
    relative offsets.  Add a 16-byte alignment padding to the
    prologue and confirm which displacements need to change.
 
-2. `free` is a 1-byte `ret`.  Construct a test program that
+2. **★★★** `free` is a 1-byte `ret`.  Construct a test program that
    relies on `free` reclaiming memory; observe how the bump
    allocator handles it.  Could a free-list be retrofitted?
 
-3. `fopen` recognises only `r`, `w`, `a` as the first byte of the
+3. **★★** `fopen` recognises only `r`, `w`, `a` as the first byte of the
    mode string.  What does it do with `rb` or `r+`?  Trace one
    case.
 
-4. The fixup-list mechanism in `cc-add-fixup-to-list` is the
+4. **★★** The fixup-list mechanism in `cc-add-fixup-to-list` is the
    same shape as a Lisp cons-cell.  Could the compiler reuse a
    single generic list type for both forward-call fixups and
    global fixups?  What would the consolidation save?
 
-5. The string-bytes decoder handles seven escapes.  Add `\xNN`
+5. **★★★** The string-bytes decoder handles seven escapes.  Add `\xNN`
    (two-hex-digit escape).  Where in the codegen does the new
    case go?
 

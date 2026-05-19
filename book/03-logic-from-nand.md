@@ -315,20 +315,20 @@ work, but is noisier to read).
 
 ## Exercises
 
-1. Define `xor ( a b -- a^b )` in terms of `nand` alone — no
+1. **★★** Define `xor ( a b -- a^b )` in terms of `nand` alone — no
    intermediate `and`/`or`.  Confirm with the four-row truth table.
    Compare your token count to the `(a or b) and (a nand b)` form.
 
-2. Define `not ( a -- ~a )` in terms of `nand` alone.  How does
+2. **★★★** Define `not ( a -- ~a )` in terms of `nand` alone.  How does
    `not` differ from `0=`?  Construct an input where `not` and
    `0=` disagree.
 
-3. Prove on paper that `nor` is also functionally complete.  Then
+3. **★★★** Prove on paper that `nor` is also functionally complete.  Then
    redefine `and` and `or` using only `nor`.  How many tokens
    longer do they become?  (Asymmetric: NOR-based `and` is short,
    NOR-based `or` is long — figure out why.)
 
-4. The seed could have spent a primitive slot on `not` and reduced
+4. **★★★** The seed could have spent a primitive slot on `not` and reduced
    `and` to one fewer token.  Estimate the byte cost of that primitive
    slot (10 bytes header + ~12 bytes body) and compare to the byte
    savings (one less token, in maybe a dozen call sites in

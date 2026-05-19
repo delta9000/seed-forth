@@ -568,26 +568,26 @@ rather see them inside a larger battery.
 
 ## Exercises
 
-1. **Hand-compile.** Trace what bytes `: pick-or-go  flag if, [lit] 1
+1. **★★** **Hand-compile.** Trace what bytes `: pick-or-go  flag if, [lit] 1
    else, [lit] 2 then, ;` emits.  Confirm both branches end at the
    same address.
 
-2. **The `+4` quirk.** Show on paper that `rel32 = target - (HERE_now
+2. **★★** **The `+4` quirk.** Show on paper that `rel32 = target - (HERE_now
    + 4)` where `HERE_now` is the HERE pointer *after* `[lit] 232 c,`
    has advanced past the opcode byte.  Where does the `+4` come from?
 
-3. **Add a combinator.** Write `again, ( back-target -- )` which emits
+3. **★★** **Add a combinator.** Write `again, ( back-target -- )` which emits
    an unconditional backward jump.  It is the simplest member of this
    family — three lines.
 
-4. **Add a real control structure.** Implement `do, ( limit start --
+4. **★★★** **Add a real control structure.** Implement `do, ( limit start --
    loop-ctx )` and `loop, ( loop-ctx -- )` that count `start` up to
    `limit-1`, leaving the current count accessible via a new word `i`.
    Solutions vary in how they store the loop variables — return stack
    or a private cell.  Compare yours to the classical Forth `do/loop`
    convention.
 
-5. **The xt question.** Why does this chapter use `' branch constant
+5. **★★** **The xt question.** Why does this chapter use `' branch constant
    branch-xt` instead of a literal address?  What would have to change
    in `000-seed.hex0` for the literal-address version to break?
 

@@ -264,19 +264,19 @@ test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.
 
 ## Exercises
 
-1. Derive `tuck ( a b -- b a b )` two ways: once via `swap over`,
+1. **★★★** Derive `tuck ( a b -- b a b )` two ways: once via `swap over`,
    once via `>r dup r> swap`-style primitives.  Show that both
    produce identical bytes when compiled (you'll need a built
    seed-forth for the byte comparison; gforth optimises).
 
-2. Trace `0 [lit] 1 -` on paper.  What does the data stack hold?
+2. **★★** Trace `0 [lit] 1 -` on paper.  What does the data stack hold?
    What is the bit pattern (in hex)?  Why does that bit pattern
    represent `-1` in two's complement?
 
-3. Why does `-` have an extra `+` at the end (two `+`s total)?
+3. **★** Why does `-` have an extra `+` at the end (two `+`s total)?
    Walk the stack again and identify what each `+` consumes.
 
-4. Write `negate ( n -- -n )` using only `nand`, `[lit]`, and `+`.
+4. **★★** Write `negate ( n -- -n )` using only `nand`, `[lit]`, and `+`.
    How many tokens?  Compare to `0 swap -`.
 
 ## Takeaways

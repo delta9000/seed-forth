@@ -541,24 +541,24 @@ after the add is `1`.
 
 ## Exercises
 
-1. Add `ty-short` (16-bit integer).  How many places change?
+1. **★★★** Add `ty-short` (16-bit integer).  How many places change?
    What new size does `ty-size` need to return?  Hint: changing
    `060-cc-types.fth` is the easy part; finding all the places
    in Chs 25–31 that assume 8-byte cells is the hard part.
 
-2. Struct fields max out at 16 per struct.  Find the largest
+2. **★★** Struct fields max out at 16 per struct.  Find the largest
    struct in M2-Planet's source.  Does it fit?
 
-3. The symbol table is a linear-scan parallel-array.  What's the
+3. **★★** The symbol table is a linear-scan parallel-array.  What's the
    worst-case lookup time for a 1000-symbol table?  Would a
    hash-based table fit in this codebase's size budget?
 
-4. Add `ty-array` as a base kind distinct from `ty-ptr`.  Where
+4. **★★★** Add `ty-array` as a base kind distinct from `ty-ptr`.  Where
    would it differ in behaviour from a plain pointer?  Hint:
    array-to-pointer decay (in expression context) and
    `sizeof(arr)` (in `sizeof` context) are the two C rules.
 
-5. `cc-sym-find`'s newest-first walk plus "skip after hit" is
+5. **★★★** `cc-sym-find`'s newest-first walk plus "skip after hit" is
    linear in table size, even after a hit.  Could you bail
    early?  Hint: the seed has no `exit`, but a Forth-level
    wrapper could check a flag at every iteration and skip the

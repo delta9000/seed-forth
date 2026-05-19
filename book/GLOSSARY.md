@@ -136,7 +136,8 @@ the current whitespace-delimited token.  Used by `:`, `find`, `'`,
 **ABI (System V AMD64)** — the Linux calling convention this
 codebase outputs to.  First six integer/pointer args in `rdi`,
 `rsi`, `rdx`, `rcx`, `r8`, `r9`; return value in `rax`; stack
-16-byte-aligned at `call` sites.  Ch 26.
+16-byte-aligned at `call` sites.  Ch 25 introduces the encoders;
+Ch 26 walks the call-site shims.
 
 **`call rel32`** — a 5-byte instruction: `E8` + 4-byte signed
 displacement.  Target = current `rip` + 5 + rel32.  `comma-call`
@@ -198,9 +199,11 @@ struct descriptors and other small overflow.  Ch 21.
 
 **Back-patching** — emitting a placeholder byte sequence (typically
 zeros), recording its offset, and later writing the resolved value
-once it's known.  Used for ELF segment sizes, frame sizes, forward
-jumps, function calls to not-yet-defined functions.  Ch 21, Ch 30,
-Ch 31.
+once it's known.  Used for ELF segment sizes, forward jumps inside
+`if`/`while`/`for`, and function-call sites whose target isn't yet
+emitted.  Ch 21 (concept), Ch 25 (`p_filesz`), Ch 30 (forward
+jumps), Ch 31 (forward function calls).  Function frames are *not*
+back-patched — see "Fixed 256-byte function frame" in CONCEPTS.
 
 **Codegen** — the pass that emits machine code.  In this compiler,
 codegen is the *only* output pass: there's no IR, no SSA, no
@@ -213,7 +216,7 @@ rather than allocating registers.  Slow but simple.
 
 **Frame** — a function's stack region: saved `rbp`, locals,
 spilled parameters.  Addressed as `[rbp - 8n]` for local n.
-Ch 26, Ch 31.
+Ch 25 (encoders), Ch 31 (per-function layout).
 
 **Identifier / keyword / punctuator** — the three main token
 classes from the lexer.  Identifiers get looked up in the symbol
@@ -250,7 +253,7 @@ conditional compilation before the lexer sees the source.  Ch 22.
 **Prologue / epilogue** — the boilerplate at function entry / exit.
 Prologue: `push rbp ; mov rbp, rsp ; sub rsp, FRAMESIZE` plus
 register-arg spills.  Epilogue: `mov rsp, rbp ; pop rbp ; ret`.
-Ch 26, Ch 31.
+Ch 25 (encoders), Ch 31 (emitted per function).
 
 **Stage-A check** — `tests/cc/stage-a-check.sh`.  Builds M2-Planet
 using `cc-out`, diffs the M1 output against a GCC-built reference.

@@ -35,6 +35,11 @@ You write code already.  You know what a stack is, what `malloc` does,
 and roughly what an ELF executable is.  You have never written Forth
 (or you tried once, found the `: ;` syntax baffling, and bounced off).
 
+You do **not** need to know x86-64 assembly, the ELF format in
+detail, the Linux syscall ABI, the Forth standard library, or
+anything about bootstrap chains.  The book introduces each of
+these as it needs them, in the order it needs them.
+
 ## What you will be able to do at the end
 
 - Read `010-lib.fth` line by line and explain how each definition
@@ -126,7 +131,8 @@ chapters so the reader sees one coherent idea per chapter.
 - **A.** [The 32 seed primitives](A1-32-seed-primitives.md) — one-line reference card.
 - **B.** [The memory map](A2-memory-map.md).
 - **C.** [Reproducibility: the full hex0 → seed → M2-Planet chain](A3-reproducibility-chain.md).
-- **D.** [Exercises with worked solutions](A4-worked-exercises.md).
+- **D.** [Three worked exercises, one per Part](A4-worked-exercises.md).
+- **E.** [Further reading](A5-further-reading.md) — Forth, compilers, bootstrap, ELF/x86-64.
 
 ## Companion docs
 
@@ -139,6 +145,37 @@ chapters so the reader sees one coherent idea per chapter.
   into prose: panes layout, validation steps, common pitfalls,
   done-criteria.
 
+## Before you start
+
+The seed is hand-encoded x86-64 ELF, so the codebase runs natively
+only on **Linux x86-64**.  Apple Silicon, ARM Linux, and Windows
+readers will need a Linux/amd64 VM, container, or QEMU emulation —
+the book itself is the same, but every `./build.sh` / `./test.sh`
+needs an amd64 Linux kernel underneath.
+
+What you'll want installed:
+
+- **bash** and a modern **POSIX coreutils** — the build is shell
+  scripts plus the vendored hex0 assembler; no make, no autoconf.
+- **gforth** — for Part I.  The playground at
+  [`book/playground.fth`](playground.fth) loads under any recent
+  gforth (0.7+; Debian/Ubuntu, Fedora, Homebrew all ship a
+  workable version).  You don't need to build the seed until
+  Part II.
+- **git** — to clone the repo with its `vendor/` submodules
+  (stage0-posix's `hex0-seed` is checked in there; no separate
+  download).
+- **A C compiler** (gcc or clang) **only** if you want to run the
+  Stage-A check (Appendix C); the book itself never invokes it.
+
+Disk budget: ~30 MiB for the repo plus vendored stage0-posix /
+M2-Planet / mescc-tools.  Memory: a few MiB at runtime; the C
+compiler reserves a 256 MiB heap but only touches what it uses.
+
+You do *not* need: a Forth background, x86-64 assembly experience,
+Linux kernel knowledge, or any prior bootstrapping context.  The
+book introduces each as it needs it.
+
 ## How to read this book
 
 Open the book in one editor pane and the file under discussion in
@@ -148,6 +185,12 @@ substitute for it.
 Read Part I with `gforth` installed and the shim at
 [`book/playground.fth`](playground.fth) loaded.  You do not need to
 build the seed itself until Part II, when we start reading the hex.
+
+The default is source order — Ch 1 → Ch 32 — which earns every
+concept before using it.  If you'd rather see the shape of the
+whole machine first, or come at it from the VM upward, see the
+"Reading orders" sidebar in [CONCEPTS.md](CONCEPTS.md) for two
+alternative paths.
 
 ## The book is literate
 

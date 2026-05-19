@@ -421,22 +421,22 @@ field.  `e_entry` should be `0x400078`; `e_phoff` should be `64`;
 
 ## Exercises
 
-1. The entry point is at `0x400078`.  The header is 64 bytes plus one
+1. **★★** The entry point is at `0x400078`.  The header is 64 bytes plus one
    56-byte program header — total 120 bytes.  Why is the entry at
    offset `0x78` (=120) and not, say, `0x100`?  What would change if
    the seed reserved padding for future program-header entries?
 
-2. `p_memsz = 16 MiB` but `p_filesz = 2040`.  What does the kernel do
+2. **★★** `p_memsz = 16 MiB` but `p_filesz = 2040`.  What does the kernel do
    with the bytes between `2040` and `16 MiB`?  Trace what happens
    when seed-forth writes the first byte at `0x420000`: does the page
    exist before the write?  After?
 
-3. The sysvar `LATEST` is initialised at assembly time to the entry
+3. **★★** The sysvar `LATEST` is initialised at assembly time to the entry
    of the `'` primitive (`0x4007E8`).  Why not initialise it to zero
    and have the REPL walk the chain to find the tail?  (Hint: count
    the syscalls and instructions involved in each option.)
 
-4. Why R|W|X for the single segment?  Sketch the changes needed to
+4. **★★★** Why R|W|X for the single segment?  Sketch the changes needed to
    split it into R-X (code) + R-W (heap + sysvars + stack).  Where
    would `mprotect` calls have to go?  How many bytes does each one
    cost?

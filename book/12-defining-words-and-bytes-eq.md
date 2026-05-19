@@ -411,18 +411,18 @@ Expected output: `10`.  `a` and `b` are identical 3-byte buffers
 
 ## Exercises
 
-1. Why is `bytes-eq-flag` a *variable* (a shared cell) rather than a
+1. **★★** Why is `bytes-eq-flag` a *variable* (a shared cell) rather than a
    local on the data stack?  Trace the loop and explain what would
    go wrong if you tried to keep the flag on the data stack.
 
-2. Define `2variable ( -- )` that defines a word pushing the address
+2. **★★** Define `2variable ( -- )` that defines a word pushing the address
    of a *two*-cell store.  Compare its emitted bytes to `variable`.
 
-3. Define `string, ( c-addr u -- )` that copies `u` bytes from
+3. **★★** Define `string, ( c-addr u -- )` that copies `u` bytes from
    `c-addr` to HERE and advances HERE.  Use `create string, "Hello"`
    to build a named string blob.
 
-4. The arithmetic-without-exit constraint forced O(n) compare even
+4. **★★★** The arithmetic-without-exit constraint forced O(n) compare even
    on mismatch.  How much extra work does that cost the C compiler
    in the worst case?  (Hint: longest identifier in the M2-Planet
    source; total `bytes-eq` calls per build.)
