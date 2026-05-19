@@ -91,14 +91,14 @@ taught by topic rather than by ELF offset.
 
 | # | Chapter | Covers | Status |
 |---|---|---|---|
-| 13 | [The ELF and the entry point](13-elf-and-entry.md) | header, program header, `_start`, sysvar init | ✏️ |
-| 14 | [Stack primitives in machine code](14-stack-primitives.md) | `dup`, `drop`, `swap`, `>r`, `r>`, `@`, `!`, `c@`, `c!` | ✏️ |
-| 15 | [Arithmetic, logic, comparison](15-arithmetic-and-logic.md) | `+`, `nand`, `0=`, `/`, `*` | ✏️ |
-| 16 | [I/O: `emit`, `key`, `syscall6`](16-io-emit-key-syscall6.md) | the I/O scratch page; `read_word` | ✏️ |
-| 17 | [The dictionary](17-the-dictionary.md) | header layout, `find`, `here`, `,`, `latest`, `'`, `execute` | ✏️ |
-| 18 | [The colon compiler](18-the-colon-compiler.md) | `:`, `;`, `lit` | ✏️ |
-| 19 | [Branches and inline cells](19-branches-and-inline-cells.md) | `branch`, `0branch` | ✏️ |
-| 20 | [The number parser and REPL](20-number-parser-and-repl.md) | `parse_decimal`, `STATE`, the main loop, the `?` miss path | ✏️ |
+| 13 | [The ELF and the entry point](13-elf-and-entry.md) | header, program header, `_start`, sysvar init | ✅ |
+| 14 | [Stack primitives in machine code](14-stack-primitives.md) | `dup`, `drop`, `swap`, `>r`, `r>`, `@`, `!`, `c@`, `c!` | ✅ |
+| 15 | [Arithmetic, logic, comparison](15-arithmetic-and-logic.md) | `+`, `nand`, `0=`, `/`, `*` | ✅ |
+| 16 | [I/O: `emit`, `key`, `syscall6`](16-io-emit-key-syscall6.md) | the I/O scratch page; `read_word` | ✅ |
+| 17 | [The dictionary](17-the-dictionary.md) | header layout, `find`, `here`, `,`, `latest`, `'`, `execute` | ✅ |
+| 18 | [The colon compiler](18-the-colon-compiler.md) | `:`, `;`, `lit` | ✅ |
+| 19 | [Branches and inline cells](19-branches-and-inline-cells.md) | `branch`, `0branch` | ✅ |
+| 20 | [The number parser and REPL](20-number-parser-and-repl.md) | `parse_decimal`, `STATE`, the main loop, the `?` miss path | ✅ |
 
 ### Part III — A C compiler in Forth
 

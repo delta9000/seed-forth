@@ -1,121 +1,451 @@
 # Chapter 18 — The Colon Compiler
 
-> **Status:** structural stub.
+> **Status:** ✅ complete.  Defines chunks `<<colon-code>>`,
+> `<<semicolon-code>>`, `<<lit-code>>`, `<<bracket-lit-code>>`,
+> `<<bracket-lit-dict>>`; bodies match `000-seed.hex0` lines
+> 263–298, 359–367, and 587–626.
 
 ## Goal
 
 By the end of this chapter the reader can:
 
 - read `colon_code` byte for byte and explain what each section
-  contributes to building a dictionary header;
-- read `semicolon_code` and explain why it sets the IMMEDIATE flag
-  on itself at assembly time, not at runtime;
-- read `lit_code` and explain the in-line literal convention (the
-  8 bytes immediately following the `CALL lit` site).
+  contributes to building a dictionary header for a new word;
+- read `semicolon_code` and explain why its IMMEDIATE flag is set
+  at *assembly* time (in the dictionary) rather than at runtime;
+- read `lit_code` and explain the inline-literal convention (the
+  eight bytes immediately following the `CALL lit_code` site);
+- read `bracket_lit_code` and explain how it parses a decimal at
+  the next token position and either pushes (interpret mode) or
+  compiles (compile mode) the value.
 
 ## Source coverage
 
-`000-seed.hex0` `colon_code @ 0x2D4`, `semicolon_code @ 0x33B`,
-`lit_code @ 0x419`.  Roughly 100 lines of hex.
+`000-seed.hex0` `colon_code @ 0x2D4` (lines 263–289),
+`semicolon_code @ 0x33B` (lines 291–297), `lit_code @ 0x419`
+(lines 359–366), and `bracket_lit_code @ 0x652` plus its dictionary
+entry `[lit]` (lines 587–625).
 
 ## Concepts introduced
 
 - **`colon_code` ( -- ) parses a name and builds a header.**  Calls
-  `read_word`, copies the link/flags/name-len/name bytes into HERE,
-  flips STATE to 1.  The header is exactly `10 + name-len` bytes.
+  `read_word`; copies link/flags/nlen/name bytes at HERE; advances
+  HERE; flips STATE to 1.  The header is exactly `10 + nlen` bytes.
 - **`semicolon_code` ( -- ) appends `ret` and flips STATE back.**
-  Writes `0xC3` at HERE, advances HERE by 1, sets STATE=0.  The
-  `;` entry in the dictionary itself has the IMMEDIATE flag set
-  at assembly time (its dictionary header has `flags=01`).
+  Writes `0xC3` at HERE, increments HERE by 1, sets STATE=0.
+- **IMMEDIATE-at-assembly-time.**  The `;` dictionary entry carries
+  `flags = 01` because it has to run *during* a compilation (to
+  close one), so it can never be compiled.  All other immediates in
+  the seed (`[lit]`) are added the same way — flag bit set in the
+  hand-laid header.
 - **`lit_code` ( -- v ) reads its own inline 8-byte cell.**  Pops
-  the return address (which points at the 8 bytes immediately after
-  the `CALL lit` site); fetches the cell; pushes it; advances the
-  return address past the cell so we resume after the slot.
+  the return address; loads 8 bytes from there; advances the return
+  address past the cell; pushes the cell value; returns.
+- **`bracket_lit_code` — the seed's only number-pusher in interpret
+  mode.**  Parses the next token as decimal; either pushes the
+  number (interpret) or emits `CALL lit_code` + the 8-byte cell
+  (compile).
 
 ## Concepts carried in
 
-- `read_word` from Ch 17 (called by `colon_code`).
-- The dictionary layout from Ch 17.
-- The `c,`-style HERE advancement from Ch 2 — but here in raw hex.
+- `read_word` from Ch 17 (called by `colon_code` and
+  `bracket_lit_code`).
+- The dictionary entry layout from Ch 17.
+- `parse_decimal_code` — defined here (forward-referenced from
+  Ch 20 where it's explained in full; we use it now and pin
+  it down then).
+- The `c,`-style HERE-advance pattern from Ch 2, but in raw hex.
 
 ## Concepts deferred
 
 - The interplay of `:` with `STATE` and `find_code` in the REPL —
   Ch 20.
-- `branch_code` and `0branch_code` (which share `lit_code`'s
-  inline-slot convention) — Ch 19.
+- `branch_code` and `0branch_code`, which share `lit_code`'s
+  inline-slot convention — Ch 19.
 
-## Section plan
+---
 
-1. **`colon_code`'s anatomy.**  Five sections:
-   (a) read token into the token buffer;
-   (b) capture current HERE as the new entry's body start;
-   (c) write `LATEST @` as the link cell at HERE; bump HERE 8;
-   (d) write `00` flags + token length + token bytes;
-   (e) update `LATEST` to point at the new entry; set STATE=1.
-2. **The byte-copy loop inside `colon_code`.**  Walk the `rep movsb`
-   or the equivalent hand-loop.  Each token byte goes into the
-   header.
-3. **`semicolon_code` in five bytes.**  `mov byte [HERE], C3 ; inc
-   HERE ; mov [STATE], 0 ; ret`.  Annotate.
-4. **Why `;` is IMMEDIATE at assembly time.**  Its dictionary entry
-   carries `flags=01`.  The REPL's compile-mode handler checks this
-   flag; if set, the word runs *now* instead of being appended to
-   the body being compiled.  Without this, `;` would be appended to
-   itself in an infinite loop.
-5. **`lit_code` and the inline-cell trick.**  When a compile-time
-   number is encountered, the REPL emits `CALL lit` followed by 8
-   bytes of the literal value.  At runtime, `lit_code` reads its
-   *own* return address (= the byte just after `CALL lit` = the
-   first byte of the slot), fetches the 8 bytes, advances the
-   return address past them, and returns.
+`:` and `;` together are how Forth defines new words.  In interpret
+mode, a `:` reads the next token, builds a dictionary header for
+it, and flips the seed into compile mode.  Every subsequent token
+gets *compiled* (turned into a `CALL` to its xt, plus inline cells
+where needed) rather than executed.  Then `;` runs — it appends a
+`ret` byte and flips STATE back to 0.
 
-## Canonical chunks
+The whole compiler is two primitives, 130 bytes of hex between
+them.  Most of `colon_code` is parsing the name and copying it into
+the header; the actual "open a definition" is a flag flip and a
+pointer update.  Most of `semicolon_code` is the *same* flag flip
+in reverse, plus the appended `ret`.
 
-- `<<colon-code>>` — roughly 100 bytes at `0x2D4`.
-- `<<semicolon-code>>` — ~30 bytes at `0x33B`.
-- `<<lit-code>>` — ~18 bytes at `0x419`.
+`lit_code` and `bracket_lit_code` are the supporting cast: how
+literals reach the data stack when the source has nothing but
+whitespace-separated tokens.
+
+## 1. `colon_code`'s anatomy
+
+```hex0 chunk=colon-code
+;; ----- colon_code @ 0x2D4 ( -- ) parse name, build header, STATE=1 -----
+;; @0x2D4: call read_word (rel32 = 0x259 - 0x2D9 = -128)
+E8 80 FF FF FF
+48 8B 0C 25 08 30 41 00                   ; mov rcx, [LATEST]
+48 8B 14 25 10 30 41 00                   ; mov rdx, [HERE]
+48 89 0A                                  ; mov [rdx], rcx       ; entry.link = LATEST
+C6 42 08 00                               ; mov byte [rdx+8], 0  ; flags
+88 42 09                                  ; mov [rdx+9], al      ; nlen
+48 89 C1                                  ; mov rcx, rax
+48 C7 C6 00 28 41 00                      ; mov rsi, 0x412800
+4C 8D 42 0A                               ; lea r8, [rdx+10]
+;; .copy: while (rcx) { *r8++ = *rsi++; rcx-- }
+48 85 C9                                  ; test rcx, rcx
+74 11                                     ; jz .done_copy
+44 8A 0E                                  ; mov r9b, [rsi]
+45 88 08                                  ; mov [r8], r9b
+48 FF C6                                  ; inc rsi
+49 FF C0                                  ; inc r8
+48 FF C9                                  ; dec rcx
+EB EA                                     ; jmp .copy
+;; .done_copy:
+48 89 14 25 08 30 41 00                   ; mov [LATEST], rdx    ; LATEST = new entry
+48 83 C2 0A                               ; add rdx, 10
+48 01 C2                                  ; add rdx, rax
+48 89 14 25 10 30 41 00                   ; mov [HERE], rdx       ; HERE += 10 + nlen
+48 C7 04 25 00 30 41 00 01 00 00 00       ; mov [STATE], 1
+C3
+
+```
+
+Five logical sections:
+
+**(a) Read the name.**  One `call read_word`.  After it returns,
+`rax` holds the token length and `[0x412800]` holds the token bytes.
+If `rax == 0` (EOF), the rest of the routine will store a zero-byte
+header — broken, but the seed accepts it because users don't write
+`:` followed by EOF unless they made a mistake.
+
+**(b) Capture LATEST and HERE.**  `rcx = LATEST` (the address of
+the previous entry's link cell, which becomes our new link); `rdx
+= HERE` (where the new header will start).
+
+**(c) Write the link, flags, and name-length bytes.**  `mov [rdx],
+rcx` stores the 8-byte link cell.  `mov byte [rdx+8], 0` stores the
+flags byte (always 0 for user words; only `;` and `[lit]` set
+IMMEDIATE, and those are hand-laid).  `mov [rdx+9], al` stores the
+name length.  (`al` is the low byte of `rax`, which `read_word` set
+to the length.)
+
+**(d) Copy the name bytes.**  A simple while-loop copying `rcx`
+bytes from `[0x412800]` to `[rdx+10]`.  Each iteration: read a byte
+through `r9b`, write it to `[r8]`, increment both pointers,
+decrement the counter.
+
+**(e) Update `LATEST` and `HERE`, flip STATE.**  `LATEST = rdx`
+(new entry is the new head of the chain).  `HERE += 10 + nlen`
+(the header now owns those bytes; the body starts immediately
+after).  `STATE = 1` (we're in compile mode).
+
+That last byte before `ret` is the whole reason for the chapter:
+the REPL (Ch 20) loops on STATE, and the next time around the loop
+it will see STATE=1 and switch to compile mode — emitting `CALL`s
+instead of executing.
+
+## 2. `semicolon_code` in five operations
+
+```hex0 chunk=semicolon-code
+;; ----- semicolon_code @ 0x33B ( -- ) IMMEDIATE: append RET, STATE=0 -----
+48 8B 04 25 10 30 41 00                   ; mov rax, [HERE]
+C6 00 C3                                  ; mov byte [rax], 0xC3
+48 FF C0                                  ; inc rax
+48 89 04 25 10 30 41 00                   ; mov [HERE], rax
+48 C7 04 25 00 30 41 00 00 00 00 00       ; mov [STATE], 0
+C3
+
+```
+
+```
+mov rax, [HERE]
+mov byte [rax], 0xC3   ; write the ret byte at HERE
+inc rax                ; advance HERE by 1
+mov [HERE], rax
+mov [STATE], 0         ; back to interpret mode
+ret
+```
+
+That's the entire compiler-closing routine.  The body being
+compiled now ends in a `0xC3` — `ret` — so when something later
+`CALL`s the new word, the `ret` returns to the caller and execution
+continues normally.
+
+## 3. Why `;` is IMMEDIATE at assembly time
+
+`;` cannot be compiled like an ordinary word.  Consider what would
+happen if it weren't IMMEDIATE: the REPL is in compile mode (STATE
+= 1), and the next token is `;`.  The compile-mode handler would
+emit a `CALL semicolon_code` instruction at HERE — and then loop
+back to read the next token.  STATE is still 1; the body being
+compiled never gets closed.
+
+For `;` to *close the current definition*, it has to run **at
+compile time**, not at runtime.  That means it has to be IMMEDIATE.
+And since the seed has no Forth-level way to *set* the IMMEDIATE
+bit (that comes in `010-lib.fth`'s `immediate` word, Ch 10), the
+flag has to be set in the hand-laid dictionary header.
+
+Look back at Ch 17's `<<dictionary-entries>>` chunk and find the
+`;` entry:
+
+```
+;; --- ; @ 0x5B0 (xt = 0x5BB) ---  IMMEDIATE
+A0 05 40 00 00 00 00 00
+01                       ← flags = 01 (IMMEDIATE!)
+01                       ← nlen
+3B                       ← ";"
+E9 7B FD FF FF           ← jmp semicolon_code
+```
+
+`flags = 01`.  The REPL's compile-mode handler (Ch 20) checks this
+bit before deciding whether to compile or execute, and on a match
+it runs the word immediately.  That's how `;` closes its own
+definition.
+
+`;` is the *only* IMMEDIATE word among the original 24 in the
+dictionary block.  `[lit]` (added later) is also IMMEDIATE — same
+reason: it has to parse the next token *during* compilation.
+
+## 4. `lit_code` and the inline-cell trick
+
+```hex0 chunk=lit-code
+;; ----- lit_code @ 0x419 ( -- v ) reads inline 8-byte cell after CALL site -----
+58                                        ; pop rax
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 8B 38                                  ; mov rdi, [rax]   ; load inline cell
+48 83 C0 08                               ; add rax, 8
+50                                        ; push rax
+C3                                        ; ret
+
+```
+
+Seven bytes plus `ret`.  Read it once and the convention will lock
+in for the rest of Part II.
+
+When the compiler wants to push a constant `V` at runtime, it emits:
+
+```
+E8 xx xx xx xx          ; CALL lit_code
+<8 bytes of V>          ; the inline cell, sitting where execution would otherwise continue
+```
+
+At runtime, the `CALL` pushes the address of the byte *immediately
+after the CALL* — which is the first byte of the inline cell — onto
+the return stack as the return address.  `lit_code` is now executing
+with `[rsp]` equal to that address.
+
+```
+pop rax           ; rax = address of inline cell
+sub rbp, 8        ; data-stack room
+mov [rbp], rdi    ; spill old TOS
+mov rdi, [rax]    ; new TOS = the 8-byte cell
+add rax, 8        ; rax = address just past the cell
+push rax          ; restore as return address, now pointing past the cell
+ret               ; return there
+```
+
+The trick is the `add rax, 8` before pushing back.  Without it,
+`ret` would resume at the address of the cell — i.e., execute the
+8 raw bytes of `V` as machine code, which would be gibberish or
+worse.
+
+This is the seed's first instance of *executable instructions and
+data interleaved in the same byte stream*.  The same pattern recurs
+in `branch_code` and `zbranch_code` (Ch 19), where the inline cell
+is a *jump target* instead of a value to push.
+
+## 5. `bracket_lit_code` — interpreting and compiling literals
+
+`lit_code` runs at *runtime* and pushes a value the compiler already
+wrote.  But who writes that value?  How does a number written in
+source — say, `42` — become an inline cell?
+
+The seed's answer is `[lit]`.  It's an IMMEDIATE word that parses
+the next token as a decimal and either pushes the value (interpret
+mode) or compiles a `CALL lit_code + cell` sequence (compile mode).
+
+```hex0 chunk=bracket-lit-code
+;; ----- bracket_lit_code @ 0x652 ( -- ) IMMEDIATE -----
+;; In interpret mode: parse next token as decimal, push value.
+;; In compile mode: parse next token as decimal, compile CALL lit_code + cell.
+;; @0x652: call read_word (rel32 = 0x259 - 0x657 = -1022)
+E8 02 FC FF FF
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 C7 C7 00 28 41 00                      ; mov rdi, 0x412800
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 89 C7                                  ; mov rdi, rax
+;; @0x671: call parse_decimal_code (rel32 = 0x5FD - 0x676 = -121)
+E8 87 FF FF FF
+48 8B 7D 00                               ; mov rdi, [rbp]   ; rdi = n (or 0)
+48 83 C5 08                               ; add rbp, 8
+48 8B 04 25 00 30 41 00                   ; mov rax, [STATE]
+48 85 C0                                  ; test rax, rax
+75 01                                     ; jnz .Lcompile
+C3                                        ; interpret: leave n as TOS
+;; .Lcompile:
+48 8B 04 25 10 30 41 00                   ; mov rax, [HERE]
+C6 00 E8                                  ; mov byte [rax], 0xE8
+48 83 C0 05                               ; add rax, 5
+48 C7 C2 19 04 40 00                      ; mov rdx, 0x400419 (lit_code body)
+48 29 C2                                  ; sub rdx, rax
+89 50 FC                                  ; mov [rax-4], edx
+48 89 38                                  ; mov [rax], rdi   ; inline 8-byte cell
+48 83 C0 08                               ; add rax, 8
+48 89 04 25 10 30 41 00                   ; mov [HERE], rax  ; HERE += 13
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3
+
+```
+
+The shape is: call `read_word`, push `(buf-addr, len)` to set up
+`parse_decimal_code`'s expected stack, call `parse_decimal_code`,
+pop the success flag, branch on STATE.
+
+In interpret mode (`STATE == 0`) the body just `ret`s with the
+parsed value as the new TOS.  Done.
+
+In compile mode (`STATE != 0`) we walk through the literal-
+compilation sequence:
+
+```
+mov rax, [HERE]                  ; rax = where to write
+mov byte [rax], 0xE8             ; opcode for CALL rel32
+add rax, 5                       ; rax = address just past the CALL
+mov rdx, 0x400419                ; lit_code's address
+sub rdx, rax                     ; rdx = rel32 displacement
+mov [rax-4], edx                 ; back-patch the displacement
+mov [rax], rdi                   ; write the inline cell (8 bytes)
+add rax, 8                       ; advance past the cell
+mov [HERE], rax                  ; HERE += 13
+... pop old TOS, ret
+```
+
+Total bytes emitted at HERE: 5 (`CALL lit_code`) + 8 (cell) = 13.
+
+That 13-byte sequence is what `[lit] 42` compiles to when it
+appears inside a `:` definition.  At runtime, the `CALL` reaches
+`lit_code` with the cell as the return address; `lit_code` reads
+the cell, advances past it, returns.  Net effect: `42` ends up on
+the data stack.
+
+```hex0 chunk=bracket-lit-dict
+;; --- [lit] @ 0x6C0 (xt = 0x6CF) ---  IMMEDIATE
+E7 05 40 00 00 00 00 00                     ; link = 0x4005E7 (0branch)
+01                                        ; flags = IMMEDIATE
+05                                        ; nlen = 5
+5B 6C 69 74 5D                            ; "[lit]"
+E9 7E FF FF FF                              ; jmp bracket_lit_code (rel = 0x652 - 0x6D4 = -130)
+
+```
+
+The `[lit]` dictionary entry, with `flags = 01` (IMMEDIATE).  Its
+`link` points back to `0branch`'s entry (the previous word in the
+linked list).
+
+## 6. Reading a compiled definition
+
+Take `: square dup * ;` as a worked example.
+
+When the REPL processes `:`, it calls `colon_code`, which:
+1. Reads `square` via `read_word`.
+2. Captures `[LATEST]` and `[HERE]`.
+3. Writes the link cell, flags `00`, name length `06`, name bytes.
+4. Updates `LATEST` to point at the new entry.
+5. Advances HERE by `10 + 6 = 16`.
+6. Sets STATE to 1.
+
+Then the REPL is in compile mode.  It reads `dup`, looks it up,
+gets the xt for `dup_code`, sees that `dup` is not IMMEDIATE
+(`flags = 00`), and emits at HERE:
+
+```
+E8 xx xx xx xx          ; CALL dup_code (5 bytes)
+```
+
+HERE advances by 5.
+
+Then `*` — same routine, 5 more bytes for `CALL star_code`.
+
+Then `;` — IMMEDIATE.  The REPL runs `semicolon_code` instead of
+compiling a call to it.  `semicolon_code` writes `C3` at HERE
+(advance by 1), then sets STATE to 0.
+
+Total body size for `square`: `5 + 5 + 1 = 11` bytes.  Total entry
+size: `10 + 6 + 11 = 27` bytes.
+
+Try it for `: five [lit] 5 ;` and verify the body is `5 + 13 + 1 =
+19` bytes.  (The `[lit] 5` part compiles to a `CALL lit_code` +
+8-byte `5` cell — 13 bytes total.)
 
 ## Try it
 
 ```sh
 ./build.sh
-echo ': square dup * ;  [lit] 7 square [lit] 48 + emit bye' | ./seed-forth
-# 7*7=49, +48='1', prints "1"
-echo ': five [lit] 5 ;  five [lit] 48 + emit bye' | ./seed-forth
-# 5+48='5'
+
+echo ": square dup * ; [lit] 7 square [lit] 48 + emit bye" | ./seed-forth
+# 7*7 = 49; 49 + 48 = 97 = 'a'. Wait — should be '1' if we want a digit.
+# Trace: 7 squared is 49 (ASCII '1'), so the answer is "1".
+# Actually 49 in ASCII *is* '1'. Adding 48 produces 97 = 'a'. So this prints 'a'.
+
+echo ": five [lit] 5 ; five [lit] 48 + emit bye" | ./seed-forth
+# 5 + 48 = 53 = '5'. prints "5".
+
+echo ": ab [lit] 65 emit [lit] 66 emit ; ab ab bye" | ./seed-forth
+# defines ab to emit 'AB', then calls it twice. prints "ABAB".
 ```
 
-For each test, predict the bytes emitted at `HERE` by `:` and `;`
-before running.
+Try defining a word that calls another word you just defined:
+
+```sh
+echo ": A [lit] 65 emit ;  : AAA A A A ;  AAA bye" | ./seed-forth
+# prints "AAA"
+```
 
 ## Exercises
 
-1. The header built by `:` is exactly `10 + name-len` bytes.
-   Compute it for `: square`.  Now compute it for a 240-character
-   name.  Does the name-length byte limit you to 255?  What would
-   happen at length 256?
+1. The header built by `:` is exactly `10 + nlen` bytes.  Compute
+   it for `: square`.  Compute it for a 240-character name.  Does
+   the name-length byte limit you to 255?  What would happen at
+   length 256?  Trace which instruction in `colon_code` truncates.
 
-2. `;`'s appended `ret` (`C3`) is the only thing connecting a colon
-   definition to its caller.  Why is `ret` enough?  (Hint: how was
-   the colon definition entered — via `CALL` or via `JMP`?)
+2. `;`'s appended `ret` (`C3`) is the only thing that ends a colon
+   definition.  Why is `ret` enough?  (Hint: how was the colon
+   definition *entered* — via `CALL` or via `JMP`?)
 
 3. `lit_code` advances the return address by 8.  Trace what would
-   happen if you forgot to advance.  Now what if you advanced by 7
-   or 9?
+   happen if you forgot to advance (`add rax, 8` deleted): what
+   does `ret` execute next?  Now what if you advanced by 7 or 9?
 
 4. Write a hypothetical `2lit_code` that reads 16 inline bytes and
-   pushes two cells.  How would the compile-mode REPL emit it?
+   pushes two cells.  Sketch how the compile-mode REPL would emit
+   calls to it from a source like `[2lit] 42 100`.
+
+5. Modify a copy of `000-seed.hex0` so that `:` also accepts an
+   "IMMEDIATE" suffix at parse time (e.g., `: foo immediate ...`),
+   setting the flags byte to `01` instead of `00`.  Where in
+   `colon_code` does the change go?  How many bytes?
 
 ## Takeaways
 
-- `:` and `;` are 130 bytes of hex between them — most of which is
-  parsing the name and copying it into a header.  The actual "open
-  / close a compilation unit" is a flag flip and a `ret` byte.
-- `;` is IMMEDIATE at assembly time, with its flags byte set to
-  `01` in the dictionary.  This is the only IMMEDIATE word in the
-  seed; all other immediates are added at the Forth layer (Ch 10).
-- `lit_code`'s in-line-cell trick is the model for the
-  `branch_code`/`0branch_code` we read in the next chapter.
+- `:` and `;` are 130 bytes of hex between them.  Most of `:` is
+  parsing and copying the name; the actual "open / close a
+  compilation unit" is one flag flip and one byte of `ret`.
+- `;` is IMMEDIATE at assembly time, with `flags = 01` in its
+  dictionary entry — the *only* original IMMEDIATE; `[lit]` is the
+  one other IMMEDIATE the seed adds, for the same reason: it must
+  run during compilation.
+- `lit_code`'s inline-cell trick is the model for `branch_code` and
+  `zbranch_code` in the next chapter.  Inline data, executable as
+  no-ops only because the primitive arranges to step over them.
 
 Next: Chapter 19 — Branches and Inline Cells.
