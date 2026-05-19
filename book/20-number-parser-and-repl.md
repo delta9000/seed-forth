@@ -483,5 +483,13 @@ echo "thisisnotaword bye" | ./seed-forth
   IMMEDIATE words always execute, no matter which mode the REPL
   is in.
 
+The seed-forth REPL you have just finished reading is now the *host*
+for a self-hosted C compiler.  The remaining twelve chapters use the
+same primitives you have just seen in machine code — `:`, `;`, `[lit]`,
+`if,`, `then,`, `branch`, `0branch`, `read_word`, `find`, `here`, `,`
+— to build a compiler whose output is byte-identical to M2-Planet on
+the stage-A inputs.  Part III is the payoff: the bootstrap story and
+the Forth story braided into one program.
+
 Next: Chapter 21 — Arena and I/O Buffers (Part III opens; we leave
 the seed and start reading the C compiler).

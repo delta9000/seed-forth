@@ -373,6 +373,23 @@ invocation.)
   is the manual for one segment of it — the seed-forth arm
   from `hex0-seed` to M2-Planet.
 
-You have reached the end of the main book.  See the
-appendices for reference cards, the memory map, the full
-reproducible chain, and exercises with worked solutions.
+You have reached the end of the main book.
+
+What you did: walked from 2,040 hand-encoded bytes to a C
+compiler whose stage-A output is byte-identical to M2-Planet
+built with GCC.  Every byte between the seed and the M1 output
+was earned — argued for in source you have now read.  Both
+stories the prologue promised — the Forth story (a language
+small enough to host its own compiler) and the bootstrap story
+(a chain auditable because the seed is small enough to read) —
+converge here.  They are the same story told from two ends.
+
+The four appendices that follow are the reference cards a reader
+will want on a second pass:
+[A](A1-32-seed-primitives.md) — the 32 primitives in one table;
+[B](A2-memory-map.md) — every fixed address in the book;
+[C](A3-reproducibility-chain.md) — the hex0 → seed → M2-Planet
+chain with commands and expected hashes;
+[D](A4-worked-exercises.md) — three exercises worked end to end.
+
+Turn the page.
