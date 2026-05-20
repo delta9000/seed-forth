@@ -1,20 +1,15 @@
 # Chapter 22 — The Preprocessor
 
 `040-cc-prep.fth` (630 lines, entire file) is the smallest
-preprocessor that suffices for M2-Planet's source: it handles
-`#include "…"` faithfully, elides `#include <…>` (the compiler has
-built-in shims for the stdio headers), accepts integer-valued
-`#define` (decimal literal or another already-defined macro name),
-and silently passes everything else through.  It runs as a source
-rewriter: read from `cc-src-buf`, emit into `cc-prep-out-buf`, copy
-back, and reset `cc-src-pos` so the lexer rewinds.  Macros live in
-three parallel `cap x 8` arrays (`name-addr`, `name-len`, `value`)
-plus a dedicated 16 KiB name pool; `NULL`, `EOF`, `EXIT_SUCCESS`,
-`EXIT_FAILURE`, `stdin`, `stdout`, and `stderr` are pre-populated
-before any user `#define` runs.  `#include` recursion uses a depth
-counter into a 4-slot by 64 KiB pool, with `cc-prep-process-vec` as
-a trampoline that breaks the chicken-and-egg of recursive
-`:`-definitions.
+preprocessor that suffices for M2-Planet's source.  It does exactly
+two things: it handles `#include "…"` (recursively), and it accepts
+integer-valued `#define`; everything else passes through untouched.
+The whole pass runs as a source-rewriter, reading from `cc-src-buf`
+and emitting into `cc-prep-out-buf`, then copying the result back so
+the lexer sees one flat post-processed stream.  Macros live in
+parallel arrays plus a name pool, and `cc-prep-process-vec` is a
+trampoline that lets `#include` recurse without forward-declaring
+its own `:`-definitions.
 
 By the end of the chapter you'll be able to enumerate the supported
 directives, walk the macro lookup via `bytes-eq` (Ch 12), trace an

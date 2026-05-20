@@ -12,15 +12,13 @@ its partner patches when the matching keyword is parsed.  Open
 convention from Ch 11's block header in mind.
 
 By the end you'll be able to explain how `branch` and `0branch` read
-their destinations from the 8 bytes that follow their CALL site
-rather than from the data stack, compute an x86-64 CALL's `rel32`
-offset by hand and check it against `comma-call`'s output, and trace
-`if, ... then,` end-to-end through the bytes emitted, the compile-time
-stack, the fixup, and the runtime jump; you'll be ready to write your
-own combinator (a `do, ... loop,`, say) in the same idiom.  The
+their destinations from the 8 bytes that follow their CALL site,
+compute an x86-64 CALL's `rel32` offset by hand and check it against
+`comma-call`'s output, and trace `if, ... then,` end-to-end through
+emitted bytes, compile-time stack, fixup, and runtime jump.  The
 machine code of `branch`, `0branch`, and `'` themselves is deferred
-to Part II Chs 17 and 19, and the ELF layout that makes absolute
-target addresses work is Ch 13, two chapters away.
+to Part II Chs 17 and 19; the ELF layout that makes absolute target
+addresses work is Ch 13, two chapters away.
 
 ---
 

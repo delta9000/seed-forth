@@ -1,23 +1,15 @@
 # Chapter 27 — Expressions, Part 1: Precedence Climbing
 
 This chapter opens `100-cc-expr.fth` (1447 lines total) and covers
-its binary-operator cascade plus the scaffolding the whole file
-needs.  The file's root `file=` block lives here, and so do the
-chunks for the lexer-on-top-of-the-lexer (`expr-header`,
-`expr-putback`, `expr-fwd-refs`) and the ten binary-precedence
-layers (`expr-mul`, `expr-add`, `expr-shift`, `expr-rel`, `expr-eq`,
-`expr-bit`, `expr-log`) running from `cc-parse-mul` through
-`cc-parse-log-or`.  The scaffolding adds a one-token putback layer
+its binary-operator cascade plus the scaffolding the rest of the
+file needs.  The scaffolding is a one-token putback layer
 (`cc-tok-pending`, `cc-next-token-keep`, `cc-putback-token`) so the
-parser can peek one token past a fold boundary without re-lexing,
-plus forward-reference vecs for the mutually recursive `cc-parse-
-expr`, `cc-parse-call`, and `cc-parse-primary`.  Each binary layer
-follows the same precedence-climbing pattern (parse one operand at
-the next-tighter level, loop while the next token is in its
-operator set) and emits the same five-step codegen template (eval
-left, push, eval right, `mov rcx, rdi`, `pop rdi`, apply op), with
-`&&`/`||` adding three short-circuit `rel32` fixups for the
-canonical 0/1 result.
+parser can peek past a fold boundary without re-lexing, plus
+forward-reference vecs for the mutually recursive parsers.  The
+cascade itself runs through ten precedence layers from
+`cc-parse-mul` to `cc-parse-log-or`, every one a textbook
+precedence-climbing loop emitting the same five-step codegen
+template (eval left, push, eval right, `pop rdi`, apply op).
 
 By the end you'll be able to read each precedence layer, follow the
 op-byte threaded through the return stack so the data stack stays

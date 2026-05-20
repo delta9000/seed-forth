@@ -2,27 +2,16 @@
 
 This chapter is the final third of `110-cc-decl.fth` (lines
 1439–2750) and the busiest in Part III; every piece of machinery
-built since Ch 21 converges here.  Three groups of code.  *Function
-machinery*: `cc-parse-call` dispatches an `f(a, b, c)` site through
-one of three paths (direct call to a known vaddr, forward call via
-placeholder + fixup list, indirect call through a function-pointer
-local) after pushing args and popping into SYS-V registers;
-`cc-parse-param-list` plus `cc-emit-spill-params` spill the first
-six parameter registers `rdi/rsi/rdx/rcx/r8/r9` into local slots
-0..5; `cc-parse-function` glues prologue, body, implicit return,
-epilogue, and the scope-pop together, then walks the prototype's
-fixup lists (call-site `rel32`s and forward-rvalue `imm64`s) to
-patch every prior reference.  *Top-level declarators*: enums and
-typedefs (built-ins like `FILE`, `uint8_t`, `size_t` pre-registered
-so headers parse), file-scope globals with their deferred vaddr
-fixups feeding Ch 26's `cc-finalize-globals`, and the elision rules
-that let forward declarations, prototypes, and angle-bracket
-headers parse to completion without generating code.  *The
-program*: a 26-byte entry stub at `0x400078` (argc/argv setup,
-`call main`, `exit`), the libc-shim registration loop that emits
-each of Ch 26's eleven shims and records a `sk-func` symbol entry,
-and `cc-parse-program`, the seven-step compilation driver that
-loops over file-scope declarations.
+built since Ch 21 converges here.  Four anchors do the heavy
+lifting.  `cc-parse-call` dispatches an `f(a, b, c)` site through
+one of three paths (direct, forward-via-fixup, or indirect through
+a function pointer) after pushing args and popping into SYS-V
+registers.  `cc-parse-function` glues prologue, body, implicit
+return, epilogue, and scope-pop together, then walks each
+prototype's fixup lists to patch every prior reference.
+`cc-parse-program` is the seven-step compilation driver looping
+over file-scope declarations.  And a 26-byte entry stub at
+`0x400078` sets up `argc` / `argv`, calls `main`, and exits.
 
 By the end you'll be able to read each call path, walk a function
 from name through epilogue, explain why a `static int x = 3;` at

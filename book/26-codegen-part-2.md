@@ -2,21 +2,16 @@
 
 This chapter finishes `090-cc-emit.fth` (lines 412–1027, picking up
 where Ch 25 left off).  Three layers sit on top of the per-
-instruction encoders.  First, the wide-immediate machinery:
-`cc-emit-movabs-rdi-imm64` (10 bytes, `48 BF <imm64>`), its
-placeholder variant, and `cc-add-fixup-to-list` (a 16-byte intrusive
-linked-list node); these let the codegen reference a forward-
-declared function or a not-yet-placed global by emitting zeros and
-threading the patch offset onto a list rooted in `cc-sym-extra2`
-(Ch 24).  Second, the eleven libc shims (`putchar`, `exit`,
-`getchar`, `fputs`, `fputc`, `fopen`, `fclose`, `fwrite`, `fread`,
-`calloc`, `free`), each a small block of direct Linux syscall code,
-with `calloc` being a bump allocator over a one-shot 256 MiB mmap
-and `free` reducing to a single `ret`.  Third, the file-scope
-globals (`cc-globals-buf`, `cc-gfixup-out-pos`, `cc-gfixup-slot`,
-`cc-emit-global-ref`), which accumulate initializers in a parallel
-buffer and emit placeholder `movabs rdi, imm64` references that get
-patched once `cc-finalize-globals` places the data after the code.
+instruction encoders.  *Wide-immediate fixups*:
+`cc-emit-movabs-rdi-imm64` plus `cc-add-fixup-to-list` let the
+codegen reference forward-declared functions and not-yet-placed
+globals by emitting zeros and threading the patch offset onto a
+list rooted in `cc-sym-extra2` (Ch 24).  *Libc shims*: eleven
+direct-syscall stand-ins for the C runtime, anchored by a
+`calloc` that bump-allocates over a one-shot mmap and a `free`
+that reduces to `ret`.  *File-scope globals*: a parallel buffer
+plus `cc-finalize-globals`, which places the data after the code
+and patches every `movabs rdi, imm64` reference into it.
 
 By the end you'll be able to read every encoder above line 411,
 trace each shim's syscall sequence, and explain how a forward-

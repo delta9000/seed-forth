@@ -1,16 +1,13 @@
 # Chapter 25 — ELF Emission and Codegen, Part 1: Instructions
 
 Two files start the output side of the compiler.  `080-cc-elf.fth`
-(68 lines, entire file) writes the 120-byte ELF wrapper as a single
-R-W-X PT_LOAD at `0x400000` with entry at `0x400078`, leaving
-`p_filesz` zero so it can be back-patched at `cc-finalize-elf` time.
-`090-cc-emit.fth` lines 1–411 then lay down the primitive
-instruction encoders: immediate loads, push/pop for each
-SYS-V register, the `[rbp + disp8]` load/store/lea family for
-locals, register-to-register moves, ALU on `rdi`/`rcx`, signed
-`idiv` for both `/` and `%`, prologue/epilogue, the six signed
-`setcc` comparisons that canonicalize to 0/1 in `rdi`, and the
-`rel32` placeholder family (`jz`, `jnz`, `jmp`, `call`) with
+(68 lines, entire file) writes a 120-byte ELF wrapper as a single
+R-W-X PT_LOAD at `0x400000`, leaving `p_filesz` zero so
+`cc-finalize-elf` can back-patch it once the code size is known.
+`090-cc-emit.fth` lines 1–411 then lay down the per-instruction
+encoders: immediate loads, push/pop, ALU on `rdi`/`rcx`, the
+`[rbp + disp8]` family for locals, signed `idiv`, and the `rel32`
+placeholder set (`jz`, `jnz`, `jmp`, `call`) with
 `cc-patch-rel32-to-here`.  The remaining lines 412–1027 belong to
 Ch 26.
 

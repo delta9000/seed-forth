@@ -2,20 +2,15 @@
 
 This chapter opens `110-cc-decl.fth`, the longest file in Part III
 at 2750 lines, and covers lines 1–587 (the source-order split puts
-statements in Ch 30 and functions plus the top-level driver in
-Ch 31).  The slab here is the declaration machinery: token-
-expectation helpers (`cc-expect-kw-id`, `cc-expect-punct-c`,
-`cc-expect-ident`) that abort with distinct exit codes (11–29 plus
-70+) so the test driver can diagnose failures, the storage-
-qualifier skipper that treats `static`, `extern`, `const`,
-`volatile`, `register`, `auto`, and `restrict` as no-ops,
-`cc-parse-struct-def` with its pre-registration trick so
-`struct T { struct T* next; }` can resolve its own tag mid-body,
-the shared scalar/array/initializer engine `cc-parse-decl-with-
-base` (called from both `cc-parse-decl` and Ch 30's typedef-name
-path), the function-pointer declarator with 2-token lookahead
-(`cc-peek-fnptr?` saves the lexer, reads two tokens, restores), and
-`cc-parse-return` for both bare `return;` and `return expr;`.
+statements in Ch 30 and functions in Ch 31).  Three pieces of the
+declaration machinery anchor the read.  `cc-parse-struct-def` uses
+a pre-registration trick so `struct T { struct T* next; }` can
+resolve its own tag mid-body.  `cc-parse-decl-with-base` is the
+shared scalar/array/initializer engine that both `cc-parse-decl`
+and Ch 30's typedef-name path call into.  `cc-peek-fnptr?` is a
+2-token lookahead (save lexer, read two tokens, restore) that
+distinguishes function-pointer declarators from ordinary
+parenthesised ones.
 
 By the end you'll be able to read the expectation helpers, walk a
 struct definition through its pre-registration and field-fill

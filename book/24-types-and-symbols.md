@@ -1,19 +1,14 @@
 # Chapter 24 — Types and Symbols
 
-Two short files give the compiler its memory of "what exists":
+Two short files give the compiler its memory of "what exists".
 `060-cc-types.fth` (88 lines, entire file) packs every C type into
-one 64-bit word with the base kind in bits 16–31 and pointer depth
-in bits 0–7 (the five bases are `ty-void`, `ty-char`, `ty-int`,
-`ty-struct`, `ty-func`), and supplies a struct descriptor layout
-of a 16-byte header plus up to 16 field records of 40 bytes each
-(name, type, byte offset, and for struct-pointer fields a pointee
-descriptor for chained `->` resolution), all reached through the
-`cc-sd-*` and `cc-sf-*` accessors.  `070-cc-sym.fth` (154 lines,
-entire file) is the symbol table: seven 8-byte-wide parallel columns
-(`name-addr`, `name-len`, `kind`, `type`, `val`, `extra`, `extra2`)
-indexed by symbol id, with `cc-scope-push` and `cc-scope-pop`
-marking and restoring the count to give lexical scopes (no tree, no
-parent pointer).
+a single 64-bit word, with five base kinds and a pointer-depth
+counter sharing the bits; struct layouts live next to it in a
+descriptor table reached through `cc-sd-*` accessors.
+`070-cc-sym.fth` (154 lines, entire file) is the symbol table,
+laid out as parallel 8-byte columns indexed by symbol id, with
+`cc-scope-push` and `cc-scope-pop` marking and restoring the count
+to give lexical scopes for free.
 
 By the end of the chapter you'll be able to encode a C type by hand,
 predict where any given declaration will land in the symbol table,

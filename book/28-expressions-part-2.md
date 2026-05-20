@@ -1,24 +1,16 @@
 # Chapter 28 — Expressions, Part 2: Primary, Unary, Assignment
 
-This chapter finishes `100-cc-expr.fth` by filling in the
-chunks above and below Ch 27's binary cascade: `expr-lvalue`,
-`expr-struct-field`, `expr-array-index`, `expr-primary`,
-`expr-unary`, `expr-ternary`, `expr-assign`, and `expr-top` (which
-together with Ch 27's chunks tangle to the full 1447-line file).
-The recursive-descent floor sits in `cc-parse-primary` (dispatch on
-token kind for number, char, string, ident, `(`, then a `begin
-while repeat` over the postfix chain `()`, `[]`, `.`, `->`, `++`,
-`--`) and `cc-parse-unary` (`*`, `&`, `-`, `!`, `~`, prefix `++` /
-`--`, `sizeof`).  The right-associative tail covers `cc-parse-
-ternary` for `?:`, `cc-parse-assign` for `=` and the compound
-operators (`+=`, `-=`, `*=`, ...), and the top-level `cc-parse-
-expr` that statement codegen (Ch 30) hands the token stream to.
-The connective tissue is the lvalue-tracking globals (`cc-last-
-lvalue-kind`, `cc-last-ident-slot`, `cc-last-struct-desc`,
-`cc-last-deref-is-byte`, `cc-last-expr-type`) that classify what
-`rdi` currently represents (kind 0 = not-an-lvalue, 1 = local-slot,
-2 = pending-deref), with `cc-emit-materialize` emitting the load
-only when kind == 2 so binary-op folds in Ch 27 stay agnostic.
+This chapter finishes `100-cc-expr.fth` by filling in the chunks
+above and below Ch 27's binary cascade.  Two pieces sit *below* the
+cascade: `cc-parse-primary` (the recursive-descent floor, dispatching
+on token kind and then looping over the postfix chain `() [] . -> ++
+--`) and `cc-parse-unary` (`*`, `&`, prefix `++`, `sizeof`, and the
+rest).  One piece sits *above* it: the right-associative tail
+`cc-parse-ternary` / `cc-parse-assign` / `cc-parse-expr`.  The
+connective tissue across both ends is the lvalue-tracking globals
+(`cc-last-lvalue-kind` and friends), with `cc-emit-materialize`
+deciding when a deferred load actually fires so Ch 27's binary folds
+can stay agnostic.
 
 By the end you'll be able to read `cc-parse-primary` and its
 postfix loop, explain the three-kind lvalue model, follow the

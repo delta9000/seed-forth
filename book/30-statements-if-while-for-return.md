@@ -1,27 +1,18 @@
 # Chapter 30 — Statements: `if`, `while`, `for`, `switch`, `break`, `continue`, `goto`
 
-This chapter covers `110-cc-decl.fth` lines 588–1438, the
-statement parsers and their control-flow codegen.  At the top sits
-the `cc-parse-stmt` dispatcher with its `IDENT ':'` lookahead that
-distinguishes label definitions from expression statements; it
-indirects through `cc-parse-stmt-vec` so it can be mutually
-recursive with `cc-parse-if` and `cc-parse-compound`.  The
+This chapter covers `110-cc-decl.fth` lines 588–1438, the statement
+parsers and their control-flow codegen.  At the top sits the
+`cc-parse-stmt` dispatcher, with its `IDENT ':'` lookahead that
+distinguishes label definitions from expression statements.  The
 specialised parsers `cc-parse-if`, `cc-parse-while`, `cc-parse-for`,
 `cc-parse-do-while`, and `cc-parse-switch` each replay Ch 11's
-fixup-on-the-stack pattern with x86-64 `jz`/`jmp` placeholders
-instead of Forth `0branch`/`branch`.  Three things are new at this
-scale: the absolute-vaddr emitters `cc-emit-jmp-vaddr`,
-`cc-emit-jnz-vaddr`, `cc-emit-je-vaddr` (defined here, not in
-`090-cc-emit.fth`, because they reference `cc-base-vaddr` from
-`080-cc-elf.fth`, which loads later); per-loop break/continue
-fixup lists with outer-head save/restore over the return stack; the
-`for`-step rewind trick that records the step's source range, scans
-past `)`, parses the body, then rewinds the lexer to re-parse the
-step after the body's bytes; the switch's three-pass layout (body
-in source order, dispatch table `cmp rbx, K ; je body-vaddr` after
-the body in reverse from a linked list of cases); and a 64-entry
-per-function label table that accumulates forward-`goto` fixups
-patched on definition.
+fixup-on-the-stack pattern, now with x86-64 `jz` / `jmp` placeholders
+in place of Forth `0branch` / `branch`.  Three tricks let that
+pattern scale: per-loop `break` / `continue` fixup lists saved across
+nested loops on the return stack, a `for`-step rewind that records
+the step's source range and re-parses it after the body, and a
+switch laid out in three passes (body in source order, dispatch
+table in reverse from a linked list of cases).
 
 By the end you'll be able to read each statement parser, recognise
 its forward-fixup pattern, trace how `break`/`continue` thread
