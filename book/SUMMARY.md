@@ -60,4 +60,3 @@
 
 - [Concept index and dependency graph](CONCEPTS.md)
 - [Glossary](GLOSSARY.md)
-- [Writing protocol](WRITING.md)

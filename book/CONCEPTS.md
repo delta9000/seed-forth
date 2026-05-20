@@ -100,8 +100,9 @@ their introducing chapter.
 
 ## Dependency graph
 
-Each chapter lists its hard prerequisites.  "Carried in" from the
-chapter stubs is the canonical source; this is a digest.
+Each chapter lists its hard prerequisites.  Use this if you skip
+around: if you jump to Ch N, the chapters in its row are the ones
+whose content the prose will assume you already know.
 
 ```
 Ch 0   (prologue)         — none
@@ -141,7 +142,7 @@ Ch 31  functions          — Chs 24, 26, 27, 28, 30
 Ch 32  main + bootstrap   — *all previous*
 ```
 
-## Reading orders (for the future reader, not the writer)
+## Reading orders
 
 The book is written for **source order**, but a curious reader has
 two valid alternatives:
@@ -156,33 +157,3 @@ two valid alternatives:
 
 Source order (the default) is best for someone who has decided to
 follow the project from the bottom up and wants every concept earned.
-
-## Suggested writing order
-
-The dependency graph admits many valid orders.  Two pragmatic ones:
-
-- **Source order** — Ch 2, Ch 3, ..., Ch 32.  Simplest; matches what
-  the book teaches.  Use this unless you have a reason not to.
-
-- **Climax-first** — Ch 1, Ch 2, Ch 11, Ch 12.  Once Ch 11 is
-  written, you can demo control-flow combinators in every later
-  chapter without forward references.  Use this if you'd rather
-  see the Forth-level high point early and write the supporting
-  chapters around it.
-
-For Parts II and III, source order is the safer default because the
-dependency graph has fewer constraints (every Part II chapter
-depends only on Ch 1 and a few of its own siblings), so any sequence
-that respects the diagram works.
-
-## Keeping this file accurate
-
-Update this file when:
-- a chapter changes its line range in "Source coverage" (the index
-  silently rots otherwise);
-- a chapter adds a "Concept introduced" that wasn't here before;
-- a chapter is renamed or split.
-
-If [README.md](README.md)'s TOC and this file disagree, this file
-is the source of truth for concepts; the TOC is the source of truth
-for filenames.

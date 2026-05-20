@@ -71,22 +71,21 @@ Twelve chapters walking `010-lib.fth` in source order.  The seed's
 primitives are black boxes for now; you can run every example in
 gforth via `book/playground.fth`.
 
-Status legend: ✏️ stub awaiting prose · 📝 prose in progress · ✅ done.
 
-| # | Chapter | Covers | Status |
-|---|---|---|---|
-| 1 | [Stacks and words](01-stacks-and-words.md) | RPN, stack-effect comments, the dictionary concept; `010-lib.fth` file header | ✅ |
-| 2 | [Code emission and the HERE pointer](02-code-emission-and-here.md) | `here-addr`, `c,` | ✅ |
-| 3 | [Logic from one primitive](03-logic-from-nand.md) | `and`, `or` | ✅ |
-| 4 | [The return stack: `over` and subtract](04-return-stack-over-subtract.md) | `over`, `-` | ✅ |
-| 5 | [Talking to Linux: syscall6 wrappers](05-syscalls.md) | `open`, `read`, `write`, `close`, `die` | ✅ |
-| 6 | [Character classification](06-character-classification.md) | `digit?`, `alpha?`, `space?` | ✅ |
-| 7 | [Comparisons from unsigned division](07-comparisons-from-division.md) | `=`, `<>`, `<`, `>`, `<=`, `>=`, `neg-flag`, `2^63` | ✅ |
-| 8 | [Stack shufflers](08-stack-shufflers.md) | `nip`, `rot`, `2dup`, `2drop` | ✅ |
-| 9 | [Memory updates and cell writers](09-memory-and-cell-writers.md) | `+!`, `-!`, `,4`, `,8` | ✅ |
-| 10 | [Immediacy and constants](10-immediacy-and-constants.md) | `immediate`, `constant` | ✅ |
-| 11 | [Control-flow combinators *(climax)*](11-control-flow-combinators.md) | `branch-xt`, `0branch-xt`, `comma-call`, `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,` | ✅ |
-| 12 | [`allot`, `create`, `variable`, `bytes-eq`](12-defining-words-and-bytes-eq.md) | the rest of `010-lib.fth` | ✅ |
+| # | Chapter | Covers |
+|---|---|---|
+| 1 | [Stacks and words](01-stacks-and-words.md) | RPN, stack-effect comments, the dictionary concept; `010-lib.fth` file header |
+| 2 | [Code emission and the HERE pointer](02-code-emission-and-here.md) | `here-addr`, `c,` |
+| 3 | [Logic from one primitive](03-logic-from-nand.md) | `and`, `or` |
+| 4 | [The return stack: `over` and subtract](04-return-stack-over-subtract.md) | `over`, `-` |
+| 5 | [Talking to Linux: syscall6 wrappers](05-syscalls.md) | `open`, `read`, `write`, `close`, `die` |
+| 6 | [Character classification](06-character-classification.md) | `digit?`, `alpha?`, `space?` |
+| 7 | [Comparisons from unsigned division](07-comparisons-from-division.md) | `=`, `<>`, `<`, `>`, `<=`, `>=`, `neg-flag`, `2^63` |
+| 8 | [Stack shufflers](08-stack-shufflers.md) | `nip`, `rot`, `2dup`, `2drop` |
+| 9 | [Memory updates and cell writers](09-memory-and-cell-writers.md) | `+!`, `-!`, `,4`, `,8` |
+| 10 | [Immediacy and constants](10-immediacy-and-constants.md) | `immediate`, `constant` |
+| 11 | [Control-flow combinators *(climax)*](11-control-flow-combinators.md) | `branch-xt`, `0branch-xt`, `comma-call`, `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,` |
+| 12 | [`allot`, `create`, `variable`, `bytes-eq`](12-defining-words-and-bytes-eq.md) | the rest of `010-lib.fth` |
 
 ### Part II — The seed VM
 
@@ -94,16 +93,16 @@ Eight chapters opening the black box.  `000-seed.hex0` is 752 lines of
 annotated hex; chapters use noweb-style named chunks so the seed is
 taught by topic rather than by ELF offset.
 
-| # | Chapter | Covers | Status |
-|---|---|---|---|
-| 13 | [The ELF and the entry point](13-elf-and-entry.md) | header, program header, `_start`, sysvar init | ✅ |
-| 14 | [Stack primitives in machine code](14-stack-primitives.md) | `dup`, `drop`, `swap`, `>r`, `r>`, `@`, `!`, `c@`, `c!` | ✅ |
-| 15 | [Arithmetic, logic, comparison](15-arithmetic-and-logic.md) | `+`, `nand`, `0=`, `/`, `*` | ✅ |
-| 16 | [I/O: `emit`, `key`, `syscall6`](16-io-emit-key-syscall6.md) | the I/O scratch page; `read_word` | ✅ |
-| 17 | [The dictionary](17-the-dictionary.md) | header layout, `find`, `here`, `,`, `latest`, `'`, `execute` | ✅ |
-| 18 | [The colon compiler](18-the-colon-compiler.md) | `:`, `;`, `lit` | ✅ |
-| 19 | [Branches and inline cells](19-branches-and-inline-cells.md) | `branch`, `0branch` | ✅ |
-| 20 | [The number parser and REPL](20-number-parser-and-repl.md) | `parse_decimal`, `STATE`, the main loop, the `?` miss path | ✅ |
+| # | Chapter | Covers |
+|---|---|---|
+| 13 | [The ELF and the entry point](13-elf-and-entry.md) | header, program header, `_start`, sysvar init |
+| 14 | [Stack primitives in machine code](14-stack-primitives.md) | `dup`, `drop`, `swap`, `>r`, `r>`, `@`, `!`, `c@`, `c!` |
+| 15 | [Arithmetic, logic, comparison](15-arithmetic-and-logic.md) | `+`, `nand`, `0=`, `/`, `*` |
+| 16 | [I/O: `emit`, `key`, `syscall6`](16-io-emit-key-syscall6.md) | the I/O scratch page; `read_word` |
+| 17 | [The dictionary](17-the-dictionary.md) | header layout, `find`, `here`, `,`, `latest`, `'`, `execute` |
+| 18 | [The colon compiler](18-the-colon-compiler.md) | `:`, `;`, `lit` |
+| 19 | [Branches and inline cells](19-branches-and-inline-cells.md) | `branch`, `0branch` |
+| 20 | [The number parser and REPL](20-number-parser-and-repl.md) | `parse_decimal`, `STATE`, the main loop, the `?` miss path |
 
 ### Part III — A C compiler in Forth
 
@@ -111,20 +110,20 @@ Twelve chapters walking `020-cc-*.fth` through `120-cc-main.fth`.  Each
 big file (`040`, `050`, `090`, `100`, `110`) is split across multiple
 chapters so the reader sees one coherent idea per chapter.
 
-| # | Chapter | Covers | Status |
-|---|---|---|---|
-| 21 | [Arena and I/O buffers](21-arena-and-io-buffers.md) | `020-cc-arena.fth`, `030-cc-io.fth` | ✅ |
-| 22 | [The preprocessor](22-the-preprocessor.md) | `040-cc-prep.fth` | ✅ |
-| 23 | [The lexer](23-the-lexer.md) | `050-cc-lex.fth` | ✅ |
-| 24 | [Types and symbols](24-types-and-symbols.md) | `060-cc-types.fth`, `070-cc-sym.fth` | ✅ |
-| 25 | [ELF emission and codegen, part 1](25-elf-and-codegen-part-1.md) | `080-cc-elf.fth`, `090-cc-emit.fth` (instructions) | ✅ |
-| 26 | [Codegen, part 2: calls and locals](26-codegen-part-2.md) | the rest of `090-cc-emit.fth` | ✅ |
-| 27 | [Expressions, part 1: precedence climbing](27-expressions-part-1.md) | `100-cc-expr.fth` (operators) | ✅ |
-| 28 | [Expressions, part 2: assignment, postfix, struct access](28-expressions-part-2.md) | the rest of `100-cc-expr.fth` | ✅ |
-| 29 | [Declarations: types and globals](29-declarations-types-globals.md) | `110-cc-decl.fth` (part 1) | ✅ |
-| 30 | [Statements: if, while, for, return](30-statements-if-while-for-return.md) | `110-cc-decl.fth` (part 2) | ✅ |
-| 31 | [Functions: parameters, locals, scope](31-functions-and-scope.md) | `110-cc-decl.fth` (part 3) | ✅ |
-| 32 | [End to end: main and the bootstrap chain](32-main-and-bootstrap-chain.md) | `120-cc-main.fth` + `tests/cc/` | ✅ |
+| # | Chapter | Covers |
+|---|---|---|
+| 21 | [Arena and I/O buffers](21-arena-and-io-buffers.md) | `020-cc-arena.fth`, `030-cc-io.fth` |
+| 22 | [The preprocessor](22-the-preprocessor.md) | `040-cc-prep.fth` |
+| 23 | [The lexer](23-the-lexer.md) | `050-cc-lex.fth` |
+| 24 | [Types and symbols](24-types-and-symbols.md) | `060-cc-types.fth`, `070-cc-sym.fth` |
+| 25 | [ELF emission and codegen, part 1](25-elf-and-codegen-part-1.md) | `080-cc-elf.fth`, `090-cc-emit.fth` (instructions) |
+| 26 | [Codegen, part 2: calls and locals](26-codegen-part-2.md) | the rest of `090-cc-emit.fth` |
+| 27 | [Expressions, part 1: precedence climbing](27-expressions-part-1.md) | `100-cc-expr.fth` (operators) |
+| 28 | [Expressions, part 2: assignment, postfix, struct access](28-expressions-part-2.md) | the rest of `100-cc-expr.fth` |
+| 29 | [Declarations: types and globals](29-declarations-types-globals.md) | `110-cc-decl.fth` (part 1) |
+| 30 | [Statements: if, while, for, return](30-statements-if-while-for-return.md) | `110-cc-decl.fth` (part 2) |
+| 31 | [Functions: parameters, locals, scope](31-functions-and-scope.md) | `110-cc-decl.fth` (part 3) |
+| 32 | [End to end: main and the bootstrap chain](32-main-and-bootstrap-chain.md) | `120-cc-main.fth` + `tests/cc/` |
 
 ### Appendices
 
@@ -137,13 +136,11 @@ chapters so the reader sees one coherent idea per chapter.
 ## Companion docs
 
 - **[CONCEPTS.md](CONCEPTS.md)** — concept index (where is *X*
-  introduced?) and chapter dependency graph (which chapters can I
-  write next?).
+  introduced?), the chapter dependency graph, and two alternative
+  reading orders for readers who would rather start top-down or
+  from the VM.
 - **[GLOSSARY.md](GLOSSARY.md)** — quick definitions for every term
   used across the book (Forth, x86-64, C compiler, bootstrapping).
-- **[WRITING.md](WRITING.md)** — protocol for turning a chapter stub
-  into prose: panes layout, validation steps, common pitfalls,
-  done-criteria.
 
 ## Before you start
 

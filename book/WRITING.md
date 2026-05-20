@@ -219,3 +219,35 @@ sweeping in unrelated changes.
 4. Commit.
 5. Pick the next chapter (use [CONCEPTS.md](CONCEPTS.md) to pick
    one whose deps are satisfied).
+
+## Suggested writing order
+
+The dependency graph in [CONCEPTS.md](CONCEPTS.md) admits many
+valid orders.  Two pragmatic ones:
+
+- **Source order** — Ch 2, Ch 3, ..., Ch 32.  Simplest; matches
+  what the book teaches.  Use this unless you have a reason not to.
+
+- **Climax-first** — Ch 1, Ch 2, Ch 11, Ch 12.  Once Ch 11 is
+  written, you can demo control-flow combinators in every later
+  chapter without forward references.  Use this if you'd rather
+  see the Forth-level high point early and write the supporting
+  chapters around it.
+
+For Parts II and III, source order is the safer default because
+the dependency graph has fewer constraints (every Part II chapter
+depends only on Ch 1 and a few of its own siblings), so any
+sequence that respects the diagram works.
+
+## Keeping CONCEPTS.md accurate
+
+Update [CONCEPTS.md](CONCEPTS.md) when:
+
+- a chapter changes its line range in "Source coverage" (the index
+  silently rots otherwise);
+- a chapter adds a "Concept introduced" that wasn't there before;
+- a chapter is renamed or split.
+
+If [README.md](README.md)'s TOC and `CONCEPTS.md` disagree,
+`CONCEPTS.md` is the source of truth for concepts; the TOC is the
+source of truth for filenames.
