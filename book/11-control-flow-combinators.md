@@ -22,6 +22,12 @@ addresses work is Ch 13, two chapters away.
 
 ---
 
+```
+        ,_,
+   __(@___)___    "sixty lines of Forth that change how you read
+   ~~~~~~~~~~~~    the rest of the book.  take your time."
+```
+
 ## 1. The big picture: `if` is not a keyword
 
 If you've written a parser before, you have a mental model of how
@@ -357,6 +363,12 @@ change.  No new VM opcodes.  Just immediate words that emit
 `branch` and `0branch` calls with inline 8-byte target slots.
 
 **This is the moment Forth becomes self-extensible.**
+
+```
+       __
+   __( o)>   "told you `if` is a word.  thirty lines.  no keywords."
+   \___/
+```
 
 Any control construct you can imagine — `case`/`of`, `switch`,
 exception unwinding, generators, even multi-level exits — is now a

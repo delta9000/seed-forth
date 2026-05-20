@@ -208,6 +208,13 @@ compiler in `020-cc-arena.fth` through `120-cc-main.fth`,
 compiles a 10,000+-line real-world C program (M2-Planet) into
 byte-identical M1 output as if GCC had done it.
 
+```
+   ,___,
+   [o,o]   "byte-identity is on the M1 output, not the ELFs
+   (")_)    themselves.  the two compiler binaries differ by
+            design.  what matches is what they emit."
+```
+
 That equality is what makes the bootstrap *auditable*.  Every
 byte of every layer above the 2,040-byte seed exists in this
 book.  Every byte at the bottom is hand-encoded and explained
@@ -380,5 +387,11 @@ will want on a second pass:
   hex0 → seed → M2-Planet with commands and expected hashes.
 - **[D — Worked exercises](A4-worked-exercises.md):** three
   exercises walked end to end.
+
+```
+       __
+   __( o)>   "thirty-two chapters for a `bye`.  worth it."
+   \___/
+```
 
 Turn the page.

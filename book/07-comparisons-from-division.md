@@ -123,6 +123,12 @@ than being inlined at every call site — that's what `: 2^63 [lit]
 9223372036854775808 ;` is for.  Named once, called by name forever
 after.
 
+```
+       __
+   __( o)>   "you just built `<` out of unsigned division.  it is fine."
+   \___/
+```
+
 ## 4. `neg-flag` and the `0= 0=` canonicalisation
 
 ```forth

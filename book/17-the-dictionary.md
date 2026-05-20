@@ -24,11 +24,24 @@ where the `<<bracket-lit-dict>>` header flips the IMMEDIATE bit.
 
 ---
 
+```
+        ,_,
+   __(@___)___    "find_code is 86 bytes of machine code, twice the
+   ~~~~~~~~~~~~    size of anything else.  nobody gets it on the
+                   first pass."
+```
+
 The dictionary is the seed's only data structure.  There is no hash
 table, no symbol table, no environment frame.  Just a linked list
 of headers walked by `find_code`, each header pointing back to the
 previous one.  Everything the REPL knows about — every primitive,
 every Forth-level definition added by `:` — lives in this list.
+
+```
+       __
+   __( o)>   "whole language is a linked list.  that is the entire trick."
+   \___/
+```
 
 The list is grown forward (new entries appended at `HERE`) but
 searched backward (from `LATEST`).  That makes the most recent

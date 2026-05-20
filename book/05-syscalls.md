@@ -146,6 +146,12 @@ Two subtleties worth flagging:
   errors from short reads in Forth — that decision is made at the
   call site, usually by a "did we get the bytes we expected?" check.
 
+```
+   ,___,
+   [o,o]   "no retry loop here.  silent partial writes have ruined
+   (")_)    good projects.  the caller is responsible."
+```
+
 ## 4. `close` — one real arg, five padding zeros
 
 ```forth

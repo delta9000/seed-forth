@@ -79,4 +79,10 @@ journey works the same way it would have worked in 1972.
 
 Turn the page.
 
+```
+       __
+   __( o)>   "you're about to write `if` yourself.  i know."
+   \___/
+```
+
 Next: [Chapter 1 — Stacks and Words](01-stacks-and-words.md).

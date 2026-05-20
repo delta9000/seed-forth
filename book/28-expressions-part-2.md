@@ -23,6 +23,13 @@ reach it via the `cc-parse-call-tramp` vec); how `cc-parse-expr` is
 
 ---
 
+```
+        ,_,
+   __(@___)___    "1,400 lines.  lvalues are subtle.  if you only
+   ~~~~~~~~~~~~    remember one rule from this chapter, make it
+                   the three lvalue kinds.  don't rush."
+```
+
 Ch 27's binary cascade ends at `cc-parse-log-or`.  Above it sit
 the right-associative tail (ternary, assignment, the
 `cc-parse-expr` top-level), and below it sits the recursive-

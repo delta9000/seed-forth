@@ -221,6 +221,12 @@ The trust root for either route through this book is the union of:
 - the Linux kernel (~30 million lines of C, not audited here),
 - the x86-64 CPU and its microcode (opaque silicon).
 
+```
+   ,___,
+   [o,o]   "229 bytes plus 30 million plus opaque silicon.
+   (")_)    small trust root is not the same as no trust root."
+```
+
 stage0's bare-metal paths (`NATIVE/x86`, `NATIVE/knight`,
 `builder-hex0`) push the trust root below the Linux kernel by
 running on raw hardware with no OS.  Those paths exist; they are

@@ -38,6 +38,12 @@ four supporting variables.  No token list, no streaming consumer.
 The parser pulls one token at a time, drives its own grammar with
 that token, then asks for the next.
 
+```
+       __
+   __( o)>   "hand-rolled lexer.  no regex, no flex.  read it twice."
+   \___/
+```
+
 ## 1. Token kinds and punctuation IDs
 
 ```forth file=050-cc-lex.fth

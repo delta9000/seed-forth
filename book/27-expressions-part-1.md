@@ -22,6 +22,13 @@ plus the lvalue-tracking globals that `cc-emit-materialize` reads).
 
 ---
 
+```
+        ,_,
+   __(@___)___    "ten precedence levels, one pattern repeated.
+   ~~~~~~~~~~~~    read the pattern once.  the levels become
+                   variations on the same theme."
+```
+
 The lexer hands us tokens; the codegen hands us instruction
 encoders; this file is the bridge.  Given a token stream
 representing a C expression, it emits x86-64 machine code that

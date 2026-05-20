@@ -23,6 +23,13 @@ are deferred to Ch 32.
 
 ---
 
+```
+        ,_,
+   __(@___)___    "1,700 lines, the longest chapter.  every piece
+   ~~~~~~~~~~~~    of Part III converges here.  the payoff is the
+                   next chapter; this one is the work."
+```
+
 This is the last chapter of `110-cc-decl.fth` and the busiest.
 Every piece of machinery developed across Chs 21–30 converges
 here: the call codegen consumes the lvalue-tracking and
@@ -1414,6 +1421,14 @@ Each parameter becomes an `sk-local` symbol in slots
 prologue's `sub rsp, FRAMESIZE` — `cc-emit-prologue 256` gives
 32 slots' worth of space, which is comfortably more than 6
 params plus any body locals.
+
+```
+   ,___,
+   [o,o]   "every function gets 256 bytes whether it needs them
+   (")_)    or not.  more than 32 locals overflows silently into
+            the caller's frame.  M2-Planet never does that.
+            other code might."
+```
 
 `cc-emit-spill-params` then emits the actual stores:
 `[rbp - 8] := rdi`, `[rbp - 16] := rsi`, etc.  Each ladder rung

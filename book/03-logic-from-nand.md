@@ -200,6 +200,12 @@ show for "XOR using only NAND gates."  It's longer than the
 `or`/`and` version because we refuse to reuse intermediate logic
 words — we're proving NAND alone is enough, not optimising.
 
+```
+       __
+   __( o)>   "four NANDs for one XOR.  worth it for the punchline."
+   \___/
+```
+
 ## 5. What this buys
 
 Look at what's now buildable from one primitive:

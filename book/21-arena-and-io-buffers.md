@@ -137,6 +137,14 @@ the output file cannot be opened, in `030-cc-io.fth`; `die 70`/`71`/
 introduced in Chs 22 and 26).  Status codes are the compiler's only
 error-reporting channel; we'll see them used throughout Part III.
 
+```
+   ,___,
+   [o,o]   "exit 7 on OOM means no traceback, no recovery.
+   (")_)    you find out which limit you blew by reading
+            the source.  the compiler is small enough that this
+            is fine, actually."
+```
+
 ## 2. The source reader
 
 The compiler reads stdin into one large buffer, then walks it
