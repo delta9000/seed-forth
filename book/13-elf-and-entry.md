@@ -27,6 +27,12 @@ For twelve chapters we have treated 32 names — `dup`, `+`, `nand`,
 `emit`, `key`, `here`, `,`, `find`, `'`, `:`, `;`, and the rest — as
 black boxes given to us by the seed.  Now we open the box.
 
+```
+       __
+   __( o)>   "twelve chapters of black boxes.  the boxes have
+   \___/      hex inside.  hope you brought a hex chart."
+```
+
 The seed is one file: `000-seed.hex0`, 752 lines of hand-assembled
 hex.  The Stage-0 toolchain (`hex0-seed` from the Guix Full Source
 Bootstrap) consumes those lines, ignores the comments after `;`, and

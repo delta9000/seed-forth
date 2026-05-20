@@ -218,6 +218,13 @@ data interleaved in the same byte stream*.  The same pattern recurs
 in `branch_code` and `zbranch_code` (Ch 19), where the inline cell
 is a *jump target* instead of a value to push.
 
+```
+   (V) (V)
+   ( o.o )   "the function reads its own return address as a
+   /\/\/\     data pointer.  the return stack is a data stack
+            now.  briefly.  for science."
+```
+
 ## 5. `bracket_lit_code` — interpreting and compiling literals
 
 `lit_code` runs at *runtime* and pushes a value the compiler already

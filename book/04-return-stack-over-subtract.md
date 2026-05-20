@@ -128,6 +128,12 @@ neat property is that the same `ADD` instruction works for signed
 and unsigned arithmetic — once you've produced the two's-complement
 negation, you just add.
 
+```
+   (V) (V)
+   ( o.o )   "subtraction made from add and bitwise-NAND.
+   /\/\/\     a primitive slot saved by walking sideways."
+```
+
 From Ch 3 we already know that `dup nand` is the same as `~`.  So
 to negate `b`, compute `b nand b` (which gives `~b`), then add 1.
 To subtract `b` from `a`, add the negated `b` to `a`.  In Forth:

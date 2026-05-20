@@ -106,6 +106,12 @@ allocates that storage directly inside the dictionary — `create`
 makes a header for the name and `allot` extends the data area by
 32 768 bytes.  `cc-arena-ptr` is the bump pointer.
 
+```
+   (V) (V)
+   ( o.o )   "Forth's defining-words, repurposed as the C compiler's
+   /\/\/\     `malloc`.  same primitive, different aisle."
+```
+
 The initialisation line `cc-arena-base cc-arena-ptr !` runs
 *immediately* — it executes during file load, the moment its tokens
 are read.  By the time `cc-alloc` is ever called, the pointer

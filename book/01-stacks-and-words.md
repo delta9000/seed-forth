@@ -17,6 +17,12 @@ That is the whole language model.  By the end of this chapter you
 will have *previewed* six words from `010-lib.fth` and built enough
 intuition to read the systematic walk that begins in Chapter 2.
 
+```
+       __
+   __( o)>   "RPN is going to feel weird for about twenty minutes.
+   \___/      then it's going to feel inevitable.  push through."
+```
+
 A navigation note before we start.  Every fenced code block tagged
 `file=<path>` in this book is the canonical source for that file —
 when the strict tangle check passes, those blocks reconstruct the

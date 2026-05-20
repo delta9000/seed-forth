@@ -148,6 +148,12 @@ hundred times during a compiler build, total cost negligible.  On
 happens once.  The trade is "save a primitive slot, pay 4x cycles
 on a cold path."  That trade is the seed's whole personality.
 
+```
+   (V) (V)
+   ( o.o )   "right shift implemented as integer divide.
+   /\/\/\     wrong instrument, right answer, smaller seed."
+```
+
 The alternative would have been to add a `>>8` or `>>32` primitive.
 Either costs a slot, a dictionary header, and 10–20 bytes of machine
 code.  At a few-hundred-byte budget, that's not worth it for a

@@ -187,6 +187,13 @@ Either way, the slot has been *consumed*.  Higher-level code never
 sees it after the branch resolves.  This is what makes `if,/then,`
 a self-contained 13-byte emission with no separate target table.
 
+```
+   (V) (V)
+   ( o.o )   "the primitive eats the inline cell on its way out.
+   /\/\/\     no separate jump table.  the return stack does
+            data-table duty.  again."
+```
+
 ## 6. Connecting to Chapter 11
 
 Ch 11 defined the `comma-call` word as:
