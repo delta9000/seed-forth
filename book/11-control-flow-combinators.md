@@ -1,75 +1,26 @@
 # Chapter 11 — Control-Flow Combinators (the climax of Part I)
 
-## Goal
+This is the chapter Part I has been building toward: nine immediate
+words in `010-lib.fth` (lines 194–290) that give us `if,`/`then,`/
+`else,` and `begin,`/`while,`/`repeat,` without a single new line of
+machine code.  Every combinator is just `c,` (Ch 2), `,4` (Ch 9),
+and `,` running at compile time, emitting a 5-byte CALL to the seed's
+`branch` or `0branch` primitive followed by an inline 8-byte target
+cell; the stack picture left behind by each one is a *fixup* that
+its partner patches when the matching keyword is parsed.  Open
+`010-lib.fth` to lines 194–290, with `branch`'s inline-cell calling
+convention from Ch 11's block header in mind.
 
-By the end of this chapter the reader can:
-
-- explain how the seed's `branch` and `0branch` primitives consume an
-  inline 8-byte target cell that follows their CALL site;
-- compute the `rel32` offset for an x86-64 CALL by hand and verify
-  that `comma-call` produces the same bytes;
-- trace `if, ... then,` end-to-end: the bytes emitted, the stack
-  state at compile time, the fixup, and the runtime control flow;
-- write a new immediate combinator (e.g. `do, ... loop,` or
-  `case, ... endcase,`) in the same idiom.
-
-## Source coverage
-
-`010-lib.fth` lines 194–290.  Nine definitions plus a long block
-header that documents the calling convention:
-
-| Word | Role | File line |
-|---|---|---|
-| `branch-xt` | constant holding the xt of seed `branch` | 231 |
-| `0branch-xt` | constant holding the xt of seed `0branch` | 232 |
-| `comma-call` | emit a 5-byte CALL to an absolute target | 239 |
-| `if,` | forward branch + reserved slot, returns fixup | 247 |
-| `then,` | patch a forward-branch fixup to current HERE | 256 |
-| `else,` | unconditional forward jump + patch prior if, fixup | 263 |
-| `begin,` | mark loop top (just records HERE) | 273 |
-| `while,` | conditional loop-exit + fixup | 279 |
-| `repeat,` | unconditional backward jump + patch while, fixup | 286 |
-
-## Concepts introduced
-
-- **Inline target cells.**  The seed's `branch` reads its destination
-  from the 8 bytes that *follow* the CALL site, not from the data
-  stack.  This is unusual; most VMs put branch targets on the stack.
-- **The xt (execution token) idiom.**  `' word` (tick) at load time
-  resolves the address of a word's body; `constant` captures it.  This
-  is how `branch-xt` stays correct across `000-seed.hex0` layout
-  changes.
-- **Compile-time stack discipline.**  Every immediate combinator
-  manipulates the stack *while the user's word is being compiled*.
-  `if,` leaves a fixup; the matching `then,` consumes it.  Unbalanced
-  combinators corrupt the data stack at compile time, which is
-  spectacular.
-- **`rel32` and the +4 quirk.**  For an x86-64 CALL, `rel32 = target -
-  (HERE_after_opcode + 4)`.  The codebase's comment "HERE_now + 4"
-  bakes the opcode-already-written assumption into the formula; trace
-  this carefully.
-- **The `immediate` flag.**  All nine combinators end with the word
-  `immediate`, which sets the flag bit on the most-recently-defined
-  dictionary entry (see Ch 10).  An immediate word runs *at compile
-  time* even inside `:` ... `;`.
-
-## Concepts carried in
-
-- `c,` (Ch 2) — every combinator ultimately calls it.
-- `,4` (Ch 9) — `comma-call` uses it for the 4-byte rel32.
-- `,` ("comma," cell-sized writer) — used by `if,`, `while,`,
-  `repeat,` to reserve / emit 8-byte cells.  Defined by the seed; see
-  Part II, Ch 17.
-- `constant` and `immediate` (Ch 10).
-- `here` / `here-addr` (Ch 2) — for measuring "where are we?"
-- `swap`, `dup`, `drop` — stack work, Chs 1, 8.
-
-## Concepts deferred
-
-- The seed's `branch`, `0branch`, and `'` primitives in machine code —
-  Part II, Chs 17 (`'`) and 19 (`branch`, `0branch`).
-- The full ELF + memory layout that makes absolute target addresses
-  work — Part II, Ch 13.
+By the end you'll be able to explain how `branch` and `0branch` read
+their destinations from the 8 bytes that follow their CALL site
+rather than from the data stack, compute an x86-64 CALL's `rel32`
+offset by hand and check it against `comma-call`'s output, and trace
+`if, ... then,` end-to-end through the bytes emitted, the compile-time
+stack, the fixup, and the runtime jump; you'll be ready to write your
+own combinator (a `do, ... loop,`, say) in the same idiom.  The
+machine code of `branch`, `0branch`, and `'` themselves is deferred
+to Part II Chs 17 and 19, and the ELF layout that makes absolute
+target addresses work is Ch 13, two chapters away.
 
 ---
 

@@ -1,53 +1,24 @@
 # Chapter 10 — Immediacy and Constants
 
-## Goal
+This chapter is where Part I crosses a threshold: we build a word
+that builds words.  Two definitions in `010-lib.fth` (lines 162–193)
+do the job.  `immediate` flips the IMMEDIATE bit on the most-recent
+dictionary entry's `flags` byte (so the word runs at parse time even
+when `STATE=1`), and `constant` is our first defining word, laying
+down a 19-byte runtime body whose three x86-64 instructions push a
+captured `imm64` onto the data stack.  Open `010-lib.fth` to lines
+162–193 and have the seed's data-stack convention (`rdi` = TOS,
+`rbp` = data-stack pointer, full machine-code treatment in Ch 14)
+in the back of your mind.
 
-By the end of this chapter the reader can:
-
-- explain the IMMEDIATE flag in a dictionary header and how
-  `immediate` toggles it on the most-recent definition;
-- name the four fields of a dictionary entry in this codebase
-  (`link`, `flags`, `name-len`, `name`, followed by body);
-- read `constant`'s 19-byte runtime body and explain each byte;
-- write a new defining word that emits its own custom runtime body.
-
-## Source coverage
-
-`010-lib.fth` lines 162–193.  Two definitions: `immediate`, `constant`.
-
-## Concepts introduced
-
-- **`STATE`.**  The sysvar at `0x413000`.  `0` = interpret mode
-  (execute parsed words immediately); `1` = compile mode (append a
-  CALL to the parsed word into the body of the word being defined).
-  Set to `1` by `:`, reset to `0` by `;`.
-- **The IMMEDIATE flag.**  A bit in the `flags` byte of a dictionary
-  header.  An immediate word *always* runs at parse time, even when
-  `STATE=1`.  This is what makes `if,`, `;`, and the rest of the
-  control-flow combinators work.
-- **`latest`.**  Seed primitive: pushes the *address* of the `LATEST`
-  sysvar cell (not its contents).  `latest @` is the head of the
-  dictionary; `latest @ + 8` is its flags byte.
-- **The 19-byte runtime body shared by `constant`, `variable`,
-  `create`.**  Three x86-64 instructions: `sub rbp,8` (open data-stack
-  slot), `mov [rbp+0], rdi` (spill old TOS), `movabs rdi, imm64`
-  (load the value as new TOS), `ret`.  Always exactly 19 bytes.
-
-## Concepts carried in
-
-- `c,` (Ch 2), `,8` (Ch 9) — for emitting the body bytes.
-- `latest`, `@`, `+`, `swap`, `c!`, `state`, `!` — seed primitives.
-- `:` and `;` — seed primitives that we begin to use *programmatically*
-  here, not just as syntax.
-
-## Concepts deferred
-
-- `;` itself as a word, with its own IMMEDIATE flag in the seed —
-  Part II, Ch 18.
-- `create` and `variable` — Ch 12, where they round out the
-  defining-word family.
-- The full x86-64 instruction encoding for `movabs` and `mov` —
-  Part II, Chs 14 and 18.
+By the end you'll be able to explain the IMMEDIATE flag and how
+`STATE` switches the interpreter between executing words and
+appending CALLs to them, name the four fields of a dictionary entry
+(link, flags, name-len, name, body), and read `constant`'s 19-byte
+runtime body bit by bit.  The other two members of the defining-word
+family, `create` and `variable`, are deferred to Ch 12; the
+machine-code encoding of `movabs` itself, and `;` as a word with its
+own IMMEDIATE flag baked into the seed, are deferred to Chs 14 and 18.
 
 ---
 

@@ -1,55 +1,25 @@
 # Chapter 20 — The Number Parser and REPL
 
-## Goal
+The last two primitives in the seed close Part II: `parse_decimal_code`
+(`@ 0x5FD`, lines 555–585) and the REPL loop itself (`@ 0x35E`,
+lines 299–357, 187 bytes of hex).  `parse_decimal_code` is a pure
+decimal parser with the contract `( c-addr u -- n true | 0 false )`;
+empty input or any byte outside `'0'..'9'` (including a leading
+`-`) makes it fail.  The REPL is five logical sections (read token,
+EOF guard, find word, miss path, dispatch path), and the dispatch
+path is where compile-vs-interpret mode finally fuses, branching on
+the IMMEDIATE flag and on STATE to choose between `execute_code`
+and `comma_code`.
 
-By the end of this chapter the reader can:
-
-- read `parse_decimal_code` and explain its decimal-only contract:
-  any non-digit byte (including a leading `-`) makes the parse fail;
-- read the REPL at `0x35E` and trace the read-token / find-word /
-  dispatch loop end to end, including the `?\n` miss path and the
-  `STATE`-aware compile-vs-interpret split;
-- explain the role of `[lit]` and why it is the only way to push a
-  literal in this seed's interpret mode (the seed does *not*
-  auto-parse numbers from the REPL loop);
-- explain the `NUMBER_HOOK` sysvar as the *future* extension point
-  for non-decimal literals.
-
-## Source coverage
-
-`000-seed.hex0` `parse_decimal_code @ 0x5FD` (lines 555–585) and
-the REPL at `0x35E` (lines 299–357).
-
-## Concepts introduced
-
-- **`parse_decimal_code` ( c-addr u -- n true | 0 false ).**  Pure
-  decimal: empty length, or any byte outside `'0'..'9'`, returns
-  `(0, false)`; success returns `(n, true)` where `n` is the
-  accumulated decimal value.  Used by `[lit]` (Ch 18) and available
-  to be wired into `NUMBER_HOOK` (below).
-- **`NUMBER_HOOK` sysvar.**  An optional xt at `0x413020` that the
-  REPL would consult on a `find` miss before printing `?`.  In the
-  seed it is initialised to 0 and never read; the hook is there
-  for higher layers to set up alternative number parsing without
-  needing to rewrite the REPL.
-- **The REPL loop at `0x35E`.**  Five logical sections: read token,
-  EOF guard, find word, miss path, dispatch path.  The dispatch
-  path branches on the IMMEDIATE flag and on STATE.
-- **`[lit]` as the immediate decimal-pusher.**  Ch 18 introduced
-  the implementation; here we see why interpret mode needs it.
-
-## Concepts carried in
-
-- `read_word`, `find_code`, `execute_code` from Ch 17.
-- The IMMEDIATE flag and the STATE sysvar from Ch 10; `state_code`
-  as an address-pusher from Ch 17; STATE-as-mode-switch from Ch 18.
-- `comma_code` and `lit_code` from Chs 17–18 (used in compile
-  mode).
-
-## Concepts deferred
-
-- Hex / octal / negative number support — not in the seed; the
-  hook is there for it.
+By the end of the chapter you'll be able to read both bodies end
+to end, explain why `[lit]` (Ch 18) is the only way to push a
+literal in interpret mode (the REPL does not auto-parse numbers),
+trace the `?\n` miss path, and read the `NUMBER_HOOK` sysvar
+(`0x413020`) as the unused extension point a higher layer could
+wire up for hex, octal, or negative literals.  That closes the
+seed: every byte of `000-seed.hex0` has now been accounted for.
+Part III picks up with the C compiler written in Forth on top of
+this REPL.
 
 ---
 

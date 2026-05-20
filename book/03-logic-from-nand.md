@@ -1,40 +1,23 @@
 # Chapter 3 — Logic from One Primitive
 
-## Goal
+The seed keeps exactly one bitwise primitive, `nand`, and builds
+every other boolean operator on top of it in Forth.  This chapter
+defines `and` and `or` (lines 22–30 of `010-lib.fth`, the section
+header plus two short colon definitions) and uses them to motivate
+why a single primitive is enough.  Open `010-lib.fth` to that
+nine-line block; the rest of the chapter is the argument for the
+trade and a walk through the two derivations.  The bigger payoff,
+`not` and `xor`, falls out as exercises once you see how `nand
+dup nand` and De Morgan's law fit together.
 
-By the end of this chapter the reader can:
-
-- explain why `nand` alone is functionally complete (every boolean
-  function expressible in two-valued logic);
-- derive `and`, `or`, `not`, and `xor` from `nand`;
-- read a chained-nand expression and predict its truth table.
-
-## Source coverage
-
-`010-lib.fth` lines 22–30.  Two definitions: `and`, `or`, plus the
-section header that motivates them.
-
-## Concepts introduced
-
-- **Functional completeness.**  A single two-input boolean function
-  is enough to express any other boolean function, given duplication
-  and reuse of inputs.  `nand` (and `nor`) are the canonical
-  examples; the seed picks `nand`.
-- **De Morgan's law as code.**  `a or b == ~(~a and ~b)` becomes a
-  five-word Forth definition.
-- **The `~` trick from `nand`.**  `b nand b == ~(b and b) == ~b`.  We
-  used this already in Chapter 1's `-`; now we see why it works.
-
-## Concepts carried in
-
-- Stack-effect notation, `nand`, `dup`, `swap` — all from Ch 1.
-
-## Concepts deferred
-
-- The hex bytes of the `nand_code` primitive in `000-seed.hex0` —
-  Part II, Ch 15.
-- Why `nand` rather than `and` + `invert` separately — touched on
-  here, fully covered when we read the seed at Part II.
+By the end of the chapter you'll be able to explain why `nand`
+alone is functionally complete (every two-valued boolean function
+expressible from it), derive `and`, `or`, `not`, and `xor` from
+`nand`, and read a chained-nand expression and predict its truth
+table.  The hex bytes of the `nand_code` primitive in
+`000-seed.hex0` are Part II, Ch 15; the deeper "why not `and` plus
+`invert` separately" question is touched on here and fully covered
+when we read the seed in Part II.
 
 ---
 

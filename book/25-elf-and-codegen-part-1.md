@@ -1,62 +1,28 @@
 # Chapter 25 — ELF Emission and Codegen, Part 1: Instructions
 
-## Goal
+Two files start the output side of the compiler.  `080-cc-elf.fth`
+(68 lines, entire file) writes the 120-byte ELF wrapper as a single
+R-W-X PT_LOAD at `0x400000` with entry at `0x400078`, leaving
+`p_filesz` zero so it can be back-patched at `cc-finalize-elf` time.
+`090-cc-emit.fth` lines 1–411 then lay down the primitive
+instruction encoders: immediate loads, push/pop for each
+SYS-V register, the `[rbp + disp8]` load/store/lea family for
+locals, register-to-register moves, ALU on `rdi`/`rcx`, signed
+`idiv` for both `/` and `%`, prologue/epilogue, the six signed
+`setcc` comparisons that canonicalize to 0/1 in `rdi`, and the
+`rel32` placeholder family (`jz`, `jnz`, `jmp`, `call`) with
+`cc-patch-rel32-to-here`.  The remaining lines 412–1027 belong to
+Ch 26.
 
-By the end of this chapter the reader can:
-
-- read `080-cc-elf.fth` and explain how the output ELF's header is
-  laid out, what fields are back-patched, and why one PT_LOAD
-  segment suffices;
-- read the first half of `090-cc-emit.fth` — the per-instruction
-  encoders (push/pop, load/store, arithmetic, compares, branches)
-  — and predict the bytes each emits;
-- explain the calling-convention assignment of registers
-  (`rdi` = current expression result, `rcx` = right-operand temp,
-  `rbp` = frame base).
-
-## Source coverage
-
-`080-cc-elf.fth` (68 lines) — entire file.
-`090-cc-emit.fth` lines 1–411 (file header through `cc-patch-rel32-
-to-here`).  The remaining lines 412–1027 are covered in Ch 26.
-
-## Concepts introduced
-
-- **One-segment output ELF.**  Like the seed, the C compiler emits
-  a single R-W-X PT_LOAD at `0x400000`, entry at `0x400078`.  The
-  64-byte ELF header + 56-byte program header = 120 bytes of
-  preamble before any code.
-- **Back-patched `p_filesz` / `p_memsz`.**  Cursor positions at
-  file offsets 96 and 104 are zero on the first pass and
-  overwritten via `cc-out-patch-4le` once codegen finishes.
-- **Per-instruction Forth words.**  Each x86-64 instruction the
-  compiler emits has its own `cc-emit-*` word; the higher-level
-  passes never touch raw bytes.
-- **Register convention.**  `rdi` carries the current expression
-  result; `rcx` holds the right operand of a binary op; `rax` is
-  used for `idiv` and SYS-V return values; `rbp` is the frame
-  pointer.
-- **`rel32` placeholders + `cc-patch-rel32-to-here`.**  The codegen
-  emits a zero rel32 alongside its conditional jump, returns the
-  byte offset of that rel32, and patches it later when the branch
-  target is known — the same fixup-on-the-stack technique we saw
-  in Forth's `if,` (Ch 11), now applied to ELF bytes.
-
-## Concepts carried in
-
-- `cc-emit-byte`, `cc-emit-4le`, `cc-emit-8le`, `cc-out-patch-4le`,
-  `cc-out-pos` (Ch 21).
-- ELF64 ehdr + phdr layout (Ch 13 covers the seed's variant).
-- x86-64 instruction encoding intuition (Chs 14–16, 18).
-
-## Concepts deferred
-
-- The frame-aware encoders (prologue, epilogue, local-variable
-  load/store, param spills, function calls) — Ch 26.
-- Libc shims (`putchar`, `exit`, `getchar`, `fputs`, `fputc`,
-  `fopen`, `fclose`, `fwrite`, `fread`, `calloc`, `free`) — Ch 26.
-- Globals + global-vaddr fixups — Ch 26.
-- The string-literal escape decoder — Ch 26.
+By the end you'll be able to read each encoder and predict the
+bytes it emits, justify the register convention (`rdi` =
+current expression result, `rcx` = binary-op right operand,
+`rax` = `idiv`/SYS-V return, `rbp` = frame base), and recognise
+`rel32` placeholders + `cc-patch-rel32-to-here` as the codegen
+echo of Forth's `if,` fixup-on-the-stack from Ch 11.  The
+frame-aware encoders (param spills, function-pointer call,
+in-place inc/dec), the libc shims, file-scope globals, and the
+string-literal escape decoder are all deferred to Ch 26.
 
 ---
 

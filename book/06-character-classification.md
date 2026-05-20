@@ -1,43 +1,27 @@
 # Chapter 6 — Character Classification
 
-## Goal
+Five small predicates in `010-lib.fth` (lines 63–86), `digit?`,
+`alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`, build a
+character classifier vocabulary on a single three-token idiom: `(c
+- base) / range 0=` is true exactly when `c` falls in `[base,
+base+range)`.  The trick rides on the seed's `/` being x86 `DIV`
+(unsigned), so underflow on the subtract still produces a non-zero
+quotient and the test stays correct without any conditional.  Open
+`010-lib.fth` to those 24 lines and read along; the chapter argues
+why classifiers earn the optimisation effort (a lexer runs them on
+every byte of input), walks through `digit?` byte by byte, then
+shows the two composition patterns the rest use: `or`-chain for
+unions like `alpha?`, and `over` plus `0= or` folding for the
+four-codepoint `space?`.
 
-By the end of this chapter the reader can:
-
-- read the `(c - base) / range == 0` range-check idiom and explain
-  why it works on unsigned arithmetic without conditionals;
-- combine single-character classifiers into a chain (`alpha?`,
-  `space?`);
-- write a new classifier (e.g. `hex-digit?`, `printable?`).
-
-## Source coverage
-
-`010-lib.fth` lines 63–86.  Five definitions plus the section header:
-`digit?`, `alpha-lower?`, `alpha-upper?`, `alpha?`, `space?`.
-
-## Concepts introduced
-
-- **Branch-free range check.**  `(c - base) / range == 0` is true
-  exactly when `c` is in `[base, base+range)`, given that the
-  seed's `/` is unsigned and an underflow wraps to a huge value.
-- **The Forth boolean convention.**  `-1` for true, `0` for false.
-  `0=` canonicalises any zero/non-zero to `-1`/`0`.
-- **`or`-chaining for unions.**  `alpha?` = `alpha-lower? or
-  alpha-upper?`.
-- **Multi-equality folding with `over` + `or`.**  `space?` matches
-  four codepoints by chaining four `c - X 0= or` calls.
-
-## Concepts carried in
-
-- `-`, `/`, `0=` from Chs 4 and 1 (and seed primitives `/`, `0=`).
-- `or` from Ch 3.
-- `dup`, `swap`, `over` from Chs 1 and 4.
-
-## Concepts deferred
-
-- Where these classifiers are *used* — Part III's lexer
-  (`050-cc-lex.fth`, Ch 23).
-- The seed's `/` primitive in x86-64 — Part II, Ch 15.
+By the end of the chapter you'll be able to read the `(c - base) /
+range == 0` range-check idiom and explain why it works on unsigned
+arithmetic without conditionals, combine single-character
+classifiers into chains like `alpha?` and `space?`, and write a new
+classifier such as `hex-digit?` or `printable?`.  Where these
+classifiers are actually *used* (Part III's lexer at
+`050-cc-lex.fth`) is Ch 23; the seed's `/` primitive in x86-64
+(`DIV`) is Part II, Ch 15.
 
 ---
 

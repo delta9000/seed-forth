@@ -1,63 +1,32 @@
 # Chapter 27 — Expressions, Part 1: Precedence Climbing
 
-## Goal
+This chapter opens `100-cc-expr.fth` (1447 lines total) and covers
+its binary-operator cascade plus the scaffolding the whole file
+needs.  The file's root `file=` block lives here, and so do the
+chunks for the lexer-on-top-of-the-lexer (`expr-header`,
+`expr-putback`, `expr-fwd-refs`) and the ten binary-precedence
+layers (`expr-mul`, `expr-add`, `expr-shift`, `expr-rel`, `expr-eq`,
+`expr-bit`, `expr-log`) running from `cc-parse-mul` through
+`cc-parse-log-or`.  The scaffolding adds a one-token putback layer
+(`cc-tok-pending`, `cc-next-token-keep`, `cc-putback-token`) so the
+parser can peek one token past a fold boundary without re-lexing,
+plus forward-reference vecs for the mutually recursive `cc-parse-
+expr`, `cc-parse-call`, and `cc-parse-primary`.  Each binary layer
+follows the same precedence-climbing pattern (parse one operand at
+the next-tighter level, loop while the next token is in its
+operator set) and emits the same five-step codegen template (eval
+left, push, eval right, `mov rcx, rdi`, `pop rdi`, apply op), with
+`&&`/`||` adding three short-circuit `rel32` fixups for the
+canonical 0/1 result.
 
-By the end of this chapter the reader can:
-
-- explain the one-token putback layer on top of `cc-next-token`
-  and why it's necessary;
-- read the recursive-descent skeleton from `cc-parse-mul` up
-  through `cc-parse-log-or` and explain the precedence-climbing
-  pattern each layer uses;
-- predict the codegen for `a*b + c << d == e & f | g && h || i`
-  by walking the layers top-down.
-
-## Source coverage
-
-`100-cc-expr.fth` — the file's root `file=` block lives here,
-referencing chunks defined in this chapter and the next:
-- Ch 27 chunks (binary-cascade + scaffolding): `expr-header`,
-  `expr-putback`, `expr-fwd-refs`, `expr-mul`, `expr-add`,
-  `expr-shift`, `expr-rel`, `expr-eq`, `expr-bit`, `expr-log`.
-- Ch 28 chunks: `expr-lvalue`, `expr-struct-field`,
-  `expr-array-index`, `expr-primary`, `expr-unary`,
-  `expr-ternary`, `expr-assign`, `expr-top`.
-
-## Concepts introduced
-
-- **One-token putback** (`cc-tok-pending`, `cc-next-token-keep`,
-  `cc-putback-token`) — the parser frequently peeks one token
-  past a fold boundary; the putback lets the *next* call see the
-  same token without re-lexing.
-- **The precedence-climbing pattern.**  Each binary-operator
-  layer parses one operand at the next-tighter precedence, then
-  loops calling itself until the next token is no longer in its
-  operator set.
-- **The binary-op codegen template.**  Every binary-op emits the
-  same five steps: eval-left → push → eval-right → mov rcx,rdi →
-  pop rdi → apply op.  The op-byte travels through the return
-  stack so the data stack stays free for recursive operand
-  parsing.
-- **Short-circuit `&&` / `||` via rel32 fixups.**  Three jumps,
-  three fixups stashed on the return stack, one canonical
-  0/1 result.
-
-## Concepts carried in
-
-- The lexer's `tok-*` state and `cc-next-token` (Ch 23).
-- All the `cc-emit-*` instruction encoders (Chs 25–26).
-- Forth's `if,`/`then,`/`else,`/`begin,`/`while,`/`repeat,`
-  control-flow combinators (Ch 11).
-- Return-stack discipline `>r`/`r@`/`r>` (Ch 4).
-
-## Concepts deferred
-
-- `cc-parse-primary` (where actual operands live), `cc-parse-
-  unary`, `cc-parse-ternary`, `cc-parse-assign`, and the
-  top-level `cc-parse-expr` — all Ch 28.
-- Lvalue tracking — Ch 28 (this chapter's binary cascade
-  immediately materializes any pending deref via
-  `cc-emit-materialize` so it doesn't need to know).
+By the end you'll be able to read each precedence layer, follow the
+op-byte threaded through the return stack so the data stack stays
+free for recursive operand parsing, and predict the codegen for a
+mixed expression like `a*b + c << d == e & f | g && h || i` by
+walking the layers top-down.  Ch 28 picks up the right-associative
+tail (`cc-parse-ternary`, `cc-parse-assign`, `cc-parse-expr`) and
+the recursive-descent floor (`cc-parse-unary`, `cc-parse-primary`,
+plus the lvalue-tracking globals that `cc-emit-materialize` reads).
 
 ---
 

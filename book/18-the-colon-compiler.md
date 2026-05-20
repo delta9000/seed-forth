@@ -1,62 +1,23 @@
 # Chapter 18 — The Colon Compiler
 
-## Goal
+Four pieces of the seed turn the dictionary from a read-only table
+into a Forth that can *define new words*: `colon_code` (`@ 0x2D4`)
+parses a name and lays down a header at HERE; `semicolon_code`
+(`@ 0x33B`) appends a `ret` and exits compile mode; `lit_code`
+(`@ 0x419`) is the inline-cell runtime that compiled `[lit]`s call;
+and `bracket_lit_code` (`@ 0x652`) is the immediate parser that
+emits those `CALL lit_code` + 8-byte cell sequences in compile mode
+or pushes the number directly in interpret mode.  Open
+`000-seed.hex0` to lines 263–297, 359–366, and 587–625 to read along.
 
-By the end of this chapter the reader can:
-
-- read `colon_code` byte for byte and explain what each section
-  contributes to building a dictionary header for a new word;
-- read `semicolon_code` and explain why its IMMEDIATE flag is set
-  at *assembly* time (in the dictionary) rather than at runtime;
-- read `lit_code` and explain the inline-literal convention (the
-  eight bytes immediately following the `CALL lit_code` site);
-- read `bracket_lit_code` and explain how it parses a decimal at
-  the next token position and either pushes (interpret mode) or
-  compiles (compile mode) the value.
-
-## Source coverage
-
-`000-seed.hex0` `colon_code @ 0x2D4` (lines 263–289),
-`semicolon_code @ 0x33B` (lines 291–297), `lit_code @ 0x419`
-(lines 359–366), and `bracket_lit_code @ 0x652` plus its dictionary
-entry `[lit]` (lines 587–625).
-
-## Concepts introduced
-
-- **`colon_code` ( -- ) parses a name and builds a header.**  Calls
-  `read_word`; copies link/flags/nlen/name bytes at HERE; advances
-  HERE; flips STATE to 1.  The header is exactly `10 + nlen` bytes.
-- **`semicolon_code` ( -- ) appends `ret` and flips STATE back.**
-  Writes `0xC3` at HERE, increments HERE by 1, sets STATE=0.
-- **IMMEDIATE-at-assembly-time.**  The `;` dictionary entry carries
-  `flags = 01` because it has to run *during* a compilation (to
-  close one), so it can never be compiled.  All other immediates in
-  the seed (`[lit]`) are added the same way — flag bit set in the
-  hand-laid header.
-- **`lit_code` ( -- v ) reads its own inline 8-byte cell.**  Pops
-  the return address; loads 8 bytes from there; advances the return
-  address past the cell; pushes the cell value; returns.
-- **`bracket_lit_code` — the seed's only number-pusher in interpret
-  mode.**  Parses the next token as decimal; either pushes the
-  number (interpret) or emits `CALL lit_code` + the 8-byte cell
-  (compile).
-
-## Concepts carried in
-
-- `read_word` from Ch 17 (called by `colon_code` and
-  `bracket_lit_code`).
-- The dictionary entry layout from Ch 17.
-- `parse_decimal_code` — defined here (forward-referenced from
-  Ch 20 where it's explained in full; we use it now and pin
-  it down then).
-- The `c,`-style HERE-advance pattern from Ch 2, but in raw hex.
-
-## Concepts deferred
-
-- The interplay of `:` with `STATE` and `find_code` in the REPL —
-  Ch 20.
-- `branch_code` and `0branch_code`, which share `lit_code`'s
-  inline-slot convention — Ch 19.
+By the end of the chapter you'll be able to read each of those four
+bodies byte for byte, explain why `;`'s IMMEDIATE flag is set in
+its hand-laid dictionary header rather than at runtime, and trace
+the inline-literal convention that `lit_code` and the branch
+primitives share.  The REPL's side of the story (how `:` flips
+STATE and `find_code` switches between interpret and compile
+behaviour) is Ch 20; the branch primitives that share `lit_code`'s
+inline-slot trick are Ch 19.
 
 ---
 

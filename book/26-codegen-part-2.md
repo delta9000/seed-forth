@@ -1,68 +1,30 @@
 # Chapter 26 — Codegen, Part 2: Calls, Shims, and Globals
 
-## Goal
+This chapter finishes `090-cc-emit.fth` (lines 412–1027, picking up
+where Ch 25 left off).  Three layers sit on top of the per-
+instruction encoders.  First, the wide-immediate machinery:
+`cc-emit-movabs-rdi-imm64` (10 bytes, `48 BF <imm64>`), its
+placeholder variant, and `cc-add-fixup-to-list` (a 16-byte intrusive
+linked-list node); these let the codegen reference a forward-
+declared function or a not-yet-placed global by emitting zeros and
+threading the patch offset onto a list rooted in `cc-sym-extra2`
+(Ch 24).  Second, the eleven libc shims (`putchar`, `exit`,
+`getchar`, `fputs`, `fputc`, `fopen`, `fclose`, `fwrite`, `fread`,
+`calloc`, `free`), each a small block of direct Linux syscall code,
+with `calloc` being a bump allocator over a one-shot 256 MiB mmap
+and `free` reducing to a single `ret`.  Third, the file-scope
+globals (`cc-globals-buf`, `cc-gfixup-out-pos`, `cc-gfixup-slot`,
+`cc-emit-global-ref`), which accumulate initializers in a parallel
+buffer and emit placeholder `movabs rdi, imm64` references that get
+patched once `cc-finalize-globals` places the data after the code.
 
-By the end of this chapter the reader can:
-
-- read the forward-call infrastructure (`movabs rdi, imm64`
-  placeholder + `cc-add-fixup-to-list`) and explain how a
-  forward-declared function's address gets patched in after the
-  fact;
-- read the eleven libc shims emitted at the start of the code
-  segment (`putchar`, `exit`, `getchar`, `fputs`, `fputc`,
-  `fopen`, `fclose`, `fwrite`, `fread`, `calloc`, `free`) and
-  trace each one's syscall sequence;
-- read the file-scope-globals machinery (`cc-globals-buf`,
-  `cc-gfixup-*`, `cc-emit-global-ref`) and explain how a global
-  reference becomes a back-patched `movabs rdi, imm64`.
-
-## Source coverage
-
-`090-cc-emit.fth` lines 412–1027.  Ch 25 covered lines 1–411.
-
-## Concepts introduced
-
-- **`movabs rdi, imm64` + forward-call fixup lists.**  When a
-  function is referenced before it is defined, the codegen emits
-  a placeholder `movabs rdi, <imm64=0>` and threads the patch
-  offset onto a linked list rooted in `cc-sym-extra2` (Ch 24).
-  Ch 31's `cc-parse-function` walks the list when the definition
-  arrives.
-- **`cc-emit-string-bytes`.**  Decodes the seven C escapes the
-  lexer kept literal — `\n`, `\t`, `\r`, `\\`, `\'`, `\"`, `\0` —
-  and emits a NUL-terminated copy of the string into the output
-  buffer.
-- **Libc shims as inline machine code.**  Eleven small functions
-  (`putchar` through `free`) are emitted at the start of the
-  code segment.  Each is direct Linux syscall code; no
-  `dlsym`, no `PLT`, no libc.
-- **`calloc` as a bump allocator over a one-shot `mmap`.**  A
-  single 256 MiB mmap holds the entire heap; `calloc` is bump
-  allocation plus zero-fill (handed by Linux on first touch).
-  `free` is a no-op.
-- **File-scope globals + deferred vaddr fixups.**  Globals
-  accumulate in `cc-globals-buf` during parsing and are appended
-  to the output ELF *after* the code.  Each `IDENT` reference
-  emits a placeholder `movabs rdi, imm64` and records the patch
-  site; `cc-finalize-globals` later resolves everything.
-
-## Concepts carried in
-
-- Every instruction encoder from Ch 25 (push/pop, mov,
-  prologue/epilogue, idiv, cmp/set, rel32 placeholders).
-- `cc-emit-byte`, `cc-emit-8le`, `cc-out-pos`, `cc-out-patch-4le`,
-  `cc-out-patch-8le` (Ch 21).
-- `cc-alloc` (Ch 21), `cc-sym-extra2` (Ch 24).
-
-## Concepts deferred
-
-- Where `cc-emit-string-bytes` and `cc-emit-global-ref` are
-  *called* from — Chs 27–28 (string literals, global identifier
-  rvalues).
-- Where the prologue/epilogue from Ch 25 are *called* from —
-  Ch 31 (function definitions).
-- Where the forward-call fixup list is *walked* — Ch 31
-  (`cc-parse-function`).
+By the end you'll be able to read every encoder above line 411,
+trace each shim's syscall sequence, and explain how a forward-
+declared function name or a file-scope global identifier becomes a
+back-patched 10-byte instruction.  Where these encoders are
+*called* from is deferred: string literals and global rvalues belong
+to Chs 27–28; prologue/epilogue use to Ch 31's `cc-parse-function`;
+forward-call fixup-list walking to Ch 31 as well.
 
 ---
 

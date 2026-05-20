@@ -1,53 +1,26 @@
 # Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`
 
-## Goal
+Part I closes by finishing the defining-word family Ch 10 began and
+sneaking in one piece of memory plumbing the C compiler will lean on
+later.  Five definitions in `010-lib.fth` (lines 292–373, end of
+file): `allot` is `here-addr @ + here-addr !`, a one-line bump
+allocator parameterised over byte count; `create` reuses Ch 10's
+19-byte runtime body but appends an arbitrary data area instead of a
+plain literal; `variable` is `create` plus one zero cell of pre-allotted
+storage; and `bytes-eq` compares two byte ranges via the
+loop-and-accumulate idiom that drops out of having no `exit`
+primitive.  Open `010-lib.fth` to lines 292–373, with Ch 10's runtime
+body and Ch 11's `begin,`/`while,`/`repeat,` fresh in mind.
 
-By the end of this chapter the reader can:
-
-- explain the relationship between `create`, `variable`, and
-  `constant` — they all share a 19-byte runtime body with different
-  `imm64` payloads and different post-body data;
-- use `allot` to extend a `create`d word's data area;
-- read the loop-and-accumulate idiom used by `bytes-eq` to compare
-  two byte ranges without short-circuiting.
-
-## Source coverage
-
-`010-lib.fth` lines 292–373 (end of file).  Five definitions:
-`allot`, `create`, `variable`, `bytes-eq-flag` (a variable),
-`bytes-eq`.
-
-## Concepts introduced
-
-- **`allot` as bump.**  `allot n` is `here-addr @ + here-addr !` —
-  the same advance idiom we saw in `c,` but parameterised.
-- **`create`'s runtime convention.**  A `create`d word pushes the
-  address of the bytes *immediately following* its body.  Data area
-  starts at `HERE + 9` because the body is `[18-byte prologue + 1
-  ret] = 19` bytes from the `:` call, and at the moment of `,8`
-  HERE points 9 bytes before the data area.
-- **`variable` = `create , 0`.**  Pre-allots a single zero cell.
-  Read the definition and notice it's `create`'s body plus a single
-  `[lit] 0 ,`.
-- **Loop-and-accumulate without short-circuit.**  `bytes-eq` cannot
-  early-exit on mismatch because the seed has no `exit` primitive.
-  Instead it accumulates the running flag in a variable and reads
-  every byte.
-
-## Concepts carried in
-
-- All of Ch 10 (`constant`, the 19-byte runtime body, `:`/`state`).
-- All of Ch 11 (`begin,`/`while,`/`repeat,`).
-- `,8`, `c,`, `here`, `here-addr` from Chs 2 and 9.
-- `>r`, `r>`, `over`, `c@`, `=`, `and`, `+`, `-` from earlier
-  chapters.
-
-## Concepts deferred
-
-- *Use* of `bytes-eq` for symbol-table lookup — Part III, Ch 24
-  (`070-cc-sym.fth`).
-- The seed's `,` (comma) primitive that emits a full 8-byte cell —
-  Part II, Ch 17.
+By the end you'll be able to explain the relationship between
+`constant`, `create`, and `variable` (same 19-byte body, different
+`imm64` payloads, different post-body data), use `allot` to extend a
+`create`d word's data area, and read the loop-and-accumulate pattern
+in `bytes-eq` and see why a missing `exit` primitive forces you to
+read every byte instead of short-circuiting on mismatch.  The actual
+*use* of `bytes-eq` for symbol-table lookup is deferred to Part III
+Ch 24 (`070-cc-sym.fth`), and the seed's `,` primitive that all of
+these definitions lean on is finally cracked open in Part II Ch 17.
 
 ---
 

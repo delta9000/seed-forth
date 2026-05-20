@@ -1,49 +1,27 @@
 # Chapter 16 — I/O: `emit`, `key`, `syscall6`
 
-## Goal
+I/O at the seed layer is one byte at a time, and that restriction
+shrinks the four primitives in this chapter to a handful of bytes
+apiece.  `bye_code`, `emit_code`, and `key_code` live at lines 65–96
+of `000-seed.hex0`; `syscall6_code` and its dictionary entry are at
+lines 627–648.  `emit` and `key` share a single global byte of
+scratch buffer at `0x412000` (`emit` writes one byte there before
+calling `write(1, scratch, 1)`, `key` reads one byte into it via
+`read(0, scratch, 1)`), and `syscall6` is the general-purpose hatch
+every Forth-level wrapper from Ch 5 (`open`, `read`, `write`, `close`,
+`die`) ultimately calls.  Open `000-seed.hex0` to those two ranges
+with Ch 14's data-stack convention in mind.
 
-By the end of this chapter the reader can:
-
-- read `emit_code` and `key_code` byte for byte, including their
-  `write(2)` and `read(2)` syscalls;
-- read `syscall6_code` and explain how it marshals seven data-stack
-  cells into the x86-64 syscall ABI;
-- explain the single-byte I/O scratch at `0x412000` and why the seed
-  uses one shared buffer instead of per-call allocation.
-
-## Source coverage
-
-`000-seed.hex0` lines 65–96 (`bye_code`, `emit_code`, `key_code`)
-and lines 627–648 (`syscall6_code` plus the `syscall6` dictionary
-entry).
-
-## Concepts introduced
-
-- **The single-byte I/O scratch at `0x412000`.**  `emit` writes one
-  byte there before calling `write(1, scratch, 1)`; `key` reads one
-  byte into it via `read(0, scratch, 1)`.  One global byte covers
-  all character I/O at the seed layer.
-- **EOF handling in `key`.**  When `read` returns `0`, `key` pushes
-  the cell value `0` — a sentinel the REPL uses to detect end of
-  input.  Otherwise `key` pushes the byte read.
-- **The x86-64 syscall ABI.**  `rax = syscall number`; arguments in
-  `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`; the `syscall` instruction
-  traps to the kernel; result returned in `rax`; `rcx` and `r11` are
-  clobbered.
-- **`syscall6_code`'s seven-cell marshalling.**  Pops six argument
-  cells off the data stack into the ABI registers, then uses the old
-  TOS (already in `rdi` at entry) as the syscall number.
-
-## Concepts carried in
-
-- The data-stack convention from Ch 14 (`rdi` = TOS, `[rbp]` =
-  under-TOS).
-- The Forth-level `syscall6` wrappers (`open`, `read`, `write`,
-  `close`, `die`) from Ch 5.
-
-## Concepts deferred
-
-- The token reader `read_word` (which calls `key` in a loop) — Ch 17.
+By the end you'll be able to read `emit_code` and `key_code` byte
+for byte (including their `write(2)` and `read(2)` syscalls and the
+EOF-on-`read`-returning-0 sentinel that `key` propagates to the
+REPL), read `syscall6_code` and explain how it marshals seven
+data-stack cells into the x86-64 syscall ABI (`rax` = syscall number;
+arguments in `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`), and explain
+why the seed gets away with one shared byte at `0x412000` instead of
+per-call allocation.  The token reader `read_word`, which calls `key`
+in a loop and is the primary client of all this machinery, is
+deferred to Ch 17.
 
 ---
 

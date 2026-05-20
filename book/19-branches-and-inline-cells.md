@@ -1,49 +1,25 @@
 # Chapter 19 — Branches and Inline Cells
 
-## Goal
+Two primitives, roughly 30 bytes of hex between them, implement
+every loop and conditional in the codebase: `branch_code`
+(`@ 0x42B`, lines 368–372) is an unconditional jump to an inline
+8-byte target, and `zbranch_code` (`@ 0x431`, lines 374–385) is its
+conditional counterpart, jumping when the top-of-stack flag is zero
+and otherwise stepping past the slot.  Both share `lit_code`'s
+trick of reading their inline operand off the return stack, but
+with one crucial twist: they *consume* that slot, pushing a fresh
+return address before `ret`, so the 8-byte cell does not remain on
+the return stack after the branch.
 
-By the end of this chapter the reader can:
-
-- read `branch_code` and `zbranch_code` byte for byte;
-- explain the "CALL with an inline 8-byte target" convention,
-  including the **consumed-slot property** — the target cell does
-  *not* remain on the return stack after the branch;
-- map each primitive byte to the corresponding Forth-level word in
-  `010-lib.fth` (`comma-call`, `if,`, `then,`) that we built in
-  Ch 11.
-
-## Source coverage
-
-`000-seed.hex0` `branch_code @ 0x42B` (lines 368–372) and
-`zbranch_code @ 0x431` (lines 374–385).  Roughly 30 bytes total.
-
-## Concepts introduced
-
-- **`branch_code` ( -- ).**  Unconditional jump; target is the
-  inline 8-byte cell that follows the `CALL` site.
-- **`zbranch_code` ( flag -- ).**  Conditional jump; if `flag == 0`
-  jump to the inline target, else skip past the 8-byte slot.
-- **The "consumed slot" property.**  Both branch primitives `pop`
-  the return address (the slot address), do their work, and `push`
-  the *new* return address — so when they `ret`, control resumes
-  at the destination (or past the slot), and the slot is gone from
-  the return stack.  This is what makes the Forth-level `if,/then,`
-  combinator a single 13-byte sequence with no separate target
-  table.
-
-## Concepts carried in
-
-- The "callee `pop`s its return address" trick from Ch 18's
-  `lit_code`.
-- The data-stack-and-`rdi` convention from Ch 14.
-- The Forth-level combinators `if,/then,/else,/begin,/while,/repeat,`
-  from Ch 11 — this chapter is the underlying machinery they emit.
-
-## Concepts deferred
-
-- Nothing new.  The C compiler's back-patching in Part III is the
-  same idea applied at a higher level: emit a placeholder, remember
-  the address, fill it in later.
+By the end of the chapter you'll be able to read both bodies byte
+for byte, explain the consumed-slot property and why it makes
+`if,/then,` a single 13-byte sequence with no separate target
+table, and map each primitive's bytes back to the Forth-level
+combinators (`comma-call`, `if,`, `then,`, `else,`, `begin,`,
+`while,`, `repeat,`) that Ch 11 built on top of them.  Nothing new
+is deferred here; the C compiler's back-patching in Part III is the
+same idea applied at a higher level (emit a placeholder, remember
+the address, fill it in later).
 
 ---
 

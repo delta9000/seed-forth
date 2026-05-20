@@ -1,45 +1,27 @@
 # Chapter 32 — End to End: Main and the Bootstrap Chain
 
-## Goal
+This is the synthesis chapter.  The whole compiler is 38 lines of
+glue in `120-cc-main.fth` (entire file): a pre-baked 12-byte
+`/tmp/cc-out\0` constant, a nine-word `cc-main` that composes every
+piece of machinery from Chs 21–31 (`cc-load-stdin`, `cc-preprocess`,
+`cc-out-init`, `cc-globals-init`, `cc-emit-elf-header`,
+`cc-parse-program`, `cc-finalize-globals`, `cc-finalize-elf`,
+`cc-out-path cc-write-output`, then `bye`), and a single bare call
+to `cc-main` at the bottom so loading the file *is* running the
+compiler.  Alongside it we read the shell driver
+`tests/cc/stage-a-check.sh` (which lives outside the literate
+program, not tangled), the script that feeds the twelve `.fth`
+files plus M2-Planet's source through `./seed-forth` and diffs the
+resulting M1 output against the GCC-built reference.
 
-By the end of this chapter the reader can:
-
-- read `120-cc-main.fth`'s short `cc-main` and explain the order
-  of operations end to end;
-- run the full bootstrap chain (`tests/cc/stage-a-check.sh`) and
-  understand each step;
-- verify the byte-identical M1 output against the GCC-built
-  M2-Planet reference and explain what the equality demonstrates.
-
-## Source coverage
-
-`120-cc-main.fth` (38 lines) — entire file.  The shell driver
-`tests/cc/stage-a-check.sh` is *not* tangled (it lives outside
-the literate program), but we read it here.
-
-## Concepts introduced
-
-- **`cc-main`'s nine-step driver.**  The composition of every
-  piece of machinery built across Chs 21–31.
-- **The pre-baked output path.**  A 12-byte `/tmp/cc-out\0`
-  constant.
-- **Auto-execution at load time.**  The bottom of the file calls
-  `cc-main` directly, so loading `120-cc-main.fth` *is* running
-  the compiler.
-- **Stage A parity.**  `stage-a-check.sh` compiles M2-Planet
-  with seed-forth + the C compiler and diffs the M1 output
-  against a GCC-built reference.  Byte identity is the
-  scientific result.
-
-## Concepts carried in
-
-- All of Parts I, II, III converge here.  Every named word in
-  `cc-main` was defined earlier.
-
-## Concepts deferred
-
-- Nothing.  This is the end of the book proper; appendices
-  follow.
+By the end you'll be able to walk `cc-main`'s nine steps from
+stdin to written ELF, run the full bootstrap chain yourself, and
+explain what byte-identical M1 parity with the GCC-built M2-Planet
+demonstrates (Stage A: our 2,040-byte seed plus the literate
+compiler emits the same machine code as a 100k-line C toolchain
+would for the same input, the fixed point that closes the
+trust-the-trusting-trust loop).  Nothing is deferred; the
+appendices follow.
 
 ---
 

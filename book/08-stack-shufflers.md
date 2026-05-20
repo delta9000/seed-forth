@@ -1,39 +1,24 @@
 # Chapter 8 — Stack Shufflers
 
-## Goal
+Four short shuffles in `010-lib.fth` (lines 121–136), `nip`, `rot`,
+`2dup`, and `2drop`, round out the classical Forth shuffle
+vocabulary on top of the six primitives Chs 1 and 4 introduced.
+None of them invents a new idea (`nip` is `swap drop`; `rot`
+generalises Ch 4's return-stack trick one slot deeper; `2dup` is
+`over over`; `2drop` is `drop drop`), but having them named by
+reflex is what makes Forth feel like dancing on the stack instead
+of fighting it.  Open `010-lib.fth` to those 16 lines and read
+along; the prose argues each derivation and quietly justifies why
+the seed names some of these and inlines others.
 
-By the end of this chapter the reader can:
-
-- read and write all classical Forth stack-shuffle words by name;
-- derive arbitrary shuffles using only the seed's five
-  stack-manipulation primitives (`dup`, `drop`, `swap`, `>r`, `r>`);
-- explain why deep-stack operators like `pick`/`roll` aren't
-  worth defining in this seed (and what their cost would be).
-
-## Source coverage
-
-`010-lib.fth` lines 121–136.  Four definitions: `nip`, `rot`, `2dup`,
-`2drop`.
-
-## Concepts introduced
-
-- **The shuffle vocabulary.**  Standard Forth has about a dozen
-  named shuffles (`over`, `nip`, `tuck`, `rot`, `-rot`, `swap`,
-  `2dup`, `2drop`, `2swap`, `2over`, etc.).  Most are one-liners on
-  top of three or four primitives.
-- **Building 2-cell shuffles from 1-cell ones.**  `2dup` is `over
-  over`; `2drop` is `drop drop`.  No new ideas, just doubling.
-
-## Concepts carried in
-
-- `swap`, `drop`, `dup`, `>r`, `r>` (seed primitives, Ch 1).
-- `over` (Ch 4).
-
-## Concepts deferred
-
-- `pick`/`roll` (not defined in this codebase; brief discussion only).
-- The C compiler's heavy use of `>r r@ r>` for register-spill-like
-  patterns — Part III, Ch 26.
+By the end of the chapter you'll be able to read and write all the
+classical Forth shuffle words by name, derive arbitrary shuffles
+using only the seed's five stack-manipulation primitives (`dup`,
+`drop`, `swap`, `>r`, `r>`), and explain why deep-stack operators
+like `pick` and `roll` aren't worth defining in this seed (and
+what their cost would be).  `pick` and `roll` themselves get only
+brief discussion; the C compiler's heavy use of `>r r@ r>` for
+register-spill-like patterns is Part III, Ch 26.
 
 ---
 

@@ -1,54 +1,25 @@
 # Chapter 15 — Arithmetic, Logic, Comparison
 
-## Goal
+The arithmetic primitives are *small*.  `plus_code`, `nand_code`,
+and `zeq_code` sit at lines 153–170 of `000-seed.hex0`; `divide_code`,
+the `/` dictionary entry, and `star_code` are tucked further down at
+lines 649–683 (with `r_at_code`, the stack op already covered in
+Ch 14, sandwiched between them in source order).  Together they
+encode `+`, `nand`, `0=`, `/`, and `*` in 54 bytes total: every
+primitive reads `[rbp]`, modifies `rdi` in place, advances `rbp`,
+and returns.  Open `000-seed.hex0` to lines 153–170 and 649–683 with
+Ch 14's data-stack convention (`rdi` = TOS, `[rbp]` = under-TOS) in
+mind.
 
-By the end of this chapter the reader can:
-
-- read the x86-64 encoding of `+`, `nand`, `0=`, `/`, `*` byte for
-  byte;
-- explain why `/` is **unsigned** (`DIV`, not `IDIV`) and what that
-  buys us for Ch 7's signed-comparison trick;
-- predict the bytes that `nand` and `+` produce from two specific
-  64-bit inputs.
-
-## Source coverage
-
-`000-seed.hex0` lines 153–170 (`plus_code`, `nand_code`, `zeq_code`)
-and lines 649–683 (`divide_code`, the `/` dictionary entry, and
-`star_code`).  `r_at_code` is between them in source order but is
-a stack op (Ch 14, defined there as `<<r-at-code>>`).
-
-## Concepts introduced
-
-- **In-place arithmetic on `rdi`.**  `+` and `nand` modify the TOS
-  register directly and pop the under-TOS slot — no temporary, no
-  spill.
-- **x86 has no NAND instruction.**  The seed emits `and rdi, [rbp]`
-  followed by `not rdi`; `not` is a one-byte opcode (`F7 D7`) after
-  the REX prefix.
-- **`0=` as canonicalise-to-Forth-boolean.**  `test rdi, rdi ; sete
-  al ; movzx rdi, al ; neg rdi`.  Read it as "compute (rdi == 0)
-  into the low byte, zero-extend, then negate so 1 becomes -1."
-- **Unsigned `DIV r/m64`.**  Divides the 128-bit dividend in
-  `rdx:rax` by `r/m64`; quotient into `rax`, remainder into `rdx`.
-  The seed zeroes `rdx` first so the dividend is effectively 64-bit
-  unsigned.
-- **Signed `IMUL r64, r/m64`.**  64×64→64 multiply that returns the
-  low half; sign-extension means signed and unsigned low-half
-  results agree.
-
-## Concepts carried in
-
-- The data-stack convention from Ch 14 (`rdi` = TOS, `[rbp]` =
-  under-TOS).
-
-## Concepts deferred
-
-- How the Forth-level `-` (Ch 4) chains `nand`+`+` — already covered
-  in Part I; this chapter focuses on the primitives below them.
-- The signed-comparison trick that uses unsigned `/` to extract the
-  sign bit — covered in Ch 7; here we just note that the choice of
-  unsigned `DIV` makes it possible.
+By the end you'll be able to read the x86-64 encoding of `+`,
+`nand`, `0=`, `/`, and `*` byte for byte, explain why `/` is
+*unsigned* (`DIV` rather than `IDIV`) and what that choice buys us
+for Ch 7's signed-comparison trick, and predict the bytes that
+`nand` and `+` will produce from any two 64-bit inputs.  The
+Forth-level wrappers that chain these primitives, like `-` (which
+chains `nand` and `+`) and the comparison operators that lean on
+unsigned `DIV` to extract a sign bit, are already covered in Chs 4
+and 7; this chapter stays at the machine-code layer below them.
 
 ---
 

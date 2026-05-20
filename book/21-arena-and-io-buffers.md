@@ -1,47 +1,26 @@
 # Chapter 21 — Arena and I/O Buffers
 
-## Goal
+Part III opens with the first two files of the C compiler written
+in Forth, both of them deliberately uneventful infrastructure.
+`020-cc-arena.fth` (41 lines, entire file) is an 8-byte-aligned bump
+allocator that hands out variable-sized blocks for struct
+descriptors, label-fixup overflow, and string-pool entries; it
+fails loudly with `die 7` on exhaustion.  `030-cc-io.fth` (151
+lines, entire file) gives the compiler its two buffers: a 1 MiB
+source buffer at `0x414000+` filled by `cc-load-stdin` and walked
+by the `cc-peek-char` / `cc-next-char` reader (with line tracking
+for error messages), and a 1 MiB output buffer written via
+`cc-emit-byte`, `cc-emit-4le`, `cc-emit-8le` and back-patched
+through `cc-out-patch-*` so that header fields like `e_shoff` and
+segment sizes can be filled in after layout is known.
 
-By the end of this chapter the reader can:
-
-- explain the bump allocator in `020-cc-arena.fth` and predict its
-  exhaustion behaviour;
-- read the source-buffer reader in `030-cc-io.fth` (`cc-load-stdin`,
-  `cc-peek-char`, `cc-next-char`) and trace a single character's
-  journey from stdin to the lexer;
-- read the output-buffer writer (`cc-emit-byte`, `cc-emit-4le`,
-  `cc-emit-8le`, `cc-out-patch-*`) and explain why we accumulate the
-  whole ELF in memory before writing.
-
-## Source coverage
-
-`020-cc-arena.fth` (41 lines) — entire file.
-`030-cc-io.fth` (151 lines) — entire file.
-
-## Concepts introduced
-
-- **Bump-allocator arena** with 8-byte alignment, OOM via `die 7`.
-  Used for struct descriptors, label fixup overflow, string overflow.
-- **1 MiB source buffer** at `0x414000+`.  The compiler reads all of
-  stdin into memory before lexing.
-- **`peek`/`next` reader interface** with line-number tracking for
-  error messages.
-- **1 MiB output buffer + back-patching.**  We emit ELF bytes
-  in-order, but headers (e.g. `e_shoff`, segment sizes) aren't known
-  until we've laid out the whole file — hence `patch-4le` /
-  `patch-8le`.
-
-## Concepts carried in
-
-- `create`, `allot`, `variable` (Ch 12).
-- `c@`, `c!`, `here-addr`, `+!` (Chs 2, 9, 14).
-- `open`, `read`, `write`, `close`, `die` (Ch 5).
-
-## Concepts deferred
-
-- The ELF-header bytes that `cc-emit-4le` / `8le` actually write —
-  Ch 25.
-- How the lexer consumes `cc-next-char` — Ch 23.
+By the end of the chapter you'll be able to explain the arena's
+exhaustion behaviour, trace a single byte from stdin through
+`cc-peek-char` into a lexer call, and read the output-buffer writer
+with enough fluency to see why the whole ELF is accumulated in
+memory before any `write` syscall fires.  The ELF-header bytes that
+`cc-emit-4le` and `cc-emit-8le` actually emit are Ch 25; how the
+lexer consumes `cc-next-char` is Ch 23.
 
 ---
 

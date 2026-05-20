@@ -2,7 +2,8 @@
 
 This book is **one rung** of a longer ladder.  This page sketches
 the ladder, names the rungs above and below, and pins down what
-this project adds that the existing chain doesn't.
+this project actually delivers (which is more interesting than
+"another bootstrap").
 
 ## The Full Source Bootstrap, top to bottom
 
@@ -21,35 +22,29 @@ A loose sketch of the chain, top to bottom:
         │    everything below)                        │
         └─────────────────────────────────────────────┘
                             ▲
-                            │
         ┌─────────────────────────────────────────────┐
         │   TinyCC                                    │
         │   (a 100 KLOC C compiler)                   │
         └─────────────────────────────────────────────┘
                             ▲
-                            │
         ┌─────────────────────────────────────────────┐
         │   GNU Mes (Janneke Nieuwenhuizen)           │
         │   Scheme/C interpreter; provides a C        │
         │   compiler (MesCC) that compiles TinyCC.    │
         └─────────────────────────────────────────────┘
                             ▲
-                            │
         ┌─────────────────────────────────────────────┐
         │   M2-Planet (Jeremiah Orians)               │
         │   A self-hosting C-subset compiler.         │
         │   Output: M1 assembly, fed to mescc-tools.  │
-        │   ◄────── THIS BOOK'S DELIVERABLE ────►     │
-        │   ◄ proves byte-identity with this rung ►   │
+        │   ◄────── THIS BOOK CONVERGES HERE ────►    │
         └─────────────────────────────────────────────┘
                             ▲
-                            │
         ┌─────────────────────────────────────────────┐
         │   mescc-tools (M1 + hex2 + blood-elf)       │
         │   Assemble M2-Planet's text output to ELF.  │
         └─────────────────────────────────────────────┘
                             ▲
-                            │
         ┌─────────────────────────────────────────────┐
         │   stage0-posix (Jeremiah Orians + others)   │
         │   Builds mescc-tools and M2-Planet from a   │
@@ -59,13 +54,11 @@ A loose sketch of the chain, top to bottom:
         │   ◄────── THIS BOOK'S TRUST ROOT ──────►    │
         └─────────────────────────────────────────────┘
                             ▲
-                            │
         ┌─────────────────────────────────────────────┐
         │   229-byte hex0-seed                        │
         │   (the smallest auditable artifact)         │
         └─────────────────────────────────────────────┘
                             ▲
-                            │
         ┌─────────────────────────────────────────────┐
         │   Hardware: x86-64 CPU + Linux kernel       │
         │   (builder-hex0 reaches below this on bare  │
@@ -73,34 +66,101 @@ A loose sketch of the chain, top to bottom:
         └─────────────────────────────────────────────┘
 ```
 
-This book lives in the **middle**: it builds a self-contained
-2,040-byte Forth from `hex0-seed`, then uses that Forth to compile
-a C-subset compiler whose `.M1` output is **byte-identical to
-GCC-built M2-Planet on the M2-Planet self-compile**.  That equality
-is the verification claim everything else rests on.
+This book starts at `hex0-seed` and ends at "a working M2-Planet
+binary".  The interesting part is what "working" means, and that
+turns out to be the whole story.
 
-## What this project is, in one sentence
+## Two routes, one M2-Planet
 
-A second, independent path from `hex0-seed` to "a binary that
-compiles M2-Planet to the same `.M1` bytes the canonical chain
-does" — built in Forth, fully literate, and small enough to read
-in a weekend.
+The canonical bootstrap reaches M2-Planet through stage0-posix's
+`M0`, `M1`, `hex2`, and the rest of the `cc_amd64` toolchain (call
+it the **stage0 route**).  This book reaches M2-Planet through a
+2,040-byte Forth seed and a C-subset compiler written in Forth
+(call it the **Forth route**).
+
+Both routes start at the same place (`hex0-seed`, 229 bytes) and
+end at the same place (a binary that *is* M2-Planet).  But the
+ELFs they emit are different bytes, because each compiler makes
+its own codegen choices.
+
+```
+              hex0-seed  (229 bytes, the shared trust root)
+                 │
+        ┌────────┴────────┐
+        │                 │
+        │ stage0 route    │ Forth route (this book)
+        │  M0 → M1 →      │  000-seed.hex0 → seed-forth
+        │  hex2 →         │  010-lib.fth → 020..120-cc-*.fth
+        │  cc_amd64       │
+        │                 │
+        ▼                 ▼
+   m2-ref            /tmp/cc-out
+   (ELF binary)      (ELF binary)
+        │                 │
+        │                 │   different bytes!
+        │                 │   both valid M2-Planet implementations
+        │                 │
+        │  run on any C source S
+        │                 │
+        ▼                 ▼
+   M1 text             M1 text
+   (M2-Planet's        (M2-Planet's
+    own output         own output
+    format)            format)
+        │                 │
+        └────────┬────────┘
+                 ▼
+         Stage A claim:
+         these M1 texts must be byte-identical for every
+         C source M2-Planet itself accepts, including
+         M2-Planet's own source as input
+```
+
+The two ELFs are not byte-identical and never will be.  What is
+byte-identical is what they each *emit* when fed the same C input.
+Two different M2-Planet implementations that agree on M1 output
+for every C input are, observationally, the same compiler.
+
+Once you have either of these M2-Planet binaries, you feed its M1
+output into mescc-tools and you're back on the canonical chain
+heading up to Mes, TinyCC, and GCC.  The Forth route is a *swap-in
+replacement* at the M2-Planet rung, not a fork of the bootstrap.
+
+## What "working" actually means here
+
+A paranoid auditor can pick which route to trust as their entry
+into the Bootstrappable chain:
+
+- **Trust the stage0 route.**  Read stage0-posix's hex.  Run its
+  M0/M1/hex2 pipeline.  Get M2-Planet.
+- **Trust the Forth route.**  Read this book.  Run
+  `000-seed.hex0` through any hex0 assembler.  Get seed-forth.
+  Load the twelve `.fth` files.  Get an M2-Planet-equivalent.
+
+Both routes share the same `hex0-seed` (and the same Linux kernel,
+and the same CPU), so the trust roots overlap.  Above the trust
+roots they are independent: a bug in stage0's `cc_amd64` cannot
+affect what our Forth compiler emits, and vice versa.  Stage A's
+byte-identity check on M1 output is the proof that the two
+independent paths landed at the same compiler behaviour.
+
+That is the value of this project.  Not "a smaller bootstrap"
+(stage0 is plenty small).  A **second route** that happens to also
+be small, hand-readable, and built on Forth instead of M0/M1.
 
 ## What it adds that didn't exist before
 
 The Bootstrappable chain works.  Why a second path?
 
-- **Independent cross-validation at the M2-Planet rung.**  The
-  canonical chain reaches M2-Planet through stage0-posix's
-  `cc_amd64`.  This project reaches M2-Planet through a Forth.
-  Two implementations agreeing byte-for-byte on the same C source
-  is a stronger correctness claim than either alone — exactly the
-  kind of redundancy the Bootstrappable project actively wants.
+- **Independent cross-validation at the M2-Planet rung.**  Two
+  implementations agreeing on M1 output for every C input is a
+  stronger correctness claim than either alone, exactly the kind
+  of redundancy the Bootstrappable project actively wants.
 
 - **A Forth lens on the bootstrap.**  Every existing rung is in
   C, Scheme, M0/M1, or hex.  Forth is small enough (32 primitives
   in 2,040 bytes) that it can be hand-encoded in hex0 *and*
-  expressive enough to host a C compiler in 12 files.  That
+  expressive enough to host a C compiler in twelve files.  That
   combination is unusual and instructive.
 
 - **Literate pedagogy.**  The book *is* the source.  Every
@@ -109,19 +169,19 @@ The Bootstrappable chain works.  Why a second path?
   byte-identity.  Read the book; you have read the codebase.
 
 - **A teaching artifact for the chain itself.**  Most of the
-  Bootstrappable chain is engineering documentation — necessary
+  Bootstrappable chain is engineering documentation, necessary
   but not pedagogical.  This book aims to teach Forth, x86-64
   ELF, and the shape of a small C compiler in the *order they
-  appear in a real chain*, so the reader arrives at the M2-Planet
-  byte-identity proof having earned every step.
+  appear in a real chain*, so the reader arrives at the
+  M2-Planet byte-identity proof having earned every step.
 
 ## What it deliberately does *not* try to do
 
-- **Replace the existing chain.**  This project is *an
-  alternative entry point at the M2-Planet rung*, not a fork of
-  the bootstrap.  It does not reach above M2-Planet (no MesCC,
-  no TinyCC, no GCC).  Everything above this rung still goes
-  through Janneke's GNU Mes and the Live-Bootstrap chain.
+- **Replace the existing chain.**  This is an alternative entry
+  point at the M2-Planet rung, not a fork of the bootstrap.  It
+  does not reach above M2-Planet (no MesCC, no TinyCC, no GCC).
+  Everything above this rung still goes through Janneke's GNU
+  Mes and the Live-Bootstrap chain.
 
 - **Cover non-x86-64 architectures.**  The seed is hand-encoded
   x86-64 ELF.  Porting would require a new `000-seed.hex0` and a
@@ -129,10 +189,81 @@ The Bootstrappable chain works.  Why a second path?
   scope for this book.
 
 - **Be a production toolchain.**  The C subset is M2-Planet's
-  subset — no floats, no varargs, no `union`, no
-  `#ifndef`/`#endif`.  This is intentional: it is the *minimum*
+  subset (no floats, no varargs, no `union`, no
+  `#ifndef`/`#endif`).  This is intentional: it is the *minimum*
   C that can compile M2-Planet, not the maximum C anyone might
   want.
+
+## Honest sizing
+
+A natural question after reading the above: does this route shrink
+the bootstrap?  No.  At the source-line level, the two routes are
+comparable.
+
+Approximate hand-written source above the shared `hex0-seed`,
+counted as raw line counts in the AMD64 path of each route:
+
+| Route                      | Hand-written source                  | Lines  |
+|----------------------------|--------------------------------------|-------:|
+| stage0 AMD64 (canonical)   | hex0 / hex1 / hex2 / M0 / M1 sources | ~10,000 |
+| Forth (this book)          | `000-seed.hex0` + 12 `.fth` files    |  ~8,200 |
+
+Both numbers are dominated by the small C compiler at the top of
+their respective stages: stage0's `cc_amd64.M1` (in M1 macro
+assembly) and our `100-cc-expr.fth` + `110-cc-decl.fth` (in
+Forth).  Both are tens of percent bigger or smaller depending on
+how you count comments, whitespace, and macro-expansion.  Treat
+them as the same order of magnitude.
+
+So the audit burden (lines a human has to read) is comparable.
+What changes is *the language those lines are in*, and that
+matters because:
+
+- An auditor of stage0's route is reading hex columns, M0 macro
+  expansions, and M1 assembly.  Mistakes hide as transcription
+  errors, off-by-one address arithmetic, and macro-expansion
+  surprises.
+- An auditor of this book's route is reading hex bytes (for the
+  seed only, 2,040 of them) and Forth.  Mistakes hide as
+  stack-effect mistakes, wrong primitive choices, and codegen
+  template errors.
+
+Different bug surfaces.  An independent path catches bug *classes*
+that the canonical path would have made invisible, not just
+specific bugs.  This is the cross-validation argument made
+concrete: two implementations that agree on M1 output for every
+C input have ruled out *both* sets of language-specific failure
+modes.
+
+The 2,040-byte seed is the part that *is* genuinely smaller than
+stage0's equivalent intermediate stages — hex0 plus hex1 plus hex2
+plus M0 on the AMD64 path add up to ~7 KB of executable before
+you have a programmable layer.  We get to a programmable layer
+(a working Forth) in 2 KB because Forth's primitives are short
+and the dictionary structure is dense.  But the *total* source
+budget above hex0-seed is comparable, because Forth is a means,
+not a savings.
+
+## Trust roots, plural
+
+"Auditable from a small trust root" is the honest pitch.  "Something
+from nothing" is not what the Bootstrappable chain claims and not
+what this book delivers either.
+
+The trust root for either route through this book is the union of:
+
+- the 229-byte `hex0-seed` (auditable in an afternoon),
+- the Linux kernel (~30 million lines of C, not audited here),
+- the x86-64 CPU and its microcode (opaque silicon).
+
+stage0's bare-metal paths (`NATIVE/x86`, `NATIVE/knight`,
+`builder-hex0`) push the trust root below the Linux kernel by
+running on raw hardware with no OS.  Those paths exist; they are
+not what this book sits on.  This book assumes a working Linux
+kernel underneath, because that is what `000-seed.hex0`'s
+`syscall` instructions talk to.  A future port could swap our
+`syscall6` primitive for builder-hex0's bare-metal interface and
+reach below.
 
 ## Cross-references
 
@@ -158,12 +289,18 @@ The Bootstrappable chain works.  Why a second path?
 2. Build a reference `M2-Planet` from the same source using GCC.
 3. Feed M2-Planet's monolithic source to `seed-forth` loaded
    with `010-lib.fth` through `120-cc-main.fth`.  Output:
-   `/tmp/cc-out`, a 200 KB ELF that is itself a C compiler.
+   `/tmp/cc-out`, a 200 KB ELF that is itself a C compiler
+   behaving as M2-Planet.
 4. Run both `/tmp/cc-out` and the GCC-built reference on the
    *same* M2-Planet source set.  Diff the resulting `.M1` files
    byte-for-byte.
-5. Equality is the proof.  Stage A passes when the diff is empty.
+5. Equality is the proof.  Stage A passes when the diff is
+   empty.
 
-If anything in the chain — seed-forth, the Forth compiler, the
-emitted code — were wrong, the M1 outputs would diverge and the
-script would fail.
+Note that we are *not* diffing `/tmp/cc-out` against the GCC-built
+`m2-ref` ELF.  Those are different binaries, both valid.  We are
+diffing what those two binaries *emit* on identical input.
+
+If anything in either chain were wrong (seed-forth, the Forth
+compiler, the GCC reference build, the M2-Planet source itself),
+the M1 outputs would diverge and the script would fail.

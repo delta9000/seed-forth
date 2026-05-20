@@ -1,67 +1,33 @@
 # Chapter 28 — Expressions, Part 2: Primary, Unary, Assignment
 
-## Goal
+This chapter finishes `100-cc-expr.fth` by filling in the
+chunks above and below Ch 27's binary cascade: `expr-lvalue`,
+`expr-struct-field`, `expr-array-index`, `expr-primary`,
+`expr-unary`, `expr-ternary`, `expr-assign`, and `expr-top` (which
+together with Ch 27's chunks tangle to the full 1447-line file).
+The recursive-descent floor sits in `cc-parse-primary` (dispatch on
+token kind for number, char, string, ident, `(`, then a `begin
+while repeat` over the postfix chain `()`, `[]`, `.`, `->`, `++`,
+`--`) and `cc-parse-unary` (`*`, `&`, `-`, `!`, `~`, prefix `++` /
+`--`, `sizeof`).  The right-associative tail covers `cc-parse-
+ternary` for `?:`, `cc-parse-assign` for `=` and the compound
+operators (`+=`, `-=`, `*=`, ...), and the top-level `cc-parse-
+expr` that statement codegen (Ch 30) hands the token stream to.
+The connective tissue is the lvalue-tracking globals (`cc-last-
+lvalue-kind`, `cc-last-ident-slot`, `cc-last-struct-desc`,
+`cc-last-deref-is-byte`, `cc-last-expr-type`) that classify what
+`rdi` currently represents (kind 0 = not-an-lvalue, 1 = local-slot,
+2 = pending-deref), with `cc-emit-materialize` emitting the load
+only when kind == 2 so binary-op folds in Ch 27 stay agnostic.
 
-By the end of this chapter the reader can:
-
-- read `cc-parse-primary` and trace how it dispatches on token
-  kind (number, char, string, ident, '(' ), and how it handles
-  the postfix chain `()` `[]` `.` `->` `++` `--`;
-- read `cc-parse-unary` and explain the four unary operators
-  (`*`, `&`, `-`, `!`, `~`) plus prefix `++` / `--` and `sizeof`;
-- read `cc-parse-assign` and the lvalue-snapshot trick that
-  preserves the LHS's metadata across the recursive RHS parse;
-- explain the three-kind lvalue model (`kind = 0/1/2` for
-  not-an-lvalue / local-slot / pending-deref) and the
-  `cc-emit-materialize` discipline.
-
-## Source coverage
-
-Chunks defined here: `expr-lvalue`, `expr-struct-field`,
-`expr-array-index`, `expr-primary`, `expr-unary`,
-`expr-ternary`, `expr-assign`, `expr-top`.
-Together with Ch 27's chunks (and Ch 27's `file=` root block),
-the result is byte-identical to `100-cc-expr.fth`.
-
-## Concepts introduced
-
-- **Lvalue tracking by globals.**  `cc-last-lvalue-kind`,
-  `cc-last-ident-slot`, `cc-last-struct-desc`,
-  `cc-last-deref-is-byte`, `cc-last-expr-type`.  After every
-  `cc-parse-primary` (or its postfix chain), these say what kind
-  of "thing" `rdi` represents.
-- **`cc-emit-materialize`.**  If `kind == 2` (pending deref),
-  emit the actual load; otherwise no-op.  Every binary-op fold
-  in Ch 27 calls this before consuming an operand.
-- **Postfix in `cc-parse-primary`.**  After parsing the head
-  expression, a `begin while repeat` loops while the next token
-  is `.`, `->`, `[`, `++`, or `--` — each handled inline.
-- **Right-associative assignment via lvalue snapshots.**  The
-  LHS's `(kind, slot)` is snapshotted on the data stack before
-  the RHS recurses; the snapshot lets the store-emit see the
-  original LHS no matter what nested expressions happened in
-  between.
-- **Compound assignment** (`+=`, `-=`, `*=`, ...).  For
-  `slot += rhs`, the LHS value is pushed, the RHS evaluated,
-  then the op applied with the LHS in `rdi` and the RHS in
-  `rcx`.
-
-## Concepts carried in
-
-- The Ch 27 binary cascade (everything from `cc-parse-mul` to
-  `cc-parse-log-or`).
-- The lexer (Ch 23), symbol table (Ch 24), arena (Ch 21), all
-  codegen encoders (Chs 25–26).
-- `cc-parse-call-tramp` (defined in Ch 31's `110-cc-decl.fth`);
-  this chapter calls it for function-call codegen.
-
-## Concepts deferred
-
-- Where `cc-parse-call` actually lives — Ch 31.  This chapter
-  treats it as a trampoline-resolved black box.
-- How `cc-parse-expr` is called from statement codegen
-  (`if`, `while`, `for`, `return`, expression statement) —
-  Ch 30.
+By the end you'll be able to read `cc-parse-primary` and its
+postfix loop, explain the three-kind lvalue model, follow the
+LHS-snapshot trick that lets `cc-parse-assign` preserve metadata
+across the recursive RHS parse, and trace how a compound `slot +=
+rhs` lowers to the same five-step binary template used in Ch 27.
+Where `cc-parse-call` actually lives is deferred to Ch 31 (we
+reach it via the `cc-parse-call-tramp` vec); how `cc-parse-expr` is
+*called* from statement contexts is deferred to Ch 30.
 
 ---
 

@@ -1,44 +1,24 @@
 # Chapter 5 — Talking to Linux: `syscall6` Wrappers
 
-## Goal
+Five short wrappers in `010-lib.fth` (lines 39–62), `open`, `read`,
+`write`, `close`, and `die`, connect Forth to the Linux x86-64
+kernel through one primitive: `syscall6`.  The primitive loads
+`rax`, `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9` from the data stack
+and traps; each wrapper just pads any unused argument slots with
+`[lit] 0` and pins its own syscall number.  Open `010-lib.fth` to
+that 24-line block, and have `man 2 syscall` handy if you want to
+look up signatures while reading.  The chapter opens with a short
+sidebar on the syscall ABI (including the `rcx → r10` quirk for the
+fourth argument) and then reads the wrappers in turn.
 
-By the end of this chapter the reader can:
-
-- name and call the Linux x86-64 system-call ABI from Forth;
-- explain why every wrapper pads with `[lit] 0` even when the
-  syscall ignores those arguments;
-- write a new syscall wrapper (e.g. `lseek`, `dup2`) by reading the
-  Linux manpages and one existing wrapper.
-
-## Source coverage
-
-`010-lib.fth` lines 39–62.  Five definitions plus the section header:
-`open`, `read`, `write`, `close`, `die`.
-
-## Concepts introduced
-
-- **The Linux x86-64 syscall ABI.**  Arguments in `rdi`, `rsi`, `rdx`,
-  `r10`, `r8`, `r9`; syscall number in `rax`; result in `rax`; trap via
-  `syscall`.
-- **`syscall6` as a uniform wrapper.**  One primitive handles every
-  syscall; user-facing words just pad zeros and pin the syscall number.
-- **Syscall numbers as constants.**  `read=0  write=1  open=2  close=3
-  exit=60`.  These are amd64-Linux-specific.
-- **`die` as the universal error path.**  No exceptions, no
-  longjmp — every error in the C compiler is a `die`.
-
-## Concepts carried in
-
-- `[lit]` and the multi-argument calling convention from Ch 1.
-- `syscall6` primitive from the seed.
-
-## Concepts deferred
-
-- The `syscall6_code` x86-64 implementation in the seed — Part II,
-  Ch 16.
-- Reading and writing files end-to-end (we use `open`/`read`/`write`
-  here but the file-loading machinery sits in Part III's
-  `030-cc-io.fth`, Ch 21).
+By the end of the chapter you'll be able to name the Linux x86-64
+syscall ABI and call it from Forth, explain why every wrapper pads
+with `[lit] 0` even when the syscall ignores those arguments, and
+write a new wrapper (e.g. `lseek`, `dup2`) by reading the Linux
+manpages alongside one existing wrapper.  The `syscall6_code`
+x86-64 implementation in the seed is Part II, Ch 16; reading and
+writing files end-to-end (we use `open`/`read`/`write` here, but
+the file-loading machinery sits in `030-cc-io.fth`) is Ch 21.
 
 ---
 

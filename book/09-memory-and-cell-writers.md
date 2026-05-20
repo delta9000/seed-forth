@@ -1,49 +1,23 @@
 # Chapter 9 — Memory Updates and Cell Writers
 
-## Goal
+Four little definitions in `010-lib.fth` (lines 137–161) round out
+the memory-manipulation toolkit Part I needs before we can build
+defining words: `+!` and `-!` are the "read-modify-write on a cell"
+idiom (the Forth equivalent of C's `*addr += n`), and `,4` and `,8`
+are the little-endian multibyte writers that turn a 32-bit or
+64-bit value into a string of bytes at HERE.  Open `010-lib.fth` to
+that range and notice how `,8` punts on the missing shift primitive
+by dividing by 256 four times to walk the high half of a 64-bit
+value down to the low byte; slow, but trivially correct.
 
-By the end of this chapter the reader can:
-
-- read and write the `+!` / `-!` "atomic-ish increment-cell" idiom;
-- explain the little-endian byte layout the codebase uses everywhere
-  and emit a multi-byte value with `,4` and `,8`;
-- predict what `,8` does to a 64-bit value bit by bit, including the
-  `[lit] 256 / ... / ... / ... /` cascade that performs the
-  right-shift-by-32.
-
-## Source coverage
-
-`010-lib.fth` lines 137–161.  Four definitions: `+!`, `-!`, `,4`, `,8`.
-
-## Concepts introduced
-
-- **Read-modify-write on a cell.**  `+! ( n addr -- )` adds `n` to
-  the 64-bit cell at `addr`.  Inverse: `-!`.  Both are short — three
-  primitives plus a `swap`.
-- **Little-endian multibyte writers.**  `,4` emits the low four
-  bytes of TOS at HERE, low byte first.  `,8` is two `,4`s with a
-  right-shift-by-32 in between.
-- **Right-shift by repeated divide.**  No shift primitive in the
-  seed; instead `[lit] 256 /` four times moves the high half down.
-  Slow but trivially correct.
-
-## Concepts carried in
-
-- `c,` from Ch 2 (the underlying byte writer).
-- `here`, `here-addr` from Ch 2.
-- `+`, `-`, `/`, `dup`, `swap`, `over`, `@`, `!` from earlier
-  chapters and seed primitives.
-
-## Concepts deferred
-
-- Atomicity: these "atomic-ish" increments are *not* multi-threaded
-  safe, but seed-forth is single-threaded.  No threading story
-  appears anywhere in this book.
-- Big-endian writers: never needed (x86-64 is LE; ELF is LE; M1
-  output is LE-token text).
-- The use of `,8` in `constant`, `create`, `variable` for the
-  `movabs` imm64 slot — Ch 10 (`constant`) and Ch 12 (`create`,
-  `variable`).
+By the end you'll be able to read and write the `+!` / `-!` idiom
+fluently, emit any multi-byte value at HERE byte by byte through
+`,4` and `,8`, and predict the exact `[lit] 256 / ... / ... / ... /`
+cascade that `,8` uses for its right-shift-by-32.  The interesting
+clients of these writers, the `movabs imm64` slot inside the 19-byte
+runtime body shared by `constant`, `create`, and `variable`, are
+deferred to Chs 10 and 12, where we'll finally use `,8` to embed
+literal 64-bit values inside word bodies.
 
 ---
 

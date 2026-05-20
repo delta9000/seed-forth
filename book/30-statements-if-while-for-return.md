@@ -1,71 +1,35 @@
 # Chapter 30 — Statements: `if`, `while`, `for`, `switch`, `break`, `continue`, `goto`
 
-## Goal
+This chapter covers `110-cc-decl.fth` lines 588–1438, the
+statement parsers and their control-flow codegen.  At the top sits
+the `cc-parse-stmt` dispatcher with its `IDENT ':'` lookahead that
+distinguishes label definitions from expression statements; it
+indirects through `cc-parse-stmt-vec` so it can be mutually
+recursive with `cc-parse-if` and `cc-parse-compound`.  The
+specialised parsers `cc-parse-if`, `cc-parse-while`, `cc-parse-for`,
+`cc-parse-do-while`, and `cc-parse-switch` each replay Ch 11's
+fixup-on-the-stack pattern with x86-64 `jz`/`jmp` placeholders
+instead of Forth `0branch`/`branch`.  Three things are new at this
+scale: the absolute-vaddr emitters `cc-emit-jmp-vaddr`,
+`cc-emit-jnz-vaddr`, `cc-emit-je-vaddr` (defined here, not in
+`090-cc-emit.fth`, because they reference `cc-base-vaddr` from
+`080-cc-elf.fth`, which loads later); per-loop break/continue
+fixup lists with outer-head save/restore over the return stack; the
+`for`-step rewind trick that records the step's source range, scans
+past `)`, parses the body, then rewinds the lexer to re-parse the
+step after the body's bytes; the switch's three-pass layout (body
+in source order, dispatch table `cmp rbx, K ; je body-vaddr` after
+the body in reverse from a linked list of cases); and a 64-entry
+per-function label table that accumulates forward-`goto` fixups
+patched on definition.
 
-By the end of this chapter the reader can:
-
-- read `cc-parse-if` and recognise the same fixup-on-the-stack
-  pattern from Ch 11's `if,`/`else,`/`then,`, now emitting x86-64
-  `jz`/`jmp` instead of Forth `0branch`/`branch`;
-- read `cc-parse-while`, `cc-parse-for`, and `cc-parse-do-while`
-  and explain the break/continue fixup-list machinery;
-- read `cc-parse-switch` and trace its three-pass layout (body,
-  dispatch table, end);
-- read the label-table machinery and `cc-parse-goto-stmt`'s
-  forward / backward branching;
-- read the `cc-parse-stmt` dispatcher and explain its lookahead
-  for `IDENT ':'` label definitions versus expression statements.
-
-## Source coverage
-
-`110-cc-decl.fth` lines 588–1438.  Ch 29 covered 1–587;
-Ch 31 covers 1439–2750.
-
-## Concepts introduced
-
-- **Statement trampoline `cc-parse-stmt-vec`.**  Mutually
-  recursive with `cc-parse-if` and `cc-parse-compound`; the
-  trampoline indirects through a vec so the late binding
-  resolves.
-- **Absolute backward jumps via `cc-emit-jmp-vaddr` /
-  `cc-emit-jnz-vaddr` / `cc-emit-je-vaddr`.**  These compute
-  rel32 = `target_vaddr - (cc-base-vaddr + cc-out-pos + 4)` and
-  emit the bytes.  Defined here because they reference
-  `cc-base-vaddr` from `080-cc-elf.fth`.
-- **Break / continue fixup lists.**  Each loop has its own
-  linked list of pending forward-jump fixups; entering a loop
-  saves the outer head on the return stack and resets to 0;
-  leaving walks the list patching each fixup to the appropriate
-  target.
-- **`for`-step rewind.**  The C `for` statement evaluates its
-  step expression *after* the body, but textually it appears
-  before.  This compiler records the source range of the step,
-  scans past `)`, parses the body, then rewinds the lexer to
-  re-parse the step in place after the body's bytes.
-- **Switch via reverse-order dispatch table.**  Body codegen is
-  emitted in source order; the dispatch table (`cmp rbx, K ; je
-  body-vaddr` per case) is emitted *after* the body in reverse
-  order from a linked list of cases.
-- **Function-local labels with forward fixups.**  64-entry
-  parallel-array label table per function; undefined labels
-  accumulate a fixup list that gets patched on definition.
-
-## Concepts carried in
-
-- All declaration parsing from Ch 29.
-- Codegen primitives — `cc-emit-test-rdi`,
-  `cc-emit-jz-rel32-placeholder`, `cc-emit-jmp-rel32-
-  placeholder`, `cc-patch-rel32-to-here`, `cc-emit-push-rbx`,
-  `cc-emit-mov-rbx-rdi`, `cc-emit-cmp-rbx-imm32` (Chs 25–26).
-- Forth's `if,`/`then,`/`else,`/`begin,`/`while,`/`repeat,`
-  (Ch 11) — the *outer* control flow of the parser itself.
-
-## Concepts deferred
-
-- Function definitions, the function-list driver, and parameter
-  parsing — Ch 31.
-- Enum and typedef definitions — Ch 31.
-- File-scope globals and the top-level driver — Ch 31.
+By the end you'll be able to read each statement parser, recognise
+its forward-fixup pattern, trace how `break`/`continue` thread
+through nested loops, walk the three passes of a switch, and
+explain why `cc-emit-jmp-vaddr` had to live in this file rather
+than in `090-cc-emit.fth`.  Function definitions, parameter lists,
+enums, typedefs, file-scope globals, and the top-level driver are
+all deferred to Ch 31.
 
 ---
 

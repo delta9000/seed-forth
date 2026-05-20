@@ -1,45 +1,26 @@
 # Chapter 4 — The Return Stack: `over` and Subtract
 
-## Goal
+Two definitions in `010-lib.fth` (lines 31–38), `over` and `-`,
+introduce the seed's *second* stack and show how two's complement
+turns subtraction into addition plus `nand`.  `over` borrows a
+return-stack slot as a scratch parking space for `dup`-of-the-second;
+`-` doesn't touch the return stack but earns its place alongside
+`over` by making the same trade, paying a few extra tokens at the
+call site so the seed can keep one fewer primitive.  Open
+`010-lib.fth` to those eight lines and read along; the chapter
+spends most of its time on the return-stack sidebar (`>r`, `r>`,
+`r@` and the matched-pair rule) because every later trick in the
+book reaches for it.
 
-By the end of this chapter the reader can:
-
-- explain why Forth uses two stacks and what each is for;
-- read and write `>r` / `r>` / `r@` idioms;
-- derive subtraction from `+` and `nand` and predict the
-  bit-by-bit behaviour for negative inputs;
-- know exactly what `over` does mechanically, not just
-  symbolically.
-
-## Source coverage
-
-`010-lib.fth` lines 31–38.  Two definitions: `over`, `-`.
-
-## Concepts introduced
-
-- **The return stack.**  A second LIFO that the seed's primitives
-  `>r` / `r>` / `r@` push to and pop from.  Its primary purpose is
-  call/return for colon definitions; we borrow it temporarily for
-  stack-shuffle tricks.
-- **Two's complement arithmetic.**  `-b = (~b) + 1`.  Combined with
-  the fact that `~b = b nand b`, subtraction reduces to addition.
-- **The cost of a "borrowed" return-stack slot.**  Three primitives
-  (`>r`, `dup`, `r>`) plus a `swap` to do what a hypothetical `over`
-  primitive would do in zero extra primitives.
-
-## Concepts carried in
-
-- `dup`, `swap`, `>r`, `r>`, `+`, `nand`, `[lit]` from Ch 1, the
-  seed primitive set.
-- The stack-effect convention from Ch 1.
-
-## Concepts deferred
-
-- The seed's `>r` / `r>` machine code — Part II, Ch 14.
-- The full call/return story (how `:` and `;` themselves use the
-  return stack) — Part II, Ch 18.
-- Multi-step return-stack juggling (e.g. preserving a value across a
-  long expression) — Ch 8's `rot` and later compiler-internal uses.
+By the end of the chapter you'll be able to explain why Forth uses
+two stacks and what each is for, read and write `>r` / `r>` / `r@`
+idioms, derive subtraction from `+` and `nand` (and predict its
+bit-by-bit behaviour for negative inputs), and know exactly what
+`over` does mechanically rather than only symbolically.  The seed's
+`>r` / `r>` machine code is Part II, Ch 14; the full call/return
+story (how `:` and `;` themselves use the return stack) is Ch 18;
+and multi-step return-stack juggling, preserving a value across a
+long expression, is Ch 8's `rot` and later compiler-internal uses.
 
 ---
 

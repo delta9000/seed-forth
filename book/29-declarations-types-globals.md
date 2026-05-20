@@ -1,65 +1,31 @@
 # Chapter 29 — Declarations: Types, Structs, Locals
 
-## Goal
+This chapter opens `110-cc-decl.fth`, the longest file in Part III
+at 2750 lines, and covers lines 1–587 (the source-order split puts
+statements in Ch 30 and functions plus the top-level driver in
+Ch 31).  The slab here is the declaration machinery: token-
+expectation helpers (`cc-expect-kw-id`, `cc-expect-punct-c`,
+`cc-expect-ident`) that abort with distinct exit codes (11–29 plus
+70+) so the test driver can diagnose failures, the storage-
+qualifier skipper that treats `static`, `extern`, `const`,
+`volatile`, `register`, `auto`, and `restrict` as no-ops,
+`cc-parse-struct-def` with its pre-registration trick so
+`struct T { struct T* next; }` can resolve its own tag mid-body,
+the shared scalar/array/initializer engine `cc-parse-decl-with-
+base` (called from both `cc-parse-decl` and Ch 30's typedef-name
+path), the function-pointer declarator with 2-token lookahead
+(`cc-peek-fnptr?` saves the lexer, reads two tokens, restores), and
+`cc-parse-return` for both bare `return;` and `return expr;`.
 
-By the end of this chapter the reader can:
-
-- read the token-expectation helpers (`cc-expect-kw-id`,
-  `cc-expect-punct-c`, `cc-expect-ident`) and the storage-qualifier
-  skipper;
-- read `cc-parse-struct-def` and explain how a struct's
-  descriptor is built incrementally, including the
-  pre-registration trick for self-referential types;
-- read the local-declaration path (`cc-parse-decl-with-base` and
-  `cc-parse-fnptr-decl`) and trace how `int x;`, `int* p;`,
-  `int arr[N];`, `int (*fp)(int);`, and `struct T s;` each
-  produce a symbol-table entry;
-- read `cc-parse-return` and explain its handling of bare
-  `return;` versus `return expr;`.
-
-## Source coverage
-
-`110-cc-decl.fth` lines 1–587.  Ch 30 covers 588–1438
-(statements).  Ch 31 covers 1439–2750 (functions, calls,
-top-level driver, enums, typedefs, globals, entry stub).
-
-## Concepts introduced
-
-- **Error-status discipline.**  Codes 11–29 (and 70+ for type
-  specifics) are reserved for decl/stmt parse failures.  Every
-  `die` exits with a distinct status so the test driver can
-  diagnose by examining exit codes.
-- **Pre-registration for self-referential structs.**
-  `cc-parse-struct-def` registers `struct TAG` with an
-  empty-descriptor BEFORE parsing the field body, so
-  `struct T { struct T* next; }` resolves its own tag.
-- **Storage-qualifier skipping.**  `static`, `extern`, `const`,
-  `volatile`, `register`, `auto`, `restrict` are all parsed as
-  no-ops.  The codegen treats every variable identically.
-- **`cc-parse-decl-with-base`.**  The shared scalar/array/initializer
-  parser, called from both `cc-parse-decl` (basic types) and the
-  typedef-named-declarations path in Ch 30.
-- **Function-pointer declarations with 2-token lookahead.**
-  `int (*fp)(int);` requires distinguishing from `int x;` after
-  the base type.  `cc-peek-fnptr?` saves the lexer, reads two
-  tokens, restores.
-
-## Concepts carried in
-
-- Lexer state and `cc-next-token` (Ch 23).
-- Symbol table (Ch 24), struct descriptors (Ch 24), arena
-  allocator (Ch 21).
-- Codegen primitives — `cc-emit-store-local`, `cc-emit-epilogue`,
-  `cc-emit-xor-rax-rax`, `cc-emit-mov-rax-rdi` (Chs 25–26).
-- Expression parser `cc-parse-expr-balanced` (Ch 28).
-
-## Concepts deferred
-
-- Statements (`cc-parse-stmt`, `cc-parse-if`, the loop family,
-  `switch`, `break`, `continue`, `goto`) — Ch 30.
-- Function definitions, parameter lists, function calls — Ch 31.
-- Enum and typedef definitions, file-scope globals, the
-  top-level `cc-parse-function-list`, entry stub — Ch 31.
+By the end you'll be able to read the expectation helpers, walk a
+struct definition through its pre-registration and field-fill
+phases, trace how `int x;`, `int* p;`, `int arr[N];`,
+`int (*fp)(int);`, and `struct T s;` each end up as a symbol-table
+entry, and explain why bare `return;` zeros `rax` while `return
+expr;` reuses the expression's `rdi` via `cc-emit-mov-rax-rdi`.
+Statements, function definitions, enums, typedefs, file-scope
+globals, the top-level driver, and the entry stub are all deferred
+to Chs 30–31.
 
 ---
 

@@ -1,48 +1,25 @@
 # Chapter 13 — The ELF and the Entry Point
 
-## Goal
+Part II opens the seed.  For twelve chapters we have treated 32
+names as black boxes; from here on every primitive is bytes you can
+point at in `000-seed.hex0`.  This first chapter reads the first 63
+lines: a 64-byte `Elf64_Ehdr`, a single `Elf64_Phdr` describing one
+`PT_LOAD` segment with `R|W|X` flags, the `_start` prologue, the
+six-instruction sysvar init at `0x085`, and the `JMP repl` at
+`0x0CD` that hands control to the interpreter.  Open `000-seed.hex0`
+to lines 1–63 and have an ELF reference (`readelf -a` output, or just
+the Wikipedia "Executable and Linkable Format" page) at hand.
 
-By the end of this chapter the reader can:
-
-- explain the layout of a minimal 64-bit Linux ELF executable
-  (`Elf64_Ehdr` + one `Elf64_Phdr`);
-- compute the entry-point address `0x400078` and verify it against
-  the byte at offset `0x18` in the file;
-- read the `_start` prologue and the sysvar-init code at `0x085`;
-- explain why the program header maps 16 MiB even though the on-disk
-  image is only 2,040 bytes.
-
-## Source coverage
-
-`000-seed.hex0` lines 1–63 (file header, ELF + program header,
-`_start`, sysvar init, the `JMP repl` at `0x0CD`).
-
-## Concepts introduced
-
-- **`Elf64_Ehdr`** — the 64-byte file header: magic, class,
-  endianness, OS ABI, type (`ET_EXEC`), machine (`EM_X86_64`), entry
-  point, program-header offset, etc.
-- **`Elf64_Phdr`** — one program header describing a single
-  `PT_LOAD` segment with R|W|X flags.
-- **The 16 MiB virtual mapping.**  `p_memsz = 0x1000000` so the
-  Forth compiler can scratch into pages that don't exist on disk.
-- **The data-stack convention.**  `rbp` is the data-stack pointer;
-  `rdi` holds TOS as a register cache; the stack grows down from
-  `0x411000`.
-- **The sysvar page at `0x413000`.**  Six cells: `STATE`, `LATEST`,
-  `HERE`, `LAST_FOUND`, `NUMBER_HOOK`, `INPUT_FD`.
-
-## Concepts carried in
-
-- Nothing from Part I.  Part II is the *opening* of the seed black
-  box; everything Part I treated as a primitive is now revealed.
-
-## Concepts deferred
-
-- Each primitive's body bytes — Chs 14–19.
-- The dictionary headers (the `--- bye @ 0x44D ---` style entries) —
-  Ch 17.
-- `parse_decimal_code` and the REPL — Ch 20.
+By the end you'll be able to read a minimal 64-bit Linux ELF
+executable header field by field, compute the entry-point address
+`0x400078` and check it against the byte at file offset `0x18`,
+trace the `_start` prologue and the sysvar-init code at `0x085`, and
+explain why the program header maps 16 MiB even though the on-disk
+image is only 2,040 bytes (so the Forth compiler can scratch into
+pages that don't exist on disk).  Each primitive's body bytes are
+deferred to Chs 14–19; dictionary headers (the
+`--- bye @ 0x44D ---` style entries that tie names to those bodies)
+are Ch 17; `parse_decimal_code` and the REPL are Ch 20.
 
 ---
 

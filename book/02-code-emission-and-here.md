@@ -1,37 +1,24 @@
 # Chapter 2 — Code Emission and the HERE Pointer
 
-## Goal
+Two short definitions in `010-lib.fth` (lines 9–21), `here-addr` and
+`c,`, give the dictionary its frontier pointer and the one-byte
+writer that pushes it forward.  `here-addr` names the absolute
+address `0x413010` on the sysvar page where the HERE cell lives;
+`c,` ("c-comma") is the read-modify-write idiom that stores a byte
+at HERE and bumps the cell by one.  Open `010-lib.fth` to those
+thirteen lines and keep them in view; everything else in this
+chapter is a walk through how Forth makes "the next byte to write
+to" a first-class, user-visible value, and why that single naming
+decision is what lets the compiler be written in Forth.
 
-By the end of this chapter the reader can:
-
-- explain what `HERE` is and why Forth needs a name for "the next byte
-  to write to";
-- read and write the `here-addr @ ... here-addr !` idiom for
-  read-modify-writing a sysvar cell;
-- predict the post-state of HERE after a sequence of `c,` calls.
-
-## Source coverage
-
-`010-lib.fth` lines 9–21.  Two definitions: `here-addr` and `c,`.
-
-## Concepts introduced
-
-- The **sysvar page** at `0x413000` and the absolute address
-  `0x413010` for the HERE cell.
-- Pushing a large literal with `[lit]`.  (Full treatment in Part II,
-  Ch 20.  Here, accept that `[lit] N` means "the integer `N`.")
-- The seed primitive **`c!`** ("c-store") — store the low byte of TOS
-  at the address below it.
-- The **read-modify-write** pattern on a sysvar cell.
-
-## Concepts deferred
-
-- *Why* the sysvar page lives at `0x413000` and how it is initialised.
-  See Part II, Ch 13.
-- The `here` seed primitive (push the contents of the HERE cell, not
-  its address).  See Part II, Ch 17.
-- All of `,` (comma), `,4`, `,8` — multi-byte writers built on `c,`.
-  See Ch 9.
+By the end of the chapter you'll be able to explain what HERE is
+and why Forth needs a name for it, read and write the `here-addr @
+... here-addr !` idiom for updating a sysvar cell, and predict the
+post-state of HERE after any sequence of `c,` calls.  Why the
+sysvar page lives at `0x413000` and how it is initialised is Part
+II, Ch 13; the `here` seed primitive (which pushes the contents of
+the HERE cell, not its address) is Ch 17; and the multi-byte
+writers `,`, `,4`, and `,8` that build on `c,` are Ch 9.
 
 ---
 

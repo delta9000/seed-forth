@@ -1,50 +1,25 @@
 # Chapter 14 — Stack Primitives in Machine Code
 
-## Goal
+Ten primitive bodies in `000-seed.hex0` carry the data-stack and
+memory operations Part I leaned on without explanation: `dup_code` at
+`0x13B` through `cstore_code` at `0x18E` (lines 97–152), plus
+`r_at_code` at `0x732` (lines 666–675).  They share one convention,
+introduced at the entry point in Ch 13 and now visible in every body:
+`rbp` is the data-stack pointer (cells are 8 bytes, stack grows
+down), and `rdi` is a register cache for TOS, so `sub rbp,8` opens a
+new top slot and `mov [rbp], rdi` spills the old TOS before a fresh
+value is loaded.  Open `000-seed.hex0` to lines 97–152 (and jump to
+666–675 for `r@`) and read along.
 
-By the end of this chapter the reader can:
-
-- read the x86-64 encoding of `dup`, `drop`, `swap`, `>r`, `r>`,
-  `@`, `!`, `c@`, `c!`, and `r@` byte for byte;
-- explain the "TOS in `rdi`, data stack in `rbp`" convention and
-  trace what each primitive does to both registers;
-- predict, given a stack picture, the bytes that will be in memory
-  after a sequence of these primitives.
-
-## Source coverage
-
-`000-seed.hex0` lines 97–152 (`dup_code` at `0x13B` through
-`cstore_code` at `0x18E`), plus `r_at_code` at `0x732` (lines
-666–675).
-
-## Concepts introduced
-
-- **`rbp` = data-stack pointer, `rdi` = TOS register cache.**  The
-  seed's whole calling convention.  Every primitive that consumes or
-  produces values manipulates these two registers.
-- **`sub rbp, 8` = push slot; `add rbp, 8` = pop slot.**  Cells are
-  8 bytes; the stack grows down.
-- **`mov [rbp+0], rdi`** spills TOS to memory before loading a new
-  TOS.  The universal "make room for a new top" idiom.
-- **`mov rdi, [rbp]`** brings the under-TOS value back to the
-  register cache.
-- **Crossing the data/return-stack boundary.**  `>r`, `r>`, and
-  `r@` go through `rax` and the x86 `push`/`pop` instructions —
-  they manipulate `rsp` directly, working around the `CALL` return
-  address that sits on top of the return stack.
-
-## Concepts carried in
-
-- The data-stack model and the entry-point initialisation from Ch 13.
-- `>r`/`r>` from Ch 4; here we see their machine code.
-
-## Concepts deferred
-
-- Arithmetic and logic primitives — Ch 15.
-- I/O primitives that use `rsi` for buffer addresses — Ch 16.
-  (`bye_code`, `emit_code`, and `key_code` are defined as chunks in
-  this chapter to keep the source contiguous, but the *explanation*
-  belongs to Ch 16.)
+By the end you'll be able to read the x86-64 encoding of `dup`,
+`drop`, `swap`, `>r`, `r>`, `@`, `!`, `c@`, `c!`, and `r@` byte for
+byte, explain the "TOS in `rdi`, data stack in `rbp`" convention and
+trace what each primitive does to both registers, and predict the
+exact memory image left behind by any sequence of these primitives.
+Arithmetic and logic primitives wait for Ch 15; the I/O primitives
+that thread `rsi` through `write(2)` and `read(2)` are Ch 16
+(`bye_code`, `emit_code`, and `key_code` are emitted as source-contiguous
+chunks here, but the prose lives in Ch 16).
 
 ---
 

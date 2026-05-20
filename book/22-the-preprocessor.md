@@ -1,56 +1,29 @@
 # Chapter 22 — The Preprocessor
 
-## Goal
+`040-cc-prep.fth` (630 lines, entire file) is the smallest
+preprocessor that suffices for M2-Planet's source: it handles
+`#include "…"` faithfully, elides `#include <…>` (the compiler has
+built-in shims for the stdio headers), accepts integer-valued
+`#define` (decimal literal or another already-defined macro name),
+and silently passes everything else through.  It runs as a source
+rewriter: read from `cc-src-buf`, emit into `cc-prep-out-buf`, copy
+back, and reset `cc-src-pos` so the lexer rewinds.  Macros live in
+three parallel `cap x 8` arrays (`name-addr`, `name-len`, `value`)
+plus a dedicated 16 KiB name pool; `NULL`, `EOF`, `EXIT_SUCCESS`,
+`EXIT_FAILURE`, `stdin`, `stdout`, and `stderr` are pre-populated
+before any user `#define` runs.  `#include` recursion uses a depth
+counter into a 4-slot by 64 KiB pool, with `cc-prep-process-vec` as
+a trampoline that breaks the chicken-and-egg of recursive
+`:`-definitions.
 
-By the end of this chapter the reader can:
-
-- enumerate the preprocessor directives this compiler supports —
-  `#include "…"`, `#include <…>` (elided), and integer-valued
-  `#define`;
-- explain the macro storage layout (parallel arrays + a dedicated
-  name pool) and the `bytes-eq`-based lookup;
-- read the `#include` path search (literal, then `tests/cc/`) and
-  trace how nested includes recurse through the four-slot include
-  buffer pool;
-- explain how macro expansion is *not* done by the preprocessor
-  itself — it happens later, in the lexer, via `cc-macro-find-int`.
-
-## Source coverage
-
-`040-cc-prep.fth` (630 lines) — entire file.
-
-## Concepts introduced
-
-- **The preprocessor as a source rewriter.**  Reads `cc-src-buf`,
-  emits the rewritten text into `cc-prep-out-buf`, copies back into
-  `cc-src-buf`, and resets `cc-src-pos` so the lexer rewinds.
-- **Macro table** — three parallel `cap × 8` arrays
-  (`name-addr`, `name-len`, `value`) plus a dedicated 16 KiB name
-  pool, all looked up via `bytes-eq` (Ch 12).
-- **Built-in macro pre-population.**  `NULL`, `EOF`,
-  `EXIT_SUCCESS`, `EXIT_FAILURE`, `stdin`, `stdout`, `stderr` are
-  installed before any user `#define`s run, so M2-Planet sources
-  that use them never need a real `stdio.h` / `stdlib.h`.
-- **`#include` path resolution** — try the literal path, then
-  prefix `tests/cc/`.  Recursion uses a depth counter into a
-  4-slot × 64 KiB pool, with the trampoline `cc-prep-process-vec`
-  to break the chicken-and-egg of recursive `:`-definitions.
-
-## Concepts carried in
-
-- `cc-peek-char`, `cc-next-char` are *not* used here — the
-  preprocessor walks its own region via `cc-prep-peek`, `cc-prep-
-  advance`.  Ch 21's I/O is for the lexer.
-- `cc-prep-emit-byte` is the same pattern as `cc-emit-byte`.
-- `bytes-eq` (Ch 12); `digit?`, `alpha?` (Ch 6); `open`, `read`,
-  `close` (Ch 5).
-
-## Concepts deferred
-
-- Macro substitution at use sites — Ch 23 (lexer calls
-  `cc-macro-find-int` after `cc-lex-ident-or-kw` reads a token).
-- Why `tests/cc/` is the only fallback prefix — Ch 32 (the bootstrap
-  driver scripts).
+By the end of the chapter you'll be able to enumerate the supported
+directives, walk the macro lookup via `bytes-eq` (Ch 12), trace an
+`#include "M2libc/..."` path through the literal-then-`tests/cc/`
+search and the recursive descent into the pool, and explain why
+macro expansion is not the preprocessor's job at all (Ch 23's lexer
+calls `cc-macro-find-int` after reading each identifier).  Why
+`tests/cc/` is the only fallback prefix is Ch 32 (the bootstrap
+driver scripts).
 
 ---
 

@@ -1,45 +1,23 @@
 # Chapter 7 — Comparisons from Unsigned Division
 
-## Goal
+Eight definitions in `010-lib.fth` (lines 87–120), `=`, `<>`, `2^63`,
+`neg-flag`, `<`, `>`, `<=`, `>=`, give the seed every comparison
+operator it will ever need without spending a single primitive
+slot.  Equality reduces to `- 0=`; the sign bit drops out of an
+unsigned divide by `2^63`; and `<`, `>`, `<=`, `>=` are each one
+token longer than the one before.  Open `010-lib.fth` to those
+34 lines and read along; the chapter takes its time on the
+sign-bit-via-unsigned-divide move (the key trick that makes the
+chain possible) and then lets the four signed comparisons fall out
+in sequence.
 
-By the end of this chapter the reader can:
-
-- explain why an unsigned divide by `2^63` extracts the sign bit;
-- read the chain from `=` (one token: `-`) through `<`, `>`, `<=`,
-  `>=` (one extra token each);
-- recognise the `0= 0=` "canonicalise to Forth boolean" idiom.
-
-## Source coverage
-
-`010-lib.fth` lines 87–120.  Eight definitions: `=`, `<>`, `2^63`,
-`neg-flag`, `<`, `>`, `<=`, `>=`.
-
-## Concepts introduced
-
-- **Equality via subtract.**  `a = b` iff `a - b == 0`.  One primitive
-  (`-`, derived in Ch 4) plus one (`0=`) gives us all of `=` and `<>`.
-- **The sign bit via unsigned divide.**  A 64-bit value with bit 63
-  set, divided unsigned by `2^63`, yields exactly `1`.  Any
-  non-negative value yields `0`.  Two `0=`s canonicalise.
-- **`2^63` as a constant.**  The literal `9223372036854775808` is
-  `0x8000000000000000`; round-tripping it through the seed's decimal
-  parser exercises an edge case (it's bigger than the maximum signed
-  64-bit positive).
-- **Composition: `<` from `<` plus `swap`; `<=` from `<` plus `0=`.**
-  Each new comparison is one token of work given the one below.
-
-## Concepts carried in
-
-- `-` from Ch 4.
-- `0=` (seed primitive).
-- `/` (seed primitive, unsigned 64-bit divide).
-- `swap` (seed primitive).
-
-## Concepts deferred
-
-- The seed's `/` machine code (`DIV` instruction) — Part II, Ch 15.
-- Signed division (we don't define it; the C compiler doesn't need
-  it).
+By the end of the chapter you'll be able to explain why an
+unsigned divide by `2^63` extracts the sign bit, read the chain
+from `=` through `<`, `>`, `<=`, `>=` (each one extra token),
+and recognise the `0= 0=` "canonicalise to Forth boolean" idiom.
+The seed's `/` machine code (the `DIV` instruction) is Part II,
+Ch 15; signed division is not defined anywhere in this codebase
+because the C compiler doesn't need it.
 
 ---
 

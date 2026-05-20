@@ -1,67 +1,36 @@
 # Chapter 31 — Functions: Parameters, Calls, Globals, Entry Stub
 
-## Goal
+This chapter is the final third of `110-cc-decl.fth` (lines
+1439–2750) and the busiest in Part III; every piece of machinery
+built since Ch 21 converges here.  Three groups of code.  *Function
+machinery*: `cc-parse-call` dispatches an `f(a, b, c)` site through
+one of three paths (direct call to a known vaddr, forward call via
+placeholder + fixup list, indirect call through a function-pointer
+local) after pushing args and popping into SYS-V registers;
+`cc-parse-param-list` plus `cc-emit-spill-params` spill the first
+six parameter registers `rdi/rsi/rdx/rcx/r8/r9` into local slots
+0..5; `cc-parse-function` glues prologue, body, implicit return,
+epilogue, and the scope-pop together, then walks the prototype's
+fixup lists (call-site `rel32`s and forward-rvalue `imm64`s) to
+patch every prior reference.  *Top-level declarators*: enums and
+typedefs (built-ins like `FILE`, `uint8_t`, `size_t` pre-registered
+so headers parse), file-scope globals with their deferred vaddr
+fixups feeding Ch 26's `cc-finalize-globals`, and the elision rules
+that let forward declarations, prototypes, and angle-bracket
+headers parse to completion without generating code.  *The
+program*: a 26-byte entry stub at `0x400078` (argc/argv setup,
+`call main`, `exit`), the libc-shim registration loop that emits
+each of Ch 26's eleven shims and records a `sk-func` symbol entry,
+and `cc-parse-program`, the seven-step compilation driver that
+loops over file-scope declarations.
 
-By the end of this chapter the reader can:
-
-- read `cc-parse-call` and trace how an `f(a, b, c)` call site
-  pushes args, pops into SYS-V argument registers, and dispatches
-  to direct, forward, or indirect call paths;
-- read `cc-parse-param-list` and `cc-emit-spill-params`, and
-  explain how SYS-V argument registers become locals at frame
-  slots `0..N-1`;
-- read `cc-parse-function` and walk a function from name through
-  prologue, body, implicit return, scope-pop;
-- read the top-level driver's elision rules — how it
-  distinguishes function definitions from forward declarations,
-  prototypes, and file-scope globals;
-- read the entry-stub emission and the `cc-parse-program`
-  driver that orchestrates the whole compilation.
-
-## Source coverage
-
-`110-cc-decl.fth` lines 1439–2750 (final third).
-Chs 29 and 30 covered 1–1438.
-
-## Concepts introduced
-
-- **Function-call codegen.**  Three dispatch paths: direct call
-  (vaddr known), forward call (placeholder + fixup list),
-  indirect call (function-pointer local).
-- **SYS-V parameter spill.**  The first six parameters arrive in
-  `rdi/rsi/rdx/rcx/r8/r9` and get spilled into local slots
-  `0..5` by the function prologue.
-- **Function definitions with forward-fixup walks.**  When a
-  function is defined, the parser walks the prior prototype's
-  fixup lists (call-site rel32s and forward-rvalue imm64s) and
-  patches every site.
-- **Top-level elision rules.**  Forward declarations, file-scope
-  variables, and angle-bracket-included headers are all parsed
-  to completion but only function *definitions* generate code.
-- **Entry stub.**  26 bytes at `0x400078`: argc/argv setup, call
-  main, exit with main's return value.
-- **Libc shim registration.**  Each of the eleven shims (Ch 26)
-  gets its bytes emitted, its vaddr captured, and a `sk-func`
-  symbol entry registered so user code can call it by name.
-- **Built-in typedef registration** for `FILE`, `uint8_t`,
-  `size_t`, etc., so headers referencing them parse cleanly.
-- **`cc-parse-program`** — the seven-step compilation driver
-  that orchestrates everything.
-
-## Concepts carried in
-
-- All of Chs 21–30.
-- The lvalue-tracking from Ch 28 (`cc-parse-call` is invoked via
-  `cc-parse-call-vec` from Ch 27's primary parser).
-- Prior-symbol-id forward-fixup walking — Ch 26's
-  `cc-add-fixup-to-list` and Ch 30's `cc-walk-and-patch-to-vaddr`
-  / `cc-walk-and-patch-imm64-to-vaddr`.
-
-## Concepts deferred
-
-- The Ch 32 bootstrap-chain driver scripts (`stage-a-check.sh`,
-  `bootstrap-chain.sh`) — Ch 32.
-- The byte-identical M1 parity claim with M2-Planet — Ch 32.
+By the end you'll be able to read each call path, walk a function
+from name through epilogue, explain why a `static int x = 3;` at
+file scope contributes data but no code, and identify which named
+word in `cc-parse-program` does each phase.  The Ch 32 bootstrap-
+chain shell drivers (`stage-a-check.sh`, `bootstrap-chain.sh`) and
+the byte-identical M1 parity claim against the GCC-built M2-Planet
+are deferred to Ch 32.
 
 ---
 

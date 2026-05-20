@@ -1,55 +1,28 @@
 # Chapter 24 — Types and Symbols
 
-## Goal
+Two short files give the compiler its memory of "what exists":
+`060-cc-types.fth` (88 lines, entire file) packs every C type into
+one 64-bit word with the base kind in bits 16–31 and pointer depth
+in bits 0–7 (the five bases are `ty-void`, `ty-char`, `ty-int`,
+`ty-struct`, `ty-func`), and supplies a struct descriptor layout
+of a 16-byte header plus up to 16 field records of 40 bytes each
+(name, type, byte offset, and for struct-pointer fields a pointee
+descriptor for chained `->` resolution), all reached through the
+`cc-sd-*` and `cc-sf-*` accessors.  `070-cc-sym.fth` (154 lines,
+entire file) is the symbol table: seven 8-byte-wide parallel columns
+(`name-addr`, `name-len`, `kind`, `type`, `val`, `extra`, `extra2`)
+indexed by symbol id, with `cc-scope-push` and `cc-scope-pop`
+marking and restoring the count to give lexical scopes (no tree, no
+parent pointer).
 
-By the end of this chapter the reader can:
-
-- read the C-type encoding (`ty-void`, `ty-char`, `ty-int`,
-  `ty-struct`, `ty-func`) packed into one word: base in bits
-  16–31, ptr-depth in bits 0–7;
-- read the struct descriptor layout (total-size, field-count, then
-  N 40-byte field records) and use the `cc-sd-*` / `cc-sf-*`
-  accessors;
-- read the symbol-table parallel arrays and explain the scope
-  stack push/pop discipline.
-
-## Source coverage
-
-`060-cc-types.fth` (88 lines) — entire file.
-`070-cc-sym.fth` (154 lines) — entire file.
-
-## Concepts introduced
-
-- **Compact type encoding.**  Every C type fits in one 64-bit
-  word: base kind in bits 16–31, pointer depth in bits 0–7.
-  Struct types carry an out-of-band descriptor pointer in the
-  symbol's val slot.
-- **Struct descriptors.**  Fixed-size header (16 bytes) + up to
-  16 field records (40 bytes each).  Field records hold name,
-  type, byte offset, and (for struct-pointer fields) a pointee
-  descriptor for chained `->` resolution.
-- **Symbol-table parallel arrays.**  Seven 8-byte-wide columns
-  (`name-addr`, `name-len`, `kind`, `type`, `val`, `extra`,
-  `extra2`) indexed by symbol id.
-- **Scope stack.**  `cc-scope-push` / `cc-scope-pop` mark and
-  restore the symbol-table count to give lexical scopes — no tree,
-  no parent pointer.
-
-## Concepts carried in
-
-- `create`/`allot` (Ch 12), `variable` (Ch 10).
-- `bytes-eq` (Ch 12), `cc-alloc` (Ch 21).
-- Return stack `>r`/`r@`/`r>` (Ch 4) — used by `cc-sym-add` to
-  hold the new id while filling the parallel columns.
-
-## Concepts deferred
-
-- Where types are *consumed* — Ch 27 (expressions) for
-  type-checking; Chs 25–26 (codegen) for size-based instruction
-  selection.
-- Forward-reference fixups — Ch 31 uses `cc-sym-extra2` as the
-  head of a list of `movabs` sites needing patching when a
-  forward-declared function is later defined.
+By the end of the chapter you'll be able to encode a C type by hand,
+predict where any given declaration will land in the symbol table,
+walk a struct descriptor through its accessors, and read
+`cc-sym-add` (note its use of `>r`/`r@`/`r>` from Ch 4 to hold the
+new id while filling the parallel columns).  Where types are
+*consumed* is Ch 27 (expression type-checking) and Chs 25–26
+(size-based instruction selection in codegen); the `cc-sym-extra2`
+field's second life as a forward-reference fixup list head is Ch 31.
 
 ---
 

@@ -1,57 +1,29 @@
 # Chapter 23 — The Lexer
 
-## Goal
+`050-cc-lex.fth` (642 lines, entire file) turns bytes into tokens
+through a single entry point, `cc-next-token`, that populates five
+globals (`tok-kind`, `tok-num`, `tok-str-addr`, `tok-str-len`,
+`tok-kw-id`).  The seven `tk-*` kinds (`eof`, `ident`, `num`, `str`,
+`chr`, `punct`, `kw`) cover everything the parser will see; the 22
+multi-character `pt-*` punctuation IDs are numbered from 256 so they
+don't collide with the single-byte ASCII codes that the lexer reuses
+verbatim for one-char punct.  The keyword table is a flat
+`[len][bytes][len][bytes]...[0]` byte array walked by
+`cc-check-keyword`.  Lookahead is handled by `cc-peek-char-2`, used
+for `0x`, `==`, `<=`, `<<=`, `//`, and `/*`; comment skipping
+threads a "still scanning?" flag on the data stack because the seed
+has no `exit`.
 
-By the end of this chapter the reader can:
-
-- enumerate the seven `tk-*` token kinds and the 22 multi-character
-  punctuation IDs (`pt-*`) the lexer recognises;
-- read the keyword table (a flat `[len][bytes]…[0]` array) and the
-  `cc-check-keyword` walk that resolves it to a `kw-*` ID;
-- trace a single byte from `cc-peek-char` through whitespace /
-  comment skipping into one of `cc-lex-number`,
-  `cc-lex-ident-or-kw`, `cc-lex-string`, `cc-lex-char`,
-  `cc-lex-punct`;
-- explain the macro-expansion hook (`cc-macro-find-int`) and why a
-  non-keyword identifier may end the call as a `tk-num`.
-
-## Source coverage
-
-`050-cc-lex.fth` (642 lines) — entire file.
-
-## Concepts introduced
-
-- **Token kinds (`tk-*`)** — `eof`, `ident`, `num`, `str`, `chr`,
-  `punct`, `kw`.  These live in `tok-kind`; auxiliary fields are
-  `tok-num`, `tok-str-addr/len`, `tok-kw-id`.
-- **Multi-char punctuation IDs (`pt-*`)** numbered from 256 so they
-  don't collide with single-byte ASCII codes (which the lexer
-  reuses verbatim for one-char punct like `;`, `{`, `(`).
-- **Keyword table layout** — a flat byte array
-  `[len][bytes][len][bytes]…[0]` walked sequentially; the
-  zero-length entry marks end.
-- **One-byte lookahead via `cc-peek-char-2`** — single peek with
-  the next byte alongside, used for `0x`, `==`, `<=`, `<<=`,
-  `//`, `/*`.
-- **Comment skipping** — `//` to end of line, `/* … */` to the
-  matching close; both share a "still scanning?" flag on the data
-  stack because the seed has no `exit`.
-
-## Concepts carried in
-
-- `cc-peek-char`, `cc-next-char`, `cc-eof?` (Ch 21).
-- `cc-macro-find-int` (Ch 22).
-- `digit?`, `alpha?`, `alpha-lower?`, `alpha-upper?`, `space?`,
-  `bytes-eq` (Chs 6, 12).
-- Control-flow combinators `if,`/`then,`/`else,`/`begin,`/`while,`/
-  `repeat,` (Ch 11).
-
-## Concepts deferred
-
-- How the parser consumes `cc-next-token` and the token state —
-  Chs 27–31.
-- The string pool — Ch 26 (the lexer just records `(addr, len)`
-  into `cc-src-buf`; escape decoding happens at codegen).
+By the end of the chapter you'll be able to enumerate the token
+kinds and punctuation IDs, read the keyword walk, trace a single
+byte from `cc-peek-char` through whitespace and comment skipping
+into one of `cc-lex-number`, `cc-lex-ident-or-kw`, `cc-lex-string`,
+`cc-lex-char`, or `cc-lex-punct`, and explain why a non-keyword
+identifier may end the call as a `tk-num` (the `cc-macro-find-int`
+hook from Ch 22 fires here).  How the parser consumes
+`cc-next-token` is Chs 27–31; the string pool is Ch 26 (the lexer
+just records `(addr, len)` into `cc-src-buf`, with escape decoding
+deferred to codegen).
 
 ---
 

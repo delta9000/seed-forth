@@ -1,65 +1,26 @@
 # Chapter 17 — The Dictionary
 
-## Goal
+This chapter reads the seed's only data structure: a singly-linked
+list of headers laid out as `link(8) flags(1) nlen(1) name(N)
+body(M)`, walked backwards from `LATEST` by `find_code`.  The
+primitives that build and traverse this list live in three bands of
+`000-seed.hex0`: lines 171–262 cover `find_code`, `here_code`,
+`comma_code`, `execute_code`, and `read_word`; lines 387–554 are
+the hand-laid dictionary entries themselves (every primitive from
+`bye` through `0branch`); lines 684–752 close the file with
+`state_code`, `latest_code`, and `tick_code` plus the trailing
+entries for `r@`, `*`, `state`, `latest`, and `'`.
 
-By the end of this chapter the reader can:
-
-- explain the dictionary entry layout `link(8) flags(1) nlen(1)
-  name(N) body(M)` and walk the linked list backwards from `LATEST`;
-- read `find_code` and explain its two-level loop (chain walk +
-  byte comparison) and the `LAST_FOUND` side effect;
-- read `here_code`, `comma_code`, `execute_code`, `tick_code`,
-  `state_code`, `latest_code`, and `read_word`, and explain what
-  each contributes to the parse-then-resolve cycle.
-
-## Source coverage
-
-`000-seed.hex0` lines 171–262 (`find_code`, `here_code`,
-`comma_code`, `execute_code`, `read_word`), lines 387–554
-(all dictionary entries from `bye` through `0branch`), and
-lines 684–752 (`state_code`, `latest_code`, `tick_code` plus
-their dictionary entries and the trailing `r@`, `*`, `state`,
-`latest`, `'` entries).
-
-## Concepts introduced
-
-- **The dictionary as a linked list of headers.**  Each entry stores
-  a pointer to the previous entry's link cell.  `LATEST` is the
-  head; walking link→link backwards ends at the null pointer in the
-  very first entry (`bye`).
-- **`find_code` ( c-addr u -- xt-or-0 ).**  Walks the chain;
-  compares each entry's name length and bytes to the given token;
-  returns the body address on success or `0` on miss; updates
-  `LAST_FOUND` as a side effect so the caller can read the flags
-  byte.
-- **`here_code` and `comma_code`.**  The two cell-level memory
-  primitives the compiler leans on.
-- **`execute_code` ( xt -- ).**  Pops an xt and jumps to it via
-  `jmp rax` — a tail call, no return frame.
-- **`tick_code` ( -- xt ).**  Read the next token and look it up;
-  returns the xt or `0`.  The "name → address" half of metacompiler
-  reflection.
-- **`state_code` and `latest_code`.**  Sysvar accessors that push
-  the *address* of a sysvar cell, so the caller can `@` or `!` it
-  with the ordinary memory primitives.
-- **`read_word` ( -- ; rax = token-len ).**  Byte-by-byte token
-  assembly: skip leading whitespace, copy non-whitespace into the
-  token buffer at `0x412800`, stop on whitespace or EOF.
-
-## Concepts carried in
-
-- The sysvar layout from Ch 13 (`STATE`, `LATEST`, `HERE`,
-  `LAST_FOUND`).
-- The data-stack convention from Ch 14.
-- `bytes-eq`-style comparison from Ch 12 — but here implemented
-  inline in machine code, not in Forth.
-- The token-buffer page convention from Ch 13.
-
-## Concepts deferred
-
-- The REPL's use of `find_code` and `execute_code` — Ch 20.
-- The `[lit]` IMMEDIATE entry — Ch 18 §5 (the `<<bracket-lit-dict>>`
-  header that flips the IMMEDIATE bit).
+By the end of the chapter you'll be able to walk the chain from
+`LATEST` to the null link in `bye`, read `find_code`'s two-level
+loop (chain walk plus byte comparison) and explain the `LAST_FOUND`
+side effect, and account for each of the supporting primitives
+(`here_code`, `comma_code`, `execute_code` as a tail-call via
+`jmp rax`, `tick_code` as the "name to xt" reflection half,
+`state_code` and `latest_code` as address-pushers, and `read_word`
+as the byte-by-byte token assembler).  The REPL's use of `find_code`
+and `execute_code` is Ch 20; the `[lit]` IMMEDIATE entry is Ch 18,
+where the `<<bracket-lit-dict>>` header flips the IMMEDIATE bit.
 
 ---
 
