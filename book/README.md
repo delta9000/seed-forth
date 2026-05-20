@@ -1,33 +1,18 @@
 # Forth From a 2040-Byte Seed
 
-A tutorial book that teaches Forth, and the art of bootstrap, by
-reading — and extending — the source of this repository.
+2,040 bytes of hand-encoded x86-64 ELF, a Forth that those bytes
+boot into, and 8,000 lines of Forth code that build a C compiler
+whose `.M1` output is byte-identical to GCC-built M2-Planet.
+This book is the manual for all of it.
 
-## Two stories, equal weight
+Two pages set the scene before Chapter 1:
 
-This book tells two stories braided together.
-
-**The Forth story.**  Forth is the language programmers built when
-computers had 4 KB of RAM.  It has no syntax — only whitespace-separated
-tokens — and almost no semantics beyond a data stack and a dictionary
-of definitions.  From that minimalism comes an unusual property: *the
-compiler is itself a program written in the language*, extensible at
-the level of parsing, compilation, and immediate execution.
-
-**The bootstrap story.**  The codebase reaches from 2,040 hand-coded
-bytes (`000-seed.hex0`) all the way to a C-subset compiler whose M1
-output is byte-identical to M2-Planet built with GCC.  That last
-property — byte-identity against a reference — is what makes the chain
-auditable and useful for projects like the Guix Full Source Bootstrap.
-
-Neither story works without the other.  The Forth language is what
-makes a 2,040-byte seed expressive enough to host a compiler; the
-bootstrap chain is what gives the Forth itself ground to stand on.
-
-A secondary story — that this codebase was synthesised through human
-collaboration with an ensemble of large language models — is told in
-`AI_STRATEGIES.md` and the Prologue's closing note.  It is the *how*,
-not the *what*.
+- **[Where this fits in the bootstrap ecosystem](where-this-fits.md)**
+  if you want to know how this project plugs into the
+  Bootstrappable / Full Source Bootstrap chain that Guix consumes.
+- **[Prologue: Two thousand and forty bytes](00-prologue.md)** for
+  the language and the journey; why Forth makes a 2,040-byte seed
+  possible at all.
 
 ## Audience
 
@@ -40,37 +25,48 @@ detail, the Linux syscall ABI, the Forth standard library, or
 anything about bootstrap chains.  The book introduces each of
 these as it needs them, in the order it needs them.
 
-## What you will be able to do at the end
+## Before you start
 
-- Read `010-lib.fth` line by line and explain how each definition
-  derives from the 32 hand-encoded primitives.
-- Read `000-seed.hex0` byte by byte and explain why each x86-64
-  instruction is there.
-- Write your own immediate words that emit machine code.
-- Follow `100-cc-expr.fth` and `110-cc-decl.fth` and add a new operator
-  or statement to the C compiler.
-- Rebuild the bootstrap and verify byte-identical M1 output against
-  the GCC-built M2-Planet reference.
+The seed is hand-encoded x86-64 ELF, so the codebase runs natively
+only on **Linux x86-64**.  Apple Silicon, ARM Linux, and Windows
+readers will need a Linux/amd64 VM, container, or QEMU emulation;
+the book is the same on every platform but `./build.sh` and
+`./test.sh` need an amd64 Linux kernel underneath.
+
+What you'll want installed:
+
+- **bash** and a modern **POSIX coreutils**.  The build is shell
+  scripts plus the vendored hex0 assembler; no make, no autoconf.
+- **gforth** for Part I.  The playground at
+  [`book/playground.fth`](playground.fth) loads under any recent
+  gforth (0.7+; Debian, Fedora, Homebrew all ship a workable
+  version).  You don't need to build the seed until Part II.
+- **git** to clone the repo with its `vendor/` submodules
+  (stage0-posix's `hex0-seed` is checked in there).
+- **A C compiler** (gcc or clang) **only** if you want to run the
+  Stage-A check (Appendix C); the book itself never invokes it.
+
+Disk budget: ~30 MiB for the repo plus vendored stage0-posix /
+M2-Planet / mescc-tools.  Memory: a few MiB at runtime; the C
+compiler reserves a 256 MiB heap but only touches what it uses.
 
 ## Shape of the book
 
-Three parts plus a Prologue and four appendices.  **Chapter order is
-source order.**  Every fenced code block tagged `file=<path>` is the
-canonical source for that file, and the blocks appear in the book in
-the same order they appear in the file.  When the strict tangle check
-passes, the book *is* the codebase.
+Three parts plus a prologue and five appendices.  Chapter order is
+source order.  Every fenced code block tagged `file=<path>` is the
+canonical source for that file, and the blocks appear in the book
+in the same order they appear in the file.  When the strict tangle
+check passes, the book *is* the codebase.
 
 ### Prologue
 
-- [0. Two thousand and forty bytes](00-prologue.md) — the journey, the
-  stakes, how to read.
+- [0. Two thousand and forty bytes](00-prologue.md)
 
 ### Part I — Forth from the lib up
 
 Twelve chapters walking `010-lib.fth` in source order.  The seed's
 primitives are black boxes for now; you can run every example in
 gforth via `book/playground.fth`.
-
 
 | # | Chapter | Covers |
 |---|---|---|
@@ -142,87 +138,11 @@ chapters so the reader sees one coherent idea per chapter.
 - **[GLOSSARY.md](GLOSSARY.md)** — quick definitions for every term
   used across the book (Forth, x86-64, C compiler, bootstrapping).
 
-## Before you start
-
-The seed is hand-encoded x86-64 ELF, so the codebase runs natively
-only on **Linux x86-64**.  Apple Silicon, ARM Linux, and Windows
-readers will need a Linux/amd64 VM, container, or QEMU emulation —
-the book itself is the same, but every `./build.sh` / `./test.sh`
-needs an amd64 Linux kernel underneath.
-
-What you'll want installed:
-
-- **bash** and a modern **POSIX coreutils** — the build is shell
-  scripts plus the vendored hex0 assembler; no make, no autoconf.
-- **gforth** — for Part I.  The playground at
-  [`book/playground.fth`](playground.fth) loads under any recent
-  gforth (0.7+; Debian/Ubuntu, Fedora, Homebrew all ship a
-  workable version).  You don't need to build the seed until
-  Part II.
-- **git** — to clone the repo with its `vendor/` submodules
-  (stage0-posix's `hex0-seed` is checked in there; no separate
-  download).
-- **A C compiler** (gcc or clang) **only** if you want to run the
-  Stage-A check (Appendix C); the book itself never invokes it.
-
-Disk budget: ~30 MiB for the repo plus vendored stage0-posix /
-M2-Planet / mescc-tools.  Memory: a few MiB at runtime; the C
-compiler reserves a 256 MiB heap but only touches what it uses.
-
-You do *not* need: a Forth background, x86-64 assembly experience,
-Linux kernel knowledge, or any prior bootstrapping context.  The
-book introduces each as it needs it.
-
-## How to read this book
-
-Open the book in one editor pane and the file under discussion in
-another.  The book exists to make the source readable; it is not a
-substitute for it.
-
-Read Part I with `gforth` installed and the shim at
-[`book/playground.fth`](playground.fth) loaded.  You do not need to
-build the seed itself until Part II, when we start reading the hex.
-
-The default is source order — Ch 1 → Ch 32 — which earns every
-concept before using it.  If you'd rather see the shape of the
-whole machine first, or come at it from the VM upward, see the
-"Reading orders" sidebar in [CONCEPTS.md](CONCEPTS.md) for two
-alternative paths.
-
 ## The book is literate
 
 Every fenced code block tagged `file=<path>` is the canonical source
-for that file.  Run
-
-```sh
-tools/tangle.sh extract /tmp/out
-```
-
-to write those blocks (concatenated in chapter order, with `<<name>>`
-chunk references expanded for `000-seed.hex0`) into
-`/tmp/out/010-lib.fth`, `/tmp/out/000-seed.hex0`, and so on.
-
-`tools/tangle.sh verify` is wired into `./test.sh` and checks that
-every quoted block appears, in order, in the matching source file.
-That is the cheap consistency check that runs on every test run.
-
-The full literate-program claim — *the book compiles* — is
-
-```sh
-tools/tangle.sh verify --strict
-```
-
-which passes only when the tangled files are byte-identical to the
-checked-in source.  Until every chapter is written, strict mode fails
-(and shows you which spans of source still need prose).  Coverage
-progress is visible with
-
-```sh
-tools/tangle.sh status
-```
-
-Migration is per-file: while a file is partly covered, the standalone
-copy in the repository root remains the source of record.  Once a file
-is fully covered and `verify --strict` passes for it, we delete the
-standalone copy and let `tangle.sh extract` produce it before the
-build.  When every file has flipped, the book *is* the codebase.
+for that file.  `tools/tangle.sh verify --strict` confirms the book
+and the source agree byte-for-byte; that strict check is the
+literate-program claim that "the book compiles."  Operator details
+(`tangle.sh extract`, `status`, the per-file migration policy) live
+in `CLAUDE.md` at the repo root.

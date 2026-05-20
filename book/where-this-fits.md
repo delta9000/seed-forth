@@ -1,17 +1,13 @@
 # Where this fits in the bootstrap ecosystem
 
-This book is **one rung** of a longer ladder.  This page sketches
-the ladder, names the rungs above and below, and pins down what
-this project actually delivers (which is more interesting than
-"another bootstrap").
-
-## The Full Source Bootstrap, top to bottom
-
 The Bootstrappable Builds project (bootstrappable.org) maintains a
 chain from a tiny hex-coded seed up to a self-hosting GCC, every
 byte of which is auditable source.  GNU Guix consumes the chain;
 the Live-Bootstrap project (`github.com/fosslinux/live-bootstrap`)
-runs it end-to-end as a reproducible script.
+runs it end-to-end as a reproducible script.  This book is **one
+rung** of that ladder, sitting at M2-Planet.
+
+## The Full Source Bootstrap, top to bottom
 
 A loose sketch of the chain, top to bottom:
 
@@ -148,51 +144,20 @@ That is the value of this project.  Not "a smaller bootstrap"
 (stage0 is plenty small).  A **second route** that happens to also
 be small, hand-readable, and built on Forth instead of M0/M1.
 
-## What it adds that didn't exist before
+## What this adds: cross-validation
 
-The Bootstrappable chain works.  Why a second path?
+The Bootstrappable chain already works.  The reason for a second
+path is **redundancy**: two implementations agreeing on M1 output
+for every C input is a stronger correctness claim than either
+alone, and is exactly the kind of cross-check the Bootstrappable
+project actively wants at each rung.  Forth is the language that
+makes this particular second path small enough to hand-read in
+an afternoon (32 primitives in 2,040 bytes; a C compiler in
+twelve files); it is the means, not the point.
 
-- **Independent cross-validation at the M2-Planet rung.**  Two
-  implementations agreeing on M1 output for every C input is a
-  stronger correctness claim than either alone, exactly the kind
-  of redundancy the Bootstrappable project actively wants.
-
-- **A Forth lens on the bootstrap.**  Every existing rung is in
-  C, Scheme, M0/M1, or hex.  Forth is small enough (32 primitives
-  in 2,040 bytes) that it can be hand-encoded in hex0 *and*
-  expressive enough to host a C compiler in twelve files.  That
-  combination is unusual and instructive.
-
-- **Literate pedagogy.**  The book *is* the source.  Every
-  fenced code block tagged `file=…` tangles to the actual
-  on-disk file with `tools/tangle.sh verify --strict` checking
-  byte-identity.  Read the book; you have read the codebase.
-
-- **A teaching artifact for the chain itself.**  Most of the
-  Bootstrappable chain is engineering documentation, necessary
-  but not pedagogical.  This book aims to teach Forth, x86-64
-  ELF, and the shape of a small C compiler in the *order they
-  appear in a real chain*, so the reader arrives at the
-  M2-Planet byte-identity proof having earned every step.
-
-## What it deliberately does *not* try to do
-
-- **Replace the existing chain.**  This is an alternative entry
-  point at the M2-Planet rung, not a fork of the bootstrap.  It
-  does not reach above M2-Planet (no MesCC, no TinyCC, no GCC).
-  Everything above this rung still goes through Janneke's GNU
-  Mes and the Live-Bootstrap chain.
-
-- **Cover non-x86-64 architectures.**  The seed is hand-encoded
-  x86-64 ELF.  Porting would require a new `000-seed.hex0` and a
-  rewrite of `090-cc-emit.fth`'s instruction encoders.  Out of
-  scope for this book.
-
-- **Be a production toolchain.**  The C subset is M2-Planet's
-  subset (no floats, no varargs, no `union`, no
-  `#ifndef`/`#endif`).  This is intentional: it is the *minimum*
-  C that can compile M2-Planet, not the maximum C anyone might
-  want.
+This is not a fork of the bootstrap.  It does not reach above
+M2-Planet.  Everything from there up to GCC still goes through
+Janneke's GNU Mes and the Live-Bootstrap chain.
 
 ## Honest sizing
 
