@@ -3,7 +3,8 @@
 \
 \ Conventions:
 \   - All arithmetic constants use [lit] (the decimal literal compiler)
-\     because the seed has no number parser in interpret mode by default.
+\     because the seed has no interpret-mode number parser at all — [lit]
+\     is the only path; see Ch 20 for the parser and the NUMBER_HOOK stub.
 \   - Sysvar absolute addresses are baked in (decimal) since [lit] needs a
 \     literal.  Update if 000-seed.hex0's sysvar layout ever moves.
 

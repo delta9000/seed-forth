@@ -98,3 +98,15 @@ the sysvar init (72 bytes), the REPL (~95 bytes), and the
 dictionary entries — each entry being `link(8) flags(1) name-len(1)
 name(N) jmp(5)` = `15 + len(name)` bytes.  Appendix B gives the
 full memory map.
+
+## A note on `NUMBER_HOOK`
+
+The sysvar at `0x413020` — `NUMBER_HOOK` — is **initialised to 0
+and never read by anything in this build.**  It exists as an
+unwired extension point: a future REPL miss-handler could install
+a Forth `xt` there (a hex-literal parser, a string-literal parser,
+whatever) and the seed would call it after `find_code` misses.
+But the seed itself never consults it, so an empty `NUMBER_HOOK`
+is the steady-state.  See Ch 20 for the REPL loop that *would*
+read it if the wiring were there, and Ch 20's Exercise 1 for what
+it would take to install one.

@@ -55,6 +55,8 @@
 - [C — Reproducibility: the full hex0 → seed → M2-Planet chain](A3-reproducibility-chain.md)
 - [D — Three worked exercises, one per Part](A4-worked-exercises.md)
 - [E — Further reading](A5-further-reading.md)
+- [F — The C subset](A6-c-subset.md)
+- [G — Compiler exit codes](A7-error-codes.md)
 
 # Companion documents
 

@@ -53,7 +53,7 @@ compiler reserves a 256 MiB heap but only touches what it uses.
 
 ## Shape of the book
 
-Three parts plus a prologue and five appendices.  Chapter order is
+Three parts plus a prologue and seven appendices.  Chapter order is
 source order.  Every fenced code block tagged `file=<path>` is the
 canonical source for that file, and the blocks appear in the book
 in the same order they appear in the file.  When the strict tangle
@@ -129,6 +129,8 @@ chapters so the reader sees one coherent idea per chapter.
 - **C.** [Reproducibility: the full hex0 → seed → M2-Planet chain](A3-reproducibility-chain.md).
 - **D.** [Three worked exercises, one per Part](A4-worked-exercises.md).
 - **E.** [Further reading](A5-further-reading.md) — Forth, compilers, bootstrap, ELF/x86-64.
+- **F.** [The C subset](A6-c-subset.md) — types, operators, statements, and what is *not* supported.
+- **G.** [Compiler exit codes](A7-error-codes.md) — status codes mapped to failure modes.
 
 ## Companion docs
 

@@ -41,6 +41,23 @@ loop, you write three new immediate words that emit `branch` and
 keyword that declares typed fields, you write it.  The language
 meets you halfway.
 
+If you have read prior pedagogical Forth implementations, two are
+close enough to this one to want a brief calibration.  **JONESFORTH**
+(Richard Jones, 2007) is the closest spiritual ancestor in tone —
+a heavily commented assembly source for a complete Forth — but it
+runs on i386 with *indirect threaded code* and a separate "inner
+interpreter" that walks compiled cells.  This book's seed targets
+x86-64 with *subroutine threading*: every compiled word is just a
+`call` instruction, so the CPU itself is the inner interpreter,
+and the seed pays nothing for `NEXT`.  **sectorforth** (Cesar Blum,
+2020) goes the other direction — a 512-byte 16-bit Forth with
+eight primitives.  Our seed is four times larger (2,040 bytes) and
+has 32 primitives because it has to host a C compiler at the top,
+not just a Forth.  Appendix E lists these and others in more
+depth; for now the orientation is: the seed sits between
+sectorforth (smaller, no compiler payload) and JONESFORTH (similar
+spirit, different threading model and architecture).
+
 ## The moment
 
 Most programmers who learn Forth describe a moment, somewhere

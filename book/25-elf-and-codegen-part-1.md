@@ -704,6 +704,24 @@ The output is a clean 0/1 boolean — *not* the seed Forth's `-1/0`
 convention.  Ch 27's `&&` / `||` short-circuit codegen assumes
 this 0/1 invariant.
 
+This is the one place in the codebase where two boolean
+conventions sit next to each other, and it is worth naming
+explicitly to head off confusion later.  Forth, by long tradition
+and by the seed's `0=` primitive (Ch 15), uses **`-1` (all bits
+set) for true and `0` for false**: a flag is just a value you can
+feed back into `nand` and get the expected bitwise result.  The C
+compiler, because it must match ISO C semantics on the *output*
+side, emits **`1` for true and `0` for false** — the
+`setcc al; mov rdi, rax` sequence above guarantees `rdi ∈ {0,1}`
+after every relational op.  The two conventions never meet at
+runtime: Forth booleans are produced by the Forth REPL and consumed
+by `if,` / `0branch`, while C booleans are produced by emitted
+machine code and consumed by emitted `test rdi, rdi; jz` sequences.
+The crossover would only matter if you tried to paste compiler-
+emitted code back into the Forth interpreter, which the build
+never does.  But if you do — say, while debugging — remember which
+side of the boundary you are reading.
+
 ## 7. Branches and `rel32` placeholders
 
 The branch encoders are the codegen equivalent of Forth's `if,`

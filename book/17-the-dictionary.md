@@ -111,8 +111,53 @@ A picture for the first three entries:
   ' (tick) @ 0x7E8 ← LATEST initialised here
 ```
 
+And the same three entries drawn as a list, so the link direction
+is unambiguous:
+
+```
+   LATEST  ┐
+           │  (initialised to ' @ 0x7E8 — last entry in source order)
+           ▼
+   ┌─────────────────────┐
+   │ '_entry  @ 0x7E8    │
+   │   link  ──────────┐ │   <- points at LATEST's predecessor's link cell
+   │   flags=00        │ │
+   │   nlen=1, name="'"│ │
+   │   body: jmp tick  │ │
+   └───────────────────│─┘
+                       ▼ ...
+   (many entries elided, walked latest-to-oldest: latest, state, *, r@, …, 0branch, …, swap, drop, dup)
+                       │
+                       ▼
+   ┌─────────────────────┐
+   │ key_entry  @ 0x472  │
+   │   link  ──────────┐ │
+   │   flags=00        │ │
+   │   nlen=3,name="key"│ │
+   │   body: jmp key   │ │
+   └───────────────────│─┘
+                       ▼
+   ┌─────────────────────┐
+   │ emit_entry @ 0x45F  │
+   │   link  ──────────┐ │
+   │   flags=00        │ │
+   │   nlen=4,name="emit"│ │
+   │   body: jmp emit  │ │
+   └───────────────────│─┘
+                       ▼
+   ┌─────────────────────┐
+   │ bye_entry  @ 0x44D  │
+   │   link  = 0x00000000│   <- end of chain
+   │   flags=00          │
+   │   nlen=3,name="bye" │
+   │   body: jmp bye     │
+   └─────────────────────┘
+```
+
 `find` walks this chain backwards from `LATEST`.  Each step is one
-`@` to load the link cell.
+`@` to load the link cell.  Lookup compares the name bytes; on
+match, return; on mismatch, follow the link.  When the link is
+`0`, the chain is exhausted and the lookup misses.
 
 This is the seed version of "small tables, linear search, newest
 wins."  There is no hash table and no secondary index; the newest

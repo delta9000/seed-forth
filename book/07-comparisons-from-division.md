@@ -200,7 +200,8 @@ Two implementation caveats worth flagging:
   unsigned `<`; this seed has only signed.  The C compiler in Part
   III treats all integer comparisons as signed.  That's a real
   semantic gap with standard C, but a deliberate one — the seed's C
-  is a strict subset (Ch 32 enumerates exactly what's missing).
+  is a strict subset; **Appendix F** is the feature-by-feature map
+  of what is and isn't supported.
 
 ## Canonical source
 

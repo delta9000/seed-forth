@@ -395,7 +395,7 @@ small enough to host its own compiler) and the bootstrap story
 (a chain auditable because the seed is small enough to read) —
 converge here.  They are the same story told from two ends.
 
-The four appendices that follow are the reference cards a reader
+The appendices that follow are the reference cards a reader
 will want on a second pass:
 
 - **[A — The 32 seed primitives](A1-32-seed-primitives.md):** every
@@ -406,6 +406,13 @@ will want on a second pass:
   hex0 → seed → M2-Planet with commands and expected hashes.
 - **[D — Worked exercises](A4-worked-exercises.md):** three
   exercises walked end to end.
+- **[E — Further reading](A5-further-reading.md):** Forth,
+  compilers, bootstrap, ELF/x86-64 — the older work this book
+  stands on.
+- **[F — The C subset](A6-c-subset.md):** types, operators,
+  statements, and the features that are *not* in this compiler.
+- **[G — Compiler exit codes](A7-error-codes.md):** status codes
+  mapped to failure modes for when something dies on you.
 
 ```
        __

@@ -111,14 +111,15 @@ header tells you that:
 \
 \ Conventions:
 \   - All arithmetic constants use [lit] (the decimal literal compiler)
-\     because the seed has no number parser in interpret mode by default.
+\     because the seed has no interpret-mode number parser at all — [lit]
+\     is the only path; see Ch 20 for the parser and the NUMBER_HOOK stub.
 \   - Sysvar absolute addresses are baked in (decimal) since [lit] needs a
 \     literal.  Update if 000-seed.hex0's sysvar layout ever moves.
 ```
 
 The block above is tagged `file=010-lib.fth`.  When you run
-`tools/tangle.sh extract /tmp/out`, those exact eight lines become the
-first eight lines of `/tmp/out/010-lib.fth`.  The book is the source.
+`tools/tangle.sh extract /tmp/out`, those exact nine lines become the
+first nine lines of `/tmp/out/010-lib.fth`.  The book is the source.
 
 The two conventions in the header mention `[lit]` and "sysvar absolute
 addresses" — both will be explained in their own chapters.  For now,

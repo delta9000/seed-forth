@@ -16,6 +16,27 @@ output at the other.  The links *before* and *after* are mentioned
 in passing in the prologue and Ch 32; this appendix consolidates
 them.
 
+## The chain at a glance
+
+The same chain in tabular form.  Each row is one rung; the
+"Verification" column is the command that proves the rung holds.
+
+| Stage | Input | Tool / producer | Output | Runs on | Verification | Trust notes |
+|---|---|---|---|---|---|---|
+| 0 | `000-seed.hex0` (27,067 bytes annotated; 2,040 machine bytes) | stage0-posix's 229-byte `hex0-seed` | `seed-forth` (2,040-byte x86-64 ELF) | Linux x86-64 | `wc -c seed-forth` → `2040`; `sha256sum` matches `131bf3ab…` | `hex0-seed` is externally trusted; any hex0-equivalent assembler reproduces the same bytes. |
+| 1 | `seed-forth` + `010-lib.fth` | the seed Forth, extending itself | extended Forth in memory | same host | `./test.sh` | Self-hosted from seed primitives; no external compiler. |
+| 2 | extended Forth + `020-cc-arena.fth` … `120-cc-main.fth` + M2-Planet monolith C source | `seed-forth` running the compiler vocabulary | `cc-out-v1` (`/tmp/cc-out`, ~203 KB ELF) | same host | `[ -x /tmp/cc-out ]` and a smoke run | All compiler code is Forth source loaded by the seed; the monolith is built by `build-m2planet-monolith.sh`. |
+| A | `cc-out-v1` and `m2-ref` (GCC-built M2-Planet) | each compiles the M2-Planet source set | `self-v1-amd64.M1` and `self-ref-amd64.M1` (2,367,260 bytes) | same host | `cmp` — exits 0 iff byte-identical | Cross-validation: two independent compilers must agree on output. |
+| B | `self-v1-amd64.M1` | `M1` + `hex2` from mescc-tools | `cc-out-v2-amd64` (assembled binary) | same host | `bootstrap-chain.sh` runs it | Exercises the mescc-tools link in the canonical chain. |
+| C–D | `cc-out-v2-amd64` + M2-Planet sources | `cc-out-v2-amd64` self-compiles | `self-v2-amd64.M1` | same host | sha256 matches `02d98f86…` (default mode) | Self-host through the assembled binary. |
+| E–F | `self-v2-amd64.M1` re-assembled into `cc-out-v3-amd64`, which self-compiles | `M1` + `hex2`, then the compiler again | `self-v3-amd64.M1` | same host | `cmp self-v2-amd64.M1 self-v3-amd64.M1` → 0 | Fixed-point closure: v3 must equal v2 byte for byte. |
+| G | `hello.c` | `cc-out-v1` | x86-64 ELF that prints "Hello, world." | same host | exit 0 and stdout match | End-to-end smoke. |
+
+Stage A — *byte-identity against the GCC reference* — is the
+proof the book builds toward.  Stages B–G — assembling, running
+the compiled compiler, reaching a fixed point — are what
+`tests/cc/bootstrap-chain.sh` covers.
+
 ## The chain
 
 ```
@@ -46,10 +67,8 @@ them.
   cc-out-v3       (third generation; must equal cc-out-v2 byte for byte)
 ```
 
-Stage A — *byte-identity against the GCC reference* — is the
-proof the book builds toward.  Stages B–G — assembling, running
-the compiled compiler, reaching a fixed point — are what
-`tests/cc/bootstrap-chain.sh` covers.
+The diagram shows the dataflow; the table above is the verifier's
+view of the same picture.
 
 ## Reproducing each stage
 
@@ -139,6 +158,47 @@ self-compile assembled; v3 must equal v2 byte-for-byte at the
 fixed point), and G (compile `hello.c` end-to-end and run it).
 
 This script takes longer (minutes) and exercises the full chain.
+
+## Expected hashes
+
+The four hashes that prove a reproducer matched the canonical run.
+Reproduced on the reviewer's machine and recorded in
+`REPRODUCIBLE.md`.
+
+### Stage 0 and Stage A (default mode)
+
+```text
+18bef4a7df46706c1ac9c71d74e9ac252d21200b41a1025ce64c989051decbf6  000-seed.hex0
+131bf3ab73917a5a1c39db8114ab5c20f12ca28627f3fdc969ee34d86e41dc74  seed-forth
+957ed9d9b1b7aa2a2abfbbf757086dbe2161f0b457b362c492bf78a7f0b4f101  cc-out-v1
+22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
+```
+
+### Stages B–F (default mode, from `bootstrap-chain.sh`)
+
+| Path | self-host `.M1` sha256 |
+|---|---|
+| `cc-out-v1` (uses the `sub_rsp, imm` optimization) | `22465aa1…` |
+| `cc-out-v2` (M1+hex2-assembled from v1's output) | `02d98f86…` |
+| `cc-out-v3` (M1+hex2-assembled from v2's output) | `02d98f86…` |
+
+The fixed point closes between v2 and v3: assembling v2's output
+and re-self-compiling reproduces v2's `.M1` byte for byte.
+
+### `STAGE0_COMPAT=1` mode
+
+Building `cc-out-v1` with `STAGE0_COMPAT=1` reproduces a
+stage0-posix-derived M2-Planet binary's `.M1` output instead of
+GCC's:
+
+| Mode | `self-v1-amd64.M1` sha256 | Equal to |
+|---|---|---|
+| default | `22465aa1…` | GCC-built M2-Planet reference |
+| `STAGE0_COMPAT=1` | `02d98f86…` | stage0-posix-derived M2-Planet *and* the default mode's `cc-out-v2`/`v3` |
+
+The mode is explained at length in `REPRODUCIBLE.md`; in short, it
+disables one codegen optimization that stage0-posix's `cc_amd64`
+already skips, so the fixed point closes at v1 instead of at v2.
 
 ## What "byte-identical" means here
 
