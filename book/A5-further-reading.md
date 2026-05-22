@@ -17,20 +17,21 @@ grouped by what they help with.
   syntax than about taste.  Also freely available.
 
 - **Brad Rodriguez, "Moving Forth"** (*The Computer Journal*,
-  1992–1995).  A six-part series on Forth implementation
+  1992–1995).  An eight-part series on Forth implementation
   techniques — threading models (direct, indirect, subroutine,
   token), inner interpreters, primitives in assembly.  This
   book's seed is closest to a subroutine-threaded Forth; "Moving
   Forth" parts 1 and 4 explain that lineage.  Available at
   bradrodriguez.com/papers.
 
-- **Charles H. Moore, "The Evolution of Forth"** (HOPL II, 1993).
-  Forth's own designer on its history and the design forces that
-  shaped it.  Worth reading if you've ever wondered *why* the
-  language is the way it is.
+- **Elizabeth D. Rather, Donald R. Colburn, and Charles H. Moore,
+  "The Evolution of Forth"** (HOPL II, 1993).  Forth's designer
+  and two of its longtime stewards on the language's history and
+  the design forces that shaped it.  Worth reading if you've ever
+  wondered *why* the language is the way it is.
 
 - **Richard W. M. Jones, "JONESFORTH"** (a commented x86-32
-  Forth, 2007).  An MIT-licensed, heavily annotated assembly
+  Forth, 2007).  A public-domain, heavily annotated assembly
   source for a complete Forth.  If this book's seed feels too
   terse, JONESFORTH is the longer commented version of the same
   ideas on i386.
@@ -83,10 +84,12 @@ grouped by what they help with.
   from scratch in one sitting, the same target audience as this
   book.  Available online (search the title).
 
-- **Theodore Norvig, "Precedence climbing"** (2008).  A short
-  blog write-up of the algorithm Ch 27 uses.  The original
-  description is in **Keith Clarke, "The top-down parsing of
-  expressions"** (1986 technical note, Queen Mary College).
+- **Theodore Norvell, "Parsing Expressions by Recursive
+  Descent"** (1999, Memorial University of Newfoundland).  The
+  write-up that coined the name "precedence climbing" for the
+  algorithm Ch 27 uses.  The original description is in **Keith
+  Clarke, "The top-down parsing of expressions"** (1986
+  technical note, Queen Mary College).
 
 - **Pratt parsing** is the obvious alternative — Vaughan Pratt,
   "Top down operator precedence" (1973).  Pratt and precedence
