@@ -35,6 +35,27 @@ grouped by what they help with.
   terse, JONESFORTH is the longer commented version of the same
   ideas on i386.
 
+- **Bill Muench and C. H. Ting, "eForth"** (~1990).  The
+  historical reference design for "minimal portable Forth" —
+  about thirty primitives, easy to port to a new CPU in a
+  weekend.  The cultural reason a number near 32 is the
+  conventional choice for a primitive set; this book's seed sits
+  in that tradition.
+
+- **Cesar Blum, "sectorforth"** (2019).  A Forth that fits in a
+  512-byte x86 boot sector with eight primitives.  The "minimum
+  viable Forth" demonstration; useful as a sanity check on how
+  much language you can get from how little code.  An order of
+  magnitude smaller than this book's seed, at the cost of living
+  inside BIOS boot constraints.
+
+- **Koichi Nakamura, "planckforth"** (2020).  A literate
+  bootstrap from a ~600-line C kernel up through layers of
+  higher-level Forth.  The same ladder shape as seed-forth's
+  hex0 → `010-lib.fth` → `020-cc-*.fth`, with a different
+  starting substrate (C, not hex0) and a different terminal
+  artifact (a self-hosted Forth, not a C compiler).
+
 - **gforth** — the GNU Forth, the playground this book uses for
   Part I.  Documentation at gnu.org/software/gforth.
 
