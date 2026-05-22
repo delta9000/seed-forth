@@ -203,7 +203,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 
 The key claim is in step 5.  Our 2,040-hand-coded-byte seed,
 loaded through `000-seed.hex0`'s ELF + Forth interpreter,
-extended via `010-lib.fth`, run through the 8,000-line C
+extended via `010-lib.fth`, run through the 7,000-line C
 compiler in `020-cc-arena.fth` through `120-cc-main.fth`,
 compiles a 10,000+-line real-world C program (M2-Planet) into
 byte-identical M1 output as if GCC had done it.
@@ -215,11 +215,11 @@ byte-identical M1 output as if GCC had done it.
             design.  what matches is what they emit."
 ```
 
-That equality is what makes the bootstrap *auditable*.  Every
-byte of every layer above the 2,040-byte seed exists in this
-book.  Every byte at the bottom is hand-encoded and explained
-(Part II).  The byte-identity check rules out any silent
-deviation between the seed-forth path and the GCC path.
+That equality is what makes this segment *auditable*.  Every byte
+of the seed-forth arm above the 2,040-byte seed is either quoted as
+literate source in this book or emitted by source this book walks.
+The byte-identity check rules out silent deviation between the
+seed-forth path and the GCC reference at the `.M1` handoff.
 
 ## 5. The wider chain
 
@@ -231,7 +231,7 @@ Source Bootstrap chain looks roughly like:
      ↓ (hand-decoded bytes → first hex assembler)
    hex0  →  hex1  →  hex2  →  M1  →  M2-Planet
      ↓
-   M2-Planet (8 KB of C) compiles MesCC
+   M2-Planet (10,000+ lines of C) compiles MesCC
      ↓
    MesCC (~1 MB) compiles TinyCC
      ↓
@@ -243,9 +243,9 @@ Source Bootstrap chain looks roughly like:
 This book covers the *seed-forth* arm of that diagram —
 alternate path from `hex0-seed` to M2-Planet via a 2,040-byte
 Forth implementation rather than via the hex-stack chain.
-Both arms produce byte-identical M2-Planet, which means the
-seed-forth chain is a *drop-in alternative* for that segment
-of the bootstrap.
+Both arms produce M2-Planet-compatible compilers whose `.M1` output
+is byte-identical on the stage-A inputs, which makes the seed-forth
+chain a *drop-in alternative* for that segment of the bootstrap.
 
 The Prologue had a longer treatment of the diagram.  By now
 you've seen every component along the seed-forth path:
@@ -267,10 +267,10 @@ takes seconds.
 
 Three things, in order of increasing strength.
 
-**Correctness.**  The compiler's output, fed back through
-itself (via M2-Planet), produces the same bytes as the
-reference compiler.  Any miscompilation by seed-forth's C
-compiler would produce a diff.  None do.
+**Correctness.**  The compiler produced by seed-forth emits the same
+M2-Planet `.M1` text as the GCC-built reference compiler on the same
+stage-A input.  Any miscompilation by seed-forth's C compiler would
+produce a diff.  None do.
 
 **Reproducibility.**  Same input bytes in, same output bytes
 out, deterministically.  This is what makes the chain
@@ -278,12 +278,12 @@ out, deterministically.  This is what makes the chain
 byte.
 
 **Bootstrap closure.**  The 2,040 hand-coded bytes of
-`000-seed.hex0` are the only thing in this chain that doesn't
-have a higher-level explanation.  Every byte above them is in
-this book.  Every byte below them is in stage0-posix's
-own bootstrap from its own 229-byte hex0-seed.  Closure means
-you can read every line that produces every executable in your
-toolchain.
+`000-seed.hex0` are the only bytes in the seed-forth arm that do not
+come from a higher-level source language.  This book explains that
+arm up to the M2-Planet-compatible compiler it produces; the
+canonical downstream chain continues in M2-Planet, mescc-tools,
+MesCC, TinyCC, and GCC.  Closure means you can keep following source
+all the way down instead of trusting an unexplained binary jump.
 
 That last property is what motivates the project.  Modern
 software bootstraps are circular: GCC is compiled by GCC,
@@ -368,9 +368,9 @@ full scale.
 You have reached the end of the main book.
 
 What you did: walked from 2,040 hand-encoded bytes to a C
-compiler whose stage-A output is byte-identical to M2-Planet
-built with GCC.  Every byte between the seed and the M1 output
-was earned — argued for in source you have now read.  Both
+compiler whose stage-A `.M1` output is byte-identical to the output
+from M2-Planet built with GCC.  Every byte between the seed and the
+M1 output was earned — argued for in source you have now read.  Both
 stories the prologue promised — the Forth story (a language
 small enough to host its own compiler) and the bootstrap story
 (a chain auditable because the seed is small enough to read) —

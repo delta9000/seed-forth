@@ -3,7 +3,8 @@
 `040-cc-prep.fth` (630 lines, entire file) is the smallest
 preprocessor that suffices for M2-Planet's source.  It does exactly
 two things: it handles `#include "…"` (recursively), and it accepts
-integer-valued `#define`; everything else passes through untouched.
+integer-valued `#define`; other directive lines are deliberately
+elided.
 The whole pass runs as a source-rewriter, reading from `cc-src-buf`
 and emitting into `cc-prep-out-buf`, then copying the result back so
 the lexer sees one flat post-processed stream.  Macros live in
@@ -28,13 +29,14 @@ to glue everything together before the compiler sees a single
 token.  This file is that preprocessor.
 
 It is also, deliberately, the *smallest* preprocessor that suffices
-for the job.  M2-Planet's sources use exactly two preprocessing
-features: `#include "…"` for its own headers (M2libc paths) and
-`#define NAME N` for integer constants.  Anything else — angle-
-bracket includes, function-like macros, conditional compilation,
-token pasting — does not appear in the bootstrap input.  The
-preprocessor's job is to handle *those two features faithfully* and
-to silently elide everything else.
+for the job.  The bootstrap monolith needs exactly two active
+transformations: `#include "…"` for project headers (M2libc paths)
+and `#define NAME N` for integer constants.  Other directive lines
+can still appear after the monolith is assembled — angle-bracket
+includes, include guards, and similar scaffolding — but this compiler
+does not need their semantics.  The preprocessor's job is to handle
+the two active transformations faithfully and to silently elide the
+rest.
 
 ## 1. The output buffer and the two-megabyte detour
 
@@ -793,9 +795,9 @@ Anything else — string literals, expressions, function-like macros,
 multi-line continuations — falls off the end of the conditionals
 and is silently dropped (the directive is elided either way).
 
-This is enough for M2-Planet because that codebase only `#define`s
-integer constants.  Anything more would have to land here as code,
-not as a documentation TODO.
+This is enough for the bootstrap input because the macros that matter
+to code generation are integer constants.  Anything more would have
+to land here as code, not as a documentation TODO.
 
 ## 6. Directive dispatch at line start
 
@@ -833,12 +835,10 @@ pre-loads seven names into the macro table.  `NULL = 0`,
 `EXIT_FAILURE = 1`, and the three standard-fd shims `stdin = 0`,
 `stdout = 1`, `stderr = 2`.
 
-These are the only `stdio.h` / `stdlib.h` artefacts M2-Planet's
-sources actually reference (the others — `printf`, `fopen`,
-`malloc` — are not used).  By installing them as macros at preproc
-time we sidestep the need for header files at all, while leaving
-*the rest* of the M2libc include surface alone in case the
-preprocessor encounters it.
+These are the only `stdio.h` / `stdlib.h` artefacts this bootstrap
+path needs from the elided angle-bracket headers.  By installing them
+as macros at preproc time we sidestep host header files while letting
+project headers provide their own declarations and definitions.
 
 ## 8. The pass driver
 

@@ -1,8 +1,9 @@
 # Forth From a 2040-Byte Seed
 
 2,040 bytes of hand-encoded x86-64 ELF, a Forth that those bytes
-boot into, and 8,000 lines of Forth code that build a C compiler
-whose `.M1` output is byte-identical to GCC-built M2-Planet.
+boot into, and about 7,400 lines of Forth code that build a C compiler
+whose `.M1` output is byte-identical to the output from GCC-built
+M2-Planet.
 This book is the manual for all of it.
 
 Two pages set the scene before Chapter 1:

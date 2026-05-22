@@ -5,14 +5,16 @@
 \ to compile M2-Planet.
 \
 \ The compiled output begins with a 26-byte entry stub at vaddr 0x400078:
+\     mov rdi, [rsp]   ; 48 8B 3C 24             (4 bytes, argc)
+\     lea rsi, [rsp+8] ; 48 8D 74 24 08          (5 bytes, argv)
 \     call <main>      ; E8 <rel32>             (5 bytes)
 \     mov rdi, rax     ; 48 89 C7                (3 bytes)
 \     mov rax, 60      ; 48 C7 C0 3C 00 00 00    (7 bytes)
 \     syscall          ; 0F 05                    (2 bytes)
 \
-\ Then the function body.  main returns its value in rax (SYS-V); the stub
-\ moves it to rdi and exits.  The call's rel32 is patched after main's
-\ vaddr is known.
+\ Then come the shims, declarations, and function bodies.  main returns its
+\ value in rax (SYS-V); the stub moves it to rdi and exits.  The call's rel32
+\ is patched after main's vaddr is known.
 \
 \ Depends on 010-lib.fth, 030-cc-io.fth, 050-cc-lex.fth, 060-cc-types.fth, 070-cc-sym.fth,
 \ 080-cc-elf.fth, 090-cc-emit.fth, 100-cc-expr.fth.

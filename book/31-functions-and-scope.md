@@ -1,17 +1,12 @@
 # Chapter 31 — Functions: Parameters, Calls, Globals, Entry Stub
 
 This chapter is the final third of `110-cc-decl.fth` (lines
-1439–2750) and the busiest in Part III; every piece of machinery
-built since Ch 21 converges here.  Four anchors do the heavy
-lifting.  `cc-parse-call` dispatches an `f(a, b, c)` site through
-one of three paths (direct, forward-via-fixup, or indirect through
-a function pointer) after pushing args and popping into SYS-V
-registers.  `cc-parse-function` glues prologue, body, implicit
-return, epilogue, and scope-pop together, then walks each
-prototype's fixup lists to patch every prior reference.
-`cc-parse-program` is the seven-step compilation driver looping
-over file-scope declarations.  And a 26-byte entry stub at
-`0x400078` sets up `argc` / `argv`, calls `main`, and exits.
+1439–2750) and the busiest in Part III.  Four anchors do the heavy
+lifting: `cc-parse-call` dispatches direct, forward, and indirect
+calls; `cc-parse-function` ties the prologue, body, epilogue, and
+scope cleanup together; `cc-parse-program` loops over file-scope
+declarations; and the 26-byte entry stub at `0x400078` sets up
+`argc` / `argv`, calls `main`, and exits.
 
 By the end you'll be able to read each call path, walk a function
 from name through epilogue, explain why a `static int x = 3;` at
@@ -25,18 +20,10 @@ are deferred to Ch 32.
 
 ```
         ,_,
-   __(@___)___    "1,700 lines, the longest chapter.  every piece
+   __(@___)___    "the longest chapter.  every piece
    ~~~~~~~~~~~~    of Part III converges here.  the payoff is the
                    next chapter; this one is the work."
 ```
-
-This is the last chapter of `110-cc-decl.fth` and the busiest.
-Every piece of machinery developed across Chs 21–30 converges
-here: the call codegen consumes the lvalue-tracking and
-symbol-table machinery; the function definitions tie the param
-list, prologue, statement body, and epilogue together; the
-top-level driver coordinates the whole compilation and ties
-the entry stub to `main`.
 
 **How this chapter is organized.**  Section §1 is the source
 listing — the 1,300-line tail of `110-cc-decl.fth` from
@@ -49,7 +36,7 @@ with the prologue/epilogue glue that wires Ch 26's call
 convention into the body.  *Top-level declarators* (§§5–7) covers
 enums, typedefs, top-level forms that elide to nothing, and
 file-scope globals with their deferred vaddr fixups.  *The
-program* (§8) covers the entry stub at `0x400000`, the
+program* (§8) covers the entry stub at `0x400078`, the
 top-level driver `cc-parse-program` that loops over file-scope
 declarations, and how the executable is finalised.  If you want
 to know how a single function gets compiled, read §§2–4.  If you

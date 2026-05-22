@@ -329,8 +329,9 @@ git submodule update --init --recursive
 ```
 
 `build.sh` uses stage0-posix's 229-byte `hex0-seed` to assemble
-`000-seed.hex0` into the executable Forth.  Chapter 2 explains every
-byte; for now, treat it as a black box.  `test.sh` exercises the
+`000-seed.hex0` into the executable Forth.  Part II, starting in
+Chapter 13, explains those bytes; for now, treat them as a black box.
+`test.sh` exercises the
 words you just read — `over`, `-`, `nip`, etc. — by feeding
 `010-lib.fth` plus `test-010-lib.fth` into the seed.
 
