@@ -1,0 +1,13 @@
+# m1-jump42.M1 — phase 2b: M1 macros (DEFINE + name substitution) +
+# numeric sigil literal form.  Same observable outcome as jump42.hex2,
+# but written in M1 mnemonics + decimal immediates instead of raw hex.
+
+:_start
+    mov_rax, %60        # rax = 60 (sys_exit)        — '%' numeric, 4 bytes LE
+    mov_rdi, %42        # rdi = 42 (exit code)
+    jmp     %skip       # jmp rel32 over dead code   — '%' label ref
+    mov_rdi, %99        # dead
+:skip
+    syscall
+
+:ELF_end

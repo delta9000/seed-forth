@@ -1,0 +1,15 @@
+# jump42.hex2 — exercises forth-asm phase 2a (1-byte rel label ref).
+#
+# Hex2-format (post-M1).  Fed directly to hex2 as the reference, and to
+# forth-asm in the parallel pipeline.  The binary jumps past dead code
+# that would set rdi=99 and falls through to syscall with rdi=42.
+
+:_start
+    48 C7 C0  3C 00 00 00    # mov rax, 60 (sys_exit)
+    48 C7 C7  2A 00 00 00    # mov rdi, 42
+    EB        !skip          # jmp short to :skip — 1-byte rel ref
+    48 C7 C7  63 00 00 00    # dead: would set rdi=99, skipped
+:skip
+    0F 05                    # syscall
+
+:ELF_end
