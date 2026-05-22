@@ -408,5 +408,21 @@ Expected output: `10`.  `a` and `b` are identical 3-byte buffers
   workaround — accumulate in a variable — is cheap enough for the
   C compiler's use case.
 
-Next: Chapter 13 — The ELF and the Entry Point (Part II opens; we
-leave `010-lib.fth` for `000-seed.hex0`).
+## Bridge to Part II: what Part I bought us
+
+Part I taught Forth as a usable language while treating the seed's
+32 primitives as black boxes.  By the end of this chapter you can
+read every line of `010-lib.fth` — stack shuffles, byte writers,
+syscall wrappers, character classifiers, comparisons, the
+defining-word family, the control-flow combinators, and the
+byte-equality loop — and explain what each one does.  The only
+remaining mystery is what each primitive's machine code looks like.
+
+Part II opens that box.  Eight chapters read `000-seed.hex0` from
+the ELF header through the REPL loop, taking the same primitives
+the Forth code has been calling — `dup`, `nand`, `here`, `find`,
+`:`, `;`, `branch`, `read_word` — and showing the exact bytes
+that make each one work.  The words you have already trusted in
+Part I become bytes you can audit in Part II.
+
+Next: Chapter 13 — The ELF and the Entry Point.

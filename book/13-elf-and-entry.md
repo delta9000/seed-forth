@@ -1,14 +1,13 @@
 # Chapter 13 — The ELF and the Entry Point
 
-Part II opens the seed.  For twelve chapters we have treated 32
-names as black boxes; from here on every primitive is bytes you can
-point at in `000-seed.hex0`.  This first chapter reads the first 63
-lines: a 64-byte `Elf64_Ehdr`, a single `Elf64_Phdr` describing one
+This chapter reads the first 63 lines of `000-seed.hex0`: a
+64-byte `Elf64_Ehdr`, a single `Elf64_Phdr` describing one
 `PT_LOAD` segment with `R|W|X` flags, the `_start` prologue, the
 six-instruction sysvar init at `0x085`, and the `JMP repl` at
-`0x0CD` that hands control to the interpreter.  Open `000-seed.hex0`
-to lines 1–63 and have an ELF reference (`readelf -a` output, or just
-the Wikipedia "Executable and Linkable Format" page) at hand.
+`0x0CD` that hands control to the interpreter.  Open
+`000-seed.hex0` to lines 1–63 and have an ELF reference (`readelf
+-a` output, or just the Wikipedia "Executable and Linkable
+Format" page) at hand.
 
 By the end you'll be able to read a minimal 64-bit Linux ELF
 executable header field by field, compute the entry-point address
@@ -23,10 +22,6 @@ are Ch 17; `parse_decimal_code` and the REPL are Ch 20.
 
 ---
 
-For twelve chapters we have treated 32 names — `dup`, `+`, `nand`,
-`emit`, `key`, `here`, `,`, `find`, `'`, `:`, `;`, and the rest — as
-black boxes given to us by the seed.  Now we open the box.
-
 ```
        __
    __( o)>   "twelve chapters of black boxes.  the boxes have
@@ -37,12 +32,8 @@ The seed is one file: `000-seed.hex0`, 752 lines of hand-assembled
 hex.  The Stage-0 toolchain (`hex0-seed` from the Guix Full Source
 Bootstrap) consumes those lines, ignores the comments after `;`, and
 writes the resulting bytes to disk verbatim.  Output: a 2,040-byte
-ELF executable that *is* `seed-forth`.
-
-This chapter reads the first 63 lines: the ELF header, the program
-header, the `_start` prologue, the six-instruction sysvar init, and
-the one `JMP rel32` that hands control to the REPL.  No primitive
-bodies yet — those start in Ch 14.
+ELF executable that *is* `seed-forth`.  No primitive bodies in
+this chapter — those start in Ch 14.
 
 ## 1. Why we start at the top
 
