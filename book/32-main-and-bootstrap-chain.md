@@ -324,27 +324,32 @@ If `stage-a-check.sh` reports
 `self-v1-amd64.M1 == self-ref-amd64.M1`, you have reproduced
 the project's central claim.
 
-To run the small check, concatenate the twelve .fth files (stripped
-of Forth comments) onto stdin first, then append the C source.  The
-last .fth file (`120-cc-main.fth`) ends by calling `cc-main`, which
-slurps whatever's left on stdin as the C input, compiles, writes
-`/tmp/cc-out`, and exits:
+To run the small check, concatenate the twelve `.fth` files
+(stripped of Forth comments) onto stdin first, then append the C
+source.  The last `.fth` file (`120-cc-main.fth`) ends by calling
+`cc-main`, which slurps whatever's left on stdin as the C input,
+compiles, writes `/tmp/cc-out`, and exits.
+
+`tests/cc/build-m2planet-monolith.sh` already does exactly this
+pipeline at full scale; it defines a `strip_forth` helper that is
+the canonical version of the comment stripper.  For the toy
+`return 42` case, the same shape distilled to one terminal:
 
 ```sh
 ./build.sh
-{
-  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth \
-      050-cc-lex.fth 060-cc-types.fth 070-cc-sym.fth 080-cc-elf.fth \
-      090-cc-emit.fth 100-cc-expr.fth 110-cc-decl.fth 120-cc-main.fth \
-    | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
-  echo 'int main(void) { return 42; }'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
+{ cat [01][0-9]*-*.fth | strip_forth; echo 'int main(void) { return 42; }'; } \
+    | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out
 echo $?      # 42
 ```
 
-`tests/cc/build-m2planet-monolith.sh` runs the same pattern at
-full scale.
+The glob `[01][0-9]*-*.fth` picks up `010-lib.fth` through
+`120-cc-main.fth` in numerical (load) order, so you don't have to
+list twelve filenames.  If you find yourself editing this pipeline,
+edit `build-m2planet-monolith.sh` instead — it is the version that
+gets exercised by the test suite, and divergence between the two is
+the kind of bug nobody notices until Stage-A breaks.
 
 ## Exercises
 

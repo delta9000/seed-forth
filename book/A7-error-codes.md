@@ -31,10 +31,13 @@ correspondence between the *range* and the *file*:
 | 140–141 | `110-cc-decl.fth` | Function-pointer declarator (`T (*name)(args)`). |
 | 160–164 | `110-cc-decl.fth` | Top-level global declaration. |
 
-## Representative codes
+## Codes in detail
 
-The codes that fire most often in practice when a real C program
-hits the edge of the subset:
+Every code that actually fires on a malformed input, traced to
+the `die` call site that produces it.  The table is not strictly
+exhaustive — a few rare paths are summarised by range rather than
+listed individually — but a `grep -n "\[lit\] CODE die" *-cc-*.fth`
+with the missing number will find any code this table doesn't:
 
 | Exit | File:line(s) | Triggered by |
 |---:|---|---|
@@ -75,11 +78,10 @@ hits the edge of the subset:
 | 163 | `110-cc-decl.fth:2303,2308` | Global initialiser: expected integer literal (optionally signed). |
 | 164 | `110-cc-decl.fth:2388` | Top-level declaration: trailing form not recognised. |
 
-The table is not exhaustive — `grep -n "\[lit\] N die"` in the
-`*-cc-*.fth` files is the way to recover any code that isn't
-listed here.  When you add a new error site, pick a code at the
-end of the file's existing range; the assignments are
-file-local, not project-global.
+When you add a new error site, pick the next free code at the
+end of the file's existing range; assignments are file-local, not
+project-global, and the ranges in the first table are the
+convention.
 
 ## Why no diagnostic text?
 

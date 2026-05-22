@@ -55,6 +55,15 @@ unless the dependency graph forbids it.
 ## Quick health check
 
 ```sh
+./check-all.sh                 # build + test + tangle --strict + stage-A
+```
+
+`check-all.sh` runs all four checks in sequence with per-step
+pass/fail logging.  Use it before committing or after editing any
+fenced code block in `book/`.  The individual commands are still
+useful for diagnosing a failure:
+
+```sh
 ./build.sh                     # produces 2040-byte seed-forth
 ./test.sh                      # smoke tests for layers 010-070
 tools/tangle.sh verify --strict

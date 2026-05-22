@@ -1,11 +1,11 @@
 # Appendix F — The C subset
 
 This appendix is the reference card for *what subset of C* the
-compiler in `020-…-fth` through `120-cc-main.fth` actually accepts.
-The compiler is *not* an ANSI / ISO C compiler.  It is "enough C to
-compile M2-Planet," which is a real but specific corner of the
-language.  Use this appendix when you want to know whether a
-construct will work without running it.
+compiler in `020-cc-arena.fth` through `120-cc-main.fth` actually
+accepts.  The compiler is *not* an ANSI / ISO C compiler.  It is
+"enough C to compile M2-Planet," which is a real but specific
+corner of the language.  Use this appendix when you want to know
+whether a construct will work without running it.
 
 Sources of truth, in case this appendix drifts:
 
@@ -38,9 +38,9 @@ arithmetic stride.
 | `enum T`               | yes | 8 bytes | Members are integer constants; the tag is accepted but discarded. |
 | `typedef` names        | yes | resolves to the aliased type | Registered in the symbol table. |
 | `T[N]` (array of T)    | yes (locals + globals) | `N * 8` (or `N` for `char[N]`) | Decays to `T*` in expressions. |
-| `T (*fp)(...)` (function pointer) | yes (in `cc_globals.c` and friends) | 8 bytes | Only the forms M2-Planet uses are exercised. |
-| `short`, `long`, `unsigned`, `signed` | parsed; ignored | 8 bytes | The keywords are consumed by `cc-skip-type-qualifiers` (Ch 29) so that headers compile, but the width is always 8 bytes and the sign is always signed. |
-| `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | Storage-class / qualifier keywords are consumed and discarded.  `static` locals behave like ordinary locals. |
+| `T (*fp)(args)` (function pointer) | yes (in `cc_globals.c` and friends) | 8 bytes | Only the forms M2-Planet uses are exercised. |
+| `short`, `long`, `unsigned`, `signed` | recognised as basic-type keywords (`cc-tok-is-basic-type-kw?` in `110-cc-decl.fth:492`) | 8 bytes | The keywords let headers parse, but the resulting type is always 8-byte signed regardless of which modifier appeared. |
+| `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | `cc-skip-storage-quals` (`110-cc-decl.fth:98`) consumes and discards.  `static` locals behave like ordinary locals. |
 | `float`, `double`, `long double` | **rejected** | — | No floating-point support at any layer. |
 | bitfields              | **rejected** | — | The parser does not accept `int x : 3;`. |
 | `union`                | **rejected** | — | Not a keyword in the table. |
@@ -89,7 +89,7 @@ codes in the 30s/80s/90s; see Appendix G).
 | `while (expr) stmt`                                       | yes | |
 | `do stmt while (expr) ';'`                                | yes | |
 | `for (init? ; cond? ; step?) stmt`                        | yes | All three clauses optional. |
-| `switch (expr) '{' (case INT ':' | default ':' | stmt)* '}'` | yes | Case labels are integer literals only — no constant expressions. |
+| `switch (expr) '{' (case INT ':' / default ':' / stmt)* '}'` | yes | Case labels are integer literals only — no constant expressions. |
 | `break ';'`                                               | yes | Innermost loop or switch.  No "break outside loop" detection. |
 | `continue ';'`                                            | yes | Innermost loop. |
 | `goto LABEL ';'`                                          | yes | Function-local labels; max 64 labels per function. |
@@ -195,14 +195,8 @@ tables above are not repeated.
 
 ## Coverage in practice
 
-The subset above is what **M2-Planet's own source compiles
-through**.  The byte-identity proof (Stage A) is the operational
-definition of "supported": if M2-Planet uses the construct and the
-build still passes, the construct works.  Conversely, the surest
-way to discover that something is *not* in the subset is to write
-it and watch `cc-out-v1` exit with one of the status codes in
-Appendix G.
-
-For a feature matrix-style read of the same territory, walk
-`cc-parse-stmt` and `cc-parse-program` once; the keyword-id
-dispatch chain is the human-readable form of this appendix.
+The operational definition of "supported" is Stage A.  If M2-Planet
+uses a construct and Stage A still produces byte-identical `.M1`,
+the construct works.  If you write something not in the subset, the
+likely outcome is `cc-out-v1` exiting with one of the status codes
+in Appendix G — diagnostic-free but reproducible.

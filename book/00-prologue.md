@@ -74,25 +74,13 @@ written, starting from a base of 32 hand-encoded primitives.
 Everything afterwards (the seed VM in Part II, the C compiler in
 Part III) is a payoff for understanding that one move.
 
-## A note on how this was built
-
-The codebase you are about to read was produced by a human author
-in collaboration with an ensemble of large language models from
-Anthropic, Google, OpenAI, DeepSeek, Alibaba, Moonshot, MiniMax,
-and others.  That collaboration is documented in
-`AI_STRATEGIES.md`, and it is reflected in the careful annotation
-style throughout the source.
-
-The seed Forth in particular is a synthesis artifact: many
-independent attempts at the same 2,040-byte image, cross-checked
-against each other and against a hand-derived reference.  Every
-bit of those 2,040 bytes had to be argued for.  That is part of
-what makes the project interesting as a research artifact, not
-just as a Forth.
-
+This codebase was produced by a human author working with an
+ensemble of large language models; the methodology and the
+cross-checking that pinned down every byte of the seed are
+documented separately in `AI_STRATEGIES.md` at the repo root.
 You do not need to care about any of that to learn Forth, or to
-understand how a 2,040-byte seed grows into a C compiler.  The
-journey works the same way it would have worked in 1972.
+understand how 2,040 bytes grow into a C compiler.  The journey
+works the same way it would have worked in 1972.
 
 Turn the page.
 

@@ -1,11 +1,11 @@
 # Summary
 
 [Seed Forth](README.md)
+
+# Before you begin
+
 [Where this fits in the bootstrap ecosystem](where-this-fits.md)
-
-# Prologue
-
-- [Two thousand and forty bytes](00-prologue.md)
+[Prologue: Two thousand and forty bytes](00-prologue.md)
 
 # Part I — Forth from the lib up
 
@@ -58,7 +58,7 @@
 - [F — The C subset](A6-c-subset.md)
 - [G — Compiler exit codes](A7-error-codes.md)
 
-# Companion documents
+# Reference
 
-- [Concept index and dependency graph](CONCEPTS.md)
 - [Glossary](GLOSSARY.md)
+- [Concept index and dependency graph](CONCEPTS.md)

@@ -37,38 +37,11 @@ proof the book builds toward.  Stages B–G — assembling, running
 the compiled compiler, reaching a fixed point — are what
 `tests/cc/bootstrap-chain.sh` covers.
 
-## The chain
-
-```
-  stage0-posix's hex0-seed        ← 229 bytes; the trust root
-              │
-              │ (assembles)
-              ▼
-  000-seed.hex0   (2,040 bytes of annotated hex)
-              │
-              │  hex0-seed 000-seed.hex0 seed-forth
-              ▼
-  seed-forth      (2,040-byte x86-64 ELF; this book's subject)
-              │
-              │  cat 010-lib.fth 020-cc-arena.fth … 120-cc-main.fth m2planet.c | seed-forth
-              ▼
-  /tmp/cc-out     (an x86-64 ELF that is a C compiler)
-              │
-              │  cc-out --architecture amd64 -f m2planet-sources… > out.M1
-              ▼
-  out.M1          (M2-Planet self-compile, in M1 assembly)
-              │
-              │  M1 + hex2 from mescc-tools
-              ▼
-  cc-out-v2       (a second-generation M2-Planet binary)
-              │
-              │  cc-out-v2 self-compiles M2-Planet again
-              ▼
-  cc-out-v3       (third generation; must equal cc-out-v2 byte for byte)
-```
-
-The diagram shows the dataflow; the table above is the verifier's
-view of the same picture.
+For a wider-angle dataflow picture (showing where this rung sits
+inside the Bootstrappable / Full Source Bootstrap ladder),
+[Where this fits](where-this-fits.md) has the ladder diagram.
+The rest of this appendix is operator-facing: the exact commands
+that turn each row of the table above into a verifiable artifact.
 
 ## Reproducing each stage
 

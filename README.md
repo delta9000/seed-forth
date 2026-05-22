@@ -15,8 +15,18 @@ From the repository root:
 
 ```sh
 git submodule update --init --recursive
+./check-all.sh                 # build + test + tangle --strict + stage-A
+```
+
+`check-all.sh` is a wrapper that runs the four canonical checks
+with per-step OK/SKIP/FAIL output; Stage-A is skipped (not failed)
+if `gcc`/`make` aren't installed.  For diagnosing a failure, the
+individual commands are:
+
+```sh
 ./build.sh
 ./test.sh
+tools/tangle.sh verify --strict
 tests/cc/stage-a-check.sh
 ```
 
