@@ -170,6 +170,10 @@ After `if,` finishes, the stack has one new entry: the address of
 the 8-byte slot we just zeroed.  This is the **fixup**.  We need to
 go back and patch it later.
 
+This is the book's first full **emit, remember, patch** sequence:
+emit bytes now, remember the unresolved slot, patch the slot when
+the target becomes knowable.
+
 `then,` is the patcher.  Its body is two tokens:
 
 | token  | stack            | reasoning                       |
@@ -524,28 +528,28 @@ rather see them inside a larger battery.
 
 ## Exercises
 
-1. **★★** **Hand-compile.** Trace what bytes `: pick-or-go  flag if, [lit] 1
+1. **★★ Trace.** Hand-compile the bytes that `: pick-or-go  flag if, [lit] 1
    else, [lit] 2 then, ;` emits.  Confirm both branches end at the
    same address.
 
-2. **★★** **The `+4` quirk.** Show on paper that `rel32 = target - (HERE_now
-   + 4)` where `HERE_now` is the HERE pointer *after* `[lit] 232 c,`
-   has advanced past the opcode byte.  Where does the `+4` come from?
+2. **★★ Trace.** Show on paper that `rel32 = target - (HERE_now + 4)` where
+   `HERE_now` is the HERE pointer *after* `[lit] 232 c,` has advanced
+   past the opcode byte.  Where does the `+4` come from?
 
-3. **★★** **Add a combinator.** Write `again, ( back-target -- )` which emits
-   an unconditional backward jump.  It is the simplest member of this
-   family — three lines.
+3. **★★ Extend.** Write `again, ( back-target -- )` which emits an unconditional
+   backward jump.  It is the simplest member of this family — three
+   lines.
 
-4. **★★★** **Add a real control structure.** Implement `do, ( limit start --
+4. **★★★ Extend.** Add a real control structure: implement `do, ( limit start --
    loop-ctx )` and `loop, ( loop-ctx -- )` that count `start` up to
    `limit-1`, leaving the current count accessible via a new word `i`.
    Solutions vary in how they store the loop variables — return stack
    or a private cell.  Compare yours to the classical Forth `do/loop`
    convention.
 
-5. **★★** **The xt question.** Why does this chapter use `' branch constant
-   branch-xt` instead of a literal address?  What would have to change
-   in `000-seed.hex0` for the literal-address version to break?
+5. **★★ Trace.** Why does this chapter use `' branch constant branch-xt`
+   instead of a literal address?  What would have to change in
+   `000-seed.hex0` for the literal-address version to break?
 
 ## Takeaways
 
@@ -555,6 +559,9 @@ rather see them inside a larger battery.
 - A *fixup* is the address of a reserved branch slot.  Forward
   combinators leave fixups on the data stack at compile time;
   matching combinators consume them and patch in the resolved target.
+- The durable pattern is emit, remember, patch: write incomplete
+  bytes now, carry the address of the missing value, and fill it in
+  when the later word knows the target.
 - This is the moment Forth becomes self-extensible.  Every control
   construct in this codebase from here forward — and in the C
   compiler in Part III — uses or extends these nine words.

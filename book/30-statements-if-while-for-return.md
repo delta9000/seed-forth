@@ -1,18 +1,27 @@
 # Chapter 30 — Statements: `if`, `while`, `for`, `switch`, `break`, `continue`, `goto`
 
-This chapter covers `110-cc-decl.fth` lines 588–1438, the statement
-parsers and their control-flow codegen.  At the top sits the
-`cc-parse-stmt` dispatcher, with its `IDENT ':'` lookahead that
-distinguishes label definitions from expression statements.  The
-specialised parsers `cc-parse-if`, `cc-parse-while`, `cc-parse-for`,
-`cc-parse-do-while`, and `cc-parse-switch` each replay Ch 11's
-fixup-on-the-stack pattern, now with x86-64 `jz` / `jmp` placeholders
-in place of Forth `0branch` / `branch`.  Three tricks let that
-pattern scale: per-loop `break` / `continue` fixup lists saved across
-nested loops on the return stack, a `for`-step rewind that records
-the step's source range and re-parses it after the body, and a
-switch laid out in three passes (body in source order, dispatch
-table in reverse from a linked list of cases).
+```text
+Missing capability: expressions cannot yet become statement-level control flow.
+New pattern: emit jumps with placeholders and patch them when block, loop, switch, or label targets are known.
+Artifact after this chapter: statement codegen for blocks, branches, loops, switch, return, break, continue, and goto.
+Proof link: Stage-A control flow uses emit, remember, patch at statement scale.
+```
+
+This chapter installs the statement compiler: the layer that turns
+expressions into branches, loops, switches, returns, labels, and
+fallthrough.  It covers `110-cc-decl.fth` lines 588–1438.  At the
+top sits the `cc-parse-stmt` dispatcher, with its `IDENT ':'`
+lookahead that distinguishes label definitions from expression
+statements.  The specialised parsers `cc-parse-if`,
+`cc-parse-while`, `cc-parse-for`, `cc-parse-do-while`, and
+`cc-parse-switch` each replay Ch 11's fixup-on-the-stack pattern,
+now with x86-64 `jz` / `jmp` placeholders in place of Forth
+`0branch` / `branch`.  Three tricks let that pattern scale:
+per-loop `break` / `continue` fixup lists saved across nested loops
+on the return stack, a `for`-step rewind that records the step's
+source range and re-parses it after the body, and a switch laid out
+in three passes (body in source order, dispatch table in reverse
+from a linked list of cases).
 
 By the end you'll be able to read each statement parser, recognise
 its forward-fixup pattern, trace how `break`/`continue` thread
@@ -944,6 +953,10 @@ peek for `else`; if present, emit a second placeholder for the
 "jump over else" path, patch the first, recurse into the
 else-body, patch the second.  If absent, just patch the first.
 
+This is the same emit, remember, patch pattern from Ch 11, now at
+statement scale: the remembered value is a rel32 file offset in
+`cc-out-buf`, not an inline Forth cell in the dictionary.
+
 ### Loop helpers and absolute backward branches
 
 `cc-emit-jmp-vaddr`, `cc-emit-jnz-vaddr`, `cc-emit-je-vaddr`
@@ -1024,6 +1037,10 @@ because the list is built via prepend.  That's fine because
 `case` semantics are order-independent (two cases with the same
 K is an error anyway).
 
+The case list is another small bounded table in linked-list form:
+collect simple records as they appear, then linearly replay them
+when the dispatch point is finally known.
+
 ### Break and continue
 
 `cc-parse-break-stmt` and `cc-parse-continue-stmt` are tiny:
@@ -1040,6 +1057,11 @@ M2-Planet's source doesn't trigger this.
 C labels are function-local.  The label table is parallel
 arrays (same shape as Ch 24's symbol table) capped at 64 per
 function.  `cc-label-count` is reset on function entry.
+
+This is the small-table pattern again, but the payload is a pending
+goto-fixup list instead of a type or value.  Labels are unique within
+a function, so the linear scan is for sufficiency rather than
+shadowing.
 
 `cc-parse-goto-stmt` consumes `goto IDENT ;` and dispatches:
 
@@ -1085,11 +1107,25 @@ function.
 
 ## Try it
 
+**Small check:** choose one fixture below and trace the emitted
+placeholder jumps and patches.
+
+**Layer check:** run the root unit suite and the focused C fixtures.
+
 ```sh
 ./build.sh
 ./test.sh
+```
+
+**Bootstrap relevance:** Stage-A runs all statement forms in the
+large M2-Planet monolith, including nested control flow and labels.
+
+```sh
 tests/cc/stage-a-check.sh
 ```
+
+For the small check, choose one fixture below and trace the emitted
+placeholder jumps and patches.
 
 `tests/cc/G2.c` exercises nested `if`/`else`; `G5.c` exercises
 `while` and `for` in the same body; `G6a.c` exercises `do-while`
@@ -1099,23 +1135,23 @@ The big M2-Planet monolith exercises all of them at once.
 
 ## Exercises
 
-1. **★★** The `for`-step rewind is a unique trick.  Could `for` be
+1. **★★ Trace.** The `for`-step rewind is a unique trick.  Could `for` be
    compiled by recording the step's token range instead of
    byte range?  What would change?
 
-2. **★★★** Switch dispatch is linear in the number of cases.  At what
+2. **★★★ Trace.** Switch dispatch is linear in the number of cases.  At what
    case count does a binary-search or jump-table approach
    start to pay?  How would the codegen change?
 
-3. **★★★** `break outside any loop` is undefined here.  Add a depth
+3. **★★★ Extend.** `break outside any loop` is undefined here.  Add a depth
    counter and emit a compile-time error when it underflows.
    How many bytes does the check cost?
 
-4. **★★** Labels are function-local.  M2-Planet's monolith has 891
+4. **★★ Verify.** Labels are function-local.  M2-Planet's monolith has 891
    global references but how many gotos?  Grep the source and
    estimate.
 
-5. **★★★** The if/while/for/do-while/switch parsers all save and
+5. **★★★ Modify.** The if/while/for/do-while/switch parsers all save and
    restore break/continue heads via `>r >r ... r> r>`.  Could
    you factor this into a single helper?  What would the
    helper's interface look like?

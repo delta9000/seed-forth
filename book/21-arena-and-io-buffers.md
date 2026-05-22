@@ -1,5 +1,12 @@
 # Chapter 21 — Arena and I/O Buffers
 
+```text
+Missing capability: the compiler has nowhere to keep input bytes or emitted output.
+New pattern: fixed buffers plus a tiny arena separate owned memory by responsibility.
+Artifact after this chapter: a source reader, an output writer, and a bump allocator.
+Proof link: later stages can assemble /tmp/cc-out deterministically for Stage-A checks.
+```
+
 Part III opens with the first two files of the C compiler written
 in Forth, both of them deliberately uneventful infrastructure.
 `020-cc-arena.fth` (41 lines, entire file) is an 8-byte-aligned bump
@@ -41,6 +48,35 @@ Nothing here is dramatic.  The arena is 41 lines.  The reader and
 writer together are 151.  Their job is to be boring — to give the
 later passes a uniform memory model so the interesting code can be
 about C, not about `mmap`.
+
+## Part III's repeated shapes
+
+Before the first source block, it helps to name the patterns that
+will keep coming back.  This compiler favors fixed buffers, parallel
+arrays, integer IDs, newest-first linear lookup, and explicit
+emit/remember/patch sequences.  Those choices are not shortcuts
+around "real" compiler design; they are the normal shape of this
+bootstrap artifact.  M2-Planet is a known target, the input set is
+bounded, and predictable memory beats general allocation machinery.
+
+The main byte path is:
+
+```text
+stdin
+  -> cc-src-buf
+  -> cc-prep-out-buf
+  -> cc-src-buf
+  -> lexer/parser
+  -> cc-out-buf + globals
+  -> /tmp/cc-out
+```
+
+Keep that path in mind as the chapters add pieces to the compiler.
+Ch 22 rewrites source into a flatter stream.  Ch 23 turns that
+stream into token globals.  Ch 24 gives names and C types compact
+runtime representations.  Chs 25-31 then emit, remember, and patch
+bytes until Ch 32 can compare the resulting `.M1` text with the
+GCC-built reference.
 
 ## 1. The arena: a 41-line bump allocator
 
@@ -357,6 +393,10 @@ the four byte-writes can each compute `offset+0`, `offset+1`,
 ELF headers contain offsets and sizes that aren't known until the
 rest of the file is laid out.
 
+This is the same emit, remember, patch pattern from Ch 11, now
+lifted from dictionary HERE to `cc-out-buf` offsets.  Later compiler
+chapters will remember file offsets instead of Forth branch slots.
+
 **Section C** writes the buffer to a path with `open` + `write` +
 `close`.  Flag `577 = O_WRONLY|O_CREAT|O_TRUNC` and mode `493 =
 0o755` are the only magic numbers in the file; we compute them
@@ -387,6 +427,11 @@ emitter needs to patch ELF header fields.  Streaming versions of
 each are possible but more complex; the buffered design makes them
 trivial.
 
+This is "one buffer per responsibility" in its simplest form:
+source traversal, preprocessor output, emitted ELF bytes, and later
+global data each get an owner and a cursor instead of sharing one
+mutable stream.
+
 ## 4. How the buffers connect to what's coming
 
 The pieces declared here are reached for, by name, throughout the
@@ -413,7 +458,12 @@ fixed-size table.
 
 ## Try it
 
-The arena and I/O routines have direct unit tests at the repo root.
+**Small check:** `test-020-cc-arena.fth` and
+`test-030-cc-io.fth` are the focused probes for this chapter's two
+mechanisms.
+
+**Layer check:** run the repo test script; it includes the arena and
+I/O tests alongside the adjacent compiler-unit tests.
 
 ```sh
 ./build.sh
@@ -426,8 +476,9 @@ asserts the returned addresses are 8-aligned and non-overlapping;
 `test-030-cc-io.fth` rounds-trips bytes through `cc-emit-byte` and
 `cc-out-patch-4le`.
 
-You can also try the end-to-end gate that compiles the smallest
-test case:
+**Bootstrap relevance:** the Stage-A gate uses these buffers for
+every input byte and every emitted output byte, starting with the
+smallest C test case.
 
 ```sh
 ./build.sh && tests/cc/stage-a-check.sh
@@ -440,23 +491,23 @@ the same script will be the compiler's full proof of life.
 
 ## Exercises
 
-1. **★★★** The arena is 32 KiB.  Could you reduce it to 16 KiB without
+1. **★★★ Verify.** The arena is 32 KiB.  Could you reduce it to 16 KiB without
    breaking M2-Planet compilation?  How would you measure?  (Hint:
    instrument `cc-alloc` to record peak `cc-arena-ptr`.)
 
-2. **★★★** The source buffer is 1 MiB.  What's the actual peak source size
+2. **★★ Verify.** The source buffer is 1 MiB.  What's the actual peak source size
    for M2-Planet?  Could you tighten this and save 800 KiB of
    virtual address space?
 
-3. **★★** `cc-out-patch-4le` writes 4 bytes one at a time.  Could you
+3. **★★ Trace.** `cc-out-patch-4le` writes 4 bytes one at a time.  Could you
    write a faster `patch-cell-le` using `!` and some shuffling?
    Would it be worth the bytes-of-code?
 
-4. **★★** Add `cc-emit-string ( c-addr u -- )` that emits `u` bytes from
+4. **★★ Modify.** Add `cc-emit-string ( c-addr u -- )` that emits `u` bytes from
    `c-addr` to the output buffer.  Use it to emit a hardcoded
    "Hi\n" greeting and confirm.
 
-5. **★★** The arena's OOM path exits with status 7.  Trace which
+5. **★★ Trace.** The arena's OOM path exits with status 7.  Trace which
    compiler-side failures use which status (`die N`) and assemble
    a table.  Where should new failure modes draw their numbers
    from?

@@ -269,17 +269,17 @@ test order above.
 
 ## Exercises
 
-1. **★★** Write `hex-digit? ( c -- flag )` that returns true for
+1. **★★ Extend.** Write `hex-digit? ( c -- flag )` that returns true for
    `0..9 a..f A..F`.  How many tokens?  How does it compare to
    `digit? + alpha-lower-hex? + alpha-upper-hex?`?
 
-2. **★★** The `space?` chain uses `dup` then three `over`s.  Why not four
+2. **★★ Trace.** The `space?` chain uses `dup` then three `over`s.  Why not four
    `over`s?  Trace the stack carefully.
 
-3. **★★** The trick assumes `/` is *unsigned* division.  What would break if
+3. **★★ Trace.** The trick assumes `/` is *unsigned* division.  What would break if
    `/` were signed?  (Hint: the underflow argument fails.)
 
-4. **★★** Write `octal-digit?` and `binary-digit?`.  Then write a generic
+4. **★★ Extend.** Write `octal-digit?` and `binary-digit?`.  Then write a generic
    `between? ( c lo hi -- flag )` that takes its range from the
    stack.  Why is the per-range hard-coded version still preferable
    for the C lexer?

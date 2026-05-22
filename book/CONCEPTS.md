@@ -1,16 +1,38 @@
-# Concept index and dependency graph
+# Concept index, rung map, and dependency graph
 
-This file does two jobs:
+This file does three jobs:
 
 1. **Concept index** — every named idea in the book and the chapter
    that introduces it.  Use this when you want to remind yourself
    what "the consumed-slot property" means or which chapter first
    talks about lvalues.
 
-2. **Dependency graph** — for each chapter, which previous chapters
+2. **Rung map** — the main artifacts the book builds, in the order
+   later chapters start treating them as machinery.
+
+3. **Dependency graph** — for each chapter, which previous chapters
    it requires.  Use this when picking what to write next: a chapter
    is "safe to write" once everything in its dependency list is at
    least 📝 in [README.md](README.md).
+
+## Rung map
+
+The book is source-ordered, but the learning path is a ladder.  Each
+span builds one artifact that later chapters stop explaining from
+first principles and start using as a primitive.
+
+| Rung | Built in | Artifact | Treated as machinery by |
+|---|---:|---|---|
+| Forth vocabulary | Chs 1-12 | `010-lib.fth` helpers | Parts II and III |
+| Seed VM | Chs 13-20 | `seed-forth` interpreter | Part III |
+| Compiler buffers | Ch 21 | source/output streams | Chs 22-32 |
+| Preprocessed source | Ch 22 | flattened C stream + macro table | Chs 23-32 |
+| Token stream | Ch 23 | `tok-*` globals | Chs 24-31 |
+| Type/symbol database | Ch 24 | type words + symbol slots | Chs 26-31 |
+| Code emitter | Chs 25-26 | ELF and x86-64 encoders | Chs 27-31 |
+| Expression compiler | Chs 27-28 | value/lvalue codegen | Chs 29-31 |
+| Declaration/statement/function compiler | Chs 29-31 | complete C-subset parser | Ch 32 |
+| Proof harness | Ch 32 | Stage-A `.M1` parity | Appendices |
 
 ## Concept index
 
@@ -59,6 +81,7 @@ their introducing chapter.
   rdi,V; ret`) — Ch 10; *Ch 12, Ch 14*
 - **Fixup-on-the-stack** — Ch 11; *Ch 19 (the underlying mechanism),
   Ch 30 (same idea in the C compiler's output)*
+- **Emit, remember, patch** — Ch 11; *Chs 19, 21, 25, 26, 30, 31*
 - **`comma-call` (compile a 5-byte rel32 CALL)** — Ch 11; *Ch 26*
 - **Loop without `exit` (accumulate in a variable)** — Ch 12; *Ch 23*
 
@@ -81,6 +104,9 @@ their introducing chapter.
 - **Bump allocator** — Ch 21
 - **Source buffer / output buffer / back-patching** — Ch 21;
   *Chs 25, 26, 30, 31*
+- **One buffer per responsibility** — Ch 21; *Chs 22, 26, 31*
+- **Small tables, linear search, newest wins** — Ch 17; *Chs 22,
+  24, 30, 31*
 - **Macro table (parallel arrays)** — Ch 22
 - **Token kinds (`KW_*`, `ID`, `PUNCT`, `NUM`, `STR`, `CHR`)** —
   Ch 23; *Chs 27–31*

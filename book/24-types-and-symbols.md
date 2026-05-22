@@ -1,5 +1,12 @@
 # Chapter 24 — Types and Symbols
 
+```text
+Missing capability: names and C types have no compact runtime representation.
+New pattern: pack types into one word and store symbols in parallel newest-visible columns.
+Artifact after this chapter: type helpers, struct descriptors, scoped symbol rows, and lookup.
+Proof link: later Stage-A codegen can resolve names, scopes, sizes, and layouts consistently.
+```
+
 Two short files give the compiler its memory of "what exists".
 `060-cc-types.fth` (88 lines, entire file) packs every C type into
 a single 64-bit word, with five base kinds and a pointer-depth
@@ -410,6 +417,11 @@ order plus skip-after-hit gives innermost-scope-wins semantics
 without any explicit scope checking — innermost-declared symbols
 appear later in the table, so the reverse walk finds them first.
 
+This is Ch 17's newest-wins lookup pattern with one extra
+dimension: scope.  Pushing a scope remembers a count, adding locals
+appends rows, and popping the scope restores the count so the same
+linear walk sees the right visible names.
+
 The result encoding `(id) or (-1)` is conventional: `[lit] 0 0=`
 produces -1, the same value the find result starts with, so a
 post-loop read tells the caller "found id N" or "not found."
@@ -463,6 +475,12 @@ That's the only protocol every later chapter needs to know.
 
 ## Try it
 
+**Small check:** the `probe` snippet below adds one symbol and prints
+the new symbol id plus the resulting count.
+
+**Layer check:** the root test script covers both files from this
+chapter.
+
 ```sh
 ./build.sh
 ./test.sh               # exercises types via test-060-cc-types.fth
@@ -474,10 +492,10 @@ That's the only protocol every later chapter needs to know.
 `test-070-cc-sym.fth` exercises `cc-sym-add`, `cc-sym-find`, and
 the scope push/pop dance.
 
-To see the parallel-array layout by hand, write a small smoke test
-that loads the seven Forth files, adds one symbol, and prints its id
-and the resulting count.  We define a one-shot word `probe` and call
-it; seed-forth has no `-e` flag, so everything goes through stdin:
+To run the small check, load the seven Forth files, add one symbol,
+and print its id and the resulting count.  We define a one-shot word
+`probe` and call it; seed-forth has no `-e` flag, so everything goes
+through stdin:
 
 ```sh
 ./build.sh
@@ -488,13 +506,13 @@ it; seed-forth has no `-e` flag, so everything goes through stdin:
     sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
   done
   cat <<'FORTH'
-    here  [lit] 102 c, [lit] 111 c, [lit] 111 c,   \ write "foo" at HERE
-    [lit] 3                                         \ name-len
-    sk-global                                       \ kind
-    ty-int [lit] 0 ty-make                          \ type
-    [lit] 1024                                      \ val
+    here  [lit] 102 c, [lit] 111 c, [lit] 111 c,
+    [lit] 3
+    sk-global
+    ty-int [lit] 0 ty-make
+    [lit] 1024
     cc-sym-add
-    [lit] 48 + emit                                 \ print id as ASCII digit
+    [lit] 48 + emit
     cc-sym-count @ [lit] 48 + emit
     bye
 FORTH
@@ -504,26 +522,30 @@ FORTH
 Expected output: `01` — the new symbol's id is `0`, and the count
 after the add is `1`.
 
+**Bootstrap relevance:** Stage-A reaches this layer through every
+identifier lookup, local declaration, struct field, typedef, and
+function symbol in the M2-Planet input.
+
 ## Exercises
 
-1. **★★★** Add `ty-short` (16-bit integer).  How many places change?
+1. **★★★ Extend.** Add `ty-short` (16-bit integer).  How many places change?
    What new size does `ty-size` need to return?  Hint: changing
    `060-cc-types.fth` is the easy part; finding all the places
    in Chs 25–31 that assume 8-byte cells is the hard part.
 
-2. **★★** Struct fields max out at 16 per struct.  Find the largest
+2. **★★ Verify.** Struct fields max out at 16 per struct.  Find the largest
    struct in M2-Planet's source.  Does it fit?
 
-3. **★★** The symbol table is a linear-scan parallel-array.  What's the
+3. **★★ Trace.** The symbol table is a linear-scan parallel-array.  What's the
    worst-case lookup time for a 1000-symbol table?  Would a
    hash-based table fit in this codebase's size budget?
 
-4. **★★★** Add `ty-array` as a base kind distinct from `ty-ptr`.  Where
+4. **★★★ Extend.** Add `ty-array` as a base kind distinct from `ty-ptr`.  Where
    would it differ in behaviour from a plain pointer?  Hint:
    array-to-pointer decay (in expression context) and
    `sizeof(arr)` (in `sizeof` context) are the two C rules.
 
-5. **★★★** `cc-sym-find`'s newest-first walk plus "skip after hit" is
+5. **★★★ Modify.** `cc-sym-find`'s newest-first walk plus "skip after hit" is
    linear in table size, even after a hit.  Could you bail
    early?  Hint: the seed has no `exit`, but a Forth-level
    wrapper could check a flag at every iteration and skip the

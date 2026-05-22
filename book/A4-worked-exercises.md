@@ -3,21 +3,23 @@
 The 32 main chapters end with 3–5 exercises each — roughly a
 hundred total, none with solutions printed inline (the point of
 an exercise is the time you spend stuck).  This appendix is a
-*sampler*: one exercise from each Part, walked end to end, to
-show what a thorough solution looks like.  The picks are
-deliberately a mix of hands-on, analytical, and tracing.
+*sampler*: one exercise from each Part, walked end to end.  The
+picks are one Extend and two Traces — a hands-on derivation, an
+analytical "why is this enough?", and a step-by-step trace —
+chosen so the three modes a Trace/Verify/Modify/Extend reader
+will actually use are each shown fully worked.
 
-| From | Exercise |
-|------|---|
-| Ch 11 (Part I)   | "Add the `again,` combinator" |
-| Ch 18 (Part II)  | "Why is `ret` enough to end a colon definition?" |
-| Ch 27 (Part III) | "Trace `cc-parse-add` parsing `a - b - c`" |
+| From | Tag | Exercise |
+|------|-----|---|
+| Ch 11 (Part I)   | ★★ Extend | "Add the `again,` combinator" |
+| Ch 18 (Part II)  | ★ Trace   | "Why is `ret` enough to end a colon definition?" |
+| Ch 27 (Part III) | ★★ Trace  | "Trace `cc-parse-add` parsing `a - b - c`" |
 
 ---
 
 ## D.1.  Ch 11 — Add the `again,` combinator
 
-> **Exercise (Ch 11 #3).**  Write `again, ( back-target -- )` which
+> **Exercise (Ch 11 #3, ★★ Extend).**  Write `again, ( back-target -- )` which
 > emits an unconditional backward jump.  It is the simplest member
 > of this family — three lines.
 
@@ -97,7 +99,7 @@ machinery on top of these two emits.
 
 ## D.2.  Ch 18 — Why is `ret` enough to end a colon definition?
 
-> **Exercise (Ch 18 #2).**  `;`'s appended `ret` (`C3`) is the only
+> **Exercise (Ch 18 #2, ★ Trace).**  `;`'s appended `ret` (`C3`) is the only
 > thing that ends a colon definition.  Why is `ret` enough?  (Hint:
 > how was the colon definition *entered* — via `CALL` or via
 > `JMP`?)
@@ -174,7 +176,7 @@ to honour.
 
 ## D.3.  Ch 27 — Trace `cc-parse-add` parsing `a - b - c`
 
-> **Exercise (Ch 27 #1).**  Trace `cc-parse-add` parsing `a - b - c`.
+> **Exercise (Ch 27 #1, ★★ Trace).**  Trace `cc-parse-add` parsing `a - b - c`.
 > Where does left-associativity come from?
 
 ### What's being asked

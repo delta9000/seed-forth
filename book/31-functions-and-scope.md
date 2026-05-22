@@ -1,10 +1,19 @@
 # Chapter 31 — Functions: Parameters, Calls, Globals, Entry Stub
 
-This chapter is the final third of `110-cc-decl.fth` (lines
-1439–2750) and the busiest in Part III.  Four anchors do the heavy
-lifting: `cc-parse-call` dispatches direct, forward, and indirect
-calls; `cc-parse-function` ties the prologue, body, epilogue, and
-scope cleanup together; `cc-parse-program` loops over file-scope
+```text
+Missing capability: the compiler cannot assemble functions, globals, calls, scopes, and program entry.
+New pattern: parse file-scope forms while resolving forward calls, scoped locals, globals, and the entry stub.
+Artifact after this chapter: a complete C-subset translation-unit compiler.
+Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-out.
+```
+
+This chapter assembles the final translation-unit machinery: calls,
+function bodies, globals, top-level parsing, and the entry stub.  It
+is the final third of `110-cc-decl.fth` (lines 1439–2750) and the
+busiest chapter in Part III.  Four anchors do the heavy lifting:
+`cc-parse-call` dispatches direct, forward, and indirect calls;
+`cc-parse-function` ties the prologue, body, epilogue, and scope
+cleanup together; `cc-parse-program` loops over file-scope
 declarations; and the 26-byte entry stub at `0x400078` sets up
 `argc` / `argv`, calls `main`, and exits.
 
@@ -1461,6 +1470,10 @@ that took a function's address as an rvalue (Ch 28 §4) gets
 its imm64 filled in.  All before the prologue's first byte is
 emitted.
 
+This is the same emit, remember, patch pattern from Ch 11, now at
+function-symbol scale.  The remembered offsets live in symbol-table
+extra fields until the definition supplies the vaddr.
+
 ## 5. Enums and typedefs
 
 `cc-parse-enum-def` and `cc-parse-typedef` register names in the
@@ -1503,6 +1516,11 @@ explains why: real-world headers re-declare the same prototype
 across translation units; concatenated into our monolith we
 have to skip the re-add or call sites will resolve to a stale
 `val=0` entry whose fixups are never patched.
+
+The symbol table's newest-first rule is doing real work here.  A
+function definition appends a newer `sk-func` row so later calls
+resolve to the body, while earlier forward-call fixups remain
+attached to the prototype row until the definition patches them.
 
 `cc-parse-function-list` is the master loop.  For every
 top-level construct it:
@@ -1556,6 +1574,10 @@ syscall              ; 2 bytes
 The `call <main>` placeholder is patched by `cc-patch-call-main`
 once `cc-main-vaddr` is known (after the function-list parse).
 
+This is the final emit, remember, patch recurrence inside the
+compiler proper: the entry stub exists before `main`, but its call
+site is completed only after the whole top-level parse.
+
 `cc-emit-shims` walks the eleven libc shim emitters from Ch 26
 and registers each in the symbol table with its emitted vaddr.
 After this, user code calling `putchar(c)` resolves to a normal
@@ -1582,10 +1604,23 @@ together.
 
 ## Try it
 
+**Small check:** inspect one focused fixture below and trace its
+calls, globals, or parameter slots through the chapter.
+
+**Layer check:** there is no standalone root-level test for
+`110-cc-decl.fth`; the focused `tests/cc/G*.c` programs are this
+chapter's layer checks.
+
+**Bootstrap relevance:** function calls, scopes, globals, and the
+entry stub converge in the Stage-A gate.
+
 ```sh
 ./build.sh
 tests/cc/stage-a-check.sh                    # end-to-end gate
 ```
+
+For the small check, inspect one of the focused fixtures below and
+trace its calls, globals, or parameter slots through the chapter.
 
 `tests/cc/G3.c` exercises function definitions with multiple
 params (`square`, `sum`); `G12.c` exercises function pointers;
@@ -1596,27 +1631,28 @@ compiles M2-Planet via seed-forth plus all the `cc-*.fth` files
 and diffs the resulting .M1 output against the GCC-built
 reference.
 
+
 ## Exercises
 
-1. **★★** The forward-fixup walk in `cc-parse-function` step 3 handles
+1. **★★ Trace.** The forward-fixup walk in `cc-parse-function` step 3 handles
    both `cc-sym-extra` (rel32 calls) and `cc-sym-extra2`
    (imm64 movabs).  Trace how both lists get populated and
    which path each fixup type originates from.
 
-2. **★★** The 256-byte frame caps locals at 32.  Find the largest
+2. **★★ Verify.** The 256-byte frame caps locals at 32.  Find the largest
    M2-Planet function (most locals) and confirm it fits.
    What changes if you bump the cap?
 
-3. **★★★** Parameter spill is hard-coded for 6 args.  Add a 7th param
+3. **★★★ Extend.** Parameter spill is hard-coded for 6 args.  Add a 7th param
    path that reads from `[rbp + 16]` (caller-allocated stack
    slot).  Where would the prologue change?
 
-4. **★★** The libc shim registration emits the bytes *and* the symbol
+4. **★★ Modify.** The libc shim registration emits the bytes *and* the symbol
    in one pass.  Could you split this into "emit bytes" and
    "register symbol" phases?  What does the new ordering buy
    you?
 
-5. **★★** `cc-top-peek-is-fn-def?` walks all tokens to the next `{`
+5. **★★ Trace.** `cc-top-peek-is-fn-def?` walks all tokens to the next `{`
    or `;` at depth 0.  Could it stop after seeing a single
    `(` (since a function definition must have one)?  Construct
    a counterexample.
@@ -1630,7 +1666,8 @@ reference.
 - The forward-fixup pattern that started in Ch 11's `if,` is
   now applied to *function vaddrs*: at the moment a function
   is defined, every call to it that emitted a placeholder gets
-  its rel32 patched in one walk.
+  its rel32 patched in one walk.  Emit, remember, patch has scaled
+  from one inline branch slot to whole-program symbol resolution.
 - The top-level driver is small — six lines — because every
   piece it orchestrates is already complete.  This is what
   literate construction looks like at the apex.

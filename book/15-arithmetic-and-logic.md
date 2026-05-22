@@ -259,27 +259,27 @@ echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
 
 ## Exercises
 
-1. **★★** `+` doesn't check for carry — overflow wraps silently.  Construct
+1. **★★ Verify.** `+` doesn't check for carry — overflow wraps silently.  Construct
    an input that overflows the 64-bit *signed* range (positive →
    negative) and confirm the result by emitting the high bit as a
    character.
 
-2. **★★** `*` ignores the high 64 bits of the 128-bit product.  Construct
+2. **★★ Trace.** `*` ignores the high 64 bits of the 128-bit product.  Construct
    an input pair where this matters (i.e., the true product would
    exceed 64 bits).  Why doesn't the C compiler care about this in
    practice?
 
-3. **★** The `/` primitive doesn't handle divide-by-zero (the CPU traps,
+3. **★ Trace.** The `/` primitive doesn't handle divide-by-zero (the CPU traps,
    the kernel sends `SIGFPE`).  Why doesn't the seed expose a
    `?divide` checker?  (Hint: how often does the Forth-level code
    actually need to divide by an untrusted value?)
 
-4. **★★★** Add a `mod` primitive (`u1 u2 -- u1 mod u2`) to a copy of
+4. **★★★ Extend.** Add a `mod` primitive (`u1 u2 -- u1 mod u2`) to a copy of
    `000-seed.hex0`.  It's almost identical to `divide_code`; what
    one byte changes?  (Hint: `rdx`, not `rax`, holds the remainder
    after `DIV`.)
 
-5. **★★★** The `40` prefix on `sete dil` puzzled some readers.  Try
+5. **★★★ Verify.** The `40` prefix on `sete dil` puzzled some readers.  Try
    assembling `sete bh` (no prefix) and `sete dil` (with the `40`
    prefix) using `nasm` or `as`; compare the encodings.  Why does
    the seed need the prefix?

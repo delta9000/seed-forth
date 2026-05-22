@@ -1,12 +1,20 @@
 # Chapter 27 — Expressions, Part 1: Precedence Climbing
 
-This chapter opens `100-cc-expr.fth` (1447 lines total) and covers
-its binary-operator cascade plus the scaffolding the rest of the
-file needs.  The scaffolding is a one-token putback layer
-(`cc-tok-pending`, `cc-next-token-keep`, `cc-putback-token`) so the
-parser can peek past a fold boundary without re-lexing, plus
-forward-reference vecs for the mutually recursive parsers.  The
-cascade itself runs through ten precedence layers from
+```text
+Missing capability: the token stream cannot become expression machine code.
+New pattern: precedence climbing repeats one binary-fold codegen template at each operator level.
+Artifact after this chapter: arithmetic, comparison, bitwise, and logical binary expression codegen.
+Proof link: Stage-A binary expressions lower through one auditable cascade.
+```
+
+This chapter installs the first half of the expression compiler: the
+binary-operator cascade.  It opens `100-cc-expr.fth` (1447 lines
+total) and also covers the scaffolding the rest of the file needs:
+a one-token putback layer (`cc-tok-pending`, `cc-next-token-keep`,
+`cc-putback-token`) so the parser can peek past a fold boundary
+without re-lexing, plus forward-reference vecs for the mutually
+recursive parsers.  The cascade itself runs through ten precedence
+layers from
 `cc-parse-mul` to `cc-parse-log-or`, every one a textbook
 precedence-climbing loop emitting the same five-step codegen
 template (eval left, push, eval right, `pop rdi`, apply op).
@@ -716,11 +724,26 @@ precedence table.
 
 ## Try it
 
+**Small check:** read one focused expression fixture and trace it
+through the precedence cascade.
+
+**Layer check:** `./test.sh` exercises the expression parser through
+the focused C fixtures.
+
 ```sh
 ./build.sh
 ./test.sh                              # exercises the expression parser
-tests/cc/stage-a-check.sh              # end-to-end bootstrap gate
 ```
+
+**Bootstrap relevance:** the end-to-end gate confirms that the same
+expression paths emit byte-identical `.M1` for M2-Planet.
+
+```sh
+tests/cc/stage-a-check.sh
+```
+
+For the small check, use the focused fixtures named below before or
+after running the scripts.
 
 The unit tests under `tests/cc/` start at `G0.c` (return 42) and
 walk up through `G14*.c`.  `G1.c` exercises basic arithmetic
@@ -730,27 +753,27 @@ bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
 
 ## Exercises
 
-1. **★★** Trace `cc-parse-add` parsing `a - b - c`.  Where does
+1. **★★ Trace.** Trace `cc-parse-add` parsing `a - b - c`.  Where does
    left-associativity come from?
 
-2. **★★** The shift cascade `cc-parse-shift` handles `<<` and `>>` as
+2. **★★ Trace.** The shift cascade `cc-parse-shift` handles `<<` and `>>` as
    binary operators.  Their compound-assign counterparts `<<=`
    and `>>=` already live in `cc-assign-op?` (Ch 28).  Why don't
    the compound forms live in this file alongside the binary
    forms?  (Hint: where does the parse tree branch into
    right-associative territory?)
 
-3. **★★★** The short-circuit `&&` produces `1` on success.  Modify it
+3. **★★★ Modify.** The short-circuit `&&` produces `1` on success.  Modify it
    to produce the *right operand's value* instead (the C
    standard leaves this implementation-defined — many compilers
    don't canonicalise to 0/1).  How many bytes does that save?
 
-4. **★★** The three return-stack pushes in `cc-parse-log-and` are
+4. **★★ Trace.** The three return-stack pushes in `cc-parse-log-and` are
    delicate — get the order wrong and the wrong fixup gets
    patched first.  Sketch a diagram showing each `>r`/`r>` and
    verify the comment's `R:` annotations match the code.
 
-5. **★★★** Add an `>>>` unsigned-right-shift operator (it's not in C,
+5. **★★★ Extend.** Add an `>>>` unsigned-right-shift operator (it's not in C,
    but imagine it).  What would it touch in the lexer (Ch 23),
    the instruction encoders (Ch 25), and this file?
 

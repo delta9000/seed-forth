@@ -422,26 +422,26 @@ echo "thisisnotaword bye" | ./seed-forth
 
 ## Exercises
 
-1. **★★★** Install a `NUMBER_HOOK` that parses hex literals (e.g., `0x1F`).
+1. **★★★ Extend.** Install a `NUMBER_HOOK` that parses hex literals (e.g., `0x1F`).
    Where in the REPL does it need to be consulted?  How many bytes
    of patching?  (Hint: you'll need to modify the miss path to call
    the hook instead of jumping straight to `?\n`.)
 
-2. **★★** Why does `[lit]` need to be IMMEDIATE?  Trace what would happen
+2. **★★ Trace.** Why does `[lit]` need to be IMMEDIATE?  Trace what would happen
    if you cleared the IMMEDIATE bit in its dictionary entry and
    then compiled `: foo [lit] 5 ;`.
 
-3. **★★★** Modify the REPL's miss path to print the unknown token before
+3. **★★★ Modify.** Modify the REPL's miss path to print the unknown token before
    the `?`.  Where in `000-seed.hex0` does the change go?  How
    many extra bytes does it cost?  (Hint: you have to call
    `emit_code` in a loop over the token bytes; `0x412800` is the
    buffer address.)
 
-4. **★★** The REPL has no `quit` / `abort` mechanism beyond `bye`.  Search
+4. **★★ Verify.** The REPL has no `quit` / `abort` mechanism beyond `bye`.  Search
    the `*-cc-*.fth` files for `die` and explain how the C compiler
    handles compile errors instead.
 
-5. **★★★** `parse_decimal_code` doesn't handle leading `-`.  Sketch the
+5. **★★★ Extend.** `parse_decimal_code` doesn't handle leading `-`.  Sketch the
    smallest patch that adds negative-number support.  How many
    bytes?  Where does the sign-extension happen?
 
@@ -459,14 +459,22 @@ echo "thisisnotaword bye" | ./seed-forth
   IMMEDIATE words always execute, no matter which mode the REPL
   is in.
 
-The seed-forth REPL you have just finished reading is now the *host*
-for a self-hosted C compiler.  The remaining twelve chapters use the
+## Bridge to Part III: the seed is now a host
+
+Part I taught the Forth vocabulary while treating the seed
+primitives as black boxes.  Part II opened those boxes and showed
+the exact bytes behind token reading, dictionary lookup, compiling,
+branching, literals, and the REPL loop.  The inversion is complete:
+the words that were machine-code mysteries in Part I are now tools
+we can trust.
+
+The remaining twelve chapters use those tools as the *host* for a C
+compiler.  You should not expect another tour of seed internals.
+Instead, Part III follows compiler infrastructure built out of the
 same primitives you have just seen in machine code — `:`, `;`, `[lit]`,
 `if,`, `then,`, `branch`, `0branch`, `read_word`, `find`, `here`, `,`
-— to build a compiler whose emitted `.M1` text matches the
-GCC-built M2-Planet reference on the stage-A inputs.  Part III is
-the payoff: the bootstrap story and the Forth story braided into one
-program.
+— until the compiler emits `.M1` text matching the GCC-built
+M2-Planet reference on the stage-A inputs.
 
 Next: Chapter 21 — Arena and I/O Buffers (Part III opens; we leave
 the seed and start reading the C compiler).

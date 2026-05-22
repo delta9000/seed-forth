@@ -1,8 +1,16 @@
 # Chapter 26 — Codegen, Part 2: Calls, Shims, and Globals
 
-This chapter finishes `090-cc-emit.fth` (lines 412–1027, picking up
-where Ch 25 left off).  Three layers sit on top of the per-
-instruction encoders.  *Wide-immediate fixups*:
+```text
+Missing capability: emitted code cannot refer to unknown functions, globals, strings, or runtime services.
+New pattern: emit placeholders, thread fixup lists, and finalize shims, strings, and globals later.
+Artifact after this chapter: calls, libc shims, string storage, global storage, and wide-immediate fixups.
+Proof link: Stage-A programs can use calls, file-scope data, and forward references without relocations.
+```
+
+This chapter installs the deferred-resolution layer above Ch 25's
+raw instruction encoders.  It finishes `090-cc-emit.fth` (lines
+412–1027), where three layers sit on top of the per-instruction
+words.  *Wide-immediate fixups*:
 `cc-emit-movabs-rdi-imm64` plus `cc-add-fixup-to-list` let the
 codegen reference forward-declared functions and not-yet-placed
 globals by emitting zeros and threading the patch offset onto a
@@ -95,6 +103,10 @@ allocates a 16-byte node via `cc-alloc` (Ch 21), writes the new
 node's `[0]` = patch-offset and `[8]` = old-head, and updates the
 list root variable to point at the new node.  Standard intrusive
 linked-list prepend, written in nine words of Forth.
+
+This is the same emit, remember, patch pattern from Ch 11, now with
+"remember" upgraded from one stack cell to a linked list of output
+offsets.
 
 The shape of a list node is:
 
@@ -851,6 +863,10 @@ After that, `cc-finalize-elf` (Ch 25 §1) patches the program
 header's `p_filesz`, and `cc-write-output` (Ch 21 §2) writes the
 buffer.
 
+The buffer ownership is deliberate: string bytes, global bytes, and
+machine-code bytes each have a staging area until final layout makes
+their addresses stable.
+
 The 4096-entry fixup cap matters: M2-Planet's `cc_core.c` emits
 about 891 references to globals.  256 would overflow; 4096 leaves
 healthy headroom.  The capacity numbers throughout the compiler
@@ -885,15 +901,25 @@ output-side picture of the compiler.
 
 ## Try it
 
+**Small check:** the one-line program below calls `putchar`, forcing
+the shim path to exist in the output.
+
+**Layer check:** there is no standalone root-level codegen unit
+test; the focused C fixtures under `tests/cc/G*.c` are the layer
+tests for these paths.
+
+**Bootstrap relevance:** calls, shims, strings, globals, and
+wide-immediate fixups all participate in the Stage-A gate.
+
 ```sh
 ./build.sh
 tests/cc/stage-a-check.sh        # full bootstrap-gate
 ```
 
-To exercise just the shim emission, compile a one-line program.
-Seed-forth has no `-e` flag or `include` word, so we feed the
-twelve numbered `.fth` files (stripped of Forth comments) followed
-by the C source on a single stdin.  The last file
+To run the small check, compile the one-line program directly.
+Seed-forth has no `-e` flag or `include` word, so we feed the twelve
+numbered `.fth` files (stripped of Forth comments) followed by the C
+source on a single stdin.  The last file
 (`120-cc-main.fth`) ends by invoking `cc-main`, which reads the
 remaining stdin as the C input, compiles, writes `/tmp/cc-out`,
 and exits:
@@ -912,26 +938,27 @@ chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'
 `tests/cc/build-m2planet-monolith.sh` runs the same pattern at full
 scale, building M2-Planet itself with this pipe.
 
+
 ## Exercises
 
-1. **★★★** The `calloc` shim is 113 bytes and uses hand-counted RIP-
+1. **★★★ Modify.** The `calloc` shim is 113 bytes and uses hand-counted RIP-
    relative offsets.  Add a 16-byte alignment padding to the
    prologue and confirm which displacements need to change.
 
-2. **★★★** `free` is a 1-byte `ret`.  Construct a test program that
+2. **★★★ Verify.** `free` is a 1-byte `ret`.  Construct a test program that
    relies on `free` reclaiming memory; observe how the bump
    allocator handles it.  Could a free-list be retrofitted?
 
-3. **★★** `fopen` recognises only `r`, `w`, `a` as the first byte of the
+3. **★★ Trace.** `fopen` recognises only `r`, `w`, `a` as the first byte of the
    mode string.  What does it do with `rb` or `r+`?  Trace one
    case.
 
-4. **★★** The fixup-list mechanism in `cc-add-fixup-to-list` is the
+4. **★★ Trace.** The fixup-list mechanism in `cc-add-fixup-to-list` is the
    same shape as a Lisp cons-cell.  Could the compiler reuse a
    single generic list type for both forward-call fixups and
    global fixups?  What would the consolidation save?
 
-5. **★★★** The string-bytes decoder handles seven escapes.  Add `\xNN`
+5. **★★★ Extend.** The string-bytes decoder handles seven escapes.  Add `\xNN`
    (two-hex-digit escape).  Where in the codegen does the new
    case go?
 

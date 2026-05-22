@@ -1,10 +1,18 @@
 # Chapter 29 — Declarations: Types, Structs, Locals
 
-This chapter opens `110-cc-decl.fth`, the longest file in Part III
-at 2750 lines, and covers lines 1–587 (the source-order split puts
-statements in Ch 30 and functions in Ch 31).  Three pieces of the
-declaration machinery anchor the read.  `cc-parse-struct-def` uses
-a pre-registration trick so `struct T { struct T* next; }` can
+```text
+Missing capability: declarations cannot create types, structs, locals, or file-scope symbols.
+New pattern: parse base types and declarators into symbol rows, with pre-registration for recursive structs.
+Artifact after this chapter: declaration parsing for scalar types, pointers, arrays, structs, and locals.
+Proof link: Stage-A declarations populate the type and symbol database before statements and functions consume it.
+```
+
+This chapter installs the declaration machinery that feeds Ch 24's
+type and symbol tables.  It opens `110-cc-decl.fth`, the longest
+file in Part III at 2750 lines, and covers lines 1–587 (the
+source-order split puts statements in Ch 30 and functions in Ch 31).
+Three pieces anchor the read.  `cc-parse-struct-def` uses a
+pre-registration trick so `struct T { struct T* next; }` can
 resolve its own tag mid-body.  `cc-parse-decl-with-base` is the
 shared scalar/array/initializer engine that both `cc-parse-decl`
 and Ch 30's typedef-name path call into.  `cc-peek-fnptr?` is a
@@ -752,11 +760,25 @@ bytes (zero+epilogue) but harmless.
 
 ## Try it
 
+**Small check:** start with one fixture below and map each
+declaration to the symbol table row it creates.
+
+**Layer check:** run the root unit suite and the focused C fixtures.
+
 ```sh
 ./build.sh
 ./test.sh
+```
+
+**Bootstrap relevance:** Stage-A covers declarations at M2-Planet
+scale, including structs, typedefs, locals, and file-scope data.
+
+```sh
 tests/cc/stage-a-check.sh
 ```
+
+For the small check, start with one of these fixtures and map each
+declaration to the symbol table row it creates.
 
 `tests/cc/G3.c` exercises basic local declarations inside function
 bodies; `G9b.c` exercises struct declarations and field arithmetic;
@@ -765,26 +787,26 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
 
 ## Exercises
 
-1. **★★** Pre-registration of struct tags makes `struct T { struct T*
+1. **★★ Trace.** Pre-registration of struct tags makes `struct T { struct T*
    next; }` work.  What about `struct A { struct B* b; };
    struct B { struct A* a; };` — mutual recursion?  Trace what
    happens.
 
-2. **★★** Storage qualifiers are all no-ops.  Construct a program where
+2. **★★ Verify.** Storage qualifiers are all no-ops.  Construct a program where
    omitting `static` from a local variable would cause a bug
    (e.g. expecting cross-call persistence) and verify the
    compiler's behaviour.
 
-3. **★★★** Function-pointer decls use 2-token lookahead.  How could you
+3. **★★★ Modify.** Function-pointer decls use 2-token lookahead.  How could you
    reduce this to 1?  Hint: `(*` is two ASCII bytes; you could
    peek the next byte after `(` via the lexer's `cc-peek-char-2`.
 
-4. **★★★** `cc-parse-decl-with-base` accepts at most one initializer
+4. **★★★ Extend.** `cc-parse-decl-with-base` accepts at most one initializer
    expression.  Could you extend it to handle `int arr[N] =
    {a, b, c};`?  What new vocabulary in the codegen would
    that need?
 
-5. **★★★** Every field is 8 bytes regardless of `char` vs `int`.  This
+5. **★★★ Extend.** Every field is 8 bytes regardless of `char` vs `int`.  This
    wastes memory on a struct full of `char` fields.  What
    would change in `cc-sd-append-field` to support packed
    layouts?

@@ -1,5 +1,12 @@
 # Chapter 32 — End to End: Main and the Bootstrap Chain
 
+```text
+Missing capability: the built compiler has not been tied to the bootstrap proof.
+New pattern: compose the load-order driver and shell checks that compare against GCC-built M2-Planet.
+Artifact after this chapter: the Stage-A harness and byte-identical .M1 parity check.
+Proof link: the proof is direct parity of emitted .M1 text, not identity of compiler ELFs.
+```
+
 This is the synthesis chapter.  The whole compiler is 38 lines of
 glue in `120-cc-main.fth` (entire file): a pre-baked 12-byte
 `/tmp/cc-out\0` constant, a nine-word `cc-main` that composes every
@@ -294,9 +301,21 @@ form that fits in a single reader's working memory.
 
 ## Try it
 
+**Small check:** the manual compile below builds a tiny `return 42`
+program through the full Forth compiler pipeline.
+
+**Layer check:** build the seed and run the cross-layer unit suite.
+
 ```sh
 ./build.sh                       # 2,040-byte seed → ./seed-forth
 ./test.sh                        # unit tests across all layers
+```
+
+**Bootstrap relevance:** these are the proof commands.  Stage-A is
+the byte-identical `.M1` parity check; `bootstrap-chain.sh` extends
+that closure through the slower downstream stages.
+
+```sh
 tests/cc/stage-a-check.sh        # the byte-identical proof
 tests/cc/bootstrap-chain.sh      # the full closure (slower)
 ```
@@ -305,11 +324,11 @@ If `stage-a-check.sh` reports
 `self-v1-amd64.M1 == self-ref-amd64.M1`, you have reproduced
 the project's central claim.
 
-To compile a small program by hand, concatenate the twelve .fth
-files (stripped of Forth comments) onto stdin first, then append
-the C source.  The last .fth file (`120-cc-main.fth`) ends by
-calling `cc-main`, which slurps whatever's left on stdin as the C
-input, compiles, writes `/tmp/cc-out`, and exits:
+To run the small check, concatenate the twelve .fth files (stripped
+of Forth comments) onto stdin first, then append the C source.  The
+last .fth file (`120-cc-main.fth`) ends by calling `cc-main`, which
+slurps whatever's left on stdin as the C input, compiles, writes
+`/tmp/cc-out`, and exits:
 
 ```sh
 ./build.sh
@@ -329,27 +348,27 @@ full scale.
 
 ## Exercises
 
-1. **★★** Run `tests/cc/bootstrap-chain.sh` and time each step.  Which
+1. **★★ Verify.** Run `tests/cc/bootstrap-chain.sh` and time each step.  Which
    is slowest?  Could you speed it up without breaking
    byte-identity?
 
-2. **★★★** Add a primitive to `000-seed.hex0` (say, `mod` from Ch 15's
+2. **★★★ Extend.** Add a primitive to `000-seed.hex0` (say, `mod` from Ch 15's
    exercises).  Rebuild and run `./test.sh` plus
    `stage-a-check.sh`.  What invariants might you have
    broken?
 
-3. **★★★** The `cc-out-path` is hard-coded to `/tmp/cc-out`.  Modify
+3. **★★★ Modify.** The `cc-out-path` is hard-coded to `/tmp/cc-out`.  Modify
    the compiler to read a path from stdin's first line (the
    seed doesn't expose argv directly; a stdin-prefix is the
    minimal change).  What's the smallest patch?
 
-4. **★★★** Sketch what it would take to extend the compiler to a
+4. **★★★ Extend.** Sketch what it would take to extend the compiler to a
    different target architecture (RISC-V, ARM64).  Which files
    change?  Which are reusable?  Hint: only `090-cc-emit.fth`
    and the ELF header in `080-cc-elf.fth` need rewriting;
    everything else is target-agnostic.
 
-5. **★★★** The full chain is *reproducible* end-to-end.  Construct a
+5. **★★★ Verify.** The full chain is *reproducible* end-to-end.  Construct a
    diff that proves you've changed the seed-forth output
    without breaking the parity claim.  (Hint: most changes
    *do* break it; the trick is finding one that doesn't.)

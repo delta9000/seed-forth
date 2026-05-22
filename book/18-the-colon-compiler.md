@@ -377,24 +377,24 @@ echo ": A [lit] 65 emit ;  : AAA A A A ;  AAA bye" | ./seed-forth
 
 ## Exercises
 
-1. **★★** The header built by `:` is exactly `10 + nlen` bytes.  Compute
+1. **★★ Trace.** The header built by `:` is exactly `10 + nlen` bytes.  Compute
    it for `: square`.  Compute it for a 240-character name.  Does
    the name-length byte limit you to 255?  What would happen at
    length 256?  Trace which instruction in `colon_code` truncates.
 
-2. **★** `;`'s appended `ret` (`C3`) is the only thing that ends a colon
+2. **★ Trace.** `;`'s appended `ret` (`C3`) is the only thing that ends a colon
    definition.  Why is `ret` enough?  (Hint: how was the colon
    definition *entered* — via `CALL` or via `JMP`?)
 
-3. **★★** `lit_code` advances the return address by 8.  Trace what would
+3. **★★ Trace.** `lit_code` advances the return address by 8.  Trace what would
    happen if you forgot to advance (`add rax, 8` deleted): what
    does `ret` execute next?  Now what if you advanced by 7 or 9?
 
-4. **★★** Write a hypothetical `2lit_code` that reads 16 inline bytes and
+4. **★★ Extend.** Write a hypothetical `2lit_code` that reads 16 inline bytes and
    pushes two cells.  Sketch how the compile-mode REPL would emit
    calls to it from a source like `[2lit] 42 100`.
 
-5. **★★★** Modify a copy of `000-seed.hex0` so that `:` also accepts an
+5. **★★★ Modify.** Modify a copy of `000-seed.hex0` so that `:` also accepts an
    "IMMEDIATE" suffix at parse time (e.g., `: foo immediate ...`),
    setting the flags byte to `01` instead of `00`.  Where in
    `colon_code` does the change go?  How many bytes?

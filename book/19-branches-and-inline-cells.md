@@ -227,6 +227,11 @@ When `then,` runs later, it patches that 8-byte placeholder with
 the *current* HERE — i.e., the address of the next instruction
 after the `if,` body.
 
+This is the same emit, remember, patch pattern from Ch 11, now
+explained from the primitive's side: the emitted slot is inline
+machine data, the remembered address is a Forth stack value, and
+the patch becomes the runtime branch target.
+
 At runtime:
 
 1. The compiled definition executes its body up to the `CALL
@@ -289,26 +294,26 @@ EOF
 
 ## Exercises
 
-1. **★★★** The `push rax; ret` indirect-jump trick is two bytes long.  So
+1. **★★★ Modify.** The `push rax; ret` indirect-jump trick is two bytes long.  So
    is `jmp rax`.  Replace one of the branches in a copy of
    `000-seed.hex0` with the `jmp rax` form and rebuild.  Does
    anything observable change?  Why might the seed still prefer
    the original form?
 
-2. **★★** The conditional branch tests `rdx` directly with `TEST rdx, rdx`.
+2. **★★ Trace.** The conditional branch tests `rdx` directly with `TEST rdx, rdx`.
    Which x86 flag does this set?  Which `J*` instruction does the
    following byte (`75 05`) encode?  Trace: what would change if
    you replaced it with `74 05`?
 
-3. **★** Add an `again_code` primitive (unconditional, no flag).  Wait —
+3. **★ Trace.** Add an `again_code` primitive (unconditional, no flag).  Wait —
    isn't that just `branch_code`?  Confirm by reading both bodies
    and identifying any difference.
 
-4. **★** Why doesn't `branch_code` or `zbranch_code` need to know whether
+4. **★ Trace.** Why doesn't `branch_code` or `zbranch_code` need to know whether
    the destination is forward or backward?  (Hint: the slot holds
    an *absolute* address.)
 
-5. **★★** The inline-cell convention shares its mechanism with `lit_code`
+5. **★★ Trace.** The inline-cell convention shares its mechanism with `lit_code`
    (Ch 18).  Could `lit_code` *be* `branch_code` if we always
    treated the inline cell as "push and jump past"?  Why does the
    seed have both?
@@ -325,6 +330,7 @@ EOF
   callee's return address, do the work, push the new one.
 - Every Forth-level combinator in Ch 11 is a thin wrapper that
   emits `CALL <(z)branch_code> + 8-byte slot` and arranges for
-  later code to patch the slot.
+  later code to patch the slot.  The primitive makes the
+  emit/remember/patch contract executable.
 
 Next: Chapter 20 — The Number Parser and REPL.

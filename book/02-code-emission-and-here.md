@@ -184,19 +184,19 @@ with `c@` and print it with `emit`.  The seed should print `ABC`.
 
 ## Exercises
 
-1. **★** After `[lit] 65 c, [lit] 66 c,`, what's at `here-addr @ - 2` and
+1. **★ Trace.** After `[lit] 65 c, [lit] 66 c,`, what's at `here-addr @ - 2` and
    `here-addr @ - 1`?  Answer in two ASCII characters.
 
-2. **★★** Why does `c,` re-fetch `here-addr @` *after* the `c!` instead of
+2. **★★ Trace.** Why does `c,` re-fetch `here-addr @` *after* the `c!` instead of
    reusing the value pushed by `here` on the first line?  (Hint:
    `here` is a primitive that pushes the *contents* of the HERE cell;
    `here-addr` pushes the address.)
 
-3. **★★** Write `2c,` ( w -- ) that stores the low *two* bytes of TOS at HERE
+3. **★★ Extend.** Write `2c,` ( w -- ) that stores the low *two* bytes of TOS at HERE
    in little-endian order.  Compare yours to `,4` when we meet it in
    Chapter 9.
 
-4. **★★** The expression `[lit] 4272144` is 0x413010.  What sits at 0x413000,
+4. **★★ Trace.** The expression `[lit] 4272144` is 0x413010.  What sits at 0x413000,
    0x413008, 0x413018, 0x413020, 0x413028?  (You can answer from the
    memory-map in `README.md`; the full breakdown is Ch 13.)
 

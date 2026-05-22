@@ -229,16 +229,16 @@ Expected output: `BACBYXYXBA`.  Trace each line:
 
 ## Exercises
 
-1. **★★** Define `tuck ( a b -- b a b )` two ways: as `swap over` and using
+1. **★★ Extend.** Define `tuck ( a b -- b a b )` two ways: as `swap over` and using
    `>r dup r> swap`.  Which compiles to fewer bytes?
 
-2. **★★** Define `-rot ( a b c -- c a b )` (the inverse of `rot`) using
+2. **★★ Extend.** Define `-rot ( a b c -- c a b )` (the inverse of `rot`) using
    *only* the seed's primitives plus already-defined helpers.
 
-3. **★★** Define `2swap ( a b c d -- c d a b )`.  Hint: `rot >r rot r>`
+3. **★★ Extend.** Define `2swap ( a b c d -- c d a b )`.  Hint: `rot >r rot r>`
    is one route.
 
-4. **★★★** Why is `pick` ( ... n -- ... x_n ) hard to define here?  Trace
+4. **★★★ Trace.** Why is `pick` ( ... n -- ... x_n ) hard to define here?  Trace
    what it would have to do for `n=3` using only `dup`, `swap`,
    `drop`, `>r`, `r>`.  Show that the token count grows linearly
    with `n`, not constant-time.

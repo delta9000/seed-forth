@@ -1,5 +1,12 @@
 # Chapter 25 — ELF Emission and Codegen, Part 1: Instructions
 
+```text
+Missing capability: compiled C needs executable bytes.
+New pattern: emit machine-code bytes into cc-out-buf, then patch ELF and rel32 placeholders.
+Artifact after this chapter: a valid ELF header plus primitive x86-64 instruction encoders.
+Proof link: later Stage-A compilation can place code at stable virtual addresses.
+```
+
 Two files start the output side of the compiler.  `080-cc-elf.fth`
 (68 lines, entire file) writes a 120-byte ELF wrapper as a single
 R-W-X PT_LOAD at `0x400000`, leaving `p_filesz` zero so
@@ -150,6 +157,10 @@ it's the total file size, but we haven't generated the code yet.
 The trick is the same as Ch 21's back-patching: emit `0` now,
 remember the offset (96), patch it in `cc-finalize-elf` once we
 know `cc-out-pos`.
+
+This is the same emit, remember, patch pattern from Ch 11, now at
+ELF-header scale.  The placeholder is not a branch target anymore;
+it is a file-size field whose true value exists only after codegen.
 
 `p_memsz` defaults to `81920 = 0x14000`, giving 80 KiB of
 zero-initialized BSS-style space past the code image for the
@@ -729,6 +740,16 @@ Everything in Ch 26 calls into encoders defined in this chapter.
 
 ## Try it
 
+**Small check:** the encoder probe below emits a few instructions,
+writes them to `/tmp/cc-out`, and disassembles the bytes.
+
+**Layer check:** there is no standalone root-level unit test for
+`090-cc-emit.fth`; the focused C fixtures under `tests/cc/G*.c`
+exercise these encoders through compiled programs.
+
+**Bootstrap relevance:** this chapter's ELF header and primitive
+encoders are covered by the Stage-A parity gate.
+
 ```sh
 ./build.sh
 tests/cc/stage-a-check.sh   # builds M2-Planet via cc-out and compares
@@ -738,8 +759,8 @@ tests/cc/stage-a-check.sh   # builds M2-Planet via cc-out and compares
 If `stage-a-check.sh` passes, the codegen is producing byte-correct
 machine code at scale.
 
-To inspect individual encoders, drive the compiler from stdin with
-a one-shot Forth word that emits a few encoded instructions to a
+To run the small check, drive the compiler from stdin with a
+one-shot Forth word that emits a few encoded instructions to a
 NUL-terminated path and writes the result.  We use the pre-baked
 `cc-out-path` from `120-cc-main.fth` instead of `s"`, since `s"` is
 not NUL-terminated and `cc-write-output` requires NUL termination:
@@ -754,7 +775,6 @@ not NUL-terminated and `cc-write-output` requires NUL termination:
     sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
   done
   cat <<'FORTH'
-    \ NUL-terminated path "/tmp/cc-out\0" in the dictionary
     create probe-path
     [lit]  47 c, [lit] 116 c, [lit] 109 c, [lit] 112 c,
     [lit]  47 c, [lit]  99 c, [lit]  99 c, [lit]  45 c,
@@ -772,7 +792,6 @@ FORTH
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 
 objdump -D -b binary -m i386:x86-64 -M intel /tmp/cc-out | tail -10
-EOF
 ```
 
 You should see `mov rdi, 0x2a ; push rdi ; add rdi, rcx` in the
@@ -780,23 +799,23 @@ disassembly after the 120-byte ELF preamble.
 
 ## Exercises
 
-1. **★** Read `cc-emit-elf-header`.  Why does it emit zeros for
+1. **★ Trace.** Read `cc-emit-elf-header`.  Why does it emit zeros for
    `p_filesz`?  What's the alternative (and what would it cost)?
 
-2. **★★** The single R-W-X segment is unusual.  Real-world ELFs separate
+2. **★★ Trace.** The single R-W-X segment is unusual.  Real-world ELFs separate
    `.text` (R-X) from `.data` (R-W) for memory safety.  What
    would adding a second program header cost in bytes and in
    complexity?
 
-3. **★★** Tabulate every instruction encoder by name and bytes-emitted.
+3. **★★ Verify.** Tabulate every instruction encoder by name and bytes-emitted.
    Roughly how many distinct x86-64 instructions does this
    codegen know?
 
-4. **★★★** Add an `imul rax, rbx, imm32` encoder.  Where would it be
+4. **★★★ Extend.** Add an `imul rax, rbx, imm32` encoder.  Where would it be
    useful?  (Hint: scalar multiplication by a constant could
    replace `mov rcx, imm ; imul rdi, rcx` for known constants.)
 
-5. **★★★** The `cmp-set` helpers emit 11 bytes; a tighter encoding would
+5. **★★★ Modify.** The `cmp-set` helpers emit 11 bytes; a tighter encoding would
    use `setX r/m8` directly into `dil` and `movzx rdi, dil`.
    Estimate the saving and decide whether it's worth the code
    change.

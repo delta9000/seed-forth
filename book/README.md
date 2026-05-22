@@ -132,10 +132,10 @@ chapters so the reader sees one coherent idea per chapter.
 
 ## Companion docs
 
-- **[CONCEPTS.md](CONCEPTS.md)** — concept index (where is *X*
-  introduced?), the chapter dependency graph, and two alternative
-  reading orders for readers who would rather start top-down or
-  from the VM.
+- **[CONCEPTS.md](CONCEPTS.md)** — rung map, concept index (where
+  is *X* introduced?), the chapter dependency graph, and two
+  alternative reading orders for readers who would rather start
+  top-down or from the VM.
 - **[GLOSSARY.md](GLOSSARY.md)** — quick definitions for every term
   used across the book (Forth, x86-64, C compiler, bootstrapping).
 

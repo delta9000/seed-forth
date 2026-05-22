@@ -1,13 +1,21 @@
 # Chapter 28 — Expressions, Part 2: Primary, Unary, Assignment
 
-This chapter finishes `100-cc-expr.fth` by filling in the chunks
-above and below Ch 27's binary cascade.  Two pieces sit *below* the
-cascade: `cc-parse-primary` (the recursive-descent floor, dispatching
-on token kind and then looping over the postfix chain `() [] . -> ++
---`) and `cc-parse-unary` (`*`, `&`, prefix `++`, `sizeof`, and the
-rest).  One piece sits *above* it: the right-associative tail
-`cc-parse-ternary` / `cc-parse-assign` / `cc-parse-expr`.  The
-connective tissue across both ends is the lvalue-tracking globals
+```text
+Missing capability: expressions cannot address storage, handle postfix forms, or assign.
+New pattern: lvalue metadata delays loads until context decides whether a value is read or written.
+Artifact after this chapter: primary, unary, postfix, ternary, assignment, and lvalue-aware expression codegen.
+Proof link: Stage-A pointer, array, struct, call, increment, and assignment expressions share one value model.
+```
+
+This chapter finishes the expression compiler by adding the floor
+and the tail around Ch 27's binary cascade.  Two pieces sit *below*
+the cascade: `cc-parse-primary` (the recursive-descent floor,
+dispatching on token kind and then looping over the postfix chain
+`() [] . -> ++ --`) and `cc-parse-unary` (`*`, `&`, prefix `++`,
+`sizeof`, and the rest).  One piece sits *above* it: the
+right-associative tail `cc-parse-ternary` / `cc-parse-assign` /
+`cc-parse-expr`.  The connective tissue across both ends is the
+lvalue-tracking globals
 (`cc-last-lvalue-kind` and friends), with `cc-emit-materialize`
 deciding when a deferred load actually fires so Ch 27's binary folds
 can stay agnostic.
@@ -1350,11 +1358,27 @@ complexity.
 
 ## Try it
 
+**Small check:** choose one focused fixture below and trace the
+lvalue, postfix, assignment, or `sizeof` path it exercises.
+
+**Layer check:** `./test.sh` exercises the expression parser through
+the focused C fixtures.
+
 ```sh
 ./build.sh
 ./test.sh                                   # exercises the expression parser
-tests/cc/stage-a-check.sh                   # full bootstrap-gate
 ```
+
+**Bootstrap relevance:** the full Stage-A gate confirms that lvalues,
+postfix forms, assignment, and `sizeof` behave correctly inside the
+M2-Planet compile.
+
+```sh
+tests/cc/stage-a-check.sh
+```
+
+For the small check, inspect the fixture list below to choose one
+expression feature and trace it through the chapter.
 
 `tests/cc/G7.c` (pointer `&`/`*`), `G8.c` (array indexing), `G9a.c`
 (struct `.` access), `G9b.c` (struct field arithmetic), `G10c.c`
@@ -1364,24 +1388,24 @@ machinery in isolation.
 
 ## Exercises
 
-1. **★** Trace what `cc-parse-primary` emits for the literal `'X'`.
+1. **★ Trace.** Trace what `cc-parse-primary` emits for the literal `'X'`.
    Where does the character value end up?
 
-2. **★★** Construct a C expression that uses every postfix operator
+2. **★★ Trace.** Construct a C expression that uses every postfix operator
    in `cc-parse-primary` (`.`, `->`, `[]`, `++`, `--`) in one
    chain.  Sketch the lvalue-kind transitions as it parses.
 
-3. **★★★** Compound assignment of dereference targets (`*p += 1`) is
+3. **★★★ Extend.** Compound assignment of dereference targets (`*p += 1`) is
    *not* supported (§7's kind=2 branch errors on anything but
    plain `=`).  Sketch a patch.  What new state would
    `cc-parse-assign` need to thread?
 
-4. **★★★** `cc-parse-sizeof` accepts `sizeof(struct TAG)` and
+4. **★★★ Extend.** `cc-parse-sizeof` accepts `sizeof(struct TAG)` and
    `sizeof(typedef-name)` but not `sizeof(*p)`.  Add the
    missing case.  What does the compile-time evaluation look
    like?
 
-5. **★★** The forward-call placeholder in §4 walks a linked list via
+5. **★★ Trace.** The forward-call placeholder in §4 walks a linked list via
    `cc-sym-extra2`.  Trace how Ch 31's `cc-parse-function`
    patches that list when the definition arrives.  How is the
    list head set to 0 again?

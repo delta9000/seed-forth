@@ -408,26 +408,26 @@ each step from the table in §1.
 
 ## Exercises
 
-1. **★★** `dup_code` is 9 bytes.  Write the equivalent of a primitive
+1. **★★ Extend.** `dup_code` is 9 bytes.  Write the equivalent of a primitive
    `2dup_code` (duplicate the top *two* cells, leaving 4 on the
    stack).  Count the bytes.  Compare to `: 2dup over over ;` which
    compiles to two `CALL` instructions of 5 bytes each plus the
    header overhead — which wins on size?
 
-2. **★★** `c!` writes only the low byte of TOS, then reloads `rdi` from
+2. **★★ Trace.** `c!` writes only the low byte of TOS, then reloads `rdi` from
    `[rbp]`.  Trace what happens after `[lit] 0x12345678 [lit]
    0x420000 c!`.  What's in memory at `0x420000`?  What's in `rdi`?
 
-3. **★★** `>r` cannot simply do `push rdi` first: the return address is in
+3. **★★ Trace.** `>r` cannot simply do `push rdi` first: the return address is in
    the way.  Walk through the alternative encoding `push rdi ; ...`
    and explain what specifically breaks.
 
-4. **★★★** Modify a copy of `000-seed.hex0` to add a `nip` primitive
+4. **★★★ Extend.** Modify a copy of `000-seed.hex0` to add a `nip` primitive
    (effect: `( a b -- b )`) directly in hex.  How many bytes?  Is
    it smaller than the Forth-level `: nip swap drop ;`?  (Count the
    header bytes too.)
 
-5. **★★** `r@` reads `[rsp+8]` to skip past the return address.  Sketch a
+5. **★★ Extend.** `r@` reads `[rsp+8]` to skip past the return address.  Sketch a
    hypothetical `r@2` that reads two cells deep (`[rsp+16]`).  When
    would you want that?  Why hasn't the seed paid for it?
 

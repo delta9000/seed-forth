@@ -1,13 +1,20 @@
 # Chapter 22 — The Preprocessor
 
+```text
+Missing capability: C source still arrives as include-laden, macro-bearing text.
+New pattern: rewrite source through cc-prep-out-buf while recording integer macros newest-first.
+Artifact after this chapter: a flattened C stream plus an integer macro table.
+Proof link: Stage-A sees the same project headers and integer constants as the reference path.
+```
+
+The artifact here is a source rewriter: a pass that turns project
+includes and integer defines into the flat stream the lexer will see.
 `040-cc-prep.fth` (630 lines, entire file) is the smallest
-preprocessor that suffices for M2-Planet's source.  It does exactly
-two things: it handles `#include "…"` (recursively), and it accepts
-integer-valued `#define`; other directive lines are deliberately
-elided.
-The whole pass runs as a source-rewriter, reading from `cc-src-buf`
-and emitting into `cc-prep-out-buf`, then copying the result back so
-the lexer sees one flat post-processed stream.  Macros live in
+preprocessor that suffices for M2-Planet's source.  It handles
+`#include "…"` recursively, accepts integer-valued `#define`, and
+deliberately elides other directive lines.  The pass reads from
+`cc-src-buf`, emits into `cc-prep-out-buf`, then copies the result
+back so the lexer sees one post-processed stream.  Macros live in
 parallel arrays plus a name pool, and `cc-prep-process-vec` is a
 trampoline that lets `#include` recurse without forward-declaring
 its own `:`-definitions.
@@ -716,6 +723,10 @@ later `#define` with the same name shadows the earlier one — the
 standard C semantics.  We stop at the first hit by gating the body
 on `cc-macro-find-flag`.
 
+This is the same small-table pattern as Ch 17's dictionary lookup,
+now at macro scale: bounded capacity, linear search, and "newest
+wins" shadowing instead of a more general map.
+
 ## 3. The walker: peek, advance, classify
 
 The preprocessor walks one *region* at a time.  A region is a
@@ -863,23 +874,13 @@ time."
 
 ## Try it
 
-```sh
-./build.sh
-tests/cc/stage-a-check.sh         # exercises the preprocessor end to end
-```
-
-`tests/cc/G6a.c` and `G6b.c` are the small smoke-tests that touch
-preprocessor features in isolation.  Read them to see exactly which
-M2-Planet patterns the preprocessor must cope with.
-
-You can also run the preprocessor directly on a small input by
-loading the four Forth files seed-forth needs and then driving it
-from stdin.  The seed-forth tokenizer has no file-`include` or `-e`
-flag, so we concatenate everything onto stdin and strip Forth
-comments first.  The driver defines a one-shot word `dump-prep` that
-calls `cc-load-stdin` (which slurps whatever remains on stdin — i.e.,
-the C source we put after it), runs `cc-preprocess`, and walks the
-rewritten buffer byte by byte:
+**Small check:** run the preprocessor directly on a tiny input and
+print the rewritten buffer.  Seed-forth has no file-`include` or
+`-e` flag, so we concatenate the four Forth files it needs onto
+stdin, strip Forth comments, and then append the C source.  The
+driver defines a one-shot word `dump-prep` that calls
+`cc-load-stdin` (which slurps whatever remains on stdin), runs
+`cc-preprocess`, and walks the rewritten buffer byte by byte:
 
 ```sh
 ./build.sh
@@ -917,28 +918,40 @@ and emits a numeric token in place of the identifier.  This
 two-stage design — register at prep, substitute at lex — is what
 makes object-like macros virtually free.
 
+**Layer check:** there is no root-level `test-040-cc-prep.fth`.
+`tests/cc/G6a.c` and `G6b.c` are the focused smoke tests for
+preprocessor behavior.
+
+**Bootstrap relevance:** Stage-A exercises the preprocessor end to
+end, including the include path and integer macro table.
+
+```sh
+./build.sh
+tests/cc/stage-a-check.sh
+```
+
 ## Exercises
 
-1. **★★** M2-Planet uses a small set of preprocessor features.  Skim
+1. **★★ Trace.** M2-Planet uses a small set of preprocessor features.  Skim
    `tests/cc/M*.c` and `tests/cc/G*.c`, then list every directive
    you find.  Compare against §5's grammar — anything not covered?
 
-2. **★★★** The macro table is 256 entries × 8 bytes per column, plus a 16
+2. **★★★ Verify.** The macro table is 256 entries × 8 bytes per column, plus a 16
    KiB name pool.  Could you shrink either without breaking the
    bootstrap?  Instrument `cc-macro-count` and
    `cc-macro-name-pool-pos` at the end of `cc-preprocess` to find
    out.
 
-3. **★★★** Function-style macros (`#define FOO(x) ((x)+1)`) are not
+3. **★★★ Extend.** Function-style macros (`#define FOO(x) ((x)+1)`) are not
    supported.  Construct a test case that depends on this missing
    feature and observe how the compiler handles it.  Where would
    the smallest possible patch go?
 
-4. **★★** `#include` cycles would loop forever.  Read §4 and find the
+4. **★★ Modify.** `#include` cycles would loop forever.  Read §4 and find the
    (deliberately missing) cycle check.  Sketch the smallest patch
    that would detect a cycle without parsing.
 
-5. **★★** `#undef NAME` and `#ifdef NAME` are absent.  Estimate the
+5. **★★ Extend.** `#undef NAME` and `#ifdef NAME` are absent.  Estimate the
    complexity cost of adding each.  Which would touch more code?
 
 ## Takeaways

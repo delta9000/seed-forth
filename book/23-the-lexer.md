@@ -1,8 +1,16 @@
 # Chapter 23 — The Lexer
 
-`050-cc-lex.fth` (642 lines, entire file) turns bytes into tokens
-through a single entry point, `cc-next-token`, that populates five
-globals (`tok-kind`, `tok-num`, `tok-str-addr`, `tok-str-len`,
+```text
+Missing capability: the parser cannot ask for C-shaped units of source.
+New pattern: one token at a time lives in tok-* globals with compact kind and punctuation IDs.
+Artifact after this chapter: the cc-next-token interface over identifiers, numbers, strings, chars, keywords, and punctuation.
+Proof link: every later Stage-A parser consumes this token stream instead of raw source bytes.
+```
+
+The artifact here is the parser's only view of source: the
+`cc-next-token` interface.  `050-cc-lex.fth` (642 lines, entire file)
+turns bytes into tokens through that single entry point, populating
+five globals (`tok-kind`, `tok-num`, `tok-str-addr`, `tok-str-len`,
 `tok-kw-id`).  The seven `tk-*` kinds (`eof`, `ident`, `num`, `str`,
 `chr`, `punct`, `kw`) cover everything the parser will see; the 22
 multi-character `pt-*` punctuation IDs are numbered from 256 so they
@@ -868,6 +876,11 @@ failed.
 
 ## Try it
 
+**Small check:** the manual `dump-tokens` probe below emits token
+kind digits for `int x = 42;`.
+
+**Layer check:** `./test.sh` runs the lexer unit test.
+
 ```sh
 ./build.sh
 ./test.sh                                       # runs test-050-cc-lex.fth
@@ -878,7 +891,7 @@ punctuation, the keyword table, the comment skipper, and the
 macro-substitution hook.  Read it to see what each entry point is
 supposed to produce.
 
-You can also drive the lexer by hand.  Seed-forth has no
+To run the small check, drive the lexer by hand.  Seed-forth has no
 `-e` flag or `include` word, so we concatenate the five files
 (stripped of Forth comments) onto stdin, then the C source.  A
 one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
@@ -911,25 +924,29 @@ when the lexer hits EOF.  For a deeper inspection — every token's
 text and numeric value — `./test.sh` runs `test-050-cc-lex.fth`,
 which is a more complete harness.
 
+**Bootstrap relevance:** every Stage-A parser consumes source only
+through `cc-next-token`, so `tests/cc/stage-a-check.sh` covers this
+lexer on the full M2-Planet input.
+
 ## Exercises
 
-1. **★★★** Add a `tk-*` constant and a new keyword (e.g. `inline`) to the
+1. **★★★ Modify.** Add a `tk-*` constant and a new keyword (e.g. `inline`) to the
    table.  How many lines of patch?  Where does the `kw-*` ID
    need to be inserted to keep ordering stable?
 
-2. **★★** The lexer treats tab (9), space (32), `\r` (13), and `\n`
+2. **★★ Verify.** The lexer treats tab (9), space (32), `\r` (13), and `\n`
    (10) all as whitespace via `space?`.  Does it handle CRLF
    line endings?  Construct a test case and observe.
 
-3. **★★** `cc-lex-string` doesn't decode escapes — codegen does.  Find
+3. **★★ Trace.** `cc-lex-string` doesn't decode escapes — codegen does.  Find
    where in `090-cc-emit.fth` (Chs 25–26) the string pool walks
    the slice and turns `\n` into byte 10.  Trace one byte.
 
-4. **★★** The keyword table is walked linearly.  At 30 entries and a
+4. **★★ Extend.** The keyword table is walked linearly.  At 30 entries and a
    short average length, that's fine.  Could a hash table be
    faster, and would it be worth the bytes-of-code?
 
-5. **★★** The lexer has no error path — every malformed token (e.g. an
+5. **★★ Trace.** The lexer has no error path — every malformed token (e.g. an
    unterminated string at EOF) ends with the lexer just
    stopping.  Trace what happens downstream when the parser sees
    the resulting `tk-eof` mid-expression.  Is silent truncation

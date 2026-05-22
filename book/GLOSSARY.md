@@ -125,6 +125,11 @@ slot onto the data stack.  `then,` pops it and writes the current
 HERE there.  Same idea generalises to `else,`, `begin,`, `while,`,
 `repeat,`.  Ch 11.
 
+**Emit, remember, patch** — the recurring shape behind fixups:
+emit incomplete bytes, remember where the missing value belongs,
+and patch that location when the value becomes known.  First named
+in Ch 11; scaled up in Chs 21, 25, 26, 30, and 31.
+
 **`NUMBER_HOOK`** — sysvar pointing at an optional xt that the REPL
 calls on a `find` miss before printing `?`.  Lets higher layers add
 auto-number-parsing.  Ch 20.
@@ -248,6 +253,17 @@ MesCC, and so on toward a self-hosting GCC.  Ch 32.
 directly (no AST in this compiler).  Two recursive-descent flavours:
 precedence climbing for expressions (Ch 27), keyword dispatch for
 statements and declarations (Chs 29–31).
+
+**One buffer per responsibility** — the Part III memory discipline:
+source bytes, preprocessor output, emitted ELF bytes, string/global
+storage, and fixup arrays each have a clear owner and cursor.  Ch 21
+names the pattern; later compiler chapters reuse it.
+
+**Small tables, linear search, newest wins** — the bootstrap-friendly
+lookup pattern used by the dictionary, macro table, symbol table, and
+label table.  Capacity is fixed, lookup walks linearly, and later
+entries shadow earlier ones when that is the language rule.  Ch 17
+introduces it; Chs 22, 24, 30, and 31 reuse it.
 
 **Precedence climbing** — an expression-parsing technique that uses
 a single recursive function parameterised by minimum precedence,

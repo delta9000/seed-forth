@@ -114,6 +114,11 @@ A picture for the first three entries:
 `find` walks this chain backwards from `LATEST`.  Each step is one
 `@` to load the link cell.
 
+This is the seed version of "small tables, linear search, newest
+wins."  There is no hash table and no secondary index; the newest
+definition shadows older definitions because the reverse walk sees
+it first.
+
 The `body` for every hand-laid header is a 5-byte `JMP rel32` to
 the primitive's code.  That is why the headers and the bodies can
 sit far apart in the file: the JMP makes the layout topology-free.
@@ -704,31 +709,32 @@ echo "latest @ c@ [lit] 48 + emit bye" | ./seed-forth
 
 ## Exercises
 
-1. **★★** The dictionary is a singly linked list, newest-to-oldest.  Why
+1. **★★ Trace.** The dictionary is a singly linked list, newest-to-oldest.  Why
    not oldest-to-newest?  (Hint: `find` checks the most recent
    definition first — shadowing is free.)
 
-2. **★★** Why does `find_code` write to `LAST_FOUND` instead of returning
+2. **★★ Trace.** Why does `find_code` write to `LAST_FOUND` instead of returning
    both the xt *and* the flag byte on the stack?  (Hint: the REPL
    needs both, but the rare interpret-mode lookup doesn't.  Count
    instructions in each design.)
 
-3. **★★** The `' emit execute` pattern uses `'` to push the xt and
+3. **★★ Trace.** The `' emit execute` pattern uses `'` to push the xt and
    `execute` to call it.  Trace the data stack and the return stack
    for `[lit] 65 ' emit execute`.  Where does `emit`'s `ret` land?
 
-4. **★★★** Modify `read_word` (in a copy of `000-seed.hex0`) to recognise
+4. **★★★ Modify.** Modify `read_word` (in a copy of `000-seed.hex0`) to recognise
    `\` as a line-comment marker that skips until newline.  How many
    extra bytes?  Where in `read_word` does the change go?
 
-5. **★★** Walk the dictionary backwards by hand starting from `LATEST @`
+5. **★★ Trace.** Walk the dictionary backwards by hand starting from `LATEST @`
    (= `0x4007E8`, the `'` entry's link cell).  Follow eight link
    cells.  What's the name at each step?
 
 ## Takeaways
 
 - The dictionary is the seed's only data structure: a singly linked
-  list of headers walked by `find_code`.  No hash, no symbol table.
+  list of headers walked by `find_code`.  No hash, no symbol table;
+  newest-to-oldest lookup is what makes redefinition shadowing work.
 - `find_code` does name comparison inline in 86 bytes.  Forth-level
   code (`bytes-eq`, Ch 12) re-implements the same logic in 13 lines.
 - `read_word`, `find_code`, `'`, `execute` together are the
