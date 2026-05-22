@@ -76,8 +76,9 @@ Generated binaries such as `seed-forth` and `/tmp/cc-out` are not source.
 
 The checked-in files are the source of record.  Start with `000-seed.hex0`, which
 annotates the hand-written ELF bytes, then read the numbered `.fth` files in
-lexical order.  The full compiler loaders glob `[0-9][0-9][0-9]-*.fth`,
-so the filenames carry the load order.
+lexical order.  The C-compiler loader globs `010-lib.fth` plus
+`[0-9][0-9][0-9]-cc-*.fth`, so the filenames carry the load order.
+Future tools (e.g. `130-asm.fth`) live outside that pattern.
 
 ## Seed Vocabulary
 

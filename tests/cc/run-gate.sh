@@ -32,7 +32,7 @@ TMP_VOCAB=$(mktemp)
 TMP_STDOUT=$(mktemp)
 trap 'rm -f "$TMP_VOCAB" "$TMP_STDOUT"' EXIT
 
-cat [0-9][0-9][0-9]-*.fth | strip_forth > "$TMP_VOCAB"
+cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth > "$TMP_VOCAB"
 
 # Step 2: feed (vocab + C source) into seed-forth.  The REPL parses the
 # Forth, hits `cc-main` and invokes it; cc-main reads the remaining bytes
