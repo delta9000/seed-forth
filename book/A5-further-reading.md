@@ -42,19 +42,22 @@ grouped by what they help with.
   conventional choice for a primitive set; this book's seed sits
   in that tradition.
 
-- **Cesar Blum, "sectorforth"** (2019).  A Forth that fits in a
-  512-byte x86 boot sector with eight primitives.  The "minimum
+- **Cesar Blum, "sectorforth"** (2020).  A 16-bit x86 Forth that
+  fits in a 512-byte boot sector with eight primitives (plus a
+  handful of state variables and two I/O words).  The "minimum
   viable Forth" demonstration; useful as a sanity check on how
   much language you can get from how little code.  An order of
   magnitude smaller than this book's seed, at the cost of living
-  inside BIOS boot constraints.
+  inside 16-bit BIOS boot constraints.
 
-- **Koichi Nakamura, "planckforth"** (2020).  A literate
-  bootstrap from a ~600-line C kernel up through layers of
-  higher-level Forth.  The same ladder shape as seed-forth's
-  hex0 → `010-lib.fth` → `020-cc-*.fth`, with a different
-  starting substrate (C, not hex0) and a different terminal
-  artifact (a self-hosted Forth, not a C compiler).
+- **Koichi Nakamura, "planckforth"** (2020).  Bootstraps a Forth
+  from a hand-written 1 KB ELF binary (stored as xxd hex) plus a
+  `bootstrap.fs` library on top.  Almost the same shape as
+  seed-forth's `000-seed.hex0` + `010-lib.fth` pairing — the
+  closest spiritual cousin in this list — with single-character
+  primitive names (`k`, `h`, `t`, `j`, …) instead of full Forth
+  words, and a self-hosted Forth as the terminal artifact rather
+  than a C compiler.
 
 - **gforth** — the GNU Forth, the playground this book uses for
   Part I.  Documentation at gnu.org/software/gforth.
