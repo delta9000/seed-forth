@@ -54,6 +54,10 @@ that token, then asks for the next.
 
 ## 1. Token kinds and punctuation IDs
 
+The full 643-line file follows.  Skim it — §§2–6 walk back through
+the lexer one sub-pass at a time, and the prose lands better once
+you have seen the file once at any depth.
+
 ```forth file=050-cc-lex.fth
 \ 050-cc-lex.fth — C tokenizer (one-token lookahead) for the C-subset compiler.
 \ Reads bytes from cc-src-buf via cc-peek-char/cc-next-char/cc-eof? (030-cc-io.fth).

@@ -379,6 +379,11 @@ common `is_digit(s[i])` patterns.
 
 ## 4. `cc-parse-primary`: the leaf and its postfix chain
 
+`cc-parse-primary` and its postfix loop arrive together in one
+slab.  The prose below walks the token-kind dispatch, then each
+postfix operator in turn; nothing here needs to be held in your
+head at first reading.
+
 ```forth chunk=expr-primary
 \ ===========================================================================
 \ cc-parse-primary

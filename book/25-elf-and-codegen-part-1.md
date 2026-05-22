@@ -171,6 +171,10 @@ invalid ELF the kernel refuses.
 
 ## 2. `090-cc-emit.fth`, part 1: register convention
 
+Four hundred lines of per-instruction encoders follow.  They are
+tedious in bulk; §§3–7 group them (stack ops, locals, ALU,
+comparisons, branches) and §8 hands the rest off to Ch 26.
+
 ```forth file=090-cc-emit.fth
 \ 090-cc-emit.fth — code-emission helpers for the C-subset compiler.
 \ Builds tiny instruction-encoders on top of cc-emit-byte / cc-emit-4le from

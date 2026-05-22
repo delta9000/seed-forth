@@ -194,6 +194,10 @@ with C's `printf` / `puts`-style functions out of the box.
 
 ## 3. The libc shims: write/read/open/close/mmap
 
+Eleven shims follow, all the same shape: load syscall number,
+marshal arguments, trap, return.  The prose afterwards picks out
+only the ones whose marshalling actually differs.
+
 ```forth file=090-cc-emit.fth
 \ ===========================================================================
 \ Built-in libc shims (putchar, exit, getchar) emitted at the start of

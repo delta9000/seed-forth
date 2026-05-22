@@ -46,6 +46,11 @@ is to keep the *chapter* order matching source order.
 
 ## 1. File header and expectation helpers
 
+What follows is 590 lines: file header, expectation helpers,
+base-type parser, declarator parser, and struct-definition
+machinery.  §2 is where the structured walk back through them
+starts.
+
 ```forth file=110-cc-decl.fth
 \ 110-cc-decl.fth — function/declaration parser for the C-subset compiler.
 \
