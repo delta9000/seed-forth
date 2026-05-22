@@ -52,13 +52,19 @@ grouped by what they help with.
   inside 16-bit BIOS boot constraints.
 
 - **Koichi Nakamura, "planckforth"** (2020).  Bootstraps a Forth
-  from a hand-written 1 KB ELF binary (stored as xxd hex) plus a
-  `bootstrap.fs` library on top.  Almost the same shape as
-  seed-forth's `000-seed.hex0` + `010-lib.fth` pairing — the
-  closest spiritual cousin in this list — with single-character
-  primitive names (`k`, `h`, `t`, `j`, …) instead of full Forth
-  words, and a self-hosted Forth as the terminal artifact rather
-  than a C compiler.
+  from a hand-written 1 KB i386 ELF binary (stored as xxd hex)
+  plus a `bootstrap.fs` library that builds the higher-level
+  language on top.  The closest spiritual cousin in this list,
+  with three differences worth knowing: planckforth is
+  indirect-threaded i386 where seed-forth is subroutine-threaded
+  x86-64; planckforth's primitives are single-character codes
+  (`k`, `h`, `t`, `j`, …), so the opening of `bootstrap.fs` is
+  dense ASCII like `h@l@h@!h@C+h!k1k0-h@$...` until the library
+  has defined `\` for comments and conventional word names — the
+  bootstrap earns its own readability inside itself; and the
+  terminal artifact is a self-hosted Forth, not a bootstrap-chain-
+  compatible C compiler, so there is no analog to seed-forth's
+  Stage-A parity claim.
 
 - **gforth** — the GNU Forth, the playground this book uses for
   Part I.  Documentation at gnu.org/software/gforth.
