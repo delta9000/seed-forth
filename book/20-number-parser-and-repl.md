@@ -1,5 +1,12 @@
 # Chapter 20 — The Number Parser and REPL
 
+```text
+Missing capability: the seed has no way to enter numbers or run user input.
+New pattern: a 187-byte loop — read token → find → dispatch on IMMEDIATE+STATE → decimal parse → loop or bye.
+Artifact after this chapter: the seed is now a self-contained host that can load and run the C compiler.
+Proof link: this chapter is the bridge into Part III — the host the C compiler sits on top of.
+```
+
 The last two primitives in the seed close Part II: `parse_decimal_code`
 (`@ 0x5FD`, lines 555–585) and the REPL loop itself (`@ 0x35E`,
 lines 299–357, 187 bytes of hex).  `parse_decimal_code` is a pure
@@ -475,6 +482,55 @@ same primitives you have just seen in machine code — `:`, `;`, `[lit]`,
 `if,`, `then,`, `branch`, `0branch`, `read_word`, `find`, `here`, `,`
 — until the compiler emits `.M1` text matching the GCC-built
 M2-Planet reference on the stage-A inputs.
+
+## Reading Part III
+
+The next twelve chapters have a consistent shape: each named section
+shows you the relevant code, then walks what it does.  You can skim
+each code block once for shape and come back when the walk
+references it, or read it line-by-line — both work.  The chapters
+are long because the compiler is, not because the prose is dense;
+if a chapter takes two sittings, that's its size, not your pace.
+
+Three reading aids are placed in every Part III chapter to keep
+you oriented:
+
+- The **chapter-contract block** at the top names the missing
+  capability, the new pattern, the artifact the chapter delivers,
+  and the proof link.  It is the chapter's promise.
+- The **"After this chapter" block** at the bottom names what the
+  compiler can now do, what you can now read, and what that means
+  for Stage-A.  It is the chapter's receipt.
+- The **rung map and concept index** in `book/CONCEPTS.md` show
+  which earlier chapter a given concept came from, so you can
+  skip back precisely if the prose assumes something you haven't
+  internalised yet.
+
+**Three recurring motifs are worth memorising.**  Once you spot
+one you understand a dozen.
+
+- *Emit, remember, patch.*  Emit a placeholder, stash where you
+  put it, patch it once the answer is known.  We met this in
+  Ch 11 (`if,` / `then,`) and Ch 19 (`branch` / `0branch`).  It
+  returns in Ch 21 for ELF header fields, Chs 25–26 for forward
+  calls and globals, and Ch 30 at full scale for branches,
+  loops, `switch`, and `goto`.
+
+- *Small tables, linear search, newest wins.*  The dictionary
+  (Ch 17), macro table (Ch 22), symbol table (Ch 24), label
+  table (Ch 30), and typedef / function-symbol lists (Ch 31) all
+  share this shape.  Bounded inputs, predictable memory, no
+  allocator complexity in the hot path.
+
+- *One buffer per responsibility.*  `cc-src-buf` for input,
+  `cc-prep-out-buf` for preprocessed source, `cc-out-buf` for
+  emitted bytes, an arena for variable-sized scratch.  Memory
+  ownership is whose buffer the bytes live in, not who allocated
+  them.
+
+If a Part III chapter ever feels like it stopped explaining and
+started listing, look for whichever of those three patterns it is
+using and the walk will resolve.
 
 Next: Chapter 21 — Arena and I/O Buffers (Part III opens; we leave
 the seed and start reading the C compiler).

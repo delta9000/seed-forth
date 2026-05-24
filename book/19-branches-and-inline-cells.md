@@ -1,5 +1,12 @@
 # Chapter 19 — Branches and Inline Cells
 
+```text
+Missing capability: how branch and 0branch jump without an instruction operand is unclear.
+New pattern: read the inline 8-byte target off the return stack, push a corrected return address, ret to it.
+Artifact after this chapter: branch_code and zbranch_code plus the consumed-slot property.
+Proof link: the C compiler's jump fixups (Ch 30) reuse the shape, just in x86-64 rather than inline cells.
+```
+
 Two primitives, roughly 30 bytes of hex between them, implement
 every loop and conditional in the codebase: `branch_code`
 (`@ 0x42B`, lines 368–372) is an unconditional jump to an inline

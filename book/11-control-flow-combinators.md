@@ -1,5 +1,12 @@
 # Chapter 11 — Control-Flow Combinators (the climax of Part I)
 
+```text
+Missing capability: no if/else/while available at the Forth library level.
+New pattern: emit a branch placeholder, push the patch offset on the data stack, patch when target is known.
+Artifact after this chapter: if,, then,, else,, begin,, while,, repeat,, and the rest of the set.
+Proof link: the seed-level rehearsal of emit-remember-patch — the pattern the C compiler reuses in Ch 30.
+```
+
 This is the chapter Part I has been building toward: nine immediate
 words in `010-lib.fth` (lines 194–290) that give us `if,`/`then,`/
 `else,` and `begin,`/`while,`/`repeat,` without a single new line of

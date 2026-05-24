@@ -1,5 +1,12 @@
 # Chapter 1 — Stacks and Words
 
+```text
+Missing capability: no vocabulary or notation for thinking about Forth values.
+New pattern: values live on the data stack; words read and write it; stack-effects name the shape.
+Artifact after this chapter: the mental model the book runs on, plus over from the seed primitives.
+Proof link: every line of 010-lib.fth reads on this notation; later chapters assume fluency.
+```
+
 > "Forth is the language you would have invented if you were given a
 > computer with 4 KB of RAM and a weekend."
 

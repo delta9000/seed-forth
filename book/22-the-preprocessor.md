@@ -51,6 +51,26 @@ What follows is the entire 631-line file in one slab.  Sections
 2–8 return to it piece by piece — there is no need to absorb the
 whole thing on first pass.
 
+The file is in eight regions in source order.  Knowing where they
+are before you start scrolling helps:
+
+| Region | Code lines | Walked by |
+|---|---:|---|
+| Output buffer + forward decls | ~1–43 | §1 |
+| Macro storage (parallel arrays + name pool) | ~43–135 | §2 |
+| Walker state + peek/advance/skip helpers | ~136–181 | §3 |
+| Include pool, path building, file loading | ~182–296 | §4 |
+| Ident and decimal readers | ~297–335 | §3, §5 |
+| Directive dispatch (including `#include`, `#define`, fallthrough) | ~336–519 | §4, §5, §6 |
+| Process-region and copy-back driver | ~520–571 | §8 |
+| Built-in macros and `cc-preprocess` driver | ~573–end | §7, §8 |
+
+The chapter sections walk the file by *topic*, not strictly in
+source order: e.g. `cc-prep-handle-include` (§4) and
+`cc-prep-handle-define` (§5) both live inside the directive-
+dispatch region.  Use the table to find a region; use §§2–8 to
+read what it does.
+
 ```forth file=040-cc-prep.fth
 \ 040-cc-prep.fth — preprocessor for the C-subset compiler.
 \
@@ -957,6 +977,21 @@ tests/cc/stage-a-check.sh
 
 5. **★★ Extend.** `#undef NAME` and `#ifdef NAME` are absent.  Estimate the
    complexity cost of adding each.  Which would touch more code?
+
+## After this chapter
+
+The compiler can flatten C source: project includes splice in
+recursively, integer macros expand inline, and the lexer downstream
+sees one continuous stream with the original position reset to zero.
+
+You can read `cc-preprocess` and the macro table layout, and
+explain why the integer-only macro restriction was the right
+trade-off for a self-contained preprocessor and why
+`cc-prep-out-buf` has to be copied back instead of swapped.
+
+Toward Stage-A: every M2-Planet header reaches the parser as the
+same expanded text the GCC reference path sees, so any divergence
+later isn't preprocessor drift.
 
 ## Takeaways
 

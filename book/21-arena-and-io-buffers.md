@@ -512,6 +512,21 @@ the same script will be the compiler's full proof of life.
    a table.  Where should new failure modes draw their numbers
    from?
 
+## After this chapter
+
+The compiler has a deterministic memory model: stdin lands in
+`cc-src-buf`, emitted bytes accumulate in `cc-out-buf` and only hit
+disk once at the end, and the arena handles anything that doesn't
+fit a fixed slot.  This is the substrate the next eight chapters
+build on — none of them allocate from anywhere else.
+
+You can read `cc-load-stdin`, `cc-emit-byte`, and `cc-out-patch-4le`
+confidently, and explain why the whole ELF accumulates in memory
+before any `write` syscall fires.
+
+Toward Stage-A: every byte the parity check compares passes through
+these buffers; their byte-precise determinism is the proof's floor.
+
 ## Takeaways
 
 - The C compiler's memory model is two big in-memory buffers plus

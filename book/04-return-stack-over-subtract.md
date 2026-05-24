@@ -1,5 +1,12 @@
 # Chapter 4 — The Return Stack: `over` and Subtract
 
+```text
+Missing capability: nowhere safe to stash a temporary across nested calls.
+New pattern: a second rsp-based stack with >r, r>, r@; subtraction built from nand.
+Artifact after this chapter: temporary storage with stack discipline, plus the - primitive.
+Proof link: every loop combinator and the C compiler's expression machinery rely on this.
+```
+
 Two definitions in `010-lib.fth` (lines 31–38), `over` and `-`,
 introduce the seed's *second* stack and show how two's complement
 turns subtraction into addition plus `nand`.  `over` borrows a

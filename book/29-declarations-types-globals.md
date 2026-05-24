@@ -4,7 +4,7 @@
 Missing capability: declarations cannot create types, structs, locals, or file-scope symbols.
 New pattern: parse base types and declarators into symbol rows, with pre-registration for recursive structs.
 Artifact after this chapter: declaration parsing for scalar types, pointers, arrays, structs, and locals.
-Proof link: Stage-A declarations populate the type and symbol database before statements and functions consume it.
+Proof link: Stage-A decls populate the type and symbol database before statements and functions consume it.
 ```
 
 This chapter installs the declaration machinery that feeds Ch 24's
@@ -815,6 +815,23 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
    wastes memory on a struct full of `char` fields.  What
    would change in `cc-sd-append-field` to support packed
    layouts?
+
+## After this chapter
+
+The compiler can parse declarations: base types with pointer/array
+modifiers, struct definitions (including self-referential ones via
+pre-registration), typedefs, enum constants, local variable
+declarations, and file-scope globals with deferred vaddr fixups.
+
+You can read `cc-parse-decl`, explain how `struct T { struct T *next; };`
+works because the tag is registered before the field loop, and
+trace how a `static int xs[100];` global gets its eventual virtual
+address.
+
+Toward Stage-A: identical declaration order produces identical
+symbol IDs, identical local slot assignments, and identical global
+vaddrs — three of the most byte-sensitive precondition surfaces in
+the proof.
 
 ## Takeaways
 

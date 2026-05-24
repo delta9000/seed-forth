@@ -1,5 +1,12 @@
 # Chapter 17 — The Dictionary
 
+```text
+Missing capability: how find, ', and execute actually work is unknown.
+New pattern: a singly-linked list of [link][flags][name-len][name-bytes][body] entries, scanned newest-first.
+Artifact after this chapter: the dictionary's layout and its lookup primitive in machine code.
+Proof link: "small tables, linear search, newest wins" first appears here; Chs 22, 24, 30, 31 reapply it.
+```
+
 This chapter reads the seed's only data structure: a singly-linked
 list of headers laid out as `link(8) flags(1) nlen(1) name(N)
 body(M)`, walked backwards from `LATEST` by `find_code`.  The

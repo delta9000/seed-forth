@@ -34,6 +34,111 @@ first principles and start using as a primitive.
 | Declaration/statement/function compiler | Chs 29-31 | complete C-subset parser | Ch 32 |
 | Proof harness | Ch 32 | Stage-A `.M1` parity | Appendices |
 
+## Capability ladder
+
+What the compiler can do after each Part III chapter.  Pairs with
+the rung map above (which shows what each rung *is*); this table
+shows what the artifact can *do* at each step.
+
+| Ch | After this chapter, the compiler can ... |
+|---:|---|
+| 21 | accept stdin into `cc-src-buf`, emit and back-patch into `cc-out-buf`, allocate variable scratch from the arena |
+| 22 | flatten C source: project includes splice in, integer macros expand newest-first |
+| 23 | produce one C token at a time into the `tok-*` globals on demand |
+| 24 | look up names and C types, push/pop scopes, lay out struct descriptors |
+| 25 | emit a valid 120-byte ELF prologue and the core x86-64 instruction encoders |
+| 26 | emit function calls with forward fixups, libc shims, string literals, and global-address placeholders |
+| 27 | lower binary expressions (arithmetic, comparison, bitwise, logical) through one repeated fold |
+| 28 | lower primary, unary, postfix, ternary, and assignment with three-kind lvalue tracking |
+| 29 | parse declarations: pointers, arrays, structs (self-referential), typedefs, enums, file-scope globals |
+| 30 | lower every C control statement: `if`/`else`, `while`, `for`, `do`/`while`, `switch`, `break`, `continue`, `goto` |
+| 31 | assemble whole translation units: functions with parameters, scopes, globals, entry stub.  Output is now a runnable ELF. |
+| 32 | self-host M2-Planet and verify byte-identical `.M1` against the GCC-built reference.  Stage-A is closed. |
+
+## Topic → chapter quick reference
+
+If you want to know how a specific feature is built, this index
+points to the chapter that owns it.  Entries are grouped by area
+and given in source order within each area.
+
+### Forth, library and primitives
+
+- *Stack model, dictionary lookup* — Chs 1, 17
+- *`nand` and derived logic* — Chs 1 (use), 3 (logic), 15 (machine code)
+- *Two's complement subtraction* — Ch 4
+- *Linux syscalls from Forth* — Ch 5
+- *`digit?`, `alpha?`, `space?`* — Ch 6
+- *Comparisons `= < > <= >=`* — Ch 7
+- *Stack shufflers `nip rot 2dup 2drop`* — Ch 8
+- *Little-endian writers `c, ,4 ,8`* — Chs 2, 9
+- *IMMEDIATE flag, STATE, `constant`* — Ch 10
+- *Control-flow combinators `if, then, begin, while, repeat,`* — Ch 11
+- *`allot create variable bytes-eq`* — Ch 12
+
+### Seed VM
+
+- *ELF header, single PT_LOAD, entry stub* — Ch 13
+- *Stack/return-stack/memory primitives in machine code* — Ch 14
+- *`+ nand 0= / *` in machine code* — Ch 15
+- *`emit key syscall6` in machine code* — Ch 16
+- *Dictionary header layout, `find ' execute`* — Ch 17
+- *`: ; [lit] lit_code`, subroutine threading* — Ch 18
+- *`branch 0branch`, consumed-slot property, inline cells* — Ch 19
+- *`read_word`, decimal parse, REPL loop* — Ch 20
+
+### Compiler infrastructure
+
+- *Bump arena, source/output buffers, back-patching* — Ch 21
+- *Preprocessor: `#include "…"`, `#define NAME N`* — Ch 22
+- *Tokenizer, keyword table, punctuation IDs* — Ch 23
+- *Type encoding, symbol table, struct descriptors* — Ch 24
+- *ELF header emission for compiled output* — Ch 25
+- *Instruction encoders (mov, push/pop, call, ret, idiv)* — Ch 25
+- *Forward calls, fixup lists* — Ch 26
+- *String literal storage with C-escape decoding* — Ch 26
+- *Libc shims (putchar, exit, getchar)* — Ch 26
+- *File-scope globals with deferred vaddrs* — Chs 26, 29
+- *`movabs rdi, imm64` and wide-immediate fixups* — Ch 26
+
+### C grammar
+
+- *Binary expressions, precedence climbing* — Ch 27
+- *Logical operators with short-circuit codegen* — Ch 27
+- *Primary expressions, postfix chain (`.` `->` `[]` `()` `++` `--`)* — Ch 28
+- *Unary operators (`* & ! - ~`, prefix `++`/`--`, `sizeof`)* — Ch 28
+- *Ternary `?:` and lvalue tracking* — Ch 28
+- *Assignment (`=`, `+=`, `-=`, etc.)* — Ch 28
+- *Declarations, pointers, arrays* — Ch 29
+- *Structs, struct pointers, self-referential structs* — Ch 29
+- *Typedefs and function-pointer typedefs* — Ch 29
+- *Enums and enum constants* — Ch 29
+- *File-scope globals, static globals* — Ch 29
+- *`if` / `else`* — Ch 30
+- *`while`, `for` (with step rewind)* — Ch 30
+- *`do` / `while`* — Ch 30
+- *`switch` / `case` / `default` with fall-through* — Ch 30
+- *`break`, `continue`, `goto`, labels* — Ch 30
+- *`return` and implicit return* — Chs 30, 31
+- *Function definitions, parameter spill, scopes* — Ch 31
+- *Forward function calls and prototype fixups* — Ch 31
+- *The `main` entry stub at `0x400078`* — Ch 31
+
+### Reading the proof
+
+- *Stage-A parity check* — Ch 32, Appendix C
+- *Byte-identity vs ELF-identity (why parity is on `.M1`)* — Ch 32
+- *Fixed-point closure across self-compiles* — Ch 32, `tests/cc/bootstrap-chain.sh`
+- *Reproducibility pins for M2-Planet, mescc-tools, stage0* — Appendix C, `REPRODUCIBLE.md`
+- *Compiler exit codes (`die N`) and what each means* — Appendix G
+
+### Patterns that recur at every scale
+
+- *Emit, remember, patch* — Ch 11, 19, 21, 25, 26, 30, 31
+- *Small tables, linear search, newest wins* — Chs 17, 22, 24, 30, 31
+- *One buffer per responsibility* — Chs 21, 22, 26, 31
+- *Trampoline vectors for forward references* — Chs 18, 22, 30
+- *Fixup-on-the-stack* — Chs 11, 19, 26, 30
+
 ## Concept index
 
 Each row: **concept** — first introduced in *Ch N*; used by *(Ch M,

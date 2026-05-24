@@ -22,6 +22,26 @@ detail, the Linux syscall ABI, the Forth standard library, or
 anything about bootstrap chains.  The book introduces each of
 these as it needs them, in the order it needs them.
 
+## By the end of this book you will be able to
+
+- Pick any line in `010-lib.fth`, the 32 primitives in
+  `000-seed.hex0`, or the C compiler files and explain what it
+  does, why it's shaped that way, and what would break if it
+  weren't.
+- Run `./check-all.sh` and explain what each of the four checks
+  proves about the artifact.
+- Audit the Stage-A parity claim yourself: rebuild the chain from
+  the 229-byte hex0 trust root through the 2,040-byte seed, the
+  Forth library, and the C compiler, and verify that the emitted
+  `.M1` text matches a GCC-built reference byte-for-byte.
+- Read related codebases (M2-Planet, mescc-tools, stage0,
+  JONESFORTH, sectorforth) with confidence — this book trains the
+  muscle for dense low-level code in general, not just for this
+  artifact.
+- Know what you cannot do: the book is a manual for one specific
+  chain, not a survey or a how-to-design-your-own.  Pointers to
+  go further live in **Appendix E — Further Reading**.
+
 ## Before you start
 
 The seed is hand-encoded x86-64 ELF, so the codebase runs natively

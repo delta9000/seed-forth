@@ -842,6 +842,23 @@ disassembly after the 120-byte ELF preamble.
    Estimate the saving and decide whether it's worth the code
    change.
 
+## After this chapter
+
+The compiler can write executable bytes: a valid 120-byte ELF
+prologue is emitted up front, and the primitive encoders for `mov`,
+`push`/`pop`, `call`, `ret`, frame-pointer arithmetic, and rel32
+placeholders are in place.  No expression or statement parsing yet,
+but the substrate codegen builds on is complete.
+
+You can read the ELF header bytes field by field, explain why
+`p_filesz` is patched in `cc-finalize-elf` rather than written up
+front, and recognise the byte sequences for the dozen most common
+x86-64 instructions the compiler emits.
+
+Toward Stage-A: every byte before the first compiled instruction
+is fixed by this chapter; from here on parity is exclusively about
+codegen.
+
 ## Takeaways
 
 - The output ELF is a single R-W-X PT_LOAD at `0x400000` with

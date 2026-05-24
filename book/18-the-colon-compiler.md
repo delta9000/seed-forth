@@ -1,5 +1,12 @@
 # Chapter 18 — The Colon Compiler
 
+```text
+Missing capability: :, ;, and [lit] are language-level mysteries.
+New pattern: : builds a header and flips STATE; bodies use subroutine threading (each word is a call).
+Artifact after this chapter: :, ;, [lit], and the lit_code runtime that resolves inline literals.
+Proof link: the C compiler's calls mirror this shape — call plus inline operands; same fixup trick.
+```
+
 Four pieces of the seed turn the dictionary from a read-only table
 into a Forth that can *define new words*: `colon_code` (`@ 0x2D4`)
 parses a name and lays down a header at HERE; `semicolon_code`

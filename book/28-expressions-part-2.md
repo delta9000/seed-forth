@@ -3,7 +3,7 @@
 ```text
 Missing capability: expressions cannot address storage, handle postfix forms, or assign.
 New pattern: lvalue metadata delays loads until context decides whether a value is read or written.
-Artifact after this chapter: primary, unary, postfix, ternary, assignment, and lvalue-aware expression codegen.
+Artifact after this chapter: primary, unary, postfix, ternary, assignment, and lvalue-aware codegen.
 Proof link: Stage-A pointer, array, struct, call, increment, and assignment expressions share one value model.
 ```
 
@@ -383,6 +383,20 @@ common `is_digit(s[i])` patterns.
 slab.  The prose below walks the token-kind dispatch, then each
 postfix operator in turn; nothing here needs to be held in your
 head at first reading.
+
+The code has two macro-structures stacked:
+
+1. *The leaf dispatch* — a `tok-kind` case ladder for `tk-num`,
+   `tk-chr`, `tk-str`, `tk-ident`, and `'(' expr ')'`.  Each leaf
+   leaves a value (or a lvalue marker) in `rdi`.
+2. *The postfix loop* — wraps the leaf, peeks one token, and
+   applies `.field`, `->field`, `[idx]`, `(args)`, `++`, or `--`
+   if it sees them.  The loop repeats until it sees something
+   that isn't a postfix operator.
+
+When you read the slab, the postfix loop is the `begin, ... cc-next-token-keep
+... while, ... repeat,` near the end.  Everything before it is the
+leaf dispatch.
 
 ```forth chunk=expr-primary
 \ ===========================================================================
@@ -1414,6 +1428,24 @@ machinery in isolation.
    `cc-sym-extra2`.  Trace how Ch 31's `cc-parse-function`
    patches that list when the definition arrives.  How is the
    list head set to 0 again?
+
+## After this chapter
+
+The compiler can lower the floor and tail of expressions: primary
+(literals, identifiers, calls, postfix `.`/`->`/`[]`/`++`/`--`),
+unary (`*`, `&`, prefix `++`/`--`, `sizeof`, `!`, `-`, `~`), the
+ternary `?:`, and the assignment family — all with three-kind
+lvalue tracking that defers loads until context decides reads from
+writes.
+
+You can read `cc-parse-primary`'s postfix chain, explain the three
+lvalue kinds and when `cc-emit-materialize` fires, and follow how
+`p[i] = c;` reaches the right byte-width store without a separate
+codegen path.
+
+Toward Stage-A: pointer indirection, array indexing, struct field
+access, and assignment together generate the bulk of the M1 text in
+a real M2-Planet build, so this is where most parity hinges.
 
 ## Takeaways
 

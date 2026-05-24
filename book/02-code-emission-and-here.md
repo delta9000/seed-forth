@@ -1,5 +1,12 @@
 # Chapter 2 — Code Emission and the HERE Pointer
 
+```text
+Missing capability: defining-words have no way to emit bytes into the dictionary at compile time.
+New pattern: here-addr names the bump cursor; c,, ,4, ,8 are write-then-advance helpers.
+Artifact after this chapter: byte-level emission primitives every later library word reaches for.
+Proof link: every byte the seed compiles passes through c,; the dictionary's tail is here-addr.
+```
+
 Two short definitions in `010-lib.fth` (lines 9–21), `here-addr` and
 `c,`, give the dictionary its frontier pointer and the one-byte
 writer that pushes it forward.  `here-addr` names the absolute

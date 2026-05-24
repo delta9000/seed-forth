@@ -777,6 +777,22 @@ bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
    but imagine it).  What would it touch in the lexer (Ch 23),
    the instruction encoders (Ch 25), and this file?
 
+## After this chapter
+
+The compiler can lower binary expressions: arithmetic, comparison,
+bitwise, and logical operators at every C precedence level, all
+through one repeated five-step fold template (left, push, right,
+pop, op).
+
+You can read `cc-parse-mul`/`add`/`rel`/`eq`/`bit`/`log`, explain
+precedence climbing, and predict what code an expression like
+`a + b * c > d` will emit without running it.
+
+Toward Stage-A: every binary operator in M2-Planet's source lowers
+through this cascade — the same function shape repeated nine times
+— so a parity failure in any binary op localises to one of nine
+small layers.
+
 ## Takeaways
 
 - Every binary-op layer is one function with the same five-step

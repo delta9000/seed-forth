@@ -1,5 +1,12 @@
 # Chapter 15 — Arithmetic, Logic, Comparison
 
+```text
+Missing capability: +, nand, 0=, /, * were black boxes.
+New pattern: each primitive reads [rbp], modifies rdi in place, advances rbp, and returns.
+Artifact after this chapter: the arithmetic and logic primitives' machine code (54 bytes total).
+Proof link: division and sign-extraction here are what Ch 7's comparisons rest on; idiv reuses the shape.
+```
+
 The arithmetic primitives are *small*.  `plus_code`, `nand_code`,
 and `zeq_code` sit at lines 153–170 of `000-seed.hex0`; `divide_code`,
 the `/` dictionary entry, and `star_code` are tucked further down at

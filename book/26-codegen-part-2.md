@@ -198,6 +198,22 @@ Eleven shims follow, all the same shape: load syscall number,
 marshal arguments, trap, return.  The prose afterwards picks out
 only the ones whose marshalling actually differs.
 
+What varies between shims:
+
+- *The syscall number* (`mov rax, imm32`).  This is the only line
+  every shim needs to change.
+- *Register reshuffling* before the trap.  Most shims pass args
+  already in SYS-V registers and need only the syscall opcode,
+  but a few (`write`, `mmap`, `lseek`) re-arrange registers because
+  the kernel uses different conventions.
+- *Post-syscall fixup*.  `read` needs to handle the "interrupted
+  by signal" case; `mmap` adjusts the return code.  Most just
+  fall through.
+
+Everything else — prologue, epilogue, frame setup — is identical
+across all eleven.  Read one shim carefully; then skim the rest
+looking only for those three points of variation.
+
 ```forth file=090-cc-emit.fth
 \ ===========================================================================
 \ Built-in libc shims (putchar, exit, getchar) emitted at the start of
@@ -965,6 +981,22 @@ scale, building M2-Planet itself with this pipe.
 5. **★★★ Extend.** The string-bytes decoder handles seven escapes.  Add `\xNN`
    (two-hex-digit escape).  Where in the codegen does the new
    case go?
+
+## After this chapter
+
+The compiler can emit code that talks to the rest of itself:
+function calls (with forward-fixup lists for unresolved targets),
+libc shim wrappers, inlined string-literal storage, and global-
+address placeholders that get patched once layout is known.
+
+You can read `cc-emit-call` and `cc-add-fixup-to-list`, explain how
+a call to a function defined later in the file still gets a correct
+rel32, and trace where a `char *s = "hi"` literal ends up in the
+output buffer.
+
+Toward Stage-A: calls and global accesses are the first place real
+parity is at stake — both encode 32-bit offsets that depend on
+exact layout, so every byte here has to match the reference.
 
 ## Takeaways
 

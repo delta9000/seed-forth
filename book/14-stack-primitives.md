@@ -1,5 +1,12 @@
 # Chapter 14 — Stack Primitives in Machine Code
 
+```text
+Missing capability: dup, drop, swap, over, @, !, and return-stack ops were black boxes.
+New pattern: each primitive is two to seven bytes of x86-64; rdi holds TOS, rbp is the data-stack pointer.
+Artifact after this chapter: the stack and memory primitives' machine code, fully readable.
+Proof link: the compiler's codegen reuses the same rdi/rbp convention; these bytes prime you for Ch 25.
+```
+
 Ten primitive bodies in `000-seed.hex0` carry the data-stack and
 memory operations Part I leaned on without explanation: `dup_code` at
 `0x13B` through `cstore_code` at `0x18E` (lines 97–152), plus

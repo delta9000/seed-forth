@@ -1,5 +1,12 @@
 # Chapter 16 — I/O: `emit`, `key`, `syscall6`
 
+```text
+Missing capability: emit, key, and syscall6 were black boxes.
+New pattern: syscall6 loads rax, rdi, rsi, rdx, r10, r8, r9 from the data stack and traps.
+Artifact after this chapter: the three primitives that connect the seed to Linux, in machine code.
+Proof link: every byte the seed reads or writes goes through these; Ch 5's wrappers sit directly on top.
+```
+
 I/O at the seed layer is one byte at a time, and that restriction
 shrinks the four primitives in this chapter to a handful of bytes
 apiece.  `bye_code`, `emit_code`, and `key_code` live at lines 65–96

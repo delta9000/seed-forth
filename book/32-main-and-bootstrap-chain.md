@@ -378,6 +378,23 @@ the kind of bug nobody notices until Stage-A breaks.
    without breaking the parity claim.  (Hint: most changes
    *do* break it; the trick is finding one that doesn't.)
 
+## After this chapter
+
+The chain is closed.  `cc-main` composes every Part III layer in
+load order; `stage-a-check.sh` and `bootstrap-chain.sh` drive
+forth-cc against the M2-Planet sources and confirm the emitted
+`.M1` text is byte-identical to the GCC-built reference.  Two
+different compilers, same output on the same input.
+
+You can read `stage-a-check.sh` and `bootstrap-chain.sh`, explain
+why the proof is byte-identity of emitted `.M1` (not byte-identity
+of the compiler ELFs themselves), and audit any byte in the chain
+back to its source.
+
+Toward Stage-A: this *is* Stage-A.  Everything before this chapter
+was building the artifact; everything in this chapter is the proof
+that the artifact does what it claims.
+
 ## Takeaways
 
 - `cc-main` is nine words and a `bye`.  Every layer of

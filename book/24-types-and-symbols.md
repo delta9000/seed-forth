@@ -551,6 +551,23 @@ function symbol in the M2-Planet input.
    wrapper could check a flag at every iteration and skip the
    body.  Measure whether it's worth the bytes.
 
+## After this chapter
+
+The compiler has runtime data for names and C types: every type
+fits in one word (base kind + pointer depth + size), every symbol
+lives in a row across parallel columns, and scopes push/pop by
+remembering a count.  Struct definitions get their own 16+40·N-byte
+descriptor.
+
+You can read `ty-make`, `cc-sym-add`, and the scope stack, and
+explain why a single linear scan in newest-first order is enough
+for both correctness and performance at this scale.
+
+Toward Stage-A: identical name resolution produces identical slot
+assignments and identical struct layouts, which is the precondition
+for every load/store byte that follows being identical to the
+reference's.
+
 ## Takeaways
 
 - The whole C type system fits in one word per type, plus an

@@ -1,5 +1,12 @@
 # Chapter 3 — Logic from One Primitive
 
+```text
+Missing capability: only nand exists; and, or, not, xor don't.
+New pattern: De Morgan's law as code — derive every Boolean operator from nand alone.
+Artifact after this chapter: a complete Boolean toolkit on top of one primitive.
+Proof link: the C compiler's lvalues and control-flow use these without ever re-deriving them.
+```
+
 The seed keeps exactly one bitwise primitive, `nand`, and builds
 every other boolean operator on top of it in Forth.  This chapter
 defines `and` and `or` (lines 22–30 of `010-lib.fth`, the section

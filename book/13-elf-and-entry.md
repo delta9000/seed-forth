@@ -1,5 +1,12 @@
 # Chapter 13 — The ELF and the Entry Point
 
+```text
+Missing capability: the 2,040 bytes of hex have to be made executable somehow.
+New pattern: a minimal ELF64 header plus one PT_LOAD with R|W|X over the whole 16 MiB segment.
+Artifact after this chapter: the boot prologue — ELF header, _start, sysvar init, jump to REPL.
+Proof link: the C compiler's own ELF emission (Ch 25) reuses the same shape and the same addresses.
+```
+
 This chapter reads the first 63 lines of `000-seed.hex0`: a
 64-byte `Elf64_Ehdr`, a single `Elf64_Phdr` describing one
 `PT_LOAD` segment with `R|W|X` flags, the `_start` prologue, the

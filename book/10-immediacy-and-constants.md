@@ -1,5 +1,12 @@
 # Chapter 10 — Immediacy and Constants
 
+```text
+Missing capability: defining a constant requires compile-vs-runtime separation.
+New pattern: the IMMEDIATE flag and STATE variable; constant as a 19-byte body plus a literal.
+Artifact after this chapter: constant plus the IMMEDIATE/STATE protocol Chs 11 and 12 lean on.
+Proof link: every type tag, keyword ID, and libc shim address the C compiler reaches for is a constant.
+```
+
 This chapter is where Part I crosses a threshold: we build a word
 that builds words.  Two definitions in `010-lib.fth` (lines 162–193)
 do the job.  `immediate` flips the IMMEDIATE bit on the most-recent

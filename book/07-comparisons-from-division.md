@@ -1,5 +1,12 @@
 # Chapter 7 — Comparisons from Unsigned Division
 
+```text
+Missing capability: the seed has 0= but no =, <, >, <=, >=.
+New pattern: sign-bit extraction via division by 2^63 gives <; the rest derive in one line each.
+Artifact after this chapter: the full set of integer comparisons used throughout the book.
+Proof link: every conditional jump the C compiler emits is rooted in these Forth comparisons.
+```
+
 Eight definitions in `010-lib.fth` (lines 87–120), `=`, `<>`, `2^63`,
 `neg-flag`, `<`, `>`, `<=`, `>=`, give the seed every comparison
 operator it will ever need without spending a single primitive

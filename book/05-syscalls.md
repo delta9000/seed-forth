@@ -1,5 +1,12 @@
 # Chapter 5 — Talking to Linux: `syscall6` Wrappers
 
+```text
+Missing capability: the Forth code has no way to reach the OS.
+New pattern: five wrappers on top of one syscall6 primitive, each pinning its number and padding unused args.
+Artifact after this chapter: open, read, write, close, die.
+Proof link: the Stage-A driver writes its output via write; the compiler reads stdin via read.
+```
+
 Five short wrappers in `010-lib.fth` (lines 39–62), `open`, `read`,
 `write`, `close`, and `die`, connect Forth to the Linux x86-64
 kernel through one primitive: `syscall6`.  The primitive loads

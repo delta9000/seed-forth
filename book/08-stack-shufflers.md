@@ -1,5 +1,12 @@
 # Chapter 8 — Stack Shufflers
 
+```text
+Missing capability: the seed has dup, drop, swap but not nip, rot, 2dup, 2drop.
+New pattern: a small library of stack-effect transforms, each defined in one line over the seed.
+Artifact after this chapter: the everyday stack-shuffling vocabulary.
+Proof link: codegen passes use these to keep argument order straight without an exit primitive.
+```
+
 Four short shuffles in `010-lib.fth` (lines 121–136), `nip`, `rot`,
 `2dup`, and `2drop`, round out the classical Forth shuffle
 vocabulary on top of the six primitives Chs 1 and 4 introduced.

@@ -1,5 +1,12 @@
 # Chapter 9 — Memory Updates and Cell Writers
 
+```text
+Missing capability: no compound updates or multi-byte writers on top of @ and !.
+New pattern: read-modify-write helpers and little-endian byte writers built on the primitive store.
+Artifact after this chapter: +!, -!, ,4, ,8.
+Proof link: the C compiler bumps counters via +!; its ELF + code emission flow through ,4 / ,8 analogues.
+```
+
 Four little definitions in `010-lib.fth` (lines 137–161) round out
 the memory-manipulation toolkit Part I needs before we can build
 defining words: `+!` and `-!` are the "read-modify-write on a cell"

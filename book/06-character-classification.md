@@ -1,5 +1,12 @@
 # Chapter 6 — Character Classification
 
+```text
+Missing capability: no way to test whether a byte is a digit, letter, or whitespace.
+New pattern: range checks via (byte - base) / span == 0.
+Artifact after this chapter: digit?, alpha-lower?, alpha-upper?, alpha?, space?.
+Proof link: the lexer (Ch 23) reuses these for identifier and number recognition.
+```
+
 Five small predicates in `010-lib.fth` (lines 63–86), `digit?`,
 `alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`, build a
 character classifier vocabulary on a single three-token idiom: `(c
