@@ -135,6 +135,106 @@ variable cc-macro-find-needle-len
   cc-macro-find-value @  cc-macro-find-flag @ ;
 
 \ ===========================================================================
+\ cc-macro-remove  ( name-addr name-len -- )
+\ #undef: mark all matching entries as length 0 so future lookups skip them.
+\ ===========================================================================
+variable cc-macro-rm-a
+variable cc-macro-rm-u
+: cc-macro-remove
+  cc-macro-rm-u ! cc-macro-rm-a !
+  cc-macro-count @ [lit] 1 -                         ( i )
+  begin,
+    dup [lit] 0 >=
+  while,
+    dup cc-macro-name-len cc-macro-slot @
+    cc-macro-rm-u @ = if,
+      dup cc-macro-name-addr cc-macro-slot @         ( i entry-a )
+      cc-macro-rm-a @ swap cc-macro-rm-u @
+      bytes-eq if,
+        [lit] 0 over cc-macro-name-len cc-macro-slot !
+      then,
+    then,
+    [lit] 1 -
+  repeat,
+  drop ;
+
+\ ===========================================================================
+\ Conditional-compilation stack
+\ ===========================================================================
+\ One frame per open #if/#ifdef/#ifndef.  Per frame:
+\   active : -1 if THIS branch's body should be emitted, 0 if skipped.
+\   taken  : -1 if any branch in THIS chain has been taken (so #else / #elif
+\            must not activate).
+\ cc-prep-emit-active is the AND of every frame's `active` — it is the single
+\ flag the rest of the preprocessor reads to decide whether to emit a byte or
+\ run a non-conditional directive.
+
+[lit] 32 constant cc-prep-cond-cap
+create cc-prep-cond-active  cc-prep-cond-cap [lit] 8 * allot
+create cc-prep-cond-taken   cc-prep-cond-cap [lit] 8 * allot
+variable cc-prep-cond-depth
+variable cc-prep-emit-active
+
+\ cc-prep-cond-slot ( base i -- addr )  Use existing cc-macro-slot for layout.
+
+variable cc-prep-recompute-i
+: cc-prep-recompute-emit
+  [lit] 0 0= cc-prep-emit-active !
+  [lit] 0 cc-prep-recompute-i !
+  begin,
+    cc-prep-recompute-i @ cc-prep-cond-depth @ <
+  while,
+    cc-prep-recompute-i @ cc-prep-cond-active cc-macro-slot @
+    cc-prep-emit-active @ and cc-prep-emit-active !
+    [lit] 1 cc-prep-recompute-i +!
+  repeat, ;
+
+\ cc-prep-cond-push ( active -- )  Push frame with given active flag.  Sets
+\ taken := active so the first taking arm marks the chain done.
+: cc-prep-cond-push
+  cc-prep-cond-depth @ cc-prep-cond-cap >= if,
+    [lit] 73 die                                     \ conditional stack overflow
+  then,
+  dup cc-prep-cond-depth @ cc-prep-cond-active cc-macro-slot !
+  cc-prep-cond-depth @ cc-prep-cond-taken cc-macro-slot !
+  [lit] 1 cc-prep-cond-depth +!
+  cc-prep-recompute-emit ;
+
+: cc-prep-cond-pop
+  cc-prep-cond-depth @ [lit] 0 = if,
+    [lit] 74 die                                     \ #endif without #if
+  then,
+  [lit] 1 cc-prep-cond-depth -!
+  cc-prep-recompute-emit ;
+
+: cc-prep-cond-top-i
+  cc-prep-cond-depth @ [lit] 1 - ;
+
+: cc-prep-cond-set-active                            ( a -- )
+  cc-prep-cond-top-i cc-prep-cond-active cc-macro-slot !
+  cc-prep-recompute-emit ;
+
+: cc-prep-cond-get-taken                             ( -- f )
+  cc-prep-cond-top-i cc-prep-cond-taken cc-macro-slot @ ;
+
+: cc-prep-cond-set-taken                             ( f -- )
+  cc-prep-cond-top-i cc-prep-cond-taken cc-macro-slot ! ;
+
+\ Pre-parent emit state: the value cc-prep-emit-active would have if the top
+\ frame were absent.  Used by #else / #elif: their branch can only activate
+\ when the surrounding scope was already emitting.
+variable cc-prep-parent-i
+: cc-prep-parent-emit                                ( -- f )
+  [lit] 0 0=
+  [lit] 0 cc-prep-parent-i !
+  begin,
+    cc-prep-parent-i @ cc-prep-cond-depth @ [lit] 1 - <
+  while,
+    cc-prep-parent-i @ cc-prep-cond-active cc-macro-slot @ and
+    [lit] 1 cc-prep-parent-i +!
+  repeat, ;
+
+\ ===========================================================================
 \ Walking-region state.  Globals so recursion just saves/restores.
 \ ===========================================================================
 
@@ -424,38 +524,307 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
 \ and elides the directive.
 variable cc-prep-def-state
 
-: cc-prep-handle-define
-  [lit] 0 cc-prep-def-state !
+\ ===========================================================================
+\ Number reader: decimal or 0x... hex.  ( -- n found? )
+\ ===========================================================================
+\ Hex helpers.  This Forth has no `exit` primitive, so the digit-class checks
+\ are written as a cascade rather than early returns.
+: cc-prep-hex-digit?
+  dup [lit] 48 - [lit] 10 / 0= if,
+    drop [lit] 0 0=
+  else,
+    dup [lit] 65 - [lit] 6 / 0= if,
+      drop [lit] 0 0=
+    else,
+      [lit] 97 - [lit] 6 / 0=
+    then,
+  then, ;
+: cc-prep-hex-val
+  dup [lit] 48 - [lit] 10 / 0= if,
+    [lit] 48 -
+  else,
+    dup [lit] 65 - [lit] 6 / 0= if,
+      [lit] 55 -
+    else,
+      [lit] 87 -
+    then,
+  then, ;
+
+variable cc-prep-num-acc
+variable cc-prep-num-found
+variable cc-prep-num-mode                          \ 0 = decimal, -1 = hex
+: cc-prep-read-number
+  [lit] 0 cc-prep-num-acc !
+  [lit] 0 cc-prep-num-found !
+  [lit] 0 cc-prep-num-mode !
+  cc-prep-peek digit? if,
+    cc-prep-peek [lit] 48 = if,
+      cc-prep-advance
+      [lit] 0 0= cc-prep-num-found !
+      cc-prep-eor? 0= if,
+        cc-prep-peek dup [lit] 120 = swap [lit] 88 = or if,
+          cc-prep-advance
+          [lit] 0 0= cc-prep-num-mode !
+        then,
+      then,
+    then,
+    cc-prep-num-mode @ if,
+      begin,
+        cc-prep-eor? 0=
+        cc-prep-peek cc-prep-hex-digit? and
+      while,
+        cc-prep-num-acc @ [lit] 16 *
+        cc-prep-peek cc-prep-hex-val +
+        cc-prep-num-acc !
+        cc-prep-advance
+      repeat,
+    else,
+      begin,
+        cc-prep-eor? 0=
+        cc-prep-peek digit? and
+      while,
+        cc-prep-num-acc @ [lit] 10 *
+        cc-prep-peek [lit] 48 - +
+        cc-prep-num-acc !
+        [lit] 0 0= cc-prep-num-found !
+        cc-prep-advance
+      repeat,
+    then,
+  then,
+  cc-prep-num-acc @ cc-prep-num-found @ ;
+
+\ ===========================================================================
+\ #if expression evaluator
+\ ===========================================================================
+\ Grammar (weakest precedence first):
+\   or  = and  ('||' and )*
+\   and = eq  ('&&' eq )*
+\   eq  = rel (('==' | '!=') rel )*
+\   rel = un  (('<=' | '>=' | '<' | '>') un )*
+\   un  = '!' un | '-' un | '~' un | primary
+\   primary = number | 'defined' ('(' ident ')' | ident)
+\           | ident | '(' or ')'
+\ Identifiers resolve to their macro value, or 0 if undefined.
+
+create cc-prep-name-defined
+[lit] 100 c, [lit] 101 c, [lit] 102 c, [lit] 105 c,
+[lit] 110 c, [lit] 101 c, [lit] 100 c,                  \ defined (7 bytes)
+
+variable cc-prep-expr-vec
+: cc-prep-expr-tramp  cc-prep-expr-vec @ execute ;
+
+\ cc-prep-byte-at ( pos -- c )  Byte at absolute source position; 0 past EOR.
+: cc-prep-byte-at
+  dup cc-prep-src-len @ < if,
+    cc-prep-src-addr @ + c@
+  else,
+    drop [lit] 0
+  then, ;
+
+\ cc-prep-try2 ( c0 c1 -- f )  Consumes two chars iff next two (after blanks)
+\ are c0,c1.  Returns -1 on match (advances pos), 0 on miss (pos unchanged).
+variable cc-prep-try2-c0
+variable cc-prep-try2-c1
+variable cc-prep-try2-flag
+: cc-prep-try2
+  cc-prep-try2-c1 ! cc-prep-try2-c0 !
+  [lit] 0 cc-prep-try2-flag !
   cc-prep-skip-blanks
+  cc-prep-peek cc-prep-try2-c0 @ = if,
+    cc-prep-src-pos @ [lit] 1 + cc-prep-byte-at
+    cc-prep-try2-c1 @ = if,
+      cc-prep-advance cc-prep-advance
+      [lit] 0 0= cc-prep-try2-flag !
+    then,
+  then,
+  cc-prep-try2-flag @ ;
+
+\ cc-prep-try1 ( c -- f )  Consumes one char iff next byte (after blanks) is c.
+variable cc-prep-try1-c
+variable cc-prep-try1-flag
+: cc-prep-try1
+  cc-prep-try1-c !
+  [lit] 0 cc-prep-try1-flag !
+  cc-prep-skip-blanks
+  cc-prep-peek cc-prep-try1-c @ = if,
+    cc-prep-advance [lit] 0 0= cc-prep-try1-flag !
+  then,
+  cc-prep-try1-flag @ ;
+
+\ cc-prep-bool ( n -- 0/1 )
+: cc-prep-bool  [lit] 0 = if, [lit] 0 else, [lit] 1 then, ;
+
+\ Primary: handles parens, numbers, defined(X), and macro names.
+\ Stack: ( -- v ).  Position advances past the parsed primary.
+: cc-prep-expr-defined-tail                          ( -- v )
+  \ At entry, the 'defined' keyword has been consumed.  Read optional
+  \ '(', the operand identifier, and optional ')'.
+  cc-prep-skip-blanks
+  cc-prep-peek [lit] 40 = if, cc-prep-advance cc-prep-skip-blanks then,
   cc-prep-peek cc-prep-is-ident-start? if,
     cc-prep-read-ident
+    cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find-int
+    if, drop [lit] 1 else, drop [lit] 0 then,
+  else,
+    [lit] 0
+  then,
+  cc-prep-skip-blanks
+  cc-prep-peek [lit] 41 = if, cc-prep-advance then, ;
+
+variable cc-prep-pri-saw-defined
+: cc-prep-expr-primary
+  cc-prep-skip-blanks
+  cc-prep-peek [lit] 40 = if,                        \ '('
+    cc-prep-advance
+    cc-prep-expr-tramp                               ( v )
     cc-prep-skip-blanks
+    cc-prep-peek [lit] 41 = if, cc-prep-advance then,
+  else,
     cc-prep-peek digit? if,
-      cc-prep-read-decimal                         ( v found? )
-      if,
-        cc-prep-ident-addr @  cc-prep-ident-len @  rot
-        cc-macro-add
-      else,
-        drop
-      then,
+      cc-prep-read-number drop
     else,
       cc-prep-peek cc-prep-is-ident-start? if,
-        \ ident-valued: resolve through existing table.
-        cc-prep-src-addr @ cc-prep-src-pos @ +     ( val-a )
-        cc-prep-src-pos @                          ( val-a start )
-        begin,
-          cc-prep-eor? 0=
-          cc-prep-peek cc-prep-is-ident-cont? and
-        while,
-          cc-prep-advance
-        repeat,
-        cc-prep-src-pos @ swap -                   ( val-a len )
-        cc-macro-find-int                          ( v found? )
-        if,
-          cc-prep-ident-addr @  cc-prep-ident-len @  rot
-          cc-macro-add
+        cc-prep-read-ident
+        [lit] 0 cc-prep-pri-saw-defined !
+        cc-prep-ident-len @ [lit] 7 = if,
+          cc-prep-ident-addr @ cc-prep-name-defined [lit] 7 bytes-eq if,
+            [lit] 0 0= cc-prep-pri-saw-defined !
+          then,
+        then,
+        cc-prep-pri-saw-defined @ if,
+          cc-prep-expr-defined-tail
         else,
-          drop
+          cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find-int
+          if, else, drop [lit] 0 then,
+        then,
+      else,
+        [lit] 0
+      then,
+    then,
+  then, ;
+
+: cc-prep-expr-unary
+  cc-prep-skip-blanks
+  cc-prep-peek [lit] 33 = if,                        \ '!'
+    cc-prep-advance
+    cc-prep-expr-unary cc-prep-bool
+    [lit] 1 swap -
+  else,
+    cc-prep-peek [lit] 45 = if,                      \ unary '-'
+      cc-prep-advance
+      cc-prep-expr-unary [lit] 0 swap -
+    else,
+      cc-prep-peek [lit] 126 = if,                   \ '~' (bitwise not)
+        cc-prep-advance
+        cc-prep-expr-unary dup nand                  \ x NAND x = NOT x
+      else,
+        cc-prep-expr-primary
+      then,
+    then,
+  then, ;
+
+\ Relational layer:  v0  op  v1  where op in < > <= >=.
+variable cc-prep-rel-saw
+: cc-prep-expr-rel
+  cc-prep-expr-unary                                 ( v0 )
+  begin,
+    [lit] 0 cc-prep-rel-saw !
+    [lit] 60 [lit] 61 cc-prep-try2 if,               \ <=
+      cc-prep-expr-unary <= cc-prep-bool
+      [lit] 0 0= cc-prep-rel-saw !
+    else, [lit] 62 [lit] 61 cc-prep-try2 if,         \ >=
+      cc-prep-expr-unary >= cc-prep-bool
+      [lit] 0 0= cc-prep-rel-saw !
+    else, [lit] 60 cc-prep-try1 if,                  \ <
+      cc-prep-expr-unary < cc-prep-bool
+      [lit] 0 0= cc-prep-rel-saw !
+    else, [lit] 62 cc-prep-try1 if,                  \ >
+      cc-prep-expr-unary > cc-prep-bool
+      [lit] 0 0= cc-prep-rel-saw !
+    then, then, then, then,
+    cc-prep-rel-saw @
+  while,
+  repeat, ;
+
+variable cc-prep-eq-saw
+: cc-prep-expr-eq
+  cc-prep-expr-rel
+  begin,
+    [lit] 0 cc-prep-eq-saw !
+    [lit] 61 [lit] 61 cc-prep-try2 if,               \ ==
+      cc-prep-expr-rel = cc-prep-bool
+      [lit] 0 0= cc-prep-eq-saw !
+    else, [lit] 33 [lit] 61 cc-prep-try2 if,         \ !=
+      cc-prep-expr-rel <> cc-prep-bool
+      [lit] 0 0= cc-prep-eq-saw !
+    then, then,
+    cc-prep-eq-saw @
+  while,
+  repeat, ;
+
+: cc-prep-expr-and
+  cc-prep-expr-eq
+  begin,
+    [lit] 38 [lit] 38 cc-prep-try2
+  while,
+    cc-prep-expr-eq                                  ( a b )
+    cc-prep-bool swap cc-prep-bool                   ( b a )
+    and                                              ( v )
+  repeat, ;
+
+: cc-prep-expr-or
+  cc-prep-expr-and
+  begin,
+    [lit] 124 [lit] 124 cc-prep-try2
+  while,
+    cc-prep-expr-and                                 ( a b )
+    cc-prep-bool swap cc-prep-bool                   ( b a )
+    or                                               ( v )
+  repeat, ;
+
+' cc-prep-expr-or cc-prep-expr-vec !
+
+\ cc-prep-eval-expr ( -- v )  Evaluates expression at current pos through eol.
+: cc-prep-eval-expr  cc-prep-expr-or ;
+
+\ ===========================================================================
+\ #define — extended.  Handles:
+\   - `#define NAME` (no value)            -> value 1
+\   - `#define NAME DECIMAL`               -> add
+\   - `#define NAME 0xHEX`                 -> add
+\   - `#define NAME OTHERNAME`             -> resolve & add (existing behavior)
+\   - `#define NAME (EXPR)`                -> evaluate expression
+\   - `#define NAME(args) ...`             -> SKIP (function-like macro)
+\ When emit is inactive, the body is skipped without registering.
+\ ===========================================================================
+
+variable cc-prep-def-can-eval
+: cc-prep-handle-define
+  cc-prep-emit-active @ if,
+    cc-prep-skip-blanks
+    cc-prep-peek cc-prep-is-ident-start? if,
+      cc-prep-read-ident
+      cc-prep-peek [lit] 40 = if,
+        \ Function-like macro: '(' immediately follows name.  Skip.
+      else,
+        cc-prep-skip-blanks
+        cc-prep-eor? if,
+          cc-prep-ident-addr @ cc-prep-ident-len @ [lit] 1 cc-macro-add
+        else,
+          cc-prep-peek [lit] 10 = if,
+            cc-prep-ident-addr @ cc-prep-ident-len @ [lit] 1 cc-macro-add
+          else,
+            \ Value start: digit | '(' | '-' | ident-start.
+            [lit] 0 cc-prep-def-can-eval !
+            cc-prep-peek digit?                 if, [lit] 0 0= cc-prep-def-can-eval ! then,
+            cc-prep-peek [lit] 40 =             if, [lit] 0 0= cc-prep-def-can-eval ! then,
+            cc-prep-peek [lit] 45 =             if, [lit] 0 0= cc-prep-def-can-eval ! then,
+            cc-prep-peek cc-prep-is-ident-start? if, [lit] 0 0= cc-prep-def-can-eval ! then,
+            cc-prep-def-can-eval @ if,
+              cc-prep-eval-expr
+              cc-prep-ident-addr @ cc-prep-ident-len @ rot cc-macro-add
+            then,
+          then,
         then,
       then,
     then,
@@ -463,9 +832,105 @@ variable cc-prep-def-state
   cc-prep-skip-to-eol ;
 
 \ ===========================================================================
+\ Conditional / undef / error / include_next handlers
+\ ===========================================================================
+
+: cc-prep-handle-ifdef
+  cc-prep-emit-active @ if,
+    cc-prep-skip-blanks
+    cc-prep-peek cc-prep-is-ident-start? if,
+      cc-prep-read-ident
+      cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find-int
+      if, drop [lit] 0 0= else, drop [lit] 0 then,
+      cc-prep-cond-push
+    else,
+      [lit] 0 cc-prep-cond-push
+    then,
+  else,
+    [lit] 0 cc-prep-cond-push
+  then,
+  cc-prep-skip-to-eol ;
+
+: cc-prep-handle-ifndef
+  cc-prep-emit-active @ if,
+    cc-prep-skip-blanks
+    cc-prep-peek cc-prep-is-ident-start? if,
+      cc-prep-read-ident
+      cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find-int
+      if, drop [lit] 0 else, drop [lit] 0 0= then,
+      cc-prep-cond-push
+    else,
+      [lit] 0 0= cc-prep-cond-push
+    then,
+  else,
+    [lit] 0 cc-prep-cond-push
+  then,
+  cc-prep-skip-to-eol ;
+
+: cc-prep-handle-if
+  cc-prep-emit-active @ if,
+    cc-prep-eval-expr 0= 0=
+    cc-prep-cond-push
+  else,
+    [lit] 0 cc-prep-cond-push
+  then,
+  cc-prep-skip-to-eol ;
+
+: cc-prep-handle-else
+  cc-prep-cond-depth @ [lit] 0 = if, [lit] 75 die then,
+  cc-prep-cond-get-taken if,
+    [lit] 0 cc-prep-cond-set-active
+  else,
+    cc-prep-parent-emit
+    dup cc-prep-cond-set-active
+    cc-prep-cond-set-taken
+  then,
+  cc-prep-skip-to-eol ;
+
+: cc-prep-handle-elif
+  cc-prep-cond-depth @ [lit] 0 = if, [lit] 76 die then,
+  cc-prep-cond-get-taken if,
+    [lit] 0 cc-prep-cond-set-active
+    cc-prep-skip-to-eol
+  else,
+    cc-prep-parent-emit if,
+      cc-prep-eval-expr 0= 0=
+      dup cc-prep-cond-set-active
+      cc-prep-cond-set-taken
+    else,
+      [lit] 0 cc-prep-cond-set-active
+    then,
+    cc-prep-skip-to-eol
+  then, ;
+
+: cc-prep-handle-endif
+  cc-prep-cond-pop
+  cc-prep-skip-to-eol ;
+
+: cc-prep-handle-undef
+  cc-prep-emit-active @ if,
+    cc-prep-skip-blanks
+    cc-prep-peek cc-prep-is-ident-start? if,
+      cc-prep-read-ident
+      cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-remove
+    then,
+  then,
+  cc-prep-skip-to-eol ;
+
+: cc-prep-handle-error
+  cc-prep-emit-active @ if,
+    [lit] 77 die
+  then,
+  cc-prep-skip-to-eol ;
+
+: cc-prep-handle-include-next  cc-prep-skip-to-eol ;
+
+\ ===========================================================================
 \ cc-prep-handle-directive  ( -- )
 \ Pre: pos is at '#'.  Consume '#', read the directive name, dispatch.
 \ Unknown directives are elided.  Always advances to end-of-line.
+\ Conditionals (#if/#ifdef/#ifndef/#else/#elif/#endif) are processed even
+\ when emit is inactive — they manage the conditional stack.
 \ ===========================================================================
 
 create cc-prep-name-include
@@ -476,7 +941,43 @@ create cc-prep-name-define
 [lit] 100 c, [lit] 101 c, [lit] 102 c, [lit] 105 c,    \ defi
 [lit] 110 c, [lit] 101 c,                               \ ne
 
+create cc-prep-name-ifdef
+[lit] 105 c, [lit] 102 c, [lit] 100 c, [lit] 101 c, [lit] 102 c,
+
+create cc-prep-name-ifndef
+[lit] 105 c, [lit] 102 c, [lit] 110 c, [lit] 100 c, [lit] 101 c, [lit] 102 c,
+
+create cc-prep-name-if
+[lit] 105 c, [lit] 102 c,
+
+create cc-prep-name-else
+[lit] 101 c, [lit] 108 c, [lit] 115 c, [lit] 101 c,
+
+create cc-prep-name-elif
+[lit] 101 c, [lit] 108 c, [lit] 105 c, [lit] 102 c,
+
+create cc-prep-name-endif
+[lit] 101 c, [lit] 110 c, [lit] 100 c, [lit] 105 c, [lit] 102 c,
+
+create cc-prep-name-undef
+[lit] 117 c, [lit] 110 c, [lit] 100 c, [lit] 101 c, [lit] 102 c,
+
+create cc-prep-name-error
+[lit] 101 c, [lit] 114 c, [lit] 114 c, [lit] 111 c, [lit] 114 c,
+
+create cc-prep-name-include-next
+[lit] 105 c, [lit] 110 c, [lit]  99 c, [lit] 108 c,
+[lit] 117 c, [lit] 100 c, [lit] 101 c, [lit]  95 c,
+[lit] 110 c, [lit] 101 c, [lit] 120 c, [lit] 116 c,
+
 variable cc-prep-dir-matched
+
+: cc-prep-try-len  ( name-buf nlen -- f )
+  cc-prep-ident-len @ over = if,
+    cc-prep-ident-addr @ swap bytes-eq
+  else,
+    drop drop [lit] 0
+  then, ;
 
 : cc-prep-handle-directive
   cc-prep-advance                                  \ consume '#'
@@ -484,22 +985,46 @@ variable cc-prep-dir-matched
   [lit] 0 cc-prep-dir-matched !
   cc-prep-peek cc-prep-is-ident-start? if,
     cc-prep-read-ident
-    cc-prep-ident-len @ [lit] 7 = if,
-      cc-prep-ident-addr @ cc-prep-name-include [lit] 7 bytes-eq if,
-        cc-prep-handle-include
-        [lit] 0 0= cc-prep-dir-matched !
-      then,
-    then,
-    cc-prep-dir-matched @ [lit] 0 = if,
-      cc-prep-ident-len @ [lit] 6 = if,
-        cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
-          cc-prep-handle-define
-          [lit] 0 0= cc-prep-dir-matched !
-        then,
-      then,
-    then,
+    \ Conditionals first — these run even when skipping.
+    cc-prep-name-if [lit] 2 cc-prep-try-len if,
+      cc-prep-handle-if
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-ifdef [lit] 5 cc-prep-try-len if,
+      cc-prep-handle-ifdef
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-ifndef [lit] 6 cc-prep-try-len if,
+      cc-prep-handle-ifndef
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-else [lit] 4 cc-prep-try-len if,
+      cc-prep-handle-else
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-elif [lit] 4 cc-prep-try-len if,
+      cc-prep-handle-elif
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-endif [lit] 5 cc-prep-try-len if,
+      cc-prep-handle-endif
+      [lit] 0 0= cc-prep-dir-matched !
+    \ Other directives — only run when emitting; dispatch covers all
+    \ regardless so that the line is at least skip-to-eol'd.
+    else, cc-prep-name-include [lit] 7 cc-prep-try-len if,
+      cc-prep-emit-active @ if, cc-prep-handle-include
+      else, cc-prep-skip-to-eol then,
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-include-next [lit] 12 cc-prep-try-len if,
+      cc-prep-handle-include-next
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-define [lit] 6 cc-prep-try-len if,
+      cc-prep-handle-define
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-undef [lit] 5 cc-prep-try-len if,
+      cc-prep-handle-undef
+      [lit] 0 0= cc-prep-dir-matched !
+    else, cc-prep-name-error [lit] 5 cc-prep-try-len if,
+      cc-prep-handle-error
+      [lit] 0 0= cc-prep-dir-matched !
+    then, then, then, then, then, then, then, then, then, then, then,
   then,
-  cc-prep-dir-matched @ [lit] 0 = if,
+  cc-prep-dir-matched @ if, else,
     cc-prep-skip-to-eol
   then, ;
 
@@ -535,11 +1060,16 @@ variable cc-prep-at-line-start
       cc-prep-handle-directive
       [lit] 0 0= cc-prep-at-line-start !
     else,
-      cc-prep-peek dup cc-prep-emit-byte
-      [lit] 10 = if,
+      cc-prep-peek                                 ( c )
+      dup [lit] 10 = if,
         [lit] 0 0= cc-prep-at-line-start !
       else,
         [lit] 0 cc-prep-at-line-start !
+      then,
+      cc-prep-emit-active @ if,
+        cc-prep-emit-byte
+      else,
+        drop
       then,
       cc-prep-advance
     then,
@@ -620,6 +1150,8 @@ create cc-builtin-name-stderr
   [lit] 0 cc-macro-count !
   [lit] 0 cc-macro-name-pool-pos !
   [lit] 0 cc-prep-inc-depth !
+  [lit] 0 cc-prep-cond-depth !
+  [lit] 0 0= cc-prep-emit-active !
   cc-prep-builtins
   cc-src-buf cc-prep-src-addr !
   cc-src-len @ cc-prep-src-len !

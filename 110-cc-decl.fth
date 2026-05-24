@@ -2009,7 +2009,10 @@ variable cc-enum-next-val
 variable cc-td-ty
 : cc-parse-typedef
   cc-next-token-keep
-  \ Parse base type into cc-td-ty.
+  \ Parse base type into cc-td-ty.  long/short/signed/unsigned are accepted
+  \ as int-equivalent (forth-cc has only an 8-byte word slot anyway); we
+  \ also consume runs like `unsigned long` by absorbing trailing basic-type
+  \ keywords.  Same applies once forth-cc widens beyond the M2-Planet subset.
   tok-kind @ tk-kw = if,
     tok-kw-id @ kw-int = if,
       ty-int [lit] 0 ty-make cc-td-ty !
@@ -2020,9 +2023,32 @@ variable cc-td-ty
     else, tok-kw-id @ kw-struct = if,
       cc-lookup-struct-tag drop
       ty-struct [lit] 0 ty-make cc-td-ty !
+    else, tok-kw-id @ kw-long     = if, ty-int [lit] 0 ty-make cc-td-ty !
+    else, tok-kw-id @ kw-short    = if, ty-int [lit] 0 ty-make cc-td-ty !
+    else, tok-kw-id @ kw-signed   = if, ty-int [lit] 0 ty-make cc-td-ty !
+    else, tok-kw-id @ kw-unsigned = if, ty-int [lit] 0 ty-make cc-td-ty !
     else,
       [lit] 110 die
-    then, then, then, then,
+    then, then, then, then, then, then, then, then,
+  \ Absorb additional basic-type keywords (e.g. `unsigned long`).  Each
+  \ extra modifier is consumed by cc-next-token-keep; on the first non-
+  \ basic-type-kw token we put it back so cc-count-stars sees it.
+  begin,
+    cc-next-token-keep
+    tok-kind @ tk-kw = if,
+      tok-kw-id @ kw-long     = if, [lit] 0 0= else,
+      tok-kw-id @ kw-short    = if, [lit] 0 0= else,
+      tok-kw-id @ kw-signed   = if, [lit] 0 0= else,
+      tok-kw-id @ kw-unsigned = if, [lit] 0 0= else,
+      tok-kw-id @ kw-int      = if, [lit] 0 0= else,
+      tok-kw-id @ kw-char     = if, [lit] 0 0= else,
+        cc-putback-token [lit] 0
+      then, then, then, then, then, then,
+    else,
+      cc-putback-token [lit] 0
+    then,
+  while,
+  repeat,
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
