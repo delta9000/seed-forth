@@ -41,6 +41,7 @@ fi
 # Forth-asm: amd64_defs + m1-jump42 + ELF prefix all on stdin (uniform path).
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 { cat 010-lib.fth 130-asm.fth | strip_forth ;
+  printf 'asm-main\n' ;
   cat "$M2LIBC/amd64_defs.M1" ;     # DEFINEs first (emit nothing)
   cat "$M2LIBC/ELF-amd64.hex2" ;    # ELF header, ends with :ELF_text
   cat tests/asm/m1-jump42.M1 ;      # :_start follows ELF_text, code, :ELF_end

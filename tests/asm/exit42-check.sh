@@ -56,6 +56,7 @@ fi
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 
 { cat 010-lib.fth 130-asm.fth | strip_forth ;
+  printf 'asm-main\n' ;
   cat "$M2LIBC/ELF-amd64.hex2" ;
   cat "$BUILDROOT/exit42.hex2" ; } > "$BUILDROOT/forth-asm-input.txt"
 

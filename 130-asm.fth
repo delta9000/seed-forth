@@ -147,8 +147,16 @@ create asm-nl-byte  [lit] 10 c,
 create asm-labels  asm-rec-size asm-cap * allot
 variable asm-count
 
-\ Base address for amd64 (matches mescc-tools' --base-address 0x00600000).
-[lit] 6291456 constant asm-default-base
+\ Base address.  Default matches mescc-tools' --base-address 0x00600000
+\ for the M2-Planet self-compile path.  Callers can override by storing a
+\ different value before invoking asm-main, e.g. for GNU Mes (0x1000000):
+\
+\   cat 010-lib.fth 130-asm.fth                   \ defines words
+\   echo '[lit] 16777216 asm-base !'              \ override
+\   echo 'asm-main'                                \ then run
+\
+variable asm-base
+[lit] 6291456 asm-base !                          \ 0x600000 default
 variable asm-ip
 variable asm-pass
 
@@ -689,7 +697,7 @@ variable asm-loop-done
   repeat, ;
 
 : asm-init
-  asm-default-base asm-ip !
+  asm-base @ asm-ip !
   [lit] 0 asm-count ! ;
 
 \ ============================================================================
@@ -885,11 +893,13 @@ create asm-out-path
   [lit] 1 asm-pass !
   asm-pass-loop
   asm-reset-pos
-  asm-default-base asm-ip !
+  asm-base @ asm-ip !
   asm-out-init
   [lit] 2 asm-pass !
   asm-pass-loop
   asm-out-path asm-write-output
   bye ;
 
-asm-main
+\ The caller invokes 'asm-main' (after optionally setting 'asm-base').
+\ Existing pipelines append it on stdin between the Forth prelude and the M1
+\ source; see tests/asm/*.sh.

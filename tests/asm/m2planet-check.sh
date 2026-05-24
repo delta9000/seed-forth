@@ -61,6 +61,7 @@ pass "reference: $ref_bytes bytes"
 pass "running forth-asm (may take a while on this much input)..."
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 { cat 010-lib.fth 130-asm.fth | strip_forth ;
+  printf 'asm-main\n' ;
   cat "$M2LIBC/amd64_defs.M1" ;        # DEFINEs (emit nothing)
   cat "$M2LIBC/ELF-amd64.hex2" ;       # ELF prefix, ends at :ELF_text
   cat "$M2LIBC/libc-full.M1" ;         # :_start + startup

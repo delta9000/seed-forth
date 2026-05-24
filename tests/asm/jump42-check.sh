@@ -36,6 +36,7 @@ fi
 # Forth-asm: same hex2 inputs concatenated on stdin.
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 { cat 010-lib.fth 130-asm.fth | strip_forth ;
+  printf 'asm-main\n' ;
   cat "$M2LIBC/ELF-amd64.hex2" ;
   cat tests/asm/jump42.hex2 ; } > "$BUILDROOT/forth-asm-jump42-input.txt"
 

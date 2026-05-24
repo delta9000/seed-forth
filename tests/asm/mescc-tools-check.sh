@@ -67,6 +67,7 @@ build_via_forth_asm() {
 
     # Step 3: forth-asm produces the same binary.
     { cat 010-lib.fth 130-asm.fth | strip_forth ;
+      printf 'asm-main\n' ;
       cat "$M2LIBC/amd64_defs.M1" ;
       cat "$M2LIBC/ELF-amd64.hex2" ;
       cat "$M2LIBC/libc-full.M1" ;
