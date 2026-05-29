@@ -789,9 +789,9 @@ precedence climbing, and predict what code an expression like
 `a + b * c > d` will emit without running it.
 
 Toward Stage-A: every binary operator in M2-Planet's source lowers
-through this cascade — the same function shape repeated nine times
-— so a parity failure in any binary op localises to one of nine
-small layers.
+through this cascade — ten small layers, eight built from the same
+fold template and two (`&&`, `||`) short-circuiting — so a parity
+failure in any binary op localises to a single layer.
 
 ## Takeaways
 

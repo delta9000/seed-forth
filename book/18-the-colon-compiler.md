@@ -408,7 +408,7 @@ echo ": A [lit] 65 emit ;  : AAA A A A ;  AAA bye" | ./seed-forth
 
 ## Takeaways
 
-- `:` and `;` are 130 bytes of hex between them.  Most of `:` is
+- `:` and `;` are 138 bytes of hex between them.  Most of `:` is
   parsing and copying the name; the actual "open / close a
   compilation unit" is one flag flip and one byte of `ret`.
 - `;` is IMMEDIATE at assembly time, with `flags = 01` in its
