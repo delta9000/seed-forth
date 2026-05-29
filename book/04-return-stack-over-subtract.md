@@ -34,10 +34,7 @@ long expression, is Ch 8's `rot` and later compiler-internal uses.
 Ch 1 introduced one stack — the data stack — and a handful of
 primitives that push, pop, and shuffle values on it.  This chapter
 introduces the *other* stack the seed maintains, the one most users
-never directly touch, and shows two definitions that lean on it.
-`over` borrows it as a temporary parking space; `-` doesn't touch it
-at all but earns a place alongside `over` because it makes the same
-trade — fewer primitives, slightly more work at the call site.
+never directly touch, and shows the two definitions that lean on it.
 
 ## 1. Why two stacks at all?
 

@@ -32,16 +32,10 @@ deferred to Ch 17.
 
 ---
 
-I/O at the seed layer is one byte at a time.  Higher layers
-(`010-lib.fth`, `030-cc-io.fth`) build buffered I/O on top, but the
-seed itself reads a byte and writes a byte and nothing else.  That
-restriction shrinks `emit` and `key` to roughly 45 bytes each, and
-it lets the seed get away with a *single byte* of scratch buffer at
-`0x412000`.
-
-The general-purpose hatch is `syscall6`: pop seven cells, hit the
-kernel, push the result.  Every Forth-level wrapper in Ch 5 ends in
-a call to it.
+Higher layers (`010-lib.fth`, `030-cc-io.fth`) build buffered I/O on
+top, but the seed itself reads a byte and writes a byte and nothing
+else.  That restriction shrinks `emit` and `key` to roughly 45 bytes
+each.
 
 ## 1. `bye_code` in 11 bytes
 

@@ -32,12 +32,9 @@ register-spill-like patterns is Part III, Ch 26.
 
 Ch 1 introduced five stack primitives and Ch 4 derived a sixth
 shuffle, `over`, from them.  Six shuffles are not quite enough
-vocabulary to write ergonomic Forth, so this chapter adds four short
-derived words that
-fill out the standard shuffle library.  None of them introduce a new
-idea — each is two or four primitives glued together — but knowing
-their names by reflex is the difference between fighting the stack
-and dancing on it.
+vocabulary to write ergonomic Forth, so this chapter adds four more
+that fill out the standard shuffle library — each just two or four
+primitives glued together.
 
 ## 1. `nip` — the simplest derivative
 

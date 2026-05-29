@@ -30,12 +30,10 @@ and 7; this chapter stays at the machine-code layer below them.
 
 ---
 
-The arithmetic primitives are *small*.  `+` and `nand` are 9 and 12
-bytes each; `0=` is 15; `divide_code` and `star_code` are 10 and 8.
-That's 54 bytes for the entire arithmetic-and-logic core.  All of
-them follow the same pattern as the stack primitives in Ch 14 —
-read `[rbp]`, modify `rdi`, advance `rbp` — with one extra step in
-the middle that actually computes something.
+Here is that 54-byte total, itemised: `+` and `nand` are 9 and 12
+bytes, `0=` is 15, and `divide_code` and `star_code` are 10 and 8.
+Each follows the same Ch 14 stack-primitive pattern, with one extra
+step in the middle that actually computes something.
 
 ## 1. `+` in 9 bytes
 
