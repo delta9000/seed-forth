@@ -619,7 +619,7 @@ M2-Planet.
 
 `cc-lex-string` reads a quoted string into a `(start, len)` slice
 of `cc-src-buf` — *including* backslash escapes as literal byte
-pairs.  Escape decoding is deferred to codegen (Ch 25), which
+pairs.  Escape decoding is deferred to codegen (Ch 26), which
 walks the slice when it builds the string pool.  This keeps the
 lexer simple and lets the codegen choose whatever escape
 semantics the ELF actually needs.

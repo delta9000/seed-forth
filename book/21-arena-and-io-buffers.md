@@ -412,7 +412,7 @@ that fed a parser that fed a code emitter — no intermediate
 buffers, only state machines.  This compiler does the opposite:
 read everything into memory, walk it, then write everything out.
 
-The bytes go the other way too: a streaming design wins on memory
+The tradeoff is the usual one: a streaming design wins on memory
 when the source is huge; the buffered design wins on simplicity
 when the source is small.  M2-Planet's largest single translation
 unit is about 200 KiB.  At a 1 MiB cap we have headroom; at the
@@ -443,8 +443,8 @@ rest of Part III.
 - Ch 23 (lexer) reads `cc-peek-char` / `cc-next-char` and produces
   token records.  When it sees a non-token byte it can back up by
   decrementing `cc-src-pos`.
-- Ch 24 stores struct descriptors via `cc-alloc`.  Ch 25's label
-  fixup overflow chains use it too.
+- Ch 24 stores struct descriptors via `cc-alloc`.  Ch 26's
+  forward-call fixup chains use it too.
 - Chs 25, 26, 29–31 emit code into `cc-out-buf` via
   `cc-emit-byte` / `cc-emit-4le` / `cc-emit-8le`, and back-patch
   with `cc-out-patch-4le` / `cc-out-patch-8le`.

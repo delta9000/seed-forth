@@ -7,7 +7,7 @@ Artifact after this chapter: +!, -!, ,4, ,8.
 Proof link: the C compiler bumps counters via +!; its ELF + code emission flow through ,4 / ,8 analogues.
 ```
 
-Four little definitions in `010-lib.fth` (lines 137–161) round out
+Four little definitions in `010-lib.fth` (lines 139–161) round out
 the memory-manipulation toolkit Part I needs before we can build
 defining words: `+!` and `-!` are the "read-modify-write on a cell"
 idiom (the Forth equivalent of C's `*addr += n`), and `,4` and `,8`
@@ -61,7 +61,7 @@ Trace with input `( n addr -- )`:
 | `swap` | `(n+cell-value) addr`  | get addr back on top            |
 | `!`    | empty                  | store the new value at addr     |
 
-Five tokens consume the input pair and leave the stack empty,
+Six tokens consume the input pair and leave the stack empty,
 having modified one cell in memory.  This is a hot idiom — every
 counter in the C compiler (token count, symbol count, scope depth)
 is incremented via `+!`.

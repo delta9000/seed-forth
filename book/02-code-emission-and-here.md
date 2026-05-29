@@ -25,7 +25,7 @@ post-state of HERE after any sequence of `c,` calls.  Why the
 sysvar page lives at `0x413000` and how it is initialised is Part
 II, Ch 13; the `here` seed primitive (which pushes the contents of
 the HERE cell, not its address) is Ch 17; and the multi-byte
-writers `,`, `,4`, and `,8` that build on `c,` are Ch 9.
+writers `,4` and `,8` that build on `c,` are Ch 9.
 
 ---
 
@@ -79,7 +79,7 @@ table; Ch 13 shows the full map.
 
 ## 3. `c,` and the workhorse pattern
 
-`c,` (pronounced "comma") stores one byte at HERE and bumps the
+`c,` (pronounced "c-comma") stores one byte at HERE and bumps the
 pointer.  It is the fundamental building block of every word that
 emits code.
 

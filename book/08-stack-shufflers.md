@@ -7,9 +7,10 @@ Artifact after this chapter: the everyday stack-shuffling vocabulary.
 Proof link: codegen passes use these to keep argument order straight without an exit primitive.
 ```
 
-Four short shuffles in `010-lib.fth` (lines 121–136), `nip`, `rot`,
+Four short shuffles in `010-lib.fth` (lines 123–137), `nip`, `rot`,
 `2dup`, and `2drop`, round out the classical Forth shuffle
-vocabulary on top of the six primitives Chs 1 and 4 introduced.
+vocabulary on top of the five primitives Ch 1 introduced and the
+derived `over` Ch 4 added.
 None of them invents a new idea (`nip` is `swap drop`; `rot`
 generalises Ch 4's return-stack trick one slot deeper; `2dup` is
 `over over`; `2drop` is `drop drop`), but having them named by
@@ -29,9 +30,10 @@ register-spill-like patterns is Part III, Ch 26.
 
 ---
 
-Ch 1 introduced five stack primitives and Ch 4 added one more
-(`over`).  Six primitives are not quite enough vocabulary to write
-ergonomic Forth, so this chapter adds four short derived words that
+Ch 1 introduced five stack primitives and Ch 4 derived a sixth
+shuffle, `over`, from them.  Six shuffles are not quite enough
+vocabulary to write ergonomic Forth, so this chapter adds four short
+derived words that
 fill out the standard shuffle library.  None of them introduce a new
 idea — each is two or four primitives glued together — but knowing
 their names by reflex is the difference between fighting the stack
@@ -114,11 +116,11 @@ the second-from-top to the top.  Two invocations happen to produce
 the same result as a hypothetical primitive that duplicated two
 cells.  Free pair-dup from a pair of single-copies.
 
-The same trick generalises to `3dup` (three `over`s would not give
-you that, by the way — `3dup` is harder; left as an exercise) and
-informs why the seed stops at `2dup`: `2dup` is cheap and used; deeper
-pair-shuffles are uncommon enough to inline at call sites when
-needed.
+The trick does not extend for free, though: three `over`s do *not*
+give you `3dup` — copying a triple needs more than three single-copies.
+That asymmetry informs why the seed stops at `2dup`: `2dup` is cheap
+and used; deeper pair-shuffles are uncommon enough to inline at call
+sites when needed.
 
 ## 4. `2drop` is just `drop drop`
 

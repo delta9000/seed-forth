@@ -338,15 +338,18 @@ the canonical version of the comment stripper.  For the toy
 ```sh
 ./build.sh
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat [01][0-9]*-*.fth | strip_forth; echo 'int main(void) { return 42; }'; } \
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; echo 'int main(void) { return 42; }'; } \
     | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out
 echo $?      # 42
 ```
 
-The glob `[01][0-9]*-*.fth` picks up `010-lib.fth` through
-`120-cc-main.fth` in numerical (load) order, so you don't have to
-list twelve filenames.  If you find yourself editing this pipeline,
+The pattern `010-lib.fth [0-9][0-9][0-9]-cc-*.fth` names the library,
+then globs the eleven `-cc-` files (`020-cc-arena.fth` through
+`120-cc-main.fth`) in numerical (load) order — twelve files without
+listing them all.  The `-cc-` infix is load-bearing: it skips
+`130-asm.fth`, which is not part of the C-compiler vocabulary and
+would corrupt the compile if fed in.  If you find yourself editing this pipeline,
 edit `build-m2planet-monolith.sh` instead — it is the version that
 gets exercised by the test suite, and divergence between the two is
 the kind of bug nobody notices until Stage-A breaks.

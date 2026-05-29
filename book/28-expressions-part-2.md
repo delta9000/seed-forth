@@ -184,7 +184,7 @@ kind needs.  This is brittle — adding a new lvalue kind means
 remembering to clear it in every `cc-mark-*` — but the small
 fixed count keeps the discipline manageable.
 
-The cc-mark-not-lvalue / set-kind dance is also how a binary
+The `cc-mark-not-lvalue` / set-kind dance is also how a binary
 op "consumes" its lvalue inputs: after `a + b`, the result is a
 temp, so the binary-op tail calls `cc-mark-not-lvalue`.
 

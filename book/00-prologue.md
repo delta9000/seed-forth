@@ -42,7 +42,7 @@ keyword that declares typed fields, you write it.  The language
 meets you halfway.
 
 If you have read prior pedagogical Forth implementations, two are
-close enough to this one to want a brief calibration.  **JONESFORTH**
+close enough to this one to be worth a brief calibration.  **JONESFORTH**
 (Richard Jones, 2007) is the closest spiritual ancestor in tone —
 a heavily commented assembly source for a complete Forth — but it
 runs on i386 with *indirect threaded code* and a separate "inner

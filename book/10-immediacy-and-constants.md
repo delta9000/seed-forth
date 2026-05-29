@@ -8,13 +8,13 @@ Proof link: every type tag, keyword ID, and libc shim address the C compiler rea
 ```
 
 This chapter is where Part I crosses a threshold: we build a word
-that builds words.  Two definitions in `010-lib.fth` (lines 162–193)
+that builds words.  Two definitions in `010-lib.fth` (lines 164–194)
 do the job.  `immediate` flips the IMMEDIATE bit on the most-recent
 dictionary entry's `flags` byte (so the word runs at parse time even
 when `STATE=1`), and `constant` is our first defining word, laying
 down a 19-byte runtime body whose three x86-64 instructions push a
 captured `imm64` onto the data stack.  Open `010-lib.fth` to lines
-162–193 and have the seed's data-stack convention (`rdi` = TOS,
+164–194 and have the seed's data-stack convention (`rdi` = TOS,
 `rbp` = data-stack pointer, full machine-code treatment in Ch 14)
 in the back of your mind.
 

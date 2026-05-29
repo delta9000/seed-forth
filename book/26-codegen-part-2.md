@@ -947,7 +947,7 @@ and exits:
 ```sh
 ./build.sh
 {
-  cat [0-9][0-9][0-9]-*.fth | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
   cat <<'C'
 int main(void) { putchar(42); return 0; }
 C
@@ -965,7 +965,7 @@ scale, building M2-Planet itself with this pipe.
    relative offsets.  Add a 16-byte alignment padding to the
    prologue and confirm which displacements need to change.
 
-2. **★★★ Verify.** `free` is a 1-byte `ret`.  Construct a test program that
+2. **★★★ Extend.** `free` is a 1-byte `ret`.  Construct a test program that
    relies on `free` reclaiming memory; observe how the bump
    allocator handles it.  Could a free-list be retrofitted?
 
@@ -973,7 +973,7 @@ scale, building M2-Planet itself with this pipe.
    mode string.  What does it do with `rb` or `r+`?  Trace one
    case.
 
-4. **★★ Trace.** The fixup-list mechanism in `cc-add-fixup-to-list` is the
+4. **★★ Extend.** The fixup-list mechanism in `cc-add-fixup-to-list` is the
    same shape as a Lisp cons-cell.  Could the compiler reuse a
    single generic list type for both forward-call fixups and
    global fixups?  What would the consolidation save?

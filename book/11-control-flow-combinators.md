@@ -16,7 +16,8 @@ and `,` running at compile time, emitting a 5-byte CALL to the seed's
 cell; the stack picture left behind by each one is a *fixup* that
 its partner patches when the matching keyword is parsed.  Open
 `010-lib.fth` to lines 194–290, with `branch`'s inline-cell calling
-convention from Ch 11's block header in mind.
+convention — spelled out in the comment block of the Canonical source
+below — in mind.
 
 By the end you'll be able to explain how `branch` and `0branch` read
 their destinations from the 8 bytes that follow their CALL site,
@@ -291,12 +292,10 @@ swap branch-xt comma-call ,
 
 At entry the stack is `( back-target fixup-exit )`.  `swap` makes
 it `( fixup-exit back-target )`.  `branch-xt comma-call` emits the
-unconditional CALL — consuming `branch-xt` and leaving
-`fixup-exit back-target` underneath untouched (because
-`comma-call` only pops one thing).  Wait, `comma-call` pops `target`
-and emits the CALL; after the `comma-call`, the stack is `(
-fixup-exit back-target )` again, but now HERE has advanced past
-the CALL.  Then `,` (the cell-writer) pops `back-target` and writes
+unconditional CALL: `comma-call` pops only the `branch-xt` it was
+just handed, so afterward the stack is `( fixup-exit back-target )`
+again — but now HERE has advanced past the CALL.  Then `,` (the
+cell-writer) pops `back-target` and writes
 its 8 bytes at HERE — that's the back-target *cell*, the absolute
 address the unconditional `branch` will read at runtime.
 

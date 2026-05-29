@@ -100,8 +100,7 @@ codes in the 30s/80s/90s; see Appendix G).
 
 ## Declarations
 
-Top-level forms accepted by `cc-parse-program` (the loop in
-`cc-parse-program`, Ch 31):
+Top-level forms accepted by the `cc-parse-program` loop (Ch 31):
 
 | Form | Notes |
 |---|---|
@@ -141,7 +140,7 @@ otherwise handle.
 
 A handful of built-in macros are predefined: `NULL`, `EOF`, `TRUE`,
 `FALSE`, and the M2-Planet target macros.  See
-`cc-preprocess-builtins` in `040-cc-prep.fth`.
+`cc-prep-builtins` in `040-cc-prep.fth`.
 
 ## Structs
 

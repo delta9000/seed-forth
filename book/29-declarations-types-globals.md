@@ -782,9 +782,7 @@ scale, including structs, typedefs, locals, and file-scope data.
 tests/cc/stage-a-check.sh
 ```
 
-For the small check, start with one of these fixtures and map each
-declaration to the symbol table row it creates.
-
+For the small check, pick one of these fixtures.
 `tests/cc/G3.c` exercises basic local declarations inside function
 bodies; `G9b.c` exercises struct declarations and field arithmetic;
 `G14d.c` exercises global variables (`g_counter`) and global arrays

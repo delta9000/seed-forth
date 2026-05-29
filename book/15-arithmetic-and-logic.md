@@ -4,7 +4,7 @@
 Missing capability: +, nand, 0=, /, * were black boxes.
 New pattern: each primitive reads [rbp], modifies rdi in place, advances rbp, and returns.
 Artifact after this chapter: the arithmetic and logic primitives' machine code (54 bytes total).
-Proof link: division and sign-extraction here are what Ch 7's comparisons rest on; idiv reuses the shape.
+Proof link: the *unsigned* division and sign-extraction here are exactly what Ch 7's comparisons rest on.
 ```
 
 The arithmetic primitives are *small*.  `plus_code`, `nand_code`,
@@ -241,7 +241,7 @@ header plus a primitive body of 8–15 bytes.  Five omissions ≈
 
 The pattern from Ch 3 holds: keep the *one* primitive that lets you
 build the rest, and pay for the rest with Forth-level definitions
-that the runtime cost is only when actually called.
+whose runtime cost is incurred only when they are actually called.
 
 ## Try it
 

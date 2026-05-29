@@ -178,7 +178,7 @@ C3               ret
 After this, the value that was on top of the data stack is now sitting
 one cell *below* the return address on the return stack.  When the
 caller continues, the next x86 `ret`/`pop` it does will skip past our
-return-arrival, but a Forth `r>` or `r@` knows to look one cell deeper.
+return address, but a Forth `r>` or `r@` knows to look one cell deeper.
 
 ### `r>` ( -- n ; R: n -- )
 

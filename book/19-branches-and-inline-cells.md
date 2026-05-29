@@ -7,7 +7,7 @@ Artifact after this chapter: branch_code and zbranch_code plus the consumed-slot
 Proof link: the C compiler's jump fixups (Ch 30) reuse the shape, just in x86-64 rather than inline cells.
 ```
 
-Two primitives, roughly 30 bytes of hex between them, implement
+Two primitives, 26 bytes of hex between them, implement
 every loop and conditional in the codebase: `branch_code`
 (`@ 0x42B`, lines 368–372) is an unconditional jump to an inline
 8-byte target, and `zbranch_code` (`@ 0x431`, lines 374–385) is its
@@ -38,8 +38,8 @@ at HERE.  We deferred *what those CALLs land on* until Part II.
 This is the chapter where we find out.  The two primitives below,
 `branch_code` and `zbranch_code`, are 26 bytes of hex between them.
 They implement every loop and conditional in this codebase — the
-Forth library, the C compiler, even seed-forth's own REPL doesn't
-use them only because the REPL is written in raw hex.
+Forth library and the C compiler both lean on them.  Only the seed's
+own REPL avoids them, and only because the REPL is written in raw hex.
 
 ## 1. The compiled shape
 
@@ -207,9 +207,8 @@ Ch 11 defined the `comma-call` word as:
 
 ```forth
 : comma-call  ( xt -- )    \ emit a 5-byte CALL rel32
-  [lit] 232 c,
-  here-addr @ + [lit] 5 + -
-  ,4 ;
+  [lit] 232 c,             \ 0xE8 CALL opcode
+  here [lit] 4 + - ,4 ;    \ rel32 = target - (HERE+4)
 ```
 
 This builds the same 5-byte `CALL` instruction we just talked about.
@@ -217,9 +216,10 @@ At a Forth-level `if,` call site:
 
 ```forth
 : if,  ( -- patch-addr )
-  ['] 0branch  comma-call    \ emit CALL zbranch_code
-  here-addr @                \ remember slot address for back-patching
-  0 ,8 ;                     \ emit 8 zero bytes as placeholder
+  0branch-xt comma-call      \ emit CALL 0branch (= zbranch_code)
+  here                       \ remember slot address for back-patching
+  [lit] 0 , ;                \ reserve an 8-byte cell as placeholder
+immediate
 ```
 
 So an `if,` invocation emits:

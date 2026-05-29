@@ -485,10 +485,10 @@ patch the forward placeholder.  Break and continue fixup heads
 are saved on the return stack on entry and restored on exit so
 nested loops do not see each other's fixups.
 
-`cc-parse-for` is the same pattern with one extra wrinkle.
-`for` is the most intricate of the loops.  The step expression
-appears textually *before* the body in source code, but must
-*execute* after the body.  The compiler handles this by:
+`cc-parse-for` is the most intricate loop: the same pattern with
+one extra wrinkle.  The step expression appears textually
+*before* the body in source code, but must *execute* after the
+body.  The compiler handles this by:
 
 1. Parsing the init expression normally.
 2. Recording `cc-for-step-start = cc-src-pos` at the start of
@@ -1161,8 +1161,7 @@ large M2-Planet monolith, including nested control flow and labels.
 tests/cc/stage-a-check.sh
 ```
 
-For the small check, choose one fixture below and trace the emitted
-placeholder jumps and patches.
+The fixtures for the small check are:
 
 `tests/cc/G2.c` exercises nested `if`/`else`; `G5.c` exercises
 `while` and `for` in the same body; `G6a.c` exercises `do-while`

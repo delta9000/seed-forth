@@ -4,10 +4,9 @@ The 32 main chapters end with 3–5 exercises each — roughly a
 hundred total, none with solutions printed inline (the point of
 an exercise is the time you spend stuck).  This appendix is a
 *sampler*: one exercise from each Part, walked end to end.  The
-picks are one Extend and two Traces — a hands-on derivation, an
-analytical "why is this enough?", and a step-by-step trace —
-chosen so the three modes a Trace/Verify/Modify/Extend reader
-will actually use are each shown fully worked.
+picks are one Extend and two Traces, chosen to show three
+distinct working modes fully: a hands-on derivation, an
+analytical "why is this enough?", and a step-by-step trace.
 
 | From | Tag | Exercise |
 |------|-----|---|
@@ -40,17 +39,18 @@ The existing `repeat,` (in `010-lib.fth`) does exactly this for
 the conditional case.  Read it for the template:
 
 ```forth
-: repeat,                  ( back-target while-fixup -- )
-  swap                     ( while-fixup back-target )
-  branch-xt comma-call     ( while-fixup )      \ emit JMP back-target
-  here ,8                  ( )                  \ but wait — we need a slot
-  …
+: repeat,                       ( back-target while-fixup -- )
+  swap branch-xt comma-call ,   \ emit `CALL branch` + back-target cell
+  here swap ! ;                 \ patch while,'s loop-exit fixup to here
+immediate
 ```
 
-Actually the simpler model is `begin, ... 0branch ... ;` — read
-`while,` directly: it compiles a 0branch and leaves a *forward*
-fixup on the stack.  For `again,` we don't need a fixup; we have
-the back-target right there.
+`repeat,` does two jobs: it emits the unconditional backward jump
+(`swap branch-xt comma-call ,`), then patches the forward fixup that
+`while,` left so a failed test lands just past the loop.  `again,`
+needs only the first job — an infinite loop has no exit test, so there
+is no fixup to patch.  We keep the backward-jump half and drop the
+patch half.
 
 ### The solution
 

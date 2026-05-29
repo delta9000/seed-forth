@@ -177,7 +177,7 @@ input `0` it returns `-1`, on input `-1` it returns `0`, but on
 input `5` it returns `0xFFFFFFFFFFFFFFFA` — not a Forth boolean.
 For arithmetic, use `not`; for predicate-chaining, use `0=`.
 
-**`xor` in two tokens (cheating):**
+**`xor` by reusing `or` and `and` (cheating):**
 
 ```forth
 : xor  ( a b -- a^b )  2dup nand >r or r> and ;

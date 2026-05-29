@@ -753,10 +753,12 @@ echo "' emit [lit] 65 swap execute bye" | ./seed-forth
 echo 'wibble' | ./seed-forth
 # prints "?"
 
-# Walk the chain by hand.  The seed has no `.`, so peek by treating
-# the byte at LATEST as a small number and adding 48 to land in ASCII:
-echo "latest @ c@ [lit] 48 + emit bye" | ./seed-forth
-# prints the first byte of (LATEST @)'s link cell, as a digit.
+# Walk the chain by hand.  The seed has no `.`, so peek at the
+# name-length byte (offset 9 in the header layout above) and add 48
+# to land in ASCII:
+echo "latest @ [lit] 9 + c@ [lit] 48 + emit bye" | ./seed-forth
+# prints the most-recent word's name length as a digit.  The seed's
+# newest word is `'`, a one-character name, so this prints "1".
 ```
 
 ## Exercises

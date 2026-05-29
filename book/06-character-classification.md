@@ -46,8 +46,8 @@ The dispatch is rarely the hot path — keywords, punctuation, and
 identifiers all flow through it once each.  The classification, by
 contrast, runs on *every* byte: every space between tokens, every
 character of every identifier, every digit of every number.  If
-`digit?` takes ten tokens, you've slowed the lexer by an order of
-magnitude on number-heavy input.  If it takes three, you've spent the
+`digit?` takes ten tokens, you've roughly tripled the per-byte cost
+on number-heavy input.  If it takes three, you've spent the
 budget where it matters.
 
 There's a second reason classifiers are worth obsessing over.  The
@@ -296,7 +296,7 @@ test order above.
 - A range check on a single character costs three tokens: subtract,
   divide, zero-test.  No conditionals required.
 - The trick depends on unsigned division and the wrap-around
-  behaviour of unsigned subtract.  In Ch 15 we'll see the x86 `DIV`
+  behaviour of unsigned subtract.  Ch 15 covers the x86 `DIV`
   instruction that makes it cheap.
 - Combining classifiers with `or` builds compound predicates with
   no new primitives.  `alpha?` and `space?` are the templates;

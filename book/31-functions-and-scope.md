@@ -1023,7 +1023,7 @@ variable cc-top-skip-go
 ```
 
 
-The big comment block (lines 654–682) explains the elision
+The big comment block above explains the elision
 problem: real C source has many top-level forms — forward
 prototypes, file-scope vars, struct-pointer return types,
 extern declarations — that aren't function definitions.  Each
@@ -1649,8 +1649,7 @@ entry stub converge in the Stage-A gate.
 tests/cc/stage-a-check.sh                    # end-to-end gate
 ```
 
-For the small check, inspect one of the focused fixtures below and
-trace its calls, globals, or parameter slots through the chapter.
+For the small check, pick one of these focused fixtures:
 
 `tests/cc/G3.c` exercises function definitions with multiple
 params (`square`, `sum`); `G12.c` exercises function pointers;

@@ -93,7 +93,7 @@ preprocessor has no `#ifndef`/`#endif`), then pipes it through
 The output is `/tmp/cc-out` — an x86-64 ELF binary that is
 itself a working M2-Planet-compatible C compiler.
 
-Expected:
+Sanity check:
 ```sh
 [ -x /tmp/cc-out ] && echo "compiled"
 ```

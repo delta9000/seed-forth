@@ -44,8 +44,8 @@ trade — fewer primitives, slightly more work at the call site.
 A virtual machine needs somewhere to remember "where to return when
 this subroutine finishes."  The obvious choice is the same stack
 that holds the subroutine's arguments and locals: push the return
-address before the call, pop it on return.  That's what C does, that
-it's what most procedural VMs do, and it works.
+address before the call, pop it on return.  That's what C does, and
+what most procedural VMs do, and it works.
 
 The cost is that user code can no longer treat "the stack" as a
 free-form scratch area.  Every time you call a subroutine, a return

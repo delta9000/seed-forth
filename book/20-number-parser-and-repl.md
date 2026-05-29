@@ -46,7 +46,7 @@ in eight English words, encoded in 187 bytes of hex (offsets
 The number parser is the supporting cast.  `parse_decimal_code`
 is what `[lit]` (Ch 18) calls to convert a token like `"42"` into
 the cell value `42`.  It is *not* called from the REPL loop —
-that's a deliberate choice we'll examine in §4.
+that's a deliberate choice we examine in §3.
 
 ## 1. `parse_decimal_code` ( c-addr u -- n true | 0 false )
 

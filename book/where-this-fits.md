@@ -9,7 +9,7 @@ rung** of that ladder, sitting at M2-Planet.
 
 ## The Full Source Bootstrap, top to bottom
 
-A loose sketch of the chain, top to bottom:
+A loose sketch of the chain:
 
 ```
         ┌─────────────────────────────────────────────┐
