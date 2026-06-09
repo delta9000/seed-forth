@@ -307,20 +307,25 @@ work, but is noisier to read).
 
 ## Exercises
 
-1. **★★ Extend.** Define `xor ( a b -- a^b )` in terms of `nand` alone — no
+1. **★ Trace.** Take the chapter's `and` (`nand dup nand`) and trace it
+   by hand on the inputs `(-1, 0)` — step through `nand`, `dup`,
+   `nand` and confirm it yields `0` (false).  Repeat on `(-1, -1)`
+   and confirm `-1` (true).
+
+2. **★★ Extend.** Define `xor ( a b -- a^b )` in terms of `nand` alone — no
    intermediate `and`/`or`.  Confirm with the four-row truth table.
    Compare your token count to the `(a or b) and (a nand b)` form.
 
-2. **★★★ Extend.** Define `not ( a -- ~a )` in terms of `nand` alone.  How does
+3. **★★★ Extend.** Define `not ( a -- ~a )` in terms of `nand` alone.  How does
    `not` differ from `0=`?  Construct an input where `not` and
    `0=` disagree.
 
-3. **★★★ Trace.** Prove on paper that `nor` is also functionally complete.  Then
+4. **★★★ Trace.** Prove on paper that `nor` is also functionally complete.  Then
    redefine `and` and `or` using only `nor`.  How many tokens
    longer do they become?  (Asymmetric: NOR-based `and` is short,
    NOR-based `or` is long — figure out why.)
 
-4. **★★★ Trace.** The seed could have spent a primitive slot on `not` and reduced
+5. **★★★ Trace.** The seed could have spent a primitive slot on `not` and reduced
    `and` to one fewer token.  Estimate the byte cost of that primitive
    slot (10 bytes header + ~12 bytes body) and compare to the byte
    savings (one less token, in maybe a dozen call sites in

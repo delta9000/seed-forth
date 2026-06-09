@@ -92,9 +92,9 @@ loads, the dictionary contains both, indistinguishable to user code.
 
 ## Total byte budget
 
-The hand-encoded bodies above sum to roughly 1.3 KiB of the
+The hand-encoded bodies above sum to roughly 1.2 KiB of the
 2,040-byte seed.  The remainder is the ELF header (120 bytes),
-the sysvar init (72 bytes), the REPL (~95 bytes), and the
+the sysvar init (72 bytes), the REPL (187 bytes; Ch 20), and the
 dictionary entries — each entry being `link(8) flags(1) name-len(1)
 name(N) jmp(5)` = `15 + len(name)` bytes.  Appendix B gives the
 full memory map.

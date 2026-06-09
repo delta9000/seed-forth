@@ -329,7 +329,7 @@
 \ Comparisons: set rdi to 0 or 1 based on signed comparison of left/right.
 \ ===========================================================================
 \ The binary-op pattern (same as ALU) leaves rdi=left, rcx=right.  Each helper
-\ emits 11 bytes:
+\ emits 12 bytes:
 \     xor rax, rax     48 31 C0
 \     cmp rdi, rcx     48 39 CF      (sets flags from rdi - rcx = left - right)
 \     setX al          0F 9X C0      (X = 4=E, 5=NE, C=L, D=GE, E=LE, F=G)

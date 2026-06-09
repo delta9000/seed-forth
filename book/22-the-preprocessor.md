@@ -47,9 +47,11 @@ rest.
 
 ## 1. The output buffer and the two-megabyte detour
 
-What follows is the entire 630-line file in one slab.  Sections
-2–8 return to it piece by piece — there is no need to absorb the
-whole thing on first pass.
+What follows is the entire 630-line file in one slab — the longest
+single listing in the book.  Read it once for shape, not detail:
+note the region map above and let your eye register where each phase
+lives.  Sections 2–8 walk the paths that matter; you do not need to
+absorb every helper on first pass.
 
 The file is in eight regions in source order.  Knowing where they
 are before you start scrolling helps:

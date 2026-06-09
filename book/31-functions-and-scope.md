@@ -35,7 +35,7 @@ are deferred to Ch 32.
 ```
 
 **How this chapter is organized.**  The chapter walks the final
-1,317 lines of `110-cc-decl.fth` in eight sections.  §1 introduces
+1,314 lines of `110-cc-decl.fth` in eight sections.  §1 introduces
 the chapter's bookkeeping helpers.  Sections §§2–4 are the
 *function machinery*: call codegen, parameter parsing with
 register-spill, and function definitions with the prologue/epilogue

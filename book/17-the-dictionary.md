@@ -503,7 +503,7 @@ seed's smallest example.
 ## 8. The dictionary entries
 
 The 24 entries from `bye` to `0branch` live in one contiguous block
-running from `0x44D` to `0x5FD`.  Each is 14–18 bytes; the whole
+running from `0x44D` to `0x5FD`.  Each is 16–22 bytes; the whole
 block is 167 lines of hex.  Rather than chunk each separately, we
 ship them as one big chunk that the master root block references
 once.
@@ -681,7 +681,7 @@ E9 34 FE FF FF                              ; jmp zbranch_code (rel = 0x431 - 0x
 
 A few things to notice as your eye walks down the chunk:
 
-- **Every link cell points 14–18 bytes back** — the size of the
+- **Every link cell points 16–22 bytes back** — the size of the
   previous entry.  Adding a new primitive means: append a new
   entry, set its `link` to the address of the previous entry's
   link cell, and patch the seed-time constant `LATEST` (in

@@ -233,7 +233,7 @@ computed by hand and pasted in.
 
 That is the seed's whole boot sequence: identify yourself as an ELF;
 ask for one 16 MiB segment; initialise two registers and six
-sysvars; jump to the REPL.  136 bytes from `_start` to the jump, of
+sysvars; jump to the REPL.  90 bytes from `_start` to the jump, of
 which 72 are sysvar initialisation.  Everything else in the file is
 either a primitive body or a dictionary header — and from here on
 the chapters are organised by topic, not by offset.
