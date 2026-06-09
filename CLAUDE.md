@@ -55,17 +55,25 @@ unless the dependency graph forbids it.
 ## Quick health check
 
 ```sh
-./check-all.sh                 # build + test + tangle --strict + stage-A
+./check-all.sh                 # build + test + tangle --strict + book-numbers + stage-A
 ```
 
-`check-all.sh` runs all four checks in sequence with per-step
+`check-all.sh` runs all five checks in sequence with per-step
 pass/fail logging.  Use it before committing or after editing any
-fenced code block in `book/`.  The individual commands are still
+fenced code block — or any exact byte count, offset, or file line
+count in prose — in `book/`.  The individual commands are still
 useful for diagnosing a failure:
 
 ```sh
 ./build.sh                     # produces 2040-byte seed-forth
 ./test.sh                      # smoke tests for layers 010-070
 tools/tangle.sh verify --strict
+tools/check-numbers.py         # prose's exact numbers vs source (--dump shows the table)
 tests/cc/stage-a-check.sh      # byte-identical M1 vs GCC
 ```
+
+`tools/check-numbers.py` is the numeric counterpart to the tangle
+check: tangle proves `file=`/`chunk=` blocks byte-identical to source,
+and check-numbers proves the book's *prose* byte counts, code offsets,
+and file line counts against `000-seed.hex0` and the source files —
+the layer that used to drift silently.

@@ -5,9 +5,13 @@
 #   1. ./build.sh produces a 2,040-byte seed-forth
 #   2. ./test.sh passes 20/20 layer tests
 #   3. tools/tangle.sh verify --strict reports 13/13 byte-identical
-#   4. tests/cc/stage-a-check.sh produces a byte-identical .M1
+#   4. tools/check-numbers.py finds no drifted numeric claim in book/
+#      (the prose's exact byte counts / offsets / file line counts,
+#       verified against 000-seed.hex0 and the source; skipped if
+#       python3 is missing)
+#   5. tests/cc/stage-a-check.sh produces a byte-identical .M1
 #      (skipped with a SKIP line if gcc or make is missing — only
-#       Stage-A needs a host C toolchain; steps 1–3 do not)
+#       Stage-A needs a host C toolchain; steps 1–4 do not)
 #
 # Each step's full output is captured to /tmp/check-all-NN-*.log; the
 # console shows one OK/SKIP/FAIL line per step plus the final verdict.
@@ -50,13 +54,19 @@ run "01-build"          ./build.sh
 run "02-test"           ./test.sh
 run "03-tangle-strict"  tools/tangle.sh verify --strict
 
+if command -v python3 >/dev/null 2>&1; then
+    run "04-book-numbers" tools/check-numbers.py
+else
+    skip "04-book-numbers" "missing: python3"
+fi
+
 if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
-    run "04-stage-a"    tests/cc/stage-a-check.sh
+    run "05-stage-a"    tests/cc/stage-a-check.sh
 else
     missing=()
     command -v gcc  >/dev/null 2>&1 || missing+=(gcc)
     command -v make >/dev/null 2>&1 || missing+=(make)
-    skip "04-stage-a" "missing: ${missing[*]}"
+    skip "05-stage-a" "missing: ${missing[*]}"
 fi
 
 echo
