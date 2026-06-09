@@ -217,7 +217,7 @@ just look past it.
 ```hex0 chunk=r-at-code
 ;; ----- r_at_code @ 0x732 ( -- v ) peek caller's top-of-rstack -----
 ;; r@ is CALL'd, so [rsp+0] = our own ret addr; caller's saved value is at [rsp+8].
-;; Existing precedent: to_r_code (lines 105-111) and r_from_code (lines 113-119)
+;; Existing precedent: to_r_code and r_from_code
 ;; both pop their own ret addr to manipulate rstack across the CALL boundary.
 48 8B 44 24 08                            ; mov rax, [rsp+8]   ; skip our ret addr; rax = caller's TOR
 48 83 ED 08                               ; sub rbp, 8         ; make data-stack room

@@ -464,11 +464,11 @@ mutable Forth-level state.
 ;; ----- tick_code @ 0x779 ( -- xt ) read next word and look up its xt -----
 ;; Calls read_word to fill TIB and return token length in rax.
 ;; Then sets up find_code's calling convention: pushes (TIB, len) onto the
-;; data stack with len in rdi and TIB at [rbp]. Mirrors the repl pattern at
-;; lines 296-307 (the repl's read_word + find_code sequence).
+;; data stack with len in rdi and TIB at [rbp]. Mirrors the repl pattern
+;; (the repl's read_word + find_code sequence).
 ;;
 ;; Returns 0 in rdi if word not found -- find_code already does `xor rdi,rdi; ret`
-;; on miss (lines 189-190), so we inherit that behavior for free.
+;; on miss, so we inherit that behavior for free.
 ;;
 ;; @0x779: call read_word (rel32 = 0x259 - 0x77E = -1317)
 E8 DB FA FF FF
