@@ -104,6 +104,10 @@ LABEL_RANGE_RE = re.compile(
 # any "lines A-B" (for the in-bounds sanity check against a named file)
 LINE_RANGE_RE = re.compile(r"\blines\s+(\d+)[–-](\d+)")
 
+# seed source-span claims fixed by --fix (group 2=start, 3=sep, 4=end)
+SPAN_SEED_RE = re.compile(
+    r"`([a-z0-9_]+_code)`\s*\(\s*`@\s*0x[0-9A-Fa-f]+`,\s*lines\s+(\d+)([–-])(\d+)\)")
+
 
 def build_seed_table():
     """Return ({label: (offset, size)}, {offset: label}) from 000-seed.hex0."""
@@ -174,7 +178,6 @@ def num(s):
 
 def check():
     table, off2name = build_seed_table()
-    spans = build_line_spans()
     files = source_files()
     file_re = re.compile(r"`(" + "|".join(re.escape(n) for n in files) + r")`")
     findings = []
@@ -250,18 +253,8 @@ def check():
                     check_size(md, report_line(n1), e1, False, int(n1), table)
                     check_size(md, report_line(n2), e2, False, int(n2), table)
 
-            # --- single-label source span: "`zbranch_code` (`@ 0x431`, lines 374-385)" ---
-            for lab, a, b in LABEL_RANGE_RE.findall(window):
-                if lab not in spans:
-                    continue
-                s, e = spans[lab]
-                a, b = int(a), int(b)
-                key = (md, "range", lab, (a, b))
-                if (a, b) == (s, e):
-                    emit("OK", md, report_line(str(a)), f"`{lab}` lines {s}-{e}", key)
-                else:
-                    emit("MISMATCH", md, report_line(str(a)),
-                         f"`{lab}` claimed lines {a}-{b}; source span is {s}-{e}", key)
+            # (seed/.fth source spans are handled by span_pass, which also
+            # supports --fix; see below)
 
             # --- offset-anchored size: "9-byte ... at offset `0x1A1`" ---
             for k, addr in OFF_SIZE_RE.findall(window):
@@ -330,17 +323,77 @@ def dump():
         print(f"  0x{off:04X}  {('%d bytes' % size) if size is not None else '?':>10}  {name}")
 
 
+def lineno_at(text, pos):
+    return text.count("\n", 0, pos) + 1
+
+
+def span_pass(fix):
+    """Check (and with fix=True, rewrite) source line-span claims:
+
+      seed:  "`zbranch_code` (`@ 0x431`, lines 374-385)"  -> 000-seed.hex0 span
+
+    Only the seed labels have a robust single truth (clean comment-delimited
+    boundaries in 000-seed.hex0), so --fix substitutes the derived "A-B" in
+    place for these.  Editorial coverage spans (no uniform convention) and
+    Ch29's `.fth` word citations (block-relative numbers, and Forth defs can't
+    be delimited robustly — a `;` inside a comment defeats it) are NOT
+    auto-fixed; the former get the in-bounds sanity check.
+    """
+    seed = build_line_spans()
+    findings, total_edits = [], 0
+
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        text = open(md, encoding="utf-8").read()
+        rel = os.path.relpath(md, ROOT)
+        edits = []  # (num_start, num_end, replacement, severity, lineno, msg)
+
+        def consider(m, name, span, gi):
+            # gi = group index of the start number; sep is gi+1, end is gi+2
+            if span is None:
+                return
+            s, e = span[-2], span[-1]
+            a, b = int(m.group(gi)), int(m.group(gi + 2))
+            ln = lineno_at(text, m.start(gi))
+            if (a, b) == (s, e):
+                findings.append(("OK", rel, ln, f"`{name}` lines {s}-{e}"))
+            else:
+                findings.append(("MISMATCH", rel, ln,
+                                 f"`{name}` claimed lines {a}-{b}; source span is {s}-{e}"))
+                edits.append((m.start(gi), m.end(gi + 2), f"{s}{m.group(gi + 1)}{e}"))
+
+        for m in SPAN_SEED_RE.finditer(text):
+            lab = m.group(1)
+            consider(m, lab, seed.get(lab), 2)
+
+        if fix and edits:
+            for st, en, rep in sorted(edits, reverse=True):
+                text = text[:st] + rep + text[en:]
+            open(md, "w", encoding="utf-8").write(text)
+            total_edits += len(edits)
+
+    return findings, total_edits
+
+
 def main():
     if "--dump" in sys.argv:
         dump()
         return 0
+    fix = "--fix" in sys.argv
     findings = check()
+    span_findings, edits = span_pass(fix)
+    findings += span_findings
+    if fix:
+        # after rewriting, the mismatches that were fixed are gone
+        findings = [f for f in findings if f[0] != "MISMATCH"] + \
+                   [("FIXED", f[1], f[2], f[3]) for f in span_findings if f[0] == "MISMATCH"]
     mism = [f for f in findings if f[0] == "MISMATCH"]
     warn = [f for f in findings if f[0] == "WARN"]
+    fixed = [f for f in findings if f[0] == "FIXED"]
     ok = [f for f in findings if f[0] == "OK"]
-    for sev, fpath, lineno, msg in mism + warn:
-        print(f"{sev}: {fpath}:{lineno}  {msg}")
-    print(f"check-numbers: {len(ok)} OK, {len(warn)} WARN, {len(mism)} MISMATCH "
+    for sev, fpath, ln, msg in mism + warn + fixed:
+        print(f"{sev}: {fpath}:{ln}  {msg}")
+    tail = f", {edits} FIXED" if fix else ""
+    print(f"check-numbers: {len(ok)} OK, {len(warn)} WARN, {len(mism)} MISMATCH{tail} "
           f"(numeric claims verified against source)")
     return 1 if mism else 0
 
