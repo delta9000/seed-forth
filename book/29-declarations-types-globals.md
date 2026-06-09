@@ -662,12 +662,12 @@ status: 11/12 for the keyword pair, 13/14 for punctuation, 15 for
 identifier.  Distinct status codes mean a failing stage-A check
 prints a number you can grep for in this file.
 
-**`cc-count-stars` (lines 77–85).**  Reads zero or more `*`
+**`cc-count-stars` (lines 79–87).**  Reads zero or more `*`
 tokens after a base type.  Returns the count and putbacks the
 first non-`*`.  Pointer-depth machinery throughout the file
 funnels through this.
 
-**`cc-skip-storage-quals` (lines 95–113).**  Treats every storage
+**`cc-skip-storage-quals` (lines 98–115).**  Treats every storage
 class and qualifier as a no-op.  The compiler's frame layout
 doesn't care about `static` versus `auto`; the type system has
 no `const`-correctness; `register` is advisory anyway.  These
@@ -676,13 +676,13 @@ compiler choking.
 
 ## 3. Struct definitions
 
-`cc-sd-append-field` (lines 134–146) accumulates one field into
+`cc-sd-append-field` (lines 136–148) accumulates one field into
 the descriptor under construction: store name/type/desc/offset
 into the field record at index `cc-sd-field-count`, then bump
 both `field-count` and `total-size` by 8.  Every field is an
 8-byte slot regardless of declared type.
 
-`cc-parse-struct-def` (lines 194–277) does the full
+`cc-parse-struct-def` (lines 196–279) does the full
 `struct TAG { … };` form.
 
 The pre-registration step at lines 216–220 is what makes
@@ -712,13 +712,13 @@ It saves the lexer state, reads two tokens, tests them against
 `(` then `*`, restores the state.  The boolean is the dispatch
 key.
 
-`cc-parse-fnptr-decl` (lines 361–395) handles the form after the
+`cc-parse-fnptr-decl` (lines 363–397) handles the form after the
 two-token lookahead has confirmed it.  It consumes `(`, `*`,
 the NAME, `)`, `(`, skips the parameter list to the matching `)`,
 and registers the name as `sk-local` with type
 `ty-func + ptr-depth=1`.  Parameter types are not validated.
 
-`cc-parse-decl-with-base` (lines 410–469) is the common
+`cc-parse-decl-with-base` (lines 412–471) is the common
 scalar/array path.  After the base type is on the stack and the
 fnptr lookahead has failed, it counts stars, reads the name,
 then dispatches on the next token: `[` → array, `=` → scalar
@@ -728,7 +728,7 @@ length for arrays, struct descriptor for structs, 0 otherwise).
 
 ## 5. Struct-local declarations
 
-`cc-parse-struct-local-decl` (lines 526–569) handles
+`cc-parse-struct-local-decl` (lines 528–571) handles
 `struct TAG x;` and `struct TAG* p;` *inside a function body*.
 
 For the value form (`struct TAG x;`), we reserve `total-size/8`
@@ -742,7 +742,7 @@ the pointer, with the same descriptor in `cc-sym-extra` so that
 
 ## 6. `cc-parse-return`
 
-`cc-parse-return` (lines 575–586) is the simplest statement
+`cc-parse-return` (lines 577–588) is the simplest statement
 parser.  Two forms:
 
 - `return ;` — bare return.  Emit `xor rax, rax` (so callers see

@@ -11,7 +11,7 @@ Sources of truth, in case this appendix drifts:
 
 - Keyword set: `050-cc-lex.fth` lines 125–155 (`kw-*` constants).
 - Statement forms: `110-cc-decl.fth` `cc-parse-stmt`
-  (lines 1336–1410).
+  (lines 1336–1436).
 - Expression grammar: `100-cc-expr.fth` lines 1–22 (header
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.

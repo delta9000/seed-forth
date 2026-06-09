@@ -18,9 +18,11 @@ book's claims against it:
   * code-body offsets
       - prose         "`foo_code` ... offset `0xADDR`", "`x` (`@ 0xADDR`)"
       - table rows    "| `bye` | ( -- ) | `0x0D2` | ..."   (Appendix A1)
-  * source line spans / ranges
-      - single label  "`zbranch_code` (`@ 0x431`, lines 374-385)" vs the
+  * source line spans / ranges  (all file-absolute — one basis book-wide)
+      - seed label    "`zbranch_code` (`@ 0x431`, lines 374-385)" vs the
                       label's comment line .. last non-blank body line
+      - .fth symbol   "`cc-parse-struct-def` (lines 196-279)" vs the `:`..`;`
+                      definition span (comment-aware terminator detection)
       - file coverage "lines A-B [of] `file`" — in-bounds sanity (1<=A<=B<=wc-l)
   * exact source-file line counts
       - "K-line file", "...file at K lines", "(entire file)" vs wc -l
@@ -32,10 +34,11 @@ the built seed's byte size.
 
 Still NOT checked, and why: file *span* claims like "851 lines: file header"
 or "these 24 lines" (a portion, not the file size); the *exact* endpoints of
-editorial chapter-coverage spans and Ch29's section citations (the book's
-hand-written endpoint conventions aren't uniform — some include the trailing
-blank line, some don't — so only their in-bounds-ness is checked); and
-line-refs inside `file=` source comments (a separate concern from the prose).
+editorial multi-definition coverage spans (the book's hand-written endpoints
+aren't uniform — some include the trailing blank line, some don't — so only
+their in-bounds-ness is checked).  Single-line `file:line` symbol references
+(A6/A7) are already file-absolute but aren't gated here, because A7's are
+die-site lines (inside a def, not its `:` line) and would false-positive.
 Claims the script cannot confidently resolve are reported "unchecked" — never
 as failures.
 
@@ -104,9 +107,13 @@ LABEL_RANGE_RE = re.compile(
 # any "lines A-B" (for the in-bounds sanity check against a named file)
 LINE_RANGE_RE = re.compile(r"\blines\s+(\d+)[–-](\d+)")
 
-# seed source-span claims fixed by --fix (group 2=start, 3=sep, 4=end)
+# source-span claims fixed by --fix (group 2=start, 3=sep, 4=end)
 SPAN_SEED_RE = re.compile(
     r"`([a-z0-9_]+_code)`\s*\(\s*`@\s*0x[0-9A-Fa-f]+`,\s*lines\s+(\d+)([–-])(\d+)\)")
+# per-word .fth citation: "`cc-parse-struct-def` (lines 196-279)" (tight: paren required)
+SPAN_FTH_RE = re.compile(r"`([a-z][a-z0-9-]+)`\s*\(lines\s+(\d+)([–-])(\d+)\)")
+FTH_DEF_RE = re.compile(r"^\s*:\s+(\S+)")
+FTH_SEMI_RE = re.compile(r"(^|\s);(\s|$)")
 
 
 def build_seed_table():
@@ -149,6 +156,47 @@ def build_line_spans():
             if raw[k - 1].strip():
                 end = k
         spans.setdefault(name, (lineno, end))
+    return spans
+
+
+def _strip_fth_comments(line):
+    m = re.search(r"(?:^|\s)\\(?:\s|$)", line)   # a standalone backslash line-comment
+    if m:
+        line = line[:m.start()]
+    return re.sub(r"\([^)]*\)", "", line)         # inline ( ) comment
+
+
+def build_fth_spans():
+    """Return {word: (file, start_line, end_line)} for `: word ... ;` defs.
+
+    start = the `:` line; end = the terminating `;` line, found comment-aware
+    (a `;` inside a `\\ ...` or `( ... )` comment is ignored — without this,
+    e.g. "\\ ... [ N ] ; ..." in cc-parse-decl-with-base ends the def early).
+    A word defined in more than one .fth file maps to None (skipped).
+    """
+    spans, where = {}, {}
+    for path in sorted(glob.glob(os.path.join(ROOT, "*.fth"))):
+        base = os.path.basename(path)
+        raw = open(path, encoding="utf-8").read().splitlines()
+        i = 0
+        while i < len(raw):
+            m = FTH_DEF_RE.match(raw[i])
+            if not m:
+                i += 1
+                continue
+            name, start, j = m.group(1), i + 1, i
+            end = start
+            while j < len(raw):
+                if FTH_SEMI_RE.search(_strip_fth_comments(raw[j])):
+                    end = j + 1
+                    break
+                j += 1
+            if name in where and where[name] != base:
+                spans[name] = None
+            elif name not in where:
+                where[name] = base
+                spans[name] = (base, start, end)
+            i = max(j + 1, i + 1)
     return spans
 
 
@@ -331,15 +379,16 @@ def span_pass(fix):
     """Check (and with fix=True, rewrite) source line-span claims:
 
       seed:  "`zbranch_code` (`@ 0x431`, lines 374-385)"  -> 000-seed.hex0 span
+      .fth:  "`cc-parse-struct-def` (lines 196-279)"      -> the `:`..`;` def span
 
-    Only the seed labels have a robust single truth (clean comment-delimited
-    boundaries in 000-seed.hex0), so --fix substitutes the derived "A-B" in
-    place for these.  Editorial coverage spans (no uniform convention) and
-    Ch29's `.fth` word citations (block-relative numbers, and Forth defs can't
-    be delimited robustly — a `;` inside a comment defeats it) are NOT
-    auto-fixed; the former get the in-bounds sanity check.
+    Both have a single mechanical, file-absolute truth, so --fix substitutes
+    the derived "A-B" in place — keeping every per-symbol line citation on the
+    same basis as the chapter-intro coverage spans (which are already
+    file-absolute).  Editorial multi-definition coverage spans have no uniform
+    endpoint convention, so they are left to the in-bounds sanity check.
     """
     seed = build_line_spans()
+    fth = build_fth_spans()
     findings, total_edits = [], 0
 
     for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
@@ -362,8 +411,9 @@ def span_pass(fix):
                 edits.append((m.start(gi), m.end(gi + 2), f"{s}{m.group(gi + 1)}{e}"))
 
         for m in SPAN_SEED_RE.finditer(text):
-            lab = m.group(1)
-            consider(m, lab, seed.get(lab), 2)
+            consider(m, m.group(1), seed.get(m.group(1)), 2)
+        for m in SPAN_FTH_RE.finditer(text):
+            consider(m, m.group(1), fth.get(m.group(1)), 2)
 
         if fix and edits:
             for st, en, rep in sorted(edits, reverse=True):
