@@ -14,9 +14,14 @@ book's claims against it:
       - header        "## N. `foo_code` in K bytes"  (also `+`, `nand`, ...)
       - prose         "`foo_code` is K bytes", "`x` (~K bytes)"
       - offset-anchor "K-byte ... at offset `0xADDR`"
+      - multi-number  "`+` and `nand` are 9 and 12"
   * code-body offsets
       - prose         "`foo_code` ... offset `0xADDR`", "`x` (`@ 0xADDR`)"
       - table rows    "| `bye` | ( -- ) | `0x0D2` | ..."   (Appendix A1)
+  * source line spans / ranges
+      - single label  "`zbranch_code` (`@ 0x431`, lines 374-385)" vs the
+                      label's comment line .. last non-blank body line
+      - file coverage "lines A-B [of] `file`" — in-bounds sanity (1<=A<=B<=wc-l)
   * exact source-file line counts
       - "K-line file", "...file at K lines", "(entire file)" vs wc -l
 
@@ -25,11 +30,14 @@ is the distance to the next labelled offset (bodies and dictionary entries are
 interleaved, so "next label" is the right boundary).  The last label's end is
 the built seed's byte size.
 
-Deliberately NOT checked (ambiguous without a phrasing convention): span
-claims like "851 lines: file header" or "these 24 lines" (a portion of a
-file, not its size); multi-number prose like "are 18 and 16"; bare source
-line-range citations "lines A-B".  Claims the script cannot confidently
-resolve are reported "unchecked" — never as failures.
+Still NOT checked, and why: file *span* claims like "851 lines: file header"
+or "these 24 lines" (a portion, not the file size); the *exact* endpoints of
+editorial chapter-coverage spans and Ch29's section citations (the book's
+hand-written endpoint conventions aren't uniform — some include the trailing
+blank line, some don't — so only their in-bounds-ness is checked); and
+line-refs inside `file=` source comments (a separate concern from the prose).
+Claims the script cannot confidently resolve are reported "unchecked" — never
+as failures.
 
 Exit status is non-zero only on a confident MISMATCH.
 
@@ -88,6 +96,14 @@ APPROX = re.compile(r"(~|\babout\b|\broughly\b|\bnearly\b|\balmost\b|\bover\b|\b
 TOTAL_LINE_A = re.compile(r"(\d[\d,]*)-line\s+file\b")        # "the entire 630-line file"
 TOTAL_LINE_B = re.compile(r"\bat\s+(\d[\d,]*)\s+lines\b")      # "the longest file ... at 2752 lines"
 
+# multi-number prose: "`+` and `nand` are 9 and 12"
+MULTI_RE = re.compile(r"`([^`]+)`\s+and\s+`([^`]+)`\s+(?:are|is)\s+(\d+)\s+and\s+(\d+)\b")
+# single-label source span: "`branch_code` (`@ 0x42B`, lines 368-372)"
+LABEL_RANGE_RE = re.compile(
+    r"`([a-z0-9_]+_code)`\s*\(\s*`@\s*0x[0-9A-Fa-f]+`,\s*lines\s+(\d+)[–-](\d+)\)")
+# any "lines A-B" (for the in-bounds sanity check against a named file)
+LINE_RANGE_RE = re.compile(r"\blines\s+(\d+)[–-](\d+)")
+
 
 def build_seed_table():
     """Return ({label: (offset, size)}, {offset: label}) from 000-seed.hex0."""
@@ -109,6 +125,27 @@ def build_seed_table():
             size = None
         table.setdefault(name, (off, size))
     return table, {off: name for off, name in labels}
+
+
+def build_line_spans():
+    """Return {label: (start_line, end_line)} for 000-seed.hex0 bodies.
+
+    start = the `;; --- label @ ...` comment line; end = the last non-blank
+    line before the next label's comment (this matches the book's single-label
+    "lines A-B" convention, which excludes the trailing blank).
+    """
+    raw = open(SEED, encoding="utf-8").read().splitlines()
+    marks = [(idx, m.group(1)) for idx, ln in enumerate(raw, 1)
+             if (m := LABEL_RE.search(ln))]
+    spans = {}
+    for j, (lineno, name) in enumerate(marks):
+        nxt = marks[j + 1][0] if j + 1 < len(marks) else len(raw) + 1
+        end = lineno
+        for k in range(lineno + 1, nxt):
+            if raw[k - 1].strip():
+                end = k
+        spans.setdefault(name, (lineno, end))
+    return spans
 
 
 def resolve(entity, table):
@@ -137,6 +174,7 @@ def num(s):
 
 def check():
     table, off2name = build_seed_table()
+    spans = build_line_spans()
     files = source_files()
     file_re = re.compile(r"`(" + "|".join(re.escape(n) for n in files) + r")`")
     findings = []
@@ -207,6 +245,23 @@ def check():
                     check_size(md, report_line(k), ent, bool(tilde), int(k), table)
                 for lab, tilde, k in BARE_SIZE_RE.findall(window):
                     check_size(md, report_line(k), lab, bool(tilde), int(k), table)
+                # multi-number prose: "`+` and `nand` are 9 and 12"
+                for e1, e2, n1, n2 in MULTI_RE.findall(window):
+                    check_size(md, report_line(n1), e1, False, int(n1), table)
+                    check_size(md, report_line(n2), e2, False, int(n2), table)
+
+            # --- single-label source span: "`zbranch_code` (`@ 0x431`, lines 374-385)" ---
+            for lab, a, b in LABEL_RANGE_RE.findall(window):
+                if lab not in spans:
+                    continue
+                s, e = spans[lab]
+                a, b = int(a), int(b)
+                key = (md, "range", lab, (a, b))
+                if (a, b) == (s, e):
+                    emit("OK", md, report_line(str(a)), f"`{lab}` lines {s}-{e}", key)
+                else:
+                    emit("MISMATCH", md, report_line(str(a)),
+                         f"`{lab}` claimed lines {a}-{b}; source span is {s}-{e}", key)
 
             # --- offset-anchored size: "9-byte ... at offset `0x1A1`" ---
             for k, addr in OFF_SIZE_RE.findall(window):
@@ -254,6 +309,17 @@ def check():
                     else:
                         emit("MISMATCH", md, ln,
                              f"{fname} claimed {claimed} lines; actual {actual}", key)
+                # in-bounds sanity for "lines A-B [of] `file`" coverage spans:
+                # the book's endpoint convention isn't uniform enough to verify
+                # exactly, but a range must at least fit inside the file.
+                for m in LINE_RANGE_RE.finditer(window):
+                    a, b = int(m.group(1)), int(m.group(2))
+                    key = (md, "range-bound", fname, (a, b))
+                    if 1 <= a <= b <= actual:
+                        emit("OK", md, report_line(m.group(1)), f"{fname} lines {a}-{b} in range", key)
+                    else:
+                        emit("MISMATCH", md, report_line(m.group(1)),
+                             f"{fname} lines {a}-{b} out of range (file is {actual} lines)", key)
 
     return findings
 
