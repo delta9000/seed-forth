@@ -1,5 +1,41 @@
 # Prologue — Two Thousand and Forty Bytes
 
+Most of the code in this book was written by AI.  That is the first
+thing to say, because it is usually a reason to stop reading.
+
+Language models now produce plausible code faster than any human can
+read it, and *plausible* is not *correct*.  The bottleneck in
+software was never typing; it is understanding, and trust.  When a
+machine out-writes you at every step, the easy outcome is a large
+pile of code that works until it doesn't and that no person actually
+understands — and a human reduced to rubber-stamping it.
+
+This book is an experiment in the other outcome: what it actually
+takes for a human to stay in the loop — to guide, audit, and vouch
+for — code an AI wrote faster than they could.
+
+It turns on two things working together.  The first is a *mechanical
+test of correctness that fluent-looking code cannot fake*.  The
+program built here is a compiler, and its output must match an
+independent reference byte for byte, and reproduce itself exactly
+when it compiles itself.  No amount of confident-sounding code passes
+that check; only correct code does.  The second is *this book
+itself* — a literate program in Donald Knuth's sense: source written
+to be read by a human, in narrative order, with every load-bearing
+line explained.  The first keeps the machine honest.  The second
+keeps the human in command.
+
+The proving ground is a bootstrap: 2,040 bytes of hand-checkable
+machine code that grow into a C compiler.  It was chosen because its
+correctness is absolute and checkable — most software offers nothing
+so unforgiving.  That is also the honest limit of the claim.  The
+lesson is not "audit any AI code this way"; it is "find or build a
+ground truth the machine can't argue with, then write the
+understanding down."  What follows is one worked example of doing
+exactly that.
+
+---
+
 There is a file in this repository called `000-seed.hex0`.  Its
 source form is 27,067 bytes long, but most of that is comments —
 annotated hex laid out for human readers.  The machine bytes total
@@ -74,13 +110,15 @@ written, starting from a base of 32 hand-encoded primitives.
 Everything afterwards (the seed VM in Part II, the C compiler in
 Part III) is a payoff for understanding that one move.
 
-This codebase was produced by a human author working with an
-ensemble of large language models; the methodology and the
-cross-checking that pinned down every byte of the seed are
-documented separately in `AI_STRATEGIES.md` at the repo root.
-You do not need to care about any of that to learn Forth, or to
-understand how 2,040 bytes grow into a C compiler.  The journey
-works the same way it would have worked in 1972.
+The methodology — which models wrote what, and the cross-checking
+that pinned down every byte of the seed — is documented in
+`AI_STRATEGIES.md` at the repo root.  You can still read this purely
+as a Forth book and never think about any of it; the journey works
+the same way it would have worked in 1972.  But the reason it
+exists, and exists in this form, is the experiment described above:
+an AI did most of the writing, a mechanical oracle proved the result
+correct, and this book is the part that lets a human understand it
+and stand behind it.
 
 Turn the page.
 

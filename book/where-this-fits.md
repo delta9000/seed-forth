@@ -159,6 +159,22 @@ This is not a fork of the bootstrap.  It does not reach above
 M2-Planet.  Everything from there up to GCC still goes through
 Janneke's GNU Mes and the Live-Bootstrap chain.
 
+## What this also demonstrates: auditable AI collaboration
+
+There is a second reason this route was built, and built as a
+literate book.  Most of the code here was written by AI (see the
+prologue, and `AI_STRATEGIES.md`).  The byte-identity oracle that
+makes cross-validation work does double duty: it is also a
+correctness check a language model cannot bluff past.  Parity and
+fixed-point closure are byte-level facts — plausible code that is
+subtly wrong fails them — so they bound *correctness* without a
+human reading every line.  The book bounds *understanding*: it is
+the layer in which a person can follow, hold, and vouch for what
+the machine produced.  The bootstrap is an unusually clean place to
+show this, because its ground truth is absolute; but the shape
+generalises — give the AI a mechanical oracle it can't argue with,
+then write the literate explanation that keeps a human in command.
+
 ## Honest sizing
 
 A natural question after reading the above: does this route shrink
