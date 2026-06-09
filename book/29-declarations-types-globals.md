@@ -9,7 +9,7 @@ Proof link: Stage-A decls populate the type and symbol database before statement
 
 This chapter installs the declaration machinery that feeds Ch 24's
 type and symbol tables.  It opens `110-cc-decl.fth`, the longest
-file in Part III at 2750 lines, and covers lines 1–587 (the
+file in Part III at 2752 lines, and covers lines 1–587 (the
 source-order split puts statements in Ch 30 and functions in Ch 31).
 Three pieces anchor the read.  `cc-parse-struct-def` uses a
 pre-registration trick so `struct T { struct T* next; }` can
@@ -33,7 +33,7 @@ to Chs 30–31.
 ---
 
 Ch 28 closed the expression parser.  Ch 29 opens the declarations
-file — the longest in Part III at 2750 lines.  We split it across
+file — the longest in Part III at 2752 lines.  We split it across
 three chapters by source order: Ch 29 covers the top of the file
 (declarations and struct parsing), Ch 30 covers statements,
 Ch 31 covers everything else (functions, enums, typedefs,
@@ -818,13 +818,14 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
 
 The compiler can parse declarations: base types with pointer/array
 modifiers, struct definitions (including self-referential ones via
-pre-registration), typedefs, enum constants, local variable
-declarations, and file-scope globals with deferred vaddr fixups.
+pre-registration), and local variable declarations.  Typedefs, enum
+constants, and file-scope globals lean on the same parsing engine but
+are wired up in Ch 31.
 
 You can read `cc-parse-decl`, explain how `struct T { struct T *next; };`
 works because the tag is registered before the field loop, and
-trace how a `static int xs[100];` global gets its eventual virtual
-address.
+trace how `int x;`, `int* p;`, and `struct T s;` each become a
+symbol-table entry.
 
 Toward Stage-A: identical declaration order produces identical
 symbol IDs, identical local slot assignments, and identical global

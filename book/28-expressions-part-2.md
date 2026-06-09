@@ -1462,4 +1462,4 @@ a real M2-Planet build, so this is where most parity hinges.
   The store-emit at the end reads the snapshot — not the
   globals — so nested assignments don't trample each other.
 
-Next: Chapter 29 — Declarations: Types and Globals.
+Next: Chapter 29 — Declarations: Types, Structs, Locals.

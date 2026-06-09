@@ -32,7 +32,7 @@ ordinary dictionary entries, and what they do is execute *at parse
 time*: `:` reads the name `square`, builds a dictionary header for
 it, and flips the system into "compile mode"; `;` appends a `ret`
 instruction and flips back.  In this codebase, both of them are
-30-byte snippets of hand-encoded x86-64 you will read in Part II.
+short snippets of hand-encoded x86-64 you will read in Part II.
 
 The consequence is that Forth is extensible at the level of
 parsing, compilation, and execution.  If you want a `for ... next`
@@ -63,7 +63,7 @@ spirit, different threading model and architecture).
 Most programmers who learn Forth describe a moment, somewhere
 around the middle, when they realise that `if`/`then`/`else` are
 not keywords.  They are user-defined words that emit machine code
-at compile time, and they are about thirty lines each.  At that
+at compile time, and together they are only about sixty lines.  At that
 point the whole language collapses into a single idea: *words
 manipulate a stack, and some words manipulate the dictionary that
 holds other words.*

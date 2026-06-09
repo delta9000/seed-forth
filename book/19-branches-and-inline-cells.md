@@ -7,7 +7,7 @@ Artifact after this chapter: branch_code and zbranch_code plus the consumed-slot
 Proof link: the C compiler's jump fixups (Ch 30) reuse the shape, just in x86-64 rather than inline cells.
 ```
 
-Two primitives, 26 bytes of hex between them, implement
+Two primitives, 34 bytes of hex between them, implement
 every loop and conditional in the codebase: `branch_code`
 (`@ 0x42B`, lines 368–372) is an unconditional jump to an inline
 8-byte target, and `zbranch_code` (`@ 0x431`, lines 374–385) is its
@@ -36,7 +36,7 @@ in Forth, all emitting some combination of "CALL plus inline cell"
 at HERE.  We deferred *what those CALLs land on* until Part II.
 
 This is the chapter where we find out.  The two primitives below,
-`branch_code` and `zbranch_code`, are 26 bytes of hex between them.
+`branch_code` and `zbranch_code`, are 34 bytes of hex between them.
 They implement every loop and conditional in this codebase — the
 Forth library and the C compiler both lean on them.  Only the seed's
 own REPL avoids them, and only because the REPL is written in raw hex.
@@ -327,7 +327,7 @@ EOF
 
 ## Takeaways
 
-- `branch` and `0branch` are 26 bytes total and implement every
+- `branch` and `0branch` are 34 bytes total and implement every
   control structure in this codebase — every `if`, `else`, `while`,
   `for`, and `return` you'll meet from Ch 30 onward sits on top of
   one of these two primitives.

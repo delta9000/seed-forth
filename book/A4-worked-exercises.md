@@ -167,7 +167,7 @@ when `foo` started.  When `foo`'s terminating `ret` ran, it would
 pop whatever happened to be on `rsp` — the previous *unrelated*
 return address — and crash.
 
-The book's `colon_code` is 130 bytes (Ch 18) but only ~12 of
+The book's `colon_code` is 103 bytes (Ch 18) but only ~12 of
 those build the *callable* part of the new word.  The `ret`
 appended by `;` is the punch line that the entire system is built
 to honour.

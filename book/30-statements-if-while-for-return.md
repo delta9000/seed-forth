@@ -1130,8 +1130,9 @@ dispatches on the leading token.  Read top-down:
    - Otherwise → expression statement.
 7. Anything else → expression statement.
 
-The 2-token-lookahead for `IDENT :` reuses
-`cc-peek-after-is-colon?` (defined just above the dispatcher).
+The one-token peek after the consumed `IDENT` (to spot the `:` of a
+label) reuses `cc-peek-after-is-colon?` (defined just above the
+dispatcher).
 Its save-and-restore discipline is the same pattern we saw in
 Ch 29's `cc-peek-fnptr?` with different state slots so they
 don't collide.
@@ -1221,4 +1222,4 @@ account for nearly every position-dependent byte in the proof.
   chain in the codebase — fourteen branches.  The Forth seed
   has no `case`, so this is what 14-way dispatch costs.
 
-Next: Chapter 31 — Functions: Parameters, Locals, Scope.
+Next: Chapter 31 — Functions: Parameters, Calls, Globals, Entry Stub.

@@ -3,7 +3,7 @@
 ```text
 Missing capability: +, nand, 0=, /, * were black boxes.
 New pattern: each primitive reads [rbp], modifies rdi in place, advances rbp, and returns.
-Artifact after this chapter: the arithmetic and logic primitives' machine code (54 bytes total).
+Artifact after this chapter: the arithmetic and logic primitives' machine code (70 bytes total).
 Proof link: the *unsigned* division and sign-extraction here are exactly what Ch 7's comparisons rest on.
 ```
 
@@ -12,7 +12,7 @@ and `zeq_code` sit at lines 153–170 of `000-seed.hex0`; `divide_code`,
 the `/` dictionary entry, and `star_code` are tucked further down at
 lines 649–683 (with `r_at_code`, the stack op already covered in
 Ch 14, sandwiched between them in source order).  Together they
-encode `+`, `nand`, `0=`, `/`, and `*` in 54 bytes total: every
+encode `+`, `nand`, `0=`, `/`, and `*` in 70 bytes total: every
 primitive reads `[rbp]`, modifies `rdi` in place, advances `rbp`,
 and returns.  Open `000-seed.hex0` to lines 153–170 and 649–683 with
 Ch 14's data-stack convention (`rdi` = TOS, `[rbp]` = under-TOS) in
@@ -30,8 +30,8 @@ and 7; this chapter stays at the machine-code layer below them.
 
 ---
 
-Here is that 54-byte total, itemised: `+` and `nand` are 9 and 12
-bytes, `0=` is 15, and `divide_code` and `star_code` are 10 and 8.
+Here is that 70-byte total, itemised: `+` and `nand` are 9 and 12
+bytes, `0=` is 15, and `divide_code` and `star_code` are 18 and 16.
 Each follows the same Ch 14 stack-primitive pattern, with one extra
 step in the middle that actually computes something.
 

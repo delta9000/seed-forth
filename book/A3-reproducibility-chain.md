@@ -112,9 +112,10 @@ What this does:
 3. runs both compilers on the *same* M2-Planet source set;
 4. diffs the resulting `.M1` files.
 
-Expected output:
+Expected output (the byte count is the size of the emitted `.M1`):
 ```
-stage-a-check: PASS (amd64 .M1 byte-identical)
+stage-a-check: self-v1-amd64.M1 == self-ref-amd64.M1 (2367260 bytes)
+stage-a-check: PASS
 ```
 
 A single byte of difference fails the check and exits non-zero.
@@ -192,8 +193,8 @@ Two reasons M1 (not ELF) is the comparison point:
 
 It proves: starting from 229 bytes of hex0 assembler (the
 stage0-posix trust root), you can build a 2,040-byte Forth, use it
-to compile a 1,300-line C compiler, and that C compiler produces
-byte-identical M1 output to GCC-built M2-Planet.  Every byte is
+to compile the ~8,500-line M2-Planet C compiler, and that C compiler
+produces byte-identical M1 output to GCC-built M2-Planet.  Every byte is
 auditable.
 
 It does *not* prove: that the resulting compiler is bug-free, that

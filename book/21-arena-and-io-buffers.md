@@ -38,7 +38,7 @@ Forth to host a compiler for a small subset of C — enough to rebuild
 M2-Planet, whose binary is the next link in the Guix Full Source
 Bootstrap chain.
 
-The C compiler is split across eight files (`020-cc-arena.fth`
+The C compiler is split across eleven files (`020-cc-arena.fth`
 through `120-cc-main.fth`), loaded in numerical order on top of
 `010-lib.fth`.  This chapter covers the first two: the memory
 allocator the compiler reaches for when a fixed-size slot won't do,
@@ -517,8 +517,8 @@ the same script will be the compiler's full proof of life.
 The compiler has a deterministic memory model: stdin lands in
 `cc-src-buf`, emitted bytes accumulate in `cc-out-buf` and only hit
 disk once at the end, and the arena handles anything that doesn't
-fit a fixed slot.  This is the substrate the next eight chapters
-build on — none of them allocate from anywhere else.
+fit a fixed slot.  This is the substrate the rest of Part III
+builds on — none of them allocate from anywhere else.
 
 You can read `cc-load-stdin`, `cc-emit-byte`, and `cc-out-patch-4le`
 confidently, and explain why the whole ELF accumulates in memory

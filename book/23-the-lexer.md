@@ -976,7 +976,7 @@ expansion already integrated.
 
 You can read `cc-next-token`, explain how keyword recognition is a
 linear scan over a small table, and trace how a single `int x = 42;`
-becomes the four-token sequence the parser will consume.
+becomes the five-token sequence the parser will consume.
 
 Toward Stage-A: every later parser layer reads from `tok-*` rather
 than from raw bytes, so the lexer's exact behaviour is the input

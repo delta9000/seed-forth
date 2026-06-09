@@ -83,8 +83,9 @@ offset  size  field
 ```
 
 After hex-assembly, the seed contains 24 hand-laid-out headers in a
-single block running from `0x44D` (`bye`) to `0x5F8` (`0branch`),
-followed by the later additions at the end of the file.
+single block running from `0x44D` (`bye`) to the `0branch` entry
+(which starts at `0x5E7` and ends at `0x5FD`), followed by the later
+additions at the end of the file.
 
 Each header's `link` points at the *previous header's link cell*.
 The very first header (`bye`) has `link = 0`.  At runtime, the
@@ -502,7 +503,7 @@ seed's smallest example.
 ## 8. The dictionary entries
 
 The 24 entries from `bye` to `0branch` live in one contiguous block
-running from `0x44D` to `0x5F8`.  Each is 14–18 bytes; the whole
+running from `0x44D` to `0x5FD`.  Each is 14–18 bytes; the whole
 block is 167 lines of hex.  Rather than chunk each separately, we
 ship them as one big chunk that the master root block references
 once.

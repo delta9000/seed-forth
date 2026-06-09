@@ -244,7 +244,7 @@ C3
 
 ```
 
-Two bytes (plus `ret`):
+Three bytes (plus `ret`):
 
 ```
 48 8B 3F         mov rdi, [rdi]
@@ -253,7 +253,8 @@ C3               ret
 
 TOS is an address; load 8 bytes from that address; store them back
 into `rdi`.  No data-stack motion at all.  This is the seed's
-smallest primitive — `dup` and `drop` are five times its size.
+smallest primitive — at four bytes total, `dup` and `drop` are more
+than twice its size.
 
 ### `!` ( value addr -- )
 

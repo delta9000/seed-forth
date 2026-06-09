@@ -47,7 +47,7 @@ rest.
 
 ## 1. The output buffer and the two-megabyte detour
 
-What follows is the entire 631-line file in one slab.  Sections
+What follows is the entire 630-line file in one slab.  Sections
 2–8 return to it piece by piece — there is no need to absorb the
 whole thing on first pass.
 

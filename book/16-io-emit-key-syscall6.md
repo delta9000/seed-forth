@@ -37,7 +37,7 @@ top, but the seed itself reads a byte and writes a byte and nothing
 else.  That restriction shrinks `emit` and `key` to roughly 45 bytes
 each.
 
-## 1. `bye_code` in 11 bytes
+## 1. `bye_code` in 12 bytes
 
 `bye_code` is the smallest, simplest syscall in the seed: `exit(0)`.
 
@@ -57,7 +57,7 @@ source from `<<jmp-to-repl>>` flows continuously into `<<bye-code>>`
 without a gap.  The bytes are listed in the master root block in
 the order shown above.)
 
-## 2. `emit_code` in 42 bytes
+## 2. `emit_code` in 46 bytes
 
 `emit` takes a byte off the data stack and writes it to fd 1
 (stdout) via `write(2)`.
@@ -98,7 +98,7 @@ primitive are loaded with 32-bit moves; only the buffer address
 (which doesn't fit in 32 bits unless you sign-extend, and we don't
 want to) uses the 10-byte `movabs` form.
 
-## 3. `key_code` in 30 bytes
+## 3. `key_code` in 47 bytes
 
 `key` reads one byte from fd 0 (stdin) and pushes its value, or
 pushes `0` on EOF.
@@ -136,7 +136,7 @@ C6 ...`), not the 10-byte `movabs` form.  That works because
 `0x412000` fits in 32 bits and the assembler sign-extends — but the
 sign bit is clear, so sign-extension is identical to zero-extension.
 
-## 4. `syscall6_code` in 39 bytes
+## 4. `syscall6_code` in 37 bytes
 
 ```hex0 chunk=syscall6-code
 ;; ----- syscall6_code @ 0x6D4 ( a b c d e f n -- rax ) -----

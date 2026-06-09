@@ -71,7 +71,7 @@ before reading any more code:
 - **Operators are just words.**  `+` is a word that takes two numbers
   off the stack and leaves one.  It is not built into the parser;
   it is a dictionary entry like any other.  In this codebase it is
-  defined in `000-seed.hex0` as a 5-byte machine-code routine at
+  defined in `000-seed.hex0` as a 9-byte machine-code routine at
   offset `0x1A1` — Chapter 15 will read its bytes.
 - **There is no "return value".**  A word "returns" by leaving things
   on the stack.  A word can leave zero, one, two, or any number of
@@ -297,7 +297,7 @@ chapter pastes verbatim into gforth.
 gforth book/playground.fth
 ```
 
-You should see a `seed-forth playground loaded.` banner, then a
+You should see a `seed-forth playground loaded …` banner, then a
 prompt.  Try:
 
 ```

@@ -335,7 +335,7 @@ Why?  Two reasons.
 **Bytes.**  Inlining a `parse_decimal` call into the miss path
 would add ~30 bytes of hex (set up the stack, call, branch on
 success, push or compile, loop back).  The seed already pays for
-`parse_decimal_code` (~50 bytes); making it reachable from the
+`parse_decimal_code` (~85 bytes); making it reachable from the
 REPL would push the total past the 2,040-byte budget if anything
 else in the file grew.
 

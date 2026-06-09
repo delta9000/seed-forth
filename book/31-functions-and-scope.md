@@ -9,7 +9,7 @@ Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-o
 
 This chapter assembles the final translation-unit machinery: calls,
 function bodies, globals, top-level parsing, and the entry stub.  It
-is the final third of `110-cc-decl.fth` (lines 1439–2750) and the
+is the final third of `110-cc-decl.fth` (lines 1439–2752) and the
 busiest chapter in Part III.  Four anchors do the heavy lifting:
 `cc-parse-call` dispatches direct, forward, and indirect calls;
 `cc-parse-function` ties the prologue, body, epilogue, and scope
@@ -1048,7 +1048,9 @@ across translation units; concatenated into our monolith we
 have to skip the re-add or call sites will resolve to a stale
 `val=0` entry whose fixups are never patched.
 
-The symbol table's newest-first rule is doing real work here.  A
+The symbol table's newest-first rule is doing real work here — the
+same newest-wins lookup the dictionary used in Ch 17 and the symbol
+table in Ch 24, now deciding prototype-versus-definition.  A
 function definition appends a newer `sk-func` row so later calls
 resolve to the body, while earlier forward-call fixups remain
 attached to the prototype row until the definition patches them.
@@ -1336,8 +1338,11 @@ The base type is recorded with a distinguished `ty-char` for
 `char` so the array-index path in Ch 28 §3 emits byte-stride
 loads/stores for `char*`.
 
-`cc-finalize-globals` (called by the bootstrap driver in Ch 32)
-appends `cc-globals-buf` to `cc-out-buf`, computes
+`cc-globals-buf` is one more instance of the *one buffer per
+responsibility* pattern from Ch 21: file-scope data accumulates in
+its own staging area, separate from `cc-out-buf`, until layout is
+known.  `cc-finalize-globals` (called by the bootstrap driver in
+Ch 32) appends `cc-globals-buf` to `cc-out-buf`, computes
 `cc-globals-base-vaddr = cc-base-vaddr + cc-out-pos`, then walks
 the `cc-gfixup-*` arrays patching every recorded `movabs rdi,
 imm64` placeholder to its actual global vaddr.

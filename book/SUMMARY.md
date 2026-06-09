@@ -43,9 +43,9 @@
 - [Codegen, part 2: calls and locals](26-codegen-part-2.md) — calls, libc shims, string literals, global-address fixups
 - [Expressions, part 1: precedence climbing](27-expressions-part-1.md) — binary expressions through one repeated five-step fold
 - [Expressions, part 2: assignment, postfix, struct access](28-expressions-part-2.md) — primary, unary, postfix, ternary, assignment with lvalue tracking
-- [Declarations: types and globals](29-declarations-types-globals.md) — base types, pointers, arrays, structs, typedefs, file-scope globals
-- [Statements: if, while, for, return](30-statements-if-while-for-return.md) — every C control structure through emit/remember/patch
-- [Functions: parameters, locals, scope](31-functions-and-scope.md) — translation units, scopes, the entry stub at `0x400078`
+- [Declarations: types, structs, locals](29-declarations-types-globals.md) — base types, pointers, arrays, structs, and local variable declarations
+- [Statements: if, while, for, switch, break, continue, goto](30-statements-if-while-for-return.md) — every C control structure through emit/remember/patch
+- [Functions: parameters, calls, globals, entry stub](31-functions-and-scope.md) — translation units, scopes, file-scope globals, the entry stub at `0x400078`
 - [End to end: main and the bootstrap chain](32-main-and-bootstrap-chain.md) — the Stage-A byte-identity proof closes the chain
 
 # Appendices

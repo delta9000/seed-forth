@@ -56,7 +56,7 @@ In `cc-parse-*` precedence order, lowest to highest:
 
 | Precedence | Operators | Notes |
 |---|---|---|
-| assign (right-assoc) | `=` | LHS must be an identifier, `*p`, `arr[i]`, or `obj.field` / `p->field`.  Compound assignments (`+=`, `-=`, etc.) are **not** supported. |
+| assign (right-assoc) | `=`, `+= -= *= /= %= <<= >>= &= \|= ^=` | LHS must be an identifier, `*p`, `arr[i]`, or `obj.field` / `p->field`.  Compound assignments are supported when the LHS is a simple local variable; on a dereferenced, indexed, or field target only plain `=` is allowed. |
 | ternary (right-assoc) | `?:` | Both arms parsed via `cc-parse-assign`; standard short-circuit shape. |
 | logical or          | <code>&#124;&#124;</code> | Short-circuit; result is 0/1. |
 | logical and         | `&&`   | Short-circuit; result is 0/1. |
@@ -128,7 +128,7 @@ place over the source buffer before the lexer ever sees a token.
 | Directive | Accepted | Notes |
 |---|---|---|
 | `#include "path"`  | yes | Resolved against M2-Planet's source layout.  No `<...>` search path. |
-| `#define NAME body` | yes | Object-like macros only.  No function-like macros. |
+| `#define NAME body` | yes | Object-like macros only, and the body must be an integer — a decimal literal or another integer macro.  No function-like macros, no general text substitution. |
 | `#define NAME` (empty) | yes | Body is the empty string. |
 | `#ifdef`, `#ifndef`, `#if`, `#endif`, `#elif`, `#else` | **rejected** | The build scripts strip headers that depend on these. |
 | `#pragma`, `#error`, `#line` | **rejected** | |
@@ -138,8 +138,8 @@ The lack of `#ifndef` / `#endif` is the reason
 `#include "..."` cycles that conditional compilation would
 otherwise handle.
 
-A handful of built-in macros are predefined: `NULL`, `EOF`, `TRUE`,
-`FALSE`, and the M2-Planet target macros.  See
+A handful of built-in macros are predefined: `NULL`, `EOF`,
+`EXIT_SUCCESS`, `EXIT_FAILURE`, `stdin`, `stdout`, and `stderr`.  See
 `cc-prep-builtins` in `040-cc-prep.fth`.
 
 ## Structs
@@ -187,8 +187,8 @@ tables above are not repeated.
   builds are handled by the monolith concatenation in
   `build-m2planet-monolith.sh`.
 - **Standard library.** The compiler emits 11 libc shims
-  (`malloc`, `free`, `calloc`, `exit`, `fopen`, `fclose`,
-  `fgetc`, `fputc`, `fputs`, `strcmp`, `memset`) directly into
+  (`putchar`, `exit`, `getchar`, `fputs`, `fputc`, `fopen`,
+  `fclose`, `fwrite`, `fread`, `calloc`, `free`) directly into
   the output ELF.  Everything else must be provided by the C
   source under compilation.
 

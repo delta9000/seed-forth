@@ -7,10 +7,10 @@ Artifact after this chapter: if,, then,, else,, begin,, while,, repeat,, and the
 Proof link: the seed-level rehearsal of emit-remember-patch — the pattern the C compiler reuses in Ch 30.
 ```
 
-This is the chapter Part I has been building toward: nine immediate
-words in `010-lib.fth` (lines 194–290) that give us `if,`/`then,`/
-`else,` and `begin,`/`while,`/`repeat,` without a single new line of
-machine code.  Every combinator is just `c,` (Ch 2), `,4` (Ch 9),
+This is the chapter Part I has been building toward: nine new words
+in `010-lib.fth` (lines 194–290) — six of them immediate — that give
+us `if,`/`then,`/`else,` and `begin,`/`while,`/`repeat,` without a
+single new line of machine code.  Every combinator is just `c,` (Ch 2), `,4` (Ch 9),
 and `,` running at compile time, emitting a 5-byte CALL to the seed's
 `branch` or `0branch` primitive followed by an inline 8-byte target
 cell; the stack picture left behind by each one is a *fixup* that
@@ -45,8 +45,8 @@ the conditional, and the code generator turns that node into branch
 instructions.  Six places in the compiler know about `if`.
 
 Forth doesn't work that way.  In Forth, **`if`** — or here,
-`if,` — **is a word**, defined in user code, sixty lines from the
-top of `010-lib.fth`.  It is no more privileged than `dup` or
+`if,` — **is a word**, defined in user code, two-thirds of the way
+down `010-lib.fth`.  It is no more privileged than `dup` or
 `emit`.  When the seed sees `if,` inside a `:` ... `;`, it does
 exactly what it would do for any other word: look it up, run it.
 The only difference is that `if,` is marked IMMEDIATE (Ch 10), so
@@ -317,6 +317,11 @@ post-test loop with mid-body exit.
 
 ## 8. A worked example end to end
 
+Read this section for shape on the first pass: you can skim the exact
+HERE offsets and trust the picture, which is just *back-jump at the
+bottom, bail-out fixup at the top*.  Come back for the byte arithmetic
+once that shape is solid.
+
 Compile this:
 
 ```forth
@@ -376,20 +381,20 @@ change.  No new VM opcodes.  Just immediate words that emit
 
 ```
        __
-   __( o)>   "told you `if` is a word.  thirty lines.  no keywords."
+   __( o)>   "told you `if` is a word.  sixty lines.  no keywords."
    \___/
 ```
 
 Any control construct you can imagine — `case`/`of`, `switch`,
 exception unwinding, generators, even multi-level exits — is now a
-thirty-line file away.  You'd open `010-lib.fth`, add a couple of
+few dozen lines away.  You'd open `010-lib.fth`, add a couple of
 immediate words that emit branches in a new pattern, and the user
 language has a new keyword.
 
 The C compiler in Part III uses these combinators directly to
 implement `if`, `else`, `while`, and `for` in the *generated* code.
 And inside its own implementation, it uses them in the *generating*
-code.  The same nine words wear both hats.
+code.  The same six combinators wear both hats.
 
 If you've ever wondered what people mean when they say Forth is "a
 programmable programming language," this is exactly what they
@@ -570,7 +575,7 @@ rather see them inside a larger battery.
   when the later word knows the target.
 - This is the moment Forth becomes self-extensible.  Every control
   construct in this codebase from here forward — and in the C
-  compiler in Part III — uses or extends these nine words.
+  compiler in Part III — uses or extends these six combinators.
 
 Next: Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`, where
 the last 80 lines of `010-lib.fth` complete the defining-word

@@ -7,7 +7,7 @@ Artifact after this chapter: the Stage-A harness and byte-identical .M1 parity c
 Proof link: the proof is direct parity of emitted .M1 text, not identity of compiler ELFs.
 ```
 
-This is the synthesis chapter.  The whole compiler is 38 lines of
+This is the synthesis chapter.  The whole compiler is 37 lines of
 glue in `120-cc-main.fth` (entire file): a pre-baked 12-byte
 `/tmp/cc-out\0` constant, a nine-word `cc-main` that composes every
 piece of machinery from Chs 21–31 (`cc-load-stdin`, `cc-preprocess`,
@@ -259,7 +259,7 @@ you've seen every component along the seed-forth path:
 
 - Ch 13–20: the 2,040-byte seed itself (`000-seed.hex0`).
 - Ch 1–12: the seed's first extension (`010-lib.fth`) —
-  ~280 lines of Forth that turn the seed's 32 primitives into
+  ~375 lines of Forth that turn the seed's 32 primitives into
   a usable language.
 - Ch 21–32: the C-subset compiler — ~7,000 lines of Forth
   that turn a usable language into a useful tool.

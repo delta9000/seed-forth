@@ -630,8 +630,8 @@ zero-fills anonymous mmaps.
 The inline `heap_base` and `heap_pos` slots are accessed via
 RIP-relative `mov` instructions whose displacements are computed
 *by hand* and baked into the source.  Three call sites read
-`heap_pos` at three different RIP-relative offsets (`+0x16`,
-`+0x09`, `-0x2B`) — none of them is mechanically derived from a
+`heap_pos` at three different RIP-relative offsets (`+0x2B`,
+`+0x16`, `+0x09`) — none of them is mechanically derived from a
 label; all three are the result of counting bytes.  This is the
 fragile shim of the bunch: any change to the prologue's
 byte count shifts every RIP-relative displacement.
@@ -885,7 +885,10 @@ buffer.
 
 The buffer ownership is deliberate: string bytes, global bytes, and
 machine-code bytes each have a staging area until final layout makes
-their addresses stable.
+their addresses stable.  This is the *one buffer per responsibility*
+pattern from Ch 21, now at codegen scale — the string pool and the
+`cc-gfixup` arrays are each a buffer that owns exactly one kind of
+deferred data.
 
 The 4096-entry fixup cap matters: M2-Planet's `cc_core.c` emits
 about 891 references to globals.  256 would overflow; 4096 leaves
@@ -989,7 +992,7 @@ function calls (with forward-fixup lists for unresolved targets),
 libc shim wrappers, inlined string-literal storage, and global-
 address placeholders that get patched once layout is known.
 
-You can read `cc-emit-call` and `cc-add-fixup-to-list`, explain how
+You can read `cc-emit-call-rel32-placeholder` and `cc-add-fixup-to-list`, explain how
 a call to a function defined later in the file still gets a correct
 rel32, and trace where a `char *s = "hi"` literal ends up in the
 output buffer.
