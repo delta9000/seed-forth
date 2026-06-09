@@ -16,8 +16,8 @@ generalises Ch 4's return-stack trick one slot deeper; `2dup` is
 `over over`; `2drop` is `drop drop`), but having them named by
 reflex is what makes Forth feel like dancing on the stack instead
 of fighting it.  Open `010-lib.fth` to those 16 lines and read
-along; the prose argues each derivation and quietly justifies why
-the seed names some of these and inlines others.
+along; the prose walks the two derivations that aren't obvious and
+justifies why the seed names some of these and inlines others.
 
 By the end of the chapter you'll be able to read and write all the
 classical Forth shuffle words by name, derive arbitrary shuffles
@@ -36,105 +36,42 @@ vocabulary to write ergonomic Forth, so this chapter adds four more
 that fill out the standard shuffle library — each just two or four
 primitives glued together.
 
-## 1. `nip` — the simplest derivative
+## 1. The four shuffles
+
+The chapter intro already gave the definitions away, because there is
+nothing hidden in them — each is two or four primitives you already
+know from Chs 1 and 4:
 
 ```forth
-: nip   swap drop ;
+: nip   swap drop ;        \ ( a b -- b )        drop second-from-top
+: rot   >r swap r> swap ;  \ ( a b c -- b c a )  third-from-top to top
+: 2dup  over over ;        \ ( a b -- a b a b )  duplicate the top pair
+: 2drop drop drop ;        \ ( a b -- )          drop the top pair
 ```
 
-`nip ( a b -- b )` discards the second-from-top of the stack and
-keeps the top.  Read literally: swap the two values, then drop the
-one that's now on top.  After `swap`, `( a b )` becomes `( b a )`;
-after `drop`, just `( b )`.  Two tokens, no surprises.
+`nip` and `2drop` are too short to need a trace.  `rot` is Ch 4's
+park-on-the-return-stack trick one slot deeper: `>r` parks the top
+value, `swap` reorders the bottom two, `r>` brings the parked value
+back, and a final `swap` lands the result `( a b c -- b c a )`.
 
-This is what you'd write if you forgot `nip` existed.  The named
-form is shorter, slightly faster (one CALL instead of two), and
-self-documenting — anyone reading `nip` knows immediately what it
-does.  Unnamed `swap drop` is fine in a one-off, but the lexer in
-Part III uses `nip` dozens of times in its dispatch logic and the
-name carries its weight.
+`2dup` is the one worth a second look, because it shows why the seed
+stops here.  `over` doesn't know or care that `a` and `b` are "a
+pair" — each call just copies the second-from-top, so two calls happen
+to duplicate the pair.  You get `2dup` free from a pair of
+single-copies.  But the trick does *not* extend: three `over`s do
+**not** give you `3dup` (copying a triple needs more than three
+single-copies).  That asymmetry is why `2dup` earns a name and deeper
+pair-shuffles are left to be inlined at the rare call site that wants
+them.
 
-## 2. `rot` — the return-stack trick, generalised
+Why name a two-token word at all?  Speed (one CALL instead of two) and
+self-documentation.  Part III's lexer reaches for `nip` dozens of
+times, and the compiler uses `2drop` on every error path that discards
+a half-parsed pair — and reading `2drop` signals "I am dropping a
+logical pair," which `drop drop`, which you have to stop and count,
+does not.
 
-```forth
-: rot   >r swap r> swap ;
-```
-
-`rot ( a b c -- b c a )` rotates the *third-from-top* up to the top.
-This is the same trick Ch 4 used for `over`, applied one level
-deeper.
-
-Trace it on input `( a b c -- )`:
-
-| token  | data stack | return stack |
-|--------|------------|--------------|
-| (in)   | `a b c`    |              |
-| `>r`   | `a b`      | `c`          |
-| `swap` | `b a`      | `c`          |
-| `r>`   | `b a c`    |              |
-| `swap` | `b c a`    |              |
-
-The pattern: park the top value out of the way, shuffle the bottom
-two, restore the parked value, and finish with one more swap to put
-things in the desired order.  Whenever you need the third-from-top
-and don't want to think too hard, this is the move.
-
-Why isn't `rot` a primitive?  Same calculation as Ch 4: a four-token
-derived definition costs about 24 bytes (header + four CALL sites)
-versus 30–40 bytes for a primitive's machine body.  And `rot` is
-common-enough-to-name but rare-enough-to-derive: the seed uses it
-fewer than ten times.
-
-## 3. `2dup` from `over over`
-
-```forth
-: 2dup  over over ;
-```
-
-`2dup ( a b -- a b a b )` duplicates the top *pair* of cells.  The
-implementation is just `over` twice.
-
-Trace it:
-
-| token  | stack                |
-|--------|----------------------|
-| (in)   | `a b`                |
-| `over` | `a b a`              |
-| `over` | `a b a b`            |
-
-After the first `over`, the stack is `a b a` — the original `a` has
-been copied to the top.  Now apply `over` again: it copies the
-*new* second-from-top (which is `b`, not the original `a`) to the
-top.  Result: `a b a b`.
-
-Why this works without thinking about pair-ness: `over` doesn't know
-or care that `a` and `b` are "a pair."  Each invocation just copies
-the second-from-top to the top.  Two invocations happen to produce
-the same result as a hypothetical primitive that duplicated two
-cells.  Free pair-dup from a pair of single-copies.
-
-The trick does not extend for free, though: three `over`s do *not*
-give you `3dup` — copying a triple needs more than three single-copies.
-That asymmetry informs why the seed stops at `2dup`: `2dup` is cheap
-and used; deeper pair-shuffles are uncommon enough to inline at call
-sites when needed.
-
-## 4. `2drop` is just `drop drop`
-
-```forth
-: 2drop drop drop ;
-```
-
-`2drop ( a b -- )` discards the top pair.  Two `drop`s.  There is
-nothing more to say.
-
-Two tokens makes this almost not worth naming, but the C compiler
-in Part III uses it everywhere it discards a parameter pair (mostly
-on error paths after a partial parse).  Reading `2drop` is more
-obvious than reading `drop drop` and counting; the name signals "I
-am dropping a logical pair, not coincidentally two adjacent items."
-
-## 5. What's missing and why
+## 2. What's missing and why
 
 Standard Forth also defines `pick ( ... n -- ... x_n )` and
 `roll ( ... n -- ... )`.  These let you reach an arbitrary depth into
@@ -235,16 +172,21 @@ Expected output: `BACBYXYXBA`.  Trace each line:
 
 ## Exercises
 
-1. **★★ Extend.** Define `tuck ( a b -- b a b )` two ways: as `swap over` and using
+1. **★ Trace.** `rot` reaches the third-from-top cell but no deeper.
+   Predict the final stack for `1 2 3 4 rot`, written bottom-to-top,
+   then check with `1 2 3 4 rot .s` in the playground.  Which value
+   ended up on top, and where did it start?
+
+2. **★★ Extend.** Define `tuck ( a b -- b a b )` two ways: as `swap over` and using
    `>r dup r> swap`.  Which compiles to fewer bytes?
 
-2. **★★ Extend.** Define `-rot ( a b c -- c a b )` (the inverse of `rot`) using
+3. **★★ Extend.** Define `-rot ( a b c -- c a b )` (the inverse of `rot`) using
    *only* the seed's primitives plus already-defined helpers.
 
-3. **★★ Extend.** Define `2swap ( a b c d -- c d a b )`.  Hint: `rot >r rot r>`
+4. **★★ Extend.** Define `2swap ( a b c d -- c d a b )`.  Hint: `rot >r rot r>`
    is one route.
 
-4. **★★★ Trace.** Why is `pick` ( ... n -- ... x_n ) hard to define here?  Trace
+5. **★★★ Trace.** Why is `pick` ( ... n -- ... x_n ) hard to define here?  Trace
    what it would have to do for `n=3` using only `dup`, `swap`,
    `drop`, `>r`, `r>`.  Show that the token count grows linearly
    with `n`, not constant-time.
