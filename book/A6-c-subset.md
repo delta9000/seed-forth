@@ -10,11 +10,11 @@ whether a construct will work without running it.
 Sources of truth, in case this appendix drifts:
 
 - Keyword set: `050-cc-lex.fth` lines 125–155 (`kw-*` constants).
-- Statement forms: `110-cc-decl.fth` `cc-parse-stmt`
-  (lines 1336–1436).
 - Expression grammar: `100-cc-expr.fth` lines 1–22 (header
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
+- Statement forms: `110-cc-decl.fth` `cc-parse-stmt`
+  (lines 1393–1493).
 
 If you discover a construct the compiler accepts that isn't listed
 below — or rejects one that is — this appendix is wrong and the
@@ -92,7 +92,7 @@ codes in the 30s/80s/90s; see Appendix G).
 | `switch (expr) '{' (case INT ':' / default ':' / stmt)* '}'` | yes | Case labels are integer literals only — no constant expressions. |
 | `break ';'`                                               | yes | Innermost loop or switch.  No "break outside loop" detection. |
 | `continue ';'`                                            | yes | Innermost loop. |
-| `goto LABEL ';'`                                          | yes | Function-local labels; max 64 labels per function. |
+| `goto LABEL ';'`                                          | yes | Function-local labels; max 64 labels per function; the target label must not be inside a `switch`. |
 | `LABEL ':' stmt`                                          | yes | |
 | `return ';'` / `return expr ';'`                          | yes | |
 | local declaration                                         | yes | Any C declaration form recognised at file scope, plus initialisers. |

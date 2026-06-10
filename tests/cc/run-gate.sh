@@ -18,6 +18,7 @@ GATE_FILE="tests/cc/$1"
 EXPECTED="$2"
 EXPECTED_STDOUT="$3"
 OUT=/tmp/cc-out
+rm -f "$OUT"
 
 # Inline strip_forth (matches test.sh).
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }

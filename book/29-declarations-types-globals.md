@@ -9,7 +9,7 @@ Proof link: Stage-A decls populate the type and symbol database before statement
 
 This chapter installs the declaration machinery that feeds Ch 24's
 type and symbol tables.  It opens `110-cc-decl.fth`, the longest
-file in Part III at 2752 lines, and covers lines 1–587 (the
+file in Part III at 2827 lines, and covers lines 1–625 (the
 source-order split puts statements in Ch 30 and functions in Ch 31).
 Three pieces anchor the read.  `cc-parse-struct-def` uses a
 pre-registration trick so `struct T { struct T* next; }` can
@@ -33,7 +33,7 @@ to Chs 30–31.
 ---
 
 Ch 28 closed the expression parser.  Ch 29 opens the declarations
-file — the longest in Part III at 2752 lines.  We split it across
+file — the longest in Part III at 2827 lines.  We split it across
 three chapters by source order: Ch 29 covers the top of the file
 (declarations and struct parsing), Ch 30 covers statements,
 Ch 31 covers everything else (functions, enums, typedefs,
@@ -46,7 +46,7 @@ is to keep the *chapter* order matching source order.
 
 ## 1. File header and expectation helpers
 
-What follows is 587 lines: file header, expectation helpers,
+What follows is 625 lines: file header, expectation helpers,
 base-type parser, declarator parser, and struct-definition
 machinery.  §2 is where the structured walk back through them
 starts.
@@ -624,19 +624,55 @@ variable cc-sld-name-u
     then,
   then, ;
 
+\ ===========================================================================
+\ Switch-scrutinee unwind
+\ ===========================================================================
+\ cc-parse-switch (defined later in this file) parks the outer rbx with
+\ `push rbx` and restores it with `pop rbx` at the switch's end label.  Any
+\ statement that jumps out of the switch body without passing the end label —
+\ return, continue, goto — must first emit compensating pops, or each
+\ traversal leaks 8 bytes of stack per open switch (and return hands the
+\ caller a clobbered callee-saved rbx).
+\
+\ cc-switch-depth counts the switches lexically open at the current parse
+\ point; cc-loop-switch-depth snapshots it at the innermost enclosing loop.
+\   return:    pop cc-switch-depth times (every open switch in the function),
+\   continue:  pop (cc-switch-depth - cc-loop-switch-depth) times (the
+\              switches between the statement and the loop it continues),
+\   goto:      pop cc-switch-depth times — correct for labels outside any
+\              switch; goto to a label INSIDE a switch is unsupported.
+\ break needs nothing: it targets the innermost loop or switch end label,
+\ so it never jumps across a scrutinee push.
+variable cc-switch-depth
+variable cc-loop-switch-depth
+
+\ cc-emit-switch-unwind ( n -- )  Emit n `pop rbx` instructions.
+: cc-emit-switch-unwind                           ( n -- )
+  begin,
+    dup [lit] 0 >
+  while,
+    cc-emit-pop-rbx
+    [lit] 1 -
+  repeat,
+  drop ;
+
 \ cc-parse-return ( -- )  "return" already consumed; parse [expr] ';'.
 \ Bare `return;` (no expression) is legal C — emit rax := 0 + epilogue.
 \ Peek the next token: if it's ';' the peek already consumed it, so do NOT
 \ call cc-expect-punct-c again.  Otherwise putback and parse the expression.
+\ Either way, unwind any open switch scrutinees so rbx is restored before
+\ the epilogue's ret.
 : cc-parse-return
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
     cc-emit-xor-rax-rax                           \ rax := 0 (no value returned)
+    cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
   else,
     cc-putback-token
     cc-parse-expr-balanced
     cc-emit-mov-rax-rdi                           \ result -> rax (SYS-V)
+    cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
     [lit] 59 cc-expect-punct-c                    \ ';'
   then, ;
@@ -742,7 +778,7 @@ the pointer, with the same descriptor in `cc-sym-extra` so that
 
 ## 6. `cc-parse-return`
 
-`cc-parse-return` (lines 577–588) is the simplest statement
+`cc-parse-return` (lines 611–624) is the simplest statement
 parser.  Two forms:
 
 - `return ;` — bare return.  Emit `xor rax, rax` (so callers see
@@ -750,6 +786,14 @@ parser.  Two forms:
 - `return expr ;` — parse the expression, `cc-emit-mov-rax-rdi`
   to move the result into the SYS-V return register, then
   `cc-emit-epilogue`.
+
+The `cc-switch-depth` / `cc-emit-switch-unwind` block above it is
+forward machinery for Ch 30: `cc-parse-switch` parks the outer
+`rbx` with a `push` whose matching `pop` sits at the switch's end
+label, so a statement that jumps out of the body — `return` here,
+`continue` and `goto` in Ch 30 — must first emit one balancing
+`pop rbx` per open switch.  For `return` this is what restores
+the caller's callee-saved `rbx` before `ret`.
 
 The peek-and-dispatch reads the `;` only if it's actually
 present, putting back if not — the trailing `cc-expect-punct-c`

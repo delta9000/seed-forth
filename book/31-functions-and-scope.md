@@ -9,7 +9,7 @@ Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-o
 
 This chapter assembles the final translation-unit machinery: calls,
 function bodies, globals, top-level parsing, and the entry stub.  It
-is the final third of `110-cc-decl.fth` (lines 1439–2752) and the
+is the final third of `110-cc-decl.fth` (lines 1498–2827) and the
 busiest chapter in Part III.  Four anchors do the heavy lifting:
 `cc-parse-call` dispatches direct, forward, and indirect calls;
 `cc-parse-function` ties the prologue, body, epilogue, and scope
@@ -575,10 +575,12 @@ The rest of the compiler doesn't know the difference.
 
   \ Reset locals; push scope (so params + body locals are popped together).
   [lit] 0 cc-fn-local-count !
-  \ Reset per-function label table and break/continue stacks.
+  \ Reset per-function label table, break/continue stacks, switch depths.
   [lit] 0 cc-label-count !
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  [lit] 0 cc-switch-depth        !
+  [lit] 0 cc-loop-switch-depth   !
   cc-scope-push
 
   \ Parameter list (consumes through ')').
@@ -1087,7 +1089,8 @@ top-level construct it:
 \ re-consume it, accept star-modifiers, then expect IDENT, then optional
 \ [N] OR optional `= NUM`, then ';'.
 \
-\ Storage is allocated in cc-globals-buf (8 bytes per scalar, N*8 per array).
+\ Storage is allocated in cc-globals-buf (8 bytes per scalar — a struct
+\ VALUE gets its full descriptor size rounded up to 8 — N*8 per array).
 \ Scalar initializer (must be an int literal — possibly negated) is written
 \ into the buffer directly so the runtime image already contains the value.
 \ Arrays start zero-initialized.  Function-pointer, aggregate, and struct
@@ -1121,6 +1124,21 @@ variable cc-gdecl-ptr-depth
       [lit] 163 die
     then,
     tok-num @
+  then, ;
+
+\ cc-gdecl-scalar-bytes ( -- n )  Byte size of one non-array global slot.
+\ A struct VALUE (ty-struct base, zero pointer depth, descriptor known)
+\ needs its full descriptor size, rounded up to a multiple of 8 — a flat 8
+\ would let stores past the first field clobber the next global.  Everything
+\ else — ints, chars, pointers, struct pointers, opaque struct refs — is one
+\ 8-byte slot.
+: cc-gdecl-scalar-bytes                           ( -- n )
+  cc-gdecl-base @ ty-struct =
+  cc-gdecl-ptr-depth @ [lit] 0 = and
+  cc-gdecl-desc @ [lit] 0 <> and if,
+    cc-gdecl-desc @ cc-sd-total-size [lit] 7 + [lit] 8 / [lit] 8 *
+  else,
+    [lit] 8
   then, ;
 
 \ cc-parse-global-decl ( -- )  Caller has already done cc-skip-storage-quals;
@@ -1188,7 +1206,7 @@ variable cc-gdecl-ptr-depth
     tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
       \ Scalar with initializer.  Allocate slot first so we can write the
       \ initializer bytes; then add the symbol.
-      cc-gdecl-n @ [lit] 8 * cc-globals-alloc
+      cc-gdecl-scalar-bytes cc-globals-alloc
       cc-gdecl-slot !
       cc-parse-global-int-literal
       cc-gdecl-slot @ cc-globals-store-8le
@@ -1196,7 +1214,7 @@ variable cc-gdecl-ptr-depth
     else,
       tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
         \ Bare uninitialized scalar.  Allocate the slot.
-        cc-gdecl-n @ [lit] 8 * cc-globals-alloc cc-gdecl-slot !
+        cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
       else,
         [lit] 164 die
       then,
@@ -1326,8 +1344,12 @@ variable cc-gdecl-ptr-depth
 
 
 `cc-parse-global-decl` handles three forms:
-- `T name;` — uninitialised scalar.  Allocate 8 bytes in
-  `cc-globals-buf`, register the symbol.
+- `T name;` — uninitialised scalar.  Allocate
+  `cc-gdecl-scalar-bytes` bytes in `cc-globals-buf` — 8 for
+  every scalar except a struct *value*, which gets its full
+  descriptor size (rounded up to a multiple of 8) so stores past
+  the first field can't clobber the next global — then register
+  the symbol.
 - `T name = N;` — scalar with integer initialiser.  Same
   allocation plus `cc-globals-store-8le` of the value (negative
   literals supported via the leading-`-` test).

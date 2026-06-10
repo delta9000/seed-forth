@@ -9,7 +9,7 @@ Proof link: Stage-A sees the same project headers and integer constants as the r
 
 The artifact here is a source rewriter: a pass that turns project
 includes and integer defines into the flat stream the lexer will see.
-`040-cc-prep.fth` (630 lines, entire file) is the smallest
+`040-cc-prep.fth` (662 lines, entire file) is the smallest
 preprocessor that suffices for M2-Planet's source.  It handles
 `#include "…"` recursively, accepts integer-valued `#define`, and
 deliberately elides other directive lines.  The pass reads from
@@ -47,7 +47,7 @@ rest.
 
 ## 1. The output buffer and the two-megabyte detour
 
-What follows is the entire 630-line file in one slab — the longest
+What follows is the entire 662-line file in one slab — the longest
 single listing in the book.  Read it once for shape, not detail:
 note the region map above and let your eye register where each phase
 lives.  Sections 2–8 walk the paths that matter; you do not need to
@@ -60,12 +60,12 @@ are before you start scrolling helps:
 |---|---:|---|
 | Output buffer + forward decls | ~1–43 | §1 |
 | Macro storage (parallel arrays + name pool) | ~43–135 | §2 |
-| Walker state + peek/advance/skip helpers | ~136–181 | §3 |
-| Include pool, path building, file loading | ~182–296 | §4 |
-| Ident and decimal readers | ~297–335 | §3, §5 |
-| Directive dispatch (including `#include`, `#define`, fallthrough) | ~336–519 | §4, §5, §6 |
-| Process-region and copy-back driver | ~520–571 | §8 |
-| Built-in macros and `cc-preprocess` driver | ~573–end | §7, §8 |
+| Walker state + peek/advance/skip helpers | ~136–214 | §3 |
+| Include pool, path building, file loading | ~215–329 | §4 |
+| Ident and decimal readers | ~330–368 | §3, §5 |
+| Directive dispatch (including `#include`, `#define`, fallthrough) | ~369–560 | §4, §5, §6 |
+| Process-region and copy-back driver | ~561–606 | §8 |
+| Built-in macros and `cc-preprocess` driver | ~607–end | §7, §8 |
 
 The chapter sections walk the file by *topic*, not strictly in
 source order: e.g. `cc-prep-handle-include` (§4) and
@@ -234,6 +234,15 @@ variable cc-prep-src-pos
 : cc-prep-advance
   [lit] 1 cc-prep-src-pos +! ;
 
+\ cc-prep-peek2 ( -- c )  The byte one past pos; 0 if that is at/after EOR.
+\ Used to recognise the two-byte comment markers /* and */.
+: cc-prep-peek2
+  cc-prep-src-pos @ [lit] 1 + cc-prep-src-len @ >= if,
+    [lit] 0
+  else,
+    cc-prep-src-addr @ cc-prep-src-pos @ + [lit] 1 + c@
+  then, ;
+
 \ cc-prep-skip-blanks ( -- )  Skip spaces and tabs (NOT newlines).
 : cc-prep-skip-blanks
   begin,
@@ -243,13 +252,35 @@ variable cc-prep-src-pos
     cc-prep-advance
   repeat, ;
 
+\ cc-prep-skip-block-comment-tail ( -- )  pos is just past an opening /*.
+\ Consume bytes through the closing */ (crossing newlines), or to EOR.
+: cc-prep-skip-block-comment-tail
+  begin,
+    cc-prep-eor? 0=
+    cc-prep-peek [lit] 42 = cc-prep-peek2 [lit] 47 = and 0=  \ not yet "*/"
+    and
+  while,
+    cc-prep-advance
+  repeat,
+  cc-prep-peek  [lit] 42 = if, cc-prep-advance then,         \ consume '*'
+  cc-prep-peek  [lit] 47 = if, cc-prep-advance then, ;       \ consume '/'
+
 \ cc-prep-skip-to-eol ( -- )  Stop at newline (which is left unconsumed) or EOR.
+\ A directive's tokens may be followed by a /* block comment */ that runs past
+\ the newline; consume such a comment whole so its closing */ doesn't leak into
+\ the emitted stream as stray tokens.  Comments are otherwise the lexer's job —
+\ this only matters here because directive tails are elided before lexing.
 : cc-prep-skip-to-eol
   begin,
     cc-prep-eor? 0=
     cc-prep-peek [lit] 10 <> and
   while,
-    cc-prep-advance
+    cc-prep-peek [lit] 47 = cc-prep-peek2 [lit] 42 = and if,
+      cc-prep-advance cc-prep-advance                       \ skip '/*'
+      cc-prep-skip-block-comment-tail
+    else,
+      cc-prep-advance
+    then,
   repeat, ;
 
 \ Ident classifiers (use 010-lib.fth alpha?/digit?).
@@ -555,6 +586,7 @@ create cc-prep-name-define
 variable cc-prep-dir-matched
 
 : cc-prep-handle-directive
+  cc-prep-skip-blanks                              \ leading indent before '#'
   cc-prep-advance                                  \ consume '#'
   cc-prep-skip-blanks
   [lit] 0 cc-prep-dir-matched !
@@ -772,6 +804,23 @@ the region, leaving the newline unconsumed.  Together they
 implement the lexer-free directive parser: "skip whitespace, read
 ident, skip whitespace, …".
 
+`cc-prep-skip-to-eol` has one wrinkle.  It is only ever used to
+*elide the tail of a directive line* — the bytes after a handled
+`#include`/`#define`, or a whole unknown directive.  But a
+directive's tokens may be followed by a `/* … */` comment, and a
+block comment can run past the newline.  If skip-to-eol stopped
+blindly at the first newline it would swallow the comment's
+opener (it's on the directive line, which is elided) yet leave the
+closer on the *next* line, where the lexer would meet it as stray
+`*` `/` tokens.  So skip-to-eol watches for `/*` — using the
+two-byte lookahead `cc-prep-peek2` — and hands off to
+`cc-prep-skip-block-comment-tail`, which consumes through the
+matching `*/` even across newlines.  Comments are normally the
+lexer's department (Ch 23); this is the one spot where the
+preprocessor must understand them, precisely because it elides
+text before the lexer can see it.  For a directive line with no
+trailing comment, the extra check changes nothing.
+
 The `cc-prep-is-ident-start?` and `cc-prep-is-ident-cont?` helpers
 fold the C identifier rules (letter or underscore, then letters or
 digits) onto Ch 6's `alpha?` and `digit?`.  Underscore is byte 95;
@@ -855,6 +904,15 @@ logic is:
 — it saves `cc-prep-src-pos`, skips blanks, checks for `#`,
 restores `cc-prep-src-pos`.  The classic "save and restore"
 pattern.  Forth's data-stack discipline makes it almost too easy.
+Because it *restores* the position, the handler runs with `pos`
+still at the line's leading whitespace, not at the `#` — so
+`cc-prep-handle-directive` skips blanks again before consuming
+`#`.  C allows whitespace before the `#`, and `   #define X 42`
+must register `X`; without that first `cc-prep-skip-blanks` the
+handler would consume a space, find `#` where it expected an
+identifier, match nothing, and silently elide the whole line.
+For a column-0 directive the extra skip does nothing, so the
+emitted stream is unchanged.
 
 `cc-prep-handle-directive` reads the directive name, compares it
 against `cc-prep-name-include` and `cc-prep-name-define` (the

@@ -9,7 +9,7 @@ Proof link: Stage-A control flow uses emit, remember, patch at statement scale.
 
 This chapter installs the statement compiler: the layer that turns
 expressions into branches, loops, switches, returns, labels, and
-fallthrough.  It covers `110-cc-decl.fth` lines 588–1438.  At the
+fallthrough.  It covers `110-cc-decl.fth` lines 626–1497.  At the
 top sits the `cc-parse-stmt` dispatcher, with its `IDENT ':'`
 lookahead that distinguishes label definitions from expression
 statements.  The specialised parsers `cc-parse-if`,
@@ -320,14 +320,21 @@ This is the same fixup-on-the-stack pattern as Ch 11's `if,`,
 generalised to a list because there can be multiple `break`s in
 one loop.
 
+Each loop also snapshots `cc-switch-depth` into
+`cc-loop-switch-depth` (Ch 29 §6), so a `continue` buried inside
+a `switch` knows how many scrutinee pushes stand between it and
+the loop it continues.
+
 ## 4. `while` and `for` (with step rewind)
 
 ```forth file=110-cc-decl.fth
-  \ Save outer break/continue list heads on rstack.
+  \ Save outer break/continue list heads + loop switch-depth on rstack.
   cc-break-stack-head    @ >r
   cc-continue-stack-head @ >r
+  cc-loop-switch-depth   @ >r
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  cc-switch-depth @ cc-loop-switch-depth !
 
   [lit]  40 cc-expect-punct-c                     \ '('
   cc-base-vaddr cc-out-pos @ +                    ( top-vaddr )
@@ -352,6 +359,7 @@ one loop.
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
   \ Restore outer heads.
+  r> cc-loop-switch-depth   !
   r> cc-continue-stack-head !
   r> cc-break-stack-head    ! ;
 
@@ -387,12 +395,15 @@ one loop.
     [lit] 59 cc-expect-punct-c
   then,
 
-  \ Save outer break/continue heads on rstack (after init, since init runs
-  \ outside the loop and shouldn't see this loop's break/continue).
+  \ Save outer break/continue heads + loop switch-depth on rstack (after
+  \ init, since init runs outside the loop and shouldn't see this loop's
+  \ break/continue).
   cc-break-stack-head    @ >r
   cc-continue-stack-head @ >r
+  cc-loop-switch-depth   @ >r
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  cc-switch-depth @ cc-loop-switch-depth !
 
   \ Top of loop.
   cc-base-vaddr cc-out-pos @ +                    ( top-vaddr )
@@ -473,6 +484,7 @@ one loop.
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
   \ Restore outer heads.
+  r> cc-loop-switch-depth   !
   r> cc-continue-stack-head !
   r> cc-break-stack-head    ! ;
 
@@ -525,11 +537,13 @@ state management.
 \
 \ "do" has already been consumed.  Grammar:  do stmt while ( expr ) ;
 : cc-parse-do-while
-  \ Save outer break/continue heads.
+  \ Save outer break/continue heads + loop switch-depth.
   cc-break-stack-head    @ >r
   cc-continue-stack-head @ >r
+  cc-loop-switch-depth   @ >r
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  cc-switch-depth @ cc-loop-switch-depth !
 
   \ Record top-vaddr for the backward jnz.
   cc-base-vaddr cc-out-pos @ + >r                 ( ; R: ... top )
@@ -553,6 +567,7 @@ state management.
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
   \ Restore outer heads.
+  r> cc-loop-switch-depth   !
   r> cc-continue-stack-head !
   r> cc-break-stack-head    ! ;
 
@@ -647,9 +662,12 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   cc-parse-expr                                   \ rdi = scrutinee
   [lit]  41 cc-expect-punct-c                     \ ')'
 
-  \ Save outer rbx, then move scrutinee into rbx.
+  \ Save outer rbx, then move scrutinee into rbx.  Mark the switch open so
+  \ return/continue/goto inside the body emit a balancing pop (see
+  \ cc-emit-switch-unwind).
   cc-emit-push-rbx
   cc-emit-mov-rbx-rdi
+  [lit] 1 cc-switch-depth +!
 
   \ Forward jmp to the dispatch table (emitted after the body).
   cc-emit-jmp-rel32-placeholder                   ( jmp-to-dispatch )
@@ -714,8 +732,9 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   \ end-A: walk break list, patching each fixup to here.
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
-  \ Restore outer rbx.
+  \ Restore outer rbx; the switch is closed again.
   cc-emit-pop-rbx
+  cc-switch-depth @ [lit] 1 - cc-switch-depth !
 
   \ Restore outer state.
   r> cc-break-stack-head     !
@@ -745,6 +764,11 @@ been collected.  The compiler's solution:
 7. End-A: walk the break list, patching every fixup to here.
    `pop rbx` restores the outer scrutinee.
 
+Exits that bypass end-A — `return`, `continue`, `goto` — balance
+the `push rbx` themselves via `cc-emit-switch-unwind` (Ch 29 §6),
+driven by the `cc-switch-depth` counter that brackets the body
+parse here.
+
 The dispatch table walks the case list in *reverse source order*
 because the list is built via prepend.  That's fine because
 `case` semantics are order-independent (two cases with the same
@@ -773,8 +797,11 @@ when the dispatch point is finally known.
   cc-add-break-fixup ;
 
 \ cc-parse-continue-stmt ( -- )  "continue" already consumed.
+\ Unwind the scrutinee pushes of any switches between here and the loop
+\ being continued before jumping out of them.
 : cc-parse-continue-stmt
   [lit]  59 cc-expect-punct-c                     \ ';'
+  cc-switch-depth @ cc-loop-switch-depth @ - cc-emit-switch-unwind
   cc-emit-jmp-rel32-placeholder                   ( fixup-offset )
   cc-add-continue-fixup ;
 
@@ -782,7 +809,11 @@ when the dispatch point is finally known.
 
 `cc-parse-break-stmt` and `cc-parse-continue-stmt` are tiny:
 expect `;`, emit a placeholder `jmp`, add the offset to the
-break or continue list.
+break or continue list.  `continue` additionally calls
+`cc-emit-switch-unwind` (Ch 29 §6) with the number of switches
+it's jumping out of, balancing each one's scrutinee `push rbx`.
+`break` never needs this: it targets the innermost loop or
+switch end label, so it never crosses a scrutinee push.
 
 There's no "break depth" tracking — the compiler assumes valid
 nesting.  A `break` outside any loop would add a fixup to the
@@ -905,6 +936,10 @@ variable cc-label-find-needle-len
   then,
   tok-str-addr @ tok-str-len @ cc-label-find-or-create   ( id )
 
+  \ Unwind any open switch scrutinees before jumping (assumes the label is
+  \ not inside any switch — a goto to a label inside any switch is unsupported).
+  cc-switch-depth @ cc-emit-switch-unwind
+
   dup cc-label-vaddr-of                           ( id vaddr )
   dup [lit] 0 <> if,
     \ Backward jump to known target.
@@ -943,6 +978,11 @@ shadowing.
   an absolute backward `jmp` via `cc-emit-jmp-vaddr`.
 - If not, emit a forward-`jmp` placeholder and prepend the
   patch offset to the label's `cc-label-fixup-of` list.
+
+Either way, it first unwinds every open switch scrutinee — which
+assumes the target label is not inside any `switch`.  A `goto`
+to a label inside any switch is unsupported (it would also need
+the scrutinee re-pushed, and M2-Planet's source never does it).
 
 `cc-define-label` is the matching definer: it sets the label's
 vaddr to the current `cc-out-pos`, then walks the fixup list

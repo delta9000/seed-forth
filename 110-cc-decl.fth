@@ -570,19 +570,55 @@ variable cc-sld-name-u
     then,
   then, ;
 
+\ ===========================================================================
+\ Switch-scrutinee unwind
+\ ===========================================================================
+\ cc-parse-switch (defined later in this file) parks the outer rbx with
+\ `push rbx` and restores it with `pop rbx` at the switch's end label.  Any
+\ statement that jumps out of the switch body without passing the end label —
+\ return, continue, goto — must first emit compensating pops, or each
+\ traversal leaks 8 bytes of stack per open switch (and return hands the
+\ caller a clobbered callee-saved rbx).
+\
+\ cc-switch-depth counts the switches lexically open at the current parse
+\ point; cc-loop-switch-depth snapshots it at the innermost enclosing loop.
+\   return:    pop cc-switch-depth times (every open switch in the function),
+\   continue:  pop (cc-switch-depth - cc-loop-switch-depth) times (the
+\              switches between the statement and the loop it continues),
+\   goto:      pop cc-switch-depth times — correct for labels outside any
+\              switch; goto to a label INSIDE a switch is unsupported.
+\ break needs nothing: it targets the innermost loop or switch end label,
+\ so it never jumps across a scrutinee push.
+variable cc-switch-depth
+variable cc-loop-switch-depth
+
+\ cc-emit-switch-unwind ( n -- )  Emit n `pop rbx` instructions.
+: cc-emit-switch-unwind                           ( n -- )
+  begin,
+    dup [lit] 0 >
+  while,
+    cc-emit-pop-rbx
+    [lit] 1 -
+  repeat,
+  drop ;
+
 \ cc-parse-return ( -- )  "return" already consumed; parse [expr] ';'.
 \ Bare `return;` (no expression) is legal C — emit rax := 0 + epilogue.
 \ Peek the next token: if it's ';' the peek already consumed it, so do NOT
 \ call cc-expect-punct-c again.  Otherwise putback and parse the expression.
+\ Either way, unwind any open switch scrutinees so rbx is restored before
+\ the epilogue's ret.
 : cc-parse-return
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
     cc-emit-xor-rax-rax                           \ rax := 0 (no value returned)
+    cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
   else,
     cc-putback-token
     cc-parse-expr-balanced
     cc-emit-mov-rax-rdi                           \ result -> rax (SYS-V)
+    cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
     [lit] 59 cc-expect-punct-c                    \ ';'
   then, ;
@@ -772,11 +808,13 @@ variable cc-for-step-end
 \ During the body, both heads are 0 (= empty list); break/continue stmts
 \ inside add forward-jmp fixup nodes that we patch at end-of-loop.
 : cc-parse-while
-  \ Save outer break/continue list heads on rstack.
+  \ Save outer break/continue list heads + loop switch-depth on rstack.
   cc-break-stack-head    @ >r
   cc-continue-stack-head @ >r
+  cc-loop-switch-depth   @ >r
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  cc-switch-depth @ cc-loop-switch-depth !
 
   [lit]  40 cc-expect-punct-c                     \ '('
   cc-base-vaddr cc-out-pos @ +                    ( top-vaddr )
@@ -801,6 +839,7 @@ variable cc-for-step-end
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
   \ Restore outer heads.
+  r> cc-loop-switch-depth   !
   r> cc-continue-stack-head !
   r> cc-break-stack-head    ! ;
 
@@ -836,12 +875,15 @@ variable cc-for-step-end
     [lit] 59 cc-expect-punct-c
   then,
 
-  \ Save outer break/continue heads on rstack (after init, since init runs
-  \ outside the loop and shouldn't see this loop's break/continue).
+  \ Save outer break/continue heads + loop switch-depth on rstack (after
+  \ init, since init runs outside the loop and shouldn't see this loop's
+  \ break/continue).
   cc-break-stack-head    @ >r
   cc-continue-stack-head @ >r
+  cc-loop-switch-depth   @ >r
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  cc-switch-depth @ cc-loop-switch-depth !
 
   \ Top of loop.
   cc-base-vaddr cc-out-pos @ +                    ( top-vaddr )
@@ -922,6 +964,7 @@ variable cc-for-step-end
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
   \ Restore outer heads.
+  r> cc-loop-switch-depth   !
   r> cc-continue-stack-head !
   r> cc-break-stack-head    ! ;
 
@@ -939,11 +982,13 @@ variable cc-for-step-end
 \
 \ "do" has already been consumed.  Grammar:  do stmt while ( expr ) ;
 : cc-parse-do-while
-  \ Save outer break/continue heads.
+  \ Save outer break/continue heads + loop switch-depth.
   cc-break-stack-head    @ >r
   cc-continue-stack-head @ >r
+  cc-loop-switch-depth   @ >r
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  cc-switch-depth @ cc-loop-switch-depth !
 
   \ Record top-vaddr for the backward jnz.
   cc-base-vaddr cc-out-pos @ + >r                 ( ; R: ... top )
@@ -967,6 +1012,7 @@ variable cc-for-step-end
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
   \ Restore outer heads.
+  r> cc-loop-switch-depth   !
   r> cc-continue-stack-head !
   r> cc-break-stack-head    ! ;
 
@@ -1048,9 +1094,12 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   cc-parse-expr                                   \ rdi = scrutinee
   [lit]  41 cc-expect-punct-c                     \ ')'
 
-  \ Save outer rbx, then move scrutinee into rbx.
+  \ Save outer rbx, then move scrutinee into rbx.  Mark the switch open so
+  \ return/continue/goto inside the body emit a balancing pop (see
+  \ cc-emit-switch-unwind).
   cc-emit-push-rbx
   cc-emit-mov-rbx-rdi
+  [lit] 1 cc-switch-depth +!
 
   \ Forward jmp to the dispatch table (emitted after the body).
   cc-emit-jmp-rel32-placeholder                   ( jmp-to-dispatch )
@@ -1115,8 +1164,9 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   \ end-A: walk break list, patching each fixup to here.
   cc-break-stack-head @ cc-walk-and-patch-fixups
 
-  \ Restore outer rbx.
+  \ Restore outer rbx; the switch is closed again.
   cc-emit-pop-rbx
+  cc-switch-depth @ [lit] 1 - cc-switch-depth !
 
   \ Restore outer state.
   r> cc-break-stack-head     !
@@ -1139,8 +1189,11 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   cc-add-break-fixup ;
 
 \ cc-parse-continue-stmt ( -- )  "continue" already consumed.
+\ Unwind the scrutinee pushes of any switches between here and the loop
+\ being continued before jumping out of them.
 : cc-parse-continue-stmt
   [lit]  59 cc-expect-punct-c                     \ ';'
+  cc-switch-depth @ cc-loop-switch-depth @ - cc-emit-switch-unwind
   cc-emit-jmp-rel32-placeholder                   ( fixup-offset )
   cc-add-continue-fixup ;
 
@@ -1256,6 +1309,10 @@ variable cc-label-find-needle-len
     [lit] 80 die
   then,
   tok-str-addr @ tok-str-len @ cc-label-find-or-create   ( id )
+
+  \ Unwind any open switch scrutinees before jumping (assumes the label is
+  \ not inside any switch — a goto to a label inside any switch is unsupported).
+  cc-switch-depth @ cc-emit-switch-unwind
 
   dup cc-label-vaddr-of                           ( id vaddr )
   dup [lit] 0 <> if,
@@ -1877,10 +1934,12 @@ variable cc-top-save-tok-kw
 
   \ Reset locals; push scope (so params + body locals are popped together).
   [lit] 0 cc-fn-local-count !
-  \ Reset per-function label table and break/continue stacks.
+  \ Reset per-function label table, break/continue stacks, switch depths.
   [lit] 0 cc-label-count !
   [lit] 0 cc-break-stack-head    !
   [lit] 0 cc-continue-stack-head !
+  [lit] 0 cc-switch-depth        !
+  [lit] 0 cc-loop-switch-depth   !
   cc-scope-push
 
   \ Parameter list (consumes through ')').
@@ -2274,7 +2333,8 @@ variable cc-top-skip-go
 \ re-consume it, accept star-modifiers, then expect IDENT, then optional
 \ [N] OR optional `= NUM`, then ';'.
 \
-\ Storage is allocated in cc-globals-buf (8 bytes per scalar, N*8 per array).
+\ Storage is allocated in cc-globals-buf (8 bytes per scalar — a struct
+\ VALUE gets its full descriptor size rounded up to 8 — N*8 per array).
 \ Scalar initializer (must be an int literal — possibly negated) is written
 \ into the buffer directly so the runtime image already contains the value.
 \ Arrays start zero-initialized.  Function-pointer, aggregate, and struct
@@ -2308,6 +2368,21 @@ variable cc-gdecl-ptr-depth
       [lit] 163 die
     then,
     tok-num @
+  then, ;
+
+\ cc-gdecl-scalar-bytes ( -- n )  Byte size of one non-array global slot.
+\ A struct VALUE (ty-struct base, zero pointer depth, descriptor known)
+\ needs its full descriptor size, rounded up to a multiple of 8 — a flat 8
+\ would let stores past the first field clobber the next global.  Everything
+\ else — ints, chars, pointers, struct pointers, opaque struct refs — is one
+\ 8-byte slot.
+: cc-gdecl-scalar-bytes                           ( -- n )
+  cc-gdecl-base @ ty-struct =
+  cc-gdecl-ptr-depth @ [lit] 0 = and
+  cc-gdecl-desc @ [lit] 0 <> and if,
+    cc-gdecl-desc @ cc-sd-total-size [lit] 7 + [lit] 8 / [lit] 8 *
+  else,
+    [lit] 8
   then, ;
 
 \ cc-parse-global-decl ( -- )  Caller has already done cc-skip-storage-quals;
@@ -2375,7 +2450,7 @@ variable cc-gdecl-ptr-depth
     tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
       \ Scalar with initializer.  Allocate slot first so we can write the
       \ initializer bytes; then add the symbol.
-      cc-gdecl-n @ [lit] 8 * cc-globals-alloc
+      cc-gdecl-scalar-bytes cc-globals-alloc
       cc-gdecl-slot !
       cc-parse-global-int-literal
       cc-gdecl-slot @ cc-globals-store-8le
@@ -2383,7 +2458,7 @@ variable cc-gdecl-ptr-depth
     else,
       tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
         \ Bare uninitialized scalar.  Allocate the slot.
-        cc-gdecl-n @ [lit] 8 * cc-globals-alloc cc-gdecl-slot !
+        cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
       else,
         [lit] 164 die
       then,

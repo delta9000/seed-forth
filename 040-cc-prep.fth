@@ -158,6 +158,15 @@ variable cc-prep-src-pos
 : cc-prep-advance
   [lit] 1 cc-prep-src-pos +! ;
 
+\ cc-prep-peek2 ( -- c )  The byte one past pos; 0 if that is at/after EOR.
+\ Used to recognise the two-byte comment markers /* and */.
+: cc-prep-peek2
+  cc-prep-src-pos @ [lit] 1 + cc-prep-src-len @ >= if,
+    [lit] 0
+  else,
+    cc-prep-src-addr @ cc-prep-src-pos @ + [lit] 1 + c@
+  then, ;
+
 \ cc-prep-skip-blanks ( -- )  Skip spaces and tabs (NOT newlines).
 : cc-prep-skip-blanks
   begin,
@@ -167,13 +176,35 @@ variable cc-prep-src-pos
     cc-prep-advance
   repeat, ;
 
+\ cc-prep-skip-block-comment-tail ( -- )  pos is just past an opening /*.
+\ Consume bytes through the closing */ (crossing newlines), or to EOR.
+: cc-prep-skip-block-comment-tail
+  begin,
+    cc-prep-eor? 0=
+    cc-prep-peek [lit] 42 = cc-prep-peek2 [lit] 47 = and 0=  \ not yet "*/"
+    and
+  while,
+    cc-prep-advance
+  repeat,
+  cc-prep-peek  [lit] 42 = if, cc-prep-advance then,         \ consume '*'
+  cc-prep-peek  [lit] 47 = if, cc-prep-advance then, ;       \ consume '/'
+
 \ cc-prep-skip-to-eol ( -- )  Stop at newline (which is left unconsumed) or EOR.
+\ A directive's tokens may be followed by a /* block comment */ that runs past
+\ the newline; consume such a comment whole so its closing */ doesn't leak into
+\ the emitted stream as stray tokens.  Comments are otherwise the lexer's job —
+\ this only matters here because directive tails are elided before lexing.
 : cc-prep-skip-to-eol
   begin,
     cc-prep-eor? 0=
     cc-prep-peek [lit] 10 <> and
   while,
-    cc-prep-advance
+    cc-prep-peek [lit] 47 = cc-prep-peek2 [lit] 42 = and if,
+      cc-prep-advance cc-prep-advance                       \ skip '/*'
+      cc-prep-skip-block-comment-tail
+    else,
+      cc-prep-advance
+    then,
   repeat, ;
 
 \ Ident classifiers (use 010-lib.fth alpha?/digit?).
@@ -479,6 +510,7 @@ create cc-prep-name-define
 variable cc-prep-dir-matched
 
 : cc-prep-handle-directive
+  cc-prep-skip-blanks                              \ leading indent before '#'
   cc-prep-advance                                  \ consume '#'
   cc-prep-skip-blanks
   [lit] 0 cc-prep-dir-matched !

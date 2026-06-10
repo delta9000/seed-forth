@@ -233,40 +233,55 @@ comparisons, branches) and §8 hands the rest off to Ch 26.
 \ ===========================================================================
 \ Local-variable access
 \ ===========================================================================
-\ Locals live at [rbp - 8*(slot+1)].  The compiler uses slots 0..15 so the
-\ displacement fits in a signed disp8 (-128..-8).
+\ Locals live at [rbp - 8*(slot+1)].  Slots 0..15 have displacements
+\ -8..-128, which fit a signed disp8 (ModR/M mod=01); deeper slots need the
+\ disp32 form (mod=10).  cc-emit-local-ea picks the right one per slot.
+\ Note: the frame itself is fixed at 256 bytes = 32 slots by the prologue
+\ call in 110-cc-decl.fth — the encoding handles any slot; the frame does not.
 \
 \ cc-disp8-from-slot ( slot -- byte )
 \   = (256 - 8*(slot+1)) AND 255 = the unsigned-byte representation of the
-\   signed displacement -8*(slot+1).
+\   signed displacement -8*(slot+1).  Only valid for slots 0..15.
 
 : cc-disp8-from-slot
   [lit] 1 + [lit] 8 *                            \ 8 * (slot+1)
   [lit] 0 swap -                                  \ negate
   [lit] 255 and ;                                 \ low byte
 
-\ mov rdi, [rbp + disp8]:  48 8B 7D <disp8>
+\ cc-emit-local-ea ( slot modrm8 -- )
+\   Emit the ModR/M byte + displacement for [rbp + disp] access to a local
+\   slot.  modrm8 is the mod=01 (disp8) form of the ModR/M byte.  Slots
+\   0..15 emit it unchanged plus a disp8; deeper slots switch to mod=10
+\   (modrm8 + 0x40) plus the 32-bit two's-complement displacement.
+: cc-emit-local-ea
+  over [lit] 16 < if,
+    cc-emit-byte
+    cc-disp8-from-slot cc-emit-byte
+  else,
+    [lit] 64 + cc-emit-byte                       \ mod=01 -> mod=10
+    [lit] 1 + [lit] 8 *                           \ 8 * (slot+1)
+    [lit] 0 swap - cc-emit-4le                    \ negate; low 4 bytes = disp32
+  then, ;
+
+\ mov rdi, [rbp + disp]:  48 8B 7D <disp8>  (or 48 8B BD <disp32>)
 : cc-emit-load-local                              ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 139 cc-emit-byte
-  [lit] 125 cc-emit-byte
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit] 125 cc-emit-local-ea ;
 
-\ mov [rbp + disp8], rdi:  48 89 7D <disp8>
+\ mov [rbp + disp], rdi:  48 89 7D <disp8>  (or 48 89 BD <disp32>)
 : cc-emit-store-local                             ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 137 cc-emit-byte
-  [lit] 125 cc-emit-byte
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit] 125 cc-emit-local-ea ;
 
-\ lea rdi, [rbp + disp8]:  48 8D 7D <disp8>
+\ lea rdi, [rbp + disp]:  48 8D 7D <disp8>  (or 48 8D BD <disp32>)
 \ ModR/M(mod=01, reg=rdi=7, rm=rbp=5) = 0x7D.  Loads the *address* of the local
 \ slot into rdi (used to implement `&local`).
 : cc-emit-lea-rdi-local                           ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 141 cc-emit-byte
-  [lit] 125 cc-emit-byte
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit] 125 cc-emit-local-ea ;
 
 \ mov rdi, [rdi]:  48 8B 3F
 \ ModR/M(mod=00, reg=rdi=7, rm=rdi=7) = 0x3F.  Loads the qword at the address
@@ -336,42 +351,36 @@ comparisons, branches) and §8 hands the rest off to Ch 26.
 : cc-emit-store-local-from-rsi                    ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 137 cc-emit-byte
-  [lit] 117 cc-emit-byte                          \ 0x75
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit] 117 cc-emit-local-ea ;                    \ 0x75
 
 : cc-emit-store-local-from-rdx                    ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 137 cc-emit-byte
-  [lit]  85 cc-emit-byte                          \ 0x55
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit]  85 cc-emit-local-ea ;                    \ 0x55
 
 : cc-emit-store-local-from-rcx                    ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 137 cc-emit-byte
-  [lit]  77 cc-emit-byte                          \ 0x4D
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit]  77 cc-emit-local-ea ;                    \ 0x4D
 
 : cc-emit-store-local-from-r8                     ( slot -- )
   [lit]  76 cc-emit-byte                          \ REX.W+R = 0x4C
   [lit] 137 cc-emit-byte
-  [lit]  69 cc-emit-byte                          \ 0x45
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit]  69 cc-emit-local-ea ;                    \ 0x45
 
 : cc-emit-store-local-from-r9                     ( slot -- )
   [lit]  76 cc-emit-byte
   [lit] 137 cc-emit-byte
-  [lit]  77 cc-emit-byte                          \ 0x4D
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit]  77 cc-emit-local-ea ;                    \ 0x4D
 
-\ mov rax, [rbp + disp8]:  48 8B 45 <disp8>
+\ mov rax, [rbp + disp]:  48 8B 45 <disp8>  (or 48 8B 85 <disp32>)
 \ ModR/M(mod=01, reg=rax=0, rm=rbp=5) = 01_000_101 = 0x45.  Used to load a
 \ function-pointer local into rax just before an indirect `call rax` — keeps
 \ rdi/rsi/etc. (already loaded with SYS-V args) untouched.
 : cc-emit-load-local-into-rax                     ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 139 cc-emit-byte
-  [lit]  69 cc-emit-byte                          \ 0x45
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit]  69 cc-emit-local-ea ;                    \ 0x45
 
 \ call rax:  FF D0   (no REX needed; rax = reg 0).
 \ ModR/M(mod=11, reg=/2 = CALL r/m64, rm=rax=0) = 11_010_000 = 0xD0.
@@ -626,18 +635,25 @@ arithmetic helper: slot 0 → -8 → 248, slot 1 → -16 → 240, slot 2
 → -24 → 232, and so on, all expressed as the 8-bit two's-
 complement unsigned byte the `disp8` field of ModR/M wants.
 
-The cap of 16 slots (the comment says `slots 0..15`) keeps the
-displacement in signed-byte range (-128..-8).  Past that we'd need
-`disp32` and a four-byte displacement instead of one — doable but
-not needed for M2-Planet's functions.
+Slots 0..15 keep the displacement in signed-byte range (-128..-8).
+Past that the encoding needs `disp32`: ModR/M mod=10 instead of
+mod=01, and a four-byte displacement instead of one.
+`cc-emit-local-ea` makes the choice per slot — it takes the
+disp8-form ModR/M byte and either emits it with
+`cc-disp8-from-slot`'s byte, or adds 0x40 (mod=01 → mod=10) and
+emits the 32-bit two's-complement displacement.  M2-Planet's
+functions never exceed 16 slots, so its compiled output is all-disp8.
+One caution: the *encoding* now handles any slot, but the *frame*
+doesn't grow to match — the parser always asks `cc-emit-prologue`
+for a fixed 256 bytes, so only 32 slots actually exist per function.
 
 `cc-emit-load-local`, `cc-emit-store-local`, `cc-emit-lea-rdi-
 local`, `cc-emit-load-via-rdi`, `cc-emit-load-byte-via-rdi`,
 `cc-emit-store-via-rcx`, `cc-emit-store-byte-via-rcx` are four-byte
-encoders apiece (`48 8B/89/8D 7D/3F/39 <disp8>` for the locals,
-three-byte variants for dereference patterns).  The encoding
-arithmetic is in the comments — read one and you can predict the
-rest.
+encoders apiece in the disp8 case (`48 8B/89/8D 7D/3F/39 <disp8>`
+for the locals, three-byte variants for dereference patterns).  The
+encoding arithmetic is in the comments — read one and you can
+predict the rest.
 
 `cc-emit-shl-rdi-imm8` and `cc-emit-add-rdi-imm32` are pointer-
 arithmetic primitives: shift left for array indexing (multiply by

@@ -320,16 +320,21 @@ parser ambiguity.
     then,
   then,
 
-  \ Compute char-step flag and stash on rstack so it survives the expr parse.
-  dup cc-sym-type-of                              ( id ty )
-  dup ty-base ty-char =                           ( id ty is-char? )
-  swap ty-ptr                                     ( id is-char? ptr-depth )
-  rot cc-sym-extra-of [lit] 0 > if,
-    [lit] 0 = and                                 \ inline array: depth must be 0
+  \ Element type of arr[i] plus a byte-step flag, both stashed on the rstack
+  \ so they survive the index-expression parse.  An inline array (extra>0)
+  \ keeps the symbol's type — the subscript consumes the array dimension, not
+  \ a pointer level; a pointer (extra==0) drops one pointer level.  The step
+  \ is one byte iff the element is a plain char, so a chained `[j]` (e.g.
+  \ char* v[]; v[i][j]) reads cc-last-expr-type and picks byte stride/deref.
+  dup cc-sym-extra-of [lit] 0 > if,
+    cc-sym-type-of                                ( elem-ty )         \ array: keep type
   else,
-    [lit] 1 = and                                 \ pointer: depth must be 1
+    cc-sym-type-of                                ( ty )
+    dup ty-base swap ty-ptr [lit] 1 - ty-make     ( elem-ty )         \ ptr: depth-1
   then,
-  >r                                              ( ; R: char-step? )
+  dup >r                                          ( elem-ty ; R: elem-ty )
+  dup ty-base ty-char = swap ty-ptr [lit] 0 = and ( char-step? ; R: elem-ty )
+  >r                                              ( ; R: elem-ty char-step? )
 
   cc-emit-push-rdi
 
@@ -354,12 +359,14 @@ parser ambiguity.
   \ rdi now holds the element address; mark as pending-deref lvalue so the
   \ consumer either loads or stores depending on context.  char-step element
   \ accesses (flag still on rstack) mark byte-width so the eventual load/store
-  \ is 1 byte, not 8.
+  \ is 1 byte, not 8.  The mark zeroes cc-last-expr-type, so republish the
+  \ element type afterwards for any chained postfix `[j]`.
   r> if,
     cc-mark-deref-byte-lvalue
   else,
     cc-mark-deref-lvalue
-  then, ;
+  then,
+  r> cc-last-expr-type ! ;
 
 ```
 
@@ -376,6 +383,18 @@ hand-written for the M2-Planet idioms — `argv[i]` (char**), and
 flat `int arr[N]` both work; the char-step flag for char*
 subscripts is what makes `s[i]` load a single byte for the
 common `is_digit(s[i])` patterns.
+
+That flag is now derived from a single value: the *element type*
+of `arr[i]`.  An inline array keeps the symbol's own type (the
+subscript spends the array dimension, not a pointer level); a
+pointer drops one pointer level.  The step is one byte exactly
+when that element type is a plain `char`.  The helper stashes the
+element type next to the flag and republishes it into
+`cc-last-expr-type` after the mark — which is what lets a
+*chained* `[j]` work: `char* v[]; v[i][j]` needs the second
+subscript to see that `v[i]` is a `char*` and so step/deref by a
+single byte.  Without the republish the second `[` fell back to
+qword and read the wrong bytes.
 
 ## 4. `cc-parse-primary`: the leaf and its postfix chain
 
@@ -411,7 +430,7 @@ leaf dispatch.
   cc-mark-not-lvalue                              \ default: not an lvalue
   cc-next-token-keep
   tok-kind @ tk-num = if,
-    tok-num @ cc-emit-mov-rdi-imm32
+    tok-num @ cc-emit-mov-rdi-int                 \ widen to imm64 if out of imm32 range
   else,
     tok-kind @ tk-chr = if,
       \ Character literal — value is in tok-num just like a number.
@@ -528,9 +547,13 @@ leaf dispatch.
               else,
                 \ Global scalar: rdi := &globals[slot]; mark deref-pending so
                 \ consumer either loads (rvalue) or stores via that address
-                \ (assignment kind=2 path).
+                \ (assignment kind=2 path).  Record the scalar's type (across
+                \ the mark, which clears it) so a following unary '*' knows
+                \ whether this is a char* (1-byte deref) or a wider pointer.
+                dup cc-sym-type-of >r
                 cc-sym-val-of cc-emit-global-ref
                 cc-mark-deref-lvalue
+                r> cc-last-expr-type !
               then,
             then,
           else,
@@ -570,9 +593,14 @@ leaf dispatch.
               cc-emit-lea-rdi-local
               cc-mark-not-lvalue
             else,
+              \ Plain scalar local.  Save its type across the mark (which
+              \ clears cc-last-expr-type) so a following unary '*' can tell a
+              \ char* (1-byte deref) from a wider pointer.
+              dup cc-sym-type-of >r
               cc-sym-val-of                           \ slot index
               dup cc-mark-local-lvalue                \ kind=1, remember slot
               cc-emit-load-local
+              r> cc-last-expr-type !
             then,
           then,
           then,                                       \ end of sk-global if/else
@@ -723,7 +751,12 @@ lines) because it does five jobs:
 
 1. **Dispatch on token kind** — numbers, character literals,
    string literals, identifiers, and parenthesised expressions
-   each get their own branch.
+   each get their own branch.  A numeric literal goes through
+   `cc-emit-mov-rdi-int` (Ch 26), which widens to a 64-bit
+   `movabs` when the value doesn't fit a sign-extended `imm32` —
+   so a constant like `0x80000000` keeps its value instead of
+   loading negative.  Character literals stay on the plain
+   `imm32` path; they're always in `0..255`.
 2. **String literals** are emitted *inline in the code segment*
    with a `jmp` over them; `rdi` then gets loaded with their
    vaddr via `movabs`.  This avoids a separate string pool but
@@ -952,10 +985,24 @@ variable cc-sizeof-bytes
     cc-mark-not-lvalue                            \ &x is a value, not an lvalue
   else,
     tok-kind @ tk-punct = tok-num @ [lit] 42 = and if,
-      \ '*' = dereference.
+      \ '*' = dereference.  A char* operand (ty-char, ptr-depth 1) derefs to a
+      \ single byte; int*, T**, etc. deref to a qword.  The operand's type sits
+      \ in cc-last-expr-type when it came from a scalar variable (recorded in
+      \ cc-parse-primary); snapshot it before cc-emit-materialize clears it, so
+      \ `*p = c` on a char* emits a 1-byte store instead of clobbering 8 bytes.
       cc-parse-unary-tramp
-      cc-emit-materialize                         \ ensure operand is a value (= an address)
-      cc-mark-deref-lvalue                        \ rdi now holds an addr; defer the load
+      cc-last-expr-type @ >r                       \ R: operand type (0 if untracked)
+      cc-emit-materialize                          \ operand is now a value (an address)
+      r@ ty-base ty-char = r@ ty-ptr [lit] 1 = and if,
+        cc-mark-deref-byte-lvalue                  \ *char-ptr -> 1-byte deref
+      else,
+        cc-mark-deref-lvalue                       \ rdi holds an addr; defer the load
+      then,
+      r> dup ty-ptr [lit] 0 > if,                  \ record pointee type for chained ops
+        dup ty-base swap ty-ptr [lit] 1 - ty-make cc-last-expr-type !
+      else,
+        drop
+      then,
     else,
       tok-kind @ tk-punct = tok-num @ pt-plus-plus = and if,
         \ Prefix '++'.  Bump operand in place, leave new value in rdi.
@@ -1019,6 +1066,20 @@ address in `rdi`), then marks `kind=2` — leaving the load
 itself to the consumer.  This is what makes `*p = q;` work: the
 assignment-emit sees `kind=2` and emits `mov [rdi], rcx`
 instead of `mov [rbp-...], rdi`.
+
+The width of that deref depends on the operand's type.  A
+`char*` (base `char`, pointer-depth 1) addresses a single byte,
+so `*p` must mark `kind=2` *byte-width* — otherwise `*p = c`
+would emit an 8-byte `mov [rcx], rdi` and clobber the seven
+bytes after `*p`.  The operand's type reaches the `*` clause via
+`cc-last-expr-type`, which §4's scalar-variable branches now
+record (saving it across the `cc-mark-*` calls that zero it).
+The `*` clause snapshots that type before `cc-emit-materialize`
+clears it, picks `cc-mark-deref-byte-lvalue` for a `char*` and
+plain `cc-mark-deref-lvalue` otherwise, then republishes the
+pointee type so a chained postfix can see it.  This mirrors the
+char-step logic the array-index helper (§3) already applies to
+`p[i]`; bare `*p` simply lacked it before.
 
 `sizeof` is the most awkward operator: it accepts either a
 type-specifier or an identifier-expression, then returns the

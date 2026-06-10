@@ -2,16 +2,21 @@
 # check-all.sh — run every reproducibility check in one shot.
 #
 # Exit 0 iff:
-#   1. ./build.sh produces a 2,040-byte seed-forth
-#   2. ./test.sh passes 20/20 layer tests
-#   3. tools/tangle.sh verify --strict reports 13/13 byte-identical
-#   4. tools/check-numbers.py finds no drifted numeric claim in book/
-#      (the prose's exact byte counts / offsets / file line counts,
-#       verified against 000-seed.hex0 and the source; skipped if
-#       python3 is missing)
-#   5. tests/cc/stage-a-check.sh produces a byte-identical .M1
-#      (skipped with a SKIP line if gcc or make is missing — only
-#       Stage-A needs a host C toolchain; steps 1–4 do not)
+#   1.  ./build.sh produces a 2,040-byte seed-forth
+#   2.  ./test.sh passes 20/20 layer tests
+#   2a. the three light tests/asm checks (exit42, jump42, m1-jump42);
+#       the heavyweight m2planet/mescc-tools checks stay opt-in
+#       (skipped if gcc or make is missing — these tests build mescc-tools)
+#   2b. tests/cc/run-gates.sh all registered C gates pass
+#   3.  tools/tangle.sh verify --strict reports 13/13 byte-identical
+#   4.  tools/check-numbers.py finds no drifted numeric claim in book/
+#       (the prose's exact byte counts / offsets / file line counts,
+#        verified against 000-seed.hex0 and the source; skipped if
+#        python3 is missing)
+#   5.  tests/cc/stage-a-check.sh produces a byte-identical .M1
+#       (skipped with a SKIP line if gcc or make is missing — only
+#        Stage-A needs a host C toolchain; steps 1, 2, 3, 4 do not;
+#        step 2a also requires gcc+make to build mescc-tools)
 #
 # Each step's full output is captured to /tmp/check-all-NN-*.log; the
 # console shows one OK/SKIP/FAIL line per step plus the final verdict.
@@ -52,6 +57,17 @@ skip() {
 
 run "01-build"          ./build.sh
 run "02-test"           ./test.sh
+
+if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    run "02a-asm"           bash -c 'for t in tests/asm/exit42-check.sh tests/asm/jump42-check.sh tests/asm/m1-jump42-check.sh; do "$t" || exit 1; done'
+else
+    missing=()
+    command -v gcc  >/dev/null 2>&1 || missing+=(gcc)
+    command -v make >/dev/null 2>&1 || missing+=(make)
+    skip "02a-asm" "missing: ${missing[*]}"
+fi
+
+run "02b-gates"         tests/cc/run-gates.sh
 run "03-tangle-strict"  tools/tangle.sh verify --strict
 
 if command -v python3 >/dev/null 2>&1; then

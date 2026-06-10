@@ -59,6 +59,21 @@ the truth arrives.
   [lit] 191 cc-emit-byte                          \ B7 + rdi (7) = BF
   cc-emit-8le ;
 
+\ cc-emit-mov-rdi-int ( v -- )  Load an integer literal into rdi using the
+\ shortest correct encoding.  `mov rdi, imm32` (5 bytes) sign-extends its
+\ 32-bit field, so it only represents values in signed-32 range; a wider
+\ constant (e.g. 0x80000000 or 2^32) would be sign-extended or truncated.
+\ For those, fall back to the 10-byte `movabs rdi, imm64`.  C literals are
+\ always non-negative here (a leading `-` is unary minus, applied later), so
+\ only the upper bound needs checking — which keeps every in-range constant
+\ on the exact imm32 bytes it emitted before.
+: cc-emit-mov-rdi-int                             ( v -- )
+  dup [lit] 2147483647 > if,
+    cc-emit-movabs-rdi-imm64
+  else,
+    cc-emit-mov-rdi-imm32
+  then, ;
+
 \ cc-emit-movabs-rdi-imm64-placeholder ( -- patch-offset )
 \ Emits `48 BF 00 00 00 00 00 00 00 00`; returns the imm64 file-offset.
 \ Used when a forward-declared function's name is taken as an rvalue
@@ -92,6 +107,17 @@ the smaller `mov rdi, imm32` (Ch 25 §3) sign-extends a 32-bit
 constant and can't reach vaddrs above `0x7FFFFFFF`.  Since our
 output binaries live at `0x400000` and may grow past 4 GiB of
 addressable space (heap), we need the wide form.
+
+`cc-emit-mov-rdi-int` picks between the two for an *integer
+literal*.  `int` is 64-bit here, but the literal path always
+emitted `mov rdi, imm32`, which sign-extends — so `0x80000000`
+loaded as a negative number and `2^32` truncated to zero.  The
+helper keeps the compact 5-byte form for any value in signed-32
+range (every constant M2-Planet actually uses, so the emitted
+bytes are unchanged) and falls back to the 10-byte `movabs` only
+when the literal needs more than 32 bits.  C negatives arrive as
+unary minus applied to a non-negative literal, so a single
+upper-bound test suffices.
 
 `cc-emit-movabs-rdi-imm64-placeholder` is the deferred variant.
 It writes the same 10 bytes but with the imm64 zeroed, and returns
@@ -697,22 +723,20 @@ table.  User code calling `putchar(c)` then resolves to a normal
   [lit] 247 cc-emit-byte
   [lit] 223 cc-emit-byte ;
 
-\ inc qword [rbp + disp8]: 48 FF 45 <disp8>
+\ inc qword [rbp + disp]: 48 FF 45 <disp8>  (or 48 FF 85 <disp32>)
 \ ModR/M(mod=01, reg=/0=INC, rm=rbp=5) = 01_000_101 = 0x45.  Increments the
 \ local slot in place without disturbing rdi/rcx (used by post-increment).
 : cc-emit-inc-mem-local                           ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 255 cc-emit-byte
-  [lit]  69 cc-emit-byte
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit]  69 cc-emit-local-ea ;
 
-\ dec qword [rbp + disp8]: 48 FF 4D <disp8>
+\ dec qword [rbp + disp]: 48 FF 4D <disp8>  (or 48 FF 8D <disp32>)
 \ ModR/M(mod=01, reg=/1=DEC, rm=rbp=5) = 01_001_101 = 0x4D.
 : cc-emit-dec-mem-local                           ( slot -- )
   [lit]  72 cc-emit-byte
   [lit] 255 cc-emit-byte
-  [lit]  77 cc-emit-byte
-  cc-disp8-from-slot cc-emit-byte ;
+  [lit]  77 cc-emit-local-ea ;
 
 \ cc-emit-not-zero-flag.  Canonicalize rdi to 0/1 = (rdi == 0).
 \ Pattern: xor rax,rax; test rdi,rdi; sete al; mov rdi,rax.  Used by unary '!'.
@@ -740,8 +764,9 @@ top bit.  That matches C's right-shift semantics for signed `int`
 unsigned shifts a `shr rdi, cl` would replace `sar`.  This
 compiler only supports signed `int`, so `sar` is sufficient.
 
-`inc qword [rbp + disp8]` and `dec qword [rbp + disp8]` are the
-in-place increment/decrement of local slots.  They bypass `rdi`
+`inc qword [rbp + disp]` and `dec qword [rbp + disp]` are the
+in-place increment/decrement of local slots (disp8 or disp32 per
+slot, via Ch 25's `cc-emit-local-ea`).  They bypass `rdi`
 entirely — the binary-op pattern doesn't apply because there's no
 "right operand"; you just bump the memory and move on.  Used by
 post-increment (`i++`), which needs the *old* value of `i` and
