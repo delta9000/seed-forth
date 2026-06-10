@@ -1197,6 +1197,13 @@ placeholder jumps and patches.
 
 **Bootstrap relevance:** Stage-A runs all statement forms in the
 large M2-Planet monolith, including nested control flow and labels.
+One statement path it leaves dark has its own gate:
+`tests/cc/B-switch-continue.c` exercises `continue` escaping a
+`switch` body, which once jumped out without popping the
+scrutinee's `push rbx` — a per-iteration stack leak that
+`cc-switch-depth` and `cc-emit-switch-unwind` now balance.
+M2-Planet's source never exits a switch that way, so the fix
+changed no Stage-A byte; the gate is the only check on the unwind.
 
 ```sh
 tests/cc/stage-a-check.sh

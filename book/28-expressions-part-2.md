@@ -1451,7 +1451,14 @@ the focused C fixtures.
 
 **Bootstrap relevance:** the full Stage-A gate confirms that lvalues,
 postfix forms, assignment, and `sizeof` behave correctly inside the
-M2-Planet compile.
+M2-Planet compile.  Two byte-width paths the M2-Planet compile never
+takes carry their own gates: `tests/cc/D-charptr-store.c` stores
+through a dereferenced `char*`, which once emitted a qword `mov` and
+clobbered the seven bytes past the target; and
+`tests/cc/E-chained-subscript.c` chains `v[i][j]` on a `char*`
+array, which once lost the element type and fell back to qword
+stride.  Both fixes left Stage-A's bytes unchanged — parity alone
+would never have caught either.
 
 ```sh
 tests/cc/stage-a-check.sh

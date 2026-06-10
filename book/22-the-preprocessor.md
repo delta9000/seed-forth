@@ -1007,7 +1007,15 @@ makes object-like macros virtually free.
 preprocessor behavior.
 
 **Bootstrap relevance:** Stage-A exercises the preprocessor end to
-end, including the include path and integer macro table.
+end, including the include path and integer macro table.  Two gates
+pin defects parity alone would never catch — each fix left the
+Stage-A bytes unchanged, which means M2-Planet's source never walks
+the broken path.  `tests/cc/G-indented-define.c` holds an indented
+`#define` that the directive handler once consumed off by one byte
+and silently dropped; `tests/cc/H-comment-directive.c` ends a macro
+definition with a block comment spanning a newline, which once left
+a stray `*/` for the lexer.  `tests/cc/run-gates.sh` runs both with
+the other six gates.
 
 ```sh
 ./build.sh

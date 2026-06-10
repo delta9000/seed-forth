@@ -4,7 +4,7 @@
 Missing capability: the seed has dup, drop, swap but not nip, rot, 2dup, 2drop.
 New pattern: a small library of stack-effect transforms, each defined in one line over the seed.
 Artifact after this chapter: the everyday stack-shuffling vocabulary.
-Proof link: codegen passes use these to keep argument order straight without an exit primitive.
+Proof link: the lexer (Ch 23) and the parsers (Chs 27-31) shuffle operands with these between emits.
 ```
 
 Four short shuffles in `010-lib.fth` (lines 123–137), `nip`, `rot`,

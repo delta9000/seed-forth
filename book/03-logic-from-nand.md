@@ -4,7 +4,7 @@
 Missing capability: only nand exists; and, or, not, xor don't.
 New pattern: De Morgan's law as code — derive every Boolean operator from nand alone.
 Artifact after this chapter: a complete Boolean toolkit on top of one primitive.
-Proof link: the C compiler's lvalues and control-flow use these without ever re-deriving them.
+Proof link: Ch 6's classifiers and the lexer's compound tests (Ch 23) run on this toolkit, never re-derived.
 ```
 
 The seed keeps exactly one bitwise primitive, `nand`, and builds

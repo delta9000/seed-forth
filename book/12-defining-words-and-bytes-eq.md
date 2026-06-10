@@ -4,7 +4,7 @@
 Missing capability: the library lacks variable storage and byte-comparison helpers.
 New pattern: create + allot for data areas; a flag-accumulating bytes-eq loop (the seed has no exit).
 Artifact after this chapter: allot, create, variable, bytes-eq — 010-lib.fth is now complete.
-Proof link: every name lookup in the C compiler reaches bytes-eq; every typedef and global uses create.
+Proof link: macro (Ch 22) and symbol (Ch 24) lookup compare names via bytes-eq; every fixed compiler table is a create/allot buffer.
 ```
 
 Part I closes by finishing the defining-word family Ch 10 began and

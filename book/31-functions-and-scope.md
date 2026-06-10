@@ -1669,7 +1669,13 @@ calls, globals, or parameter slots through the chapter.
 chapter's layer checks.
 
 **Bootstrap relevance:** function calls, scopes, globals, and the
-entry stub converge in the Stage-A gate.
+entry stub converge in the Stage-A gate.  One sizing path the gate
+never reaches: `tests/cc/C-struct-global.c` declares a file-scope
+`struct` *value*, which `cc-gdecl-scalar-bytes` once sized at a
+flat 8 bytes regardless of its descriptor, so writing its second
+field clobbered the next global.  Stage-A never declares a global
+struct by value — the fix changed no parity byte — making the gate
+this path's only coverage.
 
 ```sh
 ./build.sh

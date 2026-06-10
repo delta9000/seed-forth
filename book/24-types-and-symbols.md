@@ -10,10 +10,11 @@ Proof link: later Stage-A codegen can resolve names, scopes, sizes, and layouts 
 Two short files give the compiler its memory of "what exists".
 `060-cc-types.fth` (88 lines, entire file) packs every C type into
 a single 64-bit word, with five base kinds and a pointer-depth
-counter sharing the bits; struct layouts live next to it in a
-descriptor table reached through `cc-sd-*` accessors.
-`070-cc-sym.fth` (154 lines, entire file) is the symbol table,
-laid out as parallel 8-byte columns indexed by symbol id, with
+counter sharing the bits; struct layouts live in descriptors
+allocated from Ch 21's arena, reached through `cc-sd-*` accessors.
+`070-cc-sym.fth` (154 lines, entire file) is the symbol table:
+parallel 8-byte columns (Ch 12 `create`/`allot` buffers, names
+matched by `bytes-eq`) indexed by symbol id, with
 `cc-scope-push` and `cc-scope-pop` marking and restoring the count
 to give lexical scopes for free.
 

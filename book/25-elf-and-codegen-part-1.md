@@ -786,7 +786,12 @@ writes them to `/tmp/cc-out`, and disassembles the bytes.
 exercise these encoders through compiled programs.
 
 **Bootstrap relevance:** this chapter's ELF header and primitive
-encoders are covered by the Stage-A parity gate.
+encoders are covered by the Stage-A parity gate.  One path parity
+cannot see has a gate of its own: `tests/cc/A-locals18.c` forces
+locals past slot 15, where the `[rbp + disp8]` encoding overflows
+and `cc-emit-local-ea` must switch to `disp32`.  M2-Planet's
+functions never reach that slot — the fix changed no Stage-A byte —
+so without the gate this encoder boundary would be untested.
 
 ```sh
 ./build.sh

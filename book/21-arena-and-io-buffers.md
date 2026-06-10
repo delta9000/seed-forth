@@ -49,17 +49,13 @@ writer together are 151.  Their job is to be boring — to give the
 later passes a uniform memory model so the interesting code can be
 about C, not about `mmap`.
 
-## Part III's repeated shapes
+## The main byte path
 
-Before the first source block, it helps to name the patterns that
-will keep coming back.  This compiler favors fixed buffers, parallel
-arrays, integer IDs, newest-first linear lookup, and explicit
-emit/remember/patch sequences.  Those choices are not shortcuts
-around "real" compiler design; they are the normal shape of this
-bootstrap artifact.  M2-Planet is a known target, the input set is
-bounded, and predictable memory beats general allocation machinery.
-
-The main byte path is:
+Ch 20 closed by naming Part III's three recurring motifs — emit,
+remember, patch; small tables with newest-wins lookup; one buffer
+per responsibility.  All three are on display in this chapter's two
+files.  What Ch 20 could not show yet is the route the bytes take
+through the compiler:
 
 ```text
 stdin

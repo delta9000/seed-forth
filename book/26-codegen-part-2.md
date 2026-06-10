@@ -957,7 +957,13 @@ test; the focused C fixtures under `tests/cc/G*.c` are the layer
 tests for these paths.
 
 **Bootstrap relevance:** calls, shims, strings, globals, and
-wide-immediate fixups all participate in the Stage-A gate.
+wide-immediate fixups all participate in the Stage-A gate.  The
+width choice in `cc-emit-mov-rdi-int` is the exception:
+`tests/cc/F-wide-const.c` gates it with a literal above the
+signed-32 range, which the old `imm32` path sign-extended to a
+negative value.  Stage-A never compiles such a literal (the fix
+left its bytes untouched), so the gate is the only check on the
+`movabs` fallback.
 
 ```sh
 ./build.sh

@@ -4,7 +4,7 @@
 Missing capability: nowhere safe to stash a temporary across nested calls.
 New pattern: a second rsp-based stack with >r, r>, r@; subtraction built from nand.
 Artifact after this chapter: temporary storage with stack discipline, plus the - primitive.
-Proof link: every loop combinator and the C compiler's expression machinery rely on this.
+Proof link: Ch 7 builds every comparison on -; Ch 27's parser threads its operator byte through the return stack.
 ```
 
 Two definitions in `010-lib.fth` (lines 31–38), `over` and `-`,
