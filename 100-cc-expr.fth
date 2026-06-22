@@ -8,7 +8,8 @@
 \   eq     := rel (('=='|'!=') rel)*
 \   rel    := add (('<'|'<='|'>'|'>=') add)*
 \   add    := mul (('+'|'-') mul)*
-\   mul    := primary (('*'|'/'|'%') primary)*
+\   mul    := unary (('*'|'/'|'%') unary)*
+\   unary  := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | primary
 \   primary:= NUMBER | IDENT | '(' expr ')'
 \
 \ The lexer (050-cc-lex.fth) reads one token at a time with no built-in peek.

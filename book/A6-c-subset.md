@@ -37,7 +37,7 @@ arithmetic stride.
 | `struct T`             | yes (by-pointer only) | descriptor; values not passed | See §"Structs" below. |
 | `enum T`               | yes | 8 bytes | Members are integer constants; the tag is accepted but discarded. |
 | `typedef` names        | yes | resolves to the aliased type | Registered in the symbol table. |
-| `T[N]` (array of T)    | yes (locals + globals) | `N * 8` (or `N` for `char[N]`) | Decays to `T*` in expressions. |
+| `T[N]` (array of T)    | yes (locals + globals) | `N * 8` (N slots, each 8 bytes) | Decays to `T*` in expressions. |
 | `T (*fp)(args)` (function pointer) | yes (in `cc_globals.c` and friends) | 8 bytes | Only the forms M2-Planet uses are exercised. |
 | `short`, `long`, `unsigned`, `signed` | recognised as basic-type keywords (`cc-tok-is-basic-type-kw?` in `110-cc-decl.fth:492`) | 8 bytes | The keywords let headers parse, but the resulting type is always 8-byte signed regardless of which modifier appeared. |
 | `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | `cc-skip-storage-quals` (`110-cc-decl.fth:98`) consumes and discards.  `static` locals behave like ordinary locals. |
@@ -76,7 +76,7 @@ outside of argument lists and `for`-loop headers.
 
 ## Statements
 
-`cc-parse-stmt` in `110-cc-decl.fth:1336` dispatches the following
+`cc-parse-stmt` in `110-cc-decl.fth:1393` dispatches the following
 forms.  Anything not listed here is rejected by the parser (status
 codes in the 30s/80s/90s; see Appendix G).
 

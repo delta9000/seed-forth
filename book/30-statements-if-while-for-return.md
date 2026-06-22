@@ -171,9 +171,9 @@ statement scale: the remembered value is a rel32 file offset in
 \ ===========================================================================
 \ Loop helpers
 \ ===========================================================================
-\ cc-emit-jmp-vaddr lives here (rather than in 090-cc-emit.fth) because it
-\ references cc-base-vaddr, which is defined in 080-cc-elf.fth — loaded AFTER
-\ 090-cc-emit.fth but BEFORE 110-cc-decl.fth.
+\ cc-emit-jmp-vaddr lives here (rather than in 090-cc-emit.fth) alongside the
+\ loop constructs that call it.  cc-base-vaddr (080) and cc-out-pos (030) both
+\ load before 090, so the split is organizational, not a load-order dependency.
 
 \ cc-emit-jmp-vaddr ( target-vaddr -- )  Emit `E9 <rel32>` to absolute target.
 \ After emitting the E9 opcode, cc-out-pos points at the rel32 slot's first
@@ -207,10 +207,11 @@ addresses.  The rel32 displacement is computed at emit time
 from the target vaddr and `cc-base-vaddr + cc-out-pos + 4`.
 
 These live in `110-cc-decl.fth` rather than `090-cc-emit.fth`
-because they reference `cc-base-vaddr`, which is defined in
-`080-cc-elf.fth`.  Load order: `090` then `080` then `110`.  The
-encoders that need `cc-base-vaddr` have to be defined after
-`080`'s load, which means they land here.
+because they belong with the loop and control-flow constructs
+that call them, not with the primitive instruction encoders.
+They reference `cc-base-vaddr` (`080-cc-elf.fth`) and `cc-out-pos`
+(`030-cc-io.fth`), but both load before `090`, so the placement
+is a layering choice, not a load-order requirement.
 
 ## 3. Break/continue fixup lists
 

@@ -593,8 +593,9 @@ comparisons, branches) and §8 hands the rest off to Ch 26.
 
 \ NOTE: cc-emit-jmp-vaddr (which emits a backward unconditional jump to an
 \ absolute vaddr — needed for `while`/`for` loops) lives in 110-cc-decl.fth
-\ because it references cc-base-vaddr from 080-cc-elf.fth, which is loaded AFTER
-\ 090-cc-emit.fth.
+\ alongside the loop constructs that use it, not here with the primitive
+\ encoders.  Both cc-base-vaddr and cc-out-pos are already available when this
+\ file loads, so the split is organizational, not a load-order dependency.
 
 ```
 
@@ -756,10 +757,14 @@ emits `E9 00 00 00 00`.  `cc-emit-call-rel32-placeholder` emits
 after the rel32), and `cc-out-patch-4le` writes it.
 
 The NOTE at the bottom of this region is worth reading: a `jmp` to
-an *absolute* vaddr (for backward branches in `while`/`for`) needs
-`cc-base-vaddr` from `080-cc-elf.fth`, which is loaded *after*
-`090-cc-emit.fth`.  That's why `cc-emit-jmp-vaddr` lives in
-`110-cc-decl.fth` instead of here — load order matters.
+an *absolute* vaddr (for backward branches in `while`/`for`) lives
+in `110-cc-decl.fth` alongside the loop constructs that call it.
+The usual explanation — that it needs `cc-base-vaddr` from
+`080-cc-elf.fth`, which is supposedly loaded after `090` — is
+wrong: `080` precedes `090` in lexicographic order, so the
+constant is already available.  The placement is a layering choice
+(`090` is primitive encoders, `110` is statement-level control
+flow), not a load-order dependency.
 
 ## 8. The shape of the rest
 

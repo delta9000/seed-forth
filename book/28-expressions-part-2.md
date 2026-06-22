@@ -1064,7 +1064,7 @@ expression (recursively via the trampoline, so `**p` works),
 materializes the operand (turning whatever it was into a clean
 address in `rdi`), then marks `kind=2` — leaving the load
 itself to the consumer.  This is what makes `*p = q;` work: the
-assignment-emit sees `kind=2` and emits `mov [rdi], rcx`
+assignment-emit sees `kind=2` and emits `mov [rcx], rdi`
 instead of `mov [rbp-...], rdi`.
 
 The width of that deref depends on the operand's type.  A

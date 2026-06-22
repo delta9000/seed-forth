@@ -23,7 +23,7 @@ The same chain in tabular form.  Each row is one rung; the
 
 | Stage | Input | Tool / producer | Output | Runs on | Verification | Trust notes |
 |---|---|---|---|---|---|---|
-| 0 | `000-seed.hex0` (27,067 bytes annotated; 2,040 machine bytes) | stage0-posix's 229-byte `hex0-seed` | `seed-forth` (2,040-byte x86-64 ELF) | Linux x86-64 | `wc -c seed-forth` → `2040`; `sha256sum` matches `131bf3ab…` | `hex0-seed` is externally trusted; any hex0-equivalent assembler reproduces the same bytes. |
+| 0 | `000-seed.hex0` (27,002 bytes annotated; 2,040 machine bytes) | stage0-posix's 229-byte `hex0-seed` | `seed-forth` (2,040-byte x86-64 ELF) | Linux x86-64 | `wc -c seed-forth` → `2040`; `sha256sum` matches `131bf3ab…` | `hex0-seed` is externally trusted; any hex0-equivalent assembler reproduces the same bytes. |
 | 1 | `seed-forth` + `010-lib.fth` | the seed Forth, extending itself | extended Forth in memory | same host | `./test.sh` | Self-hosted from seed primitives; no external compiler. |
 | 2 | extended Forth + `020-cc-arena.fth` … `120-cc-main.fth` + M2-Planet monolith C source | `seed-forth` running the compiler vocabulary | `cc-out-v1` (`/tmp/cc-out`, ~203 KB ELF) | same host | `[ -x /tmp/cc-out ]` and a smoke run | All compiler code is Forth source loaded by the seed; the monolith is built by `build-m2planet-monolith.sh`. |
 | A | `cc-out-v1` and `m2-ref` (GCC-built M2-Planet) | each compiles the M2-Planet source set | `self-v1-amd64.M1` and `self-ref-amd64.M1` (2,367,260 bytes) | same host | `cmp` — exits 0 iff byte-identical | Cross-validation: two independent compilers must agree on output. |
@@ -142,11 +142,18 @@ Reproduced on the reviewer's machine and recorded in
 ### Stage 0 and Stage A (default mode)
 
 ```text
-18bef4a7df46706c1ac9c71d74e9ac252d21200b41a1025ce64c989051decbf6  000-seed.hex0
+662ae174fd6c77909dbbfb275fc8b2aa5dda8608eac54f0e39ffc12ad5c12f2c  000-seed.hex0
 131bf3ab73917a5a1c39db8114ab5c20f12ca28627f3fdc969ee34d86e41dc74  seed-forth
 957ed9d9b1b7aa2a2abfbbf757086dbe2161f0b457b362c492bf78a7f0b4f101  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
+
+`build.sh` runs `000-seed.hex0` through stage0-posix's 229-byte `hex0-seed`
+assembler, which strips `;`-line-comments and whitespace before
+hex-decoding.  Edits limited to comments leave `seed-forth` (and
+every downstream artifact) byte-identical even when the
+`000-seed.hex0` hash changes.  The `seed-forth` hash is therefore
+the load-bearing reproducer checkpoint for Stage 0.
 
 ### Stages B–F (default mode, from `bootstrap-chain.sh`)
 

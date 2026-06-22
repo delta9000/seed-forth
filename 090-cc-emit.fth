@@ -415,8 +415,9 @@
 
 \ NOTE: cc-emit-jmp-vaddr (which emits a backward unconditional jump to an
 \ absolute vaddr — needed for `while`/`for` loops) lives in 110-cc-decl.fth
-\ because it references cc-base-vaddr from 080-cc-elf.fth, which is loaded AFTER
-\ 090-cc-emit.fth.
+\ alongside the loop constructs that use it, not here with the primitive
+\ encoders.  Both cc-base-vaddr and cc-out-pos are already available when this
+\ file loads, so the split is organizational, not a load-order dependency.
 
 \ ===========================================================================
 \ movabs rdi, imm64 — used for loading string-literal addresses.

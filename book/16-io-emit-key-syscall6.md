@@ -202,11 +202,10 @@ There's no need for a seven-argument variant because the kernel
 doesn't have one.
 
 If a future syscall needed more than six arguments — none do — you
-would have to spill them through a memory buffer, the way the
-syscall number does in shorter wrappers (e.g., `key_code` doesn't
-use `syscall6`; it loads its three registers directly).  But the
-common pattern is "wrap a kernel call with N arguments where N ≤
-6," which `syscall6` covers exactly.
+would have to spill them through a memory buffer.  Shorter wrappers
+don't: `key_code` doesn't use `syscall6`; it loads its three
+registers directly.  But the common pattern is "wrap a kernel call
+with N arguments where N ≤ 6," which `syscall6` covers exactly.
 
 ## 6. The Ch 5 wrappers, revisited
 

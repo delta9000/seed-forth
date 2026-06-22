@@ -690,9 +690,9 @@ variable cc-parse-stmt-vec
 \ ===========================================================================
 \ Loop helpers
 \ ===========================================================================
-\ cc-emit-jmp-vaddr lives here (rather than in 090-cc-emit.fth) because it
-\ references cc-base-vaddr, which is defined in 080-cc-elf.fth — loaded AFTER
-\ 090-cc-emit.fth but BEFORE 110-cc-decl.fth.
+\ cc-emit-jmp-vaddr lives here (rather than in 090-cc-emit.fth) alongside the
+\ loop constructs that call it.  cc-base-vaddr (080) and cc-out-pos (030) both
+\ load before 090, so the split is organizational, not a load-order dependency.
 
 \ cc-emit-jmp-vaddr ( target-vaddr -- )  Emit `E9 <rel32>` to absolute target.
 \ After emitting the E9 opcode, cc-out-pos points at the rel32 slot's first
