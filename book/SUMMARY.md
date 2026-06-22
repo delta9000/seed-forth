@@ -1,9 +1,6 @@
 # Summary
 
 [Seed Forth](README.md)
-
-# Before you begin
-
 [Where this fits in the bootstrap ecosystem](where-this-fits.md)
 [Prologue: Two thousand and forty bytes](00-prologue.md)
 
