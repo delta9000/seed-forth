@@ -665,7 +665,7 @@ E9 DE FF FF FF                              ; jmp divide_code (rel = 0x710 - 0x7
 
 ;; ----- r_at_code @ 0x732 ( -- v ) peek caller's top-of-rstack -----
 ;; r@ is CALL'd, so [rsp+0] = our own ret addr; caller's saved value is at [rsp+8].
-;; Existing precedent: to_r_code (lines 105-111) and r_from_code (lines 113-119)
+;; Existing precedent: to_r_code and r_from_code
 ;; both pop their own ret addr to manipulate rstack across the CALL boundary.
 48 8B 44 24 08                            ; mov rax, [rsp+8]   ; skip our ret addr; rax = caller's TOR
 48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
@@ -698,11 +698,11 @@ C3                                        ; ret
 ;; ----- tick_code @ 0x779 ( -- xt ) read next word and look up its xt -----
 ;; Calls read_word to fill TIB and return token length in rax.
 ;; Then sets up find_code's calling convention: pushes (TIB, len) onto the
-;; data stack with len in rdi and TIB at [rbp]. Mirrors the repl pattern at
-;; lines 296-307 (the repl's read_word + find_code sequence).
+;; data stack with len in rdi and TIB at [rbp]. Mirrors the repl pattern
+;; (the repl's read_word + find_code sequence).
 ;;
 ;; Returns 0 in rdi if word not found -- find_code already does `xor rdi,rdi; ret`
-;; on miss (lines 189-190), so we inherit that behavior for free.
+;; on miss, so we inherit that behavior for free.
 ;;
 ;; @0x779: call read_word (rel32 = 0x259 - 0x77E = -1317)
 E8 DB FA FF FF

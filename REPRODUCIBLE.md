@@ -3,6 +3,12 @@
 This document records the bootstrap path from `000-seed.hex0` to a
 M2-Planet-compatible compiler output.
 
+For a reader-facing walk-through with diagrams and one paragraph per
+stage, see **[Appendix C of the book](book/A3-reproducibility-chain.md)**.
+This file is the operator-facing companion: exact submodule pins,
+SHA-256 hashes, license notes, and the `STAGE0_COMPAT=1` opt-in for
+matching stage0-posix's M2-Planet codegen byte-for-byte.
+
 ## Pinned Upstreams
 
 The repository carries upstreams as submodules:

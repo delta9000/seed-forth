@@ -3,7 +3,8 @@
 \
 \ Conventions:
 \   - All arithmetic constants use [lit] (the decimal literal compiler)
-\     because the seed has no number parser in interpret mode by default.
+\     because the seed has no interpret-mode number parser at all — [lit]
+\     is the only path; see Ch 20 for the parser and the NUMBER_HOOK stub.
 \   - Sysvar absolute addresses are baked in (decimal) since [lit] needs a
 \     literal.  Update if 000-seed.hex0's sysvar layout ever moves.
 
@@ -99,7 +100,8 @@
 \ yields 0.  Then `0= 0=` canonicalises (1 -> -1, 0 -> 0).
 \ The literal 9223372036854775808 = 2^63 = 0x8000000000000000 round-trips
 \ through parse_decimal_code because that parser uses an unsigned 64-bit
-\ 2^63 = 0x8000000000000000, the sign bit of a 64-bit signed integer.
+\ accumulator; the value also happens to be the sign bit of a 64-bit
+\ signed integer.
 : 2^63  [lit] 9223372036854775808 ;
 
 \ neg-flag ( n -- f )  return true if n is negative (sign bit set).

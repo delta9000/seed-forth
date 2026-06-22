@@ -15,8 +15,18 @@ From the repository root:
 
 ```sh
 git submodule update --init --recursive
+./check-all.sh                 # build + test + tangle --strict + stage-A
+```
+
+`check-all.sh` is a wrapper that runs the four canonical checks
+with per-step OK/SKIP/FAIL output; Stage-A is skipped (not failed)
+if `gcc`/`make` aren't installed.  For diagnosing a failure, the
+individual commands are:
+
+```sh
 ./build.sh
 ./test.sh
+tools/tangle.sh verify --strict
 tests/cc/stage-a-check.sh
 ```
 
@@ -66,8 +76,9 @@ Generated binaries such as `seed-forth` and `/tmp/cc-out` are not source.
 
 The checked-in files are the source of record.  Start with `000-seed.hex0`, which
 annotates the hand-written ELF bytes, then read the numbered `.fth` files in
-lexical order.  The full compiler loaders glob `[0-9][0-9][0-9]-*.fth`,
-so the filenames carry the load order.
+lexical order.  The C-compiler loader globs `010-lib.fth` plus
+`[0-9][0-9][0-9]-cc-*.fth`, so the filenames carry the load order.
+Future tools (e.g. `130-asm.fth`) live outside that pattern.
 
 ## Seed Vocabulary
 
@@ -122,3 +133,18 @@ This project is licensed under the **MIT License**. See the `LICENSE` file for d
 - `tests/cc/stage-a-check.sh` must report `self-v1-amd64.M1 == self-ref-amd64.M1`.
 
 See `REPRODUCIBLE.md` for the full fixed-point chain.
+
+## Reading the book
+
+The 32-chapter book lives under `book/` as Markdown.  Render it
+with [mdBook](https://rust-lang.github.io/mdBook/):
+
+```sh
+cargo install mdbook         # one-time
+mdbook serve                  # live preview at http://localhost:3000
+mdbook build                  # static HTML in docs/ (gitignored)
+```
+
+The Markdown sources in `book/` are the source of record — every
+`file=…` fenced code block tangles back to the actual `.fth` /
+`.hex0` file via `tools/tangle.sh verify --strict`.

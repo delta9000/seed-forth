@@ -56,7 +56,7 @@ fi
 # Step 2: feed (stripped vocab + monolith) to seed-forth.
 TMP_VOCAB=$(mktemp)
 trap 'rm -f "$TMP_VOCAB"' EXIT
-cat [0-9][0-9][0-9]-*.fth | strip_forth > "$TMP_VOCAB"
+cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth > "$TMP_VOCAB"
 
 rm -f "$OUT"
 cat "$TMP_VOCAB" "$MONOLITH" | ./seed-forth

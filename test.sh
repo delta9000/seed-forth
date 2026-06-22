@@ -7,6 +7,19 @@ cd "$(dirname "$0")"
 pass() { echo "  PASS: $*"; }
 fail() { echo "  FAIL: $*"; exit 1; }
 
+# ----- Literate book consistency -----
+# Every code block in book/*.md tagged with file=<source> must appear in
+# the corresponding source file, in non-decreasing order.  Catches drift
+# between the tutorial and the canonical .fth/.hex0 sources.
+if [ -d book ] && [ -x tools/tangle.sh ]; then
+    if tools/tangle.sh verify >/dev/null; then
+        pass "book: tangle verify (every quoted block found in source)"
+    else
+        tools/tangle.sh verify || true
+        fail "book: tangle verify"
+    fi
+fi
+
 # Strip Forth comments (\ line-comments and ( ... ) stack-comments) and blank
 # lines before feeding source to seed-forth (the tokenizer splits on whitespace).
 strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }

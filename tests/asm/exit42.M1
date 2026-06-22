@@ -1,0 +1,10 @@
+# Minimal "exit 42" program for amd64 Linux.
+# Smoke test for 130-asm.fth: smallest M1 input that exercises the full
+# pipeline (label decl, sigil ref into ELF header, hex emission).
+
+:_start
+    mov_rax, %60        # rax = 60 (sys_exit)
+    mov_rdi, %42        # rdi = 42 (exit code)
+    syscall
+
+:ELF_end

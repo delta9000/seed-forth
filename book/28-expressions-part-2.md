@@ -1,76 +1,72 @@
-\ 100-cc-expr.fth — recursive-descent expression parser for the C subset.
-\ Emits code that leaves the expression's value in rdi.  Uses 090-cc-emit.fth's
-\ instruction encoders.
-\
-\ Expression grammar:
-\   expr   := assign
-\   assign := eq ('=' assign)?            \ right-associative; LHS must be ident
-\   eq     := rel (('=='|'!=') rel)*
-\   rel    := add (('<'|'<='|'>'|'>=') add)*
-\   add    := mul (('+'|'-') mul)*
-\   mul    := primary (('*'|'/'|'%') primary)*
-\   primary:= NUMBER | IDENT | '(' expr ')'
-\
-\ The lexer (050-cc-lex.fth) reads one token at a time with no built-in peek.
-\ We add a one-token putback layer on top of cc-next-token via the
-\ cc-tok-pending flag: when a parser has consumed one token too many it
-\ calls cc-putback-token; the next cc-next-token-keep returns the same
-\ tok-* state without advancing.
-\
-\ Depends on 010-lib.fth, 030-cc-io.fth, 050-cc-lex.fth, 060-cc-types.fth, 070-cc-sym.fth,
-\ 090-cc-emit.fth.
+# Chapter 28 — Expressions, Part 2: Primary, Unary, Assignment
 
-\ ===========================================================================
-\ One-token putback wrapper
-\ ===========================================================================
+```text
+Missing capability: expressions cannot address storage, handle postfix forms, or assign.
+New pattern: lvalue metadata delays loads until context decides whether a value is read or written.
+Artifact after this chapter: primary, unary, postfix, ternary, assignment, and lvalue-aware codegen.
+Proof link: Stage-A pointer, array, struct, call, increment, and assignment expressions share one value model.
+```
 
-variable cc-tok-pending                           \ -1 = a token is queued
+This chapter finishes the expression compiler by adding the floor
+and the tail around Ch 27's binary cascade.  Two pieces sit *below*
+the cascade: `cc-parse-primary` (the recursive-descent floor,
+dispatching on token kind and then looping over the postfix chain
+`() [] . -> ++ --`) and `cc-parse-unary` (`*`, `&`, prefix `++`,
+`sizeof`, and the rest).  One piece sits *above* it: the
+right-associative tail `cc-parse-ternary` / `cc-parse-assign` /
+`cc-parse-expr`.  The connective tissue across both ends is the
+lvalue-tracking globals
+(`cc-last-lvalue-kind` and friends), with `cc-emit-materialize`
+deciding when a deferred load actually fires so Ch 27's binary folds
+can stay agnostic.
 
-\ cc-next-token-keep ( -- )  Advance to the next token unless one is pending.
-: cc-next-token-keep
-  cc-tok-pending @ if,
-    [lit] 0 cc-tok-pending !
-  else,
-    cc-next-token
-  then, ;
+By the end you'll be able to read `cc-parse-primary` and its
+postfix loop, explain the three-kind lvalue model, follow the
+LHS-snapshot trick that lets `cc-parse-assign` preserve metadata
+across the recursive RHS parse, and trace how a compound `slot +=
+rhs` lowers to the same five-step binary template used in Ch 27.
+Where `cc-parse-call` actually lives is deferred to Ch 31 (we
+reach it via the `cc-parse-call-tramp` vec); how `cc-parse-expr` is
+*called* from statement contexts is deferred to Ch 30.
 
-\ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
-\ next cc-next-token-keep returns it without advancing.
-: cc-putback-token
-  [lit] 0 0= cc-tok-pending ! ;
+---
 
-\ ===========================================================================
-\ Forward reference for recursive expr (used by '(' expr ')' in primary).
-\ ===========================================================================
+```
+        ,_,
+   __(@___)___    "1,400 lines.  lvalues are subtle.  if you only
+   ~~~~~~~~~~~~    remember one rule from this chapter, make it
+                   the three lvalue kinds.  don't rush."
+```
 
-variable cc-parse-expr-vec                        \ xt of top-level expr parser
+Ch 27's binary cascade ends at `cc-parse-log-or`.  Above it sit
+the right-associative tail (ternary, assignment, the
+`cc-parse-expr` top-level), and below it sits the recursive-
+descent floor: `cc-parse-unary` for unary operators,
+`cc-parse-primary` for actual leaves and postfix.
 
-: cc-parse-expr-tramp
-  cc-parse-expr-vec @ execute ;
+This chapter walks both ends.  It also covers the lvalue
+tracking that lets `cc-emit-materialize` decide whether to emit
+a load — the small piece of compiler-side state that makes the
+parser handle `*p = q;` and `p[i] = c;` and `head->next->prev`
+without each one needing a separate code path.
 
-\ cc-parse-assign is defined AFTER cc-parse-ternary (mutual recursion:
-\ ternary's arms parse via cc-parse-assign for right-associativity).  Route
-\ ternary's recursive calls through this vec so the binding resolves at
-\ ternary-execution time, not at compile time.
-variable cc-parse-assign-vec                      \ xt of cc-parse-assign
+**How this chapter is organized.**  Section §1 establishes the
+lvalue-tracking machinery the rest of the chapter relies on.
+Sections §§2–4 are the *recursive-descent floor*: struct fields,
+array indexing, and `cc-parse-primary` — the leaf parser that
+handles identifiers, literals, parenthesised sub-expressions, and
+the postfix chain (`.field`, `->field`, `[idx]`, `(args)`,
+`++`/`--`).  Sections §§5–7 are the *right-associative tail*:
+unary prefix operators (§5), the ternary `?:` (§6), and the
+assignment operators (§7).  Sections §§8–9 are the top-level
+driver `cc-parse-expr` and a worked walk through a multi-stage
+expression that touches every layer.  Readers who already know
+expression parsing can use this chapter as a reference: each
+section corresponds to one C grammar production.
 
-: cc-parse-assign-tramp
-  cc-parse-assign-vec @ execute ;
+## 1. Lvalue tracking: five globals, three kinds
 
-\ ===========================================================================
-\ Forward reference for function-call codegen (defined in 110-cc-decl.fth so it
-\ can use cc-base-vaddr from 080-cc-elf.fth).  cc-parse-primary calls into
-\ cc-parse-call-tramp once it has spotted `IDENT (`; the callee consumes the
-\ '(' (already peeked but not consumed), parses comma-separated arg
-\ expressions, emits the SYS-V argument-passing prologue and the call.
-\ ===========================================================================
-
-variable cc-parse-call-vec                        \ xt of cc-parse-call
-
-\ cc-parse-call-tramp ( id -- )  Stack: function symbol-id; consumes it.
-: cc-parse-call-tramp
-  cc-parse-call-vec @ execute ;
-
+```forth chunk=expr-lvalue
 \ ===========================================================================
 \ Lvalue tracking for assignment, address-of, and dereference.
 \ ===========================================================================
@@ -158,6 +154,43 @@ variable cc-last-expr-type
     cc-mark-not-lvalue
   then, ;
 
+```
+
+Five globals form the lvalue state.
+
+- `cc-last-lvalue-kind` is the discriminator: 0 means *not* an
+  lvalue (a temp), 1 means a local-variable lvalue (whose slot
+  is in `cc-last-ident-slot`), 2 means a pending dereference
+  (`rdi` holds an *address* that needs loading).
+- `cc-last-ident-slot` carries the slot for kind=1.
+- `cc-last-struct-desc` carries the struct descriptor pointer
+  for any struct-typed value that just got loaded — Ch 24's
+  descriptor (Ch 24 §1).
+- `cc-last-deref-is-byte` flags whether a kind=2 deref is
+  byte-width (for `char*[i]`) or qword (for everything else).
+- `cc-last-expr-type` is the encoded type word of the just-
+  produced value, used so postfix `[]` knows whether to use
+  byte or qword stride.
+
+Every binary-op fold in Ch 27 calls `cc-emit-materialize` before
+consuming an operand.  For kind=0 (a temp) and kind=1 (a local
+already loaded into `rdi`), it's a no-op.  For kind=2 (a pending
+deref), it emits the actual `mov rdi, [rdi]` (or `movzx rdi,
+byte [rdi]` if byte-width) and clears the state.
+
+The `cc-mark-*` words are mutually exclusive setters.  Each
+clears the *other* state slots and sets only the ones the new
+kind needs.  This is brittle — adding a new lvalue kind means
+remembering to clear it in every `cc-mark-*` — but the small
+fixed count keeps the discipline manageable.
+
+The `cc-mark-not-lvalue` / set-kind dance is also how a binary
+op "consumes" its lvalue inputs: after `a + b`, the result is a
+temp, so the binary-op tail calls `cc-mark-not-lvalue`.
+
+## 2. Struct-field lookup
+
+```forth chunk=expr-struct-field
 \ ===========================================================================
 \ Struct-field name lookup.
 \ ===========================================================================
@@ -213,6 +246,26 @@ variable cc-ff-found                                 \ flag: -1 if found
   then,
   cc-ff-result @ ;
 
+```
+
+`cc-find-field` walks the descriptor's field records (Ch 24 §1)
+looking for one whose name matches the needle, returns its
+offset, and stashes the matched field's pointee descriptor and
+type in `cc-ff-result-{desc,type}` for the postfix handler.
+
+The walk uses the same "no `exit`" idiom as
+`cc-check-keyword` (Ch 23) and `cc-sym-find` (Ch 24): record the
+hit in a flag variable, keep iterating but skip work after the
+hit.
+
+Field-not-found is fatal — status 92.  At this point the
+compiler has confirmed via `cc-last-struct-desc` that the type
+*is* a struct, so a missing field is a programmer error not a
+parser ambiguity.
+
+## 3. Array indexing helper
+
+```forth chunk=expr-array-index
 \ ===========================================================================
 \ cc-parse-array-index — handle `arr[expr]`.
 \ ===========================================================================
@@ -315,6 +368,56 @@ variable cc-ff-found                                 \ flag: -1 if found
   then,
   r> cc-last-expr-type ! ;
 
+```
+
+`cc-parse-array-index` is the postfix `[` handler invoked from
+`cc-parse-primary` once it has consumed `IDENT [`.  It loads the
+base address, parses the index expression, scales the index by
+the element size (1 for char data, 8 for everything else),
+adds, and marks the result as a pending-deref lvalue.
+
+The four base-loading paths (local array, local pointer, global
+array, global pointer) cover every case where a name appears as
+the head of an `[]`.  The byte-vs-qword stride decision is
+hand-written for the M2-Planet idioms — `argv[i]` (char**), and
+flat `int arr[N]` both work; the char-step flag for char*
+subscripts is what makes `s[i]` load a single byte for the
+common `is_digit(s[i])` patterns.
+
+That flag is now derived from a single value: the *element type*
+of `arr[i]`.  An inline array keeps the symbol's own type (the
+subscript spends the array dimension, not a pointer level); a
+pointer drops one pointer level.  The step is one byte exactly
+when that element type is a plain `char`.  The helper stashes the
+element type next to the flag and republishes it into
+`cc-last-expr-type` after the mark — which is what lets a
+*chained* `[j]` work: `char* v[]; v[i][j]` needs the second
+subscript to see that `v[i]` is a `char*` and so step/deref by a
+single byte.  Without the republish the second `[` fell back to
+qword and read the wrong bytes.
+
+## 4. `cc-parse-primary`: the leaf and its postfix chain
+
+`cc-parse-primary` and its postfix loop arrive together in one
+slab.  The prose below walks the token-kind dispatch, then each
+postfix operator in turn; nothing here needs to be held in your
+head at first reading.
+
+The code has two macro-structures stacked:
+
+1. *The leaf dispatch* — a `tok-kind` case ladder for `tk-num`,
+   `tk-chr`, `tk-str`, `tk-ident`, and `'(' expr ')'`.  Each leaf
+   leaves a value (or a lvalue marker) in `rdi`.
+2. *The postfix loop* — wraps the leaf, peeks one token, and
+   applies `.field`, `->field`, `[idx]`, `(args)`, `++`, or `--`
+   if it sees them.  The loop repeats until it sees something
+   that isn't a postfix operator.
+
+When you read the slab, the postfix loop is the `begin, ... cc-next-token-keep
+... while, ... repeat,` near the end.  Everything before it is the
+leaf dispatch.
+
+```forth chunk=expr-primary
 \ ===========================================================================
 \ cc-parse-primary
 \ ===========================================================================
@@ -641,6 +744,48 @@ variable cc-ff-found                                 \ flag: -1 if found
   repeat,
   cc-putback-token ;
 
+```
+
+`cc-parse-primary` is the longest single word in the file (~307
+lines) because it does five jobs:
+
+1. **Dispatch on token kind** — numbers, character literals,
+   string literals, identifiers, and parenthesised expressions
+   each get their own branch.  A numeric literal goes through
+   `cc-emit-mov-rdi-int` (Ch 26), which widens to a 64-bit
+   `movabs` when the value doesn't fit a sign-extended `imm32` —
+   so a constant like `0x80000000` keeps its value instead of
+   loading negative.  Character literals stay on the plain
+   `imm32` path; they're always in `0..255`.
+2. **String literals** are emitted *inline in the code segment*
+   with a `jmp` over them; `rdi` then gets loaded with their
+   vaddr via `movabs`.  This avoids a separate string pool but
+   wastes a few bytes per literal (the 5-byte `jmp` overhead).
+3. **Identifier resolution** branches on symbol kind: enum
+   constant → `mov rdi, imm32`; function name with peek `(` →
+   call; with peek `[` → array index; otherwise variable
+   reference.
+4. **Variable references** branch on storage and type: globals
+   versus locals, struct versus array versus scalar, pointer
+   versus inline, byte versus qword.  Each emits the right
+   load instruction and marks the right lvalue kind.
+5. **The postfix loop** runs after the head expression is
+   parsed.  It consumes any sequence of `.field`, `->field`,
+   `[index]`, `++`, `--` until it hits something that isn't a
+   postfix operator, then putback.
+
+The forward-call placeholder (when `cc-sym-val-of == 0`) is
+the chapter's hidden gem.  When code does
+`fp = previously_declared_function;` before the function's
+definition is reached, the compiler can't know its vaddr — so
+it emits a 10-byte `movabs rdi, imm64` with the imm64 zeroed
+and threads the patch site onto `cc-sym-extra2`'s linked list
+(Ch 26 §1).  Ch 31's `cc-parse-function` walks the list when
+the definition arrives.
+
+## 5. `cc-parse-unary`: prefix operators
+
+```forth chunk=expr-unary
 \ ===========================================================================
 \ cc-parse-unary: ('&' unary | '*' unary | primary)
 \ ===========================================================================
@@ -903,347 +1048,50 @@ variable cc-sizeof-bytes
 
 ' cc-parse-unary cc-parse-unary-vec !
 
-\ ===========================================================================
-\ cc-parse-mul: unary (('*'|'/'|'%') unary)*
-\ ===========================================================================
+```
 
-\ cc-mul-op? ( -- f )  After cc-next-token-keep, returns -1 if the current
-\ token is one of *, /, %.
-: cc-mul-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit] 42 =
-    tok-num @ [lit] 47 = or
-    tok-num @ [lit] 37 = or
-  else,
-    [lit] 0
-  then, ;
+`cc-parse-unary` is a long chain of `if, ... else,` clauses, one
+per recognised unary operator: `sizeof`, `&` (address-of), `*`
+(dereference), `++` (prefix), `--` (prefix), unary `-`, `!`,
+`~`.  Anything else falls through to `cc-parse-primary`.
 
-\ The op byte is kept on the data stack across the recursive call to
-\ cc-parse-primary so nested operator parsing (via parenthesised exprs)
-\ can't clobber a shared global.  cc-parse-primary preserves the data
-\ stack (0-in / 0-out), so the op survives across the call.
+The unary `&` is restricted to a bare local identifier — `&p`,
+`&arr`.  The more complex forms `&*p`, `&arr[i]`, `&s->field`
+aren't supported.  M2-Planet doesn't need them.
 
-: cc-parse-mul
-  cc-parse-unary                                  \ rdi = first operand (may be pending-deref)
-  begin,
-    cc-next-token-keep
-    cc-mul-op?
-  while,
-    cc-emit-materialize                           \ left must be a value before push
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi                              \ save left
-    cc-parse-unary                                \ rdi = right (may be pending-deref)
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi                           \ rcx = right
-    cc-emit-pop-rdi                               \ rdi = left
-    r>                                            ( op )
-    dup [lit] 42 = if,
-      drop cc-emit-imul-rdi-rcx
-    else,
-      [lit] 47 = if,
-        cc-emit-idiv-quotient
-      else,
-        cc-emit-idiv-remainder
-      then,
-    then,
-    cc-mark-not-lvalue                            \ result is not an lvalue
-  repeat,
-  cc-putback-token ;                              \ we read one too many
+The unary `*` is the inverse: it parses one more unary
+expression (recursively via the trampoline, so `**p` works),
+materializes the operand (turning whatever it was into a clean
+address in `rdi`), then marks `kind=2` — leaving the load
+itself to the consumer.  This is what makes `*p = q;` work: the
+assignment-emit sees `kind=2` and emits `mov [rdi], rcx`
+instead of `mov [rbp-...], rdi`.
 
-\ ===========================================================================
-\ cc-parse-add: mul (('+'|'-') mul)*
-\ ===========================================================================
+The width of that deref depends on the operand's type.  A
+`char*` (base `char`, pointer-depth 1) addresses a single byte,
+so `*p` must mark `kind=2` *byte-width* — otherwise `*p = c`
+would emit an 8-byte `mov [rcx], rdi` and clobber the seven
+bytes after `*p`.  The operand's type reaches the `*` clause via
+`cc-last-expr-type`, which §4's scalar-variable branches now
+record (saving it across the `cc-mark-*` calls that zero it).
+The `*` clause snapshots that type before `cc-emit-materialize`
+clears it, picks `cc-mark-deref-byte-lvalue` for a `char*` and
+plain `cc-mark-deref-lvalue` otherwise, then republishes the
+pointee type so a chained postfix can see it.  This mirrors the
+char-step logic the array-index helper (§3) already applies to
+`p[i]`; bare `*p` simply lacked it before.
 
-: cc-add-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit] 43 =
-    tok-num @ [lit] 45 = or
-  else,
-    [lit] 0
-  then, ;
+`sizeof` is the most awkward operator: it accepts either a
+type-specifier or an identifier-expression, then returns the
+size as a numeric literal.  The compile-time evaluation is done
+in `cc-parse-sizeof`, which builds the answer in
+`cc-sizeof-bytes` through deeply-nested dispatches and finally
+emits `mov rdi, imm32`.  Pointer modifiers (`*`) on type-specs
+override to 8 (a pointer is 8 bytes regardless of pointee).
 
-: cc-parse-add
-  cc-parse-mul
-  begin,
-    cc-next-token-keep
-    cc-add-op?
-  while,
-    cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-mul
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    [lit] 43 = if,
-      cc-emit-add-rdi-rcx
-    else,
-      cc-emit-sub-rdi-rcx
-    then,
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
+## 6. Ternary
 
-\ ===========================================================================
-\ cc-parse-shift: add (('<<' | '>>') add)*
-\ ===========================================================================
-\ C precedence: shift is BETWEEN relational and additive (binds tighter than
-\ relational, looser than additive).  Variable-count shifts use rcx (CL).
-
-: cc-shift-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ pt-shl =
-    tok-num @ pt-shr = or
-  else,
-    [lit] 0
-  then, ;
-
-: cc-parse-shift
-  cc-parse-add
-  begin,
-    cc-next-token-keep
-    cc-shift-op?
-  while,
-    cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-add
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    \ rdi=left, rcx=right (low byte cl = count).
-    pt-shl = if,
-      cc-emit-shl-rdi-cl
-    else,
-      cc-emit-sar-rdi-cl                          \ '>>' is arithmetic (signed)
-    then,
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
-\ ===========================================================================
-\ cc-parse-rel: shift (('<' | '<=' | '>' | '>=') shift)*
-\ ===========================================================================
-\ Punct codes: '<'=60, '>'=62, pt-le=258, pt-ge=259.
-
-: cc-rel-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit]  60 =
-    tok-num @ [lit]  62 = or
-    tok-num @ pt-le      = or
-    tok-num @ pt-ge      = or
-  else,
-    [lit] 0
-  then, ;
-
-: cc-parse-rel
-  cc-parse-shift
-  begin,
-    cc-next-token-keep
-    cc-rel-op?
-  while,
-    cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-shift
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    \ Now rdi=left, rcx=right.  Dispatch on op code.
-    dup [lit] 60 = if,
-      drop cc-emit-cmp-lt
-    else,
-      dup [lit] 62 = if,
-        drop cc-emit-cmp-gt
-      else,
-        pt-le = if,
-          cc-emit-cmp-le
-        else,
-          cc-emit-cmp-ge
-        then,
-      then,
-    then,
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
-\ ===========================================================================
-\ cc-parse-eq: rel (('==' | '!=') rel)*
-\ ===========================================================================
-
-: cc-eq-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ pt-eq-eq   =
-    tok-num @ pt-bang-eq = or
-  else,
-    [lit] 0
-  then, ;
-
-: cc-parse-eq
-  cc-parse-rel
-  begin,
-    cc-next-token-keep
-    cc-eq-op?
-  while,
-    cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-rel
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    pt-eq-eq = if,
-      cc-emit-cmp-eq
-    else,
-      cc-emit-cmp-ne
-    then,
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
-\ ===========================================================================
-\ Bitwise AND / XOR / OR — three layers, each above the next.
-\ ===========================================================================
-\ Precedence (high to low among these):
-\   eq  >  bit-and (&)  >  bit-xor (^)  >  bit-or (|)
-\ So cc-parse-bit-and folds over cc-parse-eq; cc-parse-bit-xor over bit-and;
-\ cc-parse-bit-or over bit-xor.  Each handles a single punct char.
-\
-\ Note that '&' here is the BINARY (infix) bitwise-and.  The unary '&'
-\ (address-of) is handled in cc-parse-unary at operand position — operator
-\ position vs operand position disambiguates the two.
-
-: cc-parse-bit-and
-  cc-parse-eq
-  begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 38 = and
-  while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-eq
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-and-rdi-rcx
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
-: cc-parse-bit-xor
-  cc-parse-bit-and
-  begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 94 = and
-  while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-bit-and
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-xor-rdi-rcx
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
-: cc-parse-bit-or
-  cc-parse-bit-xor
-  begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 124 = and
-  while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-bit-xor
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-or-rdi-rcx
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
-\ ===========================================================================
-\ Short-circuit logical && and || — produce 1 or 0 (not the operand).
-\ ===========================================================================
-\ For `a && b`:
-\   eval a; if zero, skip b and produce 0; else eval b; if zero, produce 0;
-\   else produce 1.
-\
-\ Codegen sketch (with three rel32 fixups stashed on rstack):
-\   <eval a>
-\   test rdi,rdi
-\   jz   .false_LHS
-\   <eval b>
-\   test rdi,rdi
-\   jz   .false_RHS
-\   mov rdi, 1
-\   jmp  .end
-\ .false_LHS:
-\ .false_RHS:
-\   mov rdi, 0
-\ .end:
-\
-\ We push the three fixups onto rstack so the data stack stays clear for the
-\ nested parse calls and any pending operator codes.
-
-: cc-parse-log-and
-  cc-parse-bit-or
-  begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ pt-and-and = and
-  while,
-    cc-emit-materialize
-    cc-emit-test-rdi
-    cc-emit-jz-rel32-placeholder >r               \ R: fixup-false-LHS
-    cc-parse-bit-or
-    cc-emit-materialize
-    cc-emit-test-rdi
-    cc-emit-jz-rel32-placeholder >r               \ R: f-LHS f-RHS
-    [lit] 1 cc-emit-mov-rdi-imm32
-    cc-emit-jmp-rel32-placeholder >r              \ R: f-LHS f-RHS f-end
-    \ False-target lands here for both fixups.
-    r> r>                                         ( f-end f-RHS ; R: f-LHS )
-    cc-patch-rel32-to-here                        \ patch f-RHS
-    r>                                            ( f-end f-LHS )
-    cc-patch-rel32-to-here                        \ patch f-LHS
-    [lit] 0 cc-emit-mov-rdi-imm32
-    cc-patch-rel32-to-here                        \ patch f-end
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
-: cc-parse-log-or
-  cc-parse-log-and
-  begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ pt-or-or = and
-  while,
-    cc-emit-materialize
-    cc-emit-test-rdi
-    cc-emit-jnz-rel32-placeholder >r              \ R: fixup-true-LHS
-    cc-parse-log-and
-    cc-emit-materialize
-    cc-emit-test-rdi
-    cc-emit-jnz-rel32-placeholder >r              \ R: t-LHS t-RHS
-    [lit] 0 cc-emit-mov-rdi-imm32
-    cc-emit-jmp-rel32-placeholder >r              \ R: t-LHS t-RHS f-end
-    \ True-target lands here for both fixups.
-    r> r>                                         ( f-end t-RHS ; R: t-LHS )
-    cc-patch-rel32-to-here
-    r>                                            ( f-end t-LHS )
-    cc-patch-rel32-to-here
-    [lit] 1 cc-emit-mov-rdi-imm32
-    cc-patch-rel32-to-here                        \ patch f-end
-    cc-mark-not-lvalue
-  repeat,
-  cc-putback-token ;
-
+```forth chunk=expr-ternary
 \ ===========================================================================
 \ Ternary  cond '?' then ':' else
 \ ===========================================================================
@@ -1288,6 +1136,24 @@ variable cc-sizeof-bytes
     cc-putback-token
   then, ;
 
+```
+
+`cc-parse-ternary` is `cc-parse-log-or` plus the optional
+`?`-then-`:`-else tail.  If a `?` is found, it emits the
+test-and-conditional-jump skeleton, parses each arm through
+`cc-parse-assign-tramp` (right-associative recursion via the
+trampoline), and patches two fixups: one for the "else" jump
+and one for the "end" jump.
+
+The recursion through `cc-parse-assign` (rather than
+`cc-parse-ternary` directly) is what makes `a ? b = 1 : c = 2`
+syntactically legal — assignment lives below ternary in the
+real C precedence table, but you can have an assignment inside
+a ternary arm via this routing.
+
+## 7. Assignment: snapshot, recurse, store
+
+```forth chunk=expr-assign
 \ ===========================================================================
 \ cc-parse-assign: eq ('=' assign)?
 \ ===========================================================================
@@ -1447,6 +1313,40 @@ variable cc-sizeof-bytes
     cc-putback-token
   then, ;
 
+```
+
+`cc-parse-assign` is where the lvalue tracking from §1 finally
+pays off.
+
+The flow:
+
+1. Parse the LHS via `cc-parse-ternary` (which cascades through
+   the binary cascade and down to `cc-parse-primary`).  After
+   this, `cc-last-lvalue-kind` and `cc-last-ident-slot` are
+   set to whatever the LHS produced.
+2. Snapshot them on the data stack — `( kind slot )` — so the
+   recursive RHS parse can clobber them without losing the
+   information we need.
+3. Peek the next token.  If it's an assignment operator,
+   dispatch on the snapshotted `kind`; otherwise putback and
+   discard the snapshot.
+4. For `kind=1` (local lvalue), the LHS load was already
+   emitted; we either store directly (`=`) or save the LHS,
+   parse the RHS, fold via `cc-apply-compound-op`, then store.
+5. For `kind=2` (deref lvalue), `rdi` already holds the
+   destination address; we push it, parse the RHS, then swap
+   so `rdi = value` and `rcx = address`, and emit a byte-or-
+   qword store.
+6. `kind=0` (no lvalue) means `1 = 2` or similar — error.
+
+Compound assignment via `cc-apply-compound-op` is a flat
+dispatch on the eleven `pt-*-eq` codes (one per operator).
+Each is `drop` followed by the appropriate binary-op emitter
+from Ch 25 §5 / Ch 26 §4.
+
+## 8. The top-level driver
+
+```forth chunk=expr-top
 \ ===========================================================================
 \ cc-parse-expr: top-level entry
 \ ===========================================================================
@@ -1475,3 +1375,159 @@ variable cc-sizeof-bytes
 \ Wire the trampolines.
 ' cc-parse-expr   cc-parse-expr-vec   !
 ' cc-parse-assign cc-parse-assign-vec !
+```
+
+`cc-parse-expr` is the only entry point the rest of the
+compiler uses.  It calls `cc-parse-assign` (which cascades
+through ternary → log-or → ... → unary → primary) and then
+emits a materialize so the consumer sees an actual value in
+`rdi`, not a pending dereference.
+
+`cc-parse-expr-balanced` and `cc-parse-expr-balanced-2` are
+variants for callers that need to thread Forth-stack values
+*under* an expression parse without losing them — the parser
+itself uses the Forth data stack for things like control-flow
+fixups, and `cc-parse-expr` can push and pop arbitrary amounts
+of compiler-side scratch.  The trick is to stash the caller's
+values on the return stack via `>r`, parse the expression
+(which preserves a zero net stack effect with the trailing
+`drop`), then `r>` to get them back.
+
+The two trailing wiring lines patch the trampoline vec
+variables declared in §4 (Ch 27's `expr-fwd-refs` chunk) so
+recursive calls via `cc-parse-expr-tramp` /
+`cc-parse-assign-tramp` now resolve to the real functions.
+
+## 9. Putting the cascade together: full expression flow
+
+A full expression like `if (x->next != NULL && x->next->val > 0)`
+exercises everything in Chs 27–28:
+
+1. `cc-parse-expr` enters at the if-condition.
+2. `cc-parse-assign` cascades down through ternary, log-or,
+   log-and, bit-or, bit-xor, bit-and, eq, rel, shift, add, mul,
+   unary, primary.
+3. Primary reads `x`, looks it up, sees `sk-local` with type
+   `ty-struct ptr-depth=1`, emits `mov rdi, [rbp - 8]`, marks
+   `cc-mark-local-lvalue 0`, sets `cc-last-struct-desc` to the
+   struct's descriptor.
+4. The postfix loop reads `->`, calls `cc-find-field next`,
+   gets the offset, emits `add rdi, <offset>`, marks
+   `cc-mark-deref-lvalue`, updates `cc-last-struct-desc` to
+   `next`'s pointee descriptor.
+5. We come back up the cascade.  `cc-parse-rel`'s outer call
+   reads `!=` — that's an `eq` op, not a `rel` op, so rel
+   putbacks.  `cc-parse-eq` matches, emits the binary-op
+   template, recurses into `cc-parse-rel` for the right side.
+6. The right side parses `NULL` (a preprocessor macro =
+   numeric 0).
+7. `cc-emit-cmp-ne` produces 0/1 in `rdi`.  Mark not-lvalue.
+8. Back at `cc-parse-log-and`, the next token is `&&`.  Match.
+   Test, jz-fixup, recurse for the right side.
+9. The right side parses `x->next->val > 0` — same chained-
+   arrow pattern as before, plus a `>` and a literal `0`.
+10. `cc-parse-log-and` finalises the short-circuit with three
+    fixups, leaves a clean `1` or `0` in `rdi`.
+11. `cc-parse-expr` materializes (no-op — it's already a value).
+12. The if-statement codegen (Ch 30) emits its own
+    test-and-jump using the value in `rdi`.
+
+Every layer's contribution is small.  The whole pipeline is
+maybe 30 instructions of x86-64 for an expression of this
+complexity.
+
+## Try it
+
+**Small check:** choose one focused fixture below and trace the
+lvalue, postfix, assignment, or `sizeof` path it exercises.
+
+**Layer check:** `./test.sh` exercises the expression parser through
+the focused C fixtures.
+
+```sh
+./build.sh
+./test.sh                                   # exercises the expression parser
+```
+
+**Bootstrap relevance:** the full Stage-A gate confirms that lvalues,
+postfix forms, assignment, and `sizeof` behave correctly inside the
+M2-Planet compile.  Two byte-width paths the M2-Planet compile never
+takes carry their own gates: `tests/cc/D-charptr-store.c` stores
+through a dereferenced `char*`, which once emitted a qword `mov` and
+clobbered the seven bytes past the target; and
+`tests/cc/E-chained-subscript.c` chains `v[i][j]` on a `char*`
+array, which once lost the element type and fell back to qword
+stride.  Both fixes left Stage-A's bytes unchanged — parity alone
+would never have caught either.
+
+```sh
+tests/cc/stage-a-check.sh
+```
+
+For the small check, inspect the fixture list below to choose one
+expression feature and trace it through the chapter.
+
+`tests/cc/G7.c` (pointer `&`/`*`), `G8.c` (array indexing), `G9a.c`
+(struct `.` access), `G9b.c` (struct field arithmetic), `G10c.c`
+(`sizeof`), and `G11.c` (postfix `++`/`--` and compound assignment
+in a dense mix) are the cases that exercise this chapter's
+machinery in isolation.
+
+## Exercises
+
+1. **★ Trace.** Trace what `cc-parse-primary` emits for the literal `'X'`.
+   Where does the character value end up?
+
+2. **★★ Trace.** Construct a C expression that uses every postfix operator
+   in `cc-parse-primary` (`.`, `->`, `[]`, `++`, `--`) in one
+   chain.  Sketch the lvalue-kind transitions as it parses.
+
+3. **★★★ Extend.** Compound assignment of dereference targets (`*p += 1`) is
+   *not* supported (§7's kind=2 branch errors on anything but
+   plain `=`).  Sketch a patch.  What new state would
+   `cc-parse-assign` need to thread?
+
+4. **★★★ Extend.** `cc-parse-sizeof` accepts `sizeof(struct TAG)` and
+   `sizeof(typedef-name)` but not `sizeof(*p)`.  Add the
+   missing case.  What does the compile-time evaluation look
+   like?
+
+5. **★★ Trace.** The forward-call placeholder in §4 walks a linked list via
+   `cc-sym-extra2`.  Trace how Ch 31's `cc-parse-function`
+   patches that list when the definition arrives.  How is the
+   list head set to 0 again?
+
+## After this chapter
+
+The compiler can lower the floor and tail of expressions: primary
+(literals, identifiers, calls, postfix `.`/`->`/`[]`/`++`/`--`),
+unary (`*`, `&`, prefix `++`/`--`, `sizeof`, `!`, `-`, `~`), the
+ternary `?:`, and the assignment family — all with three-kind
+lvalue tracking that defers loads until context decides reads from
+writes.
+
+You can read `cc-parse-primary`'s postfix chain, explain the three
+lvalue kinds and when `cc-emit-materialize` fires, and follow how
+`p[i] = c;` reaches the right byte-width store without a separate
+codegen path.
+
+Toward Stage-A: pointer indirection, array indexing, struct field
+access, and assignment together generate the bulk of the M1 text in
+a real M2-Planet build, so this is where most parity hinges.
+
+## Takeaways
+
+- The lvalue model is three kinds: temp (0), local (1), and
+  pending-deref (2).  Five globals capture the state.  The
+  cascade calls `cc-emit-materialize` before consuming a value
+  so kind=2 turns into an actual load.
+- `cc-parse-primary` does five jobs in one long word: token
+  dispatch, string-literal inline emission, symbol resolution,
+  variable-reference branching, and the postfix chain.  Every
+  C expression bottoms out here.
+- Right-associative assignment works by snapshotting
+  `(kind, slot)` on the data stack before the RHS recurses.
+  The store-emit at the end reads the snapshot — not the
+  globals — so nested assignments don't trample each other.
+
+Next: Chapter 29 — Declarations: Types, Structs, Locals.
