@@ -26,6 +26,11 @@ book's claims against it:
       - file coverage "lines A-B [of] `file`" — in-bounds sanity (1<=A<=B<=wc-l)
   * exact source-file line counts
       - "K-line file", "...file at K lines", "(entire file)" vs wc -l
+  * single-line `file.fth:line` citations  (A6/A7, file-absolute)
+      - A7 die-site  "| 30 | `100-cc-expr.fth:364` |" vs the `[lit] 30 die`
+                     line(s) for that error code in the cited file
+      - symbol ref   "`cc-skip-storage-quals` (`110-cc-decl.fth:98`)" vs the
+                     word's `:` definition line
 
 Body sizes come from the `@ 0xADDR` comments in 000-seed.hex0: a label's size
 is the distance to the next labelled offset (bodies and dictionary entries are
@@ -36,16 +41,14 @@ Still NOT checked, and why: file *span* claims like "851 lines: file header"
 or "these 24 lines" (a portion, not the file size); the *exact* endpoints of
 editorial multi-definition coverage spans (the book's hand-written endpoints
 aren't uniform — some include the trailing blank line, some don't — so only
-their in-bounds-ness is checked).  Single-line `file:line` symbol references
-(A6/A7) are already file-absolute but aren't gated here, because A7's are
-die-site lines (inside a def, not its `:` line) and would false-positive.
-Claims the script cannot confidently resolve are reported "unchecked" — never
-as failures.
+their in-bounds-ness is checked).  Claims the script cannot confidently
+resolve are reported "unchecked" — never as failures.
 
 Exit status is non-zero only on a confident MISMATCH.
 
 Usage:
     tools/check-numbers.py            # check the book, print a report
+    tools/check-numbers.py --fix      # rewrite drifted source-line citations
     tools/check-numbers.py --dump     # print the derived size/offset table
 """
 
@@ -114,6 +117,12 @@ SPAN_SEED_RE = re.compile(
 SPAN_FTH_RE = re.compile(r"`([a-z][a-z0-9-]+)`\s*\(lines\s+(\d+)([–-])(\d+)\)")
 FTH_DEF_RE = re.compile(r"^\s*:\s+(\S+)")
 FTH_SEMI_RE = re.compile(r"(^|\s);(\s|$)")
+
+# single-line `file.fth:line` citations (A6/A7)
+DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+die\b")
+CITE_RE = re.compile(r"([0-9]\d\d-[a-z0-9-]+\.fth):(\d+(?:,\d+)*)")
+ROW_CODE_RE = re.compile(r"^\s*\|\s*(\d+)\s*\|")
+NAME_TOKEN_RE = re.compile(r"`([a-z][a-z0-9?*<>=!+./-]+)`")
 
 
 def build_seed_table():
@@ -198,6 +207,32 @@ def build_fth_spans():
                 spans[name] = (base, start, end)
             i = max(j + 1, i + 1)
     return spans
+
+
+def build_die_sites():
+    """Return {file: {code:int -> [lines]}} for every `[lit] N die` site."""
+    out = {}
+    for path in sorted(glob.glob(os.path.join(ROOT, "*.fth"))):
+        d = {}
+        for i, ln in enumerate(open(path, encoding="utf-8"), 1):
+            m = DIE_RE.search(ln)
+            if m:
+                d.setdefault(int(m.group(1)), []).append(i)
+        out[os.path.basename(path)] = d
+    return out
+
+
+def build_def_lines():
+    """Return {file: {word -> [lines]}} for every `: word` definition."""
+    out = {}
+    for path in sorted(glob.glob(os.path.join(ROOT, "*.fth"))):
+        d = {}
+        for i, ln in enumerate(open(path, encoding="utf-8"), 1):
+            m = FTH_DEF_RE.match(ln)
+            if m:
+                d.setdefault(m.group(1), []).append(i)
+        out[os.path.basename(path)] = d
+    return out
 
 
 def resolve(entity, table):
@@ -375,6 +410,12 @@ def lineno_at(text, pos):
     return text.count("\n", 0, pos) + 1
 
 
+def line_at(text, pos):
+    s = text.rfind("\n", 0, pos) + 1
+    e = text.find("\n", pos)
+    return text[s:(e if e != -1 else len(text))]
+
+
 def span_pass(fix):
     """Check (and with fix=True, rewrite) source line-span claims:
 
@@ -424,18 +465,85 @@ def span_pass(fix):
     return findings, total_edits
 
 
+def citation_pass(fix):
+    """Check (and with fix=True, rewrite) single-line `file.fth:line` citations.
+
+    Two confident shapes, each with a single mechanical, file-absolute truth:
+
+      A7 error row  "| 30 | `100-cc-expr.fth:364` | ..."  -> the `[lit] 30 die`
+                    site(s) for that error code in the cited file.
+      symbol ref    "`cc-skip-storage-quals` (`110-cc-decl.fth:98`)" -> that
+                    word's `:` definition line in the cited file.
+
+    Like span_pass, --fix substitutes the derived line(s) in place.  A citation
+    that fits neither rule (an error-code row whose code has no die in that
+    file; no — or ambiguous — backticked word defined in the cited file) is
+    left unchecked, never a failure: this is what kept A7's die-site lines from
+    false-positiving before they had an oracle.
+    """
+    dies = build_die_sites()
+    defs = build_def_lines()
+    findings, total_edits = [], 0
+
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        text = open(md, encoding="utf-8").read()
+        rel = os.path.relpath(md, ROOT)
+        edits = []
+
+        for m in CITE_RE.finditer(text):
+            f, lspec = m.group(1), m.group(2)
+            if f not in dies:
+                continue
+            cited = [int(x) for x in lspec.split(",")]
+            line = line_at(text, m.start())
+            ln = lineno_at(text, m.start())
+
+            rc = ROW_CODE_RE.match(line)
+            if rc is not None:
+                code = int(rc.group(1))
+                if code not in dies[f]:
+                    continue   # error-code row, no such die in this file — unchecked
+                expected, label = dies[f][code], f"code {code} die-site"
+            else:
+                deflines = {n: defs[f][n] for n in NAME_TOKEN_RE.findall(line)
+                            if n in defs[f]}
+                if len(deflines) != 1:
+                    continue   # no / ambiguous symbol — unchecked
+                (name, expected), = deflines.items()
+                label = f"`{name}` definition"
+
+            if cited == expected:
+                findings.append(("OK", rel, ln, f"{f}:{lspec} = {label}"))
+            else:
+                exp = ",".join(map(str, expected))
+                findings.append(("MISMATCH", rel, ln,
+                                 f"{f}:{lspec} cited; {label} is at {exp}"))
+                edits.append((m.start(2), m.end(2), exp))
+
+        if fix and edits:
+            for st, en, rep in sorted(edits, reverse=True):
+                text = text[:st] + rep + text[en:]
+            open(md, "w", encoding="utf-8").write(text)
+            total_edits += len(edits)
+
+    return findings, total_edits
+
+
 def main():
     if "--dump" in sys.argv:
         dump()
         return 0
     fix = "--fix" in sys.argv
     findings = check()
-    span_findings, edits = span_pass(fix)
-    findings += span_findings
+    span_findings, sedits = span_pass(fix)
+    cite_findings, cedits = citation_pass(fix)
+    findings += span_findings + cite_findings
+    edits = sedits + cedits
     if fix:
         # after rewriting, the mismatches that were fixed are gone
+        fixable = span_findings + cite_findings
         findings = [f for f in findings if f[0] != "MISMATCH"] + \
-                   [("FIXED", f[1], f[2], f[3]) for f in span_findings if f[0] == "MISMATCH"]
+                   [("FIXED", f[1], f[2], f[3]) for f in fixable if f[0] == "MISMATCH"]
     mism = [f for f in findings if f[0] == "MISMATCH"]
     warn = [f for f in findings if f[0] == "WARN"]
     fixed = [f for f in findings if f[0] == "FIXED"]
