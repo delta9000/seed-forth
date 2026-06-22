@@ -10,6 +10,7 @@ build-dir = "docs"
 create-missing = false
 
 [output.html]
+site-url = "/seed-forth/"
 default-theme = "light"
 preferred-dark-theme = "coal"
 mathjax-support = false

@@ -12,3 +12,6 @@ docs/
 # Python bytecode cache
 tools/__pycache__/
 __pycache__/
+
+# Scratch dir (local mdBook binary, throwaway experiments)
+tmp/
