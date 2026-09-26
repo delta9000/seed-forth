@@ -6,8 +6,13 @@ M2-Planet-compatible compiler output.
 For a reader-facing walk-through with diagrams and one paragraph per
 stage, see **[Appendix C of the book](book/A3-reproducibility-chain.md)**.
 This file is the operator-facing companion: exact submodule pins,
-SHA-256 hashes, license notes, and the `STAGE0_COMPAT=1` opt-in for
-matching stage0-posix's M2-Planet codegen byte-for-byte.
+SHA-256 hashes, license notes, the cross-check against stage0-posix
+(a diverse double-compile, `tests/cc/stage0-check.sh`), the hand-off
+to stage0-posix's own recipe (`handoff.sh`), and the `STAGE0_COMPAT=1`
+shortcut.  `STAGE0_COMPAT` is not a workaround for a stage0 quirk: the
+difference it removes comes from M2-Planet's own source, which uses
+`&&` in a way that means one thing in ISO C and another in M2-Planet's
+dialect (see "Root cause" below).
 
 ## Pinned Upstreams
 
@@ -30,7 +35,8 @@ git submodule update --init --recursive
 The scripts also accept `M2_PLANET`, `MESCC_TOOLS`, `HEX0`, and
 `BUILDROOT` environment overrides.  `BUILDROOT` defaults to
 `./build-out` for `bootstrap.sh`, `./build-out/verify` for `verify.sh`,
-and `/tmp/seed-bootstrap` for the individual `tests/` scripts; `HEX0`
+`./build-out/handoff` for `handoff.sh`, and `/tmp/seed-bootstrap` for
+the individual `tests/` scripts; `HEX0`
 defaults to `vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed`.
 No script reuses a binary left in its `BUILDROOT` by an earlier run:
 `bootstrap.sh` and `verify.sh` wipe their output directories, and the
@@ -90,7 +96,9 @@ works, each `seed-forth` run gets a private `/tmp`, because
 
 Timings measured here (4-core x86-64, Linux 6.18): `bootstrap.sh`
 28–29 s (of which the three `130-asm.fth` runs are ~20 s);
-`verify.sh` 109 s.  The run's hashes, printed at the end and saved to
+`handoff.sh` 75 s (17 s with `BOOTSTRAP_OUT=` and `ROUTE_B=0`, as
+`check-all.sh` runs it); `tests/cc/stage0-check.sh` 41 s;
+`check-all.sh` 78 s; `verify.sh` 198 s.  The run's hashes, printed at the end and saved to
 `$BUILDROOT/out/SHA256SUMS`:
 
 ```text
@@ -104,27 +112,84 @@ c5143ef2b56c42363935468b27e180750362d76452be0d91cb78319b38e8bfd7  M1
 49781454d8708eb50f1f5748c1dae988e7f5bac14f284cc378b2966edda47643  hex2
 ```
 
-`self-v1-amd64.M1` differs from `self-v2-amd64.M1` by design (the
-host-arch nudge described in the `STAGE0_COMPAT` section below); the
-fixed point closes at v2.
+`self-v1-amd64.M1` differs from `self-v2-amd64.M1` by design: v1 was
+compiled by the Forth compiler, which evaluates M2-Planet's `&&` as
+ISO C does, and v2 by v1, i.e. by M2-Planet, which compiles `&&` as a
+bitwise `and` ("Root cause" below).  The fixed point closes at v2.
 
-### Handing off to the next stage
+### Handing off to the next stage: `handoff.sh`
 
-`build-out/out/cc-out-v3` (or `cc-out-v2`; both compile M2-Planet to
-the same `.M1`), `M1` and `hex2` are a self-hosted M2-Planet toolchain
-for amd64, the toolchain the next rungs of a full-source bootstrap
-consume (in stage0-posix / live-bootstrap: the rest of mescc-tools,
-then GNU Mes and tcc).  This repository does not script those rungs:
-what `bootstrap.sh` shows about the hand-off is the self-compile fixed
-point, the `M1`/`hex2` self-rebuild and a running `hello.c`.  Link a program the way `bootstrap.sh` step 8 does: M2-Planet
+```sh
+./handoff.sh                   # amd64 Linux; ~75 s (30 s of it bootstrap.sh)
+```
+
+stage0-posix builds its `AMD64/bin` set with three kaem scripts.
+`AMD64/mescc-tools-mini-kaem.kaem` Phases 1–5 go hex0 → hex1 →
+hex2-0 → catm → M0 → `cc_amd64` → `artifact/M2` (M2-Planet `bd2fe4b`
+compiled by `cc_amd64`); Phases 6–11 use `M2` to build blood-elf-0,
+M1-0, hex2-1, `bin/M1`, `bin/hex2` and `bin/kaem`; `AMD64/kaem.run`
+then builds M2-Mesoplanet, blood-elf, get_machine, M2-Planet and
+mescc-tools-extra and checks all 19 binaries against
+`amd64.answers`.  `handoff.sh` replaces Phases 0–5 with the Forth
+route and runs the rest of that recipe unchanged:
+
+| Stage | What runs | Result (this machine) |
+|-------|-----------|-----------------------|
+| 1 | `bootstrap.sh` (or `BOOTSTRAP_OUT=` a verified earlier output) | `cc-out-v2`, `cc-out-v3`, `M1`, `hex2` |
+| 2, route A | stand-ins: `artifact/catm` = `mescc-tools-extra/catm.c` compiled by v3; `artifact/M0` and `artifact/hex2-0` = two-line bash scripts calling the Forth-route `M1` and `hex2`; `artifact/M2` = Phase 5's own input `M2-0.c` (M2-Planet `bd2fe4b` + M2libc's `bootstrap.c`) compiled by v3 in `--bootstrap-mode` and linked with M2libc's `amd64_defs.M1`/`libc-core.M1`/`ELF-amd64.hex2`.  Then Phases 6–11 (run by bash, from the Phase-6 banner on) and `kaem.run` (run by the `bin/kaem` Phase 11 built), under `env -i` | `artifact/M2` `bfd5f5e9…` (198,456 bytes); **19/19 match `amd64.answers`** (the recipe's own `sha256sum -c`, then the host's); `bin/M2-Planet` = `7cf19de2…` |
+| 3, route B | the plainest substitution: `artifact/M2` = `cc-out-v2` as is (M2-Planet `0a67a68`) | 12/19 match.  The 7 that `artifact/M2` compiles itself differ (blood-elf, get_machine, hex2, kaem, M1, M2-Mesoplanet, M2-Planet): `0a67a68` generates different code from `bd2fe4b`.  The 12 built through the recipe's `bin/M2-Planet` (`bd2fe4b` source) already match.  `bin/M2-Planet` = `7ba96276…` |
+| 3b | one generation later: `artifact/M2` = route B's `bin/M2-Planet` | **19/19 match**, each byte-identical to route A's |
+| 4 (optional) | `LIVE_BOOTSTRAP=<checkout>`: what live-bootstrap's `seed/seed.kaem` does first, i.e. `M2-Mesoplanet` on `seed/configurator.c` and `seed/script-generator.c`, then `sha256sum -c` against its `*.amd64.checksums` | both OK with route A's tools (live-bootstrap `b1ceced`, which pins stage0-posix at the same `45d90f5`) |
+
+So the answer to "can the M2-Planet the Forth route builds (`0a67a68`)
+drive stage0's recipe for `bd2fe4b`?" is: not in one step (route B,
+7 of 19 differ), and yes one generation later (route B's
+`bin/M2-Planet` in the `artifact/M2` slot gives all 19), or directly
+if v3 compiles stage0's own Phase-5 input (route A).
+
+What route A runs: of stage0-posix's seed binaries only the 229-byte
+`hex0-seed` (through `bootstrap.sh`); `bootstrap-seeds` is not even
+copied into the work tree, so `kaem-optional-seed` never runs, and
+none of hex0, kaem-0, hex1, hex2-0, catm, M0, `cc_amd64` or stage0's
+own `M2` is built.  Every other binary that runs is either a Forth
+route output or built by the recipe from stage0-posix's sources.  What it trusts besides
+`bootstrap.sh`'s base: the stage0-posix *sources* at its pins (kaem
+scripts, M2libc, M2-Planet `bd2fe4b`, mescc-tools `5adfbf3`,
+mescc-tools-extra, M2-Mesoplanet), and the host `bash` running
+Phases 6–11 where stage0 uses its `kaem-0`.  The script's header
+lists it exactly.
+
+Where live-bootstrap takes over.  live-bootstrap (read at `b1ceced`)
+vendors stage0-posix as `seed/stage0-posix` at `45d90f5`, the same
+pin as `vendor/stage0-posix`, and starts it by running
+`kaem-optional-seed`, which reads `kaem.amd64`.  It hooks in at stage0-posix's
+last line, `exec ./AMD64/bin/kaem --verbose --strict --file
+./after.kaem`: its own `seed/after.kaem` runs `seed/seed.kaem`, which
+copies the 19 `amd64.answers` binaries out of `/AMD64/bin`, sets
+`M2LIBC_PATH=/M2libc`, builds and checksums `configurator` and
+`script-generator` with `M2-Mesoplanet`, and hands on to `/steps`
+(Mes, MesCC, TinyCC, …).  Since route A's `AMD64/bin` is
+byte-identical to stage0-posix's, everything from `after.kaem` on
+sees exactly the files it expects: **continue with live-bootstrap as
+usual from that hook.**  What a bootstrapper does by hand: put route
+A's `AMD64/bin` (with stage0-posix's `M2libc`) where live-bootstrap's
+target expects `/AMD64/bin` and start at `after.kaem` instead of at
+`kaem.amd64`; `handoff.sh` does not modify or drive live-bootstrap,
+and runs only its first step (stage 4).  Caveats: live-bootstrap's
+default and only supported architecture is x86 (its `rootfs.py` says
+the others "are for development only"), and the Forth route is
+amd64 only, so this hand-off is to live-bootstrap's amd64 path.
+
+`bootstrap.sh`'s own `M2-Planet` binaries remain usable on their own:
+link a program the way `bootstrap.sh` step 8 does (M2-Planet
 `--architecture amd64` to `.M1`, then `M1` with
 `M2libc/amd64/amd64_defs.M1` and `libc-full.M1`, then `hex2` with
-`M2libc/amd64/ELF-amd64.hex2` at `--base-address 0x00600000`.
+`M2libc/amd64/ELF-amd64.hex2` at `--base-address 0x00600000`).
 
 ## Comparisons against GCC-built references
 
 ```sh
-./verify.sh                    # needs gcc; ~2 min
+./verify.sh                    # needs gcc; ~3½ min
 ```
 
 `verify.sh` runs, each from scratch and in a private `/tmp` when
@@ -135,7 +200,11 @@ amd64 chains, plus M2-Planet test-suite parity); and
 `130-asm.fth`'s M2-Planet, M1 and hex2 are byte-identical to what
 GCC-built mescc-tools M1 + hex2 produce from the same `.M1`.  GCC
 builds only the references (`m2-ref`, `M1-ref`, `hex2-ref`); nothing
-it builds is assembled into, or runs as part of, the chain.
+it builds is assembled into, or runs as part of, the chain.  Then,
+without gcc, `tests/cc/stage0-check.sh` and the full `./handoff.sh`
+(on step 3's `bootstrap.sh` output); each prints SKIP (exit 77)
+instead of failing when stage0-posix's nested submodules are not
+checked out.
 
 ## Checks
 
@@ -323,8 +392,9 @@ compiler built it:
 
 This involves no uninitialised memory, undefined behaviour or
 integer-width effect. It is one construct, `&&` with a non-0/1
-operand. It is also the whole of the "host-arch nudge" that
-`bootstrap-chain.sh` stage D reports, since v1 is ISO-built and v2 is
+operand. It is also the whole of the v1-versus-v2 self-compile
+difference that `bootstrap-chain.sh` stage D reports (and
+`bootstrap.sh` step 6 notes), since v1 is ISO-built and v2 is
 M2-Planet-built. `stage0-check.sh` stage 6 demonstrates it directly:
 the guard, compiled by the Forth compiler, returns 1, and compiled by
 M2-Planet, returns 0.
@@ -364,12 +434,17 @@ above holds without it.
 | `STAGE0_COMPAT=1` shortcut | stage 5 | `y1c == x2`; self-host `02d98f86…` both |
 | Root cause (`&&` semantics) | stage 6 | Forth-compiled 1, M2-Planet-compiled 0 |
 | Chain v2 == v3 (default) | `tests/cc/bootstrap-chain.sh` | `02d98f86…` |
+| Forth route drives stage0's recipe from Phase 6 | `./handoff.sh` stage 2 | 19/19 `amd64.answers` |
+| `cc-out-v2` as `artifact/M2`, then one generation later | `./handoff.sh` stage 3 | 12/19, then 19/19 |
 
-Not covered: the other stage0 architectures (x86, AArch64, RISC-V),
-and a comparison against the canonical `bd2fe4b0` binary built from
-its own source (no `fgetc` shim). Also not
-covered is assembler independence: both routes are linked by stage0's
-M1/hex2/blood-elf here.
+Not covered by `stage0-check.sh`: the other stage0 architectures (x86,
+AArch64, RISC-V), and a Forth-compiled `bd2fe4b0` (no `fgetc` shim).
+It does not show assembler independence either: both routes are
+linked by stage0's M1/hex2/blood-elf there.  `handoff.sh` covers part
+of that gap from the other side: in its route A nothing from
+stage0's hex/M0/`cc_amd64` phases runs, the Forth route's own `M1`
+and `hex2` link the first tools, and the canonical `bd2fe4b0` binary (`7cf19de2…`) and the
+other 18 come out byte for byte.
 
 ## Full Chain
 

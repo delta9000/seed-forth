@@ -23,10 +23,15 @@
 #   A. v1 self-compiles M2-Planet for $ARCH; compare to gcc-built reference.
 #   B. M1 + hex2 assemble that .M1 -> cc-out-v2-$ARCH (target-arch ELF).
 #   C. v2 sanity: tiny.c compiles to the same .M1 as v1 does for $ARCH.
-#   D. v2 self-compiles M2-Planet.  At 32-bit and at 64-bit the resulting
-#      .M1 differs slightly from v1's due to M2-Planet's own host-arch
-#      sensitivity in write_sub_immediate / Architecture & ARCH_FAMILY_X86;
-#      this is recorded but not a hard failure.
+#   D. v2 self-compiles M2-Planet.  The resulting .M1 differs from v1's,
+#      at both arches, by design: M2-Planet's cc_emit.c guards its short
+#      add/sub-immediate forms with `(Architecture & ARCH_FAMILY_X86) &&
+#      (reg == ...)`.  v1 was compiled by the Forth compiler, which (like
+#      GCC) treats && as logical, so the guard is true and v1 emits the
+#      short forms.  v2 was compiled by v1, i.e. by M2-Planet, which
+#      compiles && as bitwise `and` (8 & 1 == 0 on amd64, 4 & 1 on x86),
+#      so v2 never does.  Recorded, not a hard failure; see REPRODUCIBLE.md
+#      "Root cause" and tests/cc/stage0-check.sh stage 6.
 #   E. M1 + hex2 assemble v2's self-compile -> cc-out-v3-$ARCH.
 #   F. v3 self-compiles M2-Planet; must be byte-identical to v2's
 #      self-compile (fixed-point closure at $ARCH).
@@ -194,7 +199,7 @@ run_arch_chain() {
         || fail $((SID+3)) "tiny.c output mismatch at $ARCH"
     echo "C: tiny.c v1==v2 ($(wc -c < "$BUILDROOT/tiny-v1-$ARCH.M1") bytes)"
 
-    # --- D: v2 self-compile (host-arch nudge expected) -------------------
+    # --- D: v2 self-compile (differs from v1: && is bitwise in M2-Planet) -
     (cd "$M2_PLANET" && "$BUILDROOT/cc-out-v2-$ARCH" --architecture "$ARCH" --expand-includes \
         "${m2_args[@]}" -o "$BUILDROOT/self-v2-$ARCH.M1") \
         || fail $((SID+4)) "v2 self-compile ($ARCH) failed"
@@ -202,11 +207,11 @@ run_arch_chain() {
     s1=$(wc -c < "$BUILDROOT/self-v1-$ARCH.M1")
     s2=$(wc -c < "$BUILDROOT/self-v2-$ARCH.M1")
     if cmp -s "$BUILDROOT/self-v1-$ARCH.M1" "$BUILDROOT/self-v2-$ARCH.M1"; then
-        echo "D: self-v1-$ARCH == self-v2-$ARCH ($s2 bytes) — no host-arch nudge"
+        echo "D: self-v1-$ARCH == self-v2-$ARCH ($s2 bytes) — the && difference is gone (unexpected; see REPRODUCIBLE.md)"
     else
         local delta
         delta=$(diff "$BUILDROOT/self-v1-$ARCH.M1" "$BUILDROOT/self-v2-$ARCH.M1" | wc -l || true)
-        echo "D: self-v1-$ARCH != self-v2-$ARCH ($s1 vs $s2 bytes, diff lines: $delta) — M2-Planet host-arch nudge"
+        echo "D: self-v1-$ARCH != self-v2-$ARCH ($s1 vs $s2 bytes, diff lines: $delta) — expected: v1 compiled M2-Planet's && as C does, v2 as M2-Planet does"
     fi
 
     # --- E: assemble v2 self-compile -> cc-out-v3-$ARCH -------------------

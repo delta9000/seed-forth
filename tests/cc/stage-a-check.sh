@@ -47,10 +47,13 @@ M2_PLANET=$M2_PLANET tests/cc/build-gcc-refs.sh "$BUILDROOT/gcc-ref" >/dev/null 
 cp "$BUILDROOT/gcc-ref/m2-ref" "$BUILDROOT/m2-ref"
 
 # --- Build cc-out-v1 (seed-forth compiles M2-Planet monolith) ---
-rm -f /tmp/cc-out "$BUILDROOT/cc-out-v1" "$BUILDROOT"/self-*-amd64.M1
-./tests/cc/build-m2planet-monolith.sh >/dev/null || fail "monolith build failed"
-[ -x /tmp/cc-out ] || fail "/tmp/cc-out not produced"
-cp /tmp/cc-out "$BUILDROOT/cc-out-v1"
+# CC_OUT: the compiler goes straight to $BUILDROOT, and seed-forth gets a
+# private /tmp (unshare -rm, as in bootstrap.sh) when the kernel allows it,
+# so this never reads or clobbers a shared /tmp/cc-out.
+rm -f "$BUILDROOT/cc-out-v1" "$BUILDROOT"/self-*-amd64.M1
+CC_OUT="$BUILDROOT/cc-out-v1" ./tests/cc/build-m2planet-monolith.sh >/dev/null \
+    || fail "monolith build failed"
+[ -x "$BUILDROOT/cc-out-v1" ] || fail "$BUILDROOT/cc-out-v1 not produced"
 
 # --- Stage A: M1 parity for amd64 ---
 m2_srcs=(M2libc/bootstrappable.c cc_reader.c cc_strings.c cc_types.c
