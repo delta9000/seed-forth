@@ -14,7 +14,11 @@ compiler's M1 output against GCC-built M2-Planet.
 - `000-seed.hex0` — hand-coded Forth ELF seed (689 lines of annotated hex).
 - `010-lib.fth` — Forth library on top of the seed's 32 primitives.
 - `020-…-fth` through `120-cc-main.fth` — the C compiler, loaded
-  in numeric order.
+  in numeric order.  The parser is `100-cc-expr.fth` (expressions),
+  `110-cc-decl.fth` (declarations, Ch 29), `112-cc-stmt.fth`
+  (statements, Ch 30), `114-cc-func.fth` (function definitions) and
+  `116-cc-prog.fth` (file scope, entry stub, driver; both Ch 31).
+  Scripts load them with the `[0-9][0-9][0-9]-cc-*.fth` glob.
 - `book/` — literate-programming book.  Every fenced code block
   tagged `file=...` is the canonical source for that file.
 - `vendor/stage0-posix`, `vendor/M2-Planet`, `vendor/mescc-tools`

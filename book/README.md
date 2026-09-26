@@ -4,7 +4,7 @@ A compiler binary can carry a backdoor that no reading of its
 source will find; Ken Thompson showed how in 1984.  The defence is
 a first program small enough to check by hand.  Here that program
 is 1,772 bytes of hand-encoded x86-64: a Forth that, given its
-library and 6,715 lines of compiler source (`020-cc-arena.fth`
+library and 6,744 lines of compiler source (`020-cc-arena.fth`
 through `120-cc-main.fth`, by `wc -l`), becomes a C compiler whose `.M1` output is byte-identical to
 GCC-built M2-Planet's.  This book walks every one of those bytes and
 lines, and backs each of its central claims with a command you can run.

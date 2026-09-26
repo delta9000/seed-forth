@@ -14,36 +14,27 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery sits at the top of `110-cc-decl.fth`, the longest file
-in Part III at 2413 lines.  This chapter reads lines 1–603.  The rest
-of the file is split by source order rather than by topic: Ch 30
-takes the statements and Ch 31 takes functions, enums, typedefs,
-globals, and the entry stub.  The split has to follow source order
-because same-named `file=` blocks concatenate in chapter order, and
-the tangled file must come out byte-identical.
+That machinery is `110-cc-decl.fth` (594 lines), the first of the
+four files that make up the parser.  This chapter reads all of it.
+The other three follow it in load order and each has its own
+chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
+`114-cc-func.fth` (function definitions) and `116-cc-prog.fth`
+(enums, typedefs, globals, the entry stub, and the top-level
+driver) are Ch 31's.
 
 ---
 
 ## 1. File header and bookkeeping
 
 ```forth file=110-cc-decl.fth
-\ 110-cc-decl.fth — function/declaration parser for the C-subset compiler.
+\ 110-cc-decl.fth — declaration parser for the C-subset compiler.
 \
-\ Parses top-level declarations, function definitions, local declarations,
-\ statements, structs, enums, typedefs, and prototypes for the C subset needed
-\ to compile M2-Planet.
-\
-\ The compiled output begins with a 26-byte entry stub at vaddr 0x400078:
-\     mov rdi, [rsp]   ; 48 8B 3C 24             (4 bytes, argc)
-\     lea rsi, [rsp+8] ; 48 8D 74 24 08          (5 bytes, argv)
-\     call <main>      ; E8 <rel32>             (5 bytes)
-\     mov rdi, rax     ; 48 89 C7                (3 bytes)
-\     mov rax, 60      ; 48 C7 C0 3C 00 00 00    (7 bytes)
-\     syscall          ; 0F 05                    (2 bytes)
-\
-\ Then come the shims, declarations, and function bodies.  main returns its
-\ value in rax (SYS-V); the stub moves it to rdi and exits.  The call's rel32
-\ is patched after main's vaddr is known.
+\ Parses base types, struct definitions, and local declarations (scalars,
+\ pointers, arrays, function pointers, struct locals) for the C subset needed
+\ to compile M2-Planet, plus the `return` statement.  The rest of the parser
+\ follows in load order: statements in 112-cc-stmt.fth, function definitions
+\ in 114-cc-func.fth, and file-scope forms, the entry stub, and the top-level
+\ driver in 116-cc-prog.fth.
 \
 \ Depends on 010-lib.fth, 030-cc-io.fth, 050-cc-lex.fth, 060-cc-types.fth, 070-cc-sym.fth,
 \ 080-cc-elf.fth, 090-cc-emit.fth, 100-cc-expr.fth.
@@ -74,8 +65,8 @@ variable cc-pending-struct-desc
 
 ```
 
-The header describes the whole file, including the 26-byte entry
-stub that Ch 31 emits.  The bookkeeping variables are shared across
+The header names the three files that complete the parser.  The
+bookkeeping variables are shared across
 function definitions.  `cc-fn-local-count` is the next free local
 slot; every declaration parser in this chapter allocates from it
 through `cc-fn-add-slots`, which refuses (code 193) to hand out a
@@ -92,7 +83,8 @@ so the pointer ends up in the symbol's struct-desc cell.
 \ ===========================================================================
 
 \ Each error path dies through cc-die with its own code, so a failure names
-\ its site.  This file's codes are 140..219 (Appendix G).
+\ its site.  The parser's four files (110..116) share codes 140..219
+\ (Appendix G).
 
 \ cc-expect-kw-id ( kw-id -- )  Consume one token; abort if not the given kw.
 : cc-expect-kw-id
@@ -128,9 +120,10 @@ so the pointer ends up in the symbol's struct-desc cell.
 `cc-expect-kw-id`, `cc-expect-punct-c`, and `cc-expect-ident` are the
 file's "consume one token and check it" idiom.  Each failure has its
 own code: 140/141 for the keyword pair, 142/143 for punctuation,
-144 for an identifier (this file's range is 140–219).  When a compile dies, `cc-die` prints
+144 for an identifier (the parser's four files share the range
+140–219).  When a compile dies, `cc-die` prints
 `cc: line N: error C` on stderr and exits with status C, a number you
-can grep for in this file.
+can grep for in those files.
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
@@ -416,7 +409,7 @@ Ch 27 can give back.  So this code snapshots the entire lexer state:
 \ only one token, so we mark the lexer state (cc-lex-mark, 050-cc-lex.fth),
 \ read ahead, and reset to the mark.
 \
-\ cc-peek-mark is the one mark every lookahead in this file uses.  Between
+\ cc-peek-mark is the one mark every lookahead in the parser uses.  Between
 \ marking and resetting, each of them only reads tokens, so no lookahead
 \ can start while another is in progress and one buffer serves them all.
 create cc-peek-mark  cc-lex-state-size allot
@@ -441,7 +434,7 @@ create cc-peek-mark  cc-lex-state-size allot
 `cc-peek-fnptr?` marks the lexer state in `cc-peek-mark` (Ch 23 §7),
 reads up to two tokens, tests for `(` then `*`, and resets to the mark
 on both paths.  The caller gets a flag and a lexer that hasn't moved.
-`cc-peek-mark` is the only mark buffer in the file: every look-ahead
+`cc-peek-mark` is the only mark buffer in the parser: every look-ahead
 that uses it reads only tokens between marking and resetting, so no
 second look-ahead can start while one is in progress.
 
@@ -741,7 +734,7 @@ for each switch it crosses:
 \ ===========================================================================
 \ Switch-scrutinee unwind
 \ ===========================================================================
-\ cc-parse-switch (defined later in this file) parks the outer rbx with
+\ cc-parse-switch (112-cc-stmt.fth) parks the outer rbx with
 \ `push rbx` and restores it with `pop rbx` at the switch's end label.  Any
 \ statement that jumps out of the switch body without passing the end label —
 \ return, continue, goto — must first emit compensating pops, or each
@@ -800,7 +793,6 @@ end label.
     cc-emit-epilogue
     [char] ; cc-expect-punct-c
   then, ;
-
 ```
 
 `cc-parse-return` has two forms.  A bare `return;` emits
@@ -936,9 +928,10 @@ Ch 30 is about jumps to places that don't exist yet.
   `struct T { struct T* next; }` work, but a field naming a struct
   not yet defined gets descriptor 0, so mutually recursive structs
   fail (Exercise 1).
-- `cc-parse-return` and the switch-unwind counters live in this
-  chapter only because source order puts them here; the statement
-  dispatcher that calls them is in Ch 30.
+- `cc-parse-return` and the switch-unwind counters close
+  `110-cc-decl.fth`, and so this chapter, only because source order
+  puts them there; the statement dispatcher that calls them is in
+  `112-cc-stmt.fth` (Ch 30).
 
 Next: Chapter 30 — Statements: if, while, for, switch, break,
 continue, goto.

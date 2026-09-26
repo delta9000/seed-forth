@@ -140,7 +140,7 @@ into the Bootstrappable chain:
   M0/M1/hex2 pipeline.  Get M2-Planet.
 - **Trust the Forth route.**  Read this book.  Run
   `000-seed.hex0` through any hex0 assembler.  Get seed-forth.
-  Load the twelve `.fth` files.  Get an M2-Planet-equivalent.
+  Load the fifteen `.fth` files.  Get an M2-Planet-equivalent.
 
 Both routes share the same `hex0-seed` (and the same Linux kernel,
 and the same CPU), so the trust roots overlap.  Above the trust
@@ -202,11 +202,11 @@ counted as raw line counts in the AMD64 path of each route:
 | Route                      | Hand-written source                  | Lines  |
 |----------------------------|--------------------------------------|-------:|
 | stage0 AMD64 (canonical)   | hex0 / hex1 / hex2 / M0 / M1 sources | ~10,000 |
-| Forth (this book)          | `000-seed.hex0` + 12 `.fth` files    |  ~8,200 |
+| Forth (this book)          | `000-seed.hex0` + 15 `.fth` files    |  ~8,200 |
 
 Both numbers are dominated by the small C compiler at the top of
 their respective stages: stage0's `cc_amd64.M1` (in M1 macro
-assembly) and our `100-cc-expr.fth` + `110-cc-decl.fth` (in
+assembly) and our `100-cc-expr.fth` + `110`–`116` parser files (in
 Forth).  Both are tens of percent bigger or smaller depending on
 how you count comments, whitespace, and macro-expansion.  Treat
 them as the same order of magnitude.

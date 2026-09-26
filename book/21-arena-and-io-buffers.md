@@ -56,7 +56,7 @@ to land, and the 1,241 need somewhere to accumulate before they reach
 disk.  Part III uses the seed's Forth to host a compiler for a small
 subset of C: enough to rebuild M2-Planet, whose binary is the next
 link in the Guix Full Source Bootstrap chain.  The compiler is split
-across eleven files (`020-cc-arena.fth` through `120-cc-main.fth`),
+across fourteen files (`020-cc-arena.fth` through `120-cc-main.fth`),
 loaded in numerical order on top of `010-lib.fth`.  This chapter
 covers the first two: the compiler's ground floor (the lexer's state
 block, failure reporting and a bump allocator), and the source reader
@@ -724,7 +724,7 @@ C
 { cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; tri; } | ./seed-forth
 /tmp/cc-out                         # draws the triangle
 echo "exit: $?"                     # prints "exit: 16"
-{ cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth
+{ cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01][0-9]-cc-*.fth
   cat <<'FORTH'
 : .d  dup [lit] 9 > if, dup [lit] 10 / .d then,
       dup [lit] 10 / [lit] 10 * - [lit] 48 + emit ;

@@ -64,9 +64,9 @@ tests/cc/bootstrap-chain.sh
 | `000-seed.hex0` | Annotated hand-coded seed Forth ELF. |
 | `build.sh` | Strips comments/whitespace from `000-seed.hex0` and writes `seed-forth`. |
 | `010-lib.fth` | Forth helpers: syscalls, booleans, comparisons, control-flow combinators, defining words. |
-| `020-cc-arena.fth` .. `110-cc-decl.fth` | C-subset compiler layers loaded by seed-forth. |
+| `020-cc-arena.fth` .. `116-cc-prog.fth` | C-subset compiler layers loaded by seed-forth (the parser is `100-cc-expr.fth` expressions, `110-cc-decl.fth` declarations, `112-cc-stmt.fth` statements, `114-cc-func.fth` functions, `116-cc-prog.fth` file scope and entry stub). |
 | `120-cc-main.fth` | Compiler entry point; reads C from stdin and writes `/tmp/cc-out`. |
-| `test.sh` / `test-*.fth` | Local unit/smoke tests for layers 010–070; the upper layers (080–110) are exercised end-to-end by `tests/cc/`. |
+| `test.sh` / `test-*.fth` | Local unit/smoke tests for layers 010–070; the upper layers (080–116) are exercised end-to-end by `tests/cc/`. |
 | `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, and full bootstrap-chain scripts. |
 | `tests/cc/G*.c`, `M*.c`, headers | Small tracked cases that document the C subset. |
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |

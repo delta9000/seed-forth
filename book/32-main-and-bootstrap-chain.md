@@ -8,13 +8,13 @@ Proof link: the proof is direct parity of emitted .M1 text, not identity of comp
 ```
 
 Thirty-one chapters have defined words.  This one calls them.
-`120-cc-main.fth` is a 37-line file: a 12-byte `/tmp/cc-out\0` constant,
+`120-cc-main.fth` is a 40-line file: a 12-byte `/tmp/cc-out\0` constant,
 a colon definition `cc-main` that runs nine words from Chs 21–31 in
 order and then `bye`, and a bare `cc-main` on the last line, so
 that loading the file runs the compiler.
 
 The second half of the chapter reads `tests/cc/stage-a-check.sh`,
-a shell script outside the literate program.  It feeds the twelve
+a shell script outside the literate program.  It feeds the fifteen
 `.fth` files and M2-Planet's source through `./seed-forth`, then
 checks that the resulting M2-Planet binary emits the same `.M1`
 text as GCC-built M2-Planet when both compile M2-Planet's own
@@ -39,7 +39,10 @@ point (v2 == v3) is a separate stage, covered in §5.
 \   080-cc-elf.fth     — ELF header emission
 \   090-cc-emit.fth    — x86-64 instruction encoders (codegen backend)
 \   100-cc-expr.fth    — expression parser (depends on 090-cc-emit.fth)
-\   110-cc-decl.fth    — declaration / statement parser (depends on 100-cc-expr.fth)
+\   110-cc-decl.fth    — declaration parser (depends on 100-cc-expr.fth)
+\   112-cc-stmt.fth    — statement parser
+\   114-cc-func.fth    — function definitions
+\   116-cc-prog.fth    — file-scope forms, entry stub, top-level driver
 \   120-cc-main.fth    — entry point: cc-main
 
 \ Pre-baked output path: "/tmp/cc-out\0"
@@ -68,11 +71,11 @@ ones above it.  Some edges are stricter than the
 code needs.  The comment says `020-cc-arena.fth` must load before
 `030-cc-io.fth`, but `030` uses nothing from `020`.  The real
 consumers of `cc-alloc` come later: `090-cc-emit.fth`
-(`cc-add-fixup-to-list`) and `110-cc-decl.fth` (struct
-descriptors, switch cases).  `040-cc-prep.fth` must load
+(`cc-add-fixup-to-list`), `110-cc-decl.fth` (struct
+descriptors), and `112-cc-stmt.fth` (switch cases).  `040-cc-prep.fth` must load
 before `050-cc-lex.fth` because the lexer calls
 `cc-macro-find-int`.  `080-cc-elf.fth` must load before
-`100-cc-expr.fth` and `110-cc-decl.fth` because their string-literal
+`100-cc-expr.fth` and `112-cc-stmt.fth` because their string-literal
 and absolute-vaddr emitters (`cc-emit-jmp-vaddr`,
 `cc-emit-call-vaddr`) read `cc-here-vaddr`.  And so on.
 
@@ -139,7 +142,7 @@ Read `cc-main` as a sequence of phases:
 Then `bye` (used since Ch 1, defined in Ch 16) calls `exit(0)`.
 
 Because the last token of `120-cc-main.fth` is a call to
-`cc-main`, a build script only has to concatenate the twelve files
+`cc-main`, a build script only has to concatenate the fifteen files
 and pipe them into `./seed-forth`.  Whatever follows on stdin is
 the C source that `cc-load-stdin` reads.
 
@@ -245,7 +248,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 ```
 
 The claim rests on step 5.  The 1,772-byte seed, extended by
-`010-lib.fth` and running the 6,715 lines of compiler Forth in
+`010-lib.fth` and running the 6,744 lines of compiler Forth in
 `020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
 binary, compiling M2-Planet's sources, emits the same `.M1` text
@@ -299,7 +302,7 @@ seen every component along the seed-forth path:
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
   ~470 lines of Forth that turn the seed's 32 primitives into
   a usable language.
-- Ch 21–32: the C-subset compiler, 6,715 lines of Forth
+- Ch 21–32: the C-subset compiler, 6,744 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
 
@@ -406,9 +409,9 @@ echo $?      # 42
 ```
 
 The pattern `010-lib.fth [0-9][0-9][0-9]-cc-*.fth` names the library,
-then globs the eleven `-cc-` files (`020-cc-arena.fth` through
+then globs the fourteen `-cc-` files (`020-cc-arena.fth` through
 `120-cc-main.fth`) in numerical (load) order, which names all
-twelve files without listing them.  The `-cc-` infix matters: it skips
+fifteen files without listing them.  The `-cc-` infix matters: it skips
 `130-asm.fth`, which is not part of the C-compiler vocabulary and
 would corrupt the compile if fed in.  If you find yourself editing
 this pipeline, edit `build-m2planet-monolith.sh` instead.  It is the version the
@@ -437,8 +440,9 @@ unnoticed until Stage-A broke.
    ELF header in `080-cc-elf.fth` are the obvious rewrites, but
    not the only ones.  `100-cc-expr.fth` emits raw x86 bytes
    inline (assignment's `72 137 207` is `mov rdi, rcx`), and
-   `110-cc-decl.fth` holds the entry stub, `cc-emit-jmp-vaddr`
-   and friends, and the rdi/rbx register conventions.  The
+   `112-cc-stmt.fth` holds `cc-emit-jmp-vaddr` and friends,
+   `116-cc-prog.fth` the entry stub, and the parser files
+   (`110`–`116`) the rdi/rbx register conventions.  The
    front end (`020`–`070`) is reusable.
 
 5. **★★★ Verify.** The full chain is *reproducible* end-to-end.  Construct a

@@ -9,9 +9,12 @@ Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-o
 
 Every earlier Part III chapter compiles a piece of a C function: an
 expression, a declaration, a statement.  Nothing yet reads a whole
-file.  This chapter covers the rest of `110-cc-decl.fth`
-(lines 1358–2413), which turns those pieces into a translation-unit
-compiler, plus the call parser that the expression file needs.  It has
+file.  This chapter covers the last two parser files, which turn
+those pieces into a translation-unit compiler: `114-cc-func.fth`
+(302 lines; function definitions) and `116-cc-prog.fth` (781 lines;
+everything else at file scope, the entry stub, and the driver).  It
+also reads the call parser, which lives in `100-cc-expr.fth` because
+a call is an expression.  It has
 four main words.  `cc-parse-call` compiles direct, forward, and
 indirect calls.  `cc-parse-function` wraps a body in a
 prologue, epilogue, and scope.  `cc-parse-function-list` loops over
@@ -21,20 +24,30 @@ return value.
 
 It is the longest chapter in Part III, and mostly code.  §1 sets up
 per-function state.  §§2–4 are the function machinery: calls,
-parameters and their register spill, and function definitions.
-§§5–7 handle everything else that can appear at file scope: enums,
-typedefs, prototypes, and globals.  §8 is the entry stub and the
-top-level driver `cc-parse-program`.  The shell scripts that run
+parameters and their register spill, and function definitions
+(§§1 and 3–4 are all of `114-cc-func.fth`).  §§5–7 handle everything
+else that can appear at file scope: enums, typedefs, prototypes, and
+globals.  §8 is the entry stub and the top-level driver
+`cc-parse-program`.  §§5–8 are `116-cc-prog.fth`, whose header
+carries the entry stub's layout.  The shell scripts that run
 the result, and the byte-identity comparison against GCC-built
 M2-Planet, are Ch 32's.
 
 ## 1. Setup
 
-A few globals carry per-function state across the parameter and
-body parses, and `cc-is-main?` recognises the name `main` so the
+`114-cc-func.fth` opens with its header.  After it, a few globals
+carry per-function state across the parameter and body parses, and `cc-is-main?` recognises the name `main` so the
 entry stub can find it later.  Nothing here generates code.
 
-```forth file=110-cc-decl.fth
+```forth file=114-cc-func.fth
+\ 114-cc-func.fth — function definitions for the C-subset compiler.
+\
+\ Parses a parameter list, spills the register arguments into the frame, and
+\ compiles one `T NAME(params) { body }` between a prologue and an epilogue.
+\
+\ Depends on 112-cc-stmt.fth (the body's statements) and everything it
+\ depends on.
+
 \ ===========================================================================
 \ Function parsing: multiple functions, params, SYS-V calling convention
 \ ===========================================================================
@@ -248,7 +261,7 @@ type with pointer depth 0 (keeping `char` distinct so `s[i]` on a
 encoded base and pointer depth, so a function-pointer typedef stays
 a function pointer.
 
-```forth file=110-cc-decl.fth
+```forth file=114-cc-func.fth
 \ ===========================================================================
 \ Parameter-list parsing + spill
 \ ===========================================================================
@@ -335,7 +348,7 @@ the loop: `()` and `(void)`.  Spotting `(void)` needs two tokens of
 lookahead, so it marks the lexer state in `cc-peek-mark` and resets
 to it (Ch 23 §7).  §6's top-level peeks use the same pair.
 
-```forth file=110-cc-decl.fth
+```forth file=114-cc-func.fth
 \ cc-parse-param-list ( -- )  Parse a possibly-empty comma-separated list of
 \ parameters.  Caller has NOT yet consumed any tokens.  When this returns the
 \ closing ')' has been consumed.  Each parameter becomes an sk-local symbol.
@@ -396,7 +409,7 @@ how many locals it has.
 Every return value is one `rax`-sized word, so codegen doesn't need
 it.
 
-```forth file=110-cc-decl.fth
+```forth file=114-cc-func.fth
 \ cc-emit-spill-params ( -- )  In the function prologue, spill the SYS-V
 \ argument registers (rdi/rsi/rdx/rcx/r8/r9) into the local slots reserved
 \ for them by cc-parse-param-list (slots 0..cc-fn-param-count-1).
@@ -475,7 +488,7 @@ unconditional `xor rax, rax` and epilogue, which is dead code when
 the body already ended in `return` and the default return value
 when it didn't.
 
-```forth file=110-cc-decl.fth
+```forth file=114-cc-func.fth
 \ cc-parse-function — one user-defined `T NAME(params) { body }`.  T may be
 \ int / char / void / struct TAG / typedef-name, optionally followed by '*'s.
 \ ===========================================================================
@@ -587,17 +600,38 @@ when it didn't.
   cc-emit-epilogue
 
   cc-scope-pop ;
-
 ```
 
 ## 5. Enums and typedefs
 
+This section opens `116-cc-prog.fth`.  Its header lays out the
+26-byte entry stub that §8 emits, instruction by instruction.
 Enums and typedefs generate no code; they only add names to the
 symbol table.  Each enumerator becomes an `sk-enum` entry whose
 `val` is its integer value.  `cc-enum-next-val` counts up from 0,
 restarting after `= N`, and a trailing comma before `}` is allowed.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
+\ 116-cc-prog.fth — file-scope forms and the top-level driver for the C-subset
+\ compiler.
+\
+\ Parses enums, typedefs, prototypes, and global variables, skips the forms
+\ it has no code for, and compiles a whole translation unit (cc-parse-program).
+\
+\ The compiled output begins with a 26-byte entry stub at vaddr 0x400078:
+\     mov rdi, [rsp]   ; 48 8B 3C 24             (4 bytes, argc)
+\     lea rsi, [rsp+8] ; 48 8D 74 24 08          (5 bytes, argv)
+\     call <main>      ; E8 <rel32>             (5 bytes)
+\     mov rdi, rax     ; 48 89 C7                (3 bytes)
+\     mov rax, 60      ; 48 C7 C0 3C 00 00 00    (7 bytes)
+\     syscall          ; 0F 05                    (2 bytes)
+\
+\ Then come the shims, declarations, and function bodies.  main returns its
+\ value in rax (SYS-V); the stub moves it to rdi and exits.  The call's rel32
+\ is patched after main's vaddr is known.
+\
+\ Depends on 114-cc-func.fth and everything it depends on.
+
 \ ===========================================================================
 \ Enum and typedef definitions (file-scope only).
 \ ===========================================================================
@@ -691,7 +725,7 @@ uses.  For the latter it skips the parameter list with a paren
 counter and records the name as a pointer to function, without
 checking the signature.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ cc-parse-typedef ( -- )  'typedef' has been consumed by the dispatcher.
 \ Grammar: typedef BASE '*'* NAME ';'
 \ Supported bases: int / char / void / struct TAG / another typedef.
@@ -801,7 +835,7 @@ classes: `top-fndef` if `{` comes first, `top-proto` if a `(` came
 before the `;`, `top-var` otherwise.  Like the other peeks, it
 restores the lexer state before returning, so it consumes nothing.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ ---------------------------------------------------------------------------
 \ Top-level forward-decl / file-scope-var elision.
 \ ---------------------------------------------------------------------------
@@ -872,7 +906,7 @@ A prototype's parser has to get past the declaration without
 generating anything: `cc-top-skip-to-semi` consumes tokens through
 the next depth-0 `;`, reusing the same depth counter.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ cc-top-skip-to-semi ( -- )
 \ Consume tokens through and including the next top-level ';'.  Paren-balanced
 \ so commas / parens inside parameter lists don't fool us.  If we run into
@@ -907,7 +941,7 @@ definition and whose fixups nothing patches.  So
 `cc-register-fn-proto` skips the add when the name is already an
 `sk-func`.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ cc-register-fn-proto ( -- )  Parse `T '*'* NAME (...);` and register NAME
 \ as sk-func with vaddr=0 so call sites resolve.  When the actual definition
 \ is later parsed, cc-parse-function adds a newer sk-func entry; cc-sym-find
@@ -966,7 +1000,7 @@ exception: a struct *value* gets its full descriptor size, rounded
 up to a multiple of 8, so a store past its first field cannot
 overwrite the next global.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ File-scope global variable declaration.
 \ ===========================================================================
@@ -1044,7 +1078,7 @@ never defined in scope.  The registered symbol's extra field holds
 the element count for an array (so Ch 28 can tell array decay from
 a scalar load) or the struct descriptor otherwise.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ cc-parse-global-decl ( -- )  Caller has already done cc-skip-storage-quals;
 \ the next token is the base-type keyword OR a typedef-name IDENT.  Consumes
 \ through ';'.
@@ -1157,7 +1191,7 @@ called by the Ch 32 driver after all code is emitted, appends
 `cc-globals-buf` to `cc-out-buf`, sets `cc-globals-base-vaddr`, and
 patches every recorded placeholder with base plus slot.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ cc-finalize-globals ( -- )  After the entire program has been parsed and
 \ all functions emitted, append cc-globals-buf to cc-out-buf and patch every
 \ recorded fixup to point at the now-known global vaddrs.
@@ -1202,7 +1236,7 @@ picks one for the item starting at the current token:
 `cc-parse-function-list` is the loop around it: skip storage
 qualifiers, stop at end of input, otherwise parse one item.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ cc-struct-def-ahead? ( -- f )  The current token is `struct`.  True iff
 \ the next two are TAG '{' — a struct definition, not a declaration that
 \ uses the type.  Restores the lexer state.
@@ -1257,7 +1291,7 @@ the result into `rdi`, and `exit`.  The `call` is emitted before
 `cc-call-main-patch`.  `cc-patch-call-main` fills it in after the
 whole file is parsed, the last emit-remember-patch in the compiler.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ Entry-stub emission and rel32 patching.
 \ ===========================================================================
@@ -1318,7 +1352,7 @@ The libc shims from Ch 26 come straight after the stub.
 `sk-func` at its vaddr, so a user call to `putchar(c)` compiles to
 an ordinary `call <vaddr>`.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ Top-level driver
 \ ===========================================================================
@@ -1453,7 +1487,7 @@ check, and the `call main` patch.  Ch 32 shows how `120-cc-main.fth` wraps it
 with `cc-finalize-globals`, `cc-finalize-elf`, and
 `cc-write-output`.
 
-```forth file=110-cc-decl.fth
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ M2 test-suite external prototype.  The M2 monolith itself does not call
 \ memset, but the published parity script compares selected upstream tests
@@ -1573,7 +1607,7 @@ star count reaches the shell as its exit status.
 calls, globals, or parameter slots through the chapter.
 
 **Layer check:** there is no standalone root-level test for
-`110-cc-decl.fth`; the focused `tests/cc/G*.c` programs are this
+`114-cc-func.fth` or `116-cc-prog.fth`; the focused `tests/cc/G*.c` programs are this
 chapter's layer checks.
 
 **Bootstrap relevance:** function calls, scopes, globals, and the

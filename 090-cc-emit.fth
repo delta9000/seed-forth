@@ -417,7 +417,7 @@
   swap cc-out-patch-4le ;
 
 \ NOTE: cc-emit-jmp-vaddr (which emits a backward unconditional jump to an
-\ absolute vaddr — needed for `while`/`for` loops) lives in 110-cc-decl.fth
+\ absolute vaddr — needed for `while`/`for` loops) lives in 112-cc-stmt.fth
 \ alongside the loop constructs that use it, not here with the primitive
 \ encoders.  Both cc-base-vaddr and cc-out-pos are already available when this
 \ file loads, so the split is organizational, not a load-order dependency.
@@ -462,7 +462,7 @@
 
 \ cc-add-fixup-to-list ( fixup-offset list-var -- )  Allocate a 16-byte node
 \ and prepend it to the linked list rooted at list-var.  Defined here so
-\ 100-cc-expr.fth (loaded before 110-cc-decl.fth) can reference it from the
+\ 100-cc-expr.fth (loaded before 112-cc-stmt.fth) can reference it from the
 \ forward-function-rvalue path in cc-parse-primary.
 : cc-add-fixup-to-list                            ( off var -- )
   [lit] 16 cc-alloc                               ( off var node )
@@ -597,7 +597,7 @@
 \ ===========================================================================
 \ Libc shims: fputs, fputc, fopen, fclose, fwrite, fread, calloc,
 \ free.  All follow SYS-V x86-64 ABI.  Symbol registration and
-\ vaddr assignment happen in cc-emit-shims (110-cc-decl.fth).
+\ vaddr assignment happen in cc-emit-shims (116-cc-prog.fth).
 \ ===========================================================================
 
 \ -- fputs(char *s, FILE *fp) -> non-negative on success.  33 bytes.

@@ -13,7 +13,10 @@
 \   080-cc-elf.fth     — ELF header emission
 \   090-cc-emit.fth    — x86-64 instruction encoders (codegen backend)
 \   100-cc-expr.fth    — expression parser (depends on 090-cc-emit.fth)
-\   110-cc-decl.fth    — declaration / statement parser (depends on 100-cc-expr.fth)
+\   110-cc-decl.fth    — declaration parser (depends on 100-cc-expr.fth)
+\   112-cc-stmt.fth    — statement parser
+\   114-cc-func.fth    — function definitions
+\   116-cc-prog.fth    — file-scope forms, entry stub, top-level driver
 \   120-cc-main.fth    — entry point: cc-main
 
 \ Pre-baked output path: "/tmp/cc-out\0"

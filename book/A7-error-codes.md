@@ -25,7 +25,9 @@ before any source is read reports line 1.
 ## How the codes are organised
 
 Each compiler file owns a range, so a code names one file, and one
-failure in it:
+failure in it.  The four parser files `110`–`116` share one range,
+140–219, because they were a single file when the codes were
+assigned; each code still belongs to exactly one of them:
 
 | File | Range | What breaks there |
 |---|---|---|
@@ -39,16 +41,20 @@ failure in it:
 | `080-cc-elf.fth`    | 70–79   | ELF header (no failures yet). |
 | `090-cc-emit.fth`   | 80–89   | Codegen capacity. |
 | `100-cc-expr.fth`   | 90–139  | Expression parser. |
-| `110-cc-decl.fth`   | 140–219 | Declarations, statements, functions. |
+| `110-cc-decl.fth`   | 140–161, 193 | Declarations and the frame's slot limit. |
+| `112-cc-stmt.fth`   | 162–165 | Statements: `case`, labels, `goto`. |
+| `114-cc-func.fth`   | 169–176 | Parameters and function definitions. |
+| `116-cc-prog.fth`   | 177–192, 194–195 | Enums, typedefs, prototypes, globals, and the whole-program check. |
 | `120-cc-main.fth`   | 220–229 | Driver (no failures yet). |
 | `130-asm.fth`       | 230–249 | The M1 assembler, a separate program. |
 | tests               | 255     | A `test-*.fth` file's final `0= die`: some check failed. |
 
 Each code is used at one place, for one failure.  A file's codes
 were numbered in source order, and a check added since takes the
-next free code in its range (193–195 in `110-cc-decl.fth`).  The
-call parser's three codes are 121–123 because it moved from
-`110-cc-decl.fth` into `100-cc-expr.fth`; 166–168 are unused.  Two
+next free code in its range (193–195, in the parser's shared range).
+The call parser's three codes are 121–123 because it moved from the
+parser's declaration file into `100-cc-expr.fth`; 166–168 are
+unused.  Two
 sites that fail the same way still get a code each (145 and 148, for
 instance), so a code always names one line.
 
@@ -110,59 +116,59 @@ to its call site.
 | 121 | `100-cc-expr.fth:352` | Call: argument list not closed by `)`. |
 | 122 | `100-cc-expr.fth:360` | Call: more than six arguments (the register-only calling convention). |
 | 123 | `100-cc-expr.fth:400` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
-| 140 | `110-cc-decl.fth:58` | `cc-expect-kw-id`: next token wasn't a keyword. |
-| 141 | `110-cc-decl.fth:61` | `cc-expect-kw-id`: keyword id mismatch. |
-| 142 | `110-cc-decl.fth:69` | `cc-expect-punct-c`: next token wasn't punctuation. |
-| 143 | `110-cc-decl.fth:72` | `cc-expect-punct-c`: punctuation char mismatch. |
-| 144 | `110-cc-decl.fth:79` | `cc-expect-ident`: next token wasn't an identifier. |
-| 145 | `110-cc-decl.fth:170` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag`). |
-| 146 | `110-cc-decl.fth:175` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
-| 147 | `110-cc-decl.fth:179` | `struct TAG`: name isn't a struct tag (strict lookup). |
-| 148 | `110-cc-decl.fth:190` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag-soft`). |
-| 149 | `110-cc-decl.fth:207` | `struct` definition: tag isn't an identifier. |
-| 150 | `110-cc-decl.fth:257` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
-| 151 | `110-cc-decl.fth:263` | Struct definition: field type is neither a keyword nor an identifier. |
-| 152 | `110-cc-decl.fth:275` | Struct definition: field name missing. |
-| 153 | `110-cc-decl.fth:352` | Function-pointer declarator: expected name. |
-| 154 | `110-cc-decl.fth:376` | Function-pointer declarator: expected `=` or `;`. |
-| 155 | `110-cc-decl.fth:410` | Local array declaration: size inside `[` `]` isn't an integer literal. |
-| 156 | `110-cc-decl.fth:414` | Local array declaration: size is zero or negative. |
-| 157 | `110-cc-decl.fth:418` | Local array declaration: missing `]`. |
-| 158 | `110-cc-decl.fth:422` | Local array declaration: missing `;` after `]`. |
-| 159 | `110-cc-decl.fth:449` | Local scalar declaration (`T x;` / `T x = e;`) not ended by `;`. |
-| 160 | `110-cc-decl.fth:511` | Struct local declaration: variable name missing. |
-| 161 | `110-cc-decl.fth:546` | Struct-pointer local not followed by `=` or `;`. |
-| 162 | `110-cc-decl.fth:1098` | `case` label isn't an integer literal. |
-| 163 | `110-cc-decl.fth:1209` | `cc-label-create`: more than 64 labels in one function. |
-| 164 | `110-cc-decl.fth:1238` | Label defined twice in one function. |
-| 165 | `110-cc-decl.fth:1254` | `goto` not followed by an identifier. |
-| 169 | `110-cc-decl.fth:1423` | Parameter type is an identifier that isn't in the symbol table. |
-| 170 | `110-cc-decl.fth:1426` | Parameter type is an identifier that isn't a typedef. |
-| 171 | `110-cc-decl.fth:1432` | Parameter type is neither a keyword nor an identifier. |
-| 172 | `110-cc-decl.fth:1443` | Parameter name missing. |
-| 173 | `110-cc-decl.fth:1463` | Parameter list not closed by `)`. |
-| 174 | `110-cc-decl.fth:1531` | Function return type: `struct` not followed by a tag identifier. |
-| 175 | `110-cc-decl.fth:1536` | Function return type: neither a keyword nor an identifier. |
-| 176 | `110-cc-decl.fth:1566` | Function definition: name after the return type isn't an identifier. |
-| 177 | `110-cc-decl.fth:1685` | `enum`: enumerator isn't an identifier. |
-| 178 | `110-cc-decl.fth:1694` | `enum`: `=` not followed by an integer literal. |
-| 179 | `110-cc-decl.fth:1727` | `enum`: enumerator followed by neither `,` nor `}`. |
-| 180 | `110-cc-decl.fth:1758` | `typedef`: base keyword other than `int`, `char`, `void` or `struct`. |
-| 181 | `110-cc-decl.fth:1764` | `typedef`: base identifier not found. |
-| 182 | `110-cc-decl.fth:1767` | `typedef`: base identifier isn't itself a typedef. |
-| 183 | `110-cc-decl.fth:1771` | `typedef`: base is neither a keyword nor an identifier. |
-| 184 | `110-cc-decl.fth:1795` | Function-pointer `typedef T (*NAME)(...)`: name missing. |
-| 185 | `110-cc-decl.fth:1819` | `typedef`: new name isn't an identifier. |
-| 186 | `110-cc-decl.fth:1927` | Prototype: name after the return type isn't an identifier. |
-| 187 | `110-cc-decl.fth:1989` | Global initialiser: `-` not followed by an integer literal. |
-| 188 | `110-cc-decl.fth:1994` | Global initialiser: not an integer literal. |
-| 189 | `110-cc-decl.fth:2045` | Top-level declaration: base type is neither a keyword nor an identifier. |
-| 190 | `110-cc-decl.fth:2055` | Top-level declaration: expected variable name. |
-| 191 | `110-cc-decl.fth:2069` | Top-level array decl: bracket without integer literal size. |
-| 192 | `110-cc-decl.fth:2089` | Top-level declaration: name followed by neither `[`, `=` nor `;`. |
-| 193 | `110-cc-decl.fth:37` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
-| 194 | `110-cc-decl.fth:2396` | `cc-check-fns-defined`: at the end of the program, a function that was called or used as a value was never defined (its call or address fixups are still pending).  `memset` is declared but has no body, so a program that uses it lands here. |
-| 195 | `110-cc-decl.fth:2401` | `cc-check-fns-defined`: at the end of the program, there is no `main`. |
+| 140 | `110-cc-decl.fth:50` | `cc-expect-kw-id`: next token wasn't a keyword. |
+| 141 | `110-cc-decl.fth:53` | `cc-expect-kw-id`: keyword id mismatch. |
+| 142 | `110-cc-decl.fth:61` | `cc-expect-punct-c`: next token wasn't punctuation. |
+| 143 | `110-cc-decl.fth:64` | `cc-expect-punct-c`: punctuation char mismatch. |
+| 144 | `110-cc-decl.fth:71` | `cc-expect-ident`: next token wasn't an identifier. |
+| 145 | `110-cc-decl.fth:162` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag`). |
+| 146 | `110-cc-decl.fth:167` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
+| 147 | `110-cc-decl.fth:171` | `struct TAG`: name isn't a struct tag (strict lookup). |
+| 148 | `110-cc-decl.fth:182` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag-soft`). |
+| 149 | `110-cc-decl.fth:199` | `struct` definition: tag isn't an identifier. |
+| 150 | `110-cc-decl.fth:249` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
+| 151 | `110-cc-decl.fth:255` | Struct definition: field type is neither a keyword nor an identifier. |
+| 152 | `110-cc-decl.fth:267` | Struct definition: field name missing. |
+| 153 | `110-cc-decl.fth:344` | Function-pointer declarator: expected name. |
+| 154 | `110-cc-decl.fth:368` | Function-pointer declarator: expected `=` or `;`. |
+| 155 | `110-cc-decl.fth:402` | Local array declaration: size inside `[` `]` isn't an integer literal. |
+| 156 | `110-cc-decl.fth:406` | Local array declaration: size is zero or negative. |
+| 157 | `110-cc-decl.fth:410` | Local array declaration: missing `]`. |
+| 158 | `110-cc-decl.fth:414` | Local array declaration: missing `;` after `]`. |
+| 159 | `110-cc-decl.fth:441` | Local scalar declaration (`T x;` / `T x = e;`) not ended by `;`. |
+| 160 | `110-cc-decl.fth:503` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:538` | Struct-pointer local not followed by `=` or `;`. |
+| 162 | `112-cc-stmt.fth:504` | `case` label isn't an integer literal. |
+| 163 | `112-cc-stmt.fth:615` | `cc-label-create`: more than 64 labels in one function. |
+| 164 | `112-cc-stmt.fth:644` | Label defined twice in one function. |
+| 165 | `112-cc-stmt.fth:660` | `goto` not followed by an identifier. |
+| 169 | `114-cc-func.fth:74` | Parameter type is an identifier that isn't in the symbol table. |
+| 170 | `114-cc-func.fth:77` | Parameter type is an identifier that isn't a typedef. |
+| 171 | `114-cc-func.fth:83` | Parameter type is neither a keyword nor an identifier. |
+| 172 | `114-cc-func.fth:94` | Parameter name missing. |
+| 173 | `114-cc-func.fth:114` | Parameter list not closed by `)`. |
+| 174 | `114-cc-func.fth:182` | Function return type: `struct` not followed by a tag identifier. |
+| 175 | `114-cc-func.fth:187` | Function return type: neither a keyword nor an identifier. |
+| 176 | `114-cc-func.fth:217` | Function definition: name after the return type isn't an identifier. |
+| 177 | `116-cc-prog.fth:53` | `enum`: enumerator isn't an identifier. |
+| 178 | `116-cc-prog.fth:62` | `enum`: `=` not followed by an integer literal. |
+| 179 | `116-cc-prog.fth:95` | `enum`: enumerator followed by neither `,` nor `}`. |
+| 180 | `116-cc-prog.fth:126` | `typedef`: base keyword other than `int`, `char`, `void` or `struct`. |
+| 181 | `116-cc-prog.fth:132` | `typedef`: base identifier not found. |
+| 182 | `116-cc-prog.fth:135` | `typedef`: base identifier isn't itself a typedef. |
+| 183 | `116-cc-prog.fth:139` | `typedef`: base is neither a keyword nor an identifier. |
+| 184 | `116-cc-prog.fth:163` | Function-pointer `typedef T (*NAME)(...)`: name missing. |
+| 185 | `116-cc-prog.fth:187` | `typedef`: new name isn't an identifier. |
+| 186 | `116-cc-prog.fth:295` | Prototype: name after the return type isn't an identifier. |
+| 187 | `116-cc-prog.fth:357` | Global initialiser: `-` not followed by an integer literal. |
+| 188 | `116-cc-prog.fth:362` | Global initialiser: not an integer literal. |
+| 189 | `116-cc-prog.fth:413` | Top-level declaration: base type is neither a keyword nor an identifier. |
+| 190 | `116-cc-prog.fth:423` | Top-level declaration: expected variable name. |
+| 191 | `116-cc-prog.fth:437` | Top-level array decl: bracket without integer literal size. |
+| 192 | `116-cc-prog.fth:457` | Top-level declaration: name followed by neither `[`, `=` nor `;`. |
+| 193 | `110-cc-decl.fth:28` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
+| 194 | `116-cc-prog.fth:764` | `cc-check-fns-defined`: at the end of the program, a function that was called or used as a value was never defined (its call or address fixups are still pending).  `memset` is declared but has no body, so a program that uses it lands here. |
+| 195 | `116-cc-prog.fth:769` | `cc-check-fns-defined`: at the end of the program, there is no `main`. |
 
 Every buffer and table the compiler fills is bounds-checked with
 `cc-check-cap` (or `cc-read-all` for input), and
