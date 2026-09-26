@@ -16,7 +16,7 @@ primitive costs a dictionary slot and a few dozen bytes of machine
 code.  Cutting logic down to a single primitive is one of the moves
 that lets it fit.
 
-There's only one right answer: **`nand`** (or its dual, `nor`).
+The answer is **`nand`** (or its dual, `nor`).
 `and` alone won't do it, nor will `or`, nor both together.  None of
 them can produce a negation, and without negation there's no way to
 flip a bit.
@@ -54,10 +54,7 @@ So the seed authors made a trade:
   primitivised, plus the dictionary header (10 + name-length bytes)
   not paid for.
 
-You'll see the same trade made again in Ch 4 (`-` derived from `+`
-and `nand`) and Ch 7 (every comparison operator derived from `-` and
-unsigned `/`).  Each time, the seed pays a little more at use-site
-to save a primitive slot.
+§5 tallies what that trade buys, and where else the seed makes it.
 
 ## 2. `and` in three words
 
@@ -163,8 +160,8 @@ For arithmetic, use `not`; for predicate-chaining, use `0=`.
 : xor  ( a b -- a^b )  2dup nand >r or r> and ;
 ```
 
-That uses `2dup`, `nand`, `or`, `and` — three of which we already
-have or are about to define.  It's `(a or b) and (a nand b)`: the
+That uses `2dup` (previewed in Ch 1, defined in Ch 8), `nand`,
+`or`, and `and`.  It's `(a or b) and (a nand b)`: the
 two inputs differ when at least one is set *and* not both are set.
 
 **`xor` from pure nand:**
@@ -271,9 +268,8 @@ unsigned-only, and the seed has no `.` for printing, so we use
 # prints: 8     (12 AND 10 == 8, plus 48 is ASCII '8')
 ```
 
-We name it `mand` rather than `and` in the seed REPL because the
-seed already defined `and` when it loaded `010-lib.fth` at startup,
-and re-defining a word would just create a shadow (which would still
+We name it `mand` rather than `and` because `010-lib.fth`, loaded
+earlier in the same input, already defined `and`, and re-defining a word would just create a shadow (which would still
 work, but is noisier to read).
 
 ## Exercises

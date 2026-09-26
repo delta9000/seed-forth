@@ -33,6 +33,8 @@ C3
 
 ```
 
+Decoded:
+
 ```
 48 03 7D 00      add rdi, [rbp]   ; TOS += under-TOS
 48 83 C5 08      add rbp, 8       ; pop the under-TOS slot
@@ -108,14 +110,14 @@ low byte of a register), so we have to clear the high 56 bits with
 rdi` is the cheapest way to turn `0/1` into `0/-1`: `-0 == 0` and
 `-1 == 0xFFFFFFFFFFFFFFFF` in twos-complement.
 
-This is why Ch 6's `digit?` returns `-1`/`0` rather than `1`/`0`:
-the seed's only equality primitive produces that convention, and
-every higher layer keeps it.
-
 The `40` prefix on `sete dil` is a *REX prefix with no bits set*.
 On x86-64, accessing the low byte of `rdi` (named `dil`) requires
 this prefix; without it, the same encoding names the legacy
 register `bh`.
+
+The `-1` result is why Ch 6's `digit?` returns `-1`/`0` rather than
+`1`/`0`: the seed's only equality primitive produces that
+convention, and every higher layer keeps it.
 
 ## 4. `/` and the `DIV` instruction
 
@@ -138,7 +140,7 @@ The quotient lands in `rax`; the remainder lands in `rdx`.
 
 We don't need a 128-bit dividend, so we zero `rdx` first.  After
 that, `rdx:rax / rdi` is the same as `rax / rdi` for unsigned
-inputs.
+inputs.  Stripped of its hex, the body reads:
 
 ```
 mov rax, [rbp]   ; rax = a (under-TOS, the dividend)
@@ -220,7 +222,7 @@ The seed exposes five arithmetic primitives.  It does *not* have:
 
 Every omission saves a `15 + name-length`-byte dictionary entry
 (header plus JMP stub, Appendix A) and a primitive body of 8–15
-bytes.  Five omissions save well over 100 bytes.
+bytes.  Together they save well over 100 bytes.
 
 This is Ch 3's approach again: keep the one primitive that lets you
 build the rest, and write the rest in Forth.

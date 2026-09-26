@@ -7,7 +7,8 @@ Artifact after this chapter: calls, libc shims, string storage, global storage, 
 Proof link: Stage-A programs can use calls, file-scope data, and forward references without relocations.
 ```
 
-A compiler that writes machine code front to back keeps running into
+Every encoder in Ch 25 takes operands that are known when it runs.  A
+compiler that writes machine code front to back keeps running into
 addresses it doesn't know yet.  A call to a function defined further
 down the file, a reference to a file-scope global whose data will land
 after the last byte of code, a string literal the code must jump over:
@@ -24,9 +25,9 @@ appended after the code at the end, holds file-scope data.  Every
 deferred address is handled the same way: emit a placeholder, remember
 where it is, patch it when the value is known.
 
-Where these encoders are *called* from comes later: string literals
-and global rvalues in Chs 27–28, prologue/epilogue use and fixup-list
-walking in Ch 31's `cc-parse-function`.
+The callers come later: string literals and global rvalues in Ch 28's
+`cc-parse-primary`, prologue/epilogue use and fixup-list walking in
+Ch 31's `cc-parse-function`.
 
 ## 1. `movabs rdi, imm64` and the forward-call fixup list
 
@@ -113,7 +114,8 @@ later.
 `cc-add-fixup-to-list` builds the linked list of patch sites.  It
 allocates a 16-byte node with `cc-alloc` (Ch 21), stores the patch
 offset at `[0]` and the old head at `[8]`, and points the list root
-variable at the new node: an ordinary linked-list prepend.
+variable at the new node: an ordinary linked-list prepend.  Each node
+looks like this:
 
 ```
 +0:  patch-offset (into cc-out-buf)
@@ -129,7 +131,7 @@ reaches the definition, it walks both and patches each recorded site
 with the resolved address.  Ch 30's `break` and `continue` lists use
 the same word.
 
-The word lives here rather than in `110-cc-decl.fth` because Ch 27's
+The word lives here rather than in `110-cc-decl.fth` because Ch 28's
 `cc-parse-primary` needs it for the forward-function-rvalue path, and
 `100-cc-expr.fth` loads before `110-cc-decl.fth`.
 
@@ -197,7 +199,8 @@ A trailing NUL is appended so string literals work with C's
 
 ## 3. The libc shims: write/read/open/close/mmap
 
-These eleven shims are the entire libc the compiled programs see.
+The eleven shims in this section are the entire libc the compiled
+programs see.
 There is no `printf`, no `malloc` with `free`, no `strcmp`, no
 `errno`: just write, read, open/close, mmap-backed allocation, and
 `exit`.  Ch 31's `cc-emit-shims` emits each one into the code segment
@@ -901,16 +904,17 @@ responsibility pattern at codegen scale, with `cc-globals-buf` and the
 `090-cc-emit.fth` is 1050 lines of compiler-side machine-code
 emission, used three ways:
 
-- **Per-instruction encoders** (Chs 25 §3–§7) write the bytes of one
-  x86-64 instruction at a time.  Expression codegen (Ch 27) composes
-  them into right-hand sides of `=`, and statement codegen (Ch 30)
-  into the bodies of `if` / `while` / `for` / `return`.
+- **Per-instruction encoders** (Ch 25 §3–§7 and §4 here) write the
+  bytes of one x86-64 instruction at a time.  Expression codegen
+  (Chs 27–28) composes them into operators and assignments, and
+  statement codegen (Ch 30) into the bodies of `if` / `while` / `for` /
+  `return`.
 - **Prologue/epilogue, locals and param-spills** (Ch 25 §4–§5) are the
   ingredients of function definitions.  Ch 31's `cc-parse-function`
   calls each in sequence.
 - **Shims, globals and forward-call fixups** (this chapter) are the
   scaffolding the compiled program needs to run.  Ch 31 emits the
-  shims at startup, Ch 27's `cc-parse-primary` walks the call and
+  shims at startup, Ch 28's `cc-parse-primary` walks the call and
   global paths, and Ch 32 wires the whole thing together.
 
 ## Try it
@@ -956,7 +960,6 @@ chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'
 
 `tests/cc/build-m2planet-monolith.sh` runs the same pattern at full
 scale, building M2-Planet itself with this pipe.
-
 
 ## Exercises
 

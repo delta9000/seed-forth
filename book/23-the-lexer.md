@@ -25,6 +25,8 @@ as a number.
 
 ## 1. Token kinds and punctuation IDs
 
+The file opens by naming everything a token can be:
+
 ```forth file=050-cc-lex.fth
 \ 050-cc-lex.fth — C tokenizer (one-token lookahead) for the C-subset compiler.
 \ Reads bytes from cc-src-buf via cc-peek-char/cc-next-char/cc-eof? (030-cc-io.fth).
@@ -81,8 +83,9 @@ variable tok-kw-id
 ```
 
 Seven token kinds (`eof`, `ident`, `num`, `str`, `chr`, `punct`,
-`kw`), twenty-two multi-character punctuation IDs, and thirty C
-keywords.  Everything else in the file builds on these constants.
+`kw`) and twenty-two multi-character punctuation IDs; the thirty C
+keywords follow in §2.  Everything else in the file builds on these
+constants.
 
 Single-character punctuation (`;`, `{`, `(`, `[`, `,`, `?`, `:`, `~`)
 reuses the ASCII byte itself as `tok-num`.  Multi-character
@@ -100,6 +103,8 @@ aren't copied.  They are slices of the source buffer, which lives for
 the whole compilation.
 
 ## 2. The keyword table
+
+The thirty keywords are spelled out byte by byte, then numbered:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -207,15 +212,15 @@ create kw-table
 
 ```
 
-The keyword table is a flat byte array: a length byte, then that many
-bytes, repeated, with a `0` length byte at the end.  In the raw
+Each entry in `kw-table` is a length byte followed by that many name
+bytes, and a `0` length byte ends the table.  In the raw
 `[lit] 3 c, [lit] 105 c, [lit] 110 c, [lit] 116 c,` for "int" the
 length sits inline, so no parallel `[length, pointer]` table is
 needed.  The `kw-*` constants follow the entry order: `kw-int = 0`
 because `"int"` is first, `kw-char = 1` because `"char"` is second,
 and so on.
 
-Two small helpers come next.
+Three small helpers come next.
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -248,6 +253,9 @@ Ch 6's `alpha?` and `digit?`.  `cc-peek-char-2` is the two-byte
 lookahead.  The lexer needs it only for `0x`, `//`, `/*` and the `...`
 ellipsis; operators like `==`, `<=` and `<<=` consume their first byte
 and test the next with plain `cc-peek-char`.
+
+With the table and the classifiers in place, keyword recognition is
+one walk over `kw-table`:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -310,6 +318,9 @@ That is `( ptr id -- ptr+len+1 id+1 )`: read the length byte at
 `id`.  One `c@`, and no second table to index.
 
 ## 3. Whitespace and comments
+
+Before each token, the lexer skips whatever the parser should never
+see:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -409,6 +420,8 @@ comment skipper has to swallow it itself.
 
 ## 4. Number, identifier, string, char
 
+Numbers come first, in decimal or hex:
+
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
 \ Number / identifier / string / char lexers
@@ -496,6 +509,8 @@ comment skipper has to swallow it itself.
 `*base + digit` on the data stack, then stores into `tok-num` and sets
 `tok-kind = tk-num`.
 
+Identifiers are where Ch 22's macros finally take effect:
+
 ```forth file=050-cc-lex.fth
 \ cc-lex-ident-or-kw ( -- )  Read [a-zA-Z_][a-zA-Z0-9_]* and check the
 \ keyword table.  Sets tok-str-addr/len, then dispatches kind.
@@ -538,6 +553,8 @@ This is the other half of Ch 22: the preprocessor records macros, and
 the lexer substitutes them when it meets the name where an identifier
 would otherwise be reported.  Object-like, integer-valued macros are
 the only kind supported (Ch 22 §5), which is enough for M2-Planet.
+
+String and character literals close the section:
 
 ```forth file=050-cc-lex.fth
 \ cc-lex-string ( -- )  Read "..." preserving escape sequences as literal
@@ -677,6 +694,7 @@ consumed; it peeks ahead and picks the longest match.
 
 `cc-punct-lt` shows the deepest case: `<`, `<=`, `<<` and `<<=` from
 a single prefix, with two nested peeks.  `cc-punct-gt` mirrors it.
+The remaining nine handlers follow the same shape:
 
 ```forth file=050-cc-lex.fth
 : cc-punct-amp                                  \ '&' '&&' '&='
@@ -778,10 +796,11 @@ a single prefix, with two nested peeks.  `cc-punct-gt` mirrors it.
 
 ```
 
-The remaining handlers follow the same shape.  `cc-punct-minus` has
-four outcomes (`-`, `--`, `-=`, `->`), and `cc-punct-dot` is the one
+`cc-punct-minus` has four outcomes (`-`, `--`, `-=`, `->`), and `cc-punct-dot` is the one
 punctuation handler that needs `cc-peek-char-2`, because `..` alone
 is not a token: it must see two more dots before committing to `...`.
+
+A dispatcher picks the handler from the first byte:
 
 ```forth file=050-cc-lex.fth
 \ cc-lex-punct ( -- )  Consume the next char and dispatch to a per-char
@@ -809,8 +828,7 @@ is not a token: it must see two more dots before committing to `...`.
 
 ```
 
-`cc-lex-punct` is the dispatcher, a long `if, … else,` chain on the
-first byte.  Anything without its own handler (`;`, `{`, `}`, `(`,
+It is a long `if, … else,` chain.  Anything without its own handler (`;`, `{`, `}`, `(`,
 `)`, `[`, `]`, `,`, `?`, `:`, `~`) falls through to the default arm,
 which uses the byte itself as the punctuation code.  The seed has no
 `case`, so this is what a 14-way dispatch looks like: thirteen `if,`s
@@ -854,25 +872,10 @@ byte none of the four claims falls through to `cc-lex-punct`.
 
 ## Try it
 
-**Small check:** the manual `dump-tokens` probe below emits token
-kind digits for `int x = 42;`.
-
-**Layer check:** `./test.sh` runs the lexer unit test.
-
-```sh
-./build.sh
-./test.sh                                       # runs test-050-cc-lex.fth
-```
-
-`test-050-cc-lex.fth` exercises every token kind, every multi-char
-punctuation, the keyword table, the comment skipper, and the
-macro-substitution hook.  Read it to see what each entry point is
-supposed to produce.
-
-To run the small check, drive the lexer by hand.  Seed-forth has no
-`-e` flag or `include` word, so we concatenate the five files
-(stripped of Forth comments) onto stdin, then the C source.  A
-one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
+**Small check:** drive the lexer by hand on `int x = 42;`.
+Seed-forth has no `-e` flag or `include` word, so we concatenate the
+five files (stripped of Forth comments) onto stdin, then the C source.
+A one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
 runs the lexer in a loop, and emits each token's kind as an ASCII
 digit until end-of-input:
 
@@ -898,8 +901,20 @@ C
 ```
 
 The output is `6 1 5 2 5`: keyword, identifier, punctuation, number,
-punctuation.  For every token's text and numeric value, read
-`test-050-cc-lex.fth`, which `./test.sh` runs.
+punctuation.
+
+**Layer check:** the probe shows only kinds.  For every token's text
+and numeric value, run the lexer unit test:
+
+```sh
+./build.sh
+./test.sh                                       # runs test-050-cc-lex.fth
+```
+
+`test-050-cc-lex.fth` exercises every token kind, every multi-char
+punctuation, the keyword table, the comment skipper, and the
+macro-substitution hook.  Read it to see what each entry point is
+supposed to produce.
 
 **Bootstrap relevance:** every Stage-A parser consumes source only
 through `cc-next-token`, so `tests/cc/stage-a-check.sh` covers this

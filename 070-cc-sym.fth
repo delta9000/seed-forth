@@ -1,6 +1,6 @@
 \ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
-\ Five parallel arrays indexed by symbol id (0..cc-sym-count-1):
+\ Seven parallel arrays indexed by symbol id; extra/extra2 are described below:
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins
 \   cc-sym-name-len  [id] : length of the name in bytes
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)

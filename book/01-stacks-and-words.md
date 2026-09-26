@@ -27,9 +27,8 @@ systematic walk.
 Every fenced code block tagged `file=<path>` in this book is the
 canonical source for that file: when the strict tangle check passes,
 those blocks reconstruct the checked-in `.fth` and `.hex0` files
-byte-for-byte.  In this chapter,
-the only canonical block is `010-lib.fth`'s file header, near the
-end of §1.3.  The six definitions we read in §§1.4–1.6 are
+byte-for-byte.  In this chapter, the only canonical block is
+`010-lib.fth`'s file header, in §1.3.  The six definitions we read in §§1.4–1.6 are
 *illustrative* here; their canonical, line-numbered, source-of-record
 appearances live in Chapter 4 (`over`, `-`) and Chapter 8 (`nip`,
 `rot`, `2dup`, `2drop`).  This split keeps the book's chapter order
@@ -131,7 +130,7 @@ nothing it does not say.
 
 ## 1.4  `over`, the first non-primitive word
 
-Forth's seed gives us `dup`, `drop`, `swap`, `>r`, and `r>` as
+The seed gives us `dup`, `drop`, `swap`, `>r`, and `r>` as
 stack-manipulation primitives.  Conspicuously absent: `over`, which
 copies the second-from-top value up.  Almost every interesting Forth
 program needs `over`, so it is defined immediately in `010-lib.fth`:
@@ -169,9 +168,9 @@ whitespace), and a semicolon.  No commas, no parentheses, no return
 type, no argument list.  Forth's only metasyntactic feature is
 whitespace.
 
-Chapter 18 tells the full truth about `:` and `;`: they
-are themselves ordinary words, `:` builds a dictionary header and
-switches the system into "compile mode", and that `;` appends a `ret`
+Chapter 18 tells the full truth about `:` and `;`: they are
+themselves ordinary words.  `:` builds a dictionary header and
+switches the system into "compile mode"; `;` appends a `ret`
 instruction and switches back.  You do not need that truth yet.  You
 do need to be comfortable with the syntax.
 

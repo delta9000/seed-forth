@@ -180,6 +180,8 @@ worst.  `cc-macro-add` therefore passes every name through
 `cc-macro-name-pool-copy`, which deep-copies it and dies with status 72
 if the pool is full.  After that the stored address never moves.
 
+Lookup walks the table from the newest entry down:
+
 ```forth file=040-cc-prep.fth
 \ cc-macro-find-int ( name-addr name-len -- value found? )
 \ Iterates newest→oldest so a later #define wins.
@@ -211,8 +213,7 @@ if the pool is full.  After that the stored address never moves.
 
 ```
 
-Lookup is a linear scan, newest-first, with `bytes-eq` (Ch 12) as the
-comparator.  Newest-first means a later `#define` of the same name
+The comparator is `bytes-eq` (Ch 12).  Walking newest-first means a later `#define` of the same name
 shadows the earlier one, as in C.  After the first hit the loop keeps
 counting down but skips its comparisons, gated on
 `cc-macro-find-flag`.  This is the small-table,
@@ -401,7 +402,7 @@ create cc-prep-tests-prefix
 
 `cc-prep-build-path` concatenates a prefix, the name and a NUL into
 `cc-prep-path-buf`.  The only prefixes ever used are the empty one and
-`tests/cc/`.
+`tests/cc/`, and the loader tries them in that order:
 
 ```forth file=040-cc-prep.fth
 \ ===========================================================================
@@ -565,7 +566,8 @@ The fix is `cc-prep-process-vec`: declare the variable here, define a
 trampoline that executes through it, and store
 `' cc-prep-process-region` into it once the walker exists (§6).  The
 save arrays are length 4, matching the pool, so four nested includes
-is the hard ceiling.  M2-Planet uses at most two.
+is the hard ceiling.  M2-Planet uses at most two.  With the vector
+and the save arrays in place, the handler can recurse:
 
 ```forth file=040-cc-prep.fth
 : cc-prep-handle-include
@@ -650,6 +652,8 @@ The grammar this preprocessor supports is, in full:
 #define NAME DECIMAL_LITERAL
 #define NAME ANOTHER_MACRO_NAME
 ```
+
+`cc-prep-handle-define` parses both forms:
 
 ```forth file=040-cc-prep.fth
 \ cc-prep-handle-define
@@ -763,6 +767,9 @@ handler.  An unknown directive leaves `cc-prep-dir-matched` at 0 and
 falls to `cc-prep-skip-to-eol`, so the `#` already consumed is never
 emitted.
 
+Two words remain: the test for whether a line is a directive, and the
+walker that asks it.
+
 ```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ cc-prep-line-is-directive?  ( -- f )
@@ -861,6 +868,9 @@ variable cc-prep-cb-i
 
 `cc-prep-copy-back` clamps the length to `cc-src-cap`, stores it in
 `cc-src-len`, and copies byte by byte.
+
+Before the walk starts, the macro table is seeded with the few names
+the elided system headers would have supplied:
 
 ```forth file=040-cc-prep.fth
 \ ===========================================================================
@@ -999,21 +1009,21 @@ almost free.
 **Layer check:** there is no root-level `test-040-cc-prep.fth`.
 The preprocessor's fixtures are gates: `tests/cc/G14a.c` (integer
 `#define`), `G14b.c` (`#include "…"` through the `tests/cc/`
-fallback), `G5.c` (an elided `#include <stdio.h>` plus the built-in
-macros), and the two below.
-
-**Bootstrap relevance:** Stage-A exercises the include path (the
-two quote-includes left in the monolith's headers) and the
-built-in macros such as `NULL` and `stdout`; no integer `#define`
-reaches the preprocessor there, so the gates above are the only
-check on that path.  Two gates cover paths M2-Planet's source never walks, so parity
-alone could not catch a regression there.
+fallback) and `G5.c` (an elided `#include <stdio.h>` plus the
+built-in macros).  Two more cover paths M2-Planet's source never
+walks, so Stage-A parity alone could not catch a regression there.
 `tests/cc/G-indented-define.c` holds an indented `#define`, which
 registers only because the directive handler skips blanks before the
 `#` (§6).  `tests/cc/H-comment-directive.c` ends a macro definition
 with a block comment spanning a newline, which `cc-prep-skip-to-eol`
 must consume whole (§3).  `tests/cc/run-gates.sh` runs both
 alongside the other 30 gates.
+
+**Bootstrap relevance:** Stage-A exercises the include path (the
+two quote-includes left in the monolith's headers) and the
+built-in macros such as `NULL` and `stdout`.  No integer `#define`
+reaches the preprocessor there, so the gates above are the only
+check on that path.
 
 ```sh
 ./build.sh

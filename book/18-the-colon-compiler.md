@@ -29,6 +29,8 @@ Ch 19.
 
 ## 1. `colon_code`'s anatomy
 
+`colon_code` is 103 bytes, and most of them build the header:
+
 ```hex0 chunk=colon-code
 ;; ----- colon_code @ 0x2D4 ( -- ) parse name, build header, STATE=1 -----
 ;; @0x2D4: call read_word (rel32 = 0x259 - 0x2D9 = -128)
@@ -60,7 +62,7 @@ C3
 
 ```
 
-Five logical sections:
+It falls into five logical sections:
 
 **(a) Read the name.**  One `call read_word`.  After it returns,
 `rax` holds the token length and `[0x412800]` holds the token bytes.
@@ -156,6 +158,9 @@ whose entry sits later in the file, is IMMEDIATE for a related
 reason: it has to parse the next token *during* compilation.
 
 ## 4. `lit_code` and the inline-cell trick
+
+A compiled literal has to get its value from somewhere at runtime.
+`lit_code` takes it from the bytes right after its own call site:
 
 ```hex0 chunk=lit-code
 ;; ----- lit_code @ 0x419 ( -- v ) reads inline 8-byte cell after CALL site -----
@@ -286,6 +291,9 @@ appears inside a `:` definition.  At runtime, the `CALL` reaches
 the cell, advances past it, returns.  Net effect: `42` ends up on
 the data stack.
 
+`[lit]`'s own header sits outside the 24-entry block, at `0x6C0`
+next to its code:
+
 ```hex0 chunk=bracket-lit-dict
 ;; --- [lit] @ 0x6C0 (xt = 0x6CF) ---  IMMEDIATE
 E7 05 40 00 00 00 00 00                     ; link = 0x4005E7 (0branch)
@@ -296,9 +304,8 @@ E9 7E FF FF FF                              ; jmp bracket_lit_code (rel = 0x652 
 
 ```
 
-The `[lit]` dictionary entry, with `flags = 01` (IMMEDIATE).  Its
-`link` points back to `0branch`'s entry (the previous word in the
-linked list).
+Its `flags` byte is `01` (IMMEDIATE), and its `link` points back to
+`0branch`'s entry, the previous word in the linked list.
 
 ## 6. Reading a compiled definition
 
@@ -348,8 +355,8 @@ swap dup nand + [lit] 1 + [lit] 48 + emit` prints `L` (76 = 48 +
 
 echo ": square dup * ; [lit] 7 square [lit] 48 + emit bye" | ./seed-forth
 # 7*7 = 49; 49 + 48 = 97 = ASCII 'a'.  Prints "a".
-# (If you wanted to see the digit '1', the second `[lit] 48` would
-# be redundant: 49 itself already is ASCII '1'.)
+# (To print the digit '1' instead, drop `[lit] 48 +`: 49 is
+# already ASCII '1'.)
 
 echo ": five [lit] 5 ; five [lit] 48 + emit bye" | ./seed-forth
 # 5 + 48 = 53 = '5'. prints "5".

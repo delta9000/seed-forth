@@ -15,13 +15,12 @@ extend the dictionary with a new entry called `magic` that pushes
 
 Two definitions in `010-lib.fth` (lines 164–194) do the job.
 `immediate` sets a flag that makes a word run at compile time, and
-`constant` lays down a 19-byte runtime body of x86-64 machine code.
-Understanding either one takes two pieces of machinery that haven't
-appeared yet: the **STATE** sysvar that distinguishes interpret mode
-from compile mode, and the **IMMEDIATE flag** that lets a word run
-at compile time anyway.  Keep the seed's data-stack convention in
-mind (`rdi` holds the top of stack, `rbp` points at the rest; Ch 14
-has the machine code).  `create` and `variable` follow in Ch 12.
+`constant` lays down a 19-byte runtime body of x86-64 machine code,
+writing the value into it with Ch 9's `,8`.  Both rest on two pieces
+of machinery that haven't appeared yet: the **STATE** sysvar that
+distinguishes interpret mode from compile mode, and the **IMMEDIATE
+flag** that lets a word run at compile time anyway.  `create` and
+`variable`, which reuse the same body, follow in Ch 12.
 
 ## 1. `STATE` and the two modes
 
@@ -81,7 +80,7 @@ seed lays out a dictionary entry like this:
 Total header size is `10 + N` bytes.  Following that is the body,
 which for a primitive is hand-rolled machine code, for a colon
 definition is a sequence of CALL rel32 instructions, and for a
-constant is the 19-byte template we'll meet in section 5.
+constant is the 19-byte template in §5.
 
 The seed maintains a **LATEST** sysvar pointing at the link cell of
 the most recently defined entry.  Each new entry sets its own link
@@ -129,10 +128,11 @@ defined word's runtime.
 Two details.  First, the seed's manual `01` flags byte on the
 `;` definition in `000-seed.hex0` (Ch 18) is exactly this byte:
 `immediate` and the hand-rolled `01` in the seed hex write the same
-byte in the same place by different mechanisms.  Second, `immediate` writes the whole byte: `c!` stores
-`0x01`, which sets bit 0 and clears bits 1–7 rather than preserving
-them.  That is harmless here: `:` always initialises the flags byte
-to `0`, and the REPL tests only bit 0.  This codebase uses no other flag bits; a "fuller" Forth
+byte in the same place by different mechanisms.  Second, `immediate`
+writes the whole byte.  Storing `0x01` sets bit 0 and clears bits
+1–7 rather than preserving them.  That is harmless here:
+`:` always initialises the flags byte to `0`, and the REPL tests
+only bit 0.  This codebase uses no other flag bits; a "fuller" Forth
 might add `compile-only`, `hidden`, or `inline` here, but the seed
 keeps it bare-bones.
 
@@ -163,7 +163,7 @@ The runtime body is exactly 19 bytes:
 | `C3`           | `ret`                    | return to the caller                  |
 
 The seed's data stack lives in memory pointed at by `rbp`, with TOS
-cached in `rdi`.  To push a new value: open a slot (`sub rbp, 8`),
+cached in `rdi` (Ch 14 reads the primitives that rely on this).  To push a new value: open a slot (`sub rbp, 8`),
 write the old TOS into that slot (`mov [rbp+0], rdi`), and load the
 new value into `rdi` (`movabs rdi, imm64`).  Then return.  Three
 instructions plus a return.
@@ -179,8 +179,8 @@ little-endian bytes into the imm64 slot.
 `constant` is a defining word that *uses other defining words to do
 its work*.  Look at how the colon body opens and closes:
 
-- `:` is the seed primitive `:`.  It reads the next token
-  from input, parses it as a name, builds the dictionary header for
+- The first token calls the seed primitive `:`.  It reads the next
+  token from input, parses it as a name, builds the dictionary header for
   a new entry (link, flags=0, name-len, name), and sets STATE to 1.
 - For the body, STATE is 1, so we're in "compile mode," but
   we don't *want* to compile CALL instructions; we want to write

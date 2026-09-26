@@ -43,9 +43,8 @@ Trace with input `( n addr -- )`:
 | `!`    | empty                  | store the new value at addr     |
 
 Six tokens consume the input pair and leave the stack empty,
-having modified one cell in memory.  Every
-counter in the C compiler (token count, symbol count, scope depth)
-is incremented via `+!`.
+having modified one cell in memory.  Every counter in the C compiler
+(token count, symbol count, scope depth) is incremented via `+!`.
 
 `-!` is the mirror image.  The only difference is that subtraction
 isn't commutative, so the argument order needs care.  We want
@@ -120,8 +119,8 @@ bytes 4–7.  Eight bytes total, little-endian.
 
 ## 3. Why divide by 256?
 
-There is no `>>` operator in this seed.  The seed has only one
-arithmetic shift you can reach from Forth: division.  Dividing by
+There is no `>>` operator in this seed, and the closest thing to a
+shift that Forth code can reach is division.  Dividing by
 256 is identical to shifting right by 8 (because `2^8 == 256`), and
 the seed's `/` is the x86 `DIV` instruction (a single machine-code
 operation), so the cost is one register-pair load and one `div r/m64`

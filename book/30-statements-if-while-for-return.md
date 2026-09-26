@@ -33,13 +33,16 @@ backward jumps and the fixup lists), §§4–6 the loops and `switch`,
 §§7–8 `break`, `continue`, labels, and `goto`, and §9 the
 dispatcher.
 
+## 1. The trampoline, compound blocks, and `if`
+
 Statement parsers call each other recursively (an `if` body is a
 statement), so they route through `cc-parse-stmt-vec`: nested
 parsers call `cc-parse-stmt-tramp`, which executes whatever the vec
 holds.  §9 fills the vec once `cc-parse-stmt` exists, and Ch 31
-shows the call from a function body.
-
-## 1. `if` and `else`
+shows the call from a function body.  `cc-parse-compound` is the
+first caller: it pushes a scope, runs statements through the
+trampoline until `}`, and pops the scope, so locals declared in a
+block disappear at its end.
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
@@ -182,6 +185,10 @@ is a layering choice, not a load-order requirement.
 
 ## 3. Break/continue fixup lists
 
+`if` has exactly one pending jump per branch, so the data stack
+holds it.  A loop can contain any number of `break`s, so each one
+is a node in a linked list instead:
+
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ Break / continue fixup-list infrastructure
@@ -260,9 +267,7 @@ variable cc-for-step-end
 
 ```
 
-`if` has exactly one pending jump per branch, so the data stack
-holds it.  A loop can contain any number of `break`s, so each one
-is a node in a linked list instead.  Two list heads,
+Two list heads,
 `cc-break-stack-head` and `cc-continue-stack-head`, belong to the
 innermost loop.  On entry the parser saves the outer heads on the
 return stack and zeroes them.  Each `break` or `continue` in the
@@ -1035,10 +1040,9 @@ token:
    - otherwise → an expression statement.
 7. Anything else → an expression statement.
 
-The seed has no `case` word, so the dispatch is a chain of nested
-`if,`s, one per leading-token test.  The last line points `cc-parse-stmt-vec`
-at the finished word, so every earlier call to
-`cc-parse-stmt-tramp` now reaches it.
+The seed has no `case` word, hence the nested `if,`s.  The last
+line points `cc-parse-stmt-vec` at the finished word, so every
+earlier call to `cc-parse-stmt-tramp` now reaches it.
 
 ```forth file=110-cc-decl.fth
 \ cc-parse-stmt ( -- )  Dispatch on the leading token.
@@ -1216,8 +1220,8 @@ emit-remember-patch pattern.
 
 You can read `cc-parse-stmt`, explain how each control structure
 threads its branch fixups through a per-construct list, and trace
-how a `break` inside a nested `while` finds the right outer fixup
-head.
+how a `break` inside a nested `while` reaches its own loop's fixup
+list and not the outer one.
 
 Toward Stage-A: the jump rel32s patched here are bytes in
 `cc-out-v1`, not in the `.M1` text Stage A compares.  A wrong

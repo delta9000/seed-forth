@@ -337,9 +337,9 @@ The four base-loading paths (local array, local pointer, global
 array, global pointer) cover every way a name can head a `[]`.
 `argv[i]` (a `char**`) and `int arr[N]` use qword stride, while
 `s[i]` on a `char*` loads a single byte, as `is_digit(s[i])` needs.
-The choice comes from the *element type* of `arr[i]`.  An inline array keeps the symbol's own type (the
-subscript spends the array dimension, not a pointer level); a
-pointer drops one pointer level.  The step is one byte exactly when
+The choice comes from the *element type* of `arr[i]`.  An inline
+array keeps the symbol's own type (the subscript spends the array
+dimension, not a pointer level); a pointer drops one pointer level.  The step is one byte exactly when
 the element type is a plain `char`.  The helper keeps the element
 type on the return stack and writes it back to `cc-last-expr-type`
 after the mark, which clears it.  That is what makes a chained
@@ -712,7 +712,8 @@ After the leaf, the loop consumes `.`, `->`, `++`, `--`, and `[`
 until it reads some other token, which it puts back.  Postfix `++`
 and `--` accept only a kind=1 local (anything else is status 53).
 They bump the slot in memory with `inc`/`dec` and leave the old
-value, already loaded, in `rdi`.
+value, already loaded, in `rdi`.  The next branch handles a
+subscript:
 
 ```forth chunk=expr-primary-postfix-index
     else,
@@ -767,7 +768,8 @@ rather than a symbol, so it takes the element type from
 `cc-last-expr-type`, snapshotted before `cc-emit-materialize` clears
 it.  A `char*` gets byte stride and a byte-width deref; everything
 else gets qword.  If the value was a pointer, the pointee type is
-written back so that `[i][j]` on a `char**` works.
+written back so that `[i][j]` on a `char**` works.  The last branch
+handles `.` and `->`:
 
 ```forth chunk=expr-primary-postfix-field
     else,
@@ -846,7 +848,8 @@ variable cc-parse-unary-vec                       \ xt of cc-parse-unary
 ```
 
 `cc-parse-unary` reaches itself (for `**p`, say) through a vec and
-trampoline like those in Ch 27 §4, wired at the end of this chunk.
+trampoline like those in Ch 27 §4, wired just after its definition at
+the end of this section.
 
 `sizeof` comes first.  It accepts either a type or an identifier and
 evaluates at compile time:
@@ -887,6 +890,9 @@ variable cc-sizeof-bytes
   repeat, ;
 
 ```
+
+`cc-parse-sizeof` itself dispatches on the token after `(`: a type
+keyword, `struct TAG`, a typedef name, or a local variable.
 
 ```forth chunk=expr-unary
 : cc-parse-sizeof
@@ -1478,8 +1484,11 @@ everything in Chs 27–28:
 
 ## Try it
 
-**Small check:** choose one focused fixture below and trace the
-lvalue, postfix, assignment, or `sizeof` path it exercises.
+**Small check:** choose one focused fixture and trace the lvalue,
+postfix, assignment, or `sizeof` path it exercises: `tests/cc/G7.c`
+(pointer `&`/`*`), `G8.c` (array indexing), `G9a.c` (struct `.`
+access), `G9b.c` (struct field arithmetic), `G10c.c` (`sizeof`), or
+`G11.c` (postfix `++`/`--` and compound assignment in a dense mix).
 
 **Layer check:** `./test.sh` exercises the expression parser through
 the focused C fixtures.
@@ -1503,11 +1512,6 @@ are the same either way, so parity alone can't catch these.
 tests/cc/stage-a-check.sh
 ```
 
-`tests/cc/G7.c` (pointer `&`/`*`), `G8.c` (array indexing), `G9a.c`
-(struct `.` access), `G9b.c` (struct field arithmetic), `G10c.c`
-(`sizeof`), and `G11.c` (postfix `++`/`--` and compound assignment
-in a dense mix) exercise this chapter's machinery in isolation.
-
 ## Exercises
 
 1. **★ Trace.** Trace what `cc-parse-primary` emits for the literal `'X'`.
@@ -1530,8 +1534,8 @@ in a dense mix) exercise this chapter's machinery in isolation.
    missing case.  What does the compile-time evaluation look
    like?
 
-5. **★★ Trace.** The forward-call placeholder in §4 walks a linked list via
-   `cc-sym-extra2`.  Trace how Ch 31's `cc-parse-function`
+5. **★★ Trace.** The function-name-as-value placeholder in §4 is threaded
+   onto a linked list via `cc-sym-extra2`.  Trace how Ch 31's `cc-parse-function`
    patches that list when the definition arrives.  How is the
    list head set to 0 again?
 

@@ -7,8 +7,9 @@ Artifact after this chapter: the boot prologue — ELF header, _start, sysvar in
 Proof link: the C compiler's own ELF emission (Ch 25) reuses the same shape and the same addresses.
 ```
 
-Hex bytes on disk are not a program until the kernel agrees to run
-them.  Linux wants two things before it will: an ELF header that
+Part II reads the seed in the order the machine meets it, starting
+at byte 0.  Hex bytes on disk are not a program until the kernel
+agrees to run them.  Linux wants two things before it will: an ELF header that
 says what kind of file this is and where execution starts, and a
 program header that says which bytes to map where.  The seed spends
 120 bytes on those two headers, then 90 bytes of code that set up
@@ -44,7 +45,7 @@ arithmetic in this codebase will make sense.
 
 The first 64 bytes of any ELF file are an `Elf64_Ehdr`.  Cross-
 reference `man 5 elf` if you want a field-by-field formalism; here is
-the seed's copy, four bytes at a time.
+the seed's copy, one field per line.
 
 ```
 7F 45 4C 46    ; e_ident[0..3] = magic "\x7fELF"
@@ -189,8 +190,8 @@ known assembly-time value*.  `0x4007E8` is the address of the `'`
 entry's link cell, and the hex0 file just hard-codes it here.
 
 The seed does this everywhere: anything that can be resolved at
-assembly time is resolved then, not at runtime.  The cost is that adding a new primitive means recomputing this
-constant by hand; the benefit is that startup is six `mov`s and
+assembly time is resolved then, not at runtime.  The cost is that
+adding a new primitive means recomputing this constant by hand; the benefit is that startup is six `mov`s and
 nothing else.
 
 ## 6. `JMP repl` at `0x0CD`
@@ -224,8 +225,8 @@ on the chapters follow topic, not offset.
 ## Canonical source
 
 `000-seed.hex0` is hand-assembled and every `rel32` in it depends
-on its exact byte order, so we declare the whole file as one root block here, with every chunk reference in source
-order.  Subsequent chapters (Chs 14–20) define the bodies of the
+on its exact byte order, so we declare the whole file as one root
+block here, with every chunk reference in source order.  Subsequent chapters (Chs 14–20) define the bodies of the
 chunks they introduce; the awk tangler stitches them in at the
 positions named below.  Each chunk body ends with the blank line
 that separates it from the next section, so concatenation yields
@@ -280,7 +281,7 @@ byte-identical source.
 <<late-dicts>>
 ```
 
-This chapter defines the first six chunks below.
+This chapter defines the first six of those chunks.
 
 ```hex0 chunk=file-header-comment
 ;; 000-seed.hex0 — x86-64 Linux Forth Seed

@@ -7,7 +7,8 @@ Artifact after this chapter: if,, then,, else,, begin,, while,, repeat,, and the
 Proof link: the seed-level rehearsal of emit-remember-patch — the pattern the C compiler reuses in Ch 30.
 ```
 
-The library so far has no way to make a decision.  Every word runs
+Ch 10 gave the library the IMMEDIATE flag, but no library word uses
+it yet, and the library still has no way to make a decision.  Every word runs
 straight through from its first token to its `ret`.  The seed does
 provide two jump primitives, `branch` and `0branch`, but nothing
 that emits calls to them with the right targets.
@@ -26,18 +27,18 @@ If you've written a parser before, you have a mental model of how
 control flow works.  The parser recognises `if` as a special token,
 matches the `then` or `else` that follows, builds an AST node for
 the conditional, and the code generator turns that node into branch
-instructions.  Six places in the compiler know about `if`.
+instructions.  Every stage of the compiler knows about `if`.
 
 Forth doesn't work that way.  In Forth, **`if`** (here spelled
 `if,`) **is a word**, defined in user code, two-thirds of the way
 down `010-lib.fth`.  It is no more privileged than `dup` or
 `emit`.  When the seed sees `if,` inside a `:` ... `;`, it does
-exactly what it would do for any other word: look it up, run it.
-The only difference is that `if,` is marked IMMEDIATE (Ch 10), so
-it runs *now*, at parse time, instead of being compiled into the
-word being defined.
+exactly what it does for any other word: looks it up in the
+dictionary.  The only difference is that `if,` is marked IMMEDIATE
+(Ch 10), so it runs *now*, at parse time, instead of being compiled
+into the word being defined.
 
-What does `if,` do when it runs?  It writes bytes into HERE.
+What does `if,` do when it runs?  It writes bytes at HERE.
 Specifically, a five-byte CALL instruction targeting the seed's
 `0branch` primitive, followed by eight reserved bytes for the
 branch target, and leaves the address of those eight bytes on the
@@ -45,10 +46,8 @@ data stack as a *fixup*.  The matching `then,` later reads HERE and
 stores it into the fixup slot, which completes a conditional jump.
 
 There is no special case in the compiler and no parser involvement.
-About thirty lines of code implement every control structure in the
-Forth source of this codebase, the C compiler's included.
 
-## 2. The seed's branch primitives, in one paragraph
+## 2. The seed's branch primitives in brief
 
 `branch` and `0branch` are seed primitives.  Their calling
 convention is unusual: they don't take their target from the data
@@ -68,6 +67,9 @@ At runtime, the primitive reads those 8 bytes and jumps.
 
 ## 3. `branch-xt` and `0branch-xt`: a load-time snapshot
 
+The combinators need the addresses of those two primitives, so the
+library looks them up once, at load time:
+
 ```forth
 ' branch  constant branch-xt
 ' 0branch constant 0branch-xt
@@ -80,10 +82,11 @@ token**, or *xt*.  `' branch` pushes the body-address of the seed's
 that address into a Forth-level name `branch-xt`.
 
 The point is to avoid hard-coded addresses.  Where `branch` lives
-in memory can change whenever `000-seed.hex0` is edited.  Instead of writing `[lit] 1506
-constant branch-xt` and updating that number every time the seed
-moves, we let `'` resolve the address at load time.  Subsequent
-edits to the seed don't require touching `010-lib.fth`.
+in memory can change whenever `000-seed.hex0` is edited.  Instead
+of writing `[lit] 4195810 constant branch-xt` (today's `0x4005E2`)
+and updating that number every time the seed moves, we let `'`
+resolve the address at load time.  Subsequent edits to the seed
+don't require touching `010-lib.fth`.
 
 This is the canonical Forth answer to "how do I reference a thing
 whose address I don't know yet?"  Capture it by name, at the
@@ -103,7 +106,8 @@ rel32 = target - (address-just-after-CALL)
 ```
 
 The `5` is the size of the CALL instruction: 1 byte for opcode
-`0xE8` plus 4 bytes of rel32.
+`0xE8` plus 4 bytes of rel32.  `comma-call` computes it in two
+lines:
 
 ```forth
 : comma-call
@@ -111,8 +115,8 @@ The `5` is the size of the CALL instruction: 1 byte for opcode
   here [lit] 4 + - ,4 ;        \ rel32 = target - (HERE+4); emit 4 LE bytes
 ```
 
-After `[lit] 232 c,` emits
-the opcode byte, HERE has *already advanced by one*.  So at the
+After `[lit] 232 c,` emits the opcode byte, HERE has *already
+advanced by one*.  So at the
 moment we compute the offset, HERE points at the *first byte of the
 rel32 field*.  Adding 4 to it gives the address just past the
 4-byte rel32, which is the same as the address just past the whole
@@ -122,11 +126,12 @@ So `target - (HERE_now + 4)` is the right value.  Then `,4` emits
 its low 4 bytes in little-endian order (Ch 9), and the 5-byte CALL
 is complete.
 
-The 4 rather than 5 is there because the opcode byte has already
-been written.  `here [lit] 5 + -` would land one byte off.  Trace
+Writing `here [lit] 5 + -` instead would land one byte off.  Trace
 this on paper at least once.
 
 ## 5. Forward branches: `if,` and `then,` as a pair
+
+With `comma-call` in hand, the forward-branch pair is short:
 
 ```forth
 : if,
@@ -179,11 +184,11 @@ plus the inline 8-byte cell holding 65 (13 bytes in all), and `emit`
 compiles to a 5-byte `CALL`.  So the byte stream HERE accumulates is:
 
 ```
-[at HERE+0]   E8 ?? ?? ?? ??               ; CALL 0branch (rel32, patched by if,)
+[at HERE+0]   E8 ?? ?? ?? ??               ; CALL 0branch (rel32 from comma-call)
 [at HERE+5]   ?? ?? ?? ?? ?? ?? ?? ??      ; 8-byte target slot (zero-filled)
 [at HERE+13]  E8 ?? ?? ?? ?? <8-byte cell> ; CALL lit + literal 65 (13 bytes)
 [at HERE+26]  E8 ?? ?? ?? ??               ; CALL emit (5 bytes)
-[at HERE+31]  then, patches the slot at HERE+5 to contain HERE+31]
+[at HERE+31]  ; then, runs here: stores HERE+31 into the slot at HERE+5
 ```
 
 If the flag is zero at runtime, `0branch` reads the slot at HERE+5
@@ -349,9 +354,9 @@ emit `branch` and `0branch` calls with inline 8-byte target slots.
 Forth is now self-extensible.
 
 Any other control construct (`case`/`of`, exception unwinding,
-generators, multi-level exits) is a few dozen lines away.  You'd open `010-lib.fth`, add a couple of
-immediate words that emit branches in a new pattern, and the user
-language has a new keyword.
+generators, multi-level exits) is a few dozen lines away.  You'd
+open `010-lib.fth`, add a couple of immediate words that emit
+branches in a new pattern, and the user language has a new keyword.
 
 The C compiler in Part III uses these combinators throughout its
 own Forth source: every loop and conditional in the *generating*
@@ -488,7 +493,7 @@ Forward branch with else-arm:
 
 Expected: `AB`.
 
-Counting loop (the worked example from section 8):
+Counting loop (the worked example from §8):
 
 ```sh
 { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
@@ -539,5 +544,5 @@ rather see them inside a larger battery.
   compiler's included, is built from these combinators.
 
 Next: Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`, where
-the last 80 lines of `010-lib.fth` complete the defining-word
+the last 82 lines of `010-lib.fth` complete the defining-word
 machinery and add the first non-trivial byte-string operation.

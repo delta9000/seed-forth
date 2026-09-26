@@ -7,10 +7,15 @@ Artifact after this chapter: the dictionary's layout and its lookup primitive in
 Proof link: "small tables, linear search, newest wins" first appears here; Chs 22, 24, 30, 31 reapply it.
 ```
 
-Every word the seed knows, from `bye` to `'`, and every word `:`
-adds later, lives in one singly linked list.  There is no hash
-table, no symbol table and no environment frame.  This chapter reads
-that list and the primitives that build and search it.
+Chs 14–16 read the primitives' bodies.  This chapter reads the list
+that names them.  Every word the seed knows, from `bye` to `'`, and
+every word `:` adds later, lives in one singly linked list.  There is
+no hash table, no symbol table and no environment frame.
+
+The list grows forward (new entries go at `HERE`) but is searched
+backward (from `LATEST`), so the most recent definition is the
+first one a lookup finds.  Redefine `dup` and the new entry matches
+first; the original becomes invisible.
 
 The code sits in three bands of `000-seed.hex0`.  Lines 171–262 hold
 `find_code`, `here_code`, `comma_code`, `execute_code` and
@@ -25,11 +30,6 @@ their own if you only want the lookup algorithm.  §§5–7 cover the
 token reader and the sysvar accessors the REPL relies on.  §§8–9
 list the entries themselves.  The REPL's use of `find_code` and
 `execute_code` is Ch 20, and `[lit]`'s IMMEDIATE entry is Ch 18.
-
-The list grows forward (new entries go at `HERE`) but is searched
-backward (from `LATEST`), so the most recent definition is the
-first one a lookup finds.  Redefine `dup` and the new entry matches
-first; the original becomes invisible.
 
 ## 1. The header layout
 
@@ -115,6 +115,7 @@ sees the newest definition first.
 86 bytes of machine code, and the densest routine in the seed.  It
 is not the biggest: `read_word` (123 bytes), `colon_code` (103),
 `bracket_lit_code` (110) and the REPL loop (187) are all larger.
+Here is the hex:
 
 ```hex0 chunk=find-code
 ;; ----- find_code @ 0x1C5 -----
@@ -267,6 +268,8 @@ but inlined as a primitive.
 
 ## 4. `execute_code` ( xt -- )
 
+`execute` pops an xt and jumps to it:
+
 ```hex0 chunk=execute-code
 ;; ----- execute_code @ 0x24C -----
 48 89 F8
@@ -294,6 +297,9 @@ indirect call with no frame of its own, and the tail jump makes the
 indirection free.
 
 ## 5. `read_word`, the token reader
+
+`find_code` needs a name to look up.  `read_word` supplies it, one
+whitespace-delimited token at a time from stdin:
 
 ```hex0 chunk=read-word
 ;; ----- read_word @ 0x259 ( -- ; rax = token len, 0 on EOF ) -----
@@ -362,6 +368,9 @@ calls another primitive.
 
 ## 6. `state_code` and `latest_code`
 
+Two tiny primitives hand Forth the addresses of the sysvars the REPL
+and `:` depend on:
+
 ```hex0 chunk=state-code
 ;; ----- state_code @ 0x753 ( -- addr ) push absolute address of STATE sysvar -----
 ;; Sysvar layout (from header line 40): STATE/LATEST/HERE/LAST_FOUND/NUMBER_HOOK/INPUT_FD
@@ -395,6 +404,8 @@ and the head of the dictionary, which is how `010-lib.fth` builds
 
 ## 7. `tick_code`: from name to xt
 
+`'` strings together the pieces from §§2 and 5:
+
 ```hex0 chunk=tick-code
 ;; ----- tick_code @ 0x779 ( -- xt ) read next word and look up its xt -----
 ;; Calls read_word to fill TIB and return token length in rax.
@@ -419,9 +430,8 @@ C3                                        ; ret  ; rdi = xt (or 0 if not found)
 
 ```
 
-`'` reads a token, looks it up, and pushes the xt.  The
-implementation reuses `read_word` and `find_code`; it just has to
-shuffle the data stack so `find_code` sees its expected `( c-addr u
+It reads a token, looks it up, and pushes the xt.  All it adds to
+`read_word` and `find_code` is the code to shuffle the data stack so `find_code` sees its expected `( c-addr u
 -- )` shape.
 
 After `read_word`, the token length is in `rax` and the token bytes
@@ -701,7 +711,7 @@ echo 'wibble' | ./seed-forth
 # prints "?"
 
 # Walk the chain by hand.  The seed has no `.`, so peek at the
-# name-length byte (offset 9 in the header layout above) and add 48
+# name-length byte (offset 9 in §1's header layout) and add 48
 # to land in ASCII:
 echo "latest @ [lit] 9 + c@ [lit] 48 + emit bye" | ./seed-forth
 # prints the most-recent word's name length as a digit.  The seed's

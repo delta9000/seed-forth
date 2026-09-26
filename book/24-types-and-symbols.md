@@ -7,8 +7,10 @@ Artifact after this chapter: type helpers, struct descriptors, scoped symbol row
 Proof link: later Stage-A codegen can resolve names, scopes, sizes, and layouts consistently.
 ```
 
-When the parser meets `struct point *p;` it has to record two facts
-it will need later: what type `p` has, and where `p` lives.  When it
+Ch 23 left the parser with a stream of `tok-*` tokens.  Tokens name
+things, though, and nothing yet remembers what a name means.  When the
+parser meets `struct point *p;` it has to record two facts it will
+need later: what type `p` has, and where `p` lives.  When it
 later meets `p->x`, it has to find `p` again, with the innermost
 declaration winning, and work out where `x` sits inside the struct.
 Both kinds of fact grow during parsing, but both have bounded sizes by
@@ -26,9 +28,9 @@ The 154-line file `070-cc-sym.fth` is the symbol table: seven columns
 of 4096 8-byte slots each, 224 KiB in all.  Every global, local,
 function, struct tag, enum constant and typedef gets one row, and
 `cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering
-and restoring the row count.  Where types are *consumed* is Ch 27
-(expression type-checking) and Chs 25–26 (size-based instruction
-selection in codegen).
+and restoring the row count.  Types are *consumed* later: Ch 28 reads
+them to choose byte or qword loads and strides, and Chs 29–31 use them
+to size locals, globals and struct fields.
 
 ## 1. The one-word type encoding
 
@@ -163,7 +165,7 @@ by name.
 ```forth file=070-cc-sym.fth
 \ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
-\ Five parallel arrays indexed by symbol id (0..cc-sym-count-1):
+\ Seven parallel arrays indexed by symbol id; extra/extra2 are described below:
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins
 \   cc-sym-name-len  [id] : length of the name in bytes
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
@@ -296,6 +298,8 @@ would be unreadable.  Forth code gets hard to follow once the stack
 holds more than three or four unrelated values; the return stack is
 the release valve.
 
+Adding is half the job; the other half is finding a name again:
+
 ```forth file=070-cc-sym.fth
 \ cc-sym-find walks all entries top-down (most recent first).  We can't bail
 \ early (no `exit` primitive in the seed), so we stash the needle in two
@@ -345,7 +349,8 @@ explicit scope check.  This is Ch 17's newest-wins lookup with scope
 added.
 
 `[lit] 0 0=` produces -1, the value the result starts with, so after
-the loop the caller reads either "found id N" or "not found."
+the loop the caller reads either "found id N" or "not found."  Once
+the caller has an id, it reads the row through one-line accessors:
 
 ```forth file=070-cc-sym.fth
 \ ===========================================================================
@@ -367,8 +372,8 @@ the loop the caller reads either "found id N" or "not found."
 
 ```
 
-The accessors are one-liners over `sym-slot`, each taking the id on
-top of the stack.
+Each accessor is a `sym-slot` fetch or store with the id on top of
+the stack.
 
 ## 4. Scopes are a stack of integers
 
@@ -444,8 +449,8 @@ Every later chapter uses exactly this protocol.
 
 ## Try it
 
-**Small check:** the `probe` snippet below adds one symbol and prints
-the new symbol id plus the resulting count.
+**Small check:** the snippet at the end of this section adds one
+symbol and prints its id and the resulting count.
 
 **Layer check:** the root test script covers both files from this
 chapter.
@@ -461,10 +466,8 @@ chapter.
 `test-070-cc-sym.fth` exercises `cc-sym-add`, `cc-sym-find`, and
 the scope push/pop dance.
 
-To run the small check, load the seven Forth files, add one symbol,
-and print its id and the resulting count.  We define a one-shot word
-`probe` and call it; seed-forth has no `-e` flag, so everything goes
-through stdin:
+For the small check, load the seven Forth files and append a few
+lines that call `cc-sym-add` directly.  Seed-forth has no `-e` flag, so everything goes through stdin:
 
 ```sh
 ./build.sh

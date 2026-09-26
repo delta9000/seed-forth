@@ -73,7 +73,8 @@ Ch 28's `cc-parse-primary` calls `cc-parse-call` through
 first.  `cc-emit-call-vaddr` emits `E8 <rel32>` to an absolute
 target.  `cc-emit-pops-for-args` pops `n` pushed argument values into
 the System V argument registers, walking `i = n-1 .. 0` so the
-last-pushed value lands in the `n`-th register.
+last-pushed value lands in the `n`-th register; for each index it
+calls `cc-emit-pop-by-arg-index` to pick the register.
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
@@ -1273,7 +1274,8 @@ patches every recorded placeholder with base plus slot.
 
 ```
 
-`cc-parse-function-list` is the top-level loop.  For each
+Every file-scope form now has a parser, and
+`cc-parse-function-list` is the loop that picks one.  For each
 declaration it skips storage qualifiers, then:
 
 1. on `struct`, peeks two tokens: `struct TAG {` is a struct
@@ -1639,7 +1641,6 @@ create cc-name-ssize_t
   cc-patch-call-main ;
 ```
 
-
 ## Try it
 
 **Small check:** inspect one focused fixture below and trace its
@@ -1699,14 +1700,16 @@ reading and writing `g_counter`).  The M2-Planet monolith in
 ## After this chapter
 
 The compiler can assemble whole translation units: functions with
-parameters (spilled from SysV registers into locals), scoped
+parameters (spilled from System V registers into locals), scoped
 declarations, file-scope globals, forward-call resolution, and the
 26-byte entry stub at `0x400078` that sets up `argc`/`argv`, calls
-`main`, and exits.  The output file is a runnable ELF.
+`main`, and exits.  Once Ch 32's driver adds the globals and ELF
+header, the output file is a runnable ELF.
 
 You can read `cc-parse-function` from name through epilogue,
 explain why every function reserves the same 256-byte frame, and
-walk how `cc-parse-program` loops file-scope decls until EOF.
+walk how `cc-parse-function-list` loops over file-scope
+declarations until EOF.
 
 ## Takeaways
 

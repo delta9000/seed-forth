@@ -10,9 +10,9 @@ machine out-writes you at every step, the easy outcome is a large
 pile of code that works until it doesn't and that no person actually
 understands, and a human reduced to rubber-stamping it.
 
-This book is an experiment in the other outcome: what it actually
-takes for a human to stay in the loop: to guide, audit, and vouch
-for code an AI wrote faster than they could.
+This book is an experiment in the other outcome: what it takes for
+a human to stay in the loop, guiding, auditing, and vouching for
+code an AI wrote faster than they could.
 
 It turns on two things working together.  The first is a *mechanical
 test of correctness that fluent-looking code cannot fake*.  The
@@ -109,8 +109,8 @@ written, starting from a base of 32 hand-encoded primitives.
 Everything afterwards (the seed VM in Part II, the C compiler in
 Part III) is a payoff for understanding that one move.
 
-The methodology (which models wrote what, and the cross-checking
-that pinned down every byte of the seed) is documented in
+As for the AI side, the methodology (which models wrote what, and
+the cross-checking that pinned down every byte of the seed) is in
 `AI_STRATEGIES.md` at the repo root.  You can still read this purely
 as a Forth book and never think about any of it; the journey works
 the same way it would have worked in 1972.  But the reason it

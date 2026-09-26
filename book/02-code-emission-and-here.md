@@ -2,7 +2,7 @@
 
 ```text
 Missing capability: defining-words have no way to emit bytes into the dictionary at compile time.
-New pattern: here-addr names the bump cursor; c,, ,4, ,8 are write-then-advance helpers.
+New pattern: here-addr names the bump cursor; c, writes one byte and advances it (,4 and ,8 follow in Ch 9).
 Artifact after this chapter: byte-level emission primitives every later library word reaches for.
 Proof link: every byte the library hand-assembles passes through c,; the dictionary's tail is here-addr.
 ```
@@ -44,17 +44,16 @@ update it, the code needs that address on the stack.
 : here-addr  [lit] 4272144 ;            \ &HERE = 0x413010
 ```
 
-`4272144` is `0x413010` in decimal, the address of the HERE cell on
-the sysvar page.  The definition simply pushes that address and
-returns.  There is no shuffling, no arithmetic, no lookup; it is the
-simplest possible colon definition after the file header.
+`4272144` is the decimal form of `0x413010`, the address of the HERE
+cell on the sysvar page.  The definition simply pushes that address
+and returns.  There is no shuffling, no arithmetic, no lookup; it is
+the simplest possible colon definition.
 
-The `[lit]` word is the seed's explicit literal compiler.  In a normal
-Forth you would write `4272144` and the parser would push it.  This
-seed does not auto-parse numbers in interpret mode (that is Ch 20's
-job), so it uses `[lit]` as a compile-time marker that says "the next
-token is a decimal literal; emit code to push it."  Read every
-`[lit] N` in the codebase as "the number N" and you will not go wrong.
+This is the `[lit]` convention from Ch 1 at work.  In a normal Forth
+you would write `4272144` and the parser would push it.  This seed
+does not auto-parse numbers in interpret mode (Ch 20 walks its
+parser), so `[lit]` marks "the next token is a decimal literal; emit
+code to push it."  Keep reading every `[lit] N` as "the number N".
 
 The address itself is baked in.  The sysvar page layout is fixed in
 `000-seed.hex0` and this literal must change if the layout ever moves.
@@ -133,10 +132,11 @@ but the idea is the same: one one-byte primitive at the bottom.
 
 ## Try it
 
-All words used below (`c!`, `create`, `allot`, `variable`, `!`, `@`,
-`1 +`, `type`) are standard Forth.  No shim needed.
-
 ### The fast path: gforth
+
+The snippet below uses only standard Forth words (`c!`, `create`,
+`allot`, `variable`, `!`, `@`, `+`, `type`), so plain gforth runs it
+without the playground shim.
 
 ```sh
 gforth
