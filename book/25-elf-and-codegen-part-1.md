@@ -727,7 +727,7 @@ alongside Forth code while debugging.
   swap cc-out-patch-4le ;
 
 \ NOTE: cc-emit-jmp-vaddr (which emits a backward unconditional jump to an
-\ absolute vaddr — needed for `while`/`for` loops) lives in 110-cc-decl.fth
+\ absolute vaddr — needed for `while`/`for` loops) lives in 112-cc-stmt.fth
 \ alongside the loop constructs that use it, not here with the primitive
 \ encoders.  Both cc-base-vaddr and cc-out-pos are already available when this
 \ file loads, so the split is organizational, not a load-order dependency.
@@ -749,9 +749,9 @@ emits `E9 00 00 00 00`, and `cc-emit-call-rel32-placeholder` emits
 rel32), and writes it with `cc-out-patch-4le`.
 
 The closing NOTE explains why backward jumps to an *absolute* vaddr
-(for `while`/`for` loops) live in `110-cc-decl.fth` with the loop
+(for `while`/`for` loops) live in `112-cc-stmt.fth` with the loop
 constructs.  The split is a layering choice (`090` holds primitive
-encoders, `110` statement-level control flow), not a load-order
+encoders, `112` statement-level control flow), not a load-order
 dependency.
 
 ## 8. The shape of the rest

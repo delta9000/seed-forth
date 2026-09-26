@@ -511,7 +511,7 @@ the whole-program check that follows would reject a fragment with no
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth
+  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01][0-9]-cc-*.fth
   cat <<'FORTH'
     : .d  dup [lit] 9 > if, dup [lit] 10 / .d then,
           dup [lit] 10 / [lit] 10 * - [lit] 48 + emit ;

@@ -21,7 +21,7 @@ echo $?                               # prints "55"
 ```
 
 `./seed-forth` is 1,772 bytes of x86-64 machine code, typed in as
-hex.  It read twelve files of Forth from the pipe and became a C
+hex.  It read fifteen files of Forth from the pipe and became a C
 compiler.  The compiler read the C that followed, recursion and
 all, and wrote `/tmp/cc-out`, a Linux executable, directly.  No
 assembler, linker, or C library took part.  Fed M2-Planet's own

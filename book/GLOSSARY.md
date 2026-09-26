@@ -361,7 +361,7 @@ Ch 32.
 
 **Entry stub** — the 26-byte prologue at vaddr `0x400078` that our
 compiled binaries begin with: argc/argv setup, `call <main>`, exit
-syscall.  Emitted by `cc-emit-entry-stub` in `110-cc-decl.fth`.
+syscall.  Emitted by `cc-emit-entry-stub` in `116-cc-prog.fth`.
 Ch 31 §8.
 
 **Full Source Bootstrap** — the Guix project's chain from a

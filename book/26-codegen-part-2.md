@@ -101,7 +101,7 @@ later.
 ```forth file=090-cc-emit.fth
 \ cc-add-fixup-to-list ( fixup-offset list-var -- )  Allocate a 16-byte node
 \ and prepend it to the linked list rooted at list-var.  Defined here so
-\ 100-cc-expr.fth (loaded before 110-cc-decl.fth) can reference it from the
+\ 100-cc-expr.fth (loaded before 112-cc-stmt.fth) can reference it from the
 \ forward-function-rvalue path in cc-parse-primary.
 : cc-add-fixup-to-list                            ( off var -- )
   [lit] 16 cc-alloc                               ( off var node )
@@ -133,9 +133,9 @@ reaches the definition, it walks both and patches each recorded site
 with the resolved address.  Ch 30's `break` and `continue` lists use
 the same word.
 
-The word lives here rather than in `110-cc-decl.fth` because Ch 28's
+The word lives here rather than in `112-cc-stmt.fth` because Ch 28's
 `cc-parse-primary` needs it for the forward-function-rvalue path, and
-`100-cc-expr.fth` loads before `110-cc-decl.fth`.
+`100-cc-expr.fth` loads before `112-cc-stmt.fth`.
 
 ## 2. String-literal bytes with C-escape decoding
 
@@ -321,7 +321,7 @@ displacements are counted by hand against the shim's layout.
 \ ===========================================================================
 \ Libc shims: fputs, fputc, fopen, fclose, fwrite, fread, calloc,
 \ free.  All follow SYS-V x86-64 ABI.  Symbol registration and
-\ vaddr assignment happen in cc-emit-shims (110-cc-decl.fth).
+\ vaddr assignment happen in cc-emit-shims (116-cc-prog.fth).
 \ ===========================================================================
 
 \ -- fputs(char *s, FILE *fp) -> non-negative on success.  33 bytes.
@@ -865,7 +865,7 @@ placeholder and records `(patch-offset, slot)` in the parallel arrays
 `cell[]` like every other table.
 
 At the end of compilation, Ch 32's driver calls `cc-finalize-globals`
-(defined in Ch 31's `110-cc-decl.fth`):
+(defined in Ch 31's `116-cc-prog.fth`):
 
 1. Set `cc-globals-base-vaddr` to `cc-here-vaddr` (`cc-base-vaddr +
    cc-out-pos`).
@@ -926,7 +926,7 @@ tests/cc/stage-a-check.sh        # full bootstrap-gate
 ```
 
 To run the small check, compile the one-line program directly.
-Seed-forth has no `-e` flag or `include` word, so we feed the twelve
+Seed-forth has no `-e` flag or `include` word, so we feed the fifteen
 numbered `.fth` files, comments and all, followed by the C source on
 a single stdin.  The last file
 (`120-cc-main.fth`) ends by invoking `cc-main`, which reads the
@@ -956,7 +956,7 @@ fixup, before and after the patch:
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth
+  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01][0-9]-cc-*.fth
   cat <<'FORTH'
     : .h  dup [lit] 15 > if, dup [lit] 16 / .h then,
           [lit] 15 and dup [lit] 9 > if, [lit] 39 + then, [lit] 48 + emit ;
