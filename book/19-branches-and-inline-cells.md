@@ -193,10 +193,10 @@ it.  That is why `if,/then,` is a self-contained 13-byte emission.
 
 ## 6. Connecting to Chapter 11
 
-Ch 11 defined the `comma-call` word as:
+Ch 10 defined the `call,` word as:
 
 ```forth
-: comma-call  ( xt -- )    \ emit a 5-byte CALL rel32
+: call,  ( xt -- )         \ emit a 5-byte CALL rel32
   [lit] 232 c,             \ 0xE8 CALL opcode
   here [lit] 4 + - ,4 ;    \ rel32 = target - (HERE+4)
 ```
@@ -206,7 +206,7 @@ At a Forth-level `if,` call site:
 
 ```forth
 : if,  ( -- patch-addr )
-  0branch-xt comma-call      \ emit CALL to 0branch's xt
+  0branch-xt call,           \ emit CALL to 0branch's xt
   here                       \ remember slot address for back-patching
   [lit] 0 , ;                \ reserve an 8-byte cell as placeholder
 immediate

@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-`110-cc-decl.fth` lines 626–1497: the `cc-parse-stmt` dispatcher
+`110-cc-decl.fth` lines 620–1484: the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -64,7 +64,7 @@ variable cc-parse-stmt-vec
   begin,
     cc-next-token-keep
     \ Stop on '}'.
-    tok-kind @ tk-punct = tok-num @ [lit] 125 = and 0=
+    tok-kind @ tk-punct = tok-num @ [char] } = and 0=
   while,
     cc-putback-token
     cc-parse-stmt-tramp
@@ -87,9 +87,9 @@ variable cc-parse-stmt-vec
 \     <else-body>
 \   end:
 : cc-parse-if
-  [lit]  40 cc-expect-punct-c                     \ '('
+  lparen cc-expect-punct-c
   cc-parse-expr-balanced
-  [lit]  41 cc-expect-punct-c                     \ ')'
+  [char] ) cc-expect-punct-c
 
   cc-emit-test-rdi
   cc-emit-jz-rel32-placeholder                    ( fixup-jz )
@@ -313,10 +313,10 @@ loops never see each other's fixups.
   [lit] 0 cc-continue-stack-head !
   cc-switch-depth @ cc-loop-switch-depth !
 
-  [lit]  40 cc-expect-punct-c                     \ '('
+  lparen cc-expect-punct-c
   cc-base-vaddr cc-out-pos @ +                    ( top-vaddr )
   cc-parse-expr
-  [lit]  41 cc-expect-punct-c                     \ ')'
+  [char] ) cc-expect-punct-c
   cc-emit-test-rdi
   cc-emit-jz-rel32-placeholder                    ( top fixup-end )
 
@@ -380,16 +380,16 @@ run *after* it.  The parser handles this in eight moves:
 \   jmp  <top>
 \   <end:>
 : cc-parse-for
-  [lit]  40 cc-expect-punct-c                     \ '('
+  lparen cc-expect-punct-c
 
   \ --- Init (optional) ---
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ; = and if,
     \ ';' — empty init; token is consumed.
   else,
     cc-putback-token
     cc-parse-expr
-    [lit] 59 cc-expect-punct-c
+    [char] ; cc-expect-punct-c
   then,
 
   \ Save outer break/continue heads + loop switch-depth on rstack (after
@@ -407,13 +407,13 @@ run *after* it.  The parser handles this in eight moves:
 
   \ --- Cond (optional) ---
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ; = and if,
     \ ';' — empty cond; emit `mov rdi, 1` for unconditional truth.
     [lit] 1 cc-emit-mov-rdi-imm32
   else,
     cc-putback-token
     cc-parse-expr
-    [lit] 59 cc-expect-punct-c
+    [char] ; cc-expect-punct-c
   then,
 
   cc-emit-test-rdi
@@ -434,18 +434,18 @@ run *after* it.  The parser handles this in eight moves:
   begin,
     dup [lit] 0 >  cc-eof? 0= and
   while,
-    cc-peek-char [lit] 40 = if,
-      [lit] 1 +
+    cc-peek-char lparen = if,
+      1+
     else,
-      cc-peek-char [lit] 41 = if,
-        [lit] 1 -
+      cc-peek-char [char] ) = if,
+        1-
       then,
     then,
     cc-next-char drop
   repeat,
   drop                                            ( -- )
   \ cc-src-pos is now just past ')'.  step-end = position of ')'.
-  cc-src-pos @ [lit] 1 - cc-for-step-end !
+  cc-src-pos @ 1- cc-for-step-end !
 
   \ --- Body ---
   cc-parse-stmt-tramp
@@ -554,10 +554,10 @@ rewind above at work.
 
   \ Parse 'while ( expr ) ;'
   kw-while cc-expect-kw-id
-  [lit]  40 cc-expect-punct-c                     \ '('
+  lparen cc-expect-punct-c
   cc-parse-expr
-  [lit]  41 cc-expect-punct-c                     \ ')'
-  [lit]  59 cc-expect-punct-c                     \ ';'
+  [char] ) cc-expect-punct-c
+  [char] ; cc-expect-punct-c
 
   cc-emit-test-rdi
   r> cc-emit-jnz-vaddr                            \ jnz top
@@ -687,9 +687,9 @@ cases with the same `K`.
   [lit] 0 cc-break-stack-head     !
 
   \ '(' expr ')'
-  [lit]  40 cc-expect-punct-c                     \ '('
+  lparen cc-expect-punct-c
   cc-parse-expr                                   \ rdi = scrutinee
-  [lit]  41 cc-expect-punct-c                     \ ')'
+  [char] ) cc-expect-punct-c
 
   \ Save outer rbx, then move scrutinee into rbx.  Mark the switch open so
   \ return/continue/goto inside the body emit a balancing pop (see
@@ -703,12 +703,12 @@ cases with the same `K`.
   >r
 
   \ '{' (case|default|stmt)* '}'
-  [lit] 123 cc-expect-punct-c                     \ '{'
+  [char] { cc-expect-punct-c
 
   begin,
     cc-next-token-keep
     \ Stop on '}'.
-    tok-kind @ tk-punct = tok-num @ [lit] 125 = and 0=
+    tok-kind @ tk-punct = tok-num @ [char] } = and 0=
   while,
     \ Three sub-cases: 'case' INT ':', 'default' ':', or generic stmt.
     tok-kind @ tk-kw = tok-kw-id @ kw-case = and if,
@@ -719,13 +719,13 @@ cases with the same `K`.
         [lit] 90 die
       then,
       tok-num @                                   ( K )
-      [lit]  58 cc-expect-punct-c                 \ ':'
+      [char] : cc-expect-punct-c
       cc-base-vaddr cc-out-pos @ +                ( K body-vaddr )
       cc-add-switch-case
     else,
       tok-kind @ tk-kw = tok-kw-id @ kw-default = and if,
         \ 'default' has been consumed.
-        [lit]  58 cc-expect-punct-c               \ ':'
+        [char] : cc-expect-punct-c
         cc-base-vaddr cc-out-pos @ +
         cc-switch-default-vaddr !
       else,
@@ -763,7 +763,7 @@ cases with the same `K`.
 
   \ Restore outer rbx; the switch is closed again.
   cc-emit-pop-rbx
-  cc-switch-depth @ [lit] 1 - cc-switch-depth !
+  cc-switch-depth @ 1- cc-switch-depth !
 
   \ Restore outer state.
   r> cc-break-stack-head     !
@@ -790,7 +790,7 @@ using the `cc-switch-depth` counter that brackets the body parse.
 \ NB: detecting "break outside any loop" requires a depth counter.  This
 \ compiler assumes break/continue appear in valid loop or switch contexts.
 : cc-parse-break-stmt
-  [lit]  59 cc-expect-punct-c                     \ ';'
+  [char] ; cc-expect-punct-c
   cc-emit-jmp-rel32-placeholder                   ( fixup-offset )
   cc-add-break-fixup ;
 
@@ -798,7 +798,7 @@ using the `cc-switch-depth` counter that brackets the body parse.
 \ Unwind the scrutinee pushes of any switches between here and the loop
 \ being continued before jumping out of them.
 : cc-parse-continue-stmt
-  [lit]  59 cc-expect-punct-c                     \ ';'
+  [char] ; cc-expect-punct-c
   cc-switch-depth @ cc-loop-switch-depth @ - cc-emit-switch-unwind
   cc-emit-jmp-rel32-placeholder                   ( fixup-offset )
   cc-add-continue-fixup ;
@@ -856,8 +856,8 @@ variable cc-label-count
 : cc-label-set-vaddr  cc-label-vaddr   cc-label-slot ! ;     \ ( v id -- )
 : cc-label-set-fixup  cc-label-fixup   cc-label-slot ! ;     \ ( v id -- )
 
-\ cc-label-find-result holds -1 (= [lit] 0 0=) while still searching, or the id.
-variable cc-label-find-result
+\ Like cc-sym-find: newest first, return at the first match; the index
+\ runs down to -1, which is also the "not found" answer.
 variable cc-label-find-needle-addr
 variable cc-label-find-needle-len
 
@@ -865,26 +865,19 @@ variable cc-label-find-needle-len
 : cc-label-find
   cc-label-find-needle-len  !
   cc-label-find-needle-addr !
-  [lit] 0 0= cc-label-find-result !               \ -1 = "not found"
-  cc-label-count @ [lit] 1 -                      ( i = count-1 )
+  cc-label-count @ 1-                             ( i = count-1 )
   begin,
     dup [lit] 0 >=
   while,
-    cc-label-find-result @ [lit] 0 0= = if,       \ still searching?
-      dup cc-label-name-len cc-label-slot @
-      cc-label-find-needle-len @ = if,
-        dup cc-label-name-addr cc-label-slot @    ( i entry-addr )
-        cc-label-find-needle-addr @ swap
-        cc-label-find-needle-len @
-        bytes-eq if,
-          dup cc-label-find-result !
-        then,
-      then,
+    dup cc-label-name-len cc-label-slot @
+    cc-label-find-needle-len @ = if,
+      dup cc-label-name-addr cc-label-slot @      ( i entry-addr )
+      cc-label-find-needle-addr @ swap
+      cc-label-find-needle-len @
+      bytes-eq if, exit, then,                    \ found: return id i
     then,
-    [lit] 1 -
-  repeat,
-  drop
-  cc-label-find-result @ ;
+    1-
+  repeat, ;                                       \ not found: i = -1
 
 \ cc-label-create ( name-addr name-len -- id )  Append a new label entry.
 \ Initial vaddr=0 (undefined), fixup=0 (no forward refs yet).
@@ -975,7 +968,7 @@ label's fixup list:
     \ Set label's fixup-list head to the new node.
     r> swap cc-label-set-fixup                    ( -- )
   then,
-  [lit]  59 cc-expect-punct-c ;                   \ ';'
+  [char] ; cc-expect-punct-c ;
 
 ```
 
@@ -1042,7 +1035,7 @@ variable cc-lookahead-save-tok-kw
 : cc-peek-after-is-colon?
   cc-lookahead-save
   cc-next-token
-  tok-kind @ tk-punct = tok-num @ [lit] 58 = and
+  tok-kind @ tk-punct = tok-num @ [char] : = and
   dup 0= if,
     \ Not a colon — rewind.
     cc-lookahead-restore
@@ -1114,7 +1107,7 @@ earlier call to `cc-parse-stmt-tramp` now reaches it.
                   tok-kind @ tk-kw = tok-kw-id @ kw-goto = and if,
                     cc-parse-goto-stmt
                   else,
-                    tok-kind @ tk-punct = tok-num @ [lit] 123 = and if,
+                    tok-kind @ tk-punct = tok-num @ [char] { = and if,
                       cc-parse-compound
                     else,
                       \ Possibly an IDENT followed by ':' — a label definition.
@@ -1141,7 +1134,7 @@ earlier call to `cc-parse-stmt-tramp` now reaches it.
                               2drop
                               cc-putback-token
                               cc-parse-expr-balanced
-                              [lit]  59 cc-expect-punct-c
+                              [char] ; cc-expect-punct-c
                             then,
                           then,
                         else,
@@ -1154,14 +1147,14 @@ earlier call to `cc-parse-stmt-tramp` now reaches it.
                             2drop
                             cc-putback-token
                             cc-parse-expr-balanced
-                            [lit]  59 cc-expect-punct-c
+                            [char] ; cc-expect-punct-c
                           then,
                         then,
                       else,
                         \ Expression statement leading with non-IDENT.
                         cc-putback-token
                         cc-parse-expr-balanced
-                        [lit]  59 cc-expect-punct-c
+                        [char] ; cc-expect-punct-c
                       then,
                     then,
                   then,

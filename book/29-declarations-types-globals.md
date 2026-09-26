@@ -15,7 +15,7 @@ that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
 That machinery sits at the top of `110-cc-decl.fth`, the longest file
-in Part III at 2827 lines.  This chapter reads lines 1–625.  The rest
+in Part III at 2729 lines.  This chapter reads lines 1–619.  The rest
 of the file is split by source order rather than by topic: Ch 30
 takes the statements and Ch 31 takes functions, enums, typedefs,
 globals, and the entry stub.  The split has to follow source order
@@ -131,9 +131,9 @@ you can grep for in this file.
   [lit] 0
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 42 = and
+    tok-kind @ tk-punct = tok-num @ [char] * = and
   while,
-    [lit] 1 +
+    1+
   repeat,
   cc-putback-token ;
 
@@ -145,21 +145,18 @@ you can grep for in this file.
 \
 \ These are treated as no-ops.  In particular, local `static int z` behaves
 \ like a regular local; M2-Planet does not rely on static local persistence.
-variable cc-sq-flag
 : cc-skip-storage-quals
   begin,
     cc-next-token-keep
-    [lit] 0 cc-sq-flag !
-    tok-kind @ tk-kw = if,
-      tok-kw-id @ kw-static    = if, [lit] 0 0= cc-sq-flag ! then,
-      tok-kw-id @ kw-extern    = if, [lit] 0 0= cc-sq-flag ! then,
-      tok-kw-id @ kw-auto      = if, [lit] 0 0= cc-sq-flag ! then,
-      tok-kw-id @ kw-register  = if, [lit] 0 0= cc-sq-flag ! then,
-      tok-kw-id @ kw-const     = if, [lit] 0 0= cc-sq-flag ! then,
-      tok-kw-id @ kw-volatile  = if, [lit] 0 0= cc-sq-flag ! then,
-      tok-kw-id @ kw-restrict  = if, [lit] 0 0= cc-sq-flag ! then,
-    then,
-    cc-sq-flag @
+    tok-kind @ tk-kw =
+      tok-kw-id @ kw-static    =
+      tok-kw-id @ kw-extern    = or
+      tok-kw-id @ kw-auto      = or
+      tok-kw-id @ kw-register  = or
+      tok-kw-id @ kw-const     = or
+      tok-kw-id @ kw-volatile  = or
+      tok-kw-id @ kw-restrict  = or
+    and
   while,
     \ already consumed; just loop
   repeat,
@@ -214,7 +211,7 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
   cc-sd-build-field-desc @ over cc-sf-set-desc
   cc-sd-build-desc @ cc-sd-total-size swap cc-sf-set-offset
   \ Increment field-count and total-size by 8.
-  cc-sd-build-desc @ cc-sd-field-count [lit] 1 +
+  cc-sd-build-desc @ cc-sd-field-count 1+
   cc-sd-build-desc @ cc-sd-set-field-count
   cc-sd-build-desc @ cc-sd-total-size [lit] 8 +
   cc-sd-build-desc @ cc-sd-set-total-size ;
@@ -245,7 +242,7 @@ descriptor.  There are two lookups:
     [lit] 95 die
   then,
   tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop
     [lit] 96 die
   then,
@@ -265,7 +262,7 @@ descriptor.  There are two lookups:
     [lit] 95 die
   then,
   tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop [lit] 0
   else,
     dup cc-sym-kind-of sk-struct <> if,
@@ -293,7 +290,7 @@ soft lookup returns 0 instead, which lets a header mention
   \ Snapshot tag bytes on data stack (rstack would be clobbered by ';' etc.).
   tok-str-addr @ tok-str-len @                    ( tag-addr tag-len )
   \ Expect '{'.
-  [lit] 123 cc-expect-punct-c
+  [char] { cc-expect-punct-c
 
   \ Allocate descriptor: 16-byte header + room for up to 16 fields = 656 bytes.
   [lit] 656 cc-alloc                              ( tag-addr tag-len desc )
@@ -318,7 +315,7 @@ soft lookup returns 0 instead, which lets a header mention
   \ what matters is correctness of name+offset.
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 125 = and 0=
+    tok-kind @ tk-punct = tok-num @ [char] } = and 0=
   while,
     cc-putback-token
     \ Parse base type.  Default the pointee-descriptor to 0; the struct-tag
@@ -360,13 +357,13 @@ soft lookup returns 0 instead, which lets a header mention
     then,
     tok-str-addr @ cc-sd-build-fname-a !
     tok-str-len  @ cc-sd-build-fname-u !
-    [lit] 59 cc-expect-punct-c                    \ ';'
+    [char] ; cc-expect-punct-c
     cc-sd-append-field
   repeat,
   \ '}' was the loop test; we consumed it via cc-next-token-keep but DIDN'T
   \ putback this time (the test went 0=, so we entered the exit path).
   \ Expect ';' after '}'.
-  [lit] 59 cc-expect-punct-c
+  [char] ; cc-expect-punct-c
   drop drop ;                                     \ discard tag-a tag-u
 
 ```
@@ -443,12 +440,12 @@ variable cc-fnptr-save-tok-kw
 : cc-peek-fnptr?
   cc-fnptr-lookahead-save
   cc-next-token
-  tok-kind @ tk-punct = tok-num @ [lit] 40 = and 0= if,
+  tok-kind @ tk-punct = tok-num @ lparen = and 0= if,
     cc-fnptr-lookahead-restore
     [lit] 0
   else,
     cc-next-token
-    tok-kind @ tk-punct = tok-num @ [lit] 42 = and
+    tok-kind @ tk-punct = tok-num @ [char] * = and
     cc-fnptr-lookahead-restore
   then, ;
 
@@ -472,8 +469,8 @@ caller gets a flag and a lexer that hasn't moved.
   while,
     cc-next-token-keep
     tok-kind @ tk-punct = if,
-      tok-num @ [lit] 40 = if, [lit] 1 + then,
-      tok-num @ [lit] 41 = if, [lit] 1 - then,
+      tok-num @ lparen = if, 1+ then,
+      tok-num @ [char] ) = if, 1- then,
     then,
   repeat,
   drop ;
@@ -487,8 +484,8 @@ caller gets a flag and a lexer that hasn't moved.
 \ parameter types are skipped; signatures are not validated.
 : cc-parse-fnptr-decl
   \ Consume '(' and '*'.
-  [lit]  40 cc-expect-punct-c
-  [lit]  42 cc-expect-punct-c
+  lparen cc-expect-punct-c
+  [char] * cc-expect-punct-c
 
   \ NAME (IDENT).
   cc-next-token-keep
@@ -498,8 +495,8 @@ caller gets a flag and a lexer that hasn't moved.
   tok-str-addr @ tok-str-len @                    ( name-a name-u )
 
   \ ')' '(' PARAM-TYPES ')'
-  [lit] 41 cc-expect-punct-c
-  [lit] 40 cc-expect-punct-c
+  [char] ) cc-expect-punct-c
+  lparen cc-expect-punct-c
   cc-skip-fnptr-params
 
   \ Register as an sk-local function pointer: ty-func + ptr-depth=1.
@@ -511,12 +508,12 @@ caller gets a flag and a lexer that hasn't moved.
 
   \ Optional '= expr;' initializer.
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] = = and if,
     cc-parse-expr-balanced
-    cc-fn-local-count @ [lit] 1 - cc-emit-store-local
-    [lit] 59 cc-expect-punct-c
+    cc-fn-local-count @ 1- cc-emit-store-local
+    [char] ; cc-expect-punct-c
   else,
-    tok-kind @ tk-punct = tok-num @ [lit] 59 = and 0= if,
+    tok-kind @ tk-punct = tok-num @ [char] ; = and 0= if,
       [lit] 141 die
     then,
   then, ;
@@ -557,7 +554,7 @@ variable cc-decl-base                              \ base type kind
   cc-expect-ident
   tok-str-addr @ tok-str-len @                     ( ptr-depth a u )
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 91 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] [ = and if,
     \ -------- Array declaration: T name [ N ] ; --------
     cc-next-token-keep
     tok-kind @ tk-num <> if,
@@ -568,11 +565,11 @@ variable cc-decl-base                              \ base type kind
       [lit] 24 die
     then,
     cc-next-token-keep
-    tok-kind @ tk-punct <> tok-num @ [lit] 93 <> or if,
+    tok-kind @ tk-punct <> tok-num @ [char] ] <> or if,
       [lit] 25 die
     then,
     cc-next-token-keep
-    tok-kind @ tk-punct <> tok-num @ [lit] 59 <> or if,
+    tok-kind @ tk-punct <> tok-num @ [char] ; <> or if,
       [lit] 26 die
     then,
     ( ptr-depth a u N )
@@ -580,7 +577,7 @@ variable cc-decl-base                              \ base type kind
     rot                                            ( a u ptr-depth ; R: N )
     sk-local swap                                  ( a u sk-local ptr-depth )
     cc-decl-base @ swap ty-make                    ( a u kind type )
-    cc-fn-local-count @ r@ + [lit] 1 -             ( a u kind type slot )
+    cc-fn-local-count @ r@ + 1-                    ( a u kind type slot )
     cc-sym-add                                     ( id ; R: N )
     r@ swap cc-sym-set-extra                       ( ; R: N )
     r> cc-fn-local-count +!
@@ -594,12 +591,12 @@ variable cc-decl-base                              \ base type kind
     cc-sym-add drop                                ( -- )
     [lit] 1 cc-fn-local-count +!
 
-    tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] = = and if,
       cc-parse-expr-balanced
-      cc-fn-local-count @ [lit] 1 - cc-emit-store-local
+      cc-fn-local-count @ 1- cc-emit-store-local
       cc-next-token-keep                           \ ';'
     then,
-    tok-kind @ tk-punct <> tok-num @ [lit] 59 <> or if,
+    tok-kind @ tk-punct <> tok-num @ [char] ; <> or if,
       [lit] 22 die
     then,
   then,
@@ -637,19 +634,16 @@ reads the name, and looks at the next token:
 \ cc-tok-is-basic-type-kw? ( -- f )  -1 iff current token is a basic-type
 \ keyword that introduces a local declaration: int / char / void / long /
 \ short / unsigned / signed.  All are treated as 8-byte slot in codegen.
-variable cc-bt-flag
 : cc-tok-is-basic-type-kw?
-  [lit] 0 cc-bt-flag !
-  tok-kind @ tk-kw = if,
-    tok-kw-id @ kw-int      = if, [lit] 0 0= cc-bt-flag ! then,
-    tok-kw-id @ kw-char     = if, [lit] 0 0= cc-bt-flag ! then,
-    tok-kw-id @ kw-void     = if, [lit] 0 0= cc-bt-flag ! then,
-    tok-kw-id @ kw-long     = if, [lit] 0 0= cc-bt-flag ! then,
-    tok-kw-id @ kw-short    = if, [lit] 0 0= cc-bt-flag ! then,
-    tok-kw-id @ kw-unsigned = if, [lit] 0 0= cc-bt-flag ! then,
-    tok-kw-id @ kw-signed   = if, [lit] 0 0= cc-bt-flag ! then,
-  then,
-  cc-bt-flag @ ;
+  tok-kind @ tk-kw =
+    tok-kw-id @ kw-int      =
+    tok-kw-id @ kw-char     = or
+    tok-kw-id @ kw-void     = or
+    tok-kw-id @ kw-long     = or
+    tok-kw-id @ kw-short    = or
+    tok-kw-id @ kw-unsigned = or
+    tok-kw-id @ kw-signed   = or
+  and ;
 
 ```
 
@@ -698,11 +692,11 @@ variable cc-sld-name-u
 
   cc-sld-ptr-depth @ [lit] 0 = if,
     \ struct TAG name; — reserve slot-count slots.  No initializer support.
-    [lit] 59 cc-expect-punct-c                    \ ';'
+    [char] ; cc-expect-punct-c
     cc-sld-name-a @ cc-sld-name-u @
     sk-local
     ty-struct [lit] 0 ty-make
-    cc-fn-local-count @ cc-sld-desc @ cc-sd-total-size [lit] 8 / + [lit] 1 -
+    cc-fn-local-count @ cc-sld-desc @ cc-sd-total-size [lit] 8 / + 1-
                                                   ( a u kind ty slot )
     cc-sym-add                                    ( id )
     cc-sld-desc @ swap cc-sym-set-extra
@@ -720,12 +714,12 @@ variable cc-sld-name-u
 
     \ Optional '= expr;' initializer (M2-Planet uses `struct T* i = expr;`).
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] = = and if,
       cc-parse-expr-balanced
-      cc-fn-local-count @ [lit] 1 - cc-emit-store-local
-      [lit] 59 cc-expect-punct-c
+      cc-fn-local-count @ 1- cc-emit-store-local
+      [char] ; cc-expect-punct-c
     else,
-      tok-kind @ tk-punct = tok-num @ [lit] 59 = and 0= if,
+      tok-kind @ tk-punct = tok-num @ [char] ; = and 0= if,
         [lit] 99 die
       then,
     then,
@@ -782,7 +776,7 @@ variable cc-loop-switch-depth
     dup [lit] 0 >
   while,
     cc-emit-pop-rbx
-    [lit] 1 -
+    1-
   repeat,
   drop ;
 
@@ -804,7 +798,7 @@ end label.
 \ the epilogue's ret.
 : cc-parse-return
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ; = and if,
     cc-emit-xor-rax-rax                           \ rax := 0 (no value returned)
     cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
@@ -814,7 +808,7 @@ end label.
     cc-emit-mov-rax-rdi                           \ result -> rax (SYS-V)
     cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
-    [lit] 59 cc-expect-punct-c                    \ ';'
+    [char] ; cc-expect-punct-c
   then, ;
 
 ```

@@ -179,7 +179,7 @@ the end of the instruction.  So the helper writes `E8` at HERE,
 advances `rax` to HERE + 5, computes `xt - rax` in `rdi` and stores
 its low 32 bits into the four bytes before `rax`.  Then HERE moves
 past the instruction and the xt is dropped.  It is the same
-arithmetic as Ch 11's `comma-call`, `rel32 = target - (HERE + 5)`,
+arithmetic as Ch 10's `call,`, `rel32 = target - (HERE + 5)`,
 done once in hex so the seed's two compilers share it.
 
 ## 5. `lit_code` and the inline-cell trick

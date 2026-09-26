@@ -13,7 +13,7 @@ without counting.  `swap drop` and `drop drop` are easy to misread
 in the middle of a parser, and a missed `swap` is a bug that only
 shows up three words later.
 
-`010-lib.fth` (lines 123–137) names four more: `nip`, `rot`, `2dup`,
+`010-lib.fth` (lines 139–153) names four more: `nip`, `rot`, `2dup`,
 and `2drop`.  Ch 1 previewed all four, and nothing new happens
 inside them.  The interesting question is the one standard Forth
 answers differently: why this seed has no `pick`, and why the C

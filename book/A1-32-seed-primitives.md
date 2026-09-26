@@ -94,9 +94,12 @@ These look like primitives but are colon definitions in
 - `and`, `or`, `not`: derived from `nand`.  Ch 3.
 - `digit?`, `alpha?`, `space?`: Ch 6.
 - `+!`, `-!`, `,4`, `,8`: Ch 9.
-- `immediate`, `constant`, `variable`, `create`, `allot`, `skip-vm-pages`: Chs 10, 12.
-- `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,`: Ch 11.
-- `branch-xt`, `0branch-xt`, `comma-call`, `bytes-eq`: Chs 11, 12.
+- `immediate`, `ret,`, `push-imm64,`, `push-body,`, `constant`, `call,`,
+  `char`, `[char]`: Ch 10.
+- `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,`, `until,`,
+  `again,`, `exit,`, `branch-xt`, `0branch-xt`: Ch 11.
+- `allot`, `skip-vm-pages`, `create`, `variable`, `token`, `bytes,`, `s,`,
+  `bytes-eq`: Ch 12.
 
 The boundary between "primitive" and "library word" is exactly the
 boundary between `000-seed.hex0` and `010-lib.fth`.  Once `010-lib.fth`

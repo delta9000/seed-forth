@@ -66,7 +66,7 @@
 \   signed displacement -8*(slot+1).  Only valid for slots 0..15.
 
 : cc-disp8-from-slot
-  [lit] 1 + [lit] 8 *                            \ 8 * (slot+1)
+  1+ [lit] 8 *                                   \ 8 * (slot+1)
   [lit] 0 swap -                                  \ negate
   [lit] 255 and ;                                 \ low byte
 
@@ -81,7 +81,7 @@
     cc-disp8-from-slot cc-emit-byte
   else,
     [lit] 64 + cc-emit-byte                       \ mod=01 -> mod=10
-    [lit] 1 + [lit] 8 *                           \ 8 * (slot+1)
+    1+ [lit] 8 *                                  \ 8 * (slot+1)
     [lit] 0 swap - cc-emit-4le                    \ negate; low 4 bytes = disp32
   then, ;
 
@@ -481,17 +481,17 @@
   begin,
     dup [lit] 0 >
   while,
-    over c@ [lit] 92 = if,                        \ '\\' (backslash)
+    over c@ backslash = if,
       dup [lit] 2 >= if,
         \ Have at least one more byte for the escape.
-        over [lit] 1 + c@                         ( src len escaped )
-        dup [lit] 110 = if, drop [lit] 10 else,   \ \n
-        dup [lit] 116 = if, drop [lit]  9 else,   \ \t
-        dup [lit] 114 = if, drop [lit] 13 else,   \ \r
-        dup [lit]  92 = if, drop [lit] 92 else,   \ \\
-        dup [lit]  39 = if, drop [lit] 39 else,   \ \'
-        dup [lit]  34 = if, drop [lit] 34 else,   \ \"
-        dup [lit]  48 = if, drop [lit]  0 else,   \ \0
+        over 1+ c@                                ( src len escaped )
+        dup [char] n  = if, drop nl        else,  \ \n
+        dup [char] t  = if, drop tab       else,  \ \t
+        dup [char] r  = if, drop [lit] 13  else,  \ \r (CR)
+        dup backslash = if, drop backslash else,  \ \\
+        dup [char] '  = if, drop [char] '  else,  \ \'
+        dup [char] "  = if, drop [char] "  else,  \ \"
+        dup [char] 0  = if, drop [lit] 0   else,  \ \0
           \ Default: pass the escaped char through unchanged.
         then, then, then, then, then, then, then,
         cc-emit-byte
@@ -500,11 +500,11 @@
       else,
         \ Trailing backslash with no follow-up char: emit literally.
         over c@ cc-emit-byte
-        swap [lit] 1 + swap [lit] 1 -
+        swap 1+ swap 1-
       then,
     else,
       over c@ cc-emit-byte
-      swap [lit] 1 + swap [lit] 1 -
+      swap 1+ swap 1-
     then,
   repeat,
   drop drop
@@ -701,12 +701,12 @@
   [lit]   6 cc-emit-byte                          \ movzx eax, [rsi]
   [lit]  49 cc-emit-byte [lit] 246 cc-emit-byte   \ xor esi, esi
   [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
-  [lit] 119 cc-emit-byte                          \ cmp eax, 'w'
+  [char] w  cc-emit-byte                          \ cmp eax, 'w'
   [lit] 117 cc-emit-byte [lit]   7 cc-emit-byte   \ jne +7
   [lit] 190 cc-emit-byte [lit] 577 cc-emit-4le    \ mov esi, 0x241
   [lit] 235 cc-emit-byte [lit]  10 cc-emit-byte   \ jmp +10
   [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
-  [lit]  97 cc-emit-byte                          \ cmp eax, 'a'
+  [char] a  cc-emit-byte                          \ cmp eax, 'a'
   [lit] 117 cc-emit-byte [lit]   5 cc-emit-byte   \ jne +5
   [lit] 190 cc-emit-byte [lit] 1089 cc-emit-4le   \ mov esi, 0x441
   [lit]  95 cc-emit-byte                          \ pop rdi
@@ -997,7 +997,7 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   [lit] 0
   begin, dup cc-globals-cap < while,
     [lit] 0 over cc-globals-buf + c!
-    [lit] 1 +
+    1+
   repeat, drop ;
 
 \ cc-globals-alloc ( bytes -- slot )  Reserve `bytes` bytes; return the offset
@@ -1016,7 +1016,7 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   cc-globals-buf +                                 ( v addr )
   >r                                                ( v ; R: addr )
   dup r@                       c!
-  [lit] 256 / dup r@ [lit] 1 + c!
+  [lit] 256 / dup r@ 1+ c!
   [lit] 256 / dup r@ [lit] 2 + c!
   [lit] 256 / dup r@ [lit] 3 + c!
   [lit] 256 / dup r@ [lit] 4 + c!

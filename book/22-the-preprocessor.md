@@ -10,7 +10,7 @@ Proof link: Stage-A sees the same project headers and integer constants as the r
 `tri.c` opens with `#define ROWS 4`, a line no C parser accepts, and
 then uses `ROWS` four times.  Before the parser sees the program,
 something has to delete that line and make each `ROWS` mean 4.  The
-preprocessor does only the first half.  The 662-line file
+preprocessor does only the first half.  The 616-line file
 `040-cc-prep.fth` is the smallest preprocessor that suffices for
 M2-Planet.  It supports two active transformations: `#include "…"` for project
 headers, spliced in recursively, and `#define NAME N` for integer
@@ -166,8 +166,6 @@ variable cc-mn-dst
   [lit] 1 cc-macro-count +!
   r> drop ;
 
-variable cc-macro-find-flag
-variable cc-macro-find-value
 variable cc-macro-find-needle-addr
 variable cc-macro-find-needle-len
 
@@ -185,39 +183,32 @@ Lookup walks the table from the newest entry down:
 
 ```forth file=040-cc-prep.fth
 \ cc-macro-find-int ( name-addr name-len -- value found? )
-\ Iterates newest→oldest so a later #define wins.
+\ Iterates newest→oldest so a later #define wins: the first hit returns.
 : cc-macro-find-int
   cc-macro-find-needle-len  !
   cc-macro-find-needle-addr !
-  [lit] 0 cc-macro-find-flag  !
-  [lit] 0 cc-macro-find-value !
-  cc-macro-count @ [lit] 1 -                       ( i )
+  cc-macro-count @ 1-                              ( i )
   begin,
     dup [lit] 0 >=
   while,
-    cc-macro-find-flag @ [lit] 0 = if,             \ still searching?
-      dup cc-macro-name-len cc-macro-slot @
-      cc-macro-find-needle-len @ = if,
-        dup cc-macro-name-addr cc-macro-slot @     ( i entry-a )
-        cc-macro-find-needle-addr @ swap           ( i needle entry )
-        cc-macro-find-needle-len @
-        bytes-eq if,
-          dup cc-macro-value cc-macro-slot @ cc-macro-find-value !
-          [lit] 0 0= cc-macro-find-flag !
-        then,
+    dup cc-macro-name-len cc-macro-slot @
+    cc-macro-find-needle-len @ = if,
+      dup cc-macro-name-addr cc-macro-slot @       ( i entry-a )
+      cc-macro-find-needle-addr @ swap             ( i needle entry )
+      cc-macro-find-needle-len @
+      bytes-eq if,
+        cc-macro-value cc-macro-slot @ true exit,  ( value -1 )
       then,
     then,
-    [lit] 1 -
+    1-
   repeat,
-  drop
-  cc-macro-find-value @  cc-macro-find-flag @ ;
+  drop [lit] 0 [lit] 0 ;                           \ not found: 0 0
 
 ```
 
 The comparator is `bytes-eq` (Ch 12).  Walking newest-first means a later `#define` of the same name
-shadows the earlier one, as in C.  After the first hit the loop keeps
-counting down but skips its comparisons, gated on
-`cc-macro-find-flag`.  This is the small-table,
+shadows the earlier one, as in C.  The first hit returns at once with
+`exit,` (Ch 11), leaving the value and a true flag.  This is the small-table,
 newest-wins lookup of Ch 17's dictionary at macro scale.
 
 ## 3. The walker: peek, advance, classify
@@ -254,17 +245,17 @@ variable cc-prep-src-pos
 \ cc-prep-peek2 ( -- c )  The byte one past pos; 0 if that is at/after EOR.
 \ Used to recognise the two-byte comment markers /* and */.
 : cc-prep-peek2
-  cc-prep-src-pos @ [lit] 1 + cc-prep-src-len @ >= if,
+  cc-prep-src-pos @ 1+ cc-prep-src-len @ >= if,
     [lit] 0
   else,
-    cc-prep-src-addr @ cc-prep-src-pos @ + [lit] 1 + c@
+    cc-prep-src-addr @ cc-prep-src-pos @ + 1+ c@
   then, ;
 
 \ cc-prep-skip-blanks ( -- )  Skip spaces and tabs (NOT newlines).
 : cc-prep-skip-blanks
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek dup [lit] 32 = swap [lit] 9 = or  and
+    cc-prep-peek dup bl = swap tab = or  and
   while,
     cc-prep-advance
   repeat, ;
@@ -274,13 +265,13 @@ variable cc-prep-src-pos
 : cc-prep-skip-block-comment-tail
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek [lit] 42 = cc-prep-peek2 [lit] 47 = and 0=  \ not yet "*/"
+    cc-prep-peek [char] * = cc-prep-peek2 [char] / = and 0=  \ not yet "*/"
     and
   while,
     cc-prep-advance
   repeat,
-  cc-prep-peek  [lit] 42 = if, cc-prep-advance then,         \ consume '*'
-  cc-prep-peek  [lit] 47 = if, cc-prep-advance then, ;       \ consume '/'
+  cc-prep-peek  [char] * = if, cc-prep-advance then,         \ consume '*'
+  cc-prep-peek  [char] / = if, cc-prep-advance then, ;       \ consume '/'
 
 \ cc-prep-skip-to-eol ( -- )  Stop at newline (which is left unconsumed) or EOR.
 \ A directive's tokens may be followed by a /* block comment */ that runs past
@@ -290,9 +281,9 @@ variable cc-prep-src-pos
 : cc-prep-skip-to-eol
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek [lit] 10 <> and
+    cc-prep-peek nl <> and
   while,
-    cc-prep-peek [lit] 47 = cc-prep-peek2 [lit] 42 = and if,
+    cc-prep-peek [char] / = cc-prep-peek2 [char] * = and if,
       cc-prep-advance cc-prep-advance                       \ skip '/*'
       cc-prep-skip-block-comment-tail
     else,
@@ -301,7 +292,7 @@ variable cc-prep-src-pos
   repeat, ;
 
 \ Ident classifiers (use 010-lib.fth alpha?/digit?).
-: cc-prep-is-ident-start?  dup alpha?  swap [lit] 95 = or ;
+: cc-prep-is-ident-start?  dup alpha?  swap [char] _ = or ;
 : cc-prep-is-ident-cont?   dup cc-prep-is-ident-start?  swap digit? or ;
 
 ```
@@ -368,11 +359,7 @@ path builder.
 create cc-prep-path-buf  cc-prep-path-cap allot
 variable cc-prep-path-out
 
-create cc-prep-tests-prefix
-[lit] 116 c, [lit] 101 c, [lit] 115 c, [lit] 116 c, [lit] 115 c,  \ tests
-[lit]  47 c,                                            \ /
-[lit]  99 c, [lit]  99 c,                               \ cc
-[lit]  47 c,                                            \ /
+create cc-prep-tests-prefix  s, tests/cc/
 
 [lit] 9 constant cc-prep-tests-prefix-len
 
@@ -384,8 +371,8 @@ create cc-prep-tests-prefix
     over c@
     cc-prep-path-buf cc-prep-path-out @ + c!
     [lit] 1 cc-prep-path-out +!
-    swap [lit] 1 + swap
-    [lit] 1 -
+    swap 1+ swap
+    1-
   repeat,
   drop drop ;
 
@@ -451,13 +438,13 @@ variable cc-prep-load-name-u
   cc-prep-load-name-a @ cc-prep-load-name-u @
   cc-prep-build-path
   cc-prep-path-buf cc-prep-try-open                ( fd )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop
     cc-prep-tests-prefix cc-prep-tests-prefix-len
     cc-prep-load-name-a @ cc-prep-load-name-u @
     cc-prep-build-path
     cc-prep-path-buf cc-prep-try-open
-    dup [lit] 0 < if,
+    dup 0< if,
       drop
       [lit] 70 die
     then,
@@ -517,9 +504,9 @@ variable cc-prep-dec-seen
     cc-prep-peek digit? and
   while,
     cc-prep-dec-acc @ [lit] 10 *
-    cc-prep-peek [lit] 48 - +
+    cc-prep-peek [char] 0 - +
     cc-prep-dec-acc !
-    [lit] 0 0= cc-prep-dec-seen !
+    true cc-prep-dec-seen !
     cc-prep-advance
   repeat,
   cc-prep-dec-acc @ cc-prep-dec-seen @ ;
@@ -574,10 +561,10 @@ and the save arrays in place, the handler can recurse:
 : cc-prep-handle-include
   cc-prep-skip-blanks
   [lit] 0 cc-prep-inc-mode !
-  cc-prep-peek [lit] 34 = if,
+  cc-prep-peek [char] " = if,
     [lit] 1 cc-prep-inc-mode !
   else,
-    cc-prep-peek [lit] 60 = if,
+    cc-prep-peek [char] < = if,
       [lit] 2 cc-prep-inc-mode !
     then,
   then,
@@ -589,13 +576,13 @@ and the save arrays in place, the handler can recurse:
     cc-prep-src-pos @                              ( path-a start )
     begin,
       cc-prep-eor? 0=
-      cc-prep-peek [lit] 34 <> and
-      cc-prep-peek [lit] 10 <> and
+      cc-prep-peek [char] " <> and
+      cc-prep-peek nl <> and
     while,
       cc-prep-advance
     repeat,
     cc-prep-src-pos @ swap -                       ( path-a len )
-    cc-prep-peek [lit] 34 = if, cc-prep-advance then,
+    cc-prep-peek [char] " = if, cc-prep-advance then,
     \ ( path-a len ) — load file, then recurse.
     cc-prep-load-file                              ( buf-a buf-u )
     \ Save current region state at depth slot BEFORE bumping.
@@ -620,12 +607,12 @@ and the save arrays in place, the handler can recurse:
       cc-prep-advance
       begin,
         cc-prep-eor? 0=
-        cc-prep-peek [lit] 62 <> and
-        cc-prep-peek [lit] 10 <> and
+        cc-prep-peek [char] > <> and
+        cc-prep-peek nl <> and
       while,
         cc-prep-advance
       repeat,
-      cc-prep-peek [lit] 62 = if, cc-prep-advance then,
+      cc-prep-peek [char] > = if, cc-prep-advance then,
     then,
   then,
   cc-prep-skip-to-eol ;
@@ -724,48 +711,35 @@ dispatcher compares the directive name against two byte arrays.
 \ Unknown directives are elided.  Always advances to end-of-line.
 \ ===========================================================================
 
-create cc-prep-name-include
-[lit] 105 c, [lit] 110 c, [lit]  99 c, [lit] 108 c,    \ incl
-[lit] 117 c, [lit] 100 c, [lit] 101 c,                  \ ude
-
-create cc-prep-name-define
-[lit] 100 c, [lit] 101 c, [lit] 102 c, [lit] 105 c,    \ defi
-[lit] 110 c, [lit] 101 c,                               \ ne
-
-variable cc-prep-dir-matched
+create cc-prep-name-include  s, include
+create cc-prep-name-define   s, define
 
 : cc-prep-handle-directive
   cc-prep-skip-blanks                              \ leading indent before '#'
   cc-prep-advance                                  \ consume '#'
   cc-prep-skip-blanks
-  [lit] 0 cc-prep-dir-matched !
   cc-prep-peek cc-prep-is-ident-start? if,
     cc-prep-read-ident
     cc-prep-ident-len @ [lit] 7 = if,
       cc-prep-ident-addr @ cc-prep-name-include [lit] 7 bytes-eq if,
-        cc-prep-handle-include
-        [lit] 0 0= cc-prep-dir-matched !
+        cc-prep-handle-include exit,
       then,
     then,
-    cc-prep-dir-matched @ [lit] 0 = if,
-      cc-prep-ident-len @ [lit] 6 = if,
-        cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
-          cc-prep-handle-define
-          [lit] 0 0= cc-prep-dir-matched !
-        then,
+    cc-prep-ident-len @ [lit] 6 = if,
+      cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
+        cc-prep-handle-define exit,
       then,
     then,
   then,
-  cc-prep-dir-matched @ [lit] 0 = if,
-    cc-prep-skip-to-eol
-  then, ;
+  cc-prep-skip-to-eol ;                            \ unknown directive: elide it
 
 ```
 
 `cc-prep-handle-directive` reads the name, matches it with `bytes-eq`
 against `cc-prep-name-include` or `cc-prep-name-define`, and calls the
-handler.  An unknown directive leaves `cc-prep-dir-matched` at 0 and
-falls to `cc-prep-skip-to-eol`, so the `#` already consumed is never
+handler, returning with `exit,` once the handler is done.  An
+unknown directive matches neither and falls through to
+`cc-prep-skip-to-eol`, so the `#` already consumed is never
 emitted.
 
 Two words remain: the test for whether a line is a directive, and the
@@ -783,7 +757,7 @@ variable cc-prep-isd-save-pos
 : cc-prep-line-is-directive?
   cc-prep-src-pos @ cc-prep-isd-save-pos !
   cc-prep-skip-blanks
-  cc-prep-peek [lit] 35 = >r                       \ '#' = 35
+  cc-prep-peek [char] # = >r
   cc-prep-isd-save-pos @ cc-prep-src-pos !
   r> ;
 
@@ -796,17 +770,17 @@ variable cc-prep-isd-save-pos
 variable cc-prep-at-line-start
 
 : cc-prep-process-region
-  [lit] 0 0= cc-prep-at-line-start !               \ -1 = at start
+  true cc-prep-at-line-start !                     \ -1 = at start
   begin,
     cc-prep-eor? 0=
   while,
     cc-prep-at-line-start @  cc-prep-line-is-directive?  and if,
       cc-prep-handle-directive
-      [lit] 0 0= cc-prep-at-line-start !
+      true cc-prep-at-line-start !
     else,
       cc-prep-peek dup cc-prep-emit-byte
-      [lit] 10 = if,
-        [lit] 0 0= cc-prep-at-line-start !
+      nl = if,
+        true cc-prep-at-line-start !
       else,
         [lit] 0 cc-prep-at-line-start !
       then,
@@ -881,37 +855,17 @@ the elided system headers would have supplied:
 \ cc-macro-find-int path during lexing.
 \ ===========================================================================
 
-create cc-builtin-name-NULL
-[lit]  78 c, [lit]  85 c, [lit]  76 c, [lit]  76 c,    \ NULL
-
-create cc-builtin-name-EOF
-[lit]  69 c, [lit]  79 c, [lit]  70 c,                 \ EOF
-
-create cc-builtin-name-EXIT_SUCCESS
-[lit]  69 c, [lit]  88 c, [lit]  73 c, [lit]  84 c,    \ EXIT
-[lit]  95 c, [lit]  83 c, [lit]  85 c, [lit]  67 c,    \ _SUC
-[lit]  67 c, [lit]  69 c, [lit]  83 c, [lit]  83 c,    \ CESS
-
-create cc-builtin-name-EXIT_FAILURE
-[lit]  69 c, [lit]  88 c, [lit]  73 c, [lit]  84 c,    \ EXIT
-[lit]  95 c, [lit]  70 c, [lit]  65 c, [lit]  73 c,    \ _FAI
-[lit]  76 c, [lit]  85 c, [lit]  82 c, [lit]  69 c,    \ LURE
-
-create cc-builtin-name-stdin
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 105 c,    \ stdi
-[lit] 110 c,                                            \ n
-
-create cc-builtin-name-stdout
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 111 c,    \ stdo
-[lit] 117 c, [lit] 116 c,                               \ ut
-
-create cc-builtin-name-stderr
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 101 c,    \ stde
-[lit] 114 c, [lit] 114 c,                               \ rr
+create cc-builtin-name-NULL          s, NULL
+create cc-builtin-name-EOF           s, EOF
+create cc-builtin-name-EXIT_SUCCESS  s, EXIT_SUCCESS
+create cc-builtin-name-EXIT_FAILURE  s, EXIT_FAILURE
+create cc-builtin-name-stdin         s, stdin
+create cc-builtin-name-stdout        s, stdout
+create cc-builtin-name-stderr        s, stderr
 
 : cc-prep-builtins
   cc-builtin-name-NULL          [lit]  4 [lit]  0 cc-macro-add
-  cc-builtin-name-EOF           [lit]  3 [lit]  0 0= cc-macro-add
+  cc-builtin-name-EOF           [lit]  3 true      cc-macro-add   \ EOF = -1
   cc-builtin-name-EXIT_SUCCESS  [lit] 12 [lit]  0 cc-macro-add
   cc-builtin-name-EXIT_FAILURE  [lit] 12 [lit]  1 cc-macro-add
   cc-builtin-name-stdin         [lit]  5 [lit]  0 cc-macro-add
@@ -921,7 +875,7 @@ create cc-builtin-name-stderr
 ```
 
 `cc-prep-builtins` pre-loads seven names: `NULL = 0`, `EOF = -1`
-(encoded as `[lit] 0 0=`, since `-1` would fail `parse_decimal_code`;
+(encoded as `true`, since `-1` would fail `parse_decimal_code`;
 Ch 20 explains why), `EXIT_SUCCESS = 0`, `EXIT_FAILURE = 1`, and the
 standard-fd shims `stdin = 0`, `stdout = 1`, `stderr = 2`.  These are
 the only `stdio.h` / `stdlib.h` artefacts this bootstrap path needs

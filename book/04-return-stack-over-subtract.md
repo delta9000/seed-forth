@@ -13,7 +13,7 @@ not subtract: there is `+` and no `-`.  And it cannot copy the value
 With `a b` on the stack, no sequence of `dup`, `drop`, and `swap`
 ever produces `a b a`.
 
-The next two definitions in `010-lib.fth` (lines 32–38) close both
+The next definitions in `010-lib.fth` (lines 34–45) close both
 gaps without a new primitive.  `over` parks `b` somewhere else for a
 moment, and the seed has exactly one somewhere else: the return
 stack.  `-` borrows two's complement and Ch 3's `dup nand`.  Ch 1
@@ -174,6 +174,13 @@ seed's only "big" arithmetic primitives, because deriving them would
 cost more than the bytes they take.  And `-` will not stay a
 convenience: Ch 7 builds every comparison on it.
 
+Two more one-liners follow `-`: `1+` and `1-`, which add and
+subtract one.  They shrink a call site from 18 bytes (`[lit] 1 +`
+is a 13-byte literal and a 5-byte CALL) to 5, but that is not why
+they exist.
+Stepping a pointer, a counter or a length by one is the commonest
+arithmetic in the C compiler, and `1+` says it in one token.
+
 ## Canonical source
 
 ```forth file=010-lib.fth
@@ -184,6 +191,11 @@ convenience: Ch 7 builds every comparison on it.
 \ - ( a b -- a-b )  subtract via 2's complement (we have + and nand).
 \ Used by classifier helpers and the local rel32 CALL encoder below.
 : -  dup nand [lit] 1 + + ;
+
+\ 1+ ( n -- n+1 )   1- ( n -- n-1 )  Step by one: the commonest arithmetic
+\ in the C compiler (pointers, counters, lengths), so it gets a name.
+: 1+  [lit] 1 + ;
+: 1-  [lit] 1 - ;
 
 ```
 

@@ -256,7 +256,7 @@ The last two are Ch 7's sign test with nothing in the way.
 9223372036854775808 is 2^63.  One unsigned `DIV` by 2^63 turns the
 top bit into a `1` for the negative number and a `0` for 5.  With
 `IDIV`, `-1` divided by that same bit pattern would give `0`, and
-`010-lib.fth`'s `<`, defined as `- neg-flag`, would answer false for
+`010-lib.fth`'s `<`, defined as `- 0<`, would answer false for
 nearly every pair where it should answer true.
 
 ## Exercises
