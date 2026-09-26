@@ -7,91 +7,91 @@ Artifact after this chapter: a source reader, an output writer, and a bump alloc
 Proof link: later stages can assemble /tmp/cc-out deterministically for Stage-A checks.
 ```
 
-Part III opens with the first two files of the C compiler written
-in Forth, both of them deliberately uneventful infrastructure.
-`020-cc-arena.fth` (41 lines, entire file) is an 8-byte-aligned bump
-allocator that hands out variable-sized blocks for struct
-descriptors, fixup-list nodes, and `switch` case lists; it
-fails loudly with `die 7` on exhaustion.  `030-cc-io.fth` (151
-lines, entire file) gives the compiler its two buffers: a 1 MiB
-source buffer at `0x414000+` filled by `cc-load-stdin` and walked
-by the `cc-peek-char` / `cc-next-char` reader (with line tracking
-for error messages), and a 1 MiB output buffer written via
-`cc-emit-byte`, `cc-emit-4le`, `cc-emit-8le` and back-patched
-through `cc-out-patch-*` so that header fields like the segment
-sizes can be filled in after layout is known.
+A compiler needs somewhere to put the program it is reading and the
+program it is writing.  Before any C can be parsed, the Forth we built
+in Part II has to slurp up to a megabyte of source from stdin, hand
+it out one byte at a time, collect up to a megabyte of machine code,
+and write it to disk.  It also needs a way to allocate the odd record
+whose size isn't known in advance.
 
-By the end of the chapter you'll be able to explain the arena's
-exhaustion behaviour, trace a single byte from stdin through
-`cc-peek-char` into a lexer call, and read the output-buffer writer
-with enough fluency to see why the whole ELF is accumulated in
-memory before any `write` syscall fires.  The ELF-header bytes that
-`cc-emit-4le` and `cc-emit-8le` actually emit are Ch 25; how the
-lexer consumes `cc-next-char` is Ch 23.
-
----
-
-Part II finished with the seed standing on its own legs: an ELF
-binary that reads tokens, finds them in the dictionary, executes or
-compiles them, and exits.  Part III is the payoff.  We use that
-Forth to host a compiler for a small subset of C — enough to rebuild
-M2-Planet, whose binary is the next link in the Guix Full Source
-Bootstrap chain.
-
-The C compiler is split across eleven files (`020-cc-arena.fth`
-through `120-cc-main.fth`), loaded in numerical order on top of
-`010-lib.fth`.  This chapter covers the first two: the memory
-allocator the compiler reaches for when a fixed-size slot won't do,
-and the buffered I/O it uses to read source and emit ELF.
-
-Nothing here is dramatic.  The arena is 41 lines.  The reader and
-writer together are 151.  Their job is to be boring — to give the
-later passes a uniform memory model so the interesting code can be
-about C, not about `mmap`.
+Part III uses that Forth to host a compiler for a small subset of C:
+enough to rebuild M2-Planet, whose binary is the next link in the Guix
+Full Source Bootstrap chain.  The compiler is split across eleven
+files (`020-cc-arena.fth` through `120-cc-main.fth`), loaded in
+numerical order on top of `010-lib.fth`.  This chapter covers the
+first two: a bump allocator, and the source reader and output writer.
+Neither is dramatic.  Their job is to give the later passes a uniform
+memory model so the interesting code can be about C, not about `mmap`.
 
 ## The main byte path
 
-Ch 20 closed by naming Part III's three recurring motifs — emit,
-remember, patch; small tables with newest-wins lookup; one buffer
-per responsibility.  All three are on display in this chapter's two
-files.  What Ch 20 could not show yet is the route the bytes take
-through the compiler:
+Ch 20 closed by naming Part III's three recurring motifs: emit,
+remember, patch; small tables with newest-wins lookup; one buffer per
+responsibility.  All three appear in this chapter's two files.  Before
+reading them, here is the whole compiler at a glance, as `cc-main` in
+`120-cc-main.fth` drives it:
 
 ```text
-stdin
-  -> cc-src-buf
-  -> cc-prep-out-buf
-  -> cc-src-buf
-  -> lexer/parser
-  -> cc-out-buf + globals
-  -> /tmp/cc-out
+  stdin (C source)
+    |  cc-load-stdin (030)
+    v
+  cc-src-buf
+    |
+    v
+  preprocessor (040) ------------------> macro table (040)
+    |  splices #include "..." files,        #define NAME N
+    |  drops other directive lines
+    v
+  cc-prep-out-buf
+    |  cc-prep-copy-back: copied over cc-src-buf, cursor rewound
+    v
+  lexer (050) <------------------------- macro table lookup
+    |  one token at a time into tok-* globals; an identifier
+    |  that names a macro becomes a number token
+    v
+  parser + codegen: 100 (expressions), 110 (declarations,
+    |  statements, functions); x86-64 encoders in 090
+    v
+  cc-out-buf
+    |  [ELF header, 080: emitted before parsing starts]
+    |  [entry stub, libc shims, function bodies]
+    |  [globals, appended by cc-finalize-globals]
+    |  cc-finalize-elf (080) patches p_filesz / p_memsz
+    v
+  cc-write-output (030) ---> /tmp/cc-out (ELF executable)
+
+  shared state across the stages:
+    020 arena    060 type words    070 symbol table + scope stack
 ```
 
-Keep that path in mind as the chapters add pieces to the compiler.
-Ch 22 rewrites source into a flatter stream.  Ch 23 turns that
-stream into token globals.  Ch 24 gives names and C types compact
-runtime representations.  Chs 25-31 then emit, remember, and patch
-bytes until Ch 32 can compare the resulting `.M1` text with the
+The ELF writer is not a stage at the end of the line.  Ch 25's
+`cc-emit-elf-header` writes the 120-byte header into `cc-out-buf`
+before the parser runs, with the size fields left at zero, and
+`cc-finalize-elf` patches them once the last byte is known.
+
+Ch 22 covers the preprocessor, Ch 23 the lexer, and Ch 24 the type
+and symbol tables.  Chs 25–31 emit, remember, and patch bytes until
+Ch 32 can run the result and compare its `.M1` output with the
 GCC-built reference.
 
 ## 1. The arena: a 41-line bump allocator
 
-Most of the compiler's state lives in *fixed-size parallel arrays*
-that we'll meet in later chapters: the symbol table (Ch 24), the
-macro table (Ch 22), the label fixup table (Ch 30).  Each is a
-`create NAME N allot` of pre-sized storage with a separate counter
-variable.  That works for anything whose maximum count we can pin
-down at compile time.
+Most of the compiler's state lives in fixed-size parallel arrays: the
+symbol table (Ch 24), the macro table (Ch 22), the label fixup table
+(Ch 30).  Each is a `create NAME N allot` of pre-sized storage with a
+separate counter variable.  That works for anything whose maximum
+count we can pin down in advance.
 
-A few things don't fit that mould — struct descriptors, the
-fixup chains for `goto` labels and forward function references,
-the case list of a `switch`.  For those we need a fly-weight allocator that hands out
-*variable-sized* blocks.  This is what `020-cc-arena.fth` provides.
+A few things don't fit that mould: struct descriptors, the fixup
+chains for `goto` labels and forward function references, the case
+list of a `switch`.  For those we need an allocator that hands out
+variable-sized blocks, and the 41-line file `020-cc-arena.fth` is
+exactly that.
 
 ```forth file=020-cc-arena.fth
 \ 020-cc-arena.fth — bump allocator for variable-size compiler data.
-\ Used by the C compiler for: struct descriptors, label fixup overflow lists,
-\ string pool overflow — anything that doesn't fit a fixed slot in a parallel
+\ Used by the C compiler for: struct descriptors, call/goto fixup lists,
+\ switch-case lists — anything that doesn't fit a fixed slot in a parallel
 \ array.  Most compiler state lives in fixed-size buffers (parallel arrays
 \ declared with `create NAME N allot`); this arena handles the rest.
 \
@@ -132,65 +132,52 @@ cc-arena-base cc-arena-ptr !
   cc-arena-ptr ! ;                               ( -- old-top )
 ```
 
-Read top to bottom.  `[lit] 32768 constant cc-arena-cap` fixes the
-total budget at 32 KiB.  `create cc-arena-base cc-arena-cap allot`
-allocates that storage directly inside the dictionary — `create`
-makes a header for the name and `allot` extends the data area by
-32 768 bytes.  `cc-arena-ptr` is the bump pointer.
+`[lit] 32768 constant cc-arena-cap` fixes the total budget at 32 KiB.
+`create cc-arena-base cc-arena-cap allot` reserves that storage
+directly inside the dictionary: `create` makes a header for the name
+and `allot` extends its data area by 32 768 bytes.  Forth's own
+defining words serve as the compiler's `malloc`.  `cc-arena-ptr` is
+the bump pointer.
 
-```
-   (V) (V)
-   ( o.o )   "Forth's defining-words, repurposed as the C compiler's
-   /\/\/\     `malloc`.  same primitive, different aisle."
-```
+The line `cc-arena-base cc-arena-ptr !` executes during file load, the
+moment its tokens are read.  By the time `cc-alloc` is called, the
+pointer already aims at the first byte of the buffer.
 
-The initialisation line `cc-arena-base cc-arena-ptr !` runs
-*immediately* — it executes during file load, the moment its tokens
-are read.  By the time `cc-alloc` is ever called, the pointer
-already aims at the first byte of the buffer.
+`cc-alloc` rounds the request up to a multiple of 8 (`(n+7)/8*8`
+keeps every allocation cell-aligned; later passes assume it).  It
+reads the current top, computes the new top, and checks whether that
+has walked past `cc-arena-base + cc-arena-cap`.  On overflow it exits
+with status 7.  Otherwise it stores the new top and leaves the old top
+on the stack as the address just allocated.
 
-`cc-alloc` itself is one long stack-effect chain.  Round the request
-up to a multiple of 8 (`(n+7)/8*8` keeps every allocation
-cell-aligned, even on a 64-bit machine that doesn't strictly
-require it — the compiler's later passes assume cell alignment).
-Read the current top, compute the new top, check whether it has
-walked past `cc-arena-base + cc-arena-cap`, and on overflow exit
-with status 7.  Otherwise store the new top and leave the old top
-on the stack as the address you just allocated.
+**No `free`.**  The arena only grows.  Every allocation lives for the
+whole compilation, and the kernel reclaims everything at exit.  The
+allocator is one screen long, and double-free, use-after-free and
+leaks are all impossible.
 
-Two design choices are worth pausing on.
+**`die 7` on OOM.**  The compiler cannot recover from arena
+exhaustion, so it doesn't try.  There is no traceback: you find out
+which limit you hit from the status code and the source.  Status 7
+distinguishes this failure from the other `die`s (`die 1` when the
+output file cannot be opened, in `030-cc-io.fth`; `die 70`/`71`/`72`
+in the preprocessor for a missing `#include` file, too-deep nesting
+and a full macro-name pool, introduced in Ch 22; Ch 26 reuses 70 and
+71 for full global buffers).  Status codes are the compiler's only
+error-reporting channel.
 
-**No `free`.**  The arena only grows.  Every allocation lives for
-the lifetime of the compilation; when the process exits the kernel
-reclaims everything.  That makes the allocator one screen long, and
-it makes reasoning about lifetimes trivial.  We will never
-double-free, never use-after-free, never leak — the absence of
-deallocation makes all three impossible.
+## 2. The source reader and output writer
 
-**`die 7` on OOM.**  The compiler has no way to recover from
-arena exhaustion, so it doesn't try.  Status 7 distinguishes this
-failure mode from the other `die`s the compiler uses (`die 1` when
-the output file cannot be opened, in `030-cc-io.fth`; `die 70`/`71`/
-`72` in the preprocessor for a missing `#include` file, too-deep
-nesting and a full macro-name pool, introduced in Ch 22 — Ch 26
-reuses 70 and 71 for full global buffers).  Status codes are the compiler's only
-error-reporting channel; we'll see them used throughout Part III.
+The 151-line file `030-cc-io.fth` has three sections: A, the source
+buffer and reader; B, the output buffer and emitters; C, the final
+file write.
 
-```
-   ,___,
-   [o,o]   "exit 7 on OOM means no traceback, no recovery.
-   (")_)    you find out which limit you blew by reading
-            the source.  the compiler is small enough that this
-            is fine, actually."
-```
-
-## 2. The source reader
+### The source buffer and reader
 
 The compiler reads stdin into one large buffer, then walks it
-character by character.  That's a deliberate choice: with the whole
-source in memory, the preprocessor can rewrite spans in place, the
-lexer can back up, and we never have to negotiate buffered I/O on
-the read side.
+character by character.  With the whole source in memory, the
+preprocessor can rewrite it wholesale, the lexer can look ahead, and
+there is no buffered I/O to negotiate on the read side.  Section A
+starts by placing the buffer.
 
 ```forth file=030-cc-io.fth
 \ 030-cc-io.fth — Source-buffer reader, output-buffer emitter, and file I/O
@@ -224,6 +211,18 @@ variable cc-src-len
 variable cc-src-pos
 variable cc-src-line                            \ 1-based, for error messages
 
+```
+
+`[lit] 4276224 here-addr !` is the one trick in the file.  Before
+`create cc-src-buf cc-src-cap allot` reserves a megabyte of dictionary
+space, we slide `here-addr` (the dictionary's HERE pointer, Ch 2)
+forward to `0x414000` so the buffer lives clear of the seed's reserved
+pages: the data-stack page at `0x410000–0x411000` (with the stack
+itself growing down from the top), the I/O scratch byte at `0x412000`,
+the token buffer at `0x412800`, the sysvars at `0x413000`.  Chs 13–20
+introduced those addresses.
+
+```forth file=030-cc-io.fth
 \ cc-src-init ( -- )  Reset reader state.
 : cc-src-init
   [lit] 0 cc-src-len !
@@ -266,6 +265,26 @@ variable cc-src-line                            \ 1-based, for error messages
     [lit] 1 cc-src-line +!
   then, ;
 
+```
+
+`cc-load-stdin` is one `begin, while, repeat,`.  Each iteration calls
+`read` with `(fd=0, buf=cc-src-buf+len, count=4096)`, duplicates the
+returned count and tests it against 0.  If positive, it adds the count
+to `cc-src-len` and loops; otherwise it drops it and exits.  It is the
+standard chunked-read loop, in five lines.
+
+`cc-peek-char` and `cc-next-char` are the reader interface every later
+pass uses.  `peek` returns the byte at `pos` (or 0 at EOF) without
+advancing.  `next` returns the same byte and advances, bumping
+`cc-src-line` on newline.  Line numbers are used only for error
+messages, but tracking them here gives every caller them for free.
+
+### The output buffer
+
+Section B declares the output buffer and the primitives that append
+to it.
+
+```forth file=030-cc-io.fth
 \ ===========================================================================
 \ B. Output buffer + ELF-aware emit helpers
 \ ===========================================================================
@@ -297,6 +316,15 @@ variable cc-out-pos
   [lit] 256 / [lit] 256 / [lit] 256 / [lit] 256 /              \ shift right 32
   cc-emit-4le ;                                                \ high 4 bytes
 
+```
+
+`cc-emit-byte` is the obvious `c!` plus `+!` pair.  `cc-emit-4le` and
+`cc-emit-8le` peel off bytes from low to high by repeated `/256`.
+These mirror `010-lib.fth`'s `,4` and `,8` (Ch 9), but write into
+`cc-out-buf` rather than at the dictionary's HERE.  `cc-emit-4le`
+needs no temporary variable: `dup`, emit, divide, repeat.
+
+```forth file=030-cc-io.fth
 \ cc-out-patch-byte ( v offset -- )  Overwrite cc-out-buf[offset] with low byte of v.
 : cc-out-patch-byte  cc-out-buf + c! ;
 
@@ -321,6 +349,21 @@ variable cc-out-pos
   [lit] 256 / dup r@ [lit] 6 + cc-out-patch-byte
   [lit] 256 /     r> [lit] 7 + cc-out-patch-byte ;
 
+```
+
+The patch family writes into `cc-out-buf[offset]` rather than at the
+cursor.  `cc-out-patch-4le` stashes `offset` on the return stack with
+`>r`/`r@`/`r>` (Ch 4) so the four byte-writes can each compute
+`offset+0` through `offset+3`.  This is Ch 11's emit-remember-patch
+pattern, moved from dictionary branch slots to `cc-out-buf` offsets.
+Ch 25 uses it for ELF header fields whose values aren't known until
+the rest of the file is laid out.
+
+### Writing the file
+
+Section C writes the buffer to a path.
+
+```forth file=030-cc-io.fth
 \ ===========================================================================
 \ C. Output file write
 \ ===========================================================================
@@ -346,120 +389,58 @@ variable cc-out-pos
   r> close drop ;
 ```
 
-The file's three sections divide the work cleanly.
-
-**Section A** declares the source buffer.  `[lit] 4276224
-here-addr !` is the small trick: before `create cc-src-buf
-cc-src-cap allot` reserves a megabyte of dictionary space, we slide
-`here-addr` (the dictionary's HERE pointer, Ch 2) forward to
-`0x414000` so the buffer lives clear of the seed's reserved pages
-— the data-stack page at `0x410000–0x411000` (with the stack itself
-growing down from the top), the I/O scratch byte at `0x412000`, the
-token buffer at `0x412800`, the sysvars at `0x413000`.  We met those
-addresses in Chs 13–20.
-
-`cc-load-stdin` is one `begin, while, repeat,`.  Each iteration
-calls `read` with `(fd=0, buf=cc-src-buf+len, count=4096)`,
-duplicates the returned count, tests it against 0; if positive,
-adds it to `cc-src-len` and loops; otherwise drops it and exits.
-This is the standard chunked-read loop you would write in any
-language; in this Forth it costs five lines.
-
-`cc-peek-char` and `cc-next-char` are the reader interface every
-later pass uses.  `peek` returns the byte at `pos` (or 0 at EOF) but
-doesn't advance.  `next` returns the same byte and advances, with
-an extra branch to bump `cc-src-line` on newline.  Line numbers are
-strictly informational — used only for error messages — but
-threading them through here means every caller gets them for free.
-
-**Section B** declares the output buffer and the emit primitives.
-`cc-emit-byte` is the obvious `c!` + `+!` pair; `cc-emit-4le` and
-`cc-emit-8le` peel off bytes from low to high by repeated `/256`.
-These mirror `010-lib.fth`'s `,4` and `,8` (Ch 9), except they
-write into `cc-out-buf` rather than the dictionary's HERE.
-
-Notice that `cc-emit-4le` is a stack-only function: no temporary
-variable, just `dup; emit; /256; dup; emit; …`.  The Forth-style
-chain pays for itself in clarity once you've read a few of these.
-
-The `patch` family is the same idea backwards: write into
-`cc-out-buf[offset]` rather than at the cursor.  `cc-out-patch-4le`
-stashes `offset` on the return stack via `>r`/`r@`/`r>` (Ch 4) so
-the four byte-writes can each compute `offset+0`, `offset+1`,
-`offset+2`, `offset+3`.  We'll see in Ch 25 why patching matters:
-ELF headers contain offsets and sizes that aren't known until the
-rest of the file is laid out.
-
-This is the same emit, remember, patch pattern from Ch 11, now
-lifted from dictionary HERE to `cc-out-buf` offsets.  Later compiler
-chapters will remember file offsets instead of Forth branch slots.
-
-**Section C** writes the buffer to a path with `open` + `write` +
-`close`.  Flag `577 = O_WRONLY|O_CREAT|O_TRUNC` and mode `493 =
-0o755` are the only magic numbers in the file; we compute them
-once in the comment so they don't need to recur as `0x241` and `0o755`
-in the code.  On open failure (`fd < 0`) the compiler exits with
-status 1 — same "no place to write a diagnostic" reasoning as the
-arena.
+Flag `577 = O_WRONLY|O_CREAT|O_TRUNC` and mode `493 = 0o755` are the
+only magic numbers in the file, and the comment derives both.  On open
+failure (`fd < 0`) the compiler exits with status 1, for the same
+reason as the arena: there is nowhere to write a diagnostic.
 
 ## 3. Why one big buffer instead of streaming?
 
-A more "modern" compiler would stream characters through a lexer
-that fed a parser that fed a code emitter — no intermediate
-buffers, only state machines.  This compiler does the opposite:
-read everything into memory, walk it, then write everything out.
+A streaming compiler would pipe characters through a lexer into a
+parser into a code emitter, with state machines instead of
+intermediate buffers.  This compiler does the opposite: read
+everything into memory, walk it, then write everything out.
 
-The tradeoff is the usual one: a streaming design wins on memory
-when the source is huge; the buffered design wins on simplicity
-when the source is small.  M2-Planet's largest single translation
-unit is about 200 KiB.  At a 1 MiB cap we have headroom; at the
-cost of two megabytes of address space (source + output) we get a
-compiler that has no I/O concurrency to reason about and no
-intermediate representation to design.
+A streaming design wins on memory when the source is huge; the
+buffered design wins on simplicity when the source is small.
+M2-Planet's largest single translation unit is about 200 KiB.  A 1 MiB
+cap leaves headroom, and for two megabytes of address space (source
+plus output) we get a compiler with no I/O interleaving to reason
+about.
 
-There's a deeper reason too.  Several passes *want* random access:
-the lexer peeks two bytes ahead to tell `/` from `//` and `0` from
-`0x`, the preprocessor rewrites the whole source into a second
-buffer and copies it back over the first, the code emitter patches
-ELF header fields.  Streaming versions of
-each are possible but more complex; the buffered design makes them
-trivial.
+Several passes also want random access.  The lexer peeks two bytes
+ahead to tell `/` from `//` and `0` from `0x`.  The preprocessor
+rewrites the whole source into a second buffer and copies it back over
+the first.  The code emitter patches ELF header fields.  Streaming
+versions of each are possible but more complex.
 
-This is "one buffer per responsibility" in its simplest form:
-source traversal, preprocessor output, emitted ELF bytes, and later
-global data each get an owner and a cursor instead of sharing one
-mutable stream.
+This is "one buffer per responsibility" in its simplest form: source
+traversal, preprocessor output, emitted ELF bytes, and later global
+data each get an owner and a cursor instead of sharing one mutable
+stream.
 
 ## 4. How the buffers connect to what's coming
 
-The pieces declared here are reached for, by name, throughout the
-rest of Part III.
+The rest of Part III reaches for these pieces by name.
 
-- Ch 22 (preprocessor) walks `cc-src-buf` with its own cursor,
-  writes the result — `#include`d files spliced in, directives
-  removed — into `cc-prep-out-buf`, then copies that back over
-  `cc-src-buf` and resets `cc-src-pos` for the lexer.
+- Ch 22 (preprocessor) walks `cc-src-buf` with its own cursor, writes
+  the result (`#include`d files spliced in, directives removed) into
+  `cc-prep-out-buf`, then copies that back over `cc-src-buf` and
+  resets `cc-src-pos` for the lexer.
 - Ch 23 (lexer) reads `cc-peek-char` / `cc-next-char` and produces
   token records.  It never backs up: where one byte of lookahead
   isn't enough, `cc-peek-char-2` looks at two.
 - Ch 24 stores struct descriptors via `cc-alloc`.  Ch 26's
   forward-call fixup chains use it too.
-- Chs 25, 26, 29–31 emit code into `cc-out-buf` via
-  `cc-emit-byte` / `cc-emit-4le` / `cc-emit-8le`, and back-patch
-  with `cc-out-patch-4le` / `cc-out-patch-8le`.
-- Ch 32 calls `cc-write-output` at the very end, after everything
-  else has run.
-
-That's the contract for the rest of Part III: source on the input
-side via `cc-next-char`, machine code on the output side via
-`cc-emit-byte`, with `cc-alloc` for whatever doesn't fit in a
-fixed-size table.
+- Chs 25, 26, 29–31 emit code into `cc-out-buf` via `cc-emit-byte` /
+  `cc-emit-4le` / `cc-emit-8le`, and back-patch with
+  `cc-out-patch-4le` / `cc-out-patch-8le`.
+- Ch 32 calls `cc-write-output` at the very end.
 
 ## Try it
 
-**Small check:** `test-020-cc-arena.fth` and
-`test-030-cc-io.fth` are the focused probes for this chapter's two
-mechanisms.
+**Small check:** `test-020-cc-arena.fth` and `test-030-cc-io.fth` are
+the focused probes for this chapter's two mechanisms.
 
 **Layer check:** run the repo test script; it includes the arena and
 I/O tests alongside the adjacent compiler-unit tests.
@@ -472,12 +453,12 @@ I/O tests alongside the adjacent compiler-unit tests.
 
 `test-020-cc-arena.fth` exercises `cc-alloc` at several sizes and
 asserts the returned addresses are 8-aligned and non-overlapping;
-`test-030-cc-io.fth` rounds-trips bytes through `cc-emit-byte` and
+`test-030-cc-io.fth` round-trips bytes through `cc-emit-byte` and
 `cc-out-patch-4le`.
 
-**Bootstrap relevance:** the Stage-A gate uses these buffers for
-every input byte and every emitted output byte, starting with the
-smallest C test case.
+**Bootstrap relevance:** the Stage-A gate uses these buffers for every
+input byte and every emitted output byte, starting with the smallest C
+test case.
 
 ```sh
 ./build.sh && tests/cc/stage-a-check.sh
@@ -485,9 +466,9 @@ smallest C test case.
 
 That driver has `seed-forth`, loaded with all the `cc-*.fth` files,
 compile the M2-Planet monolith into a working M2-Planet binary.  It
-runs that binary on M2-Planet's own sources and `cmp`s the `.M1`
-text it writes against the output of a GCC-built M2-Planet.  When you finish reading Part III
-the same script will be the compiler's full proof of life.
+runs that binary on M2-Planet's own sources and `cmp`s the `.M1` text
+it writes against the output of a GCC-built M2-Planet.  By the end of
+Part III the same script is the compiler's full proof of life.
 
 ## Exercises
 
@@ -515,27 +496,15 @@ the same script will be the compiler's full proof of life.
 ## After this chapter
 
 The compiler has a deterministic memory model: stdin lands in
-`cc-src-buf`, emitted bytes accumulate in `cc-out-buf` and only hit
-disk once at the end, and the arena handles anything that doesn't
-fit a fixed slot.  This is the substrate the rest of Part III
-builds on — none of them allocate from anywhere else.
-
-You can read `cc-load-stdin`, `cc-emit-byte`, and `cc-out-patch-4le`
-confidently, and explain why the whole ELF accumulates in memory
-before any `write` syscall fires.
-
-Toward Stage-A: every byte the parity check compares passes through
-these buffers; their byte-precise determinism is the proof's floor.
+`cc-src-buf`, emitted bytes accumulate in `cc-out-buf` and reach disk
+in one `write` at the end, and the arena handles anything that doesn't
+fit a fixed slot.  No later file allocates from anywhere else.  Every
+byte the Stage-A check compares passes through these buffers.
 
 ## Takeaways
 
-- The C compiler's memory model is two big in-memory buffers plus
-  a small overflow arena.  No `malloc`, no `mmap` — just the 16
-  MiB segment from the ELF program header (Ch 13).
-- Reading and writing are batched: stdin in one chunked loop,
-  output in one `write` after the whole ELF is laid out.
-- Back-patching is how the compiler handles forward references
-  inside the ELF it's emitting (the same trick `if,` uses for
-  Forth-level control flow, Ch 11).
+- The C compiler's memory model is two big in-memory buffers plus a small overflow arena, all inside the 16 MiB segment from the ELF program header (Ch 13), with no `malloc` or `mmap`.
+- Reading and writing are batched: stdin arrives in one chunked loop, and the output leaves in one `write` after the whole ELF is laid out.
+- Back-patching through `cc-out-patch-4le` and `cc-out-patch-8le` handles forward references inside the emitted ELF, the same trick `if,` uses for Forth-level control flow in Ch 11.
 
 Next: Chapter 22 — The Preprocessor.

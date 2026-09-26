@@ -7,41 +7,24 @@ Artifact after this chapter: branch_code and zbranch_code plus the consumed-slot
 Proof link: the C compiler's jump fixups (Ch 30) reuse the shape, just in x86-64 rather than inline cells.
 ```
 
-Two primitives, 34 bytes of hex between them, implement
-every loop and conditional in the codebase: `branch_code`
-(`@ 0x42B`, lines 368–372) is an unconditional jump to an inline
-8-byte target, and `zbranch_code` (`@ 0x431`, lines 374–385) is its
-conditional counterpart, jumping when the top-of-stack flag is zero
-and otherwise stepping past the slot.  Both use `lit_code`'s trick
-exactly: pop the return address (which points at the inline cell),
-read the cell, and push a corrected return address before `ret`,
-so execution never lands on the 8 raw bytes.  The one new move is
-*which* address gets pushed back: `lit_code` always pushes
-`slot + 8`, while the branches can push the cell's *contents* — the
-target.
+Ch 11 built `if,`, `then,`, `else,`, `begin,`, `while,` and
+`repeat,` in Forth.  Each one emits a `CALL` plus an 8-byte inline
+cell at HERE, but Part I never said what those `CALL`s land on.
+They land on two primitives, 34 bytes of hex between them.
+`branch_code` (`@ 0x42B`, lines 368–372) jumps unconditionally to
+the address in the inline cell.  `zbranch_code` (`@ 0x431`, lines
+374–385) jumps only when the flag on top of the data stack is zero,
+and otherwise steps past the cell.  Every loop and conditional in
+the Forth library and in the C compiler's Forth source runs through
+them; only the seed's own REPL, written in raw hex, uses native
+jumps instead.
 
-By the end of the chapter you'll be able to read both bodies byte
-for byte, explain the consumed-slot property and why it makes
-`if,/then,` a single 13-byte sequence with no separate target
-table, and map each primitive's bytes back to the Forth-level
-combinators (`comma-call`, `if,`, `then,`, `else,`, `begin,`,
-`while,`, `repeat,`) that Ch 11 built on top of them.  Nothing new
-is deferred here; the C compiler's back-patching in Part III is the
-same idea applied at a higher level (emit a placeholder, remember
-the address, fill it in later).
-
----
-
-Ch 11 ended with a complete suite of control-flow combinators —
-`if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,` — all defined
-in Forth, all emitting some combination of "CALL plus inline cell"
-at HERE.  We deferred *what those CALLs land on* until Part II.
-
-This is the chapter where we find out.  The two primitives below,
-`branch_code` and `zbranch_code`, are 34 bytes of hex between them.
-They implement every loop and conditional in this codebase — the
-Forth library and the C compiler both lean on them.  Only the seed's
-own REPL avoids them, and only because the REPL is written in raw hex.
+Both reuse `lit_code`'s trick from Ch 18: pop the return address
+(which points at the inline cell), read the cell, and push a
+corrected return address before `ret`, so execution never lands on
+the 8 raw bytes.  The difference is which address goes back.
+`lit_code` always pushes `slot + 8`; the branches can push the
+cell's *contents*, the target.
 
 ## 1. The compiled shape
 
@@ -53,11 +36,10 @@ addr+5:  TT TT TT TT TT TT TT TT ; inline target cell  (8 bytes)
 addr+13: ...                     ; next instruction (the "then" arm)
 ```
 
-The `CALL` targets `0branch`'s xt — the `JMP` stub in its header
-(Ch 17) — which passes control on to `zbranch_code`.  The `CALL`
-pushes
-the address `addr+5` (the byte after the CALL) onto the return
-stack as the return address.  `zbranch_code` is now executing with
+The `CALL` targets `0branch`'s xt, the `JMP` stub in its header
+(Ch 17), which passes control on to `zbranch_code`.  The `CALL`
+pushes the address `addr+5` (the byte after the CALL) as the return
+address.  `zbranch_code` is now executing with
 the address of the inline target cell sitting at `[rsp]`.
 
 For an unconditional `branch,` (used in `else,` and `repeat,`) the
@@ -84,15 +66,13 @@ C3              ret            ; jump there
 Six bytes total: five bytes of opcode plus a one-byte `ret`.  The
 trick is **the cell is consumed**: we popped the slot's address,
 dereferenced it to get the target, and pushed the *target* back.
-When `ret` runs, the return stack has only the new target on top —
+When `ret` runs, the new target is on top of the return stack and
 the slot's address is gone.
 
-If we had left the slot's address on the stack and just dereferenced
-to jump, `ret` would have gone to the slot, executed the 8 raw
-bytes as code (gibberish), and crashed.  The seed authors picked
-this pop/dereference/push trick specifically so that one `if,`
-combinator can read as "emit a CALL and an 8-byte slot" with no
-follow-up bookkeeping.
+Had the slot's address stayed on the stack, `ret` would have jumped
+to the slot and executed its 8 raw bytes as code.  Because the
+primitive consumes the slot, an `if,` combinator only has to emit a
+CALL and an 8-byte slot, with no follow-up bookkeeping.
 
 ## 3. `zbranch_code` in eleven instructions
 
@@ -144,8 +124,8 @@ read the slot and jump to the target; if the flag is non-zero
 (anything truthy, including Forth's canonical `-1`), skip the slot
 and continue.
 
-That last asymmetry — "branch if zero, fall-through if non-zero" —
-is what makes the Forth idiom `flag if, ... then,` read naturally:
+That asymmetry, "branch if zero, fall through if non-zero," is what
+makes the Forth idiom `flag if, ... then,` read naturally:
 when the flag is true (non-zero), you *enter* the `if`-body;
 `0branch` is what skips the body when the flag is *false*.
 
@@ -153,38 +133,35 @@ when the flag is true (non-zero), you *enter* the `if`-body;
 
 `JMP r/m64` is a real x86 instruction (`FF E0` for `jmp rax`, two
 bytes).  `push rax; ret` (`50 C3`) is also two bytes.  The choice
-between them is stylistic, not size-driven.  The seed's authors
-picked `push/ret` because:
+between them is stylistic, not size-driven.  Three things favour
+`push/ret`:
 
 - The instruction we're "returning from" is a `CALL`, so structuring
   the primitive as "pop the call's return address, fiddle with it,
   push a new one, ret" is a clean, symmetric handshake with the
   `CALL`.  The reader sees `pop ... ret` and understands that the
   primitive is replacing one return address with another.
-- `jmp rax` would also work, but the prologue would have to first
-  `pop rax` (to discard the saved return address that nobody is
-  going to return to), creating an asymmetry: pop, jump.  Using
-  `push/ret` keeps the metaphor consistent.
+- `jmp rax` would also work, but the primitive would still start
+  with `pop rax`, leaving an asymmetric pop-then-jump.  `push/ret`
+  keeps the shape symmetric.
 - Branch predictors prefer balanced call/ret stacks.  A `push/ret`
   pairs with the original `CALL` better than a `jmp` would for the
-  CPU's return-address predictor.  This is a microoptimisation
-  that's invisible in our 2,040 bytes but real on actual hardware.
+  CPU's return-address predictor.  The effect is invisible in a
+  program this size but real on hardware.
 
 ## 5. The consumed-slot property
 
-This is the same pop/adjust/push that `lit_code` does (Ch 18); it
-gets its own section because for the branches it is what makes
-inline targets work at all.
+The pop/adjust/push is the same one `lit_code` does (Ch 18).  For
+the branches it is what makes inline targets work at all.
 
 When a Forth-level `if,` emits a 13-byte sequence at HERE (5 bytes
 for the `CALL` to `0branch`'s xt + 8 bytes for the inline target),
-it does *not* leave a separate target table.  The target is right there,
-next to the CALL.  This is good for code locality and for compiler
-simplicity — but it means the primitive has to *jump over* the
-target cell when continuing past it.
+there is no separate target table: the target sits next to the
+CALL.  That keeps the compiler simple, but the primitive has to
+*jump over* the target cell when it continues past it.
 
-The naive approach is: don't pop the return address; just adjust it
-in place on the return stack.  x86 can do that — `add qword [rsp],
+The obvious alternative is to leave the return address on the stack
+and adjust it in place.  x86 can do that: `add qword [rsp],
 8` is a real 5-byte instruction, and `r@` reads `[rsp+8]` directly.
 The seed pops anyway because it is smaller.  Every `[rsp]` operand
 costs a SIB byte, and both paths need the slot address in a
@@ -202,16 +179,8 @@ After the primitive's `ret`, the return stack looks like:
 - For the "fall through" case: the top is `slot_addr + 8`; again no
   trace of the slot.
 
-Either way, the slot has been *consumed*.  Higher-level code never
-sees it after the branch resolves.  This is what makes `if,/then,`
-a self-contained 13-byte emission with no separate target table.
-
-```
-   (V) (V)
-   ( o.o )   "the primitive eats the inline cell on its way out.
-   /\/\/\     no separate jump table.  the return stack does
-            data-table duty.  again."
-```
+Either way, the slot has been *consumed*, and no later code sees
+it.  That is why `if,/then,` is a self-contained 13-byte emission.
 
 ## 6. Connecting to Chapter 11
 
@@ -243,11 +212,11 @@ addr+5:  00 00 00 00 00 00 00 00 ; placeholder target
 
 …and pushes `addr+5` onto the data stack as the "patch address."
 When `then,` runs later, it patches that 8-byte placeholder with
-the *current* HERE — i.e., the address of the next instruction
+the *current* HERE, the address of the next instruction
 after the `if,` body.
 
-This is the same emit, remember, patch pattern from Ch 11, now
-explained from the primitive's side: the emitted slot is inline
+This is Ch 11's emit-remember-patch pattern seen from the
+primitive's side: the emitted slot is inline
 machine data, the remembered address is a Forth stack value, and
 the patch becomes the runtime branch target.
 
@@ -257,7 +226,7 @@ At runtime:
    `0branch`'s xt.
 2. The flag is popped off the data stack.  In Forth, `flag if ...
    then` enters the body when the flag is true, and `then,` patches
-   the placeholder slot with the *post-body* address — so the
+   the placeholder slot with the *post-body* address, so the
    primitive's job is to *skip* the body when the flag is **false**
    and fall through when it is true:
    - Flag non-zero: `zbranch_code` skips past the slot → next
@@ -280,7 +249,7 @@ combinators set up.
 ./build.sh
 
 # Define a word using if,/then, (which are immediate words from
-# 010-lib.fth — load it first so they're defined):
+# 010-lib.fth, so load it first):
 { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
   cat <<'EOF'
 : pos?  [lit] 0 > if,
@@ -293,7 +262,7 @@ combinators set up.
 bye
 EOF
 } | grep -v '^[[:space:]]*$' | ./seed-forth
-# prints "YN" — 5 is positive ('Y'), 0 is not ('N').
+# prints "YN": 5 is positive ('Y'), 0 is not ('N').
 ```
 
 For the begin/while/repeat combinators, try a countdown:
@@ -324,8 +293,8 @@ EOF
    following byte (`75 05`) encode?  Trace: what would change if
    you replaced it with `74 05`?
 
-3. **★ Trace.** Add an `again_code` primitive (unconditional, no flag).  Wait —
-   isn't that just `branch_code`?  Confirm by reading both bodies
+3. **★ Trace.** Suppose you added an `again_code` primitive (unconditional, no
+   flag).  Isn't that just `branch_code`?  Confirm by reading both bodies
    and identifying any difference.
 
 4. **★ Trace.** Why doesn't `branch_code` or `zbranch_code` need to know whether
@@ -339,19 +308,14 @@ EOF
 
 ## Takeaways
 
-- `branch` and `0branch` are 34 bytes total and implement every
-  control structure in the Forth code — the library's combinators
-  and the C compiler's own Forth source.  The C `if`, `while`, and
-  `for` statements that compiler handles (Ch 30) are a different
-  layer: they compile to native x86 jumps in the output program,
-  not to calls to these primitives.
-- The inline-slot convention puts branch targets next to the CALL
-  site, which simplifies the compiler (no separate target table)
-  but requires the primitive to *consume* the slot — pop the
-  callee's return address, do the work, push the new one.
-- Every Forth-level combinator in Ch 11 is a thin wrapper that
-  emits `CALL <(0)branch xt> + 8-byte slot` and arranges for
-  later code to patch the slot.  The primitive makes the
-  emit/remember/patch contract executable.
+- `branch` and `0branch`, 34 bytes in total, run every control
+  structure in the Forth code, while the C programs the compiler
+  emits use native x86 jumps (Ch 30).
+- Each branch target sits in an 8-byte cell right after the `CALL`,
+  and the primitive consumes that cell by replacing its return
+  address with either the target or the address just past the cell.
+- Ch 11's combinators only emit a `CALL` plus an 8-byte slot and
+  patch the slot later, and these two primitives are what make that
+  emit-remember-patch contract run.
 
 Next: Chapter 20 — The Number Parser and REPL.

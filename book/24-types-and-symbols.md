@@ -7,48 +7,28 @@ Artifact after this chapter: type helpers, struct descriptors, scoped symbol row
 Proof link: later Stage-A codegen can resolve names, scopes, sizes, and layouts consistently.
 ```
 
-Two short files give the compiler its memory of "what exists".
-`060-cc-types.fth` (88 lines, entire file) packs every C type into
-a single 64-bit word, with five base kinds and a pointer-depth
-counter sharing the bits; struct layouts live in descriptors
-allocated from Ch 21's arena, reached through `cc-sd-*` accessors.
-`070-cc-sym.fth` (154 lines, entire file) is the symbol table:
-parallel 8-byte columns (Ch 12 `create`/`allot` buffers, names
-matched by `bytes-eq`) indexed by symbol id, with
-`cc-scope-push` and `cc-scope-pop` marking and restoring the count
-to give lexical scopes for free.
+When the parser meets `struct point *p;` it has to record two facts
+it will need later: what type `p` has, and where `p` lives.  When it
+later meets `p->x`, it has to find `p` again, with the innermost
+declaration winning, and work out where `x` sits inside the struct.
+Both kinds of fact grow during parsing, but both have bounded sizes by
+the time M2-Planet's source has been read, so the simplest data
+structures suffice.
 
-By the end of the chapter you'll be able to encode a C type by hand,
-predict where any given declaration will land in the symbol table,
-walk a struct descriptor through its accessors, and read
-`cc-sym-add` (note its use of `>r`/`r@`/`r>` from Ch 4 to hold the
-new id while filling the parallel columns).  Where types are
-*consumed* is Ch 27 (expression type-checking) and Chs 25–26
-(size-based instruction selection in codegen); the `cc-sym-extra2`
-field's second life as a forward-reference fixup list head is Ch 31.
-
----
-
-The compiler needs to remember two kinds of facts: *what types
-exist* and *what names exist*.  Both can grow during parsing, but
-both have bounded sizes by the time M2-Planet's source has been
-read.  This chapter handles them with the simplest possible data
-structures.
-
-The type system is exactly five base kinds: `void`, `char`,
+The 88-line file `060-cc-types.fth` packs every C type into one
+64-bit word.  There are exactly five base kinds: `void`, `char`,
 `int`, `struct`, `func`.  No `short`, no `long`, no `float`, no
 `double`, no unions, no enums-as-distinct-types.  Pointer depth
-generalises to any level (`T**`, `T***`, …) so the compiler can
-follow whatever indirection M2-Planet's source asks for.
+generalises to any level (`T**`, `T***`, …).  Struct layouts live in
+descriptors allocated from Ch 21's arena.
 
-The name table is seven columns of 4096 8-byte slots each —
-224 KiB total.  Every global, local, function, struct tag, enum
-constant, and typedef gets one row.
-
-These choices push complexity into the *encoding*, not the
-runtime representation.  By the end of the chapter you should be
-able to encode a type by hand and predict where any given symbol
-will land in the table.
+The 154-line file `070-cc-sym.fth` is the symbol table: seven columns
+of 4096 8-byte slots each, 224 KiB in all.  Every global, local,
+function, struct tag, enum constant and typedef gets one row, and
+`cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering
+and restoring the row count.  Where types are *consumed* is Ch 27
+(expression type-checking) and Chs 25–26 (size-based instruction
+selection in codegen).
 
 ## 1. The one-word type encoding
 
@@ -101,6 +81,28 @@ will land in the table.
     then, then,
   then, ;
 
+```
+
+A type lives in one 64-bit word.  `ty-make` builds it: shift the base
+kind left by 16 (Forth has no shift operator, so multiply by 65 536)
+and add the pointer depth (0 = scalar, 1 = `T*`, 2 = `T**`, ...).
+Bits 8–15 are reserved for sign flags and unused here, since the only
+integer type is signed 64-bit `int`.
+
+`ty-size` shows why the depth sits in the low bits.  Any non-zero
+pointer depth means "pointer, 8 bytes."  Otherwise it falls back to
+the base kind: `void` is 0 bytes (only legal in `void f(void)`-style
+signatures), `char` is 1 byte, and everything else (`int`, `func`,
+plain `struct`) is 8.
+
+The 8 for a struct is deliberately wrong.  `ty-size` sees only the
+type word, not the struct descriptor.  When codegen needs
+`sizeof(struct foo)` it looks up the struct's symbol, reads `val` to
+get the descriptor pointer, and calls `cc-sd-total-size`.  Every site
+that handles structs does that lookup explicitly and never asks
+`ty-size`.
+
+```forth file=060-cc-types.fth
 \ ===========================================================================
 \ Struct descriptor accessors.
 \ ===========================================================================
@@ -143,55 +145,18 @@ will land in the table.
 : cc-sf-set-desc        [lit] 32 + ! ;                 \ ( desc rec -- )
 ```
 
-Five constants, three pack/unpack words, four header accessors, ten
-field-record accessors.  That is the entire C-type vocabulary the
-compiler needs.
+The struct descriptor is a chunk of arena memory from `cc-alloc`
+(Ch 21), with the layout given in the comment: a 16-byte header, then
+one 40-byte record per field.  The 16-byte header plus 16 × 40 = 640
+bytes of field records gives a 656-byte cap per struct.  M2-Planet's
+largest struct is well under 16 fields.
 
-A type lives in one 64-bit word.  `ty-make` builds it: shift the
-base kind left by 16 (multiplying by 65 536 — Forth has no shift
-operator; multiplication does the job) and OR in the pointer depth
-(0 = scalar, 1 = `T*`, 2 = `T**`, ...).  The bits 8–15 zone is
-reserved for sign flags and is unused in this compiler — the only
-integer type is signed 64-bit `int`.
-
-`ty-size` is where the bits earn their keep.  Any non-zero pointer
-depth means "this is a pointer; 8 bytes."  Otherwise drop down to
-the base kind: `void` is 0 bytes (only legal in `void f(void)`-style
-signatures), `char` is 1 byte, and everything else — `int`, `func`,
-plain `struct` — is 8.
-
-Why are struct sizes lied about?  Because `ty-size` only sees the
-type *word*; it doesn't have the struct descriptor in hand.  When
-the codegen actually needs `sizeof(struct foo)` it looks up the
-struct's symbol, reads `val` to get the descriptor pointer, and
-calls `cc-sd-total-size`.  The `[lit] 8` here is "you must not call
-`ty-size` on a `ty-struct` and expect a useful answer" — every site
-that handles structs does the descriptor lookup explicitly.
-
-The struct descriptor itself is a chunk of arena memory allocated
-via `cc-alloc` (Ch 21).  Layout:
-
-```
-offset  0:  total-size  (bytes)
-offset  8:  field-count
-offset 16 + i*40:  field i record
-  +  0:  name-addr
-  +  8:  name-len
-  + 16:  field type (encoded as a type word)
-  + 24:  field offset within struct
-  + 32:  pointee struct descriptor (0 unless the field is a struct*)
-```
-
-The 16-byte header plus 16 × 40 = 640 bytes of field records gives
-a 656-byte cap per struct.  M2-Planet's largest struct is well
-under 16 fields, so the cap is generous.
-
-The `pointee descriptor` field at offset 32 is the non-obvious
-piece.  When the parser sees `node->next->prev`, it needs to know
-*what struct* `next` points at so it can resolve `prev` against
-that struct's fields.  Carrying the pointee descriptor in the
-field record means chained arrow access can navigate without
-re-looking-up the type by name.
+The pointee descriptor at offset 32 of each field record is the
+non-obvious piece.  When the parser sees `node->next->prev`, it needs
+to know *which struct* `next` points at to resolve `prev` against that
+struct's fields.  Carrying the pointee descriptor in the field record
+lets chained arrow access navigate without looking the type up again
+by name.
 
 ## 2. The symbol-table parallel arrays
 
@@ -224,8 +189,8 @@ create cc-sym-name-len   cc-sym-cap [lit] 8 * allot
 create cc-sym-kind       cc-sym-cap [lit] 8 * allot
 create cc-sym-type       cc-sym-cap [lit] 8 * allot
 create cc-sym-val        cc-sym-cap [lit] 8 * allot
-\ Parallel array for "extra info".  For sk-local entries that are arrays this
-\ is the array length (in elements); for everything else it is 0.
+\ Parallel array for "extra info".  Arrays (local or global): length in
+\ elements.  Struct-typed locals/globals: descriptor.  Otherwise 0.
 create cc-sym-extra      cc-sym-cap [lit] 8 * allot
 \ Second extra slot.  For sk-func entries this is the head of a fixup list
 \ for forward-emitted `movabs rdi, imm64` sites that load the function's
@@ -257,6 +222,38 @@ variable cc-scope-depth
 \ Each slot is 8 bytes; arr is the base address returned by `create`.
 : sym-slot  swap [lit] 8 * + ;
 
+```
+
+Seven columns × 4096 rows × 8 bytes = 224 KiB, plus a 512-byte scope
+stack (64 entries × 8 bytes).  That is the entire memory budget for
+global declarations, function definitions, every local variable in
+every function, every struct tag and every typedef.  The seven columns
+are the union of the metadata any symbol kind needs.
+
+`name-addr` and `name-len` point back into `cc-src-buf`.  There is no
+deep copy, because the source buffer lives until process exit.
+(Macros are not symbols; their names live in Ch 22's pool.)  `kind`
+is one of six `sk-*` codes, and `type` is the type word from §1.
+
+`val` is overloaded.  For functions it holds the absolute virtual
+address where the function lives in the emitted ELF (0 while it's
+only forward-declared).  For globals it holds an offset into
+`cc-globals-buf`, since the data's vaddr isn't known until the code
+ends (Ch 26 §5).  For locals it holds a *slot index* counted by
+`cc-fn-local-count`; the `rbp` displacement `-8*(slot+1)` is computed
+at emit time (Ch 25), so locals live below the saved frame pointer.
+For structs it holds the descriptor pointer, for enum constants the
+integer value, and for typedefs the type word the name aliases.
+
+`extra` and `extra2` are two more overload slots.  `extra` is the
+array length for array variables, the descriptor pointer for
+struct-typed variables and pointers, and zero otherwise.  `extra2` is
+the head of a forward-reference fixup chain for `sk-func`, which Ch 31
+walks when the function's definition arrives.
+
+## 3. Adding and finding symbols
+
+```forth file=070-cc-sym.fth
 \ ===========================================================================
 \ Add / lookup
 \ ===========================================================================
@@ -280,6 +277,26 @@ variable cc-scope-depth
   [lit] 1 cc-sym-count +!
   r> ;
 
+```
+
+`cc-sym-add` takes five arguments (`name-addr`, `name-len`, `kind`,
+`type`, `val`), writes them into the parallel arrays at index
+`cc-sym-count`, zeroes both extra slots, and bumps the count.
+
+After `cc-sym-count @` puts the new id on top, `>r` parks it on the
+return stack (Ch 4).  Each column store then uses `r@` to get a fresh
+copy of the id without disturbing the data stack.  The data stack
+starts as `(a u k t v)`; after `r@ cc-sym-val sym-slot !` it is
+`(a u k t)`; after `r@ cc-sym-type sym-slot !` it is `(a u k)`; and
+so on until all five values are stored.
+
+Why not `dup` the id five times on the data stack?  Because the data
+stack already holds five operands, and weaving the id around them
+would be unreadable.  Forth code gets hard to follow once the stack
+holds more than three or four unrelated values; the return stack is
+the release valve.
+
+```forth file=070-cc-sym.fth
 \ cc-sym-find walks all entries top-down (most recent first).  We can't bail
 \ early (no `exit` primitive in the seed), so we stash the needle in two
 \ globals and accumulate the result in cc-sym-find-result.  Once a match is
@@ -317,6 +334,20 @@ variable cc-sym-find-needle-len
   drop                                            \ discard final i (=-1)
   cc-sym-find-result @ ;
 
+```
+
+`cc-sym-find` walks the table newest-first with the same no-`exit`
+discipline as `cc-check-keyword` (Ch 23): record the hit in a
+variable, keep iterating, skip the comparisons after the hit.
+Innermost declarations appear later in the table, so the reverse walk
+finds them first, and innermost-scope-wins falls out without any
+explicit scope check.  This is Ch 17's newest-wins lookup with scope
+added.
+
+`[lit] 0 0=` produces -1, the value the result starts with, so after
+the loop the caller reads either "found id N" or "not found."
+
+```forth file=070-cc-sym.fth
 \ ===========================================================================
 \ Field accessors / mutators (all take id on TOS).
 \ ===========================================================================
@@ -325,8 +356,8 @@ variable cc-sym-find-needle-len
 : cc-sym-type-of       cc-sym-type      sym-slot @ ;     \ ( id -- ty   )
 : cc-sym-val-of        cc-sym-val       sym-slot @ ;     \ ( id -- val  )
 
-\ Extra-info accessor / setter.  For sk-local array entries, the extra field
-\ holds the array length in elements; otherwise it stays 0.
+\ Extra-info accessor / setter.  Array length for arrays, struct descriptor
+\ for struct-typed locals/globals, otherwise 0 (see cc-sym-extra above).
 : cc-sym-extra-of      cc-sym-extra     sym-slot @ ;     \ ( id -- extra )
 : cc-sym-set-extra     cc-sym-extra     sym-slot ! ;     \ ( extra id -- )
 
@@ -334,6 +365,14 @@ variable cc-sym-find-needle-len
 : cc-sym-extra2-of     cc-sym-extra2    sym-slot @ ;     \ ( id -- extra2 )
 : cc-sym-set-extra2    cc-sym-extra2    sym-slot ! ;     \ ( extra2 id -- )
 
+```
+
+The accessors are one-liners over `sym-slot`, each taking the id on
+top of the stack.
+
+## 4. Scopes are a stack of integers
+
+```forth file=070-cc-sym.fth
 \ ===========================================================================
 \ Scopes
 \ ===========================================================================
@@ -352,139 +391,56 @@ variable cc-sym-find-needle-len
   cc-sym-count ! ;
 ```
 
-Seven columns × 4096 rows × 8 bytes = 224 KiB.  Plus a 512-byte
-scope stack (64 entries × 8 bytes).  That's the entire memory
-budget for global declarations, function definitions, every local
-variable in every function, every struct tag, every typedef.
-
-The seven columns are not arbitrary — they're the union of every
-piece of metadata any symbol kind needs.
-
-`name-addr` and `name-len` point back into `cc-src-buf` (or into
-the preprocessor's name pool for macros — but macros aren't
-symbols).  No deep copy: the source buffer lives until process
-exit.
-
-`kind` is one of six `sk-*` codes.  `type` is the type word from
-§1.
-
-`val` is overloaded.  For functions it holds the absolute virtual
-address where the function lives in the emitted ELF (0 while it's
-only forward-declared).  For globals it holds an offset into
-`cc-globals-buf` — the data's vaddr isn't known until the code ends
-(Ch 26 §5).  For locals it holds a *slot index* counted by
-`cc-fn-local-count`; the `rbp` displacement `-8*(slot+1)` is
-computed at emit time (Ch 25), so locals live *below* the saved
-frame pointer.  For structs it holds the descriptor pointer.  For enum constants it
-holds the integer value.  For typedefs it holds the type word that
-the typedef name aliases.
-
-`extra` and `extra2` are two more overload slots.  `extra` is the
-array length for array variables, the descriptor pointer for
-struct-typed variables and pointers, and zero otherwise.
-`extra2` is the head of a forward-reference fixup chain for
-`sk-func`.  Ch 31 covers the fixup mechanism in detail; for now,
-treat `extra2` as "future-codegen scratch space."
-
-## 3. Adding and finding symbols
-
-`cc-sym-add` takes five arguments — `name-addr`, `name-len`,
-`kind`, `type`, `val` — and writes them into the parallel arrays
-at index `cc-sym-count`, then bumps the count.
-
-The Forth bit-twiddling here is the trick.  After
-`cc-sym-count @` puts the new id on top, `>r` parks it on the
-return stack.  Now each column store can use `r@` to get a *fresh
-copy* of the id without disturbing the data stack:
-
-```
-r@ cc-sym-val       sym-slot !         ( pops val )
-r@ cc-sym-type      sym-slot !         ( pops type )
-…
-```
-
-The data stack starts with `(a u k t v)`; after the first
-`r@ cc-sym-val sym-slot !` it's `(a u k t)`; after the next
-`r@ cc-sym-type sym-slot !` it's `(a u k)`; and so on until all
-five values are stored.
-
-Why park the id on the return stack instead of `dup`ing it five
-times on the data stack?  Because the data stack is full of
-*operands* (the five values being stored) that we don't want to
-weave around the id.  Forth code becomes unreadable when the stack
-holds more than 3–4 unrelated values; the return stack is the
-release valve.
-
-`cc-sym-find` walks the table newest-first.  Same "no exit"
-discipline as `cc-check-keyword` (Ch 23): record the hit in a
-variable, keep iterating but skip work after the hit.  Newest-first
-order plus skip-after-hit gives innermost-scope-wins semantics
-without any explicit scope checking — innermost-declared symbols
-appear later in the table, so the reverse walk finds them first.
-
-This is Ch 17's newest-wins lookup pattern with one extra
-dimension: scope.  Pushing a scope remembers a count, adding locals
-appends rows, and popping the scope restores the count so the same
-linear walk sees the right visible names.
-
-The result encoding `(id) or (-1)` is conventional: `[lit] 0 0=`
-produces -1, the same value the find result starts with, so a
-post-loop read tells the caller "found id N" or "not found."
-
-## 4. Scopes are a stack of integers
-
 `cc-scope-push` saves the current `cc-sym-count` onto
-`cc-scope-stack`.  `cc-scope-pop` reads it back into
-`cc-sym-count`.  Together they implement lexical scope as a
-counter manipulation — no tree, no parent pointers, no per-scope
-allocation.
+`cc-scope-stack`, and `cc-scope-pop` reads it back into
+`cc-sym-count`.  Lexical scope is a counter manipulation: no tree, no
+parent pointers, no per-scope allocation.
 
-When the parser enters a function, it `cc-scope-push`es.  Each
-local declaration calls `cc-sym-add`, which appends.  When the
-function ends, the parser calls `cc-scope-pop`, which restores
-the count to its pre-function value — *deleting* the local
-symbols by making them unreachable.  The bytes are still in the
-arrays, but `cc-sym-find` only walks up to `cc-sym-count - 1`, so
-the next translation will overwrite them.
+When the parser enters a function, it pushes a scope.  Each local
+declaration calls `cc-sym-add`, which appends.  When the function
+ends, the parser pops, which restores the count to its pre-function
+value and so deletes the locals by making them unreachable.  The
+bytes are still in the arrays, but `cc-sym-find` only walks up to
+`cc-sym-count - 1`, and later additions overwrite them.
 
-Globals never get popped because `cc-scope-push` is never called
-at file scope.  They're below every scope marker, so the reverse
-walk always reaches them.
+Globals are never popped because no scope is pushed at file scope.
+They sit below every scope marker, so the reverse walk always reaches
+them.
 
-The 64-deep scope cap is overkill — nested blocks in M2-Planet rarely
-exceed 4.  Nothing enforces it, though.  `cc-scope-push` never
-compares `cc-scope-depth` against `cc-scope-cap`, and `cc-scope-pop`
-has no underflow guard: a 65th push writes past the end of
-`cc-scope-stack`, and a pop without a matching push reads the cell
-below it.  Both failures are silent.  The parser keeps pushes and
-pops paired, and M2-Planet stays far below the cap, so neither
-happens in practice.
+The 64-deep scope cap is far more than M2-Planet needs; its nested
+blocks rarely exceed 4.  Nothing enforces the cap, though.
+`cc-scope-push` never compares `cc-scope-depth` against
+`cc-scope-cap`, and `cc-scope-pop` has no underflow guard: a 65th push
+writes past the end of `cc-scope-stack`, and a pop without a matching
+push reads the cell below it.  Both failures are silent.  The parser
+keeps pushes and pops paired, and M2-Planet stays far below the cap,
+so neither happens in practice.
 
 ## 5. How types and symbols connect
 
-Putting the two files together, here's the full lifecycle of a
-single C declaration `struct point p;` inside a function:
+Here is the lifecycle of a single C declaration `struct point p;`
+inside a function:
 
 1. The lexer (Ch 23) produces tokens: `kw-struct`, `tk-ident`
    `"point"`, `tk-ident` `"p"`, `tk-punct` `;`.
 2. The parser (Chs 29–31) reaches the declaration and looks up
-   `"point"` via `cc-sym-find` — finds an `sk-struct` entry.
-   Reads `cc-sym-val-of` to get the descriptor pointer.
-3. Reads `cc-sd-total-size` from the descriptor — say, 24 bytes,
+   `"point"` via `cc-sym-find`, finding an `sk-struct` entry.  It
+   reads `cc-sym-val-of` to get the descriptor pointer.
+3. It reads `cc-sd-total-size` from the descriptor: say, 24 bytes,
    which is three 8-byte slots.
-4. Reserves those three slots.  If `p` is the function's first
+4. It reserves those three slots.  If `p` is the function's first
    local they are slots 0–2, and `p` takes the *highest*, slot 2,
    so its base address `rbp - 8*(2+1)` = `rbp - 24` is the lowest
    of the three.
-5. Calls `cc-sym-add` with the name `"p"`, kind `sk-local`, type
+5. It calls `cc-sym-add` with the name `"p"`, kind `sk-local`, type
    `ty-make ty-struct 0`, val `2`, then stores the descriptor
    pointer in `p`'s `extra`.
-6. The new symbol becomes findable; references to `p.x` will look
-   `p` up, see `sk-local`, read slot 2 from its val and the field
-   layout from its descriptor, and the codegen will emit
-   `lea rdi, [rbp - 24]` to get the struct's base address.
+6. The new symbol is now findable.  A reference to `p.x` looks `p`
+   up, sees `sk-local`, reads slot 2 from its val and the field
+   layout from its descriptor, and codegen emits `lea rdi, [rbp - 24]`
+   to get the struct's base address.
 
-That's the only protocol every later chapter needs to know.
+Every later chapter uses exactly this protocol.
 
 ## Try it
 
@@ -568,33 +524,18 @@ function symbol in the M2-Planet input.
 
 ## After this chapter
 
-The compiler has runtime data for names and C types: every type
-fits in one word (base kind + pointer depth; `ty-size` derives
-the size), every symbol
-lives in a row across parallel columns, and scopes push/pop by
-remembering a count.  Struct definitions get their own 16+40·N-byte
-descriptor.
-
-You can read `ty-make`, `cc-sym-add`, and the scope stack, and
-explain why a single linear scan in newest-first order is enough
-for both correctness and performance at this scale.
-
-Toward Stage-A: identical name resolution produces identical slot
-assignments and identical struct layouts, which is the precondition
-for every load/store byte that follows being identical to the
-reference's.
+The compiler has runtime data for names and C types: every type fits
+in one word (base kind plus pointer depth, with `ty-size` deriving the
+size), every symbol is a row across parallel columns, and scopes push
+and pop by remembering a count.  Struct definitions get their own
+16+40·N-byte descriptor.  Identical name resolution gives identical
+slot assignments and struct layouts, which every load and store byte
+in the Stage-A comparison depends on.
 
 ## Takeaways
 
-- The whole C type system fits in one word per type, plus an
-  out-of-band descriptor for structs.  This is what makes the
-  symbol table cheap (parallel arrays of fixed-size cells).
-- Lexical scope is "remember the count; truncate to it on pop."
-  No tree, no nesting record — just a stack of integers, with
-  globals below every scope marker so they survive every pop.
-- The struct descriptor is the only place the compiler tracks
-  per-field metadata.  Everything else (variables, functions,
-  enum constants, typedefs) is a row in the parallel-array
-  symbol table.
+- Every C type fits in one word, with an out-of-band arena descriptor for struct layouts, which keeps the symbol table a set of fixed-size parallel columns.
+- Lexical scope is "remember the count, truncate to it on pop", with globals below every scope marker so they survive every pop.
+- The struct descriptor is the only per-field metadata in the compiler; variables, functions, enum constants and typedefs are each a single symbol-table row.
 
 Next: Chapter 25 — ELF Emission and Codegen, Part 1.

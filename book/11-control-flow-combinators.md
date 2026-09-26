@@ -7,34 +7,18 @@ Artifact after this chapter: if,, then,, else,, begin,, while,, repeat,, and the
 Proof link: the seed-level rehearsal of emit-remember-patch — the pattern the C compiler reuses in Ch 30.
 ```
 
-This is the chapter Part I has been building toward: nine new words
-in `010-lib.fth` (lines 196–292) — six of them immediate — that give
-us `if,`/`then,`/`else,` and `begin,`/`while,`/`repeat,` without a
-single new line of machine code.  Every combinator is just `c,` (Ch 2), `,4` (Ch 9),
-and `,` running at compile time, emitting a 5-byte CALL to the seed's
-`branch` or `0branch` primitive followed by an inline 8-byte target
-cell; the stack picture left behind by each one is a *fixup* that
-its partner patches when the matching keyword is parsed.  Open
-`010-lib.fth` to lines 196–292, with `branch`'s inline-cell calling
-convention — spelled out in the comment block of the Canonical source
-below — in mind.
+The library so far has no way to make a decision.  Every word runs
+straight through from its first token to its `ret`.  The seed does
+provide two jump primitives, `branch` and `0branch`, but nothing
+that emits calls to them with the right targets.
 
-By the end you'll be able to explain how `branch` and `0branch` read
-their destinations from the 8 bytes that follow their CALL site,
-compute an x86-64 CALL's `rel32` offset by hand and check it against
-`comma-call`'s output, and trace `if, ... then,` end-to-end through
-emitted bytes, compile-time stack, fixup, and runtime jump.  The
-machine code of `branch`, `0branch`, and `'` themselves is deferred
-to Part II Chs 17 and 19; the ELF layout that makes absolute target
-addresses work is Ch 13, two chapters away.
-
----
-
-```
-        ,_,
-   __(@___)___    "sixty lines of Forth that change how you read
-   ~~~~~~~~~~~~    the rest of the book.  take your time."
-```
+`010-lib.fth` lines 196–292 fill that gap with nine words, six of
+them immediate: `if,`/`then,`/`else,` and `begin,`/`while,`/`repeat,`
+plus three helpers.  None of them adds machine code to the seed.
+Each runs at compile time, writes a 5-byte CALL to `branch` or
+`0branch` followed by an 8-byte target cell, and leaves the cell's
+address on the stack for its partner to patch.  The machine code of
+`branch`, `0branch`, and `'` is Chs 17 and 19.
 
 ## 1. The big picture: `if` is not a keyword
 
@@ -44,8 +28,8 @@ matches the `then` or `else` that follows, builds an AST node for
 the conditional, and the code generator turns that node into branch
 instructions.  Six places in the compiler know about `if`.
 
-Forth doesn't work that way.  In Forth, **`if`** — or here,
-`if,` — **is a word**, defined in user code, two-thirds of the way
+Forth doesn't work that way.  In Forth, **`if`** (here spelled
+`if,`) **is a word**, defined in user code, two-thirds of the way
 down `010-lib.fth`.  It is no more privileged than `dup` or
 `emit`.  When the seed sees `if,` inside a `:` ... `;`, it does
 exactly what it would do for any other word: look it up, run it.
@@ -57,24 +41,20 @@ What does `if,` do when it runs?  It writes bytes into HERE.
 Specifically, a five-byte CALL instruction targeting the seed's
 `0branch` primitive, followed by eight reserved bytes for the
 branch target, and leaves the address of those eight bytes on the
-data stack as a *fixup*.  The matching `then,` later reads HERE,
-stores it into the fixup slot, and — voilà — a conditional jump.
+data stack as a *fixup*.  The matching `then,` later reads HERE and
+stores it into the fixup slot, which completes a conditional jump.
 
-There is no special case in the compiler.  There is no parser
-involvement.  Sixty lines of Forth implement every control
-structure in the Forth source of this codebase, the C compiler's
-included.
-
-This is the conceptual climax of Part I.  By the end of the
-chapter, you'll have read the bytes that make it work.
+There is no special case in the compiler and no parser involvement.
+About thirty lines of code implement every control structure in the
+Forth source of this codebase, the C compiler's included.
 
 ## 2. The seed's branch primitives, in one paragraph
 
 `branch` and `0branch` are seed primitives.  Their calling
 convention is unusual: they don't take their target from the data
 stack.  Instead, when their machine code runs, they pop the *return
-address* from the call stack — which by x86 calling convention
-points at the byte just after the CALL that invoked them — and use
+address* from the call stack (which by x86 calling convention
+points at the byte just after the CALL that invoked them) and use
 *that* address to read 8 bytes from memory.  Those 8 bytes are the
 target.  `branch` jumps to it unconditionally; `0branch` jumps to
 it if the top of the data stack is zero, otherwise it adds 8 to
@@ -94,14 +74,13 @@ At runtime, the primitive reads those 8 bytes and jumps.
 ```
 
 `'` (tick) is a seed primitive that reads the next token from input
-and pushes the address of that word's body — its **execution
+and pushes the address of that word's body: its **execution
 token**, or *xt*.  `' branch` pushes the body-address of the seed's
 `branch` primitive.  We then call `constant` (Ch 10) to capture
 that address into a Forth-level name `branch-xt`.
 
-The whole point is to avoid hard-coded addresses.  The seed
-binary's layout — where exactly `branch` lives in memory — could
-change as `000-seed.hex0` is edited.  Instead of writing `[lit] 1506
+The point is to avoid hard-coded addresses.  Where `branch` lives
+in memory can change whenever `000-seed.hex0` is edited.  Instead of writing `[lit] 1506
 constant branch-xt` and updating that number every time the seed
 moves, we let `'` resolve the address at load time.  Subsequent
 edits to the seed don't require touching `010-lib.fth`.
@@ -132,21 +111,19 @@ The `5` is the size of the CALL instruction: 1 byte for opcode
   here [lit] 4 + - ,4 ;        \ rel32 = target - (HERE+4); emit 4 LE bytes
 ```
 
-The body has a subtle bookkeeping move.  After `[lit] 232 c,` emits
+After `[lit] 232 c,` emits
 the opcode byte, HERE has *already advanced by one*.  So at the
 moment we compute the offset, HERE points at the *first byte of the
 rel32 field*.  Adding 4 to it gives the address just past the
 4-byte rel32, which is the same as the address just past the whole
-5-byte CALL — exactly the base the CPU will use at execution time.
+5-byte CALL: exactly the base the CPU will use at execution time.
 
 So `target - (HERE_now + 4)` is the right value.  Then `,4` emits
 its low 4 bytes in little-endian order (Ch 9), and the 5-byte CALL
 is complete.
 
-Pulling out the "+4 quirk": that 4 (rather than 5) is the
-fingerprint of "the opcode byte has already been written."  If you
-wrote `here [lit] 5 + -`, you'd be assuming the opcode hasn't been
-written yet — and you'd land one byte off.  Make sure you trace
+The 4 rather than 5 is there because the opcode byte has already
+been written.  `here [lit] 5 + -` would land one byte off.  Trace
 this on paper at least once.
 
 ## 5. Forward branches: `if,` and `then,` as a pair
@@ -166,11 +143,11 @@ immediate
 
 `if,` does three things:
 
-1. **`0branch-xt comma-call`** — emit a 5-byte CALL targeting the
+1. **`0branch-xt comma-call`** emits a 5-byte CALL targeting the
    seed's `0branch` primitive.  After this, HERE has advanced by 5.
-2. **`here`** — push the current HERE on the data stack.  This is
+2. **`here`** pushes the current HERE on the data stack.  This is
    the address where the 8-byte target slot is about to be reserved.
-3. **`[lit] 0 ,`** — write 8 zero bytes at HERE (`,` is the
+3. **`[lit] 0 ,`** writes 8 zero bytes at HERE (`,` is the
    seed-provided cell-writer; for now, accept that it works like a
    single `,8` of zero).  HERE advances by 8 more.
 
@@ -193,13 +170,12 @@ the target becomes knowable.
 
 After `then,`, the 8-byte slot at `fixup` contains the current
 HERE.  At runtime, if the flag passed to `0branch` was zero, the
-primitive reads those 8 bytes and jumps to that address — which is
-exactly where the user's code resumed after `then,`.  Conditional
-forward branch achieved.
+primitive reads those 8 bytes and jumps to that address, which is
+exactly where the user's code resumed after `then,`.
 
 Trace a tiny example.  `: maybe  if, [lit] 65 emit then, ;` where
 the caller pushes a flag.  `[lit] 65` compiles to `CALL lit` (5 bytes)
-plus the inline 8-byte cell holding 65 — 13 bytes in all — and `emit`
+plus the inline 8-byte cell holding 65 (13 bytes in all), and `emit`
 compiles to a 5-byte `CALL`.  So the byte stream HERE accumulates is:
 
 ```
@@ -212,7 +188,7 @@ compiles to a 5-byte `CALL`.  So the byte stream HERE accumulates is:
 
 If the flag is zero at runtime, `0branch` reads the slot at HERE+5
 (which `then,` filled with the address HERE+31, just past `emit`) and
-jumps there — skipping the `[lit] 65 emit` entirely.  If the flag is
+jumps there, skipping the `[lit] 65 emit` entirely.  If the flag is
 non-zero, `0branch` skips its own slot and falls through into the
 literal-push and emit.
 
@@ -229,20 +205,20 @@ literal-push and emit.
 immediate
 ```
 
-`else,` is the cleverest of the nine words.  At entry, the data
+`else,` handles two fixups at once.  At entry, the data
 stack has the **fixup-if** from the matching `if,`.  At exit, the
 stack has a *new* **fixup-else**, which the matching `then,` will
 patch.
 
 Mechanically:
 
-1. **`branch-xt comma-call`** — emit an unconditional CALL to
-   `branch`, the leap-over-else-arm.
-2. **`here [lit] 0 ,`** — reserve a fresh 8-byte slot for the
-   unconditional branch's target, and remember its address (the new
+1. **`branch-xt comma-call`** emits an unconditional CALL to
+   `branch`, which will leap over the else-arm.
+2. **`here [lit] 0 ,`** reserves a fresh 8-byte slot for the
+   unconditional branch's target and remembers its address (the new
    fixup).
-3. **`swap`** — bring the old fixup-if to the top.
-4. **`here swap !`** — patch fixup-if so the `0branch` lands
+3. **`swap`** brings the old fixup-if to the top.
+4. **`here swap !`** patches fixup-if so the `0branch` lands
    *here*, at the start of the else-arm (just past the
    unconditional branch we just emitted).
 
@@ -253,11 +229,8 @@ So when control reaches the `0branch` at runtime:
   unconditional `branch` which jumps over the else-arm.
 
 After the user types the else-arm body and then `then,`, the
-fixup-else is patched to HERE — landing past the end of the
+fixup-else is patched to HERE, just past the end of the
 else-arm.  Both arms converge at the same address.
-
-Read this twice.  The trick is that `else,` does *two* fixups: it
-both patches the previous one and emits a new one.
 
 ## 7. Backward loops: `begin,` / `while,` / `repeat,`
 
@@ -273,8 +246,8 @@ both patches the previous one and emits a new one.
 immediate
 ```
 
-`begin,` is a one-liner.  It just records HERE as the *back-target*
-— the address loop iterations will jump back to.  No code is
+`begin,` is a one-liner.  It records HERE as the *back-target*,
+the address loop iterations will jump back to.  No code is
 emitted.
 
 `while,` is identical to `if,` in mechanism: emit `CALL 0branch`
@@ -283,8 +256,8 @@ flag; if zero, jump to the patched target (loop-exit).  The
 back-target from `begin,` stays underneath the new fixup on the
 data stack.
 
-`repeat,` is the loop-closer.  Its first line is the trickiest in
-the chapter:
+`repeat,` closes the loop.  Its first line needs a careful stack
+trace:
 
 ```
 swap branch-xt comma-call ,
@@ -294,10 +267,10 @@ At entry the stack is `( back-target fixup-exit )`.  `swap` makes
 it `( fixup-exit back-target )`.  `branch-xt comma-call` emits the
 unconditional CALL: `comma-call` pops only the `branch-xt` it was
 just handed, so afterward the stack is `( fixup-exit back-target )`
-again — but now HERE has advanced past the CALL.  Then `,` (the
-cell-writer) pops `back-target` and writes
-its 8 bytes at HERE — that's the back-target *cell*, the absolute
-address the unconditional `branch` will read at runtime.
+again, but HERE has advanced past the CALL.  Then `,` (the
+cell-writer) pops `back-target` and writes its 8 bytes at HERE.
+That is the back-target *cell*, the absolute address the
+unconditional `branch` will read at runtime.
 
 Now the stack is `( fixup-exit )`, and HERE is just past the 13-byte
 (5 + 8) unconditional-backward-jump.  The second line:
@@ -309,21 +282,17 @@ here swap !
 is the same pattern as `then,`: store HERE into the fixup-exit
 slot.  When the loop body runs and `while,`'s flag is zero, the
 `0branch` reads that slot and jumps just past the unconditional
-back-jump — i.e., out of the loop.
+back-jump, out of the loop.
 
 Net: `begin, BODY while, BODY repeat,` compiles to a backward jump
 at the bottom with a forward-bailout fixup at the top: a pre-test
-loop whose exit test sits wherever you put `while,` — at the top in
-the common case, or mid-body.
+loop whose exit test sits wherever you put `while,` (at the top in
+the common case, or mid-body).
 
 ## 8. A worked example end to end
 
-Read this section for shape on the first pass: you can skim the exact
-HERE offsets and trust the picture, which is just *back-jump at the
-bottom, bail-out fixup at the top*.  Come back for the byte arithmetic
-once that shape is solid.
-
-Compile this:
+On a first pass you can skim the HERE offsets; the shape is
+*back-jump at the bottom, bail-out fixup at the top*.  Compile this:
 
 ```forth
 : cnt
@@ -334,19 +303,19 @@ Compile this:
 
 Walk every combinator.  Recall the byte budget per compiled token:
 each ordinary word compiles to a 5-byte `CALL`, and `[lit] N`
-compiles to `CALL lit` (5 bytes) plus an 8-byte cell holding `N` —
+compiles to `CALL lit` (5 bytes) plus an 8-byte cell holding `N`,
 13 bytes total.
 
 1. `:` parses the name `cnt`, builds the dictionary header, sets
    STATE=1.  HERE is at the start of `cnt`'s body — call it `B`.
 2. `begin,` runs immediately: pushes `B` to the data stack.  Stack: `( B )`.
-3. `dup [lit] 0 >` is compiled normally — `dup` (5) + `[lit] 0` (13)
+3. `dup [lit] 0 >` is compiled normally: `dup` (5) + `[lit] 0` (13)
    + `>` (5) = 23 bytes.  Now HERE = `B+23`.
 4. `while,` runs immediately.  Stack on entry: `( B )`.
    - `0branch-xt comma-call` emits 5 bytes.  HERE = `B+28`.
    - `here [lit] 0 ,` pushes `B+28` (the address of the fixup slot)
      and reserves 8 bytes for the slot.  HERE = `B+36`.
-   - Stack: `( B B+28 )` — back-target, then loop-exit fixup.
+   - Stack: `( B B+28 )`: back-target, then loop-exit fixup.
 5. `dup [lit] 48 + emit [lit] 1 -` compiles to 5 + 13 + 5 + 5 + 13 +
    5 = 46 bytes.  HERE = `B+82`.
 6. `repeat,` runs immediately.  Stack on entry: `( B B+28 )`.
@@ -356,9 +325,9 @@ compiles to `CALL lit` (5 bytes) plus an 8-byte cell holding `N` —
      `branch-xt` it had just pushed.
    - `,` pops `B` and writes its 8 bytes as the back-target cell.
      HERE = `B+95`.  Stack: `( B+28 )`.
-   - `here swap !` — stores `B+95` into the slot at `B+28`.  Stack:
+   - `here swap !` stores `B+95` into the slot at `B+28`.  Stack:
      `( )`.
-7. `drop` compiles normally — emits a 5-byte CALL.  HERE = `B+100`.
+7. `drop` compiles normally, emitting a 5-byte CALL.  HERE = `B+100`.
 8. `;` closes the definition with a `ret`, sets STATE=0.
 
 At runtime, with `5` on the stack and a call to `cnt`:
@@ -374,26 +343,18 @@ Output: `54321`.  Verified by the Try-it below.
 
 ## 9. The reveal
 
-Sixty lines of Forth implement structured programming.  No parser
-change.  No new VM opcodes.  Just immediate words that emit
-`branch` and `0branch` calls with inline 8-byte target slots.
+About thirty lines of code implement structured programming, with
+no parser change and no new VM opcodes: just immediate words that
+emit `branch` and `0branch` calls with inline 8-byte target slots.
+Forth is now self-extensible.
 
-**This is the moment Forth becomes self-extensible.**
-
-```
-       __
-   __( o)>   "told you `if` is a word.  sixty lines.  no keywords."
-   \___/
-```
-
-Any control construct you can imagine — `case`/`of`, `switch`,
-exception unwinding, generators, even multi-level exits — is now a
-few dozen lines away.  You'd open `010-lib.fth`, add a couple of
+Any other control construct (`case`/`of`, exception unwinding,
+generators, multi-level exits) is a few dozen lines away.  You'd open `010-lib.fth`, add a couple of
 immediate words that emit branches in a new pattern, and the user
 language has a new keyword.
 
 The C compiler in Part III uses these combinators throughout its
-own Forth source — every loop and conditional in the *generating*
+own Forth source: every loop and conditional in the *generating*
 code is a `begin,` or an `if,`.  The *generated* code is different:
 for C's `if`, `while`, and `for`, the compiler emits native x86
 `jz`/`jmp` instructions through its own emitter
@@ -401,10 +362,9 @@ for C's `if`, `while`, and `for`, the compiler emits native x86
 carries over is the pattern, not the words: emit a placeholder,
 remember its address, patch it when the target is known.
 
-If you've ever wondered what people mean when they say Forth is "a
-programmable programming language," this is exactly what they
-mean.  No metaclasses, no macros, no AST manipulation — just a
-mode flag, a flag bit, and `c,`.
+This is what people mean when they call Forth "a programmable
+programming language": no metaclasses, no macros, no AST
+manipulation, just a mode flag, a flag bit, and `c,`.
 
 ## Canonical source
 
@@ -553,14 +513,14 @@ rather see them inside a larger battery.
    past the opcode byte.  Where does the `+4` come from?
 
 3. **★★ Extend.** Write `again, ( back-target -- )` which emits an unconditional
-   backward jump.  It is the simplest member of this family — three
+   backward jump.  It is the simplest member of this family: three
    lines.
 
 4. **★★★ Extend.** Add a real control structure: implement `do, ( limit start --
    loop-ctx )` and `loop, ( loop-ctx -- )` that count `start` up to
    `limit-1`, leaving the current count accessible via a new word `i`.
-   Solutions vary in how they store the loop variables — return stack
-   or a private cell.  Compare yours to the classical Forth `do/loop`
+   Solutions vary in how they store the loop variables (return stack
+   or a private cell).  Compare yours to the classical Forth `do/loop`
    convention.
 
 5. **★★ Trace.** Why does this chapter use `' branch constant branch-xt`
@@ -569,18 +529,14 @@ rather see them inside a larger battery.
 
 ## Takeaways
 
-- `if`, `then`, `else`, `begin`, `while`, `repeat` are user code, not
-  language built-ins.  They are immediate words that emit `branch`
-  and `0branch` CALL instructions with inline 8-byte target slots.
-- A *fixup* is the address of a reserved branch slot.  Forward
-  combinators leave fixups on the data stack at compile time;
-  matching combinators consume them and patch in the resolved target.
-- The durable pattern is emit, remember, patch: write incomplete
-  bytes now, carry the address of the missing value, and fill it in
-  when the later word knows the target.
-- This is the moment Forth becomes self-extensible.  Every control
-  construct in this codebase's Forth source from here forward — the
-  C compiler's included — uses or extends these six combinators.
+- `if,`, `then,`, `else,`, `begin,`, `while,`, and `repeat,` are
+  immediate library words that emit `branch` and `0branch` CALLs
+  with inline 8-byte target slots, not language built-ins.
+- Each forward branch follows emit, remember, patch: reserve a slot,
+  leave its address (the *fixup*) on the data stack, and let the
+  matching word store the target once it is known.
+- Every control structure in the codebase's Forth source, the C
+  compiler's included, is built from these combinators.
 
 Next: Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`, where
 the last 80 lines of `010-lib.fth` complete the defining-word

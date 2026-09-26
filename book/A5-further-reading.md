@@ -93,8 +93,8 @@ grouped by what they help with.
 - **Theodore Norvell, "Parsing Expressions by Recursive
   Descent"** (1999, Memorial University of Newfoundland).  Surveys
   the recursive-descent options side by side.  Ch 27's parser is
-  what Norvell calls the "classic" solution — a precedence
-  cascade, one function per precedence level — not the
+  what Norvell calls the "classic" solution (a precedence
+  cascade, one function per precedence level), not the
   single-function "precedence climbing" algorithm the same
   write-up named.  Climbing's original description is in **Keith
   Clarke, "The top-down parsing of expressions"** (1986

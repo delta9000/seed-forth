@@ -140,9 +140,9 @@ affect what our Forth compiler emits, and vice versa.  Stage A's
 byte-identity check on M1 output is the proof that the two
 independent paths landed at the same compiler behaviour.
 
-That is the value of this project.  Not "a smaller bootstrap"
-(stage0 is plenty small).  A **second route** that happens to also
-be small, hand-readable, and built on Forth instead of M0/M1.
+The value of this project is not "a smaller bootstrap" (stage0 is
+plenty small).  It is a **second route** that is also small,
+hand-readable, and built on Forth instead of M0/M1.
 
 ## What this adds: cross-validation
 
@@ -166,19 +166,18 @@ literate book.  Most of the code here was written by AI (see the
 prologue, and `AI_STRATEGIES.md`).  The byte-identity oracle that
 makes cross-validation work does double duty: it is also a
 correctness check a language model cannot bluff past.  Parity and
-fixed-point closure are byte-level facts — plausible code that is
-subtly wrong fails them — so they bound *correctness* without a
+fixed-point closure are byte-level facts.  Plausible code that is
+subtly wrong fails them, so they bound *correctness* without a
 human reading every line.  The book bounds *understanding*: it is
 the layer in which a person can follow, hold, and vouch for what
 the machine produced.  The bootstrap is an unusually clean place to
-show this, because its ground truth is absolute; but the shape
-generalises — give the AI a mechanical oracle it can't argue with,
+show this, because its ground truth is absolute, but the shape
+generalises: give the AI a mechanical oracle it can't argue with,
 then write the literate explanation that keeps a human in command.
 
 ## Honest sizing
 
-A natural question after reading the above: does this route shrink
-the bootstrap?  No.  At the source-line level, the two routes are
+Does this route shrink the bootstrap?  No.  At the source-line level, the two routes are
 comparable.
 
 Approximate hand-written source above the shared `hex0-seed`,
@@ -217,8 +216,8 @@ C input have ruled out *both* sets of language-specific failure
 modes.
 
 The 2,040-byte seed is the part that *is* genuinely smaller than
-stage0's equivalent intermediate stages — hex0 plus hex1 plus hex2
-plus M0 on the AMD64 path add up to ~7 KB of executable before
+stage0's equivalent intermediate stages.  On the AMD64 path, hex0
+plus hex1 plus hex2 plus M0 add up to ~7 KB of executable before
 you have a programmable layer.  We get to a programmable layer
 (a working Forth) in 2 KB because Forth's primitives are short
 and the dictionary structure is dense.  But the *total* source
@@ -237,11 +236,7 @@ The trust root for either route through this book is the union of:
 - the Linux kernel (~30 million lines of C, not audited here),
 - the x86-64 CPU and its microcode (opaque silicon).
 
-```
-   ,___,
-   [o,o]   "229 bytes plus 30 million plus opaque silicon.
-   (")_)    small trust root is not the same as no trust root."
-```
+A small trust root is not the same as no trust root.
 
 stage0's bare-metal paths (`NATIVE/x86`, `NATIVE/knight`,
 `builder-hex0`) push the trust root below the Linux kernel by

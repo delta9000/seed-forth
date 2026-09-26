@@ -26,6 +26,17 @@ book's claims against it:
       - file coverage "lines A-B [of] `file`" — in-bounds sanity (1<=A<=B<=wc-l)
   * exact source-file line counts
       - "K-line file", "...file at K lines", "(entire file)" vs wc -l
+      - sentence-scoped: a source file name (backticks optional) followed in
+        the same sentence by "K lines" / "K-line file" ("`090-cc-emit.fth` is
+        the bigger of the pair: 1050 lines", "`100-cc-expr.fth` (1478 lines
+        total)"); comma-formatted K ("7,198") is accepted
+      - file ranges: "`020-cc-arena.fth` through `120-cc-main.fth`" with
+        "K lines" before ("K lines of Forth (`A` through `B`)") or after
+        ("... through `B`: the final K lines") vs the summed wc -l of every
+        NNN- file in that numeric range
+  * exact source-file byte sizes (vs the file's size on disk, i.e. wc -c)
+      - "`file` is K bytes", "`file` (K bytes ...", and a next-sentence
+        "Its [source form|size] is K bytes" after a sentence ending in `file`
   * single-line `file.fth:line` citations  (A6/A7, file-absolute)
       - A7 die-site  "| 30 | `100-cc-expr.fth:364` |" vs the `[lit] 30 die`
                      line(s) for that error code in the cited file
@@ -38,7 +49,16 @@ interleaved, so "next label" is the right boundary).  The last label's end is
 the built seed's byte size.
 
 Still NOT checked, and why: file *span* claims like "851 lines: file header"
-or "these 24 lines" (a portion, not the file size); the *exact* endpoints of
+or "these 24 lines" (a portion, not the file size) — a sentence-scoped "K
+lines" is skipped when a portion word precedes it (last/first/final/next/
+these/adds/spans/...; "final" is allowed for a range total), when it reads
+"K lines of/in `file`" without a range or "(entire file)" (portion or total
+is unknowable), when another subject intervenes (an unclosed "(" between the
+file name and K, or more than 80 characters), and inside code fences; "K-line"
+counts only before file/source/module ("a 12-line helper" is a portion);
+byte claims only in the three whole-file phrasings above ("a 9-byte routine
+in `000-seed.hex0`" is a body size, checked elsewhere); files outside book/
+(REPRODUCIBLE.md's size table); the *exact* endpoints of
 editorial multi-definition coverage spans (the book's hand-written endpoints
 aren't uniform — some include the trailing blank line, some don't — so only
 their in-bounds-ness is checked).  Claims the script cannot confidently
@@ -397,7 +417,193 @@ def check():
                         emit("MISMATCH", md, report_line(m.group(1)),
                              f"{fname} lines {a}-{b} out of range (file is {actual} lines)", key)
 
+    sentence_pass(files, emit)
     return findings
+
+
+# --- sentence-scoped whole-file size claims ---------------------------------
+#
+# The per-line checks above only fire on a few fixed phrasings ("K-line file",
+# "at K lines", "(entire file)").  Real drift hid in ordinary sentences:
+# "`090-cc-emit.fth` is the bigger of the pair: 1027 lines ...", "opens
+# `100-cc-expr.fth` (1447 lines total)", "7,198 lines of Forth (`020-...`
+# through `120-...`)", "`000-seed.hex0` ... 27,067 bytes".  So we split the
+# prose (outside code fences) into sentences and attribute each "N lines" /
+# "N-line file" / "N bytes" to a source file only when the attribution is
+# unambiguous (see attribute()).
+
+SENT_NUM_LINES = re.compile(r"(?<![\w.,-])(~?)(\d[\d,]*)(?:\s+lines\b|-line\s+(?:file|source|module)\b)")
+SENT_NUM_BYTES = re.compile(r"(?<![\w.,-])(~?)(\d[\d,]*)\s+bytes\b")
+# words that make "N lines" a *portion* of the file, not its size
+PORTION = re.compile(r"\b(last|first|final|next|these|those|top|bottom|remaining|other|"
+                     r"another|extra|additional|further|about|some|only|just|add|adds|added|"
+                     r"remove|removes|removed|cut|saves|saved|spans?|covers?|takes)\s+(?:~?\S+\s+)?$",
+                     re.I)
+RANGE_SEP = re.compile(r"^\s*(?:through|to|–|—|-)\s*$")
+SENT_SPLIT = re.compile(r"(?<=[.!?])[)*_]*\s+(?=[A-Z`(*\[~0-9])")
+# whole-file byte phrasings (the file is the subject, the number its size)
+BYTES_IS = re.compile(r"^\s*(?:is|was|weighs in at|comes to|totals?)\s+(~?)(\d[\d,]*)\s+bytes\b")
+BYTES_PAREN = re.compile(r"^\s*\(\s*(~?)(\d[\d,]*)\s+bytes\b")
+BYTES_ITS = re.compile(r"^\s*(?:Its|The file's)\s+(?:source(?:\s+form)?\s+|size\s+|annotated\s+source\s+)?"
+                       r"is\s+(~?)(\d[\d,]*)\s+bytes\b")
+
+
+def prose_sentences(md):
+    """Yield (sentence, [(offset, lineno)]) for prose outside code fences.
+
+    Paragraphs are split at blank lines, headings, table rows (each row is its
+    own unit) and list items, so a number never borrows a file name from an
+    unrelated bullet or cell.
+    """
+    lines = open(md, encoding="utf-8").read().split("\n")
+    paras, cur, fence = [], [], None
+    for i, ln in enumerate(lines, 1):
+        s = ln.strip()
+        m = re.match(r"(```+|~~~+)", s)
+        if fence:
+            if m and s.startswith(fence):
+                fence = None
+            continue
+        if m:
+            fence = m.group(1)
+            if cur:
+                paras.append(cur); cur = []
+            continue
+        if not s or s.startswith(("#", "|")) or re.match(r"([-*+]|\d+\.)\s", s) or s == "---":
+            if cur:
+                paras.append(cur); cur = []
+            if s.startswith(("#", "|")):
+                paras.append([(i, s)])
+                continue
+            if not s or s == "---":
+                continue
+        cur.append((i, s))
+    if cur:
+        paras.append(cur)
+    for p in paras:
+        text, marks = "", []
+        for lineno, s in p:
+            marks.append((len(text), lineno))
+            text += s + " "
+        start = 0
+        for m in list(SENT_SPLIT.finditer(text)) + [None]:
+            end = m.start() if m else len(text)
+            yield text[start:end], start, marks
+            if m:
+                start = m.end()
+
+
+def _lineno(marks, off):
+    ln = marks[0][1]
+    for o, l in marks:
+        if o <= off:
+            ln = l
+    return ln
+
+
+def sentence_pass(files, emit):
+    names = sorted(files, key=len, reverse=True)
+    # backticks optional ("000-seed.hex0 is 27,067 bytes"), but never part of a path
+    fre = re.compile(r"(?<![\w/.-])`?(" + "|".join(re.escape(n) for n in names) + r")`?(?![\w/-])")
+    numbered = sorted(n for n in files if re.match(r"\d{3}-", n))
+
+    def range_total(a, b):
+        lo, hi = int(a[:3]), int(b[:3])
+        if lo > hi:
+            return None, None
+        members = [n for n in numbered if lo <= int(n[:3]) <= hi]
+        return sum(line_count(files[n]) for n in members), len(members)
+
+    def verdict(md, ln, label, claimed, actual, approx, unit, key):
+        if claimed == actual:
+            emit("OK", md, ln, f"{label} = {actual} {unit}", key)
+        elif approx:
+            if abs(claimed - actual) > max(5, actual * 0.05):
+                emit("WARN", md, ln, f"{label} ~{claimed} {unit}; actual {actual} "
+                     f"(off by {abs(claimed - actual)})", key)
+        else:
+            emit("MISMATCH", md, ln, f"{label} claimed {claimed} {unit}; actual {actual}", key)
+
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        prev_last_file = None
+        for sent, base, marks in prose_sentences(md):
+            fms = list(fre.finditer(sent))
+            # "`A` through `B`" ranges in this sentence: {index of B: (A, B)}
+            ranges = {}
+            for k in range(len(fms) - 1):
+                if RANGE_SEP.match(sent[fms[k].end():fms[k + 1].start()]):
+                    ranges[k + 1] = (fms[k].group(1), fms[k + 1].group(1))
+                    ranges[k] = ranges[k + 1]
+
+            # ---- line counts ----
+            for m in SENT_NUM_LINES.finditer(sent):
+                claimed, approx = num(m.group(2)), bool(m.group(1))
+                approx = approx or bool(APPROX.search(sent[max(0, m.start() - 12):m.start()]))
+                ln = _lineno(marks, base + m.start())
+                before = [k for k, f in enumerate(fms) if f.end() <= m.start()]
+                after = [k for k, f in enumerate(fms) if f.start() >= m.end()]
+                target = None
+                # forward: "N lines of Forth (`A` through `B`)" / "N lines of/in `f`"
+                if after:
+                    k = after[0]
+                    gap = sent[m.end():fms[k].start()]
+                    if len(gap) <= 40 and re.search(r"\b(of|in)\b|\(", gap):
+                        if k in ranges:
+                            target = ("range", ranges[k])
+                        else:
+                            continue   # "the last 80 lines of `f`" — portion or unknowable
+                if target is None and before:
+                    k = before[-1]
+                    gap = sent[fms[k].end():m.start()]
+                    # a new subject in between ("`B`, compiles ... (M2-Planet:
+                    # 8,479 lines") or a long gap breaks the attribution
+                    if len(gap) > 80 or gap.lstrip().count("(") > gap.lstrip()[:1].count("(") \
+                            + gap.count(")"):
+                        continue
+                    if PORTION.search(sent[:m.start()]):
+                        # "final" is legitimate for a range total ("the final N lines")
+                        if not (k in ranges and re.search(r"\bfinal\s+~?\S*$", sent[:m.start()])):
+                            continue
+                    target = ("range", ranges[k]) if k in ranges else ("file", fms[k].group(1))
+                if target is None:
+                    continue
+                kind, what = target
+                if kind == "range":
+                    a, b = what
+                    actual, count = range_total(a, b)
+                    if actual is None:
+                        continue
+                    verdict(md, ln, f"{a} through {b} ({count} files)", claimed, actual,
+                            approx, "lines", (md, "lines-range", (a, b), claimed))
+                else:
+                    verdict(md, ln, what, claimed, line_count(files[what]), approx,
+                            "lines", (md, "lines", what, claimed))
+
+            # ---- byte sizes of the source files themselves ----
+            cands = []
+            for k, f in enumerate(fms):
+                tail = sent[f.end():]
+                if k + 1 < len(fms):
+                    tail = tail[:fms[k + 1].start() - f.end()]
+                off = f.end()
+                if tail.startswith("'s "):
+                    tail, off = tail[2:], off + 2
+                for rx in (BYTES_IS, BYTES_PAREN):
+                    bm = rx.match(tail)
+                    if bm:
+                        cands.append((f.group(1), bm, off))
+            # "There is a file ... `000-seed.hex0`.  Its source form is N bytes long"
+            if not fms and prev_last_file:
+                bm = BYTES_ITS.match(sent)
+                if bm:
+                    cands.append((prev_last_file, bm, 0))
+            for fname, bm, off in cands:
+                claimed, approx = num(bm.group(2)), bool(bm.group(1))
+                ln = _lineno(marks, base + off + bm.start(2))
+                verdict(md, ln, fname, claimed, os.path.getsize(files[fname]), approx,
+                        "bytes", (md, "bytes", fname, claimed))
+            prev_last_file = fms[-1].group(1) if fms and \
+                not sent[fms[-1].end():].strip(" .") else None
 
 
 def dump():

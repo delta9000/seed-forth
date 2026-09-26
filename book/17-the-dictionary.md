@@ -7,67 +7,29 @@ Artifact after this chapter: the dictionary's layout and its lookup primitive in
 Proof link: "small tables, linear search, newest wins" first appears here; Chs 22, 24, 30, 31 reapply it.
 ```
 
-This chapter reads the seed's only data structure: a singly-linked
-list of headers laid out as `link(8) flags(1) nlen(1) name(N)
-body(M)`, walked backwards from `LATEST` by `find_code`.  The
-primitives that build and traverse this list live in three bands of
-`000-seed.hex0`: lines 171–262 cover `find_code`, `here_code`,
-`comma_code`, `execute_code`, and `read_word`; lines 387–554 are
-the hand-laid dictionary entries themselves (every primitive from
-`bye` through `0branch`); lines 684–752 close the file with
-`state_code`, `latest_code`, and `tick_code` plus the trailing
-entries for `r@`, `*`, `state`, `latest`, and `'`.
+Every word the seed knows, from `bye` to `'`, and every word `:`
+adds later, lives in one singly linked list.  There is no hash
+table, no symbol table and no environment frame.  This chapter reads
+that list and the primitives that build and search it.
 
-By the end of the chapter you'll be able to walk the chain from
-`LATEST` to the null link in `bye`, read `find_code`'s two-level
-loop (chain walk plus byte comparison) and explain the `LAST_FOUND`
-side effect, and account for each of the supporting primitives
-(`here_code`, `comma_code`, `execute_code` as a tail-call via
-`jmp rax`, `tick_code` as the "name to xt" reflection half,
-`state_code` and `latest_code` as address-pushers, and `read_word`
-as the byte-by-byte token assembler).  The REPL's use of `find_code`
-and `execute_code` is Ch 20; the `[lit]` IMMEDIATE entry is Ch 18,
-where the `<<bracket-lit-dict>>` header flips the IMMEDIATE bit.
+The code sits in three bands of `000-seed.hex0`.  Lines 171–262 hold
+`find_code`, `here_code`, `comma_code`, `execute_code` and
+`read_word`.  Lines 387–554 are the hand-laid dictionary entries for
+every primitive from `bye` through `0branch`.  Lines 684–752 close
+the file with `state_code`, `latest_code` and `tick_code`, plus the
+entries for `r@`, `*`, `state`, `latest` and `'`.
 
----
+§§1–4 cover the header layout, the lookup, and the primitives that
+build entries (`here`, `,`) and run them (`execute`); §§1–2 stand on
+their own if you only want the lookup algorithm.  §§5–7 cover the
+token reader and the sysvar accessors the REPL relies on.  §§8–9
+list the entries themselves.  The REPL's use of `find_code` and
+`execute_code` is Ch 20, and `[lit]`'s IMMEDIATE entry is Ch 18.
 
-```
-        ,_,
-   __(@___)___    "find_code is 86 bytes of machine code and two
-   ~~~~~~~~~~~~    nested loops.  nobody gets it on the first
-                   pass."
-```
-
-The dictionary is the seed's only data structure.  There is no hash
-table, no symbol table, no environment frame.  Just a linked list
-of headers walked by `find_code`, each header pointing back to the
-previous one.  Everything the REPL knows about — every primitive,
-every Forth-level definition added by `:` — lives in this list.
-
-```
-       __
-   __( o)>   "whole language is a linked list.  that is the entire trick."
-   \___/
-```
-
-The list is grown forward (new entries appended at `HERE`) but
-searched backward (from `LATEST`).  That makes the most recent
-definition the *first* one a lookup finds, which is exactly what
-you want for shadowing: redefining `dup` later in the source pushes
-a new entry whose name matches the lookup first, and the original
-becomes invisible.
-
-**How this chapter is organized.**  The chapter has three logical
-units packed together.  *Dictionary core* (§§1–4) is the header
-layout, lookup, and the two primitives that build entries (`here`,
-`,`) plus the one that runs them (`execute`).  *The token reader
-and sysvar accessors* (§§5–7) covers `read_word`, `state`,
-`latest`, and `tick` — the support layer that lets the REPL feed
-the dictionary at parse time.  *The actual dictionary entries*
-(§§8–9) lists the entries the seed bakes in: the 32 primitives'
-headers and the few late entries that depend on `read_word`.  If
-you only want the lookup algorithm, §§1–2 are self-contained; if
-you only want how the REPL connects to the dictionary, skip to §5.
+The list grows forward (new entries go at `HERE`) but is searched
+backward (from `LATEST`), so the most recent definition is the
+first one a lookup finds.  Redefine `dup` and the new entry matches
+first; the original becomes invisible.
 
 ## 1. The header layout
 
@@ -82,107 +44,71 @@ offset  size  field
  10+N    M    body        — machine code for the word
 ```
 
-After hex-assembly, the seed contains 24 hand-laid-out headers in a
-single block running from `0x44D` (`bye`) to the `0branch` entry
-(which starts at `0x5E7` and ends at `0x5FD`), followed by the later
-additions at the end of the file.
+The seed contains 32 hand-laid headers.  Twenty-four sit in one
+block, from `bye` at `0x44D` through `0branch` at `0x5E7`; the other
+eight are scattered among the bodies near the end of the file.
+
+Here is `dup`'s entry laid out byte by byte, with the path a
+compiled call to `dup` takes at runtime:
+
+```text
+dup's entry: file offset 0x484, virtual address 0x400484
+
+field    link (8 bytes)             flags   nlen    name       body (5 bytes)
+        +--------------------------+-------+-------+----------+----------------+
+bytes   | 72 04 40 00 00 00 00 00  |  00   |  03   | 64 75 70 | E9 A5 FC FF FF |
+        +--------------------------+-------+-------+----------+----------------+
+offset   +0                         +8      +9      +10        +13 = 10 + nlen
+address  0x484                      0x48C   0x48D   0x48E      0x491  <-- xt
+meaning  0x400472 = key's entry     not IMM 3       "dup"      JMP dup_code
+
+A compiled call to dup, at runtime:
+
+  caller   E8 rel32          CALL 0x400491     (dup's xt: the JMP stub)
+                |
+                v
+  0x491    E9 A5 FC FF FF    JMP  0x40013B     (rel32 = 0x13B - 0x496 = -859)
+                |
+                v
+  0x13B    dup_code          sub rbp, 8 / mov [rbp], rdi / ret
+                |
+                v
+  ret lands on the instruction after the caller's CALL
+```
 
 Each header's `link` points at the *previous header's link cell*.
-The very first header (`bye`) has `link = 0`.  At runtime, the
-sysvar `LATEST` points at the most recent entry's link cell.
+The first header (`bye`) has `link = 0`.  At runtime, the sysvar
+`LATEST` points at the most recent entry's link cell.
 
-A picture for the first three entries:
+The `body` of every hand-laid header is a 5-byte `JMP rel32` to the
+primitive's code, so a header and its body can sit anywhere in the
+file relative to each other.  That stub *is* the word's execution
+token.  For a seed primitive the xt is the address of the `E9` byte
+in its header.  Take `dup` as an example.  Its xt is `0x400491`,
+not `dup_code` at `0x40013B`.  A compiled call runs `CALL xt`, then `JMP`, then the
+primitive's code, and the primitive's `ret` comes straight back to
+the caller.  For words you define with `:`, the xt is the first byte
+of the compiled body.  From here on, "xt" means exactly this address.
 
-```
-  bye_entry @ 0x44D:
-    link  = 0x00000000      ← end of chain
-    flags = 00
-    nlen  = 03
-    name  = "bye"
-    body  = jmp bye_code
+Following the links from `LATEST` visits every entry, newest first:
 
-  emit_entry @ 0x45F:
-    link  = 0x0040044D      ← points at bye_entry's link
-    flags = 00
-    nlen  = 04
-    name  = "emit"
-    body  = jmp emit_code
-
-  key_entry @ 0x472:
-    link  = 0x0040045F      ← points at emit_entry's link
-    flags = 00
-    nlen  = 03
-    name  = "key"
-    body  = jmp key_code
-
-  ...
-  ' (tick) @ 0x7E8 ← LATEST initialised here
+```text
+LATEST = 0x4007E8
+  |
+  v
+'  @ 0x7E8 -> latest @ 0x7D3 -> state @ 0x7BF -> *  @ 0x7AF -> r@ @ 0x79E
+  -> /  @ 0x722 -> syscall6 @ 0x6F9 -> [lit] @ 0x6C0 -> 0branch @ 0x5E7
+  -> ... -> key @ 0x472 -> emit @ 0x45F -> bye @ 0x44D -> 0 (end of chain)
 ```
 
-And the same three entries drawn as a list, so the link direction
-is unambiguous:
+`find` walks this chain.  Each step is one load of the link cell.
+Lookup compares the name bytes; on a match it returns, on a mismatch
+it follows the link.  A link of `0` means the chain is exhausted and
+the lookup misses.
 
-```
-   LATEST  ┐
-           │  (initialised to ' @ 0x7E8 — last entry in source order)
-           ▼
-   ┌─────────────────────┐
-   │ '_entry  @ 0x7E8    │
-   │   link  ──────────┐ │   <- points at LATEST's predecessor's link cell
-   │   flags=00        │ │
-   │   nlen=1, name="'"│ │
-   │   body: jmp tick  │ │
-   └───────────────────│─┘
-                       ▼ ...
-   (many entries elided, walked latest-to-oldest: latest, state, *, r@, …, 0branch, …, swap, drop, dup)
-                       │
-                       ▼
-   ┌─────────────────────┐
-   │ key_entry  @ 0x472  │
-   │   link  ──────────┐ │
-   │   flags=00        │ │
-   │   nlen=3,name="key"│ │
-   │   body: jmp key   │ │
-   └───────────────────│─┘
-                       ▼
-   ┌─────────────────────┐
-   │ emit_entry @ 0x45F  │
-   │   link  ──────────┐ │
-   │   flags=00        │ │
-   │   nlen=4,name="emit"│ │
-   │   body: jmp emit  │ │
-   └───────────────────│─┘
-                       ▼
-   ┌─────────────────────┐
-   │ bye_entry  @ 0x44D  │
-   │   link  = 0x00000000│   <- end of chain
-   │   flags=00          │
-   │   nlen=3,name="bye" │
-   │   body: jmp bye     │
-   └─────────────────────┘
-```
-
-`find` walks this chain backwards from `LATEST`.  Each step is one
-`@` to load the link cell.  Lookup compares the name bytes; on
-match, return; on mismatch, follow the link.  When the link is
-`0`, the chain is exhausted and the lookup misses.
-
-This is the seed version of "small tables, linear search, newest
-wins."  There is no hash table and no secondary index; the newest
-definition shadows older definitions because the reverse walk sees
-it first.
-
-The `body` for every hand-laid header is a 5-byte `JMP rel32` to
-the primitive's code.  That is why the headers and the bodies can
-sit far apart in the file: the JMP makes the layout topology-free.
-
-That stub *is* the word's execution token.  For a seed primitive the
-xt is the address of the `E9` byte in its header — `dup`'s xt is
-`0x400491`, not `dup_code` at `0x40013B`.  So a compiled call to a
-primitive runs `CALL xt` → `JMP` → primitive code, and the
-primitive's `ret` comes straight back to the caller.  For words you
-define with `:`, the xt is the first byte of the compiled body.
-From here on, "xt" means exactly this address.
+This is the first instance of "small tables, linear search, newest
+wins": no index, and shadowing comes free because the reverse walk
+sees the newest definition first.
 
 ## 2. `find_code` ( c-addr u -- xt-or-0 )
 
@@ -264,9 +190,8 @@ mov rcx, [LATEST]     ; rcx = head of chain
   ret
 ```
 
-The hex preserves all of the above — outer loop, byte-compare inner
-loop, hit path, and miss path — in 86 bytes.  Three details are worth
-pointing out.
+The hex holds all of this (outer loop, byte-compare inner loop, hit
+path and miss path) in 86 bytes.  Three details stand out.
 
 **`LAST_FOUND` is a side channel.**  On a hit, `find_code` stores
 the address of the matched entry's link cell into the sysvar at
@@ -278,21 +203,19 @@ byte* sits one cell past the link, and the caller needs both.
 **The body address is `[rcx+10+nlen]`.**  Right at the moment of
 hit, `r8` has been advancing through the name bytes (one byte per
 loop iteration), so when `rdx` hits zero `r8` is sitting at the
-first byte *after* the name — which is the start of the body.  No
-extra arithmetic.  The seed picks this register dance precisely
-because it ends up with the answer in `r8` for free.
+first byte *after* the name, which is the start of the body.  The
+answer is already in `r8`, with no extra arithmetic.
 
 **The exits are tails.**  `.hit`, `.skip` and `.miss` sit after
 the inner loop, in that order; `.miss` is the last two lines of the
-routine (hex lines 197–198).  Every branch is a 2-byte `rel8` jump,
-and the whole routine is 86 bytes, so any target is in reach from
-anywhere — the order is not forced.  Each exit simply ends in its
-own `ret` (or a jump back to `.next`), so none of them needs to
-fall through into another.
+routine (lines 197–198 of `000-seed.hex0`).  Every branch is a
+2-byte `rel8` jump, and in an 86-byte routine any target is in
+reach, so the order is not forced.  Each exit ends in its own `ret`
+(or a jump back to `.next`), so none falls through into another.
 
 ## 3. `here_code` and `comma_code`
 
-`here_code` returns the *contents* of the HERE sysvar — the
+`here_code` returns the *contents* of the HERE sysvar: the
 next-byte-to-write address.
 
 ```hex0 chunk=here-code
@@ -366,12 +289,11 @@ return address that was on top of the return stack when *we* were
 called.  When the xt's body executes `ret`, it returns to whoever
 called `execute`, not to `execute` itself.
 
-That sounds delicate, but it's exactly the right behaviour: from a
-Forth caller's perspective, `execute` is supposed to be transparent
-— a way to call a word indirectly.  The tail-jump makes the
-indirection cost zero.
+That is what a Forth caller wants: `execute` should be a transparent
+indirect call with no frame of its own, and the tail jump makes the
+indirection free.
 
-## 5. `read_word` — the token reader
+## 5. `read_word`, the token reader
 
 ```hex0 chunk=read-word
 ;; ----- read_word @ 0x259 ( -- ; rax = token len, 0 on EOF ) -----
@@ -435,9 +357,8 @@ you have."
 count survives the syscall.
 
 The two `call key_code` sites use 32-bit relative displacements
-computed by hand.  This is the first time in Part II that we see
-a `CALL` inside a primitive body — `read_word` itself is a Forth
-primitive that calls another primitive.
+computed by hand.  `read_word` is the first body in Part II that
+calls another primitive.
 
 ## 6. `state_code` and `latest_code`
 
@@ -467,12 +388,12 @@ so the caller does `state @` to read or `state !` to write.  (The
 source comment's "header line 40" is stale: the sysvar layout note
 is at line 48 of `000-seed.hex0`.)
 
-These are the seed's reflection hatches.  Once you have the address
-of a sysvar, you can read it, write it, atomically check-and-update
-it.  Anything the runtime exposes via STATE or LATEST becomes
-mutable Forth-level state.
+These two words expose the seed's own state to Forth.  With the
+address of STATE or LATEST, Forth code can read or change the mode
+and the head of the dictionary, which is how `010-lib.fth` builds
+`immediate` (Ch 10).
 
-## 7. `tick_code` — the name lookup hatch
+## 7. `tick_code`: from name to xt
 
 ```hex0 chunk=tick-code
 ;; ----- tick_code @ 0x779 ( -- xt ) read next word and look up its xt -----
@@ -510,17 +431,19 @@ loads the length into `rdi` as TOS.  Now the stack is `( ...old c-
 addr len )` and we can call `find_code`, which consumes both cells
 and pushes the xt (or 0) as new TOS.
 
-The chained-call pattern (`call A; setup; call B; ret`) is
-characteristic of Forth-primitive composition.  `tick_code` is the
-seed's smallest example.
+`tick_code` is the seed's smallest example of composing primitives
+by chained calls: `call A; setup; call B; ret`.
 
 ## 8. The dictionary entries
 
-The 24 entries from `bye` to `0branch` live in one contiguous block
-running from `0x44D` to `0x5FD`.  Each is 16–22 bytes; the whole
-block is 167 lines of hex.  Rather than chunk each separately, we
-ship them as one big chunk that the master root block references
-once.
+The 24 entries from `bye` to `0branch` form one contiguous block
+from `0x44D` to `0x5FD`, each 16–22 bytes long.  They appear below
+as one chunk, `<<dictionary-entries>>`, split into four listings by
+the chapter that explains each word's body.
+
+The I/O words come first.  `bye` ends the chain with a zero link.
+The next entry's link cell holds `4D 04 40 00 00 00 00 00`, which
+read little-endian is `0x40044D`, the start of `bye`'s entry.
 
 ```hex0 chunk=dictionary-entries
 ;; --- bye @ 0x44D (xt = 0x45A) ---
@@ -544,6 +467,16 @@ E9 6C FC FF FF                              ; jmp emit_code (rel = 0x0DE - 0x472
 6B 65 79
 E9 88 FC FF FF                              ; jmp key_code (rel = 0x10C - 0x484 = -888)
 
+```
+
+Every link cell points back by the size of the previous entry.
+Adding a primitive means appending an entry, setting its `link` to
+the previous entry's address, and patching the assembly-time value
+of `LATEST` in `<<sysvar-init>>`.
+
+The stack and memory words of Ch 14:
+
+```hex0 chunk=dictionary-entries
 ;; --- dup @ 0x484 (xt = 0x491) ---
 72 04 40 00 00 00 00 00
 00
@@ -607,6 +540,12 @@ FE 04 40 00 00 00 00 00
 63 21
 E9 6E FC FF FF                              ; jmp cstore_code (rel = 0x18E - 0x520 = -914)
 
+```
+
+The arithmetic words of Ch 15, then the four dictionary primitives
+from §§2–4 of this chapter:
+
+```hex0 chunk=dictionary-entries
 ;; --- + @ 0x520 (xt = 0x52B) ---
 0F 05 40 00 00 00 00 00
 00
@@ -656,6 +595,14 @@ E9 A2 FC FF FF                              ; jmp comma_code (rel = 0x22C - 0x58
 65 78 65 63 75 74 65
 E9 AC FC FF FF                              ; jmp execute_code (rel = 0x24C - 0x5A0 = -852)
 
+```
+
+The colon compiler (Ch 18) and the inline-cell words (Chs 18–19).
+The flags byte is `00` for every entry here except `;`, which
+carries `01` (IMMEDIATE) so the REPL runs it instead of compiling a
+call to it:
+
+```hex0 chunk=dictionary-entries
 ;; --- : @ 0x5A0 (xt = 0x5AB) ---
 8A 05 40 00 00 00 00 00
 00
@@ -693,27 +640,12 @@ E9 34 FE FF FF                              ; jmp zbranch_code (rel = 0x431 - 0x
 
 ```
 
-A few things to notice as your eye walks down the chunk:
-
-- **Every link cell points 16–22 bytes back** — the size of the
-  previous entry.  Adding a new primitive means: append a new
-  entry, set its `link` to the address of the previous entry's
-  link cell, and patch the seed-time constant `LATEST` (in
-  `<<sysvar-init>>`).
-- **The flags byte is `00` for everyone except `;`.**  Only `;`
-  carries `flags = 01` (IMMEDIATE); the REPL checks that bit
-  before deciding to compile vs execute.
-- **The body is always five bytes: `E9 xx xx xx xx`** — a `JMP
-  rel32` back to the primitive's code.  This is what makes the
-  headers and bodies layout-independent.
-
 ## 9. The late dictionary entries
 
-After the seed's growth — adding `r@`, `*`, `state`, `latest`,
-`'` — five more entries sit at the very end of the file.  Each
-chains back through the previous `late` entry's link, and the very
-last entry (`'`) is the one `LATEST` is initialised to point at
-(see Ch 13's `<<sysvar-init>>`).
+Five more entries close the file: `r@`, `*`, `state`, `latest` and
+`'`.  The first links back to `/` at `0x722`, each later one links
+to the entry before it, and the last (`'`) is where `LATEST` starts
+(Ch 13's `<<sysvar-init>>`).
 
 ```hex0 chunk=late-dicts
 ;; --- r@ @ 0x79E (xt = 0x7AA) ---
@@ -803,12 +735,12 @@ echo "latest @ [lit] 9 + c@ [lit] 48 + emit bye" | ./seed-forth
 ## Takeaways
 
 - The dictionary is the seed's only data structure: a singly linked
-  list of headers walked by `find_code`.  No hash, no symbol table;
-  newest-to-oldest lookup is what makes redefinition shadowing work.
-- `find_code` does name comparison inline in 86 bytes.  Forth-level
-  code (`bytes-eq`, Ch 12) re-implements the same logic in 13 lines.
-- `read_word`, `find_code`, `'`, `execute` together are the
-  metacompiler hatch: from a token, you can reach an xt; from an
-  xt, you can call the word.
+  list of headers searched newest-first, which is what lets a
+  redefinition shadow the old word.
+- `find_code` compares names inline in 86 bytes and records the
+  matched entry in `LAST_FOUND` so the REPL can test its IMMEDIATE
+  flag.
+- A seed primitive's xt is the 5-byte `JMP` stub at the end of its
+  header, and `'` plus `execute` turn a name into a call through it.
 
 Next: Chapter 18 — The Colon Compiler.

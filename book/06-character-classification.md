@@ -7,42 +7,24 @@ Artifact after this chapter: digit?, alpha-lower?, alpha-upper?, alpha?, space?.
 Proof link: the lexer (Ch 23) reuses these for identifier and number recognition.
 ```
 
-Five small predicates in `010-lib.fth` (lines 64–86), `digit?`,
-`alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`, build a
-character classifier vocabulary on a single three-token idiom: `(c
-- base) / range 0=` is true exactly when `c` falls in `[base,
-base+range)`.  The trick rides on the seed's `/` being x86 `DIV`
-(unsigned), so underflow on the subtract still produces a non-zero
-quotient and the test stays correct without any conditional.  Open
-`010-lib.fth` to those 24 lines and read along; the chapter argues
-why classifiers earn the optimisation effort (a lexer runs them on
-every byte of input), walks through `digit?` byte by byte, then
-shows the two composition patterns the rest use: `or`-chain for
-unions like `alpha?`, and `over` plus `0= or` folding for the
-four-codepoint `space?`.
-
-By the end of the chapter you'll be able to read the `(c - base) /
-range == 0` range-check idiom and explain why it works on unsigned
-arithmetic without conditionals, combine single-character
-classifiers into chains like `alpha?` and `space?`, and write a new
-classifier such as `hex-digit?` or `printable?`.  Where these
-classifiers are actually *used* (Part III's lexer at
-`050-cc-lex.fth`) is Ch 23; the seed's `/` primitive in x86-64
-(`DIV`) is Part II, Ch 15.
-
----
-
 A lexer is, at its core, a loop that asks "what kind of character is
 this?" for every byte of input.  When the C compiler in Part III
 reads a 600-line `.c` file, it asks that question several thousand
-times.  The cost of each call adds up, so the classifiers want to be
-fast — ideally branch-free, ideally a handful of tokens.  This
-chapter shows the three-token range-check trick that makes them so.
+times, so the answer should be cheap: branch-free and a handful of
+tokens.
+
+`010-lib.fth` (lines 64–86) answers it with five predicates:
+`digit?`, `alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`.
+The first three share one idiom, `c base - range / 0=`, which is
+true exactly when `c` falls in `[base, base+range)` and needs no
+conditional because the seed's `/` is unsigned.  The other two
+combine tests with `or`.  The lexer that calls them is Ch 23; the
+`/` primitive is Ch 15.
 
 ## 1. Why classifiers matter
 
 The whole shape of a lexer is `read a byte; classify it; dispatch.`
-The dispatch is rarely the hot path — keywords, punctuation, and
+The dispatch is rarely the hot path: keywords, punctuation, and
 identifiers all flow through it once each.  The classification, by
 contrast, runs on *every* byte: every space between tokens, every
 character of every identifier, every digit of every number.  If
@@ -54,10 +36,8 @@ There's a second reason classifiers are worth obsessing over.  The
 seed's lexer is written in Forth and compiled by the seed's own
 compiler.  Every classifier call is a CALL instruction in the
 output; every token inside the classifier is part of its body.
-Shorter classifiers mean a shorter compiled lexer, which means a
-smaller binary, which feeds back into the byte budget we keep talking
-about.  Three-token classifiers are an aesthetic and a performance
-choice at once.
+Shorter classifiers mean a shorter compiled lexer and a smaller
+binary.
 
 ## 2. The range-check trick
 
@@ -77,8 +57,8 @@ why, walking three cases through `digit?  ( c -- )  [lit] 48 -
 - `c == 0`: `0 - 48` underflows to `2^64 - 48 ≈ 1.84×10^19`; dividing
   that by 10 leaves a huge number; `0=` → `0`.  ✓ not a digit.
 
-The third case is the load-bearing one.  With signed division,
-`0 - 48 == -48` and `-48 / 10 == -4` — non-zero, so `c == 0` happens
+The third case is the one that matters.  With signed division,
+`0 - 48 == -48` and `-48 / 10 == -4`, which is non-zero, so `c == 0` happens
 to come out right.  But look just below the range: for `c` in
 39..47 (`'` through `/`), `c - 48` is -9..-1, and signed division
 truncates toward zero, so `(c - 48) / 10 == 0` and `0=` says
@@ -106,7 +86,7 @@ Three classifiers fall out of the trick with no further work:
 Each is the same three-token shape with a different `(base, range)`
 pair: `(48, 10)` for digits, `(97, 26)` for lowercase, `(65, 26)` for
 uppercase.  The ranges are chosen to cover the relevant ASCII block
-exactly — 26 lowercase letters, 26 uppercase, 10 digits.
+exactly: 26 lowercase letters, 26 uppercase, 10 digits.
 
 `alpha?` is the union of upper and lower:
 
@@ -125,10 +105,10 @@ Trace it on input `( c -- )`:
 | `alpha-upper?`    | `(c-is-lower?) (c-is-upper?)`          |
 | `or`              | `c-is-lower? ∨ c-is-upper?`            |
 
-The `dup` is the key move.  We need `c` twice — once for each
-sub-classifier — so we copy it first, run the first classifier,
+The `dup` is the key move.  We need `c` twice, once for each
+sub-classifier, so we copy it first, run the first classifier,
 shuffle the copy of `c` up with `swap`, run the second classifier,
-then `or` the two flags.  Identical pattern shows up wherever a
+then `or` the two flags.  The same pattern appears wherever a
 compound predicate is built from independent tests.
 
 ## 4. `space?`: four-way OR
@@ -171,14 +151,14 @@ times.  Trace it with `c` on top:
 The first test uses `dup` (keep `c` underneath for next round), the
 middle two use `over` (still need `c` after this round), and the last
 uses `swap` (we're done with `c`; bring it up to be consumed).  That
-asymmetry — `dup` once, `over` twice, `swap` once — is the signature
+sequence (`dup` once, `over` twice, `swap` once) is the signature
 of "use a value N times" in raw Forth.  It's the same shape Ch 8
 codifies as the `nip`/`rot`/`2dup` family.
 
 ## 5. What's not here
 
 The seed's classifier set has only what the C lexer needs.  No
-`punct?`, no `printable?`, no `xdigit?`, no `cntrl?` — those either
+`punct?`, no `printable?`, no `xdigit?`, no `cntrl?`.  Those either
 fall out as exercises or are folded into the lexer's
 token-class-dispatch code instead.
 
@@ -186,12 +166,12 @@ In particular, **C punctuation** (`+`, `-`, `*`, `/`, `(`, `)`, `;`,
 `,`, etc.) is handled in Ch 23 by direct codepoint comparison inside
 the lexer, not by a classifier.  That's because the lexer needs to
 know *which* punctuation character it saw, not just "yes, it's
-punctuation" — the binary flag isn't useful.  When you only need to
+punctuation".  When you only need to
 classify, the trick from this chapter applies; when you need to
 identify, you reach for the lexer's switch-style dispatch.
 
 There's also no locale awareness here.  ASCII is the only encoding
-the seed deals with — both `010-lib.fth` and the C source it compiles
+the seed deals with: both `010-lib.fth` and the C source it compiles
 in Part III are 7-bit ASCII.  Everything from `0` to `127` is in
 range; everything above is treated as bytes-of-an-identifier or
 syntax error.  No UTF-8, no extended Latin, no character properties.
@@ -273,7 +253,7 @@ The seed has no `.` for printing decimals.  The trick `0= [lit] 49 +
 emit` turns a Forth flag into the ASCII character `'1'` (true) or
 `'0'` (false): an extra `0=` flips `-1` to `0` and `0` to `-1`, then
 adding 49 lands on `49` (`'1'`) or `48` (`'0'`).  The expected output
-is `101010` — six classifications, alternating true and false in the
+is `101010`: six classifications, alternating true and false in the
 test order above.
 
 ## Exercises
@@ -282,8 +262,9 @@ test order above.
    `0..9 a..f A..F`.  How many tokens?  How does it compare to
    `digit? + alpha-lower-hex? + alpha-upper-hex?`?
 
-2. **★★ Trace.** The `space?` chain uses `dup` then three `over`s.  Why not four
-   `over`s?  Trace the stack carefully.
+2. **★★ Trace.** The `space?` chain uses `dup`, two `over`s, and a final
+   `swap`.  What would be left on the stack if the last `swap` were
+   an `over`?  Trace the stack carefully.
 
 3. **★★ Trace.** The trick assumes `/` is *unsigned* division.  What would break if
    `/` were signed?  (Hint: the underflow argument fails.)
@@ -295,13 +276,11 @@ test order above.
 
 ## Takeaways
 
-- A range check on a single character costs three tokens: subtract,
-  divide, zero-test.  No conditionals required.
-- The trick depends on unsigned division and the wrap-around
-  behaviour of unsigned subtract.  Ch 15 covers the x86 `DIV`
-  instruction that makes it cheap.
-- Combining classifiers with `or` builds compound predicates with
-  no new primitives.  `alpha?` and `space?` are the templates;
-  every later predicate follows the pattern.
+- A range check on a character is subtract, divide, zero-test, with
+  no conditionals.
+- The check is correct below the range only because `/` is unsigned,
+  so a negative difference becomes a huge quotient.
+- Compound predicates like `alpha?` and `space?` combine single
+  tests with `dup`/`over`/`swap` and `or`, needing no new primitives.
 
 Next: Chapter 7 — Comparisons from Unsigned Division.

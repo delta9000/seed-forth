@@ -7,53 +7,33 @@ Artifact after this chapter: the seed is now a self-contained host that can load
 Proof link: this chapter is the bridge into Part III — the host the C compiler sits on top of.
 ```
 
-The last two primitives in the seed close Part II: `parse_decimal_code`
-(`@ 0x5FD`, lines 555–585) and the REPL loop itself (`@ 0x35E`,
-lines 299–357, 187 bytes of hex).  `parse_decimal_code` is a pure
-decimal parser with the contract `( c-addr u -- n true | 0 false )`;
-empty input or any byte outside `'0'..'9'` (including a leading
-`-`) makes it fail.  The REPL is five logical sections (read token,
-EOF guard, find word, miss path, dispatch path), and the dispatch
-path is where compile-vs-interpret mode finally fuses, branching on
-the IMMEDIATE flag and on STATE to choose between calling
-`execute_code` and running its own inlined `CALL`-emitter.
+The seed now has primitives but nothing to drive them.  Something
+has to read tokens, look each one up, and decide whether to run it
+now or compile a call to it.  That is the REPL loop (`@ 0x35E`,
+lines 299–357, 187 bytes of hex), the last piece of
+`000-seed.hex0`.  Its companion `parse_decimal_code` (`@ 0x5FD`,
+lines 555–585) turns a token like `"42"` into a number, with the
+contract `( c-addr u -- n true | 0 false )`.  Empty input or any
+byte outside `'0'..'9'`, a leading `-` included, makes it fail.
 
-By the end of the chapter you'll be able to read both bodies end
-to end, explain why `[lit]` (Ch 18) is the only way to push a
-literal in interpret mode (the REPL does not auto-parse numbers),
-trace the `?\n` miss path, and read the `NUMBER_HOOK` sysvar
-(`0x413020`) as the unused extension point a higher layer could
-wire up for hex, octal, or negative literals.  That closes the
-seed: every byte of `000-seed.hex0` has now been accounted for.
-Part III picks up with the C compiler written in Forth on top of
-this REPL.
+The REPL reads a token, looks it up, and either executes it
+(interpret mode) or compiles a call to it (compile mode).  A miss
+prints `?`, and EOF jumps to `bye_code`.  The dispatch tests the
+IMMEDIATE flag first and STATE second.  The REPL never calls
+`parse_decimal_code`: numbers enter only through `[lit]` (Ch 18),
+a choice §3 examines.  The unused `NUMBER_HOOK` sysvar at
+`0x413020` marks where a higher layer could add hex, octal or
+negative literals.
 
----
-
-The REPL is the seed's outer loop and the last primitive we have
-to read.  Every primitive we've covered up to this point has been
-some kind of building block — a stack op, an arithmetic op, a
-syscall wrapper, a header builder, a branch.  The REPL stitches
-them together.
-
-Its job is to read tokens forever, look each one up in the
-dictionary, and either *execute* it (interpret mode) or *compile a
-call to it* (compile mode).  On a lookup miss, it prints `?`; on
-EOF, it jumps to `bye_code`.  That's the whole loop, expressible
-in eight English words, encoded in 187 bytes of hex (offsets
-`0x35E`–`0x418`).
-
-The number parser is the supporting cast.  `parse_decimal_code`
-is what `[lit]` (Ch 18) calls to convert a token like `"42"` into
-the cell value `42`.  It is *not* called from the REPL loop —
-that's a deliberate choice we examine in §3.
+With this chapter every byte of the seed is accounted for.  Part III
+builds the C compiler, in Forth, on top of this REPL.
 
 ## 1. `parse_decimal_code` ( c-addr u -- n true | 0 false )
 
 ```hex0 chunk=parse-decimal-code
 ;; ----- parse_decimal_code @ 0x5FD ( c-addr u -- n true | 0 false ) -----
 ;; Pure-decimal parser. Empty length or any non-digit byte => fail (0, 0).
-;; Success => (n, -1) where n = sum of digits * 10.
+;; Success => (n, -1) where n = n*10 + digit, per digit.
 48 8B 75 00                               ; mov rsi, [rbp]   ; rsi = c-addr
 48 83 C5 08                               ; add rbp, 8
 48 85 FF                                  ; test rdi, rdi
@@ -107,10 +87,9 @@ The `lea rax, [rax + rax*4]; add rax, rax` pair multiplies by 10 in
 two instructions and no temporary register.  `lea rax, [rax +
 rax*4]` is `rax = rax*5`; then `add rax, rax` doubles it.
 
-So each step is `n = n*10 + digit` — Horner's rule, most
+So each step is `n = n*10 + digit`: Horner's rule, most
 significant digit first.  `"42"` becomes `0*10 + 4 = 4`, then
-`4*10 + 2 = 42`.  (The source comment's "sum of digits * 10" is
-wrong; trust the instructions.)  There is no overflow check: a
+`4*10 + 2 = 42`.  There is no overflow check: a
 value of 2^64 or more silently wraps modulo 2^64.
 
 Success path:
@@ -126,13 +105,13 @@ Two things to flag.
 
 **This is a one-shot parser, not a partial parser.**  If any byte
 fails the range check, the *whole token* fails.  There is no
-"consumed N digits and stopped at a separator" — the entire token
-must be all digits, or it's not a number.
+"consumed N digits and stopped at a separator": the entire token
+must be digits, or it is not a number.
 
 **No sign handling.**  `-42` would fail at the `-` byte (`0x2D <
 0x30`, the `js` test triggers).  Negative literals do not exist in
 the seed's number parser.  The C compiler in Part III handles
-negation as a unary operator, not as part of the literal — so the
+negation as a unary operator, not as part of the literal, so the
 restriction is invisible to it.
 
 ## 2. The REPL loop
@@ -202,7 +181,7 @@ E9 B9 FC FF FF
 
 Read the loop top-down.
 
-**Step 1 — read a token.**
+**Step 1: read a token.**
 
 ```
 call read_word
@@ -214,7 +193,7 @@ jz .repl_done    ; EOF → exit
 `[0x412800]`.  If the length is zero, we hit EOF; jump to the
 `.repl_done` tail (which itself jumps to `bye_code`).
 
-**Step 2 — set up `find_code`'s stack.**
+**Step 2: set up `find_code`'s stack.**
 
 The data stack needs to look like `( c-addr u -- )` for
 `find_code`.  We push the old TOS (whatever was there before),
@@ -231,7 +210,7 @@ mov rdi, rax                    ; rdi = length (new TOS)
 This is the same setup that `tick_code` uses (Ch 17 §7).  After it,
 `find_code` can be called with no further marshalling.
 
-**Step 3 — find the word.**
+**Step 3: find the word.**
 
 ```
 call find_code
@@ -243,7 +222,7 @@ If `find_code` returns 0 (miss), we fall through to the miss path.
 If it returns non-zero, we have an xt and we jump to the dispatch
 path.
 
-**Step 4 — miss path.**
+**Step 4: miss path.**
 
 ```
 mov rdi, [rbp]; add rbp, 8       ; drop the 0 find_code left on data stack
@@ -265,10 +244,10 @@ the next-below value into `rdi`), then push a new value (spilling
 place.  The second pair does the same for `'\n'`.  Print, then loop
 back to read the next token.
 
-Notice that the miss path doesn't consult `NUMBER_HOOK` — that's a
-feature that exists in the sysvar layout but isn't wired up here.
+The miss path doesn't consult `NUMBER_HOOK`.  The slot exists in the
+sysvar layout, but nothing reads it.
 
-**Step 5 — dispatch path (`.have_xt`).**
+**Step 5: dispatch path (`.have_xt`).**
 
 ```
 mov rax, [LAST_FOUND]            ; entry address
@@ -283,7 +262,7 @@ jz .interpret                    ; interpret mode → execute
 
 Two predicates: IMMEDIATE or STATE==0 → execute; otherwise compile.
 
-**Step 6 — compile.**
+**Step 6: compile.**
 
 ```
 mov rax, [HERE]
@@ -299,7 +278,7 @@ jmp .repl
 This is the same `CALL rel32` emitter that Ch 11's `comma-call`
 uses at the Forth level.  Here it's inlined into the REPL.
 
-**Step 7 — execute.**
+**Step 7: execute.**
 
 ```
 call execute_code
@@ -309,7 +288,7 @@ jmp .repl
 `execute_code` is the indirect tail-jump from Ch 17 §4.  After the
 word runs, we loop back to the top.
 
-**Step 8 — exit.**
+**Step 8: exit.**
 
 ```
 .repl_done:
@@ -347,17 +326,16 @@ else in the file grew.
 
 **Composability.**  By *not* hard-coding decimal parsing, the seed
 leaves the door open for higher layers to add their own number
-parsing — hex, octal, negative numbers, fixed-point.  The
+parsing: hex, octal, negative numbers, fixed-point.  The
 `NUMBER_HOOK` sysvar at `0x413020` is the seed's stub for this; it
 gets initialised to 0 in `<<sysvar-init>>` and is never read by
 the seed itself, but a Forth-level extension can install an xt
 there and *the existing REPL* (if it had number-fallback support)
 would consult it.
 
-For now the seed is strict: every token must be in the dictionary
-or `[lit]`-quoted.  Source code that wants to push `42` writes
-`[lit] 42` — a two-token incantation that costs one extra read
-per literal, but pays only the IMMEDIATE-word lookup once.
+The seed is strict: every token must be in the dictionary or
+`[lit]`-quoted.  Source that wants to push `42` writes `[lit] 42`,
+two tokens where a classical Forth needs one.
 
 ## 4. `[lit]` and the IMMEDIATE flag, end to end
 
@@ -388,7 +366,7 @@ compilation to do the parsing-and-emitting.
 **Unparseable tokens silently become 0.**  `bracket_lit_code` pops
 `parse_decimal_code`'s flag and throws it away without testing it.
 On failure the parser leaves `0` under the flag, so `[lit]` pushes
-(or compiles) `0` and carries on — no `?`, no error.  Anything that
+(or compiles) `0` and carries on, with no `?` and no error.  Anything that
 isn't plain decimal digits hits this: `[lit] -5`, `[lit] 0x41`,
 `[lit] 12a`.
 
@@ -478,17 +456,14 @@ echo "thisisnotaword bye" | ./seed-forth
 
 ## Takeaways
 
-- The REPL is 187 bytes of hex.  Its loop is read-token →
-  find-word → dispatch-by-IMMEDIATE-and-STATE, with a print-`?`
-  miss path and a `jmp bye_code` EOF path.
-- The seed *deliberately does not* auto-parse numbers in the REPL
-  loop.  `[lit]` exists at the Forth-visible level to add that
-  back; `NUMBER_HOOK` is the unwired extension point for richer
-  literals (hex, negative, etc.).
-- IMMEDIATE words live in the dictionary with `flags = 01`.  The
-  REPL's dispatch path checks this bit *first*, before STATE — so
-  IMMEDIATE words always execute, no matter which mode the REPL
-  is in.
+- The REPL is 187 bytes of hex that read a token, find it, and
+  dispatch on IMMEDIATE and STATE, with a `?` miss path and a
+  `jmp bye_code` EOF path.
+- The REPL never parses numbers itself, so literals enter only
+  through `[lit]`, and `NUMBER_HOOK` stays an unwired extension
+  point.
+- The dispatch tests the IMMEDIATE bit before STATE, so IMMEDIATE
+  words execute in either mode.
 
 ## Bridge to Part III: the seed is now a host
 
@@ -496,23 +471,23 @@ Part I taught the Forth vocabulary while treating the seed
 primitives as black boxes.  Part II opened those boxes and showed
 the exact bytes behind token reading, dictionary lookup, compiling,
 branching, literals, and the REPL loop.  The inversion is complete:
-the words that were machine-code mysteries in Part I are now tools
-we can trust.
+the words Part I took on trust are now tools whose every byte you
+have read.
 
 The remaining twelve chapters use those tools as the *host* for a C
-compiler.  You should not expect another tour of seed internals.
-Instead, Part III follows compiler infrastructure built out of the
-same primitives you have just seen in machine code — `:`, `;`, `[lit]`,
-`if,`, `then,`, `branch`, `0branch`, `read_word`, `find`, `here`, `,`
-— until the compiler emits `.M1` text matching the GCC-built
-M2-Planet reference on the stage-A inputs.
+compiler.  There is no further tour of seed internals.  Part III
+follows compiler infrastructure built from the primitives you have
+just read in machine code (`:`, `;`, `[lit]`, `if,`, `then,`,
+`branch`, `0branch`, `read_word`, `find`, `here`, `,`) until the
+compiler emits `.M1` text matching the GCC-built M2-Planet reference
+on the stage-A inputs.
 
 ## Reading Part III
 
 The next twelve chapters have a consistent shape: each named section
 shows you the relevant code, then walks what it does.  You can skim
 each code block once for shape and come back when the walk
-references it, or read it line-by-line — both work.  The chapters
+references it, or read it line by line.  The chapters
 are long because the compiler is, not because the prose is dense;
 if a chapter takes two sittings, that's its size, not your pace.
 
@@ -530,8 +505,7 @@ you oriented:
   skip back precisely if the prose assumes something you haven't
   internalised yet.
 
-**Three recurring motifs are worth memorising.**  Once you spot
-one you understand a dozen.
+**Three motifs recur throughout Part III.**
 
 - *Emit, remember, patch.*  Emit a placeholder, stash where you
   put it, patch it once the answer is known.  We met this in

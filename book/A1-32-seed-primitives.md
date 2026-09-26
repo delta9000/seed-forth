@@ -1,10 +1,9 @@
 # Appendix A — The 32 seed primitives
 
-The `000-seed.hex0` image contains 32 dictionary entries (32 user-
-visible primitives) plus a small number of unnamed internal helpers.
-Each primitive has a hand-written x86-64 body, a dictionary entry in
-the seed, and (usually) further Forth-level use in `010-lib.fth` and
-beyond.  Two `_code` blocks have no dictionary entry of their own:
+The `000-seed.hex0` image contains 32 dictionary entries, one per
+user-visible primitive, plus a few unnamed internal helpers.  Each
+primitive has a hand-written x86-64 body and a dictionary entry, and
+most are used again at the Forth level in `010-lib.fth` and beyond.  Two `_code` blocks have no dictionary entry of their own:
 `read_word` (used by the REPL and by `:`, `[lit]`, and `'`) and
 `parse_decimal_code` (called by `[lit]` at parse time, while it
 reads its token).  The REPL loop itself is the third unnamed block.
@@ -20,10 +19,10 @@ these.
 Source order matches `000-seed.hex0` order.  "Use site" is the
 first Part I chapter where the word appears in user code or
 chapter prose; "Asm site" is the Part II chapter that explains
-the hex body.  `find`, `execute`, and `read_word` are REPL-
-internal — they have no user-code uses in `010-lib.fth`, so
-their Use-site column points to the first chapter that mentions
-them in prose.
+the hex body.  `find`, `execute`, and `read_word` are used mainly
+by the REPL and have no user-code uses in `010-lib.fth`, so their
+Use-site column points to the first chapter that mentions them in
+prose.
 
 | # | Word | Stack effect | Body @ | Use site | Asm site |
 |---|------|---|---|---|---|
@@ -79,15 +78,15 @@ primitive #25, `[lit]`, reached through that entry's `JMP` stub.
 These look like primitives but are colon definitions in
 `010-lib.fth`:
 
-- `over`, `nip`, `rot`, `2dup`, `2drop` — stack shufflers, Ch 8.
-- `-`, `=`, `<>`, `<`, `>`, `<=`, `>=` — derived from `+`, `nand`,
+- `over`, `nip`, `rot`, `2dup`, `2drop`: stack shufflers, Ch 8.
+- `-`, `=`, `<>`, `<`, `>`, `<=`, `>=`: derived from `+`, `nand`,
   `/`, `0=`.  Chs 4, 7.
-- `and`, `or`, `not` — derived from `nand`.  Ch 3.
-- `digit?`, `alpha?`, `space?` — Ch 6.
-- `+!`, `-!`, `,4`, `,8` — Ch 9.
-- `immediate`, `constant`, `variable`, `create`, `allot` — Chs 10, 12.
-- `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,` — Ch 11.
-- `branch-xt`, `0branch-xt`, `comma-call`, `bytes-eq` — Chs 11, 12.
+- `and`, `or`, `not`: derived from `nand`.  Ch 3.
+- `digit?`, `alpha?`, `space?`: Ch 6.
+- `+!`, `-!`, `,4`, `,8`: Ch 9.
+- `immediate`, `constant`, `variable`, `create`, `allot`: Chs 10, 12.
+- `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,`: Ch 11.
+- `branch-xt`, `0branch-xt`, `comma-call`, `bytes-eq`: Chs 11, 12.
 
 The boundary between "primitive" and "library word" is exactly the
 boundary between `000-seed.hex0` and `010-lib.fth`.  Once `010-lib.fth`
@@ -96,22 +95,20 @@ loads, the dictionary contains both, indistinguishable to user code.
 ## Total byte budget
 
 The 32 primitive bodies (854 bytes) plus the two helpers
-(`read_word` 123, `parse_decimal_code` 85) sum to 1,062 bytes —
+(`read_word` 123, `parse_decimal_code` 85) sum to 1,062 bytes,
 about 1.0 KiB of the 2,040-byte seed.  The remainder is the ELF
 and program headers (120 bytes), `_start` (13), the sysvar init
 (72), the `jmp repl` (5), the REPL (187 bytes; Ch 20), and the
-32 dictionary entries (581 bytes) — each entry being `link(8)
-flags(1) name-len(1) name(N) jmp(5)` = `15 + len(name)` bytes.
+32 dictionary entries (581 bytes).  Each entry is `link(8)
+flags(1) name-len(1) name(N) jmp(5)`, or `15 + len(name)` bytes.
 Appendix B gives the full memory map.
 
 ## A note on `NUMBER_HOOK`
 
-The sysvar at `0x413020` — `NUMBER_HOOK` — is **initialised to 0
-and never read by anything in this build.**  It exists as an
-unwired extension point: a future REPL miss-handler could install
-a Forth `xt` there (a hex-literal parser, a string-literal parser,
-whatever) and the seed would call it after `find_code` misses.
-But the seed itself never consults it, so an empty `NUMBER_HOOK`
-is the steady-state.  See Ch 20 for the REPL loop that *would*
-read it if the wiring were there, and Ch 20's Exercise 1 for what
-it would take to install one.
+The sysvar at `0x413020`, `NUMBER_HOOK`, is **initialised to 0
+and never read by anything in this build.**  It is an unwired
+extension point.  A REPL whose miss path consulted it could call a
+Forth `xt` stored there (a hex-literal parser, say) after
+`find_code` misses, but the seed's REPL has no such path.  Ch 20
+shows the REPL loop, and its Exercise 1 asks what adding the
+wiring would take.

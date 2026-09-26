@@ -280,7 +280,7 @@ Contrast **Precedence cascade**.
 **Preprocessor** — the pass that splices in `#include`d files,
 records `#define`s, and deletes every directive line before the
 lexer runs.  Other directives (`#ifdef`, `#if`, …) are silently
-dropped — there is no conditional compilation — and macro names
+dropped (there is no conditional compilation), and macro names
 are replaced by their values at lex time, not here.  Ch 22.
 
 **Prologue / epilogue** — the boilerplate at function entry / exit.
@@ -345,7 +345,7 @@ assembler in mescc-tools) to produce hex2-input.
 **Macro table** — the preprocessor's parallel-array storage for
 `#define`s: 256 entries × name-address / name-length / integer
 value triples plus a 16 KiB name pool.  Only integer values are
-stored — there are no body strings.  Ch 22 §4.
+stored — there are no body strings.  Ch 22 §2.
 
 **mescc-tools** — the small toolchain (`M1`, `hex2`, `blood-elf`,
 `get_machine`) that turns M2-Planet's `.M1` output into a working

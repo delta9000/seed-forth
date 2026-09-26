@@ -7,49 +7,32 @@ Artifact after this chapter: the boot prologue — ELF header, _start, sysvar in
 Proof link: the C compiler's own ELF emission (Ch 25) reuses the same shape and the same addresses.
 ```
 
-This chapter reads the first 63 lines of `000-seed.hex0`: a
-64-byte `Elf64_Ehdr`, a single `Elf64_Phdr` describing one
-`PT_LOAD` segment with `R|W|X` flags, the `_start` prologue, the
-six-instruction sysvar init at `0x085`, and the `JMP repl` at
-`0x0CD` that hands control to the interpreter.  Open
-`000-seed.hex0` to lines 1–63 and have an ELF reference (`readelf
--a` output, or just the Wikipedia "Executable and Linkable
-Format" page) at hand.
+Hex bytes on disk are not a program until the kernel agrees to run
+them.  Linux wants two things before it will: an ELF header that
+says what kind of file this is and where execution starts, and a
+program header that says which bytes to map where.  The seed spends
+120 bytes on those two headers, then 90 bytes of code that set up
+two registers and six system variables and jump to the REPL.  All
+of it is in lines 1–63 of `000-seed.hex0`.
 
-By the end you'll be able to read a minimal 64-bit Linux ELF
-executable header field by field, compute the entry-point address
-`0x400078` and check it against the byte at file offset `0x18`,
-trace the `_start` prologue and the sysvar-init code at `0x085`, and
-explain why the program header maps 16 MiB even though the on-disk
-image is only 2,040 bytes (so the Forth compiler can scratch into
-pages that don't exist on disk).  Each primitive's body bytes are
-deferred to Chs 14–19; dictionary headers (the
-`--- bye @ 0x44D ---` style entries that tie names to those bodies)
-are Ch 17; `parse_decimal_code` and the REPL are Ch 20.
+That file is 752 lines of hand-assembled hex.  The Stage-0 tool
+`hex0-seed` (from the Guix Full Source Bootstrap) reads it, drops
+everything after each `;`, and writes the remaining bytes to disk
+verbatim.  The result is the 2,040-byte ELF executable `seed-forth`.
 
----
-
-```
-       __
-   __( o)>   "twelve chapters of black boxes.  the boxes have
-   \___/      hex inside.  hope you brought a hex chart."
-```
-
-The seed is one file: `000-seed.hex0`, 752 lines of hand-assembled
-hex.  The Stage-0 toolchain (`hex0-seed` from the Guix Full Source
-Bootstrap) consumes those lines, ignores the comments after `;`, and
-writes the resulting bytes to disk verbatim.  Output: a 2,040-byte
-ELF executable that *is* `seed-forth`.  No primitive bodies in
-this chapter — those start in Ch 14.
+Keep an ELF reference to hand while you read: `readelf -a` output
+or `man 5 elf` will do.  Primitive bodies start in Ch 14, the
+dictionary headers (the `--- bye @ 0x44D ---` entries) are Ch 17,
+and `parse_decimal_code` and the REPL are Ch 20.
 
 ## 1. Why we start at the top
 
 Every primitive in the next seven chapters is found by its address.
 `dup_code` lives at `0x40013B`.  `nand_code` at `0x4001AA`.
 `lit_code` at `0x400419`.  The dictionary headers near the bottom of
-the file each contain a relative jump back to a primitive body — and
-those relative jumps are written by hand, computed in advance, and
-not patched at load time.
+the file each contain a relative jump back to a primitive body, and
+those jumps are computed by hand in advance.  Nothing patches them
+at load time.
 
 This works because the *whole file is loaded contiguously at
 `0x400000`*, with the bytes at file offset `N` ending up at virtual
@@ -86,7 +69,7 @@ the seed's copy, four bytes at a time.
 00 00          ; e_shstrndx  = 0
 ```
 
-Three numbers in there are doing heavy work.
+Three of these fields matter for everything that follows.
 
 **`e_entry = 0x400078`** is the address the kernel jumps to after
 loading the image.  We will compute this address from the file
@@ -94,7 +77,7 @@ structure in §4.
 
 **`e_phoff = 64`** says "the program-header table starts at file
 offset 64."  Since the ELF header is itself 64 bytes, the program
-header sits immediately after — no padding, no slack.
+header sits immediately after it, with no padding.
 
 **`e_shoff = 0`** says "no section headers."  Sections are a
 *linking* concept; an executable file does not need them.  Skipping
@@ -122,23 +105,22 @@ F8 07 00 00 00 00 00 00  ; p_filesz = 2040
 00 10 00 00 00 00 00 00  ; p_align  = 0x1000
 ```
 
-The two `p_*sz` fields tell the kernel a story: "on disk there are
-`p_filesz` bytes (2,040); in memory please make `p_memsz`
-(16 MiB) of virtual space available, zero-filling anything past the
-end of the file."  That is how `seed-forth` writes into `HERE` at
+The two size fields differ on purpose.  On disk there are
+`p_filesz` bytes (2,040); in memory the kernel reserves `p_memsz`
+bytes (16 MiB) and zero-fills everything past the end of the file.
+That is how `seed-forth` writes into `HERE` at
 `0x401000` (just above the file image) without ever calling `mmap`.
 The whole compile-time heap, the data stack at `0x411000`, the I/O
 scratch byte at `0x412000`, the token buffer at `0x412800`, and the
 sysvar page at `0x413000` are all *inside* this single mapping.
 
-R|W|X is unusual for modern executables — most loaders separate code
-(`R-X`) and data (`R-W`).  The seed has one segment because it
+R|W|X is unusual for modern executables, which separate code
+(`R-X`) from data (`R-W`).  The seed has one segment because it
 *writes new machine code into the same region it executes from*: the
 REPL's compile-mode handler emits `CALL` instructions at `HERE`, and
 those bytes have to be executable the moment they are written.  Two
 segments would force an `mprotect` syscall every time `HERE` crossed
-a page boundary, which is the kind of indirection a 2,040-byte
-binary cannot afford.
+a page boundary, and the seed has no bytes to spare for that.
 
 `p_align = 0x1000` is the system page size.  Both `p_offset` and
 `p_vaddr` are multiples of `0x1000`, which keeps the kernel happy.
@@ -162,8 +144,8 @@ That is `_start`:
 Two instructions, thirteen bytes.
 
 `mov rbp, 0x411000` initialises the **data stack**.  Throughout the
-seed, `rbp` is the data-stack pointer (it grows *down* — `sub rbp, 8`
-to push a slot, `add rbp, 8` to pop one).  The base `0x411000` is
+seed, `rbp` is the data-stack pointer.  The stack grows *down*:
+`sub rbp, 8` pushes a slot and `add rbp, 8` pops one.  The base `0x411000` is
 17 pages above `0x400000`; the stack grows down toward the heap
 (which starts at `0x401000` and grows up).  The sysvar page at
 `0x413000` sits *above* the stack, out of its way.
@@ -206,9 +188,8 @@ at runtime to find that tail, the seed *initialises `LATEST` to its
 known assembly-time value*.  `0x4007E8` is the address of the `'`
 entry's link cell, and the hex0 file just hard-codes it here.
 
-This is a small but characteristic move: anything that can be
-resolved at assembly time is resolved at assembly time, not runtime.
-The cost is that adding a new primitive means recomputing this
+The seed does this everywhere: anything that can be resolved at
+assembly time is resolved then, not at runtime.  The cost is that adding a new primitive means recomputing this
 constant by hand; the benefit is that startup is six `mov`s and
 nothing else.
 
@@ -228,24 +209,22 @@ relative to the *next* instruction."  The next instruction starts at
 address `0x40035E`).  The displacement is `0x35E - 0x0D2 = 0x28C`,
 encoded little-endian as `8C 02 00 00`.
 
-You will see this arithmetic — `target − (call_site + size)` — over
-and over for the rest of Part II.  Every `CALL` and `JMP` in the
-seed uses a 32-bit signed displacement; every dictionary entry ends
-in a `JMP rel32` back to its body.  All of those `rel32`s were
-computed by hand and pasted in.
+You will see the arithmetic `target − (call_site + size)` throughout
+Part II.  Every `CALL` and `JMP` in the seed uses a 32-bit signed
+displacement, and every dictionary entry ends in a `JMP rel32` back
+to its body.  All of those `rel32`s are computed by hand.
 
-That is the seed's whole boot sequence: identify yourself as an ELF;
-ask for one 16 MiB segment; initialise two registers and six
-sysvars; jump to the REPL.  90 bytes from `_start` to the jump, of
-which 72 are sysvar initialisation.  Everything else in the file is
-either a primitive body or a dictionary header — and from here on
-the chapters are organised by topic, not by offset.
+That is the whole boot sequence: identify the file as an ELF, ask
+for one 16 MiB segment, initialise two registers and six sysvars,
+jump to the REPL.  It takes 90 bytes from `_start` through the end
+of the jump, 72 of them sysvar initialisation.  Everything else in
+the file is a primitive body or a dictionary header, so from here
+on the chapters follow topic, not offset.
 
 ## Canonical source
 
-`000-seed.hex0` is hand-assembled and its byte-order is load-bearing
-(every `rel32` was computed against it), so we declare the whole
-file as one root block here, with every chunk reference in source
+`000-seed.hex0` is hand-assembled and every `rel32` in it depends
+on its exact byte order, so we declare the whole file as one root block here, with every chunk reference in source
 order.  Subsequent chapters (Chs 14–20) define the bodies of the
 chunks they introduce; the awk tangler stitches them in at the
 positions named below.  Each chunk body ends with the blank line
@@ -402,7 +381,7 @@ field.  `e_entry` should be `0x400078`; `e_phoff` should be `64`;
 ## Exercises
 
 1. **★★ Trace.** The entry point is at `0x400078`.  The header is 64 bytes plus one
-   56-byte program header — total 120 bytes.  Why is the entry at
+   56-byte program header, 120 bytes in total.  Why is the entry at
    offset `0x78` (=120) and not, say, `0x100`?  What would change if
    the seed reserved padding for future program-header entries?
 
@@ -425,9 +404,8 @@ field.  `e_entry` should be `0x400078`; `e_phoff` should be `64`;
 
 - A 64-bit Linux ELF can be written by hand in 120 bytes (one
   `Elf64_Ehdr` + one `Elf64_Phdr`) and still satisfy the kernel.
-- The seed maps one big R|W|X segment that includes its own
-  compile-time-allocated buffers, avoiding any need for `mmap` or
-  `mprotect` during normal operation.
+- The seed maps one 16 MiB R|W|X segment that holds its code, stack,
+  sysvars and heap, so it never needs `mmap` or `mprotect`.
 - Every primitive in the next seven chapters is reachable from
   `_start` by direct address; the seed resolves at assembly time
   anything that can be resolved at assembly time.

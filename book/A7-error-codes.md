@@ -14,7 +14,7 @@ lives; the source is the final authority.
 
 There is no single grand scheme.  Codes were assigned in the order
 helpers were added, each file picked its own, and several numbers
-are reused across files — and, in a few places, twice inside one
+are reused across files and, in a few places, twice inside one
 file.  So an exit code alone does not name a failure; the code plus
 the phase you were in does.  This is where each file's codes live:
 
@@ -131,8 +131,8 @@ file; assignments are file-local, not project-global.
 `130-asm.fth`, the M1 assembler, is a separate program with its
 own codes.  It exits 1 if it can't open its output file
 (`130-asm.fth:132`).
-Its other failures go through `asm-tok-err`, which — unlike the
-compiler — writes the offending token to stderr
+Its other failures go through `asm-tok-err`, which, unlike the
+compiler, writes the offending token to stderr
 before exiting: 91 (`&label` undefined), 92/93 (`%target>base`:
 base / target undefined), 94 (`%label`), 95 (`!label`),
 96 (`@label`), 97 (`~label`), 98 (`$label`).
@@ -146,7 +146,7 @@ input is M2-Planet, and a failure there is a compiler bug you debug
 with the source open anyway.  A numeric code keeps each of the
 90-odd error sites to a single `[lit] N die` line, so the parse
 code stays short enough to read in the book.  The price is two
-minutes of grepping — and, because codes are reused, reading the
+minutes of grepping and, because codes are reused, reading the
 few lines around each hit.
 
 For richer diagnostics, the canonical workflow is:

@@ -17,7 +17,7 @@ Sources of truth, in case this appendix drifts:
   (lines 1393–1493).
 
 If you discover a construct the compiler accepts that isn't listed
-below — or rejects one that is — this appendix is wrong and the
+below, or rejects one that is, this appendix is wrong and the
 source wins.
 
 ## Types
@@ -152,7 +152,7 @@ A handful of built-in macros are predefined: `NULL`, `EOF`,
 
 Structs are storage and field-naming only.
 
-- Up to **16 fields** per struct (Ch 24 §3; descriptors are 656
+- Up to **16 fields** per struct (Ch 24 §1; descriptors are 656
   bytes each).
 - Every field occupies an **8-byte slot**, regardless of declared
   type.  `char` and `int` fields are equally 8 bytes wide inside a

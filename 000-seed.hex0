@@ -554,7 +554,7 @@ E9 34 FE FF FF                              ; jmp zbranch_code (rel = 0x431 - 0x
 
 ;; ----- parse_decimal_code @ 0x5FD ( c-addr u -- n true | 0 false ) -----
 ;; Pure-decimal parser. Empty length or any non-digit byte => fail (0, 0).
-;; Success => (n, -1) where n = sum of digits * 10.
+;; Success => (n, -1) where n = n*10 + digit, per digit.
 48 8B 75 00                               ; mov rsi, [rbp]   ; rsi = c-addr
 48 83 C5 08                               ; add rbp, 8
 48 85 FF                                  ; test rdi, rdi

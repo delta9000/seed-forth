@@ -55,10 +55,10 @@ unless the dependency graph forbids it.
 ## Quick health check
 
 ```sh
-./check-all.sh                 # build + test + tangle --strict + book-numbers + stage-A
+./check-all.sh                 # build + tests + tangle --strict + book-numbers + try-it + stage-A
 ```
 
-`check-all.sh` runs all five checks in sequence with per-step
+`check-all.sh` runs all eight steps in sequence with per-step
 pass/fail logging.  Use it before committing or after editing any
 fenced code block — or any exact byte count, offset, or file line
 count in prose — in `book/`.  The individual commands are still
@@ -69,6 +69,7 @@ useful for diagnosing a failure:
 ./test.sh                      # smoke tests for layers 010-070
 tools/tangle.sh verify --strict
 tools/check-numbers.py         # prose's exact numbers vs source (--dump shows the table)
+tools/check-tryit.py           # runs every Try-it block against ./seed-forth
 tests/cc/stage-a-check.sh      # byte-identical M1 vs GCC
 ```
 

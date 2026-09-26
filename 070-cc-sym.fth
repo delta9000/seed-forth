@@ -26,8 +26,8 @@ create cc-sym-name-len   cc-sym-cap [lit] 8 * allot
 create cc-sym-kind       cc-sym-cap [lit] 8 * allot
 create cc-sym-type       cc-sym-cap [lit] 8 * allot
 create cc-sym-val        cc-sym-cap [lit] 8 * allot
-\ Parallel array for "extra info".  For sk-local entries that are arrays this
-\ is the array length (in elements); for everything else it is 0.
+\ Parallel array for "extra info".  Arrays (local or global): length in
+\ elements.  Struct-typed locals/globals: descriptor.  Otherwise 0.
 create cc-sym-extra      cc-sym-cap [lit] 8 * allot
 \ Second extra slot.  For sk-func entries this is the head of a fixup list
 \ for forward-emitted `movabs rdi, imm64` sites that load the function's
@@ -127,8 +127,8 @@ variable cc-sym-find-needle-len
 : cc-sym-type-of       cc-sym-type      sym-slot @ ;     \ ( id -- ty   )
 : cc-sym-val-of        cc-sym-val       sym-slot @ ;     \ ( id -- val  )
 
-\ Extra-info accessor / setter.  For sk-local array entries, the extra field
-\ holds the array length in elements; otherwise it stays 0.
+\ Extra-info accessor / setter.  Array length for arrays, struct descriptor
+\ for struct-typed locals/globals, otherwise 0 (see cc-sym-extra above).
 : cc-sym-extra-of      cc-sym-extra     sym-slot @ ;     \ ( id -- extra )
 : cc-sym-set-extra     cc-sym-extra     sym-slot ! ;     \ ( extra id -- )
 

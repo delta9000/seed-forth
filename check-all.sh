@@ -13,9 +13,13 @@
 #       (the prose's exact byte counts / offsets / file line counts,
 #        verified against 000-seed.hex0 and the source; skipped if
 #        python3 is missing)
+#   4a. tools/check-tryit.py runs every ```sh "Try it" block in book/
+#       that pipes into ./seed-forth (in a scratch dir with a private
+#       /tmp) and checks it runs cleanly, leaves no stray files, and
+#       prints the output the book states (skipped if python3 is missing)
 #   5.  tests/cc/stage-a-check.sh produces a byte-identical .M1
 #       (skipped with a SKIP line if gcc or make is missing — only
-#        Stage-A needs a host C toolchain; steps 1, 2, 3, 4 do not;
+#        Stage-A needs a host C toolchain; steps 1, 2, 3, 4, 4a do not;
 #        step 2a also requires gcc+make to build mescc-tools)
 #
 # Each step's full output is captured to /tmp/check-all-NN-*.log; the
@@ -74,6 +78,12 @@ if command -v python3 >/dev/null 2>&1; then
     run "04-book-numbers" tools/check-numbers.py
 else
     skip "04-book-numbers" "missing: python3"
+fi
+
+if command -v python3 >/dev/null 2>&1; then
+    run "04a-tryit"       tools/check-tryit.py --verbose
+else
+    skip "04a-tryit" "missing: python3"
 fi
 
 if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then

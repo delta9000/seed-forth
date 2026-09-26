@@ -7,49 +7,24 @@ Artifact after this chapter: declaration parsing for scalar types, pointers, arr
 Proof link: Stage-A decls populate the type and symbol database before statements and functions consume it.
 ```
 
-This chapter installs the declaration machinery that feeds Ch 24's
-type and symbol tables.  It opens `110-cc-decl.fth`, the longest
-file in Part III at 2827 lines, and covers lines 1–625 (the
-source-order split puts statements in Ch 30 and functions in Ch 31).
-Three pieces anchor the read.  `cc-parse-struct-def` uses a
-pre-registration trick so `struct T { struct T* next; }` can
-resolve its own tag mid-body.  `cc-parse-decl-with-base` is the
-shared scalar/array/initializer engine that both `cc-parse-decl`
-and Ch 30's typedef-name path call into.  `cc-peek-fnptr?` is a
-2-token lookahead (save lexer, read two tokens, restore) that
-distinguishes function-pointer declarators from ordinary
-parenthesised ones.
+Before the statement and expression parsers can use a name, something
+has to turn `int x;`, `char* s;`, `int arr[8];`, `int (*fp)(int);`, or
+`struct T* p;` into a symbol-table row with the right type word, frame
+slot, and `cc-sym-extra` payload.  M2-Planet also leans on structs
+that point to their own type, so a struct's tag has to be usable
+before its body has finished parsing.
 
-By the end you'll be able to read the expectation helpers, walk a
-struct definition through its pre-registration and field-fill
-phases, trace how `int x;`, `int* p;`, `int arr[N];`,
-`int (*fp)(int);`, and `struct T s;` each end up as a symbol-table
-entry, and explain why bare `return;` zeros `rax` while `return
-expr;` reuses the expression's `rdi` via `cc-emit-mov-rax-rdi`.
-Statements, function definitions, enums, typedefs, file-scope
-globals, the top-level driver, and the entry stub are all deferred
-to Chs 30–31.
+That machinery sits at the top of `110-cc-decl.fth`, the longest file
+in Part III at 2827 lines.  This chapter reads lines 1–625.  The rest
+of the file is split by source order rather than by topic: Ch 30
+takes the statements and Ch 31 takes functions, enums, typedefs,
+globals, and the entry stub.  The split has to follow source order
+because same-named `file=` blocks concatenate in chapter order, and
+the tangled file must come out byte-identical.
 
 ---
 
-Ch 28 closed the expression parser.  Ch 29 opens the declarations
-file — the longest in Part III at 2827 lines.  We split it across
-three chapters by source order: Ch 29 covers the top of the file
-(declarations and struct parsing), Ch 30 covers statements,
-Ch 31 covers everything else (functions, enums, typedefs,
-globals, entry stub).
-
-The reason for the source-order split rather than a topical one
-is mechanical: literate `file=` blocks accumulate in chapter
-order, so the only way to keep the tangled output in source order
-is to keep the *chapter* order matching source order.
-
-## 1. File header and expectation helpers
-
-What follows is 625 lines: file header, expectation helpers,
-base-type parser, declarator parser, and struct-definition
-machinery.  §2 is where the structured walk back through them
-starts.
+## 1. File header and bookkeeping
 
 ```forth file=110-cc-decl.fth
 \ 110-cc-decl.fth — function/declaration parser for the C-subset compiler.
@@ -87,6 +62,19 @@ variable cc-fn-local-count                        \ # locals in current function
 \ up in cc-sym-extra).  For non-struct types it stays at 0.
 variable cc-pending-struct-desc
 
+```
+
+The header describes the whole file, including the 26-byte entry
+stub that Ch 31 emits.  The bookkeeping variables are shared across
+function definitions.  `cc-fn-local-count` is the next free local
+slot; every declaration parser in this chapter allocates from it.
+`cc-pending-struct-desc` carries a struct descriptor from the
+base-type parser to whichever parser eventually calls `cc-sym-add`,
+so the pointer ends up in `cc-sym-extra`.
+
+## 2. Expectation helpers and ignored specifiers
+
+```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ Token-expectation helpers
 \ ===========================================================================
@@ -123,6 +111,15 @@ variable cc-pending-struct-desc
     [lit] 15 die
   then, ;
 
+```
+
+`cc-expect-kw-id`, `cc-expect-punct-c`, and `cc-expect-ident` are the
+file's "consume one token and check it" idiom.  Each failure has its
+own status: 11/12 for the keyword pair, 13/14 for punctuation, 15 for
+an identifier.  When a Stage-A run dies, the exit status is a number
+you can grep for in this file.
+
+```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ Statement parsing
 \ ===========================================================================
@@ -168,6 +165,27 @@ variable cc-sq-flag
   repeat,
   cc-putback-token ;
 
+```
+
+`cc-count-stars` reads zero or more `*` tokens after a base type,
+returns the count, and puts back the first token that isn't a `*`.
+Every pointer-depth calculation in the file goes through it.  (The
+"Statement parsing" banner above it is a leftover; the statements
+start in Ch 30.)
+
+`cc-skip-storage-quals` consumes `static`, `extern`, `auto`,
+`register`, `const`, `volatile`, and `restrict` and ignores them.
+The frame layout doesn't distinguish `static` from `auto`, and the
+type system has no `const`.  The words exist so M2-Planet's source
+parses.
+
+## 3. Struct definitions
+
+A struct definition builds a descriptor (the layout from Ch 24 §1)
+one field at a time.  The scratch globals hold the field being built,
+and `cc-sd-append-field` copies it into the next field record:
+
+```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ Struct definition and base-type parsing.
 \ ===========================================================================
@@ -201,6 +219,16 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
   cc-sd-build-desc @ cc-sd-total-size [lit] 8 +
   cc-sd-build-desc @ cc-sd-set-total-size ;
 
+```
+
+The new field's offset is the descriptor's current `total-size`;
+then `field-count` goes up by one and `total-size` by 8.  Every field
+gets an 8-byte slot whatever its declared type.
+
+Field types and struct locals both need to turn a tag name into a
+descriptor.  There are two lookups:
+
+```forth file=110-cc-decl.fth
 \ cc-parse-struct-def ( -- )  Called with the 'struct' keyword ALREADY consumed
 \ (it's the current token).  Handles ONLY the definition form:
 \
@@ -247,6 +275,15 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
     then,
   then, ;
 
+```
+
+(The comment for `cc-parse-struct-def` sits at the top of this block,
+merged into the comment for `cc-lookup-struct-tag`.)  The strict
+lookup dies with status 95–97 on a missing or non-struct tag.  The
+soft lookup returns 0 instead, which lets a header mention
+`struct type*` without defining it.
+
+```forth file=110-cc-decl.fth
 : cc-parse-struct-def                             ( -- )
   \ Expect IDENT tag.
   cc-next-token-keep
@@ -332,6 +369,31 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
   [lit] 59 cc-expect-punct-c
   drop drop ;                                     \ discard tag-a tag-u
 
+```
+
+`cc-parse-struct-def` handles `struct TAG { … };`.  It allocates a
+656-byte descriptor, then calls `cc-sym-add` for the tag *before*
+reading any field.  When a field later declares `struct T* next;`,
+`cc-lookup-struct-tag-soft` finds the tag and returns the
+still-empty descriptor pointer, which goes into the field record.
+The field loop fills that same descriptor in place, so by the closing
+`}` every `next` field points at a complete descriptor.
+
+The field loop dispatches on the base type.  `int`, `char`, and
+`void` set a plain type word; `struct` looks up the tag's descriptor
+and records it as the field's pointee; an identifier is taken as a
+typedef name and recorded as `ty-int`, since only the 8-byte slot
+matters.  `cc-count-stars` supplies the pointer depth, and `ty-make`
+packs it into the type word.
+
+## 4. Function pointers and the declaration engine
+
+`int (*fp)(int);` reads like `int x;` for one token and then turns
+into something else.  The parser needs to see both `(` and `*` before
+committing, which is one token more than the putback layer from
+Ch 27 can give back.  So this code snapshots the entire lexer state:
+
+```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ Function-pointer declaration parsing.
 \ ===========================================================================
@@ -390,6 +452,15 @@ variable cc-fnptr-save-tok-kw
     cc-fnptr-lookahead-restore
   then, ;
 
+```
+
+`cc-fnptr-lookahead-save` copies the source position, line number,
+pending flag, and every `tok-*` variable into its own slots;
+`-restore` copies them back.  `cc-peek-fnptr?` saves, reads up to two
+tokens, tests for `(` then `*`, and restores on both paths.  The
+caller gets a flag and a lexer that hasn't moved.
+
+```forth file=110-cc-decl.fth
 \ cc-skip-fnptr-params ( -- )  Skip everything from the current position
 \ through the matching ')'.  Uses paren-depth counter starting at 1
 \ (the opening '(' has just been consumed).  Tokens are consumed one at
@@ -450,6 +521,16 @@ variable cc-fnptr-save-tok-kw
     then,
   then, ;
 
+```
+
+Once the peek says yes, `cc-parse-fnptr-decl` consumes `(`, `*`, the
+name, `)`, and `(`, then `cc-skip-fnptr-params` counts parentheses
+until the parameter list closes.  The name becomes an `sk-local`
+whose type is `ty-func` with pointer depth 1.  Parameter types are
+skipped, not checked.  That type is what Ch 28's `cc-parse-primary`
+tests to accept an indirect call.
+
+```forth file=110-cc-decl.fth
 \ cc-parse-decl-with-base ( base initial-ptr -- )
 \ Common scalar/array declaration parser.  Caller has already consumed any
 \ keyword or typedef-name that established the base type, and supplies
@@ -524,6 +605,20 @@ variable cc-decl-base                              \ base type kind
   then,
   then, ;                                          \ close fnptr-or-not
 
+```
+
+`cc-parse-decl-with-base` takes the base type and an initial pointer
+depth (non-zero only for a pointer typedef).  With no leading stars
+it tries the function-pointer peek first.  Otherwise it counts stars,
+reads the name, and looks at the next token:
+
+- `[` starts an array.  The size must be a positive literal.  The
+  symbol's slot is the *last* of the N slots it reserves, and N goes
+  into `cc-sym-extra` so Ch 28 can tell an array from a scalar.
+- Anything else is a scalar: one slot, and an optional `= expr`
+  whose value is stored with `cc-emit-store-local`.
+
+```forth file=110-cc-decl.fth
 \ cc-parse-decl ( -- )  Legacy entry from cc-parse-stmt.  The basic-type kw is
 \ the current token (still in tok-*); pick ty-char for `char`, ty-int for the
 \ rest (int / long / short / unsigned / signed).  ty-char matters because the
@@ -556,6 +651,18 @@ variable cc-bt-flag
   then,
   cc-bt-flag @ ;
 
+```
+
+`cc-parse-decl` is the entry from the statement parser.  It maps
+`char` to `ty-char` and every other basic type to `ty-int`.  The
+distinction matters: Ch 28's subscript code uses base `char` with
+pointer depth 1 to choose byte-wide loads and stores for `s[i]`.
+`cc-tok-is-basic-type-kw?` is the test the statement dispatcher uses
+to decide that a statement is a declaration.
+
+## 5. Struct-local declarations
+
+```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ cc-parse-struct-local-decl
 \ ===========================================================================
@@ -624,6 +731,29 @@ variable cc-sld-name-u
     then,
   then, ;
 
+```
+
+`cc-parse-struct-local-decl` handles `struct TAG x;` and
+`struct TAG* p;` inside a function body.
+
+For the value form, it reserves `total-size/8` slots.  Field 0 lives
+at the lowest address, the deepest slot in the frame, and that slot
+is the symbol's value.  `cc-sym-extra` holds the descriptor pointer.
+The value form takes no initializer.
+
+The pointer form reserves one slot and stores the pointee's
+descriptor in `cc-sym-extra`, which is what Ch 28's postfix `->`
+reads to resolve field offsets.  It accepts `= expr`, because
+M2-Planet writes `struct T* i = expr;` constantly.
+
+## 6. `cc-parse-return`
+
+`cc-parse-switch` (Ch 30) saves the outer `rbx` with a `push` whose
+matching `pop` sits at the switch's end label.  A statement that
+leaves the switch body some other way has to emit its own `pop rbx`
+for each switch it crosses:
+
+```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ Switch-scrutinee unwind
 \ ===========================================================================
@@ -656,6 +786,16 @@ variable cc-loop-switch-depth
   repeat,
   drop ;
 
+```
+
+`cc-switch-depth` counts open switches; `cc-loop-switch-depth`
+records that count at the innermost loop.  `return` pops them all,
+`continue` pops the ones opened inside the loop, and `goto` pops them
+all (so a `goto` into a switch is unsupported).  `break` needs
+nothing, because its target is the innermost loop's or switch's own
+end label.
+
+```forth file=110-cc-decl.fth
 \ cc-parse-return ( -- )  "return" already consumed; parse [expr] ';'.
 \ Bare `return;` (no expression) is legal C — emit rax := 0 + epilogue.
 \ Peek the next token: if it's ';' the peek already consumed it, so do NOT
@@ -679,133 +819,21 @@ variable cc-loop-switch-depth
 
 ```
 
-## 2. Reading the listings
+`cc-parse-return` has two forms.  A bare `return;` emits
+`xor rax, rax`, so the caller sees 0.  `return expr;` parses the
+expression and moves `rdi` into `rax` with `cc-emit-mov-rax-rdi`.
+Both then unwind open switches, which restores the caller's `rbx`,
+and emit the `mov rsp, rbp ; pop rbp ; ret` epilogue (5 bytes;
+Ch 25 §5).
 
-A walk-through of the high points:
+The peek reads the `;` only when it is there; otherwise the token
+goes back and the trailing `cc-expect-punct-c` catches a missing
+semicolon after the expression.
 
-**Bookkeeping (lines 24–32).**  `cc-main-vaddr`,
-`cc-call-main-patch`, `cc-fn-local-count`, and
-`cc-pending-struct-desc` are the four cross-function variables.
-`cc-fn-local-count` tracks the next local slot to allocate;
-`cc-pending-struct-desc` is set whenever a `struct TAG` base type
-is parsed so the eventual `cc-sym-add` can plant the descriptor
-pointer in `cc-sym-extra`.
-
-**Expectation helpers (lines 42–68).**  `cc-expect-kw-id`,
-`cc-expect-punct-c`, and `cc-expect-ident` are the canonical
-"consume one token and check" idiom.  Each has its own error
-status: 11/12 for the keyword pair, 13/14 for punctuation, 15 for
-identifier.  Distinct status codes mean a failing stage-A check
-prints a number you can grep for in this file.
-
-**`cc-count-stars` (lines 79–87).**  Reads zero or more `*`
-tokens after a base type.  Returns the count and putbacks the
-first non-`*`.  Pointer-depth machinery throughout the file
-funnels through this.
-
-**`cc-skip-storage-quals` (lines 98–115).**  Treats every storage
-class and qualifier as a no-op.  The compiler's frame layout
-doesn't care about `static` versus `auto`; the type system has
-no `const`-correctness; `register` is advisory anyway.  These
-words exist so M2-Planet source can use them without the
-compiler choking.
-
-## 3. Struct definitions
-
-`cc-sd-append-field` (lines 136–148) accumulates one field into
-the descriptor under construction: store name/type/desc/offset
-into the field record at index `cc-sd-field-count`, then bump
-both `field-count` and `total-size` by 8.  Every field is an
-8-byte slot regardless of declared type.
-
-`cc-parse-struct-def` (lines 196–279) does the full
-`struct TAG { … };` form.
-
-The pre-registration step at lines 216–220 is what makes
-self-referential structs work.  Before parsing any field, we
-`cc-sym-add` the tag with the *empty* descriptor.  Then when a
-field declares `struct T* next;`, the inner
-`cc-lookup-struct-tag-soft` finds the tag, gets the still-empty
-descriptor pointer, and stores it in the field record.  When
-the body later finishes parsing, the descriptor has been
-populated *in place* — and every `next` field record correctly
-points at the now-finished descriptor.
-
-The field loop (lines 226–272) dispatches on the field's base
-type: `int`/`char`/`void` produce a simple type word; `struct`
-recurses via `cc-lookup-struct-tag-soft`; an identifier is
-treated as a typedef-name and falls back to `ty-int`.  Pointer
-stars are counted via `cc-count-stars` and merged with `ty-make`.
-
-## 4. Function-pointer declarations
-
-`int (*fp)(int);` is its own awkward syntactic form.  It looks
-like `int x;` (a basic decl) for the first three tokens, then
-suddenly there's `(*` and we have to back up.
-
-`cc-peek-fnptr?` (lines 325–335) does the 2-token lookahead.
-It saves the lexer state, reads two tokens, tests them against
-`(` then `*`, restores the state.  The boolean is the dispatch
-key.
-
-`cc-parse-fnptr-decl` (lines 363–397) handles the form after the
-two-token lookahead has confirmed it.  It consumes `(`, `*`,
-the NAME, `)`, `(`, skips the parameter list to the matching `)`,
-and registers the name as `sk-local` with type
-`ty-func + ptr-depth=1`.  Parameter types are not validated.
-
-`cc-parse-decl-with-base` (lines 412–471) is the common
-scalar/array path.  After the base type is on the stack and the
-fnptr lookahead has failed, it counts stars, reads the name,
-then dispatches on the next token: `[` → array, `=` → scalar
-initializer, `;` → bare scalar.  Each branch builds a symbol
-table entry with the right metadata in `cc-sym-extra` (array
-length for arrays, struct descriptor for structs, 0 otherwise).
-
-## 5. Struct-local declarations
-
-`cc-parse-struct-local-decl` (lines 528–571) handles
-`struct TAG x;` and `struct TAG* p;` *inside a function body*.
-
-For the value form (`struct TAG x;`), we reserve `total-size/8`
-slots; field 0 lives at the *lowest* address (deepest slot in the
-frame, addressed `[rbp - 8*(N)]`).  The symbol's val stores the
-slot of field 0; `cc-sym-extra` stores the descriptor pointer.
-
-For the pointer form (`struct TAG* p;`), we reserve one slot for
-the pointer, with the same descriptor in `cc-sym-extra` so that
-`p->field` (Ch 28's postfix `->`) can resolve fields.
-
-## 6. `cc-parse-return`
-
-`cc-parse-return` (lines 611–624) is the simplest statement
-parser.  Two forms:
-
-- `return ;` — bare return.  Emit `xor rax, rax` (so callers see
-  0) followed by `cc-emit-epilogue` (Ch 25 §5).
-- `return expr ;` — parse the expression, `cc-emit-mov-rax-rdi`
-  to move the result into the SYS-V return register, then
-  `cc-emit-epilogue`.
-
-The `cc-switch-depth` / `cc-emit-switch-unwind` block above it is
-forward machinery for Ch 30: `cc-parse-switch` parks the outer
-`rbx` with a `push` whose matching `pop` sits at the switch's end
-label, so a statement that jumps out of the body — `return` here,
-`continue` and `goto` in Ch 30 — must first emit one balancing
-`pop rbx` per open switch.  For `return` this is what restores
-the caller's callee-saved `rbx` before `ret`.
-
-The peek-and-dispatch reads the `;` only if it's actually
-present, putting back if not — the trailing `cc-expect-punct-c`
-catches missing semicolons in the expression form.
-
-`cc-parse-return` emits `xor rax, rax` (3 bytes, the default return
-value when no expression is supplied) followed by the standard
-`mov rsp, rbp ; pop rbp ; ret` epilogue (5 bytes; Ch 25 §5).
-Ch 31's `cc-parse-function` *also* emits the epilogue at function-
-body close, which means a function ending with explicit `return`
-has an extra unreachable epilogue tacked on.  That's a wasted 8
-bytes (zero+epilogue) but harmless.
+Ch 31's `cc-parse-function` also emits a zero and an epilogue when
+the body closes, so a function that ends with an explicit `return`
+carries 8 unreachable bytes (the 3-byte zero plus the 5-byte
+epilogue).  They cost space, not correctness.
 
 ## Try it
 
@@ -862,36 +890,28 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
 
 ## After this chapter
 
-The compiler can parse declarations: base types with pointer/array
-modifiers, struct definitions (including self-referential ones via
-pre-registration), and local variable declarations.  Typedefs, enum
-constants, and file-scope globals lean on the same parsing engine but
-are wired up in Ch 31.
+The compiler can parse declarations: base types with pointer and
+array modifiers, struct definitions (including self-referential ones),
+function pointers, and struct locals.  Typedefs, enum constants, and
+file-scope globals reuse this engine but are wired up in Ch 31.
 
-You can read `cc-parse-decl`, explain how `struct T { struct T *next; };`
-works because the tag is registered before the field loop, and
-trace how `int x;`, `int* p;`, and `struct T s;` each become a
-symbol-table entry.
-
-Toward Stage-A: symbol IDs, local slots, and global vaddrs are
-bytes inside `cc-out-v1`, and Stage A never compares `cc-out-v1`.
-They matter only if one is wrong, so that `cc-out-v1` misbehaves
-while compiling M2-Planet and its `.M1` output diverges.
+You can trace how `int x;`, `int* p;`, `int arr[N];`, and
+`struct T s;` each become a symbol-table row, and explain why
+`struct T { struct T *next; };` works.
 
 ## Takeaways
 
-- Declarations are a careful tower of lookaheads.  Without
-  putback layers and save/restore helpers, distinguishing
-  `int (*fp)()` from `int (x);` would be impossible inside a
-  recursive-descent parser.
-- Pre-registration of struct tags is the small move that makes
-  self-referential types work without a separate two-pass scheme.
-  It does not make mutually-recursive types work: a `struct B*`
-  field declared before `struct B` exists gets descriptor 0, so
-  `a->b->x` dies with status 90 (Exercise 1).
-- `cc-parse-return` is the only statement parser in this
-  chapter because source order forces it to live alongside the
-  declaration code; the *statement dispatcher* lives in Ch 30.
+- Most declarations need only the one-token putback from Ch 27, but
+  spotting `int (*fp)(int)` takes a full save, two-token read, and
+  restore of the lexer state.
+- Registering a struct's tag before parsing its body makes
+  `struct T { struct T* next; }` work, but a field naming a struct
+  not yet defined gets descriptor 0, so mutually recursive structs
+  fail (Exercise 1).
+- `cc-parse-return` and the switch-unwind counters live in this
+  chapter only because source order puts them here; the statement
+  dispatcher that calls them is in Ch 30.
 
 Next: Chapter 30 — Statements: if, while, for, switch, break,
 continue, goto.
+

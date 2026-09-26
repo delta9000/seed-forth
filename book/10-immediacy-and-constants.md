@@ -7,44 +7,27 @@ Artifact after this chapter: constant plus the IMMEDIATE/STATE protocol Chs 11 a
 Proof link: every type tag, keyword ID, and libc shim address the C compiler reaches for is a constant.
 ```
 
-This chapter is where Part I crosses a threshold: we build a word
-that builds words.  Two definitions in `010-lib.fth` (lines 164–194)
-do the job.  `immediate` sets the IMMEDIATE bit on the most-recent
-dictionary entry's `flags` byte (so the word runs at parse time even
-when `STATE=1`), and `constant` is our first defining word, laying
-down a 19-byte runtime body whose three x86-64 instructions push a
-captured `imm64` onto the data stack.  Open `010-lib.fth` to lines
-164–194 and have the seed's data-stack convention (`rdi` = TOS,
-`rbp` = data-stack pointer, full machine-code treatment in Ch 14)
-in the back of your mind.
-
-By the end you'll be able to explain the IMMEDIATE flag and how
-`STATE` switches the interpreter between executing words and
-appending CALLs to them, name the five fields of a dictionary entry
-(link, flags, name-len, name, body), and read `constant`'s 19-byte
-runtime body bit by bit.  The other two members of the defining-word
-family, `create` and `variable`, are deferred to Ch 12; the
-machine-code encoding of `movabs` itself, and `;` as a word with its
-own IMMEDIATE flag baked into the seed, are deferred to Chs 14 and 18.
-
----
-
 So far every chapter has built one Forth word from a handful of
-others.  This chapter does something different: we build a word that
-**builds words**.  `constant` is a *defining word* — when you write
-`[lit] 42 constant magic`, you don't just call a function; you
-extend the dictionary with a brand-new entry called `magic` whose
-behaviour, when later invoked, pushes `42`.  To pull that off, the
-seed needs two pieces of infrastructure that haven't shown up yet:
-the **STATE** sysvar that distinguishes interpret mode from compile
-mode, and the **IMMEDIATE flag** that lets a word break the rules
-and run at compile time anyway.
+others.  This one builds a word that **builds words**.  `constant` is
+a *defining word*: when you write `[lit] 42 constant magic`, you
+extend the dictionary with a new entry called `magic` that pushes
+`42` when invoked.
+
+Two definitions in `010-lib.fth` (lines 164–194) do the job.
+`immediate` sets a flag that makes a word run at compile time, and
+`constant` lays down a 19-byte runtime body of x86-64 machine code.
+Understanding either one takes two pieces of machinery that haven't
+appeared yet: the **STATE** sysvar that distinguishes interpret mode
+from compile mode, and the **IMMEDIATE flag** that lets a word run
+at compile time anyway.  Keep the seed's data-stack convention in
+mind (`rdi` holds the top of stack, `rbp` points at the rest; Ch 14
+has the machine code).  `create` and `variable` follow in Ch 12.
 
 ## 1. `STATE` and the two modes
 
-Forth runs in one of two modes.  When `STATE == 0` — **interpret
-mode** — every word you type is looked up and executed immediately.
-When `STATE == 1` — **compile mode** — every word you type is looked
+Forth runs in one of two modes.  When `STATE == 0` (**interpret
+mode**), every word you type is looked up and executed immediately.
+When `STATE == 1` (**compile mode**), every word you type is looked
 up and a CALL to it is *appended to the body of the word currently
 being defined*.
 
@@ -56,7 +39,7 @@ Concretely:
 | `: foo 5 . ;` | 0→1→0 | `:` flips STATE to 1; "5" and "." are compiled into foo's body; `;` flips STATE back to 0 |
 | `foo`         | 0     | calls foo, which now executes its body (push 5, call `.`) and prints `5` |
 
-The seed's STATE lives at `0x413000` — the very first cell on the
+The seed's STATE lives at `0x413000`, the first cell on the
 sysvar page.  `state` is a seed primitive that pushes that address;
 `state @` fetches the current mode; `state !` sets it.  `:` writes
 `1` to STATE as part of its setup; `;` writes `0` as part of its
@@ -66,7 +49,7 @@ teardown.
 
 Compile mode has a problem.  If *every* word gets compiled into the
 body of the word-being-defined, how do you write `if`/`else`/`then`
-or `;`?  Those words have to *do work at compile time* — `;` has to
+or `;`?  Those words have to *do work at compile time*: `;` has to
 finish off the current definition, not get compiled into it.
 
 The answer is the **IMMEDIATE flag**.  Each dictionary entry has a
@@ -76,12 +59,11 @@ word *now*, regardless of STATE.  That's how `;` works: it's an
 immediate word whose body emits a `ret` instruction and resets STATE
 to 0.
 
-This is the seed's only metaprogramming hook.  It is also enough.
-Every control-flow construct in this codebase — `if,`, `then,`,
-`else,`, `begin,`, `while,`, `repeat,` — works by being marked
+This is the seed's only metaprogramming hook, and it is enough.
+Every control-flow construct in this codebase (`if,`, `then,`,
+`else,`, `begin,`, `while,`, `repeat,`) works by being marked
 IMMEDIATE and emitting branch instructions into the dictionary at
-parse time.  Ch 11 walks through all of them; this chapter prepares
-the ground by giving us a way to set the IMMEDIATE flag from Forth.
+parse time.  Ch 11 walks through all of them.
 
 ## 3. Dictionary header layout
 
@@ -103,11 +85,11 @@ constant is the 19-byte template we'll meet in section 5.
 
 The seed maintains a **LATEST** sysvar pointing at the link cell of
 the most recently defined entry.  Each new entry sets its own link
-to the old LATEST and then overwrites LATEST to point at itself —
+to the old LATEST and then overwrites LATEST to point at itself;
 that's how the dictionary linked list grows.
 
 `latest` is a seed primitive that pushes the *address* of the LATEST
-sysvar cell (analogous to `here-addr` from Ch 2 — address of the
+sysvar cell (like `here-addr` from Ch 2: the address of the
 sysvar, not its current value).  `latest @` fetches the current head
 of the dictionary.  And since the link cell is at offset 0, `latest
 @` is also the address of the link cell of the most-recent entry,
@@ -139,29 +121,26 @@ defined word.  Conventional usage is:
 : my-thing  ... ; immediate
 ```
 
-— define a word with `: ... ;`, then call `immediate` to set the
-IMMEDIATE bit on what we just defined.  After this, every call to
+That is, define a word with `: ... ;`, then call `immediate` to set
+the IMMEDIATE bit on what we just defined.  After this, every call to
 `my-thing` from within a colon definition runs *now*, not at the
 defined word's runtime.
 
-Two subtle points.  First, the seed's manual `01` flags byte on the
-`;` definition in `000-seed.hex0` (Ch 18) is exactly this byte —
-`immediate` from `010-lib.fth` and the hand-rolled `01` in the seed
-hex are the same byte in the same place, written by different
-mechanisms.  Second, `immediate` writes the whole byte: `c!` stores
+Two details.  First, the seed's manual `01` flags byte on the
+`;` definition in `000-seed.hex0` (Ch 18) is exactly this byte:
+`immediate` and the hand-rolled `01` in the seed hex write the same
+byte in the same place by different mechanisms.  Second, `immediate` writes the whole byte: `c!` stores
 `0x01`, which sets bit 0 and clears bits 1–7 rather than preserving
-them.  That is harmless here — `:` always initialises the flags byte
+them.  That is harmless here: `:` always initialises the flags byte
 to `0`, and the REPL tests only bit 0.  This codebase uses no other flag bits; a "fuller" Forth
 might add `compile-only`, `hidden`, or `inline` here, but the seed
 keeps it bare-bones.
 
 ## 5. `constant`'s runtime body
 
-`constant` is where the IMMEDIATE machinery is going to pay off
-(through its sibling control-flow words in Ch 11), but `constant`
-itself isn't IMMEDIATE — it runs at interpret time, builds a new
-dictionary entry, and exits.  What's interesting is the entry it
-builds.
+`constant` itself isn't IMMEDIATE.  It runs at interpret time,
+builds a new dictionary entry, and exits.  What matters is the entry
+it builds.
 
 ```forth
 : constant
@@ -200,14 +179,14 @@ little-endian bytes into the imm64 slot.
 `constant` is a defining word that *uses other defining words to do
 its work*.  Look at how the colon body opens and closes:
 
-- `:`  — this is the seed primitive `:`.  It reads the next token
+- `:` is the seed primitive `:`.  It reads the next token
   from input, parses it as a name, builds the dictionary header for
   a new entry (link, flags=0, name-len, name), and sets STATE to 1.
-- (body emission) — with STATE=1, we're now in "compile mode," but
+- For the body, STATE is 1, so we're in "compile mode," but
   we don't *want* to compile CALL instructions; we want to write
   raw bytes.  We do that by calling `c,` and `,8` directly, which
   bypass STATE entirely.
-- `[lit] 0 state !` — manually reset STATE to 0.  We can't use `;`
+- `[lit] 0 state !` manually resets STATE to 0.  We can't use `;`
   here because `:` ... `;` is parsed by the seed as a single
   compile-mode bracket: the very first `;` the interpreter sees
   after the surrounding `:` closes *constant* itself, not the new
@@ -216,16 +195,14 @@ its work*.  Look at how the colon body opens and closes:
 
 Notice that `constant` ends in `;`, which closes *constant*'s own
 definition.  Inside constant's body, we manually call `:` and
-manually reset STATE — that's two separate definitions running:
+manually reset STATE, so two separate definitions are in play:
 the *outer* definition of `constant` (a normal colon definition,
 closed with `;`) and the *inner* definition of the new word the
 user is creating (opened by calling `:`, closed by emitting the
 `C3` ret byte by hand).
 
-This is the trickiest part of Part I.  Re-read this section if it
-feels like word-salad — the trick is to keep two definitions in
-mind at once.  Once you internalise it, every defining word in Ch
-12 follows the same pattern.
+Keeping those two definitions apart is the hard part of this
+chapter.  Every defining word in Ch 12 follows the same pattern.
 
 ## Canonical source
 
@@ -282,18 +259,20 @@ This defines `magic` as a constant pushing `42`, then calls it,
 adds 48, and emits the resulting byte.  Expected output: `Z`
 (ASCII 90 = 42 + 48).
 
-If you want to inspect the runtime body, capture HERE before and
-after the call to `constant`:
+To measure what `constant` wrote, capture HERE before and after
+it and emit the difference:
 
 ```sh
 ./build.sh
-echo 'here  [lit] 42 constant magic  here swap [lit] 48 + emit drop'  \
+echo 'here  [lit] 42 constant magic  here swap - [lit] 48 + emit bye' \
   | { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth; cat; } \
   | ./seed-forth
 ```
 
-(This is a sketch; precise byte-inspection requires walking back
-through the dictionary header by hand, which Ch 17 makes easier.)
+Expected output: `R` (ASCII 82 = 48 + 34).  The 34 bytes are the
+15-byte header for the five-letter name `magic` (`10 + N`) plus
+the 19-byte runtime body.  Walking the individual bytes means
+reading the dictionary header by hand, which Ch 17 makes easier.
 
 ## Exercises
 
@@ -315,14 +294,13 @@ through the dictionary header by hand, which Ch 17 makes easier.)
 
 ## Takeaways
 
-- `STATE` toggles between interpret and compile mode; `:` flips it
-  to 1, `;` flips it to 0.  An IMMEDIATE word ignores STATE.
-- A dictionary entry is `link(8) flags(1) name-len(1) name(N)
-  body(M)`.  `latest @` points at the link cell; `+ 8` is the
-  flags byte.
-- `constant` is the template defining word.  Its 19-byte runtime
-  body — `sub rbp,8 ; mov [rbp],rdi ; movabs rdi,V ; ret` — is
-  copy-pasted (with different `V`) into `variable` (Ch 12) and
-  `create` (Ch 12).
+- `STATE` switches between interpret mode (0) and compile mode (1),
+  and a word with the IMMEDIATE bit (bit 0 of the flags byte at
+  `latest @ + 8`) runs at compile time regardless.
+- `constant` calls `:` to build a header, writes a 19-byte body
+  (`sub rbp,8 ; mov [rbp],rdi ; movabs rdi,V ; ret`) with `c,` and
+  `,8`, then resets STATE by hand.
+- `create` and `variable` in Ch 12 reuse the same 19-byte body with
+  a different `V`.
 
 Next: Chapter 11 — Control-Flow Combinators (the climax).
