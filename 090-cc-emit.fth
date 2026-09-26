@@ -448,7 +448,7 @@
 \ Emits `48 BF 00 00 00 00 00 00 00 00`; returns the imm64 file-offset.
 \ Used when a forward-declared function's name is taken as an rvalue
 \ (function-pointer load) before its definition is reached.  Caller threads
-\ patch-offset onto cc-sym-extra2 of the function's prototype symbol; the
+\ patch-offset onto the prototype symbol's cc-sym-addr-fixups list; the
 \ list is walked and each 8-byte imm64 is patched to the function's real
 \ vaddr when cc-parse-function processes its definition.
 : cc-emit-movabs-rdi-imm64-placeholder
@@ -1007,7 +1007,7 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   swap                                              ( slot bytes )
   cc-globals-pos +!
   cc-globals-pos @ cc-globals-cap > if,
-    [lit] 70 die
+    [lit] 70 cc-die
   then, ;
 
 \ cc-globals-store-8le ( v slot -- )  Write `v` as 8-byte LE into globals-buf
@@ -1025,16 +1025,15 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   [lit] 256 /     r> [lit] 7 + c! ;
 
 \ cc-gfixup-add ( patch-offset slot -- )  Record a deferred global-vaddr fixup.
-\ Uses sym-slot (from 070-cc-sym.fth, signature `( id arr -- addr )`) since it's a
-\ generic helper that just computes arr + 8*id.
+\ Indexes its two parallel arrays with cell[] (030-cc-io.fth).
 : cc-gfixup-add                                    ( patch-off slot -- )
   cc-gfixup-count @ dup cc-gfixup-cap >= if,
-    [lit] 71 die
+    [lit] 71 cc-die
   then,
   ( patch-off slot i )
   >r                                                \ park i on rstack
-  r@ cc-gfixup-slot     sym-slot !                 \ store slot
-  r@ cc-gfixup-out-pos  sym-slot !                 \ store patch-off
+  r@ cc-gfixup-slot     cell[] !                   \ store slot
+  r@ cc-gfixup-out-pos  cell[] !                   \ store patch-off
   r> drop
   [lit] 1 cc-gfixup-count +! ;
 

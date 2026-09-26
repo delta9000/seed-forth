@@ -17,7 +17,7 @@ further down, a file-scope global, a string literal the code must jump
 over.  The compiled program also needs a C runtime (`tri.c` calls
 `putchar`), and there is no libc to link against.
 
-This chapter finishes `090-cc-emit.fth` (lines 421–1050) and answers
+This chapter finishes `090-cc-emit.fth` (lines 421–1049) and answers
 both problems.  Wide-immediate placeholders and fixup lists let
 codegen reference forward-declared functions and not-yet-placed
 globals.  Eleven libc shims, emitted straight into the output as
@@ -62,7 +62,7 @@ Ch 31's `cc-parse-function`.
 \ Emits `48 BF 00 00 00 00 00 00 00 00`; returns the imm64 file-offset.
 \ Used when a forward-declared function's name is taken as an rvalue
 \ (function-pointer load) before its definition is reached.  Caller threads
-\ patch-offset onto cc-sym-extra2 of the function's prototype symbol; the
+\ patch-offset onto the prototype symbol's cc-sym-addr-fixups list; the
 \ list is walked and each 8-byte imm64 is patched to the function's real
 \ vaddr when cc-parse-function processes its definition.
 : cc-emit-movabs-rdi-imm64-placeholder
@@ -125,9 +125,10 @@ looks like this:
 
 This is the emit-remember-patch pattern again, with "remember" grown
 from one stack cell to a list of output offsets.  A forward-declared
-function's prototype carries two such lists: `cc-sym-extra` collects
-its `call rel32` sites, and `cc-sym-extra2` collects `movabs` sites
-that take its address as a value.  When Ch 31's `cc-parse-function`
+function's prototype carries two such lists (Ch 24 §3):
+`cc-sym-call-fixups` collects its `call rel32` sites, and
+`cc-sym-addr-fixups` collects `movabs` sites that take its address as
+a value.  When Ch 31's `cc-parse-function`
 reaches the definition, it walks both and patches each recorded site
 with the resolved address.  Ch 30's `break` and `continue` lists use
 the same word.
@@ -828,7 +829,7 @@ compiler follow the same rule of M2-Planet plus a comfort factor.
   swap                                              ( slot bytes )
   cc-globals-pos +!
   cc-globals-pos @ cc-globals-cap > if,
-    [lit] 70 die
+    [lit] 70 cc-die
   then, ;
 
 \ cc-globals-store-8le ( v slot -- )  Write `v` as 8-byte LE into globals-buf
@@ -846,16 +847,15 @@ compiler follow the same rule of M2-Planet plus a comfort factor.
   [lit] 256 /     r> [lit] 7 + c! ;
 
 \ cc-gfixup-add ( patch-offset slot -- )  Record a deferred global-vaddr fixup.
-\ Uses sym-slot (from 070-cc-sym.fth, signature `( id arr -- addr )`) since it's a
-\ generic helper that just computes arr + 8*id.
+\ Indexes its two parallel arrays with cell[] (030-cc-io.fth).
 : cc-gfixup-add                                    ( patch-off slot -- )
   cc-gfixup-count @ dup cc-gfixup-cap >= if,
-    [lit] 71 die
+    [lit] 71 cc-die
   then,
   ( patch-off slot i )
   >r                                                \ park i on rstack
-  r@ cc-gfixup-slot     sym-slot !                 \ store slot
-  r@ cc-gfixup-out-pos  sym-slot !                 \ store patch-off
+  r@ cc-gfixup-slot     cell[] !                   \ store slot
+  r@ cc-gfixup-out-pos  cell[] !                   \ store patch-off
   r> drop
   [lit] 1 cc-gfixup-count +! ;
 
@@ -876,9 +876,8 @@ a slot, and possibly `cc-globals-store-8le` to write its initialiser.
 A *reference* to a global from compiled code is a 10-byte `movabs rdi,
 imm64` whose imm64 starts as 0.  `cc-emit-global-ref` emits the
 placeholder and records `(patch-offset, slot)` in the parallel arrays
-`cc-gfixup-out-pos[]` and `cc-gfixup-slot[]`.  `sym-slot` from Ch 24
-indexes them, since it is just `arr + 8*id` and doesn't care that
-these aren't symbol-table columns.
+`cc-gfixup-out-pos[]` and `cc-gfixup-slot[]`, indexed with Ch 21's
+`cell[]` like every other table.
 
 At the end of compilation, Ch 32's driver calls `cc-finalize-globals`
 (defined in Ch 31's `110-cc-decl.fth`):
@@ -902,7 +901,7 @@ responsibility pattern at codegen scale, with `cc-globals-buf` and the
 
 ## 6. The path back together
 
-`090-cc-emit.fth` is 1050 lines of compiler-side machine-code
+`090-cc-emit.fth` is 1049 lines of compiler-side machine-code
 emission, used three ways:
 
 - **Per-instruction encoders** (Ch 25 §3–§7 and §4 here) write the
@@ -1059,7 +1058,7 @@ expression tree.
 
 ## Takeaways
 
-- Deferred resolution runs the codegen: placeholders go in, fixup metadata is stashed, and a final sweep patches forward function references (`cc-sym-extra`/`cc-sym-extra2`), global vaddrs (`cc-gfixup-*`) and ELF sizes (`cc-out-patch-4le`) independently.
+- Deferred resolution runs the codegen: placeholders go in, fixup metadata is stashed, and a final sweep patches forward function references (`cc-sym-call-fixups`/`cc-sym-addr-fixups`), global vaddrs (`cc-gfixup-*`) and ELF sizes (`cc-out-patch-4le`) independently.
 - Libc is not a dependency but emitted code: eleven shims give compiled programs `putchar`, `exit`, file I/O and a 256 MiB bump-allocated heap.
 - Globals share the single R-W-X PT_LOAD segment with the code, appended after the last function, so there is no `.data` phdr, relocation table or dynamic linker.
 

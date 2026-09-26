@@ -468,8 +468,8 @@ Three reading aids keep you oriented:
   share this shape.  Bounded inputs, predictable memory, no
   allocator complexity in the hot path.
 
-- *One buffer per responsibility.*  `cc-src-buf` for input,
-  `cc-prep-out-buf` for preprocessed source, `cc-out-buf` for
+- *One buffer per responsibility.*  `cc-in-buf` for input,
+  `cc-src-buf` for preprocessed source, `cc-out-buf` for
   emitted bytes, an arena for variable-sized scratch.  Memory
   ownership is whose buffer the bytes live in, not who allocated
   them.

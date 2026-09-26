@@ -22,7 +22,7 @@ that the output is a single R-W-X PT_LOAD, exactly like the seed.
 That assumption keeps the ELF layer tiny: no section header table, no
 separate read-only segment, no relocation records.
 
-`090-cc-emit.fth` is the bigger of the pair: 1050 lines of
+`090-cc-emit.fth` is the bigger of the pair: 1049 lines of
 instruction encoders.  This chapter covers lines 1–420, the primitive
 encoders that know nothing about calls, strings or globals.  Ch 26
 covers the rest.

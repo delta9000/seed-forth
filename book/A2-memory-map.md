@@ -28,11 +28,11 @@ which way a region fills.
           | ^ compiler tables: macros, symbols,     |
           |   types, scopes, globals (grow up)      |
 0x814000  +-----------------------------------------+
-          | preprocessor output buffer    2 MiB     |
-0x614000  +-----------------------------------------+
           | output buffer                 1 MiB     |
+0x714000  +-----------------------------------------+
+          | source buffer (preprocessed)  2 MiB     |
 0x514000  +-----------------------------------------+
-          | source buffer                 1 MiB     |
+          | input buffer (stdin)          1 MiB     |
 0x414000  +-----------------------------------------+ <-- skip-vm-pages jumps HERE here
 0x413000  | sysvars, 8 bytes each: STATE, LATEST,   |
           | HERE, LAST_FOUND (rest of page unused)  |
@@ -61,7 +61,8 @@ The round addresses above `0x414000` are where each region nominally
 starts.  Every buffer is made with `create … allot`, so its data
 begins just past its own dictionary header (and past any
 definitions compiled in between): `cc-src-buf`'s first byte is at
-`0x414000 + 39`, and `cc-out-buf`'s is at `0x514000 + 739`.
+`0x414000 + 76`, `cc-src-buf`'s at `0x514000 + 200`, and
+`cc-out-buf`'s at `0x714000 + 1,225`.
 
 The table below lists each region in address order; sizes are in
 bytes unless noted.  "Owner" is what *writes* to the region.
@@ -77,7 +78,7 @@ detail.
 | `0x4000B5` — `0x4000B9` | 5     | `jmp repl`                        | seed image | Ch 13 |
 | `0x4000BA` — `0x4006EB` | ~1.6K | the 32 primitives, each a dictionary header followed by its code, with the unnamed helpers beside their users and the REPL last | seed image | Chs 14–20 |
 | `0x4006EC` — `0x400FFF` | ~2.3K | zero-filled gap below the dictionary heap (the segment's `memsz` exceeds the 1,772-byte on-disk image) | seed loader | Ch 13 |
-| `0x401000` — *(grows up)* | ~36K | dictionary heap, low part (~3K of `010-lib.fth` definitions, then the 32K `cc-arena-base` area): headers + bodies that `010-lib.fth` and `020-cc-arena.fth` define before `030-cc-io.fth` jumps `HERE` to `0x414000` | seed code | Chs 2, 17, 21 |
+| `0x401000` — *(grows up)* | ~37K | dictionary heap, low part (~5K of `010-lib.fth` and `020-cc-arena.fth` definitions, then the 32K `cc-arena-base` area): headers + bodies that `010-lib.fth` and `020-cc-arena.fth` define before `030-cc-io.fth` jumps `HERE` to `0x414000` | seed code | Chs 2, 17, 21 |
 | tail of low heap | 32K | C compiler's **arena** (`create cc-arena-base  cc-arena-cap allot` — the 32 KiB slab sits at the *end* of the low dictionary heap, just before the HERE-jump) | `cc-alloc` | Ch 21 |
 | `0x410000` — `0x410FFF` | 4K  | data stack: pushes start just below `0x411000` and grow *down* through this page.  Nothing guards it — the whole segment is RWX — so a deep stack would run on down into the low dictionary heap.  `HERE` is jumped *past* the stack before the C compiler's big buffers are created | seed code (`rbp` pushes) | Chs 13, 14 |
 | `0x411000`              | —   | initial data-stack base (grows *down* in `rbp`) | seed code | Chs 13, 14 |
@@ -88,9 +89,9 @@ detail.
 | `0x413010`              | 8   | `HERE` sysvar (next-byte-to-write)     | seed init + `,`, `:`, `;`, `compile_call` (REPL and `[lit]`) | Chs 2, 13 |
 | `0x413018`              | 8   | `LAST_FOUND` sysvar (latest hit from `find`) | `find_code` | Chs 13, 17 |
 | `0x413020` — `0x413FFF` | ~4K | rest of the sysvar page, unused | — | Ch 13 |
-| `0x414000` — `0x513FFF` | 1 MiB | C compiler's **source buffer** (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
-| `0x514000` — `0x613FFF` | 1 MiB | C compiler's **output buffer** (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
-| `0x614000` — `0x813FFF` | 2 MiB | C compiler's **preprocessor output buffer** (`cc-prep-out-buf`) | `cc-preprocess` | Ch 22 |
+| `0x414000` — `0x513FFF` | 1 MiB | C compiler's **input buffer** `cc-in-buf` (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
+| `0x514000` — `0x713FFF` | 2 MiB | C compiler's **source buffer** `cc-src-buf` (preprocessed source, read by the lexer) | `cc-preprocess` | Chs 21, 22 |
+| `0x714000` — `0x813FFF` | 1 MiB | C compiler's **output buffer** `cc-out-buf` (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
 | `0x814000` — *(grows up)* | ~1 MiB | macro table + 16 KiB name pool, include pool, symbol/type/scope parallel arrays, globals buffer — all `create … allot`'d in load order across `040`–`110` | `cc-*` | Chs 22, 24, 26, 31 |
 | *(end of buffers)* — `0x13FFFFF` | remainder | genuinely unused tail of the 16 MiB `PT_LOAD` | — | Ch 13 |
 
@@ -99,11 +100,12 @@ arena is `[lit] 32768 constant cc-arena-cap` followed by `create
 cc-arena-base  cc-arena-cap allot`, allotted at the current
 `HERE`, so it sits at the tail of the dictionary heap *before*
 `030-cc-io.fth` calls `skip-vm-pages` (`010-lib.fth`), which jumps
-`HERE` to `0x414000`, one page above the sysvar page's start.  After the jump the source buffer (1 MiB) is created
-at `0x414000` and the output buffer (1 MiB) at `0x514000`.  Every
-later compiler buffer (the 2 MiB preprocessor output buffer first,
-then the macro, symbol, type, string, and globals tables) continues
-upward from `0x614000` in load order.  None of these are separately
+`HERE` to `0x414000`, one page above the sysvar page's start.  After
+the jump the input buffer (1 MiB) is created at `0x414000`, the
+source buffer (2 MiB) at `0x514000` and the output buffer (1 MiB) at
+`0x714000`.  Every later compiler buffer (the macro, symbol, type,
+string, and globals tables) continues upward from `0x814000` in load
+order.  None of these are separately
 mmapped; they are `create … allot`'d inside the existing `PT_LOAD`
 segment.
 

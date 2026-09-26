@@ -227,6 +227,12 @@ emitted.  Ch 21 (concept), Ch 25 (`p_filesz`), Ch 30 (forward
 jumps), Ch 31 (forward function calls).  Function frames are *not*
 back-patched — see "Fixed 256-byte function frame" in CONCEPTS.
 
+**`cc-die` / error code** — the one word every compiler failure ends
+in.  It writes `cc: line N: error C` to stderr and exits with status
+C.  N is the line the reader had reached in the preprocessed source;
+C names the failure, from a range owned by the file that detected it.
+`cc-check-cap` is the bounds check built on it.  Ch 21, Appendix G.
+
 **Codegen** — the pass that emits machine code.  In this compiler,
 codegen is the *only* output pass: there's no IR, no SSA, no
 register allocator.  Expressions produce bytes directly.
@@ -251,6 +257,12 @@ tokens.  Skips whitespace and comments; recognises identifiers,
 keywords, numeric literals, string/char literals, punctuation.
 Ch 23.
 
+**Lexer state / mark** — everything the reader and lexer change as
+they advance (source position, line, current token, putback flag),
+kept in one 64-byte block, `cc-lex-state`.  A parser that must look
+several tokens ahead copies it away with `cc-lex-mark` and back with
+`cc-lex-reset`.  Ch 21 (block), Ch 23 (mark/reset).
+
 **Lvalue / rvalue** — an *lvalue* has an address you can take or
 write to (variable, deref, struct field); an *rvalue* has only a
 value (literal, expression result).  Assignment requires the LHS
@@ -267,7 +279,7 @@ a precedence cascade for expressions (Ch 27), keyword dispatch for
 statements and declarations (Chs 29–31).
 
 **One buffer per responsibility** — the Part III memory discipline:
-source bytes, preprocessor output, emitted ELF bytes, string/global
+raw input, preprocessed source, emitted ELF bytes, string/global
 storage, and fixup arrays each have a clear owner and cursor.  Ch 21
 names the pattern; later compiler chapters reuse it.
 
@@ -309,13 +321,20 @@ the seed-forth binary.  Maintained at github.com/oriansj/stage0-posix.
 **Struct descriptor** — a 16-byte header + N 40-byte field records
 describing a C struct's layout.  Ch 24.
 
+**Putback** — handing the current token back to the lexer so the next
+`cc-next-token-keep` returns it again (`cc-putback-token`).  One token
+deep.  Ch 23.
+
 **Symbol table** — parallel arrays of name / kind / type / value
-indexed by an integer symbol id.  Linear scan for lookup;
+indexed by an integer symbol id, plus two extra cells read through
+meaning-named accessors (array length, struct descriptor, call and
+address fixup lists).  Linear scan for lookup (`cc-name-find`);
 truncated on scope pop.  Ch 24.
 
 **Type encoding** — every C type fits in one 64-bit word: base
 kind in bits 16–31, pointer depth in bits 0–7.  Struct types
-carry an out-of-band descriptor pointer in the symbol's val slot.
+carry an out-of-band descriptor pointer: in the tag symbol's val and
+in a struct variable's struct-desc cell.
 Ch 24.
 
 ## Bootstrapping

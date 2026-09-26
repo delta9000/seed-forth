@@ -12,15 +12,14 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(1466 lines total) solves this with a *precedence cascade*: plain
+(1444 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a
 single function and a table of binding powers; see Appendix E.)
 
-This chapter covers the scaffolding the whole file needs, a
-one-token putback layer and forward references for the mutually
-recursive parsers, and then the ten binary layers from
+This chapter covers the scaffolding the whole file needs, forward
+references for the mutually recursive parsers, and then the ten binary layers from
 `cc-parse-mul` to `cc-parse-log-or`.  Eight of the ten follow one
 five-step template: evaluate the left operand, push it, evaluate the
 right, pop, apply the operator.  `&&` and `||` short-circuit, so
@@ -34,7 +33,6 @@ and the lvalue tracking that `cc-emit-materialize` reads).
 
 ```forth file=100-cc-expr.fth
 <<expr-header>>
-<<expr-putback>>
 <<expr-fwd-refs>>
 <<expr-lvalue>>
 <<expr-struct-field>>
@@ -53,8 +51,7 @@ and the lvalue tracking that `cc-emit-materialize` reads).
 <<expr-top>>
 ```
 
-The root block fixes the assembly order: header, putback layer,
-forward references, the parsers in source order, and the top-level
+The root block fixes the assembly order: header, forward references, the parsers in source order, and the top-level
 driver.  Each `<<name>>` expands to a chunk defined in this chapter
 or in Ch 28, and the result is byte-identical to the checked-in
 `100-cc-expr.fth`.
@@ -76,11 +73,9 @@ or in Ch 28, and the result is byte-identical to the checked-in
 \   unary  := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | primary
 \   primary:= NUMBER | IDENT | '(' expr ')'
 \
-\ The lexer (050-cc-lex.fth) reads one token at a time with no built-in peek.
-\ We add a one-token putback layer on top of cc-next-token via the
-\ cc-tok-pending flag: when a parser has consumed one token too many it
-\ calls cc-putback-token; the next cc-next-token-keep returns the same
-\ tok-* state without advancing.
+\ Tokens come from the lexer's interface (050-cc-lex.fth): cc-next-token-keep
+\ reads the next one, and cc-putback-token hands the current one back when a
+\ parser has read one token too many.
 \
 \ Depends on 010-lib.fth, 030-cc-io.fth, 050-cc-lex.fth, 060-cc-types.fth, 070-cc-sym.fth,
 \ 090-cc-emit.fth.
@@ -93,42 +88,18 @@ postfix operators (`[]`, `.`, `->`, `()`, `++`, `--`).  Every
 binary production has the same shape: parse an operand at the
 next-tighter level, then loop over this level's operators.
 
-## 3. The one-token putback layer
+## 3. One token of putback
 
-```forth chunk=expr-putback
-\ ===========================================================================
-\ One-token putback wrapper
-\ ===========================================================================
-
-variable cc-tok-pending                           \ -1 = a token is queued
-
-\ cc-next-token-keep ( -- )  Advance to the next token unless one is pending.
-: cc-next-token-keep
-  cc-tok-pending @ if,
-    [lit] 0 cc-tok-pending !
-  else,
-    cc-next-token
-  then, ;
-
-\ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
-\ next cc-next-token-keep returns it without advancing.
-: cc-putback-token
-  true cc-tok-pending ! ;
-
-```
-
-The lexer (Ch 23) returns one token at a time.  Its only lookahead
-is `cc-peek-char-2`, one *byte* of character lookahead.  A cascade
-always reads one operator too many.  After folding the two `*`s in
-`a * b * c + d`, `cc-parse-mul` reads the `+`, finds it isn't a
-multiplicative operator, and has to hand it back so the next-looser
+A cascade always reads one operator too many.  After folding the two
+`*`s in `a * b * c + d`, `cc-parse-mul` reads the `+`, finds it isn't
+a multiplicative operator, and has to hand it back so the next-looser
 layer (`add`) can see it.
 
-`cc-tok-pending` is that hand-back.  `cc-putback-token` sets it, and
-the next `cc-next-token-keep` clears it *without* advancing the
-lexer, so `tok-kind`, `tok-num`, and `tok-str-*` still describe the
-same token.  When the flag is clear, `cc-next-token-keep` calls
-`cc-next-token` as normal.  Every binary layer ends with
+The lexer's interface does that (Ch 23 §7).  The parsers read tokens
+with `cc-next-token-keep`, and `cc-putback-token` sets
+`cc-tok-pending`, so the next `cc-next-token-keep` clears the flag
+*without* advancing the lexer: `tok-kind`, `tok-num`, and `tok-str-*`
+still describe the same token.  Every binary layer ends with
 `cc-putback-token`.
 
 ## 4. Forward references for mutual recursion

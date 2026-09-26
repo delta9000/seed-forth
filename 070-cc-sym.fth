@@ -1,6 +1,6 @@
 \ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
-\ Seven parallel arrays indexed by symbol id; extra/extra2 are described below:
+\ Seven parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins
 \   cc-sym-name-len  [id] : length of the name in bytes
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
@@ -11,13 +11,17 @@
 \                            sk-struct        : arena-pointer to descriptor
 \                            sk-enum          : integer value
 \                            sk-typedef       : encoded type word
+\   cc-sym-extra     [id] : one more fact, whose meaning depends on the symbol
+\   cc-sym-extra2    [id] : and, for sk-func only, a second one
+\ Nothing outside this file names the two extra arrays: each meaning has its
+\ own accessor (see "Field accessors" below).
 \
 \ Scope markers stored in cc-scope-stack (push records the current sym-count;
 \ pop restores it, discarding all symbols added since the matching push).
 \
 \ Depends on 010-lib.fth (constant, variable, create, allot, [lit], if,/then,,
-\   begin,/while,/repeat,, +, -, *, =, >=, 0=, !, @, +!, -!, drop, dup, swap)
-\   and bytes-eq.
+\   0=, 1+, !, @, +!, -!, drop, swap, >r, r@, r>), 020-cc-arena.fth (cc-die,
+\   cc-check-cap) and 030-cc-io.fth (cell[], cc-name-find).
 
 [lit] 4096 constant cc-sym-cap
 
@@ -26,16 +30,7 @@ create cc-sym-name-len   cc-sym-cap [lit] 8 * allot
 create cc-sym-kind       cc-sym-cap [lit] 8 * allot
 create cc-sym-type       cc-sym-cap [lit] 8 * allot
 create cc-sym-val        cc-sym-cap [lit] 8 * allot
-\ Parallel array for "extra info".  Arrays (local or global): length in
-\ elements.  Struct-typed locals/globals: descriptor.  Otherwise 0.
 create cc-sym-extra      cc-sym-cap [lit] 8 * allot
-\ Second extra slot.  For sk-func entries this is the head of a fixup list
-\ for forward-emitted `movabs rdi, imm64` sites that load the function's
-\ absolute vaddr (used when a forward-declared function appears as an
-\ rvalue, e.g. `common_recursion(expression)` before expression is defined).
-\ The list is walked and each 8-byte imm64 is patched to the function's real
-\ vaddr when cc-parse-function processes its definition.  0 means "no
-\ pending imm64 fixups".
 create cc-sym-extra2     cc-sym-cap [lit] 8 * allot
 variable cc-sym-count
 
@@ -52,93 +47,85 @@ variable cc-scope-depth
 [lit] 5 constant sk-typedef
 
 \ ===========================================================================
-\ Helpers
-\ ===========================================================================
-
-\ sym-slot ( id arr -- addr )  Compute the address of slot id in array arr.
-\ Each slot is 8 bytes; arr is the base address returned by `create`.
-: sym-slot  swap [lit] 8 * + ;
-
-\ ===========================================================================
 \ Add / lookup
 \ ===========================================================================
 
 \ cc-sym-add ( name-addr name-len kind type val -- id )
-\ Append a new symbol; return its id.
+\ Append a new symbol; return its id.  Dies with code 60 if the table
+\ already holds cc-sym-cap symbols.
 \ Stores fields by parking the new id on the return stack so each store
 \ has a fresh copy to compute the slot address.
 : cc-sym-add
+  cc-sym-count @ 1+ cc-sym-cap [lit] 60 cc-check-cap
   cc-sym-count @                                 ( a u k t v id )
   >r                                              \ R: id
-  r@ cc-sym-val       sym-slot !                 \ store val
-  r@ cc-sym-type      sym-slot !                 \ store type
-  r@ cc-sym-kind      sym-slot !                 \ store kind
-  r@ cc-sym-name-len  sym-slot !                 \ store name-len
-  r@ cc-sym-name-addr sym-slot !                 \ store name-addr
+  r@ cc-sym-val       cell[] !                   \ store val
+  r@ cc-sym-type      cell[] !                   \ store type
+  r@ cc-sym-kind      cell[] !                   \ store kind
+  r@ cc-sym-name-len  cell[] !                   \ store name-len
+  r@ cc-sym-name-addr cell[] !                   \ store name-addr
   \ Extra is reused across scope pops; zero it on every add so callers don't
   \ inherit a stale value (sk-local array-len, sk-func fixup-list, etc.).
-  [lit] 0 r@ cc-sym-extra  sym-slot !
-  [lit] 0 r@ cc-sym-extra2 sym-slot !
+  [lit] 0 r@ cc-sym-extra  cell[] !
+  [lit] 0 r@ cc-sym-extra2 cell[] !
   [lit] 1 cc-sym-count +!
   r> ;
 
-\ cc-sym-find walks all entries top-down (most recent first) and returns at
-\ the first match, which gives innermost-scope semantics.  The needle waits
-\ in two globals so the loop body can reach it without deep stack juggling.
-\
-\ Result encoding: -1 means "not found"; anything >= 0 is the matched id.
-\ The loop index runs down to -1, so "not found" is simply the final index.
-variable cc-sym-find-needle-addr
-variable cc-sym-find-needle-len
-
 \ cc-sym-find ( name-addr name-len -- id-or-neg1 )
+\ cc-name-find walks the entries newest first and returns at the first
+\ match, which gives innermost-scope semantics: -1 means "not found",
+\ anything >= 0 is the matched id.
 : cc-sym-find
-  cc-sym-find-needle-len  !
-  cc-sym-find-needle-addr !
-  cc-sym-count @ 1-                              ( i = count-1 )
-  begin,
-    dup [lit] 0 >=
-  while,
-    dup cc-sym-name-len sym-slot @
-    cc-sym-find-needle-len @ = if,               \ same length?
-      dup cc-sym-name-addr sym-slot @            ( i entry-addr )
-      cc-sym-find-needle-addr @ swap             ( i needle entry )
-      cc-sym-find-needle-len @                   ( i needle entry u )
-      bytes-eq if, exit, then,                   \ found: return id i
-    then,
-    1-                                           \ i--
-  repeat, ;                                      \ not found: i = -1
+  cc-sym-name-addr cc-sym-name-len cc-sym-count @ cc-name-find ;
 
 \ ===========================================================================
 \ Field accessors / mutators (all take id on TOS).
 \ ===========================================================================
 
-: cc-sym-kind-of       cc-sym-kind      sym-slot @ ;     \ ( id -- kind )
-: cc-sym-type-of       cc-sym-type      sym-slot @ ;     \ ( id -- ty   )
-: cc-sym-val-of        cc-sym-val       sym-slot @ ;     \ ( id -- val  )
+: cc-sym-kind-of       cc-sym-kind      cell[] @ ;       \ ( id -- kind )
+: cc-sym-type-of       cc-sym-type      cell[] @ ;       \ ( id -- ty   )
+: cc-sym-val-of        cc-sym-val       cell[] @ ;       \ ( id -- val  )
 
-\ Extra-info accessor / setter.  Array length for arrays, struct descriptor
-\ for struct-typed locals/globals, otherwise 0 (see cc-sym-extra above).
-: cc-sym-extra-of      cc-sym-extra     sym-slot @ ;     \ ( id -- extra )
-: cc-sym-set-extra     cc-sym-extra     sym-slot ! ;     \ ( extra id -- )
-
-\ Second extra slot — see comment near `create cc-sym-extra2` above.
-: cc-sym-extra2-of     cc-sym-extra2    sym-slot @ ;     \ ( id -- extra2 )
-: cc-sym-set-extra2    cc-sym-extra2    sym-slot ! ;     \ ( extra2 id -- )
+\ The extra cell means one of three things, depending on the symbol; each
+\ meaning has its own accessors, all over the same cc-sym-extra array.
+\   array length: an array local or global's element count; 0 for a scalar.
+: cc-sym-array-len-of     cc-sym-extra     cell[] @ ;  \ ( id -- n    )
+: cc-sym-set-array-len    cc-sym-extra     cell[] ! ;  \ ( n id --    )
+\   struct descriptor: a struct or struct-pointer local or global's
+\   descriptor (060-cc-types.fth).  Its type's base is ty-struct, which is
+\   how readers tell this meaning from an array length (so the subset has
+\   no arrays of structs).
+: cc-sym-struct-desc-of   cc-sym-extra     cell[] @ ;  \ ( id -- desc )
+: cc-sym-set-struct-desc  cc-sym-extra     cell[] ! ;  \ ( desc id -- )
+\   call fixups: for an sk-func not yet defined, the head of the list of
+\   `call rel32` sites waiting for its address.  This word gives the cell's
+\   address, so the list code can push onto it (0 = no pending calls).
+: cc-sym-call-fixups      cc-sym-extra     cell[] ;    \ ( id -- cell )
+\ The extra2 cell has one meaning, for sk-func only.
+\   address fixups: the head of the list of `movabs rdi, imm64` sites that
+\   load the function's address before it is defined (a forward-declared
+\   function used as a value, e.g. `common_recursion(expression)` before
+\   expression's body).  cc-parse-function patches each imm64 to the real
+\   vaddr when it reaches the definition.  0 = no pending loads.
+: cc-sym-addr-fixups      cc-sym-extra2    cell[] ;    \ ( id -- cell )
 
 \ ===========================================================================
 \ Scopes
 \ ===========================================================================
 
 \ cc-scope-push ( -- )  Mark the current sym-count as a scope boundary.
+\ Dies with code 61 past cc-scope-cap nested scopes.
 : cc-scope-push
+  cc-scope-depth @ 1+ cc-scope-cap [lit] 61 cc-check-cap
   cc-sym-count @
-  cc-scope-stack cc-scope-depth @ [lit] 8 * + !
+  cc-scope-depth @ cc-scope-stack cell[] !
   [lit] 1 cc-scope-depth +! ;
 
 \ cc-scope-pop ( -- )  Discard any symbols added since the matching push;
-\ pops the marker off cc-scope-stack.
+\ pops the marker off cc-scope-stack.  A pop with no push to match is a
+\ parser bug: die with code 62.
 : cc-scope-pop
+  cc-scope-depth @ 0= if, [lit] 62 cc-die then,
   [lit] 1 cc-scope-depth -!
-  cc-scope-stack cc-scope-depth @ [lit] 8 * + @
+  cc-scope-depth @ cc-scope-stack cell[] @
   cc-sym-count ! ;

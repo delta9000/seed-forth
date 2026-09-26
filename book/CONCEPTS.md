@@ -25,9 +25,9 @@ first principles and start using as a primitive.
 |---|---:|---|---|
 | Forth vocabulary | Chs 1-12 | `010-lib.fth` helpers | Parts II and III |
 | Seed VM | Chs 13-20 | `seed-forth` interpreter | Part III |
-| Compiler buffers | Ch 21 | source/output streams | Chs 22-32 |
+| Compiler buffers | Ch 21 | input/source/output buffers, `cc-die`, arena | Chs 22-32 |
 | Preprocessed source | Ch 22 | flattened C stream + macro table | Chs 23-32 |
-| Token stream | Ch 23 | `tok-*` globals | Chs 24-31 |
+| Token stream | Ch 23 | `tok-*` cells of the lexer-state block, putback, mark/reset | Chs 24-31 |
 | Type/symbol database | Ch 24 | type words + symbol slots | Chs 26-31 |
 | Code emitter | Chs 25-26 | ELF and x86-64 encoders | Chs 27-31 |
 | Expression compiler | Chs 27-28 | value/lvalue codegen | Chs 29-31 |
@@ -42,9 +42,9 @@ shows what the artifact can *do* at each step.
 
 | Ch | After this chapter, the compiler can ... |
 |---:|---|
-| 21 | accept stdin into `cc-src-buf`, emit and back-patch into `cc-out-buf`, allocate variable scratch from the arena |
+| 21 | accept stdin into `cc-in-buf`, emit and back-patch into `cc-out-buf`, allocate variable scratch from the arena, and fail with a line number and a code |
 | 22 | flatten C source: project includes splice in, integer macros expand newest-first |
-| 23 | produce one C token at a time into the `tok-*` globals on demand |
+| 23 | produce one C token at a time into the `tok-*` cells on demand, put one back, or mark and reset to look further ahead |
 | 24 | look up names and C types, push/pop scopes, lay out struct descriptors |
 | 25 | emit a valid 120-byte ELF prologue and the core x86-64 instruction encoders |
 | 26 | emit function calls with forward fixups, libc shims, string literals, and global-address placeholders |
@@ -88,9 +88,10 @@ and given in source order within each area.
 
 ### Compiler infrastructure
 
-- *Bump arena, source/output buffers, back-patching* — Ch 21
+- *Lexer-state block, `cc-die` and error codes, bump arena, input/source/output buffers, back-patching* — Ch 21
+- *Shared helpers: `ident-start?`, `cell[]`, `cc-name-find`* — Ch 21
 - *Preprocessor: `#include "…"`, `#define NAME N`* — Ch 22
-- *Tokenizer, keyword table, punctuation IDs* — Ch 23
+- *Tokenizer, keyword table, punctuation IDs, putback, mark/reset* — Ch 23
 - *Type encoding, symbol table, struct descriptors* — Ch 24
 - *ELF header emission for compiled output* — Ch 25
 - *Instruction encoders (mov, push/pop, call, ret, idiv)* — Ch 25
@@ -215,6 +216,10 @@ their introducing chapter.
 ### C compiler ideas (Part III)
 
 - **Bump allocator** — Ch 21
+- **Failing with a line and a code (`cc-die`, `cc-check-cap`)** — Ch 21;
+  *Chs 22–31, Appendix G*
+- **Lexer state as one block (mark / reset look-ahead)** — Ch 21;
+  *Chs 23, 29–31*
 - **Source buffer / output buffer / back-patching** — Ch 21;
   *Chs 25, 26, 30, 31*
 - **One buffer per responsibility** — Ch 21; *Chs 22, 26, 31*

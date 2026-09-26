@@ -100,12 +100,13 @@ to wherever they need.
 Read `cc-main` as a sequence of phases:
 
 1. **`cc-load-stdin`** (Ch 21 §2): slurp the entire C source
-   into `cc-src-buf` via chunked `read()`.  Ends when
-   `read` returns 0.
-2. **`cc-preprocess`** (Ch 22 §8): rewrite the source in
-   place: handle `#include`s, register `#define`s in the macro
-   table, expand built-in macros (`NULL`, `EOF`, etc.).
-   Resets `cc-src-pos` so the lexer rewinds.
+   into `cc-in-buf` with `cc-read-all`.  Ends when `read`
+   returns 0; a source that fills the 1 MiB buffer is error 20.
+2. **`cc-preprocess`** (Ch 22 §8): rewrite `cc-in-buf` into
+   `cc-src-buf`: splice in `#include`s, register `#define`s in
+   the macro table, prime the built-in macros (`NULL`, `EOF`,
+   etc.).  Resets `cc-src-pos` and `cc-src-line` so the lexer
+   starts at the top.
 3. **`cc-out-init`** (Ch 21 §2): zero `cc-out-pos`.
 4. **`cc-globals-init`** (Ch 26 §5): zero
    `cc-globals-pos`, `cc-gfixup-count`, and the globals
@@ -242,7 +243,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 ```
 
 The claim rests on step 5.  The 1,772-byte seed, extended by
-`010-lib.fth` and running the 6,973 lines of compiler Forth in
+`010-lib.fth` and running the 6,958 lines of compiler Forth in
 `020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
 binary, compiling M2-Planet's sources, emits the same `.M1` text
@@ -296,7 +297,7 @@ seen every component along the seed-forth path:
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
   ~440 lines of Forth that turn the seed's 32 primitives into
   a usable language.
-- Ch 21–32: the C-subset compiler, 6,973 lines of Forth
+- Ch 21–32: the C-subset compiler, 6,958 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
 
