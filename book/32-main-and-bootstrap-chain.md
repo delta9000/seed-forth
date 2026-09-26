@@ -267,36 +267,50 @@ seed-forth path and the GCC reference at the `.M1` handoff.
 
 ## 5. The wider chain
 
-Stage A is one rung of a longer ladder.  The full Guix Full
-Source Bootstrap chain looks roughly like:
+Stage A is one rung of a longer ladder.  On AMD64, stage0-posix's
+`kaem` scripts (`vendor/stage0-posix/kaem.amd64` and the
+`AMD64/mescc-tools-*-kaem.kaem` files it runs) climb the first
+part, and live-bootstrap carries on from there:
 
 ```
    stage0-posix's 229-byte hex0-seed
-     ↓ (hand-decoded bytes → first hex assembler)
-   hex0  →  hex1  →  hex2  →  M1  →  M2-Planet
-     ↓
-   M2-Planet (~8,500 lines of C) compiles MesCC
-     ↓
-   MesCC (~1 MB) compiles TinyCC
-     ↓
-   TinyCC compiles GCC
-     ↓
-   GCC compiles everything else.
+     ↓ assembles hex0_AMD64.hex0
+   hex0  →  hex1  →  hex2-0  →  catm, M0
+     ↓ M0 assembles cc_amd64.M1
+   cc_amd64 (a C-subset compiler in M1 assembly)
+     ↓ compiles M2-Planet's C
+   M2  (a first M2-Planet)
+     ↓ compiles mescc-tools' C
+   blood-elf, M1, hex2, kaem  →  M2-Planet again, full build
+     ↓ (live-bootstrap from here on)
+   M2-Planet compiles GNU Mes (mes-m2)
+     ↓ Mes runs MesCC, Mes's C compiler written in Scheme
+   MesCC compiles a bootstrappable TinyCC
+     ↓ several stages: TinyCC rebuilds, then an older GCC
+   a modern GCC compiles everything else.
 ```
 
 This book covers the *seed-forth* arm of that diagram: an
-alternate path from `hex0-seed` to M2-Planet via a 1,772-byte
-Forth implementation rather than via the hex-stack chain.  The two
-arms do not agree by default.  The default `cc-out-v1` matches the
-GCC-built reference, not a stage0-built M2-Planet: stage0's
-toolchain skips one `sub_rsp, imm` optimization that GCC-built
-M2-Planet takes.  Build `cc-out-v1` with `STAGE0_COMPAT=1` and its
-`.M1` matches a stage0-built M2-Planet compiled from the same
-M2-Planet source (Appendix C).  In that mode the seed-forth arm is
-a drop-in alternative for that segment of the bootstrap.
+independent path from `hex0-seed` to an M2-Planet-compatible
+compiler, through a 1,772-byte Forth instead of through hex1, hex2,
+M0 and `cc_amd64`.  The two arms do not agree by default.  The
+default `cc-out-v1` matches the GCC-built reference, not a
+stage0-built M2-Planet: stage0's toolchain skips one
+`sub_rsp, imm` optimization that GCC-built M2-Planet takes.  Build
+`cc-out-v1` with `STAGE0_COMPAT=1` and its `.M1` matches a
+stage0-built M2-Planet compiled from the same M2-Planet source
+(Appendix C).
 
-The Prologue drew this diagram in more detail.  By now you've
-seen every component along the seed-forth path:
+That makes the seed-forth arm a cross-check on stage0's stretch
+from hex1 to M2-Planet, and a candidate replacement for it, not a
+drop-in one.  It produces an M2-Planet (and, with `130-asm.fth`,
+an M1 and hex2), but nothing yet builds `blood-elf`, `kaem` and
+the rest of mescc-tools from it and hands them to live-bootstrap.
+That hand-off is still being written.
+
+[Where this fits](where-this-fits.md) sets the two routes side by
+side.  By now you've seen every component along the seed-forth
+path:
 
 - Ch 13–20: the 1,772-byte seed itself (`000-seed.hex0`).
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
@@ -318,8 +332,9 @@ compile, link and run a `hello.c`.  A final stage compiles every
 program in M2-Planet's own test suite with v1 and with the GCC
 reference (x86 output): each must produce the same bytes from both,
 or be rejected by both, or the stage fails.  Nothing past
-M2-Planet (no MesCC, no TinyCC) is run.  It takes minutes;
-`stage-a-check.sh` takes seconds.
+M2-Planet (no Mes, no TinyCC) is run.  From an empty `BUILDROOT`
+it took about 40 s on a 4-core machine; `stage-a-check.sh` takes
+seconds.
 
 Stages B and E assemble with mescc-tools' `M1` and `hex2`, which
 are built with GCC.  `130-asm.fth` is a Forth replacement for that
@@ -390,7 +405,7 @@ If `stage-a-check.sh` reports
 `self-v1-amd64.M1 == self-ref-amd64.M1`, you have reproduced
 the project's central claim.
 
-To run the small check, concatenate the twelve `.fth` files onto
+To run the small check, concatenate the fifteen `.fth` files onto
 stdin first, exactly as they are, then append the C source.  The last `.fth` file (`120-cc-main.fth`) ends by calling
 `cc-main`, which slurps whatever's left on stdin as the C input,
 compiles, writes `/tmp/cc-out`, and exits.

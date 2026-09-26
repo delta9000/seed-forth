@@ -30,21 +30,18 @@ mkdir -p "$BUILDROOT"
 [ -x seed-forth ] || fail "seed-forth build failed"
 
 # --- Build mescc-tools binaries (GCC-built reference) ---
-if [ ! -x "$MESCC_DIR/bin/M1" ] || [ ! -x "$MESCC_DIR/bin/hex2" ]; then
-    (cd "$MESCC_DIR" && make >/dev/null 2>&1) || fail "make mescc-tools failed"
-fi
-[ -x "$MESCC_DIR/bin/M1" ]   || fail "$MESCC_DIR/bin/M1 not produced"
-[ -x "$MESCC_DIR/bin/hex2" ] || fail "$MESCC_DIR/bin/hex2 not produced"
+# GCC-built mescc-tools reference, rebuilt fresh (never a stale bin/).
+tests/cc/build-gcc-refs.sh "$BUILDROOT/gcc-ref" >/dev/null || fail "gcc reference build failed"
 
 # --- Reference pipeline: M1 then hex2 -> exit42-ref ---
-"$MESCC_DIR/bin/M1" \
+"$BUILDROOT/gcc-ref/M1-ref" \
     --architecture amd64 --little-endian \
     -f "$M2LIBC/amd64_defs.M1" \
     -f tests/asm/exit42.M1 \
     -o "$BUILDROOT/exit42.hex2" \
     || fail "reference M1 failed"
 
-"$MESCC_DIR/bin/hex2" \
+"$BUILDROOT/gcc-ref/hex2-ref" \
     --architecture amd64 --little-endian \
     --base-address 0x00600000 \
     -f "$M2LIBC/ELF-amd64.hex2" \

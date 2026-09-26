@@ -345,9 +345,9 @@ earned a `?` at the top of this chapter:
 } | ./seed-forth
 ```
 
-Expected output: `7`.  The `sed` strips Forth comments, which the
-seed's reader does not understand; adding 48 turns the answer into
-an ASCII digit for `emit`.  The seed still has no subtract.  That `7`
+Expected output: `7`.  The library loads as written: the seed's
+reader skips `\` and `( )` comments itself.  Adding 48 turns the
+answer into an ASCII digit for `emit`.  The seed still has no subtract.  That `7`
 came out of `dup nand [lit] 1 + +`.
 
 `test.sh` exercises the words you just read (`over`, `-`, `nip`, and

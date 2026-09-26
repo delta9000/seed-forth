@@ -241,11 +241,12 @@ include book/playground.fth
 ```
 
 If you've built the seed (`./build.sh`), the same definitions work
-there too, but the seed's REPL doesn't strip `\` comments, so the
-library has to be passed through `sed` first (the same trick
-`test.sh` uses).  Also, the seed's number parser is decimal and
-unsigned-only, and the seed has no `.` for printing, so we use
-`emit` instead and pick inputs that produce a printable byte:
+there too.  The seed's reader skips `\` and `( ... )` comments
+itself, so `010-lib.fth` goes in exactly as it is, with nothing
+between `cat` and the seed.  The differences are elsewhere: the
+seed's number parser is decimal and unsigned-only, and the seed has
+no `.` for printing, so we use `emit` instead and pick inputs that
+produce a printable byte:
 
 ```sh
 ./build.sh
