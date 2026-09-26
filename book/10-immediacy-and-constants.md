@@ -250,7 +250,7 @@ diverges meaningfully from the seed.  Use a built seed-forth:
 ```sh
 ./build.sh
 echo '[lit] 42 constant magic  magic [lit] 48 + emit bye' \
-  | { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth; cat; } \
+  | cat 010-lib.fth - \
   | ./seed-forth
 ```
 
@@ -265,7 +265,7 @@ it and emit the difference:
 ```sh
 ./build.sh
 echo 'here  [lit] 42 constant magic  here swap - [lit] 48 + emit bye' \
-  | { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth; cat; } \
+  | cat 010-lib.fth - \
   | ./seed-forth
 ```
 

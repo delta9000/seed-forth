@@ -23,8 +23,8 @@ The same chain in tabular form.  Each row is one rung; the
 
 | Stage | Input | Tool / producer | Output | Runs on | Verification | Trust notes |
 |---|---|---|---|---|---|---|
-| 0 | `000-seed.hex0` (27,007 bytes annotated; 2,040 machine bytes) | stage0-posix's 229-byte `hex0-seed` | `seed-forth` (2,040-byte x86-64 ELF) | Linux x86-64 | `wc -c seed-forth` → `2040`; `sha256sum` matches `131bf3ab…` | `hex0-seed` is externally trusted; any hex0-equivalent assembler reproduces the same bytes. |
-| 1 | `seed-forth` + `010-lib.fth` | the seed Forth, extending itself | extended Forth in memory | same host | `./test.sh` | Self-hosted from seed primitives; no external compiler. |
+| 0 | `000-seed.hex0` (41,293 bytes annotated; 1,772 machine bytes) | stage0-posix's 229-byte `hex0-seed` | `seed-forth` (1,772-byte x86-64 ELF) | Linux x86-64 | `wc -c seed-forth` → `1772`; `sha256sum` matches `697e340e…` | `hex0-seed` is externally trusted; any hex0-equivalent assembler reproduces the same bytes. |
+| 1 | `seed-forth` + `010-lib.fth` | the seed Forth, extending itself | extended Forth in memory | same host | `./test.sh` | Self-hosted from seed primitives; no external compiler.  The source goes in as written: the seed's reader skips Forth comments itself, so no text tool sits between the file and the seed. |
 | 2 | extended Forth + `020-cc-arena.fth` … `120-cc-main.fth` + M2-Planet monolith C source | `seed-forth` running the compiler vocabulary | `cc-out-v1` (`/tmp/cc-out`, ~203 KB ELF) | same host | `[ -x /tmp/cc-out ]` and a smoke run | All compiler code is Forth source loaded by the seed; the monolith is built by `build-m2planet-monolith.sh`. |
 | A | `cc-out-v1` and `m2-ref` (GCC-built M2-Planet) | each compiles the M2-Planet source set | `self-v1-amd64.M1` and `self-ref-amd64.M1` (2,367,260 bytes) | same host | `cmp` — exits 0 iff byte-identical | Cross-validation: two independently built M2-Planet binaries must agree on output. |
 | B | `self-v1-amd64.M1` | `M1` + `hex2` from mescc-tools | `cc-out-v2-amd64` (assembled binary) | same host | `bootstrap-chain.sh` runs it | Exercises the mescc-tools link in the canonical chain. |
@@ -56,16 +56,16 @@ All commands run from the repository root.
 ```
 
 What this does: invokes `vendor/stage0-posix/.../hex0-seed
-000-seed.hex0 seed-forth`, producing a 2,040-byte ELF executable.
+000-seed.hex0 seed-forth`, producing a 1,772-byte ELF executable.
 
 Expected output:
 ```
-Built seed-forth (2040 bytes) using vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed
+Built seed-forth (1772 bytes) using vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed
 ```
 
 Sanity check:
 ```sh
-wc -c seed-forth      # 2040
+wc -c seed-forth      # 1772
 file seed-forth       # ELF 64-bit LSB executable, x86-64
 ```
 
@@ -91,7 +91,11 @@ Expected: every line prints `PASS:`; final exit code 0.
 What this does: concatenates M2-Planet's `.c` source files into a
 single monolith (stripping `#include "..."` lines since the
 preprocessor has no `#ifndef`/`#endif`), then pipes it through
-`seed-forth` loading `010-lib.fth` through `120-cc-main.fth`.
+`seed-forth` loading `010-lib.fth` through `120-cc-main.fth`.  The
+Forth files are `cat`'d straight in, comments and all; the seed's
+reader skips `\` and `( )` comments itself (Ch 17).  The only text
+tool in this stage is the `sed` that edits the C monolith's
+`#include` lines, and it never touches the Forth.
 The output is `/tmp/cc-out` — an x86-64 ELF binary that is
 itself a working M2-Planet-compatible C compiler.
 
@@ -151,8 +155,8 @@ Reproduced on the reviewer's machine and recorded in
 ### Stage 0 and Stage A (default mode)
 
 ```text
-edc749e1dd1e3d4070af263d45475cbee350ca6f91dd26f6ca276432ae2b0f05  000-seed.hex0
-131bf3ab73917a5a1c39db8114ab5c20f12ca28627f3fdc969ee34d86e41dc74  seed-forth
+16c09d3a841fb5e62b115f225361f3006075a4998f46966d83e21d991e159e8e  000-seed.hex0
+697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e  seed-forth
 23aaa5be476e5d25194dcbd178ceba9a4ccc72ca9c7d76523c6fc6fc1a409e73  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
@@ -210,7 +214,7 @@ input exercises.
 ## What the chain proves and does not prove
 
 It proves: starting from 229 bytes of hex0 assembler (the
-stage0-posix trust root), you can build a 2,040-byte Forth, use it
+stage0-posix trust root), you can build a 1,772-byte Forth, use it
 to compile the M2-Planet C compiler (8,479 lines across the 11
 files of the self-compile source set), and the resulting binary
 produces byte-identical M1 output to GCC-built M2-Planet on

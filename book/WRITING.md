@@ -132,9 +132,9 @@ When you write a Part II chapter, you add two kinds of fenced blocks:
 
    ````
    ```hex0 file=000-seed.hex0
-   <<dup-code>>
-   <<drop-code>>
-   <<swap-code>>
+   <<dup>>
+   <<drop>>
+   <<swap>>
    ```
    ````
 
@@ -145,12 +145,24 @@ When you write a Part II chapter, you add two kinds of fenced blocks:
    the corresponding range of `000-seed.hex0`:
 
    ````
-   ```hex0 chunk=dup-code
-   ;; dup_code @ 0x13B
-   48 83 ED 08     ;; sub rbp, 8
-   48 89 7D 00     ;; mov [rbp+0], rdi
-   C3              ;; ret
+   ```hex0 chunk=dup
+   ;; --- dup @ 0x0BA --- header
+   00 00 00 00 00 00 00 00                   ; link  = 0 (end of chain)
+   00                                        ; flags = 0
+   03                                        ; nlen  = 3
+   64 75 70                                  ; name  = "dup"
+   ;; ----- dup_code @ 0x0C7  ( a -- a a ) -----
+   48 83 ED 08                               ; sub rbp, 8
+   48 89 7D 00                               ; mov [rbp], rdi
+   C3                                        ; ret
    ```
+
+   In `000-seed.hex0` every primitive is one such unit, its header
+   directly above its code, and every instruction line carries its
+   mnemonic after the `;`.  The `;; --- name @ 0xNNN` and
+   `;; ----- label @ 0xNNN` comment lines are what
+   `tools/check-numbers.py` parses to derive offsets and sizes, so
+   keep that form when you add a unit.
    ````
 
 The same pattern applies for Part III, swapping `file=000-seed.hex0`

@@ -137,6 +137,17 @@ before exiting: 91 (`&label` undefined), 92/93 (`%target>base`:
 base / target undefined), 94 (`%label`), 95 (`!label`),
 96 (`@label`), 97 (`~label`), 98 (`$label`).
 
+### The seed's own code
+
+Before the compiler exists there is one more source of failure: the
+seed rejecting a token while it loads the Forth.  A `[lit]` whose
+token is not an unsigned decimal number, or any token longer than
+255 bytes, makes the seed print the token followed by `?` and exit
+with status **2** (`fatal_token`, Ch 17).  No `[lit] 2 die` exists
+in the compiler, so a 2 always means the seed gave up, and the last
+line on stdout is the token it could not use.  An unknown word is
+not fatal: the seed prints it with `?` (`wibble?`) and reads on.
+
 ## Why no diagnostic text?
 
 Nothing in the seed forbids it.  `die` is an ordinary Forth word in

@@ -47,8 +47,8 @@ grouped by what they help with.
   fits in a 512-byte boot sector with eight primitives (plus a
   handful of state variables and two I/O words).  The "minimum
   viable Forth" demonstration; useful as a sanity check on how
-  much language you can get from how little code.  About a
-  quarter the size of this book's 2,040-byte seed, at the cost of
+  much language you can get from how little code.  Under a
+  third the size of this book's 1,772-byte seed, at the cost of
   living inside 16-bit BIOS boot constraints.
 
 - **Koichi Nakamura, "planckforth"** (2020).  Bootstraps a Forth

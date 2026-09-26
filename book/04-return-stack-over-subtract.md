@@ -105,7 +105,7 @@ elsewhere.  The derived body is four `CALL`s and a `RET` (21 bytes)
 in `010-lib.fth`, and at runtime every `over` executes four nested
 calls where a primitive would run a few instructions.  A primitive
 instead costs a slot in the dictionary and 20–30 bytes of machine
-code in the seed, and the seed is on a 2,040-byte budget.  Some
+code in the seed, and the seed is on a 1,772-byte budget.  Some
 extra cycles per `over` is the cheaper bill.
 
 ## 4. `-` from `+` and `nand`
@@ -215,10 +215,10 @@ The bracketed count `<3>` is gforth's depth indicator.
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo '[lit] 1 [lit] 2 over [lit] 48 + emit [lit] 48 + emit [lit] 48 + emit'
   echo '[lit] 10 [lit] 3 - [lit] 48 + emit'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 The first test prints `121`: `over` turns `( 1 2 )` into `( 1 2 1 )`,

@@ -21,8 +21,8 @@
 \ Skip past the VM's fixed pages (data stack 0x410000..0x411000, I/O scratch
 \ 0x412000, token buffer 0x412800, sysvars 0x413000..0x414000) so the 1 MiB
 \ cc-src-buf does not overlap runtime VM state.  At 030-cc-io.fth load time HERE
-\ is well below 0x414000, so this is a forward bump of a few KiB.
-[lit] 4276224 here-addr !                         \ 0x414000
+\ is well below 0x410000, so this is a forward bump to 0x414000.
+skip-vm-pages                                     \ HERE = 0x414000
 
 create cc-src-buf  cc-src-cap allot
 variable cc-src-len

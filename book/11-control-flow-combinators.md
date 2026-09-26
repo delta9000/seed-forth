@@ -84,7 +84,7 @@ that address into a Forth-level name `branch-xt`.
 
 The point is to avoid hard-coded addresses.  Where `branch` lives
 in memory can change whenever `000-seed.hex0` is edited.  Instead
-of writing `[lit] 4195810 constant branch-xt` (today's `0x4005E2`)
+of writing `[lit] 4195857 constant branch-xt` (today's `0x400611`)
 and updating that number every time the seed moves, we let `'`
 resolve the address at load time.  Subsequent edits to the seed
 don't require touching `010-lib.fth`.
@@ -480,11 +480,11 @@ Forward branch with else-arm:
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo ': pick  if, [lit] 65 else, [lit] 66 then, emit ;'
   echo '[lit] 1 pick'      # flag non-zero -> if-arm  -> "A"
   echo '[lit] 0 pick'      # flag zero     -> else-arm -> "B"
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected: `AB`.  One word, two runs, two different paths, chosen by
@@ -493,10 +493,10 @@ a word you just read.
 Counting loop (the worked example from §8):
 
 ```sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo ': cnt  begin, dup [lit] 0 > while, dup [lit] 48 + emit [lit] 1 - repeat, drop ;'
   echo '[lit] 5 cnt'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected: `54321`.  That countdown is a loop the seed's parser has

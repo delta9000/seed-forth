@@ -34,8 +34,6 @@ if [ ! -x "$MESCC_DIR/bin/M1" ] || [ ! -x "$MESCC_DIR/bin/hex2" ]; then
     (cd "$MESCC_DIR" && make >/dev/null 2>&1) || fail "make mescc-tools failed"
 fi
 
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-
 # build_via_forth_asm <name> <c-source-files...>
 \
 \
@@ -66,7 +64,7 @@ build_via_forth_asm() {
         || fail "$name: reference hex2 failed"
 
     # Step 3: forth-asm produces the same binary.
-    { cat 010-lib.fth 130-asm.fth | strip_forth ;
+    { cat 010-lib.fth 130-asm.fth ;
       printf 'asm-main\n' ;
       cat "$M2LIBC/amd64_defs.M1" ;
       cat "$M2LIBC/ELF-amd64.hex2" ;

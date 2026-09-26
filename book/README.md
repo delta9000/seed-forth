@@ -1,9 +1,9 @@
-# Forth From a 2040-Byte Seed
+# Forth From a 1772-Byte Seed
 
 A compiler binary can carry a backdoor that no reading of its
 source will find; Ken Thompson showed how in 1984.  The defence is
 a first program small enough to check by hand.  Here that program
-is 2,040 bytes of hand-encoded x86-64: a Forth that, given its
+is 1,772 bytes of hand-encoded x86-64: a Forth that, given its
 library and 7,198 lines of compiler source (`020-cc-arena.fth`
 through `120-cc-main.fth`, by `wc -l`), becomes a C compiler whose `.M1` output is byte-identical to
 GCC-built M2-Planet's.  This book walks every one of those bytes and
@@ -35,7 +35,7 @@ these as it needs them, in the order it needs them.
 - Run `./check-all.sh` and explain what each of its eight steps
   proves about the artifact.
 - Audit the Stage-A parity claim yourself: rebuild the chain from
-  the 229-byte hex0 trust root through the 2,040-byte seed, the
+  the 229-byte hex0 trust root through the 1,772-byte seed, the
   Forth library, and the C compiler, and verify that the emitted
   `.M1` text matches a GCC-built reference byte-for-byte.
 - Read related codebases (M2-Planet, mescc-tools, stage0,
@@ -82,7 +82,7 @@ git submodule update --init --recursive
 ```
 
 `check-all.sh` runs eight steps and prints one OK/SKIP/FAIL line
-for each: `01-build` (the 2,040-byte seed), `02-test` (the layer
+for each: `01-build` (the 1,772-byte seed), `02-test` (the layer
 smoke tests), `02a-asm` (three small assembler checks),
 `02b-gates` (the registered C-compiler gates), `03-tangle-strict`
 (book and source byte-identical), `04-book-numbers` (the prose's
@@ -103,7 +103,7 @@ where the previous chapter stopped.
 - **Part I (Chs 1–12)** walks `010-lib.fth`, the Forth library
   above the seed.  Run most examples in gforth; Chs 5, 10, and 11
   need a built seed.
-- **Part II (Chs 13–20)** opens the 2,040-byte seed itself.  By
+- **Part II (Chs 13–20)** opens the 1,772-byte seed itself.  By
   the end, no primitive is a black box.
 - **Part III (Chs 21–32)** walks the C compiler in twelve
   chapters, ending at the Stage-A byte-identity proof.

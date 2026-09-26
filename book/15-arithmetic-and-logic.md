@@ -20,20 +20,23 @@ division, and that only works because the seed's `/` is *unsigned*
 (`DIV`, not `IDIV`).  This chapter opens both, along with `+`, `0=`
 and `*`: 70 bytes of x86-64 in total.  `+` and `nand` are 9 and 12
 bytes, `0=` is 15, and `divide_code` and `star_code` are 18 and 16.
-`plus_code`, `nand_code` and `zeq_code` are at lines 153–170 of
-`000-seed.hex0`; `divide_code`, the `/` dictionary entry and
-`star_code` are at lines 649–683, with Ch 14's `r_at_code` between
-them.  Each binary primitive follows Ch 14's pattern with one
+With their headers they are lines 191–249 of `000-seed.hex0`, the
+stretch right after Ch 14's.  Each binary primitive follows Ch 14's pattern with one
 computing step in the middle: read the second operand from `[rbp]`,
 combine it into `rdi`, release the slot, return.
 
 ## 1. `+` in 9 bytes
 
-```hex0 chunk=plus-code
-;; ----- plus_code @ 0x1A1 -----
-48 03 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=plus
+;; --- + @ 0x1AC --- header
+8D 01 40 00 00 00 00 00                   ; link  = 0x40018D (c!)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+2B                                        ; name  = "+"
+;; ----- plus_code @ 0x1B7  ( a b -- a+b ) -----
+48 03 7D 00                               ; add rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -55,12 +58,17 @@ without any extra checks.
 
 ## 2. `nand` in 12 bytes
 
-```hex0 chunk=nand-code
-;; ----- nand_code @ 0x1AA -----
-48 23 7D 00
-48 F7 D7
-48 83 C5 08
-C3
+```hex0 chunk=nand
+;; --- nand @ 0x1C0 --- header
+AC 01 40 00 00 00 00 00                   ; link  = 0x4001AC (+)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+6E 61 6E 64                               ; name  = "nand"
+;; ----- nand_code @ 0x1CE  ( a b -- ~(a&b) ) -----
+48 23 7D 00                               ; and rdi, [rbp]
+48 F7 D7                                  ; not rdi
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -80,13 +88,18 @@ surrounded by whatever stack shuffling `dup nand` and friends need.
 
 ## 3. `0=` in 15 bytes
 
-```hex0 chunk=zeq-code
-;; ----- zeq_code @ 0x1B6 -----
-48 85 FF
-40 0F 94 C7
-48 0F B6 FF
-48 F7 DF
-C3
+```hex0 chunk=zeq
+;; --- 0= @ 0x1DA --- header
+C0 01 40 00 00 00 00 00                   ; link  = 0x4001C0 (nand)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+30 3D                                     ; name  = "0="
+;; ----- zeq_code @ 0x1E6  ( n -- flag ) -----
+48 85 FF                                  ; test rdi, rdi
+40 0F 94 C7                               ; sete dil           ; dil = (rdi == 0)
+48 0F B6 FF                               ; movzx rdi, dil
+48 F7 DF                                  ; neg rdi            ; 1 -> -1 (Forth true)
+C3                                        ; ret
 
 ```
 
@@ -118,15 +131,20 @@ convention, and every higher layer keeps it.
 
 ## 4. `/` and the `DIV` instruction
 
-```hex0 chunk=divide-code
-;; ----- divide_code @ 0x710 ( a b -- a/b ) unsigned 64-bit divide -----
-;; rdx:rax / rdi → rax=quot, rdx=rem.  We treat dividend as 64-bit
-;; (rdx zeroed) — divide-by-zero traps the process; that's acceptable for now.
-48 8B 45 00                               ; mov rax, [rbp]   ; rax = a (dividend)
-48 31 D2                                  ; xor rdx, rdx     ; high half = 0
-48 F7 F7                                  ; div rdi          ; rdx:rax / rdi
-48 83 C5 08                               ; add rbp, 8        ; pop a
-48 89 C7                                  ; mov rdi, rax     ; TOS = quot
+```hex0 chunk=divide
+;; --- / @ 0x1F5 --- header
+DA 01 40 00 00 00 00 00                   ; link  = 0x4001DA (0=)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+2F                                        ; name  = "/"
+;; ----- divide_code @ 0x200  ( a b -- a/b ) unsigned 64-bit divide -----
+;; rdx:rax / rdi -> rax = quotient, rdx = remainder.  rdx is zeroed, so the
+;; dividend is 64-bit.  b = 0 traps (SIGFPE); callers must not pass it.
+48 8B 45 00                               ; mov rax, [rbp]     ; rax = a (dividend)
+48 31 D2                                  ; xor rdx, rdx       ; high half = 0
+48 F7 F7                                  ; div rdi            ; rdx:rax / rdi
+48 83 C5 08                               ; add rbp, 8         ; pop a
+48 89 C7                                  ; mov rdi, rax       ; TOS = quotient
 C3                                        ; ret
 
 ```
@@ -160,32 +178,19 @@ Divide by zero raises `#DE` and the kernel kills the process with
 `SIGFPE`.  The seed does not check; the C compiler (Part III) does
 not check either.  Callers are expected to know.
 
-The `/` dictionary entry follows immediately:
-
-```hex0 chunk=divide-dict
-;; --- / @ 0x722 (xt = 0x72D) ---
-F9 06 40 00 00 00 00 00                     ; link = 0x4006F9 (syscall6)
-00                                        ; flags
-01                                        ; nlen
-2F                                        ; "/"
-E9 DE FF FF FF                              ; jmp divide_code (rel = 0x710 - 0x732 = -34)
-
-```
-
-Ch 17 explains the entry layout (`link / flags / nlen / name / jmp
-body`).  The one thing to note here is that `/` follows `syscall6`'s
-entry in the source and links back to it through
-`link = 0x4006F9`.
-
 ## 5. `*` and the `IMUL` instruction
 
-```hex0 chunk=star-code
-;; ----- star_code @ 0x743 ( a b -- a*b ) signed 64-bit multiply -----
-;; b is in TOS (rdi); a is at [rbp]. Result low half in rax -> TOS.
+```hex0 chunk=star
+;; --- * @ 0x212 --- header
+F5 01 40 00 00 00 00 00                   ; link  = 0x4001F5 (/)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+2A                                        ; name  = "*"
+;; ----- star_code @ 0x21D  ( a b -- a*b ) signed 64-bit multiply, low half -----
 48 89 F8                                  ; mov rax, rdi       ; rax = b
-48 0F AF 45 00                            ; imul rax, [rbp]    ; signed 64x64->64 (low half)
+48 0F AF 45 00                            ; imul rax, [rbp]    ; rax = a*b (low 64 bits)
 48 83 C5 08                               ; add rbp, 8         ; pop a
-48 89 C7                                  ; mov rdi, rax       ; new TOS = a*b
+48 89 C7                                  ; mov rdi, rax       ; TOS = a*b
 C3                                        ; ret
 
 ```
@@ -202,10 +207,6 @@ integers, the true product has 66 bits and the top two are gone.
 For the C compiler in Part III this is acceptable: the language's
 `int` is 64-bit and overflow is undefined.
 
-`*`'s dictionary entry is not next to its body.  It sits at the end
-of the file with the entries for `r@`, `state`, `latest` and `'`,
-in the `<<late-dicts>>` chunk that Ch 17 shows.
-
 ## 6. What's not here
 
 The seed exposes five arithmetic primitives.  It does *not* have:
@@ -217,9 +218,9 @@ The seed exposes five arithmetic primitives.  It does *not* have:
   them, and the C compiler emits them inline.
 - Bitwise OR, AND and XOR; Ch 3 derives them from `nand`.
 
-Every omission saves a `15 + name-length`-byte dictionary entry
-(header plus JMP stub, Appendix A) and a primitive body of 8–15
-bytes.  Together they save well over 100 bytes.
+Every omission saves a `10 + name-length`-byte dictionary header
+(Appendix A) and a primitive body of 8–15 bytes.  Together they save
+well over 100 bytes.
 
 This is Ch 3's approach again: keep the one primitive that lets you
 build the rest, and write the rest in Forth.
@@ -237,9 +238,9 @@ echo "[lit] 100 [lit] 13 / [lit] 48 + emit bye" | ./seed-forth
 echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
 # 6*7=42, +48 = 'Z' (ASCII 90 = 'Z'), prints "Z"
 
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo "[lit] 0 0= [lit] 48 - emit bye"
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 # 0= on 0 returns -1 (the canonical Forth true).  Library-level `-`
 # (Ch 4) computes -1 - 48 = -49; emit's low byte is 0xCF, which is
 # non-printable, so spot it with `| xxd | head -1`.
@@ -294,8 +295,8 @@ nearly every pair where it should answer true.
   the seed trusts its callers: `010-lib.fth` and the Forth code of
   the C compiler.
 
-**Running count: 415 of 2,040 bytes read (20%).**  This chapter
-added 86: 70 bytes of arithmetic and `/`'s 16-byte dictionary entry.
+**Running count: 557 of 1,772 bytes read (31%).**  This chapter
+added 129: 70 bytes of arithmetic and 59 of headers.
 
 Everything so far computes on values already on the stack.  None
 of it has touched the world outside the process.  The seed contains

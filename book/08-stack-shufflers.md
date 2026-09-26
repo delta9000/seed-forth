@@ -127,12 +127,12 @@ old third-from-top is now on top).  Printing top-down with three
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo '[lit] 65 [lit] 66 nip emit'
   echo '[lit] 65 [lit] 66 [lit] 67 rot emit emit emit'
   echo '[lit] 88 [lit] 89 2dup emit emit emit emit'
   echo '[lit] 65 [lit] 66 [lit] 67 [lit] 68 2drop emit emit'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `BACBYXYXBA`.  Trace each line:

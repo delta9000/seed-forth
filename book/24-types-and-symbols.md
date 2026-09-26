@@ -472,11 +472,9 @@ For the small check, load the seven Forth files and call
 ```sh
 ./build.sh
 {
-  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
-           040-cc-prep.fth 050-cc-lex.fth \
-           060-cc-types.fth 070-cc-sym.fth; do
-    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
-  done
+  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
+      040-cc-prep.fth 050-cc-lex.fth \
+      060-cc-types.fth 070-cc-sym.fth
   cat <<'FORTH'
     here  [lit] 102 c, [lit] 111 c, [lit] 111 c,
     [lit] 3
@@ -488,7 +486,7 @@ For the small check, load the seven Forth files and call
     cc-sym-count @ [lit] 48 + emit
     bye
 FORTH
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `01` — the new symbol's id is `0`, and the count
@@ -500,8 +498,7 @@ parser (Chs 29–31) and read back the rows it added.  `row` prints a symbol's i
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth \
-    | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth
   cat <<'FORTH'
     : .d  dup [lit] 9 > if, dup [lit] 10 / .d then,
           dup [lit] 10 / [lit] 10 * - [lit] 48 + emit ;
@@ -522,7 +519,7 @@ FORTH
 struct tri { int rows; int stars; };
 struct tri t;
 C
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 ```text

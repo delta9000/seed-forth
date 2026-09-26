@@ -4,7 +4,7 @@ This directory contains a minimal x86-64 Linux Forth seed and the Forth-coded
 C-subset compiler needed to reach M2-Planet compatibility.
 
 The trust root is `000-seed.hex0`: an annotated hex0 file that encodes a
-2040-byte hand-written ELF/Forth image.  The seed is intentionally small: it
+1772-byte hand-written ELF/Forth image.  The seed is intentionally small: it
 provides only the primitives needed to load the numbered Forth files and
 compile a M2-Planet monolith.  The main check is
 byte-identical M1 output against a GCC-built M2-Planet reference.
@@ -102,7 +102,7 @@ Everything above this layer is built in Forth.
 | `0x410000..0x411000` | Seed data stack. |
 | `0x412000` | Single-byte I/O scratch. |
 | `0x412800` | Token buffer. |
-| `0x413000` | Sysvars: `STATE`, `LATEST`, `HERE`, `LAST_FOUND`, `NUMBER_HOOK`, `INPUT_FD`. |
+| `0x413000` | Sysvars: `STATE`, `LATEST`, `HERE`, `LAST_FOUND`. |
 | `0x414000+` | Forth-level compiler buffers. |
 
 The ELF program header maps 16 MiB so the Forth compiler can allocate source,
@@ -130,7 +130,7 @@ This project is licensed under the **MIT License**. See the `LICENSE` file for d
 
 ## Invariants
 
-- `./build.sh` must produce a 2040-byte `seed-forth`.
+- `./build.sh` must produce a 1772-byte `seed-forth`.
 - `./test.sh` must pass.
 - `tests/cc/stage-a-check.sh` must report `self-v1-amd64.M1 == self-ref-amd64.M1`.
 

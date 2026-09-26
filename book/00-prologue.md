@@ -1,12 +1,11 @@
-# Prologue — Two Thousand and Forty Bytes
+# Prologue — Seventeen Hundred and Seventy-Two Bytes
 
 Here is where this book ends up.  From the repository root, paste
 this into a terminal:
 
 ```sh
 ./build.sh
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; cat <<'EOC'; } | ./seed-forth
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; cat <<'EOC'; } | ./seed-forth
 int fib(int n) { if (n < 2) return n; return fib(n - 1) + fib(n - 2); }
 void print(int n) { if (n > 9) print(n / 10); putchar('0' + n % 10); }
 int main(void) {
@@ -21,7 +20,7 @@ chmod +x /tmp/cc-out && /tmp/cc-out   # prints "0 1 1 2 3 5 8 13 21 34 55 89"
 echo $?                               # prints "55"
 ```
 
-`./seed-forth` is 2,040 bytes of x86-64 machine code, typed in as
+`./seed-forth` is 1,772 bytes of x86-64 machine code, typed in as
 hex.  It read twelve files of Forth from the pipe and became a C
 compiler.  The compiler read the C that followed, recursion and
 all, and wrote `/tmp/cc-out`, a Linux executable, directly.  No
@@ -30,7 +29,7 @@ source instead of nine lines of Fibonacci, the same pipeline
 builds a C compiler whose output matches a GCC-built M2-Planet's
 byte for byte.
 
-Every step between those 2,040 bytes and that output is in this
+Every step between those 1,772 bytes and that output is in this
 book, in an order you can check.
 
 ---
@@ -62,9 +61,9 @@ argue with, then write the understanding down."
 
 ---
 
-The seed lives in `000-seed.hex0`.  Its source form is 27,007 bytes
+The seed lives in `000-seed.hex0`.  Its source form is 41,293 bytes
 long, most of it comments: annotated hex laid out for human readers.
-The machine bytes total exactly **2,040**.  On top of them sit
+The machine bytes total exactly **1,772**.  On top of them sit
 seven thousand lines of Forth that grow into a self-hosting C
 compiler.
 

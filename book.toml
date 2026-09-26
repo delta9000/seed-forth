@@ -1,7 +1,7 @@
 [book]
 title = "Seed Forth"
 authors = ["Ben Sandbrook"]
-description = "A literate bootstrap from 2040 bytes to a self-hosting C compiler"
+description = "A literate bootstrap from 1772 bytes to a self-hosting C compiler"
 src = "book"
 language = "en"
 

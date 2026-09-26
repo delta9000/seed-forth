@@ -17,9 +17,9 @@ book's claims against it:
       - multi-number  "`+` and `nand` are 9 and 12"
   * code-body offsets
       - prose         "`foo_code` ... offset `0xADDR`", "`x` (`@ 0xADDR`)"
-      - table rows    "| `bye` | ( -- ) | `0x0D2` | ..."   (Appendix A1)
+      - table rows    "| `dup` | ( n -- n n ) | `0x0C7` | ..."   (Appendix A1)
   * source line spans / ranges  (all file-absolute — one basis book-wide)
-      - seed label    "`zbranch_code` (`@ 0x431`, lines 374-385)" vs the
+      - seed label    "`zbranch_code` (`@ 0x628`, lines 618-631)" vs the
                       label's comment line .. last non-blank body line
       - .fth symbol   "`cc-parse-struct-def` (lines 196-279)" vs the `:`..`;`
                       definition span (comment-aware terminator detection)
@@ -37,6 +37,10 @@ book's claims against it:
   * exact source-file byte sizes (vs the file's size on disk, i.e. wc -c)
       - "`file` is K bytes", "`file` (K bytes ...", and a next-sentence
         "Its [source form|size] is K bytes" after a sentence ending in `file`
+  * Part II running byte counts
+      - "Running count: N of TOTAL bytes read" (Chs 13-20) and Ch 20's
+        per-chapter table, vs the machine bytes in the `hex0 chunk=` fences
+        each chapter defines (cumulative) and the built seed's size
   * single-line `file.fth:line` citations  (A6/A7, file-absolute)
       - A7 die-site  "| 30 | `100-cc-expr.fth:364` |" vs the `[lit] 30 die`
                      line(s) for that error code in the cited file
@@ -44,8 +48,9 @@ book's claims against it:
                      word's `:` definition line
 
 Body sizes come from the `@ 0xADDR` comments in 000-seed.hex0: a label's size
-is the distance to the next labelled offset (bodies and dictionary entries are
-interleaved, so "next label" is the right boundary).  The last label's end is
+is the distance to the next labelled offset (each primitive is a header label
+`;; --- name @ 0xADDR` followed directly by its code label
+`;; ----- name_code @ 0xADDR`, so "next label" is the right boundary for both).  The last label's end is
 the built seed's byte size.
 
 Still NOT checked, and why: file *span* claims like "851 lines: file header"
@@ -112,7 +117,7 @@ HDR_SIZE_RE = re.compile(r"`([^`]+)`\s+in\s+(\d+)\s+bytes\b")          # heading
 PROSE_SIZE_IS = re.compile(r"`([^`]+)`\s+(?:is|in)\s+(~?)(\d+)\s+bytes\b(?!\s+total)")
 PROSE_SIZE_PAREN = re.compile(r"`([^`]+)`\s+\((~?)(\d+)\s+bytes")
 BARE_SIZE_RE = re.compile(r"\b([a-z][a-z0-9_]*_code)\s+(?:is|in)\s+(~?)(\d+)\s+bytes\b(?!\s+total)")
-OFF_SIZE_RE = re.compile(r"(\d+)-byte\b[^.]{0,80}?\boffset\s+`0x([0-9A-Fa-f]+)`")
+OFF_SIZE_RE = re.compile(r"(\d+)(?:-byte\b| bytes of machine code)[^.]{0,80}?\boffset\s+`0x([0-9A-Fa-f]+)`")
 
 # offset claims
 PROSE_OFFSET_RE = re.compile(r"`([^`]+)`[^.|\n]{0,40}?`@?\s*0x([0-9A-Fa-f]+)`")
@@ -124,7 +129,7 @@ TOTAL_LINE_B = re.compile(r"\bat\s+(\d[\d,]*)\s+lines\b")      # "the longest fi
 
 # multi-number prose: "`+` and `nand` are 9 and 12"
 MULTI_RE = re.compile(r"`([^`]+)`\s+and\s+`([^`]+)`\s+(?:are|is)\s+(\d+)\s+and\s+(\d+)\b")
-# single-label source span: "`branch_code` (`@ 0x42B`, lines 368-372)"
+# single-label source span: "`branch_code` (`@ 0x611`, lines 607-611)"
 LABEL_RANGE_RE = re.compile(
     r"`([a-z0-9_]+_code)`\s*\(\s*`@\s*0x[0-9A-Fa-f]+`,\s*lines\s+(\d+)[–-](\d+)\)")
 # any "lines A-B" (for the in-bounds sanity check against a named file)
@@ -309,9 +314,9 @@ def check():
             emit("MISMATCH", md, lineno, f"`{entity}` claimed {claimed} bytes; {lab} is {true}", key)
 
     def check_offset(md, lineno, entity, addr_hex, table):
-        # A word can be referenced by its body (`'` -> tick_code) or by its
-        # dictionary entry (`'` -> the entry at 0x7E8, e.g. as LATEST), so
-        # accept either.
+        # A word can be referenced by its code (`'` -> tick_code) or by its
+        # dictionary header (`0branch` -> the header at 0x617, e.g. as
+        # LATEST), so accept either.
         cands, lab = {}, None
         if entity in ALIAS and table.get(ALIAS[entity], (None,))[0] is not None:
             lab = ALIAS[entity]; cands[table[lab][0]] = lab
@@ -359,15 +364,18 @@ def check():
             # (seed/.fth source spans are handled by span_pass, which also
             # supports --fix; see below)
 
-            # --- offset-anchored size: "9-byte ... at offset `0x1A1`" ---
+            # --- offset-anchored size: "9-byte ... at offset `0x1B7`" ---
             for k, addr in OFF_SIZE_RE.findall(window):
                 size, name = (table[off2name[int(addr, 16)]][1], off2name[int(addr, 16)]) \
                     if int(addr, 16) in off2name else (None, None)
-                if size is None:
-                    continue
                 claimed = int(k)
-                ln = report_line(k + "-byte")
+                ln = report_line(k)
                 key = (md, "offsize", addr.lower(), claimed)
+                if size is None:
+                    if int(addr, 16) < SEED_SIZE:   # inside the seed, but no label starts there
+                        emit("MISMATCH", md, ln,
+                             f"{claimed}-byte @ 0x{addr.upper()}: no labelled routine starts there", key)
+                    continue
                 if claimed == size:
                     emit("OK", md, ln, f"{claimed}-byte @ 0x{addr.upper()} ({name})", key)
                 else:
@@ -625,7 +633,7 @@ def line_at(text, pos):
 def span_pass(fix):
     """Check (and with fix=True, rewrite) source line-span claims:
 
-      seed:  "`zbranch_code` (`@ 0x431`, lines 374-385)"  -> 000-seed.hex0 span
+      seed:  "`zbranch_code` (`@ 0x628`, lines 618-631)"  -> 000-seed.hex0 span
       .fth:  "`cc-parse-struct-def` (lines 196-279)"      -> the `:`..`;` def span
 
     Both have a single mechanical, file-absolute truth, so --fix substitutes
@@ -735,6 +743,82 @@ def citation_pass(fix):
     return findings, total_edits
 
 
+# --- Part II running byte counts ---------------------------------------------
+#
+# Each Part II chapter (13-20) owns the `hex0 chunk=` fences it defines, and the
+# tangle check proves those fences are the seed's source.  Counting the machine
+# bytes inside them (hex pairs outside `;` comments) therefore gives each
+# chapter's true share of the seed, which is what its closing
+# "Running count: N of TOTAL bytes read" line and Ch 20's per-chapter table
+# claim.  TOTAL must be the built seed's size, N the cumulative share through
+# that chapter, and each table row's Bytes / Running total the same numbers.
+
+RUNNING_RE = re.compile(r"Running count:\s*([\d,]+)\s+of\s+([\d,]+)\s+bytes")
+CHUNK_FENCE_RE = re.compile(r"^```hex0\s+chunk=(\S+)\s*$")
+TABLE_ROW_RE = re.compile(r"^\|\s*(1[3-9]|20)\s*\|[^|]*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|\s*$")
+
+
+def chunk_bytes(lines):
+    n = 0
+    for ln in lines:
+        code = ln.split(";", 1)[0].split("#", 1)[0]
+        n += len(re.findall(r"[0-9A-Fa-f]{2}", code))
+    return n
+
+
+def running_pass():
+    findings = []
+    per_ch = {}
+    mds = {}
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        m = re.match(r"(\d\d)-", os.path.basename(md))
+        if not m or not 13 <= int(m.group(1)) <= 20:
+            continue
+        ch = int(m.group(1))
+        lines = open(md, encoding="utf-8").read().splitlines()
+        mds[ch] = (md, lines)
+        total, i = 0, 0
+        while i < len(lines):
+            if CHUNK_FENCE_RE.match(lines[i]):
+                j = i + 1
+                while j < len(lines) and not lines[j].startswith("```"):
+                    j += 1
+                total += chunk_bytes(lines[i + 1:j])
+                i = j
+            i += 1
+        per_ch[ch] = total
+    if not per_ch or not SEED_SIZE:
+        return findings
+    cum, cumul = 0, {}
+    for ch in sorted(per_ch):
+        cum += per_ch[ch]
+        cumul[ch] = cum
+    rel = lambda md: os.path.relpath(md, ROOT)
+    if cum != SEED_SIZE:
+        findings.append(("MISMATCH", "book", 0,
+                         f"Part II chunks hold {cum} machine bytes; seed-forth is {SEED_SIZE}"))
+    for ch, (md, lines) in sorted(mds.items()):
+        for k, ln in enumerate(lines, 1):
+            for m in RUNNING_RE.finditer(ln):
+                got, tot = num(m.group(1)), num(m.group(2))
+                if (got, tot) == (cumul[ch], SEED_SIZE):
+                    findings.append(("OK", rel(md), k, f"running count {got} of {tot}"))
+                else:
+                    findings.append(("MISMATCH", rel(md), k,
+                                     f"running count claimed {got} of {tot}; chunks give "
+                                     f"{cumul[ch]} of {SEED_SIZE}"))
+            m = TABLE_ROW_RE.match(ln)
+            if m and ch == 20:
+                row, b, r = int(m.group(1)), num(m.group(2)), num(m.group(3))
+                if row in per_ch and (b, r) == (per_ch[row], cumul[row]):
+                    findings.append(("OK", rel(md), k, f"Ch {row}: {b} bytes, total {r}"))
+                elif row in per_ch:
+                    findings.append(("MISMATCH", rel(md), k,
+                                     f"Ch {row} row claims {b} / {r}; chunks give "
+                                     f"{per_ch[row]} / {cumul[row]}"))
+    return findings
+
+
 def main():
     if "--dump" in sys.argv:
         dump()
@@ -743,7 +827,7 @@ def main():
     findings = check()
     span_findings, sedits = span_pass(fix)
     cite_findings, cedits = citation_pass(fix)
-    findings += span_findings + cite_findings
+    findings += span_findings + cite_findings + running_pass()
     edits = sedits + cedits
     if fix:
         # after rewriting, the mismatches that were fixed are gone

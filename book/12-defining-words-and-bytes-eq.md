@@ -14,7 +14,7 @@ named *storage*: counters, buffers, tables.  And when it meets the
 identifier `main`, it needs to ask whether those four bytes match a
 name it has seen before, with no string type and no early `return`.
 
-The last 82 lines of `010-lib.fth` (294–375) supply both.  `allot`
+The last 90 lines of `010-lib.fth` (295–384) supply both.  `allot`
 bumps HERE by a byte count.  `create` reuses Ch 10's 19-byte runtime
 body but makes it push the address of a data area that follows the
 body.  `variable` is `create` with one zero cell already in place.
@@ -52,6 +52,20 @@ already in memory.  After `create FOO`, `[lit] 16 allot` reserves a
 16-byte data area you are expected to fill before reading.  In
 practice the region is fresh memory the kernel zeroed, so the seed
 never needs an explicit clear.
+
+One more HERE move lives next to `allot`.  `skip-vm-pages` jumps
+HERE forward past the seed's fixed pages (the data stack, the I/O
+scratch byte, the token buffer and the sysvar page), so that the C
+compiler's megabyte buffers (Ch 21) cannot overlap them:
+
+```forth
+: skip-vm-pages  state [lit] 4096 + here-addr ! ;
+```
+
+The sysvar page starts at STATE's cell, `0x413000`, so the page
+above it starts 4096 bytes later, at `0x414000`.  Like `here-addr`
+(Ch 2), it derives the address from what the seed exports instead
+of typing it in.
 
 ## 2. `create`'s runtime body
 
@@ -227,6 +241,14 @@ it is incidental.
 \ Used after `create` to grow an array, or stand-alone for scratch buffers.
 : allot  here-addr @ + here-addr ! ;
 
+\ skip-vm-pages ( -- )  Jump HERE to the first page above the seed's fixed VM
+\ pages: data stack (below 0x411000), I/O scratch byte (0x412000), token
+\ buffer (0x412800) and the sysvar page, which starts at STATE's cell.  So
+\ HERE becomes STATE + 4096 = 0x414000.  030-cc-io.fth and 130-asm.fth call
+\ it before creating their megabyte buffers, which then cannot overlap VM
+\ state.  HERE must still be below the data stack (0x410000) when it runs.
+: skip-vm-pages  state [lit] 4096 + here-addr ! ;
+
 \ ----- runtime body shared by constant/variable/create -----
 \ All three emit the same prologue: spill old TOS, load a new TOS via movabs.
 \ The differences are what 64-bit value goes into the movabs imm64 slot,
@@ -319,10 +341,10 @@ time.  See the seed test below for the equivalent.
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo 'create buf  [lit] 65 c, [lit] 66 c, [lit] 67 c,'
   echo 'buf c@ emit  buf [lit] 1 + c@ emit  buf [lit] 2 + c@ emit'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected: `ABC`.  `create buf` defines a word; the three `c,` calls
@@ -332,13 +354,13 @@ back and emit.
 For `bytes-eq`:
 
 ```sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo 'create a  [lit] 72 c, [lit] 73 c, [lit] 0 c,'
   echo 'create b  [lit] 72 c, [lit] 73 c, [lit] 0 c,'
   echo 'create c  [lit] 72 c, [lit] 88 c, [lit] 0 c,'
   echo 'a b [lit] 3 bytes-eq  0= [lit] 49 + emit'    # a vs b: equal  -> "1"
   echo 'a c [lit] 3 bytes-eq  0= [lit] 49 + emit'    # a vs c: differ -> "0"
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `10`.  `a` and `b` are identical 3-byte buffers
@@ -352,7 +374,7 @@ with nested `if,`s over Ch 6's predicates, and `scan` walks the
 buffer with a `begin,` loop:
 
 ```sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo 'create src  [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit] 32 c, [lit] 120 c,'
   echo '            [lit] 61 c, [lit] 52 c, [lit] 50 c, [lit] 59 c,'
   echo ': kind  dup alpha? if, drop [lit] 97 else,'
@@ -361,7 +383,7 @@ buffer with a `begin,` loop:
   echo ': scan  begin, dup [lit] 0 > while,'
   echo '        over c@ kind  [lit] 1 - swap [lit] 1 + swap  repeat, 2drop ;'
   echo 'src [lit] 9 scan'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `aaa_a=dd;`.  Letters became `a`, digits `d`, the
@@ -415,8 +437,8 @@ was ordinary Forth.
 
 And every line of it stands on 32 primitives you have taken on
 faith.  `nand`, which gave you all of Boolean logic, is 12 bytes of
-machine code at offset `0x1AA`.  `dup` is 9.  `/`, which gave you
-`<` and every byte split, is 18.  What are those bytes?  How does 2,040 bytes of hex persuade a Linux kernel to run
+machine code at offset `0x1CE`.  `dup` is 9.  `/`, which gave you
+`<` and every byte split, is 18.  What are those bytes?  How does 1,772 bytes of hex persuade a Linux kernel to run
 a REPL at all?  Those bytes are the one layer of the chain a skeptic
 cannot read as Forth, and Part I has not shown you one of them.
 

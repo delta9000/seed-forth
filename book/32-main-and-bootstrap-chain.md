@@ -144,8 +144,7 @@ the C source that `cc-load-stdin` reads.
 tri.c's binary.  Here are all nine steps on the whole program:
 
 ```sh
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; cat <<'C'
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; cat <<'C'
 #define ROWS 4
 struct tri { int rows; int stars; };
 struct tri t;
@@ -184,8 +183,10 @@ exit: 16
 1241
 ```
 
-The Forth is stripped of comments; the C is not, because the
-stripper would also delete `(int pad, int n)`.  Measured between
+Nothing is stripped on the way in.  The seed's reader skips the
+Forth comments itself (Ch 17), and once `cc-main` runs, the rest of
+stdin is read raw, so `(int pad, int n)` reaches the compiler
+intact.  Measured between
 the steps, `cc-load-stdin` read 484 bytes and `cc-preprocess` cut
 them to 470 (the `#define` line is gone, its newline kept) with
 `ROWS` as the eighth macro.  The header is 120 bytes, and
@@ -211,7 +212,7 @@ M2-Planet's source in place of tri.c's 22 lines.
 # (paraphrased from tests/cc/stage-a-check.sh)
 set -euo pipefail
 
-# 1. Build seed-forth (2,040 hand-coded bytes -> ELF).
+# 1. Build seed-forth (1,772 hand-coded bytes -> ELF).
 ./build.sh
 
 # 2. Build the GCC-compiled M2-Planet reference.
@@ -240,7 +241,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
     /tmp/seed-bootstrap/self-ref-amd64.M1
 ```
 
-The claim rests on step 5.  The 2,040-byte seed, extended by
+The claim rests on step 5.  The 1,772-byte seed, extended by
 `010-lib.fth` and running the 7,198 lines of compiler Forth in
 `020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
@@ -253,7 +254,7 @@ different machine code for the same C.  What matches is their
 output.
 
 That equality is what makes this segment auditable.  Every byte
-of the seed-forth arm above the 2,040-byte seed is either quoted as
+of the seed-forth arm above the 1,772-byte seed is either quoted as
 literate source in this book or emitted by source this book walks.
 The byte-identity check rules out silent deviation between the
 seed-forth path and the GCC reference at the `.M1` handoff.
@@ -278,7 +279,7 @@ Source Bootstrap chain looks roughly like:
 ```
 
 This book covers the *seed-forth* arm of that diagram: an
-alternate path from `hex0-seed` to M2-Planet via a 2,040-byte
+alternate path from `hex0-seed` to M2-Planet via a 1,772-byte
 Forth implementation rather than via the hex-stack chain.  The two
 arms do not agree by default.  The default `cc-out-v1` matches the
 GCC-built reference, not a stage0-built M2-Planet: stage0's
@@ -291,9 +292,9 @@ a drop-in alternative for that segment of the bootstrap.
 The Prologue drew this diagram in more detail.  By now you've
 seen every component along the seed-forth path:
 
-- Ch 13–20: the 2,040-byte seed itself (`000-seed.hex0`).
+- Ch 13–20: the 1,772-byte seed itself (`000-seed.hex0`).
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
-  ~375 lines of Forth that turn the seed's 32 primitives into
+  ~384 lines of Forth that turn the seed's 32 primitives into
   a usable language.
 - Ch 21–32: the C-subset compiler, 7,198 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
@@ -332,7 +333,7 @@ out, deterministically.  This is what makes the chain
 *auditable*: anyone with the same source can re-derive every
 byte.
 
-**Bootstrap closure.**  The 2,040 hand-coded bytes of
+**Bootstrap closure.**  The 1,772 hand-coded bytes of
 `000-seed.hex0` are the only bytes in the seed-forth arm that do not
 come from a higher-level source language.  This book explains that
 arm up to the M2-Planet-compatible compiler it produces; the
@@ -355,7 +356,7 @@ program through the full Forth compiler pipeline.
 **Layer check:** build the seed and run the cross-layer unit suite.
 
 ```sh
-./build.sh                       # 2,040-byte seed → ./seed-forth
+./build.sh                       # 1,772-byte seed → ./seed-forth
 ./test.sh                        # unit tests across all layers
 ```
 
@@ -372,21 +373,19 @@ If `stage-a-check.sh` reports
 `self-v1-amd64.M1 == self-ref-amd64.M1`, you have reproduced
 the project's central claim.
 
-To run the small check, concatenate the twelve `.fth` files
-(stripped of Forth comments) onto stdin first, then append the C
-source.  The last `.fth` file (`120-cc-main.fth`) ends by calling
+To run the small check, concatenate the twelve `.fth` files onto
+stdin first, exactly as they are, then append the C source.  The last `.fth` file (`120-cc-main.fth`) ends by calling
 `cc-main`, which slurps whatever's left on stdin as the C input,
 compiles, writes `/tmp/cc-out`, and exits.
 
 `tests/cc/build-m2planet-monolith.sh` already does exactly this
-pipeline at full scale; it defines a `strip_forth` helper that is
-the canonical version of the comment stripper.  For the toy
-`return 42` case, the same shape distilled to one terminal:
+pipeline at full scale, with nothing between `cat` and the seed.
+For the toy `return 42` case, the same shape distilled to one
+terminal:
 
 ```sh
 ./build.sh
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; echo 'int main(void) { return 42; }'; } \
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; echo 'int main(void) { return 42; }'; } \
     | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out
 echo $?      # 42
@@ -451,9 +450,9 @@ seed-forth arm back to its source.
 
 - `cc-main` is nine words and a `bye`, and loading `120-cc-main.fth` runs it on whatever C source follows on stdin.
 - Stage A shows that the M2-Planet built by this compiler emits the same `.M1` as GCC-built M2-Planet, which covers every code path M2-Planet's self-compile exercises and leaves the rest to the test gates.
-- This book is the manual for one arm of the bootstrap chain, from 2,040 hand-coded bytes to an M2-Planet-compatible compiler.
+- This book is the manual for one arm of the bootstrap chain, from 1,772 hand-coded bytes to an M2-Planet-compatible compiler.
 
-That is the end of the main book.  You started from 2,040
+That is the end of the main book.  You started from 1,772
 hand-encoded bytes and read, in source, every step to a C compiler
 whose Stage-A `.M1` output matches M2-Planet built with GCC.  The
 Prologue named two things that had to work together: a mechanical

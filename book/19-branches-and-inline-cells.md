@@ -18,8 +18,8 @@ Ch 18 already showed half the answer.  `lit_code` pops its return
 address, which points at the inline cell, and pushes back
 `cell + 8`.  The branches pop the same address and can push back the
 cell's *contents* instead: the target.  `ret` then goes wherever the
-cell says.  `branch_code` (`@ 0x42B`, lines 368–372) always does
-that; `zbranch_code` (`@ 0x431`, lines 374–385) does it only when
+cell says.  `branch_code` (`@ 0x611`, lines 607–611) always does
+that; `zbranch_code` (`@ 0x628`, lines 618–631) does it only when
 the flag on top of the data stack is zero, and otherwise steps past
 the cell.  Between them, 34 bytes carry every conditional and loop
 in the Forth code; only the seed's own REPL, written in raw hex,
@@ -35,10 +35,9 @@ addr+5:  TT TT TT TT TT TT TT TT ; inline target cell  (8 bytes)
 addr+13: ...                     ; next instruction (the "then" arm)
 ```
 
-The `CALL` targets `0branch`'s xt, the `JMP` stub in its header
-(Ch 17), which passes control on to `zbranch_code`.  The `CALL`
-pushes the address `addr+5` (the byte after the CALL) as the return
-address.  `zbranch_code` is now executing with
+The `CALL` targets `0branch`'s xt, which is the first byte of
+`zbranch_code` itself (Ch 17).  The `CALL` pushes the address
+`addr+5` (the byte after the CALL) as the return address.  `zbranch_code` is now executing with
 the address of the inline target cell sitting at `[rsp]`.
 
 For an unconditional `branch,` (used in `else,` and `repeat,`) the
@@ -48,12 +47,17 @@ shape is the same except the `CALL` lands on `branch_code` instead.
 
 The unconditional branch is the simpler of the two:
 
-```hex0 chunk=branch-code
-;; ----- branch_code @ 0x42B ( -- ) unconditional, target = inline cell -----
-58                                        ; pop rax
-48 8B 00                                  ; mov rax, [rax]
-50
-C3
+```hex0 chunk=branch
+;; --- branch @ 0x601 --- header
+B2 05 40 00 00 00 00 00                   ; link  = 0x4005B2 ([lit])
+00                                        ; flags = 0
+06                                        ; nlen  = 6
+62 72 61 6E 63 68                         ; name  = "branch"
+;; ----- branch_code @ 0x611  ( -- ) jump to the address in the inline cell -----
+58                                        ; pop rax            ; rax = the cell's address
+48 8B 00                                  ; mov rax, [rax]     ; rax = the target
+50                                        ; push rax
+C3                                        ; ret                ; 'return' to the target
 
 ```
 
@@ -77,19 +81,26 @@ CALL and an 8-byte slot, with no follow-up bookkeeping.
 
 The conditional branch adds a data-stack pop and a test:
 
-```hex0 chunk=zbranch-code
-;; ----- zbranch_code @ 0x431 ( flag -- ) branch if flag==0 -----
-48 89 FA                                  ; mov rdx, rdi    ; save flag
+```hex0 chunk=zbranch
+;; --- 0branch @ 0x617 --- header
+01 06 40 00 00 00 00 00                   ; link  = 0x400601 (branch)
+00                                        ; flags = 0
+07                                        ; nlen  = 7
+30 62 72 61 6E 63 68                      ; name  = "0branch"
+;; ----- zbranch_code @ 0x628  ( flag -- ) jump to the inline cell's target if flag = 0 -----
+48 89 FA                                  ; mov rdx, rdi       ; rdx = flag
 48 8B 7D 00                               ; mov rdi, [rbp]
 48 83 C5 08                               ; add rbp, 8
-58                                        ; pop rax          ; ret addr (-> inline cell)
+58                                        ; pop rax            ; rax = the cell's address
 48 85 D2                                  ; test rdx, rdx
-75 05                                     ; jnz .skip
-48 8B 00                                  ; mov rax, [rax]
-EB 04                                     ; jmp .push
-48 83 C0 08                               ; add rax, 8       ; .skip
-50                                        ; push rax         ; .push
-C3
+75 05                                     ; jnz .skip  (rel8 = 0x63E - 0x639)
+48 8B 00                                  ; mov rax, [rax]     ; flag = 0: rax = the target
+EB 04                                     ; jmp .push  (rel8 = 0x642 - 0x63E)
+;; .skip:
+48 83 C0 08                               ; add rax, 8         ; flag != 0: step past the cell
+;; .push:
+50                                        ; push rax
+C3                                        ; ret
 
 ```
 
@@ -204,7 +215,7 @@ immediate
 So an `if,` invocation emits:
 
 ```
-addr+0:  E8 xx xx xx xx     ; CALL 0branch's xt (stub → zbranch_code)
+addr+0:  E8 xx xx xx xx     ; CALL 0branch's xt (= zbranch_code)
 addr+5:  00 00 00 00 00 00 00 00 ; placeholder target
 ```
 
@@ -244,7 +255,7 @@ first arm with an unconditional `branch` over the second, whose slot
 
 # Define a word using if,/then, (which are immediate words from
 # 010-lib.fth, so load it first):
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   cat <<'EOF'
 : pos?  [lit] 0 > if,
     [lit] 89 emit
@@ -255,14 +266,14 @@ first arm with an unconditional `branch` over the second, whose slot
 [lit] 0  pos?
 bye
 EOF
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 # prints "YN": 5 is positive ('Y'), 0 is not ('N').
 ```
 
 For the begin/while/repeat combinators, try a countdown:
 
 ```sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   cat <<'EOF'
 : countdown  begin, dup [lit] 0 > while,
     dup [lit] 48 + emit
@@ -270,7 +281,7 @@ For the begin/while/repeat combinators, try a countdown:
   repeat, drop ;
 [lit] 5 countdown bye
 EOF
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 # prints "54321"
 ```
 
@@ -319,12 +330,13 @@ and the `ret` that ended the loop was a jump forward past `repeat,`.
   patch the slot later, and these two primitives are what make that
   emit-remember-patch contract run.
 
-**Running count: 1,768 of 2,040 bytes read (87%).**  This chapter
-added 34.
+**Running count: 1,604 of 1,772 bytes read (91%).**  This chapter
+added 67: 34 bytes of code and 33 of headers.
 
-Every primitive has now been read, and 272 bytes remain: a decimal
+Every primitive has now been read, and 168 bytes remain: a decimal
 parser, and the one routine that calls `read_word`, `find_code`,
-`execute_code` and `emit_code` and has never itself been read.
+`compile_call`, `execute_code` and `report_token` and has never
+itself been read.
 Ch 20 opens the REPL, and with it the last byte of the seed.
 
 Next: Chapter 20 — The Number Parser and REPL.

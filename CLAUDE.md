@@ -4,14 +4,14 @@ Project briefing for Claude Code sessions on `seed-forth`.
 
 ## What this repo is
 
-A 2,040-byte hex0-encoded x86-64 Forth, plus a C-subset compiler
+A 1,772-byte hex0-encoded x86-64 Forth, plus a C-subset compiler
 written in Forth on top of it, plus a 32-chapter literate book
 that teaches both.  Stage-A check proves byte-identity of our
 compiler's M1 output against GCC-built M2-Planet.
 
 ## Where things live
 
-- `000-seed.hex0` — hand-coded Forth ELF seed (752 lines of hex).
+- `000-seed.hex0` — hand-coded Forth ELF seed (689 lines of annotated hex).
 - `010-lib.fth` — Forth library on top of the seed's 32 primitives.
 - `020-…-fth` through `120-cc-main.fth` — the C compiler, loaded
   in numeric order.
@@ -45,8 +45,12 @@ unless the dependency graph forbids it.
 
 - Don't bulk-rename across `Ch N` references without checking
   `book/CONCEPTS.md` — chapter numbers are load-bearing.
-- Don't edit `000-seed.hex0` casually.  Layout addresses are
-  baked into `010-lib.fth` literals.
+- Don't edit `000-seed.hex0` casually.  Every link, rel32, rel8,
+  `LATEST`'s initial value and `[lit]`'s `lit_code` address are
+  hand-computed from the layout, and the book's Part II quotes the
+  offsets.  `010-lib.fth` types in no seed address; it relies only on
+  the sysvar order STATE, LATEST, HERE (`here-addr`,
+  `skip-vm-pages`).
 - Don't bypass `tools/tangle.sh verify --strict` — it's the
   literate-program correctness check.
 - Don't commit unless asked.  Leave staged-but-uncommitted for
@@ -65,7 +69,7 @@ count in prose — in `book/`.  The individual commands are still
 useful for diagnosing a failure:
 
 ```sh
-./build.sh                     # produces 2040-byte seed-forth
+./build.sh                     # produces 1772-byte seed-forth
 ./test.sh                      # smoke tests for layers 010-070
 tools/tangle.sh verify --strict
 tools/check-numbers.py         # prose's exact numbers vs source (--dump shows the table)

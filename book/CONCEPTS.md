@@ -73,7 +73,7 @@ and given in source order within each area.
 - *Little-endian writers `c, ,4 ,8`* — Chs 2, 9
 - *IMMEDIATE flag, STATE, `constant`* — Ch 10
 - *Control-flow combinators `if, then, begin, while, repeat,`* — Ch 11
-- *`allot create variable bytes-eq`* — Ch 12
+- *`allot skip-vm-pages create variable bytes-eq`* — Ch 12
 
 ### Seed VM
 
@@ -81,10 +81,10 @@ and given in source order within each area.
 - *Stack/return-stack/memory primitives in machine code* — Ch 14
 - *`+ nand 0= / *` in machine code* — Ch 15
 - *`emit key syscall6` in machine code* — Ch 16
-- *Dictionary header layout, `find ' execute`* — Ch 17
-- *`: ; [lit] lit_code`, subroutine threading* — Ch 18
+- *Dictionary header layout, `find ' execute`, `read_word` (comment skipping, `token?`)* — Ch 17
+- *`: ; [lit] lit_code compile_call`, subroutine threading* — Ch 18
 - *`branch 0branch`, consumed-slot property, inline cells* — Ch 19
-- *`read_word`, decimal parse, REPL loop* — Ch 20
+- *Decimal parse, REPL loop* — Ch 20
 
 ### Compiler infrastructure
 
@@ -166,11 +166,12 @@ their introducing chapter.
 - **`@`, `!`, `c@`, `c!`** — Ch 2 (use); Ch 14 (machine code)
 - **`/`, `*`, `0=`** — Ch 6–7 (use); Ch 15 (machine code)
 - **`here-addr`, `c,`** — Ch 2 (definitions); Ch 9, 11, 12 (use)
+- **`skip-vm-pages`** — Ch 12 (definition); Ch 21 (use)
 - **`emit`, `key`** — Ch 1 (sketched); Ch 16 (machine code)
 - **`syscall6`** — Ch 5 (wrapper use); Ch 16 (machine code)
 - **`find`, `'`, `execute`, `read_word`** — Ch 17
-- **`:`, `;`, `[lit]`, `lit`** — Ch 10 (`:` used in `constant`);
-  Chs 18, 20 (machine code)
+- **`:`, `;`, `[lit]`, `lit`, `compile_call`** — Ch 10 (`:` used in
+  `constant`); Chs 18, 20 (machine code)
 - **`branch`, `0branch`** — Ch 19; *Ch 11 uses their xts*
 - **`state`, `latest`** — Ch 10; *Chs 12, 18, 20*
 
@@ -204,7 +205,9 @@ their introducing chapter.
 - **In-line cell after CALL site** (`lit_code`) — Ch 18; *Ch 19*
 - **Consumed-slot property** (branches return *to* destination, not
   past slot) — Ch 19
-- **`NUMBER_HOOK`** — Ch 20
+- **Comment skipping and loud token errors** (`read_word`,
+  `report_token`: `token?`, exit status 2 on a bad `[lit]` or an
+  over-long token) — Ch 17; *Ch 18, Ch 20*
 
 ### C compiler ideas (Part III)
 

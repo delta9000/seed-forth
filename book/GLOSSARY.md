@@ -71,9 +71,10 @@ TOS.  E.g. `swap ( a b -- b a )`.  Ch 1.
 **STATE** — sysvar at `0x413000`; 0 in interpret mode, 1 in compile
 mode.  Set to 1 by `:` and reset to 0 by `;`.  Ch 10.
 
-**Sysvar** — one of six cells on the page at `0x413000`: `STATE`,
-`LATEST`, `HERE`, `LAST_FOUND`, `NUMBER_HOOK`, `INPUT_FD`.  Ch 13
-initialises them; Ch 17 and Ch 20 use them.
+**Sysvar** — one of four consecutive cells on the page at
+`0x413000`: `STATE`, `LATEST`, `HERE`, `LAST_FOUND`.  Ch 13
+initialises them; Ch 17 and Ch 20 use them.  `010-lib.fth` finds
+`HERE`'s cell as `latest [lit] 8 +`.
 
 **TOS / 2OS** — top of stack / second-on-stack.  In the seed, TOS
 is cached in `rdi`; 2OS is at `[rbp]`.
@@ -88,15 +89,18 @@ Synonymous with 2OS.
 name; called by its xt.  May be a primitive or a colon definition
 or a `create`d data word.
 
-**xt (execution token)** — the address of a word's body.  This is
-what `'` returns and what `execute` calls.  Equivalent to a
-function pointer.
+**xt (execution token)** — the address of a word's code: the first
+byte after its name in the dictionary header, for the seed's
+primitives and for colon definitions alike.  This is what `'`
+returns, what `execute` calls and what a compiled `CALL` targets.
+Equivalent to a function pointer.
 
 ## Seed-forth specifics
 
-**The 32 primitives** — listed in Appendix A.  Their bodies live at
-fixed offsets in `000-seed.hex0` and are reached via dictionary
-headers in the `--- name @ 0xNNN ---` block.
+**The 32 primitives** — listed in Appendix A.  Each is one unit in
+`000-seed.hex0`: a dictionary header (`;; --- name @ 0xNNN`)
+directly followed by its code (`;; ----- name_code @ 0xNNN`), at a
+fixed offset.
 
 **The 19-byte runtime body** — the prologue shared by `constant`,
 `variable`, and `create`: `sub rbp, 8 ; mov [rbp+0], rdi ; movabs
@@ -105,7 +109,9 @@ rdi, V ; ret`.  Loads a constant `V` as the new TOS.  Ch 10, Ch 12.
 **`[lit]`** — the seed's only number-pushing word, immediate by
 nature.  Reads the next whitespace-delimited token, parses it as
 decimal, and either pushes the value (interpret mode) or appends
-`CALL lit_code` + 8 inline bytes (compile mode).  Ch 20.
+`CALL lit_code` + 8 inline bytes (compile mode).  A token that is
+not unsigned decimal is fatal: the seed prints it with `?` and exits
+with status 2.  Ch 18, Ch 20.
 
 **`comma-call`** — emits a 5-byte `CALL rel32` to a given xt at
 HERE.  Defined in `010-lib.fth` (Ch 11) using `,4` for the rel32.
@@ -129,10 +135,6 @@ HERE there.  Same idea generalises to `else,`, `begin,`, `while,`,
 emit incomplete bytes, remember where the missing value belongs,
 and patch that location when the value becomes known.  First named
 in Ch 11; scaled up in Chs 21, 25, 26, 30, and 31.
-
-**`NUMBER_HOOK`** — sysvar pointing at an optional xt that the REPL
-calls on a `find` miss before printing `?`.  Lets higher layers add
-auto-number-parsing.  Ch 20.
 
 **The I/O scratch byte at `0x412000`** — one byte shared by `emit`
 (write) and `key` (read).  Used because `read(2)` and `write(2)`

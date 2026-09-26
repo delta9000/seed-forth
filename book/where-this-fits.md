@@ -82,7 +82,7 @@ turns out to be the whole story.
 The canonical bootstrap reaches M2-Planet through stage0-posix's
 `M0`, `M1`, `hex2`, and the rest of the `cc_amd64` toolchain (call
 it the **stage0 route**).  This book reaches M2-Planet through a
-2,040-byte Forth seed and a C-subset compiler written in Forth
+1,772-byte Forth seed and a C-subset compiler written in Forth
 (call it the **Forth route**).
 
 Both routes start at the same place (`hex0-seed`, 229 bytes) and
@@ -220,7 +220,7 @@ matters because:
   errors, off-by-one address arithmetic, and macro-expansion
   surprises.
 - An auditor of this book's route is reading hex bytes (for the
-  seed only, 2,040 of them) and Forth.  Mistakes hide as
+  seed only, 1,772 of them) and Forth.  Mistakes hide as
   stack-effect mistakes, wrong primitive choices, and codegen
   template errors.
 
@@ -229,11 +229,11 @@ that the canonical path would have made invisible, not just
 specific bugs: where the two agree, neither route's
 language-specific failure modes are in play.
 
-The 2,040-byte seed is the part that *is* genuinely smaller than
+The 1,772-byte seed is the part that *is* genuinely smaller than
 stage0's equivalent intermediate stages.  On the AMD64 path, hex0
 plus hex1 plus hex2 plus M0 add up to ~7 KB of executable before
 you have a programmable layer.  We get to a programmable layer
-(a working Forth) in 2 KB because Forth's primitives are short
+(a working Forth) in under 2 KB because Forth's primitives are short
 and the dictionary structure is dense.  But the *total* source
 budget above hex0-seed is comparable, because Forth is a means,
 not a savings.
@@ -295,4 +295,4 @@ the M1 outputs would diverge and the script would fail.
   grouped pointers to Bootstrappable, stage0, M2-Planet, Mes, and
   the academic background.
 
-Next: [Prologue — Two Thousand and Forty Bytes](00-prologue.md).
+Next: [Prologue — Seventeen Hundred and Seventy-Two Bytes](00-prologue.md).

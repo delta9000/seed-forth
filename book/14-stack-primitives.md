@@ -22,12 +22,9 @@ textbook stack machine keeps every value in memory; caching the top
 in a register saves a load and a store in most primitives, at the
 cost of *spilling* `rdi` to memory whenever a new value is pushed.
 
-This chapter reads ten bodies: `dup_code` at `0x13B` through
-`cstore_code` at `0x18E` (lines 97–152 of `000-seed.hex0`), plus
-`r_at_code` at `0x732` (lines 666–675), which sits among the entries
-at the end of the file.  `bye`, `emit` and `key` come just before
-`dup` in the file, so their chunks appear at the end of this
-chapter, but Ch 16 explains them.
+This chapter reads ten primitives, `dup` at `0x0BA` through `c!`
+at `0x18D`: lines 76–189 of `000-seed.hex0`, the stretch of the file
+that follows the boot code.
 
 ## 1. The push and pop shapes
 
@@ -53,13 +50,29 @@ That is the whole data-stack convention.  `48` is the REX.W prefix
 operation and the addressing mode.  After a few primitives the
 patterns become familiar.
 
+One more shape appears before every body.  In `000-seed.hex0` each
+primitive's code is preceded by its **dictionary header**: an 8-byte
+link to the previous header, a flags byte, a name-length byte and
+the name itself, `10 + N` bytes in all.  The code starts at the
+first byte after the name, and that address is the word's
+*execution token*, the address a compiled call to the word targets.
+Ch 17 explains the header and the lookup that walks it; until then,
+read the four lines under each `;; --- name @ ... --- header` label
+as the word's name tag, and the `;; ----- name_code @ ...` label
+below them as the start of its code.
+
 ## 2. `dup` in 9 bytes
 
-```hex0 chunk=dup-code
-;; ----- dup_code @ 0x13B -----
-48 83 ED 08
-48 89 7D 00
-C3
+```hex0 chunk=dup
+;; --- dup @ 0x0BA --- header
+00 00 00 00 00 00 00 00                   ; link  = 0 (end of chain)
+00                                        ; flags = 0
+03                                        ; nlen  = 3
+64 75 70                                  ; name  = "dup"
+;; ----- dup_code @ 0x0C7  ( a -- a a ) -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+C3                                        ; ret
 
 ```
 
@@ -78,11 +91,16 @@ the same value, one in the register cache and one in memory.
 
 ## 3. `drop` in 9 bytes
 
-```hex0 chunk=drop-code
-;; ----- drop_code @ 0x144 -----
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=drop
+;; --- drop @ 0x0D0 --- header
+BA 00 40 00 00 00 00 00                   ; link  = 0x4000BA (dup)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+64 72 6F 70                               ; name  = "drop"
+;; ----- drop_code @ 0x0DE  ( a -- ) -----
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -99,12 +117,17 @@ the under-TOS.
 
 ## 4. `swap` in 12 bytes
 
-```hex0 chunk=swap-code
-;; ----- swap_code @ 0x14D -----
-48 8B 45 00
-48 89 7D 00
-48 89 C7
-C3
+```hex0 chunk=swap
+;; --- swap @ 0x0E7 --- header
+D0 00 40 00 00 00 00 00                   ; link  = 0x4000D0 (drop)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+73 77 61 70                               ; name  = "swap"
+;; ----- swap_code @ 0x0F5  ( a b -- b a ) -----
+48 8B 45 00                               ; mov rax, [rbp]
+48 89 7D 00                               ; mov [rbp], rdi
+48 89 C7                                  ; mov rdi, rax
+C3                                        ; ret
 
 ```
 
@@ -135,14 +158,19 @@ it back.
 
 ### `>r` ( n -- ; R: -- n )
 
-```hex0 chunk=to-r-code
-;; ----- to_r_code @ 0x159 -----
-58
-57
-50
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=to-r
+;; --- >r @ 0x101 --- header
+E7 00 40 00 00 00 00 00                   ; link  = 0x4000E7 (swap)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+3E 72                                     ; name  = ">r"
+;; ----- to_r_code @ 0x10D  ( n -- ; R: -- n ) -----
+58                                        ; pop rax            ; our own return address
+57                                        ; push rdi           ; n onto the return stack
+50                                        ; push rax           ; return address back on top
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -167,14 +195,19 @@ which peeks) has to take the value back before the caller returns.
 
 ### `r>` ( -- n ; R: n -- )
 
-```hex0 chunk=r-from-code
-;; ----- r_from_code @ 0x165 -----
-48 83 ED 08
-48 89 7D 00
-58
-5F
-50
-C3
+```hex0 chunk=r-from
+;; --- r> @ 0x119 --- header
+01 01 40 00 00 00 00 00                   ; link  = 0x400101 (>r)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+72 3E                                     ; name  = "r>"
+;; ----- r_from_code @ 0x125  ( -- n ; R: n -- ) -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+58                                        ; pop rax            ; our own return address
+5F                                        ; pop rdi            ; n from the return stack is the new TOS
+50                                        ; push rax           ; return address back on top
+C3                                        ; ret
 
 ```
 
@@ -194,19 +227,22 @@ Net effect: the cell that `>r` parked on the return stack lands in
 
 ### `r@` ( -- n ; R: n -- n )
 
-`r@` peeks at the top of the return stack.  Its body lives near the
-end of the file at `0x732`, and it avoids the pop/push dance
-entirely by looking past the return address.
+`r@` peeks at the top of the return stack.  It avoids the pop/push
+dance entirely by looking past the return address.
 
-```hex0 chunk=r-at-code
-;; ----- r_at_code @ 0x732 ( -- v ) peek caller's top-of-rstack -----
-;; r@ is CALL'd, so [rsp+0] = our own ret addr; caller's saved value is at [rsp+8].
-;; Existing precedent: to_r_code and r_from_code
-;; both pop their own ret addr to manipulate rstack across the CALL boundary.
+```hex0 chunk=r-at
+;; --- r@ @ 0x131 --- header
+19 01 40 00 00 00 00 00                   ; link  = 0x400119 (r>)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+72 40                                     ; name  = "r@"
+;; ----- r_at_code @ 0x13D  ( -- n ; R: n -- n ) -----
+;; r@ is CALLed, so [rsp] is our own return address and the caller's
+;; top of return stack is one cell further, at [rsp+8].
 48 8B 44 24 08                            ; mov rax, [rsp+8]   ; skip our ret addr; rax = caller's TOR
-48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
-48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS to rbp
-48 89 C7                                  ; mov rdi, rax       ; new TOS = TOR
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 89 C7                                  ; mov rdi, rax
 C3                                        ; ret
 
 ```
@@ -220,10 +256,15 @@ unstacking anything.
 
 ### `@` ( addr -- value )
 
-```hex0 chunk=fetch-code
-;; ----- fetch_code @ 0x171 -----
-48 8B 3F
-C3
+```hex0 chunk=fetch
+;; --- @ @ 0x14E --- header
+31 01 40 00 00 00 00 00                   ; link  = 0x400131 (r@)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+40                                        ; name  = "@"
+;; ----- fetch_code @ 0x159  ( addr -- v ) -----
+48 8B 3F                                  ; mov rdi, [rdi]
+C3                                        ; ret
 
 ```
 
@@ -241,14 +282,19 @@ size.
 
 ### `!` ( value addr -- )
 
-```hex0 chunk=store-code
-;; ----- store_code @ 0x175 -----
-48 8B 45 00
-48 89 07
-48 83 C5 08
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=store
+;; --- ! @ 0x15D --- header
+4E 01 40 00 00 00 00 00                   ; link  = 0x40014E (@)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+21                                        ; name  = "!"
+;; ----- store_code @ 0x168  ( v addr -- ) -----
+48 8B 45 00                               ; mov rax, [rbp]     ; rax = v
+48 89 07                                  ; mov [rdi], rax     ; *addr = v
+48 83 C5 08                               ; add rbp, 8
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -271,10 +317,15 @@ C3               ret
 
 ### `c@` ( addr -- byte )
 
-```hex0 chunk=cfetch-code
-;; ----- cfetch_code @ 0x189 -----
-48 0F B6 3F
-C3
+```hex0 chunk=cfetch
+;; --- c@ @ 0x17C --- header
+5D 01 40 00 00 00 00 00                   ; link  = 0x40015D (!)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+63 40                                     ; name  = "c@"
+;; ----- cfetch_code @ 0x188  ( addr -- b ) -----
+48 0F B6 3F                               ; movzx rdi, byte [rdi]
+C3                                        ; ret
 
 ```
 
@@ -284,14 +335,19 @@ high 56 bits of `rdi` get cleared; the low 8 bits hold the byte at
 
 ### `c!` ( byte addr -- )
 
-```hex0 chunk=cstore-code
-;; ----- cstore_code @ 0x18E -----
-48 8B 45 00
-88 07
-48 83 C5 08
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=cstore
+;; --- c! @ 0x18D --- header
+7C 01 40 00 00 00 00 00                   ; link  = 0x40017C (c@)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+63 21                                     ; name  = "c!"
+;; ----- cstore_code @ 0x199  ( b addr -- ) -----
+48 8B 45 00                               ; mov rax, [rbp]     ; rax = b
+88 07                                     ; mov [rdi], al      ; store the low byte only
+48 83 C5 08                               ; add rbp, 8
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -313,67 +369,21 @@ memory; the rest is lost.
 ## 8. The arithmetic of bytes saved
 
 Ten stack primitives, 119 bytes of code in total: `dup` 9, `drop` 9,
-`swap` 12, `>r` 12, `r>` 12, `@` 4, `!` 20, `c@` 5, `c!` 19, `r@` 17.
+`swap` 12, `>r` 12, `r>` 12, `r@` 17, `@` 4, `!` 20, `c@` 5, `c!` 19.
+Their ten headers add another 123 bytes, 10 plus the name length
+each, so a primitive's name tag often costs more than its code.
 Everything else Part I used, `over`, `nip`, `rot`, `2dup` and
 `2drop`, is Forth-level, compiled at load time from these.  The trade
 is to keep the most-used shufflers in hex and derive the rest, which
-then cost the seed nothing.  With a 2,040-byte
-budget, every byte spent on one primitive is a byte unavailable to
-another.
+then cost the seed nothing: no code, and no header.  With a
+1,772-byte seed, every byte spent on one primitive is a byte
+unavailable to another.
 
 ## Canonical source
 
-This chapter defines the bodies for the stack-primitive chunks
-referenced by the master root block in Ch 13.  The chunks for
-`bye_code`, `emit_code`, and `key_code` are written here too, so
-that the lines 65–96 region of the source has a body, but the
-prose explaining them is in Ch 16.  They appear here without
-commentary, under the same `;; -----` banners the source uses.
-
-```hex0 chunk=bye-code
-;; ----- bye_code @ 0x0D2 -----
-B8 3C 00 00 00
-BF 00 00 00 00
-0F 05
-
-```
-
-```hex0 chunk=emit-code
-;; ----- emit_code @ 0x0DE -----
-48 C7 C0 00 20 41 00
-40 88 38
-B8 01 00 00 00
-BF 01 00 00 00
-48 BE 00 20 41 00 00 00 00 00
-BA 01 00 00 00
-0F 05
-48 8B 7D 00
-48 83 C5 08
-C3
-
-```
-
-```hex0 chunk=key-code
-;; ----- key_code @ 0x10C -----
-48 83 ED 08
-48 89 7D 00
-B8 00 00 00 00
-BF 00 00 00 00
-48 C7 C6 00 20 41 00
-BA 01 00 00 00
-0F 05
-48 85 C0
-74 06
-48 0F B6 3E
-EB 03
-48 31 FF
-C3
-
-```
-
-(The nine stack-primitive chunks `<<dup-code>>` through
-`<<cstore-code>>`, plus `<<r-at-code>>`, are defined inline in the
-prose above.)
+This chapter's ten chunks, `<<dup>>` through `<<cstore>>`, are
+defined inline in the prose above, each a primitive's header and
+code, in the order the master root block in Ch 13 lists them.
 
 ## Try it
 
@@ -442,9 +452,8 @@ using the push and pop shapes from §1.
   stacks by working around the x86 `CALL` return address that sits
   on top of the return stack.
 
-**Running count: 329 of 2,040 bytes read (16%).**  Ch 13's 210 plus
-this chapter's 119.  (`bye`, `emit` and `key` are listed here but
-counted in Ch 16, where they are explained.)
+**Running count: 428 of 1,772 bytes read (24%).**  Ch 13's 186 plus
+this chapter's 242: 119 bytes of code and 123 of headers.
 
 Every body so far moves or copies cells; not one computes anything.
 Part I built all of Boolean logic on `nand` and every signed

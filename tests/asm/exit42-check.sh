@@ -53,9 +53,8 @@ fi
     || fail "reference hex2 failed"
 
 # --- Forth-asm pipeline: 130-asm.fth consumes (ELF prefix + .hex2) on stdin ---
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 
-{ cat 010-lib.fth 130-asm.fth | strip_forth ;
+{ cat 010-lib.fth 130-asm.fth ;
   printf 'asm-main\n' ;
   cat "$M2LIBC/ELF-amd64.hex2" ;
   cat "$BUILDROOT/exit42.hex2" ; } > "$BUILDROOT/forth-asm-input.txt"

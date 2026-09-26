@@ -2,8 +2,8 @@
 # check-all.sh — run every reproducibility check in one shot.
 #
 # Exit 0 iff:
-#   1.  ./build.sh produces a 2,040-byte seed-forth
-#   2.  ./test.sh passes 20/20 layer tests
+#   1.  ./build.sh produces a 1,772-byte seed-forth
+#   2.  ./test.sh passes all its seed and layer tests
 #   2a. the three light tests/asm checks (exit42, jump42, m1-jump42);
 #       the heavyweight m2planet/mescc-tools checks stay opt-in
 #       (skipped if gcc or make is missing — these tests build mescc-tools)

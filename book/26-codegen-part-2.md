@@ -942,8 +942,8 @@ tests/cc/stage-a-check.sh        # full bootstrap-gate
 
 To run the small check, compile the one-line program directly.
 Seed-forth has no `-e` flag or `include` word, so we feed the twelve
-numbered `.fth` files (stripped of Forth comments) followed by the C
-source on a single stdin.  The last file
+numbered `.fth` files, comments and all, followed by the C source on
+a single stdin.  The last file
 (`120-cc-main.fth`) ends by invoking `cc-main`, which reads the
 remaining stdin as the C input, compiles, writes `/tmp/cc-out`,
 and exits:
@@ -951,11 +951,11 @@ and exits:
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth
   cat <<'C'
 int main(void) { putchar(42); return 0; }
 C
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'
 ```
 
@@ -971,8 +971,7 @@ fixup, before and after the patch:
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth \
-    | sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'
+  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth
   cat <<'FORTH'
     : .h  dup [lit] 15 > if, dup [lit] 16 / .h then,
           [lit] 15 and dup [lit] 9 > if, [lit] 39 + then, [lit] 48 + emit ;

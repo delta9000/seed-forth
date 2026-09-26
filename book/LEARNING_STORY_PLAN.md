@@ -16,7 +16,7 @@ earlier ones, and the history matters because it explains the shape:
 
 ## Identity guardrails (unchanged, load-bearing)
 
-The distinctive payoff is the byte-level audit trail from a 2,040-byte
+The distinctive payoff is the byte-level audit trail from a 1,772-byte
 seed to an M2-Planet-compatible compiler whose emitted `.M1` text matches
 the GCC-built reference. Everything below serves that.
 

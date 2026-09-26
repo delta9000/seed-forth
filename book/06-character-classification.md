@@ -221,14 +221,14 @@ the seed source token for token.
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo '[lit] 53 digit?  0= [lit] 49 + emit'      # true  -> '1'
   echo '[lit] 65 digit?  0= [lit] 49 + emit'      # false -> '0'
   echo '[lit] 65 alpha?  0= [lit] 49 + emit'      # true  -> '1'
   echo '[lit] 33 alpha?  0= [lit] 49 + emit'      # false -> '0'
   echo '[lit] 32 space?  0= [lit] 49 + emit'      # true  -> '1'
   echo '[lit] 88 space?  0= [lit] 49 + emit'      # false -> '0'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 The seed has no `.` for printing decimals.  The trick `0= [lit] 49 +

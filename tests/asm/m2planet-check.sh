@@ -59,8 +59,7 @@ pass "reference: $ref_bytes bytes"
 
 # --- forth-asm: read amd64_defs + ELF prefix + libc + cc-code on stdin ---
 pass "running forth-asm (may take a while on this much input)..."
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth 130-asm.fth | strip_forth ;
+{ cat 010-lib.fth 130-asm.fth ;
   printf 'asm-main\n' ;
   cat "$M2LIBC/amd64_defs.M1" ;        # DEFINEs (emit nothing)
   cat "$M2LIBC/ELF-amd64.hex2" ;       # ELF prefix, ends at :ELF_text
