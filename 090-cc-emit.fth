@@ -430,7 +430,7 @@
   cc-emit-8le ;
 
 \ cc-emit-mov-rdi-int ( v -- )  Load an integer literal into rdi using the
-\ shortest correct encoding.  `mov rdi, imm32` (5 bytes) sign-extends its
+\ shortest correct encoding.  `mov rdi, imm32` (7 bytes) sign-extends its
 \ 32-bit field, so it only represents values in signed-32 range; a wider
 \ constant (e.g. 0x80000000 or 2^32) would be sign-extended or truncated.
 \ For those, fall back to the 10-byte `movabs rdi, imm64`.  C literals are

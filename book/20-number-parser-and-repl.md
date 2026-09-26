@@ -2,7 +2,7 @@
 
 ```text
 Missing capability: the seed has no way to enter numbers or run user input.
-New pattern: a 187-byte loop — read token → find → dispatch on IMMEDIATE+STATE → decimal parse → loop or bye.
+New pattern: a 187-byte loop — read token → find → miss prints ? or dispatch on IMMEDIATE+STATE (execute, or emit a CALL) → loop or bye.
 Artifact after this chapter: the seed is now a self-contained host that can load and run the C compiler.
 Proof link: this chapter is the bridge into Part III — the host the C compiler sits on top of.
 ```
@@ -15,8 +15,8 @@ empty input or any byte outside `'0'..'9'` (including a leading
 `-`) makes it fail.  The REPL is five logical sections (read token,
 EOF guard, find word, miss path, dispatch path), and the dispatch
 path is where compile-vs-interpret mode finally fuses, branching on
-the IMMEDIATE flag and on STATE to choose between `execute_code`
-and `comma_code`.
+the IMMEDIATE flag and on STATE to choose between calling
+`execute_code` and running its own inlined `CALL`-emitter.
 
 By the end of the chapter you'll be able to read both bodies end
 to end, explain why `[lit]` (Ch 18) is the only way to push a
@@ -106,6 +106,12 @@ Loop body — for each byte:
 The `lea rax, [rax + rax*4]; add rax, rax` pair multiplies by 10 in
 two instructions and no temporary register.  `lea rax, [rax +
 rax*4]` is `rax = rax*5`; then `add rax, rax` doubles it.
+
+So each step is `n = n*10 + digit` — Horner's rule, most
+significant digit first.  `"42"` becomes `0*10 + 4 = 4`, then
+`4*10 + 2 = 42`.  (The source comment's "sum of digits * 10" is
+wrong; trust the instructions.)  There is no overflow check: a
+value of 2^64 or more silently wraps modulo 2^64.
 
 Success path:
 - Push the parsed value `n` onto the data stack (it goes into
@@ -230,7 +236,7 @@ This is the same setup that `tick_code` uses (Ch 17 §7).  After it,
 ```
 call find_code
 test rdi, rdi
-jnz .have_xt      ; non-zero → match; rdi = body address (xt)
+jnz .have_xt      ; non-zero → match; rdi = xt
 ```
 
 If `find_code` returns 0 (miss), we fall through to the miss path.
@@ -379,6 +385,22 @@ branch lives inside `bracket_lit_code`, not in the REPL.  That's
 why `[lit]` *has* to be IMMEDIATE: it needs to run during
 compilation to do the parsing-and-emitting.
 
+**Unparseable tokens silently become 0.**  `bracket_lit_code` pops
+`parse_decimal_code`'s flag and throws it away without testing it.
+On failure the parser leaves `0` under the flag, so `[lit]` pushes
+(or compiles) `0` and carries on — no `?`, no error.  Anything that
+isn't plain decimal digits hits this: `[lit] -5`, `[lit] 0x41`,
+`[lit] 12a`.
+
+```sh
+echo "[lit] -5 [lit] 48 + emit bye" | ./seed-forth
+# prints "0": the -5 became 0, and 0 + 48 = '0'
+```
+
+The token is consumed either way, so the REPL doesn't see it
+again.  If a literal in your Forth source comes out as zero, check
+it for a sign, a `0x` prefix, or a stray character.
+
 ## 5. End-to-end trace
 
 Trace `[lit] 42 emit bye`:
@@ -416,7 +438,9 @@ printf 'bye\n'                          | ./seed-forth   # also fine
 echo ": five  [lit] 5 ;  five [lit] 48 + emit bye" | ./seed-forth
 # defines a word that pushes 5; calls it; prints '5'
 
-# IMMEDIATE flag preventing infinite recursion in `;`:
+# IMMEDIATE flag on `;` ending the definition (without it, `;`
+# would be compiled into foo's body, STATE would stay 1, and the
+# rest of the input would be compiled too — nothing would print):
 echo ": foo [lit] 88 emit ; foo bye"   | ./seed-forth   # prints "X"
 ```
 

@@ -33,16 +33,16 @@ explains the region in detail.
 | `0x4007F8` — `0x400FFF` |  2K | zero-filled gap below the dictionary heap (the segment's `memsz` exceeds the 2,040-byte on-disk image) | seed loader | Ch 13 |
 | `0x401000` — *(grows up)* | up to ~12K | dictionary heap, low part: headers + bodies that `010-lib.fth` and `020-cc-arena.fth` define before `030-cc-io.fth` jumps `HERE` to `0x414000` | seed code | Chs 2, 17, 21 |
 | tail of low heap | 32K | C compiler's **arena** (`create cc-arena-base  cc-arena-cap allot` — the 32 KiB slab sits at the *end* of the low dictionary heap, just before the HERE-jump) | `cc-alloc` | Ch 21 |
-| `0x410000` — `0x410FFF` | 4K  | data-stack underflow guard region (stack initialised at top); `HERE` is jumped *past* this before the C compiler's big buffers are created | seed code | Ch 13 |
+| `0x410000` — `0x410FFF` | 4K  | data stack: pushes start just below `0x411000` and grow *down* through this page.  Nothing guards it — the whole segment is RWX — so a deep stack would run on down into the low dictionary heap.  `HERE` is jumped *past* the stack before the C compiler's big buffers are created | seed code (`rbp` pushes) | Chs 13, 14 |
 | `0x411000`              | —   | initial data-stack base (grows *down* in `rbp`) | seed code | Chs 13, 14 |
 | `0x412000`              | 1   | I/O scratch byte (`emit`/`key` buffer) | seed code | Ch 16 |
 | `0x412800` — `0x4128FF` | 256 | token buffer (`read_word` assembles here) | seed code | Chs 13, 17 |
 | `0x413000`              | 8   | `STATE` sysvar    | seed init + `:` / `;` | Chs 10, 13 |
-| `0x413008`              | 8   | `LATEST` sysvar (head of dictionary)   | seed init + `,` | Chs 10, 13, 17 |
-| `0x413010`              | 8   | `HERE` sysvar (next-byte-to-write)     | seed init + `c,` | Chs 2, 13 |
+| `0x413008`              | 8   | `LATEST` sysvar (head of dictionary)   | seed init + `:` | Chs 10, 13, 17 |
+| `0x413010`              | 8   | `HERE` sysvar (next-byte-to-write)     | seed init + `,`, `:`, `;`, `[lit]`, compile-mode REPL | Chs 2, 13 |
 | `0x413018`              | 8   | `LAST_FOUND` sysvar (latest hit from `find`) | `find_code` | Chs 13, 17 |
-| `0x413020`              | 8   | `NUMBER_HOOK` sysvar (REPL miss path)  | seed init (zero); user-installable | Chs 13, 20 |
-| `0x413028`              | 8   | `INPUT_FD` sysvar (stdin by default)   | seed init | Ch 13 |
+| `0x413020`              | 8   | `NUMBER_HOOK` sysvar — reserved, **unused** (never read) | seed init (zero) | Chs 13, 20 |
+| `0x413028`              | 8   | `INPUT_FD` sysvar — **unused** (never read; `key` hard-codes fd 0) | seed init (zero) | Ch 13 |
 | `0x414000` — `0x513FFF` | 1 MiB | C compiler's **source buffer** (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
 | `0x514000` — `0x613FFF` | 1 MiB | C compiler's **output buffer** (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
 | `0x614000` — `0x813FFF` | 2 MiB | C compiler's **preprocessor output buffer** (`cc-prep-out-buf`) | `cc-preprocess` | Ch 22 |

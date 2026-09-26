@@ -7,7 +7,7 @@ Artifact after this chapter: open, read, write, close, die.
 Proof link: the Stage-A driver writes its output via write; the compiler reads stdin via read.
 ```
 
-Five short wrappers in `010-lib.fth` (lines 39–62), `open`, `read`,
+Five short wrappers in `010-lib.fth` (lines 40–62), `open`, `read`,
 `write`, `close`, and `die`, connect Forth to the Linux x86-64
 kernel through one primitive: `syscall6`.  The primitive loads
 `rax`, `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9` from the data stack
@@ -167,7 +167,7 @@ Two subtleties worth flagging:
 ```
 
 `close` takes only an `fd`, so we pad five zeros.  The wrapper looks
-disproportionately wide for the work it does — 14 tokens to call a
+disproportionately wide for the work it does — 13 tokens to call a
 syscall that takes one argument — but `syscall6` doesn't know which
 argument slots matter.  The kernel happily ignores `rsi..r9` when the
 syscall doesn't reference them, but the primitive still has to put

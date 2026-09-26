@@ -17,8 +17,10 @@ multi-character `pt-*` punctuation IDs are numbered from 256 so they
 don't collide with the single-byte ASCII codes that the lexer reuses
 verbatim for one-char punct.  The keyword table is a flat
 `[len][bytes][len][bytes]...[0]` byte array walked by
-`cc-check-keyword`.  Lookahead is handled by `cc-peek-char-2`, used
-for `0x`, `==`, `<=`, `<<=`, `//`, and `/*`; comment skipping
+`cc-check-keyword`.  Two-byte lookahead (`cc-peek-char-2`) is
+needed only for `0x`, `//`, and `/*`; operators like `==`, `<=`,
+and `<<=` consume their first byte and test the next with plain
+`cc-peek-char`.  Comment skipping
 threads a "still scanning?" flag on the data stack because the seed
 has no `exit`.
 
@@ -29,9 +31,9 @@ into one of `cc-lex-number`, `cc-lex-ident-or-kw`, `cc-lex-string`,
 `cc-lex-char`, or `cc-lex-punct`, and explain why a non-keyword
 identifier may end the call as a `tk-num` (the `cc-macro-find-int`
 hook from Ch 22 fires here).  How the parser consumes
-`cc-next-token` is Chs 27–31; the string pool is Ch 26 (the lexer
-just records `(addr, len)` into `cc-src-buf`, with escape decoding
-deferred to codegen).
+`cc-next-token` is Chs 27–31; escape decoding is Ch 26's
+`cc-emit-string-bytes` (the lexer just records `(addr, len)` into
+`cc-src-buf`, and codegen decodes the bytes as it copies them).
 
 ---
 
@@ -322,8 +324,8 @@ ID and the body of subsequent iterations is gated on the variable
 still being `-1`.  The loop walks the *whole* table, but the
 comparisons are skipped after the hit.
 
-The "advance" step at the bottom is what makes the parallel-array
-discipline pay off:
+The "advance" step at the bottom is where the inline lengths pay
+off:
 
 ```
 swap dup c@ [lit] 1 + over + nip swap [lit] 1 +
@@ -331,7 +333,8 @@ swap dup c@ [lit] 1 + over + nip swap [lit] 1 +
 
 That long incantation is `( ptr id -- ptr+len+1 id+1 )` — read the
 length byte at `ptr`, add 1 (for the length byte itself), add to
-`ptr`, increment `id`.  Two stack operations and a `c@`.
+`ptr`, increment `id`.  Nine operations around a single `c@`, and
+no second table to index.
 
 ## 3. Whitespace and comments
 
@@ -427,11 +430,13 @@ rather than in a variable.  This is the same trick we used in
 in a variable — saving a name, costing some `dup`/`drop` clutter.
 Both choices appear throughout the compiler.
 
-Notice the deliberate asymmetry: `cc-skip-line-comment` doesn't
-consume the newline, but `cc-skip-block-comment` *does* consume
-the `*/`.  The difference is that the newline matters to other
-code (line counting), whereas the `*/` doesn't matter to anyone
-after the comment.
+Notice the asymmetry: `cc-skip-line-comment` doesn't consume the
+newline, but `cc-skip-block-comment` *does* consume the `*/`.  The
+newline is ordinary whitespace, so leaving it for the outer loop
+costs nothing — and line counting doesn't care who eats it, since
+`cc-next-char` bumps `cc-src-line` on every newline it returns.
+The `*/` is different: nothing outside the comment would recognise
+it, so the comment skipper has to swallow it itself.
 
 ## 4. Number, identifier, string, char
 
@@ -620,7 +625,8 @@ M2-Planet.
 `cc-lex-string` reads a quoted string into a `(start, len)` slice
 of `cc-src-buf` — *including* backslash escapes as literal byte
 pairs.  Escape decoding is deferred to codegen (Ch 26), which
-walks the slice when it builds the string pool.  This keeps the
+walks the slice as it copies the literal's bytes inline into the
+code stream.  This keeps the
 lexer simple and lets the codegen choose whatever escape
 semantics the ELF actually needs.
 
@@ -881,13 +887,12 @@ digit → number; `"` (34) → string; `'` (39) → char; ident-start
 → ident-or-keyword; everything else → punctuation.  The
 dispatched function fills the `tok-*` variables and returns.
 
-The order matters.  Numbers are tried first because a digit could
-also be an ident-cont, but only inside ident bodies.
-Identifier-start is tried after the explicit quote characters
-because `'` and `"` would otherwise be `ident-cont?` false but
-need their own handlers.  When in doubt, follow the dispatch
-order: each predicate is tested only if the preceding ones
-failed.
+The order of the four tests doesn't matter: digit, `"`, `'`, and
+`ident-start?` are disjoint — `ident-start?` excludes digits, so a
+leading digit can only begin a number — and any order would
+classify the same way.  What does matter is that punctuation is
+the final `else`: any byte none of the four claims falls through
+to `cc-lex-punct`.
 
 ## Try it
 
@@ -954,8 +959,8 @@ lexer on the full M2-Planet input.
    line endings?  Construct a test case and observe.
 
 3. **★★ Trace.** `cc-lex-string` doesn't decode escapes — codegen does.  Find
-   where in `090-cc-emit.fth` (Chs 25–26) the string pool walks
-   the slice and turns `\n` into byte 10.  Trace one byte.
+   the word in `090-cc-emit.fth` (Ch 26) that walks the slice and
+   turns `\n` into byte 10.  Trace one byte.
 
 4. **★★ Extend.** The keyword table is walked linearly.  At 30 entries and a
    short average length, that's fine.  Could a hash table be

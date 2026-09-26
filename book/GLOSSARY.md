@@ -185,7 +185,8 @@ where `?` selects the register).  10 bytes total (REX + opcode +
 
 **`PT_LOAD`** — an ELF segment type meaning "map this into memory."
 The seed has one `PT_LOAD` covering all 16 MiB; the C compiler's
-output has two (code + data).  Ch 13, Ch 25.
+output also has exactly one, covering code and data alike
+(`080-cc-elf.fth`).  Ch 13, Ch 25.
 
 **`rax`, `rbp`, `rdi`, `rsi`, `rdx`, `r10`** — the registers most
 referenced in this book.  In seed-forth: `rdi` is TOS cache,
@@ -222,8 +223,9 @@ register allocator.  Expressions produce bytes directly.
 
 **Eval stack (evaluation stack)** — the runtime stack used by
 compiled expression code to hold intermediate results.  This
-compiler uses the x86 hardware stack (`push rax` / `pop rax`)
-rather than allocating registers.  Slow but simple.
+compiler uses the x86 hardware stack (`push rdi` to save the left
+operand, `pop rdi` / `pop rcx` to recover it) rather than
+allocating registers.  Slow but simple.
 
 **Frame** — a function's stack region: saved `rbp`, locals,
 spilled parameters.  Addressed as `[rbp - 8n]` for local n.
@@ -251,7 +253,7 @@ MesCC, and so on toward a self-hosting GCC.  Ch 32.
 
 **Parser** — the pass that consumes tokens and emits machine code
 directly (no AST in this compiler).  Two recursive-descent flavours:
-precedence climbing for expressions (Ch 27), keyword dispatch for
+a precedence cascade for expressions (Ch 27), keyword dispatch for
 statements and declarations (Chs 29–31).
 
 **One buffer per responsibility** — the Part III memory discipline:
@@ -265,12 +267,21 @@ label table.  Capacity is fixed, lookup walks linearly, and later
 entries shadow earlier ones when that is the language rule.  Ch 17
 introduces it; Chs 22, 24, 30, and 31 reuse it.
 
-**Precedence climbing** — an expression-parsing technique that uses
-a single recursive function parameterised by minimum precedence,
-in place of one function per precedence level.  Ch 27.
+**Precedence cascade** — the expression-parsing technique this
+compiler uses: plain recursive descent with one function per
+precedence level, each parsing its operands by calling the next
+tighter level and looping over its own operators.  Ch 27.
 
-**Preprocessor** — the pass that handles `#include`, `#define`, and
-conditional compilation before the lexer sees the source.  Ch 22.
+**Precedence climbing** — the alternative Ch 27 does *not* use: a
+single recursive function parameterised by minimum precedence,
+driven by a table, in place of one function per precedence level.
+Contrast **Precedence cascade**.
+
+**Preprocessor** — the pass that splices in `#include`d files,
+records `#define`s, and deletes every directive line before the
+lexer runs.  Other directives (`#ifdef`, `#if`, …) are silently
+dropped — there is no conditional compilation — and macro names
+are replaced by their values at lex time, not here.  Ch 22.
 
 **Prologue / epilogue** — the boilerplate at function entry / exit.
 Prologue: `push rbp ; mov rbp, rsp ; sub rsp, FRAMESIZE` plus
@@ -313,9 +324,9 @@ compiled binaries begin with: argc/argv setup, `call <main>`, exit
 syscall.  Emitted by `cc-emit-entry-stub` in `110-cc-decl.fth`.
 Ch 31 §8.
 
-**Full Source Bootstrap** — the Guix project's chain from ~512
-bytes of hex up to a self-hosting GCC, entirely from auditable
-source.  This book covers the segment from stage0's `hex0-seed`
+**Full Source Bootstrap** — the Guix project's chain from a
+few hundred bytes of hex (stage0-posix's `hex0-seed`: 229 bytes on
+x86-64) up to a self-hosting GCC, entirely from auditable source.  This book covers the segment from stage0's `hex0-seed`
 through M2-Planet's output.
 
 **hex0** — a minimal assembler format: each line is hex bytes plus
@@ -332,8 +343,9 @@ RAX,RCX`, label definitions, etc.) consumed by `M1` (a small
 assembler in mescc-tools) to produce hex2-input.
 
 **Macro table** — the preprocessor's parallel-array storage for
-`#define`s: 256 entries × name/body/length triples plus a 16 KiB
-name pool.  Ch 22 §4.
+`#define`s: 256 entries × name-address / name-length / integer
+value triples plus a 16 KiB name pool.  Only integer values are
+stored — there are no body strings.  Ch 22 §4.
 
 **mescc-tools** — the small toolchain (`M1`, `hex2`, `blood-elf`,
 `get_machine`) that turns M2-Planet's `.M1` output into a working

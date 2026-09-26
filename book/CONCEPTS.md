@@ -11,9 +11,9 @@ This file does three jobs:
    later chapters start treating them as machinery.
 
 3. **Dependency graph** — for each chapter, which previous chapters
-   it requires.  Use this when picking what to write next: a chapter
-   is "safe to write" once everything in its dependency list is at
-   least 📝 in [README.md](README.md).
+   it requires.  Use this when you skip around: a chapter's row names
+   what its prose assumes you have read.  (Authors: the writing-order
+   rule built on this graph is in [WRITING.md](WRITING.md).)
 
 ## Rung map
 
@@ -50,9 +50,9 @@ shows what the artifact can *do* at each step.
 | 26 | emit function calls with forward fixups, libc shims, string literals, and global-address placeholders |
 | 27 | lower binary expressions (arithmetic, comparison, bitwise, logical) through one repeated fold |
 | 28 | lower primary, unary, postfix, ternary, and assignment with three-kind lvalue tracking |
-| 29 | parse declarations: pointers, arrays, structs (self-referential), typedefs, enums, file-scope globals |
+| 29 | parse declarations: scalar, pointer, and array locals, structs (self-referential), function-pointer locals, struct locals, and `return` |
 | 30 | lower every C control statement: `if`/`else`, `while`, `for`, `do`/`while`, `switch`, `break`, `continue`, `goto` |
-| 31 | assemble whole translation units: functions with parameters, scopes, globals, entry stub.  Output is now a runnable ELF. |
+| 31 | assemble whole translation units: functions with parameters, scopes, enums, typedefs, file-scope globals, entry stub.  Output is now a runnable ELF. |
 | 32 | self-host M2-Planet and verify byte-identical `.M1` against the GCC-built reference.  Stage-A is closed. |
 
 ## Topic → chapter quick reference
@@ -96,13 +96,14 @@ and given in source order within each area.
 - *Instruction encoders (mov, push/pop, call, ret, idiv)* — Ch 25
 - *Forward calls, fixup lists* — Ch 26
 - *String literal storage with C-escape decoding* — Ch 26
-- *Libc shims (putchar, exit, getchar)* — Ch 26
-- *File-scope globals with deferred vaddrs* — Chs 26, 29
+- *Libc shims (eleven: putchar, exit, getchar, fputs, fputc, fopen,
+  fclose, fwrite, fread, calloc, free)* — Ch 26
+- *File-scope globals with deferred vaddrs* — Chs 26, 31
 - *`movabs rdi, imm64` and wide-immediate fixups* — Ch 26
 
 ### C grammar
 
-- *Binary expressions, precedence climbing* — Ch 27
+- *Binary expressions, the precedence cascade* — Ch 27
 - *Logical operators with short-circuit codegen* — Ch 27
 - *Primary expressions, postfix chain (`.` `->` `[]` `()` `++` `--`)* — Ch 28
 - *Unary operators (`* & ! - ~`, prefix `++`/`--`, `sizeof`)* — Ch 28
@@ -110,15 +111,16 @@ and given in source order within each area.
 - *Assignment (`=`, `+=`, `-=`, etc.)* — Ch 28
 - *Declarations, pointers, arrays* — Ch 29
 - *Structs, struct pointers, self-referential structs* — Ch 29
-- *Typedefs and function-pointer typedefs* — Ch 29
-- *Enums and enum constants* — Ch 29
-- *File-scope globals, static globals* — Ch 29
+- *Function-pointer locals, struct locals* — Ch 29
+- *Typedefs and function-pointer typedefs* — Ch 31
+- *Enums and enum constants* — Ch 31
+- *File-scope globals, static globals* — Ch 31
 - *`if` / `else`* — Ch 30
 - *`while`, `for` (with step rewind)* — Ch 30
 - *`do` / `while`* — Ch 30
 - *`switch` / `case` / `default` with fall-through* — Ch 30
 - *`break`, `continue`, `goto`, labels* — Ch 30
-- *`return` and implicit return* — Chs 30, 31
+- *`return` and implicit return* — Chs 29, 31
 - *Function definitions, parameter spill, scopes* — Ch 31
 - *Forward function calls and prototype fixups* — Ch 31
 - *The `main` entry stub at `0x400078`* — Ch 31
@@ -224,7 +226,8 @@ their introducing chapter.
 - **Frame pointer `rbp` + local-at-`-8n` addressing** — Ch 25;
   *Chs 26, 28, 31*
 - **Lvalue vs rvalue** — Ch 28
-- **Precedence climbing** — Ch 27
+- **Precedence cascade** (one function per level; not precedence
+  climbing) — Ch 27
 - **Fixed 256-byte function frame** — Ch 31 (every function
   reserves the same conservative slab; no per-function back-patch)
 - **Stage-A parity (byte-identical M1 output)** — Ch 32
@@ -259,17 +262,17 @@ Ch 18  colon compiler     — Chs 10, 17
 Ch 19  branches           — Chs 11, 18
 Ch 20  parser + REPL      — Chs 17, 18, 19
         (---- Part II complete; 000-seed.hex0 fully literate ----)
-Ch 21  arena + I/O bufs   — Chs 5, 9, 12
+Ch 21  arena + I/O bufs   — Chs 5, 9, 11, 12, 13
 Ch 22  preprocessor       — Chs 6, 12, 21
-Ch 23  lexer              — Chs 6, 12, 21
+Ch 23  lexer              — Chs 6, 12, 21, 22
 Ch 24  types + symbols    — Chs 12, 21
-Ch 25  ELF + codegen 1    — Ch 21
+Ch 25  ELF + codegen 1    — Chs 11, 13, 21
 Ch 26  codegen 2          — Chs 24, 25
 Ch 27  expressions 1      — Chs 23, 24, 25, 26
-Ch 28  expressions 2      — Chs 24, 27
-Ch 29  decl: types/globs  — Chs 24, 25, 26
-Ch 30  statements         — Chs 11, 26, 27, 28
-Ch 31  functions          — Chs 24, 26, 27, 28, 30
+Ch 28  expressions 2      — Chs 24, 26, 27
+Ch 29  decls + structs    — Chs 24, 25, 26, 28
+Ch 30  statements         — Chs 11, 26, 27, 28, 29
+Ch 31  functions          — Chs 24, 25, 26, 27, 28, 29, 30
 Ch 32  main + bootstrap   — *all previous*
 ```
 

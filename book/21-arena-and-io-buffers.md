@@ -11,15 +11,15 @@ Part III opens with the first two files of the C compiler written
 in Forth, both of them deliberately uneventful infrastructure.
 `020-cc-arena.fth` (41 lines, entire file) is an 8-byte-aligned bump
 allocator that hands out variable-sized blocks for struct
-descriptors, label-fixup overflow, and string-pool entries; it
+descriptors, fixup-list nodes, and `switch` case lists; it
 fails loudly with `die 7` on exhaustion.  `030-cc-io.fth` (151
 lines, entire file) gives the compiler its two buffers: a 1 MiB
 source buffer at `0x414000+` filled by `cc-load-stdin` and walked
 by the `cc-peek-char` / `cc-next-char` reader (with line tracking
 for error messages), and a 1 MiB output buffer written via
 `cc-emit-byte`, `cc-emit-4le`, `cc-emit-8le` and back-patched
-through `cc-out-patch-*` so that header fields like `e_shoff` and
-segment sizes can be filled in after layout is known.
+through `cc-out-patch-*` so that header fields like the segment
+sizes can be filled in after layout is known.
 
 By the end of the chapter you'll be able to explain the arena's
 exhaustion behaviour, trace a single byte from stdin through
@@ -83,9 +83,9 @@ macro table (Ch 22), the label fixup table (Ch 30).  Each is a
 variable.  That works for anything whose maximum count we can pin
 down at compile time.
 
-A few things don't fit that mould — struct descriptors of variable
-arity, label fixup chains that occasionally overflow, string pool
-entries.  For those we need a fly-weight allocator that hands out
+A few things don't fit that mould — struct descriptors, the
+fixup chains for `goto` labels and forward function references,
+the case list of a `switch`.  For those we need a fly-weight allocator that hands out
 *variable-sized* blocks.  This is what `020-cc-arena.fth` provides.
 
 ```forth file=020-cc-arena.fth
@@ -171,8 +171,9 @@ deallocation makes all three impossible.
 arena exhaustion, so it doesn't try.  Status 7 distinguishes this
 failure mode from the other `die`s the compiler uses (`die 1` when
 the output file cannot be opened, in `030-cc-io.fth`; `die 70`/`71`/
-`72` for various pool overflows in the preprocessor and codegen,
-introduced in Chs 22 and 26).  Status codes are the compiler's only
+`72` in the preprocessor for a missing `#include` file, too-deep
+nesting and a full macro-name pool, introduced in Ch 22 — Ch 26
+reuses 70 and 71 for full global buffers).  Status codes are the compiler's only
 error-reporting channel; we'll see them used throughout Part III.
 
 ```
@@ -417,9 +418,10 @@ compiler that has no I/O concurrency to reason about and no
 intermediate representation to design.
 
 There's a deeper reason too.  Several passes *want* random access:
-the lexer needs to back up after a one-character lookahead failure,
-the preprocessor needs to splice macro bodies in place, the code
-emitter needs to patch ELF header fields.  Streaming versions of
+the lexer peeks two bytes ahead to tell `/` from `//` and `0` from
+`0x`, the preprocessor rewrites the whole source into a second
+buffer and copies it back over the first, the code emitter patches
+ELF header fields.  Streaming versions of
 each are possible but more complex; the buffered design makes them
 trivial.
 
@@ -433,12 +435,13 @@ mutable stream.
 The pieces declared here are reached for, by name, throughout the
 rest of Part III.
 
-- Ch 22 (preprocessor) reads from `cc-src-buf` via
-  `cc-peek-char` / `cc-next-char`, and writes back into it (or
-  appends `#include`d files) using `c!` directly.
+- Ch 22 (preprocessor) walks `cc-src-buf` with its own cursor,
+  writes the result — `#include`d files spliced in, directives
+  removed — into `cc-prep-out-buf`, then copies that back over
+  `cc-src-buf` and resets `cc-src-pos` for the lexer.
 - Ch 23 (lexer) reads `cc-peek-char` / `cc-next-char` and produces
-  token records.  When it sees a non-token byte it can back up by
-  decrementing `cc-src-pos`.
+  token records.  It never backs up: where one byte of lookahead
+  isn't enough, `cc-peek-char-2` looks at two.
 - Ch 24 stores struct descriptors via `cc-alloc`.  Ch 26's
   forward-call fixup chains use it too.
 - Chs 25, 26, 29–31 emit code into `cc-out-buf` via
@@ -480,9 +483,10 @@ smallest C test case.
 ./build.sh && tests/cc/stage-a-check.sh
 ```
 
-That driver feeds `tests/cc/G0.c` through `seed-forth` loaded with
-all the `cc-*.fth` files, captures the output ELF, and diffs it
-against M2-Planet's reference.  When you finish reading Part III
+That driver has `seed-forth`, loaded with all the `cc-*.fth` files,
+compile the M2-Planet monolith into a working M2-Planet binary.  It
+runs that binary on M2-Planet's own sources and `cmp`s the `.M1`
+text it writes against the output of a GCC-built M2-Planet.  When you finish reading Part III
 the same script will be the compiler's full proof of life.
 
 ## Exercises

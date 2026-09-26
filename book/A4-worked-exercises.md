@@ -59,26 +59,32 @@ patch half.
 : again,
   branch-xt comma-call   \ CALL branch_code  (5 bytes)
   ,8 ;                   \ inline 8-byte target = back-target
+immediate
 ```
 
-Three lines, as promised.  Walk the bytes for `: forever begin,
+Three lines, as promised — plus the `immediate` every combinator
+needs.  Leave it off and `again,` runs when `tick` *runs* instead
+of when it compiles: the colon compiler just emits a `CALL again,`,
+the loop body prints one `.`, and `again,` then appends a stray
+branch to whatever `HERE` is at run time instead of looping.  Walk the bytes for `: forever begin,
 again, ;`:
 
 | HERE offset | Byte(s) | Source |
 |---|---|---|
 | 0 | `E8 ?? ?? ?? ??` | `comma-call branch_code` → `CALL branch_code` |
-| 5 | `00 00 00 00 00 00 00 00` | `,8` of the back-target (= HERE at `begin,` time, which was 0 in this body) |
+| 5 | `B` as 8 LE bytes | `,8` of the back-target `B` = the absolute address `begin,` read from `HERE` — here, the address of offset 0 |
 
 When `branch_code` runs, it reads the inline cell as its new
-return address.  Reading 0 here means jumping back to the first
-byte of the body — exactly the infinite loop you'd expect.
+return address.  That cell holds `B`, the absolute address of the
+body's first byte, so control jumps back there — exactly the
+infinite loop you'd expect.
 
 ### Try it
 
 ```sh
 ./build.sh
 { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
-  echo ": again,  branch-xt comma-call ,8 ;"
+  echo ": again,  branch-xt comma-call ,8 ;  immediate"
   echo ": tick  begin, [lit] 46 emit again, ;"
   # Hit Ctrl-C after a few dots — there's no way out of this loop.
   echo "tick"
@@ -182,7 +188,8 @@ to honour.
 ### What's being asked
 
 `a - b - c` in C is `(a - b) - c`, not `a - (b - c)`.  The
-expression parser is precedence-climbing recursion (Ch 27).
+expression parser is a precedence cascade — recursive descent
+with one function per precedence level (Ch 27).
 Where in the recursion does left-associativity fall out?
 
 ### The structure of `cc-parse-add`
@@ -274,8 +281,8 @@ Two design choices, both in the loop body:
 
 If you wanted right-associativity instead, you'd recurse: instead
 of looping, you'd call `cc-parse-add` on the right operand,
-producing `a - (b - c)`.  Precedence climbing makes the choice
-*per-operator* by selecting iteration vs recursion at this exact
+producing `a - (b - c)`.  The cascade makes the choice
+*per-level* by selecting iteration vs recursion at this exact
 point.  Compare `cc-parse-assign` (Ch 28), which *is* right-
 associative and *does* recurse.
 

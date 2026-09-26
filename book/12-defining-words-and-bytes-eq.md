@@ -9,14 +9,14 @@ Proof link: macro (Ch 22) and symbol (Ch 24) lookup compare names via bytes-eq; 
 
 Part I closes by finishing the defining-word family Ch 10 began and
 sneaking in one piece of memory plumbing the C compiler will lean on
-later.  Five definitions in `010-lib.fth` (lines 292–373, end of
+later.  Five definitions in `010-lib.fth` (lines 294–375, end of
 file): `allot` is `here-addr @ + here-addr !`, a one-line bump
 allocator parameterised over byte count; `create` reuses Ch 10's
 19-byte runtime body but appends an arbitrary data area instead of a
 plain literal; `variable` is `create` plus one zero cell of pre-allotted
 storage; and `bytes-eq` compares two byte ranges via the
 loop-and-accumulate idiom that drops out of having no `exit`
-primitive.  Open `010-lib.fth` to lines 292–373, with Ch 10's runtime
+primitive.  Open `010-lib.fth` to lines 294–375, with Ch 10's runtime
 body and Ch 11's `begin,`/`while,`/`repeat,` fresh in mind.
 
 By the end you'll be able to explain the relationship between
@@ -67,7 +67,7 @@ Trace it:
 The values written into the new region are *unspecified*.  This is
 fine for two use cases:
 
-- after `create FOO`, calling `allot 16` reserves a 16-byte data
+- after `create FOO`, `[lit] 16 allot` reserves a 16-byte data
   area whose contents are whatever happened to be at that memory.
   You're expected to fill it before reading.
 - standalone, as a way to reserve scratch memory at the current
@@ -229,8 +229,8 @@ result.
 
 In a language with `break` or `return`, this loop would obviously
 short-circuit on the first mismatch.  In Forth, the equivalent
-primitive is `exit`, which pops the return stack one extra time so
-the next `;` returns past the current word's caller.  The seed
+primitive is `exit`, which returns from the current word to its
+caller immediately, skipping the rest of the body.  The seed
 doesn't have `exit`.
 
 Adding `exit` to the seed would cost a primitive slot, roughly 15
@@ -377,8 +377,8 @@ For `bytes-eq`:
   echo 'create a  [lit] 72 c, [lit] 73 c, [lit] 0 c,'
   echo 'create b  [lit] 72 c, [lit] 73 c, [lit] 0 c,'
   echo 'create c  [lit] 72 c, [lit] 88 c, [lit] 0 c,'
-  echo 'a b [lit] 3 bytes-eq  0= [lit] 49 + emit'    \ a vs b: equal  -> "1"
-  echo 'a c [lit] 3 bytes-eq  0= [lit] 49 + emit'    \ a vs c: differ -> "0"
+  echo 'a b [lit] 3 bytes-eq  0= [lit] 49 + emit'    # a vs b: equal  -> "1"
+  echo 'a c [lit] 3 bytes-eq  0= [lit] 49 + emit'    # a vs c: differ -> "0"
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
@@ -395,8 +395,10 @@ Expected output: `10`.  `a` and `b` are identical 3-byte buffers
    of a *two*-cell store.  Compare its emitted bytes to `variable`.
 
 3. **★★ Extend.** Define `string, ( c-addr u -- )` that copies `u` bytes from
-   `c-addr` to HERE and advances HERE.  Use `create string, "Hello"`
-   to build a named string blob.
+   `c-addr` to HERE and advances HERE.  The seed has no `"..."`
+   string literals, so build a source buffer with `c,` (as in the
+   Try-it's `create a`), then `create greeting` and use `string,` to
+   copy those bytes into its data area as a named string blob.
 
 4. **★★★ Trace.** The arithmetic-without-exit constraint forced O(n) compare even
    on mismatch.  How much extra work does that cost the C compiler

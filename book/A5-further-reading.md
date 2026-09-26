@@ -47,9 +47,9 @@ grouped by what they help with.
   fits in a 512-byte boot sector with eight primitives (plus a
   handful of state variables and two I/O words).  The "minimum
   viable Forth" demonstration; useful as a sanity check on how
-  much language you can get from how little code.  An order of
-  magnitude smaller than this book's seed, at the cost of living
-  inside 16-bit BIOS boot constraints.
+  much language you can get from how little code.  About a
+  quarter the size of this book's 2,040-byte seed, at the cost of
+  living inside 16-bit BIOS boot constraints.
 
 - **Koichi Nakamura, "planckforth"** (2020).  Bootstraps a Forth
   from a hand-written 1 KB i386 ELF binary (stored as xxd hex)
@@ -78,8 +78,8 @@ grouped by what they help with.
 
 - **Niklaus Wirth, *Compiler Construction*** (1996).  The
   shortest book that takes you from grammars to a working
-  one-pass compiler.  Wirth's PL/0 example mirrors what this
-  book's Chs 22–32 do, minus the C-isms.
+  one-pass compiler.  Wirth's Oberon-0 example compiler mirrors
+  what this book's Chs 22–32 do, minus the C-isms.
 
 - **Andrew Appel, *Modern Compiler Implementation in C*** (1998).
   The standard university text.  Read the chapters on parsing
@@ -91,17 +91,24 @@ grouped by what they help with.
   book.  Available online (search the title).
 
 - **Theodore Norvell, "Parsing Expressions by Recursive
-  Descent"** (1999, Memorial University of Newfoundland).  The
-  write-up that coined the name "precedence climbing" for the
-  algorithm Ch 27 uses.  The original description is in **Keith
+  Descent"** (1999, Memorial University of Newfoundland).  Surveys
+  the recursive-descent options side by side.  Ch 27's parser is
+  what Norvell calls the "classic" solution — a precedence
+  cascade, one function per precedence level — not the
+  single-function "precedence climbing" algorithm the same
+  write-up named.  Climbing's original description is in **Keith
   Clarke, "The top-down parsing of expressions"** (1986
-  technical note, Queen Mary College).
+  technical note, Queen Mary College); read it to see how the
+  ten functions of Ch 27 collapse into one loop over a
+  precedence table.
 
 - **Pratt parsing** is the obvious alternative — Vaughan Pratt,
-  "Top down operator precedence" (1973).  Pratt and precedence
-  climbing produce the same parse tree; Pratt dispatches on
-  *token*, precedence climbing dispatches on *precedence level*.
-  Ch 27 picks the latter because it's smaller to write in Forth.
+  "Top down operator precedence" (1973).  Pratt, precedence
+  climbing and the cascade all produce the same parse tree; Pratt
+  and climbing drive one function from a table of binding powers,
+  the cascade spells each level out as its own function.  Ch 27
+  picks the cascade because each level is the same few lines of
+  Forth, and every one of them can be read on its own.
 
 ## Bootstrapping and reproducible builds
 
@@ -139,8 +146,8 @@ grouped by what they help with.
   at gitlab.com/x86-psABIs/x86-64-ABI.
 
 - **TIS, *Executable and Linkable Format (ELF) Specification***
-  (1995, the Tool Interface Standards version).  The 18-page
-  document Ch 13 and Ch 25 work from.  Still distributed as
+  (1995, the Tool Interface Standards version).  The document
+  Ch 13 and Ch 25 work from.  Still distributed as
   `gabi.xinuos.com` or in countless mirrors.
 
 - **Linux man-pages, sections 2 (syscalls) and 5 (file formats:
@@ -157,8 +164,10 @@ grouped by what they help with.
   compiler?"
 
 - **Andrew Tridgell, "How Samba was Written"** (2003) — not
-  about compilers, but the same flavour of "the source is the
-  spec, read it" pedagogy this book aims for.
+  about compilers, and the mirror image of this book: Tridgell
+  had no source or spec for SMB, so he reconstructed the protocol
+  by watching network traces.  Read it for what understanding a
+  system costs when the source is *not* on the table.
 
 ---
 

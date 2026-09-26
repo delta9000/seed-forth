@@ -9,7 +9,7 @@ Proof link: every type tag, keyword ID, and libc shim address the C compiler rea
 
 This chapter is where Part I crosses a threshold: we build a word
 that builds words.  Two definitions in `010-lib.fth` (lines 164–194)
-do the job.  `immediate` flips the IMMEDIATE bit on the most-recent
+do the job.  `immediate` sets the IMMEDIATE bit on the most-recent
 dictionary entry's `flags` byte (so the word runs at parse time even
 when `STATE=1`), and `constant` is our first defining word, laying
 down a 19-byte runtime body whose three x86-64 instructions push a
@@ -20,7 +20,7 @@ in the back of your mind.
 
 By the end you'll be able to explain the IMMEDIATE flag and how
 `STATE` switches the interpreter between executing words and
-appending CALLs to them, name the four fields of a dictionary entry
+appending CALLs to them, name the five fields of a dictionary entry
 (link, flags, name-len, name, body), and read `constant`'s 19-byte
 runtime body bit by bit.  The other two members of the defining-word
 family, `create` and `variable`, are deferred to Ch 12; the
@@ -139,7 +139,7 @@ defined word.  Conventional usage is:
 : my-thing  ... ; immediate
 ```
 
-— define a word with `: ... ;`, then call `immediate` to flip the
+— define a word with `: ... ;`, then call `immediate` to set the
 IMMEDIATE bit on what we just defined.  After this, every call to
 `my-thing` from within a colon definition runs *now*, not at the
 defined word's runtime.
@@ -148,8 +148,10 @@ Two subtle points.  First, the seed's manual `01` flags byte on the
 `;` definition in `000-seed.hex0` (Ch 18) is exactly this byte —
 `immediate` from `010-lib.fth` and the hand-rolled `01` in the seed
 hex are the same byte in the same place, written by different
-mechanisms.  Second, `immediate` only writes bit 0; bits 1–7 are
-ignored.  This codebase uses no other flag bits; a "fuller" Forth
+mechanisms.  Second, `immediate` writes the whole byte: `c!` stores
+`0x01`, which sets bit 0 and clears bits 1–7 rather than preserving
+them.  That is harmless here — `:` always initialises the flags byte
+to `0`, and the REPL tests only bit 0.  This codebase uses no other flag bits; a "fuller" Forth
 might add `compile-only`, `hidden`, or `inline` here, but the seed
 keeps it bare-bones.
 

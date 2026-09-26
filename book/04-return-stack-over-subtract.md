@@ -3,18 +3,18 @@
 ```text
 Missing capability: nowhere safe to stash a temporary across nested calls.
 New pattern: a second rsp-based stack with >r, r>, r@; subtraction built from nand.
-Artifact after this chapter: temporary storage with stack discipline, plus the - primitive.
+Artifact after this chapter: temporary storage with stack discipline, plus - derived from + and nand.
 Proof link: Ch 7 builds every comparison on -; Ch 27's parser threads its operator byte through the return stack.
 ```
 
-Two definitions in `010-lib.fth` (lines 31–38), `over` and `-`,
+Two definitions in `010-lib.fth` (lines 32–38), `over` and `-`,
 introduce the seed's *second* stack and show how two's complement
 turns subtraction into addition plus `nand`.  `over` borrows a
 return-stack slot as a scratch parking space for `dup`-of-the-second;
 `-` doesn't touch the return stack but earns its place alongside
-`over` by making the same trade, paying a few extra tokens at the
-call site so the seed can keep one fewer primitive.  Open
-`010-lib.fth` to those eight lines and read along; the chapter
+`over` by making the same trade, paying a few extra calls at
+runtime so the seed can keep one fewer primitive.  Open
+`010-lib.fth` to those seven lines and read along; the chapter
 spends most of its time on the return-stack sidebar (`>r`, `r>`,
 `r@` and the matched-pair rule) because every later trick in the
 book reaches for it.
@@ -115,11 +115,14 @@ with its copy of `a` so a final `swap` can order them.  The return
 stack is untouched at the end (`b` went on with `>r` and came off
 with `r>`), so the discipline holds.
 
-If `over` were a primitive, it would cost zero extra tokens at the
-call site.  As a derived word, every `over` is four tokens plus a
-call.  But every primitive costs a slot in the dictionary and 20–30
-bytes of machine code, and the seed is on a 2,040-byte budget.  Four
-tokens per `over` is the cheaper bill.
+The call site doesn't care which way `over` is built: either way,
+each use compiles to one 5-byte `CALL`.  The difference is paid
+elsewhere.  The derived body is four `CALL`s and a `RET` (21 bytes)
+in `010-lib.fth`, and at runtime every `over` executes four nested
+calls where a primitive would run a few instructions.  A primitive
+instead costs a slot in the dictionary and 20–30 bytes of machine
+code in the seed, and the seed is on a 2,040-byte budget.  Some
+extra cycles per `over` is the cheaper bill.
 
 ## 4. `-` from `+` and `nand`
 
@@ -185,17 +188,20 @@ which is 30–50 bytes total.  A derived definition costs only the
 dictionary header plus the compiled token sequence — and the tokens
 are mostly already-paid-for calls to other primitives.
 
-For `-`, the derived definition is five tokens: `dup`, `nand`,
-`[lit]`, `1`, `+`, `+`.  Each call site pays a few extra bytes
-relative to a hypothetical `SUB` primitive.  But there are only a
-few dozen subtractions in the whole seed.  Saving the primitive
-slot saves more bytes than the extra call-site overhead costs.
+For `-`, the derived definition is six tokens: `dup`, `nand`,
+`[lit]`, `1`, `+`, `+`.  Call sites cost nothing extra: each `-` is
+one 5-byte `CALL`, exactly what a hypothetical `SUB` primitive would
+compile to.  The price is runtime — every `-` executes five nested
+calls (one of them to `lit` for the inline `1`) instead of one `sub`
+instruction.  A few extra calls per subtraction is cheap next to the
+seed bytes a primitive would cost.
 
 The book will keep meeting this pattern.  Comparisons (Ch 7) are
-derived from `-` and a sign trick.  Division (Ch 7) is the only
-"big" arithmetic primitive in the seed, because it would be too
-expensive to derive.  Each choice asks the same question: would a
-primitive save more bytes than the call-site overhead it eliminates?
+derived from `-` and a sign trick.  Division `/` and multiplication
+`*` (Ch 7) are the only "big" arithmetic primitives in the seed,
+because they would be too expensive to derive.  Each choice asks the
+same question: is what a primitive buys worth the seed bytes it
+costs?
 If yes, primitivise; if no, derive.
 
 ## Canonical source
@@ -252,9 +258,11 @@ test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.
 ## Exercises
 
 1. **★★★ Extend.** Derive `tuck ( a b -- b a b )` two ways: once via `swap over`,
-   once via `>r dup r> swap`-style primitives.  Show that both
-   produce identical bytes when compiled (you'll need a built
-   seed-forth for the byte comparison; gforth optimises).
+   once inlining `over`'s primitives (`swap >r dup r> swap`).  Both
+   leave the same stack, but they compile to different bytes: count
+   the `CALL`s in each body, and the calls each one executes at
+   runtime.  (You'll need a built seed-forth to inspect the bytes;
+   gforth optimises.)
 
 2. **★★ Trace.** Trace `0 [lit] 1 -` on paper.  What does the data stack hold?
    What is the bit pattern (in hex)?  Why does that bit pattern
@@ -272,9 +280,9 @@ test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.
   call/return.  User code may borrow it via `>r`/`r>` provided
   every push is matched by a pop *within the same word*.
 - `over` is not a primitive in this seed; it is built from four
-  other primitives in five tokens.
+  other primitives in four tokens.
 - Subtraction is not a primitive either; it is built from `+` and
-  `nand` in five tokens.  Both choices reflect the seed authors'
+  `nand` in six tokens.  Both choices reflect the seed authors'
   preference for fewer primitive slots at the cost of slightly
   longer derived definitions.
 

@@ -282,6 +282,12 @@ The shape is: call `read_word`, push `(buf-addr, len)` to set up
 `parse_decimal_code`'s expected stack, call `parse_decimal_code`,
 pop the success flag, branch on STATE.
 
+"Pop" here means *discard*: `[lit]` never tests the flag.  A token
+that isn't plain decimal digits — `-5`, `0x41`, `12a` — makes
+`parse_decimal_code` return `0 false`, and `[lit]` silently uses
+the `0`.  `[lit] -5 [lit] 48 + emit` prints `0`.  Ch 20 has the
+details.
+
 In interpret mode (`STATE == 0`) the body just `ret`s with the
 parsed value as the new TOS.  Done.
 
@@ -336,16 +342,18 @@ When the REPL processes `:`, it calls `colon_code`, which:
 6. Sets STATE to 1.
 
 Then the REPL is in compile mode.  It reads `dup`, looks it up,
-gets the xt for `dup_code`, sees that `dup` is not IMMEDIATE
-(`flags = 00`), and emits at HERE:
+gets its xt — the `JMP` stub at `0x400491` in the header of
+`dup` (see Ch 17) — sees that `dup` is not IMMEDIATE (`flags =
+00`), and emits at HERE:
 
 ```
-E8 xx xx xx xx          ; CALL dup_code (5 bytes)
+E8 xx xx xx xx          ; CALL dup's xt (5 bytes)
 ```
 
-HERE advances by 5.
+HERE advances by 5.  At runtime this `CALL` lands on the stub,
+which `JMP`s on to `dup_code`.
 
-Then `*` — same routine, 5 more bytes for `CALL star_code`.
+Then `*` — same routine, 5 more bytes for `CALL` to `*`'s xt.
 
 Then `;` — IMMEDIATE.  The REPL runs `semicolon_code` instead of
 compiling a call to it.  `semicolon_code` writes `C3` at HERE
@@ -354,9 +362,13 @@ compiling a call to it.  `semicolon_code` writes `C3` at HERE
 Total body size for `square`: `5 + 5 + 1 = 11` bytes.  Total entry
 size: `10 + 6 + 11 = 27` bytes.
 
-Try it for `: five [lit] 5 ;` and verify the body is `5 + 13 + 1 =
-19` bytes.  (The `[lit] 5` part compiles to a `CALL lit_code` +
-8-byte `5` cell — 13 bytes total.)
+Try it for `: five [lit] 5 ;` and verify the body is `13 + 1 = 14`
+bytes, for a total entry of `10 + 4 + 14 = 28`.  `[lit]` is
+IMMEDIATE, so no `CALL` to `[lit]` itself is compiled; it runs at
+compile time and emits only a `CALL lit_code` plus the 8-byte `5`
+cell — 13 bytes.  You can measure it: `here : five [lit] 5 ; here
+swap dup nand + [lit] 1 + [lit] 48 + emit` prints `L` (76 = 48 +
+28).
 
 ## Try it
 

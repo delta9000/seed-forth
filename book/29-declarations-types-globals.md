@@ -837,7 +837,9 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
 1. **★★ Trace.** Pre-registration of struct tags makes `struct T { struct T*
    next; }` work.  What about `struct A { struct B* b; };
    struct B { struct A* a; };` — mutual recursion?  Trace what
-   happens.
+   `cc-lookup-struct-tag-soft` returns for `struct B*` inside
+   `struct A`, then explain why `b->a->y` compiles but `a->b->x`
+   dies with status 90.
 
 2. **★★ Verify.** Storage qualifiers are all no-ops.  Construct a program where
    omitting `static` from a local variable would cause a bug
@@ -871,10 +873,10 @@ works because the tag is registered before the field loop, and
 trace how `int x;`, `int* p;`, and `struct T s;` each become a
 symbol-table entry.
 
-Toward Stage-A: identical declaration order produces identical
-symbol IDs, identical local slot assignments, and identical global
-vaddrs — three of the most byte-sensitive precondition surfaces in
-the proof.
+Toward Stage-A: symbol IDs, local slots, and global vaddrs are
+bytes inside `cc-out-v1`, and Stage A never compares `cc-out-v1`.
+They matter only if one is wrong, so that `cc-out-v1` misbehaves
+while compiling M2-Planet and its `.M1` output diverges.
 
 ## Takeaways
 
@@ -883,8 +885,10 @@ the proof.
   `int (*fp)()` from `int (x);` would be impossible inside a
   recursive-descent parser.
 - Pre-registration of struct tags is the small move that makes
-  self-referential and mutually-recursive types work without a
-  separate two-pass scheme.
+  self-referential types work without a separate two-pass scheme.
+  It does not make mutually-recursive types work: a `struct B*`
+  field declared before `struct B` exists gets descriptor 0, so
+  `a->b->x` dies with status 90 (Exercise 1).
 - `cc-parse-return` is the only statement parser in this
   chapter because source order forces it to live alongside the
   declaration code; the *statement dispatcher* lives in Ch 30.

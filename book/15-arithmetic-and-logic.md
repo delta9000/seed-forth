@@ -2,7 +2,7 @@
 
 ```text
 Missing capability: +, nand, 0=, /, * were black boxes.
-New pattern: each primitive reads [rbp], modifies rdi in place, advances rbp, and returns.
+New pattern: each binary primitive reads [rbp], modifies rdi in place, advances rbp, and returns.
 Artifact after this chapter: the arithmetic and logic primitives' machine code (70 bytes total).
 Proof link: the *unsigned* division and sign-extraction here are exactly what Ch 7's comparisons rest on.
 ```
@@ -13,8 +13,9 @@ the `/` dictionary entry, and `star_code` are tucked further down at
 lines 649–683 (with `r_at_code`, the stack op already covered in
 Ch 14, sandwiched between them in source order).  Together they
 encode `+`, `nand`, `0=`, `/`, and `*` in 70 bytes total: every
-primitive reads `[rbp]`, modifies `rdi` in place, advances `rbp`,
-and returns.  Open `000-seed.hex0` to lines 153–170 and 649–683 with
+two-operand primitive reads `[rbp]`, modifies `rdi` in place,
+advances `rbp`, and returns.  `0=` is unary — it touches only
+`rdi`.  Open `000-seed.hex0` to lines 153–170 and 649–683 with
 Ch 14's data-stack convention (`rdi` = TOS, `[rbp]` = under-TOS) in
 mind.
 
@@ -168,8 +169,8 @@ Note: **unsigned**.  `DIV` interprets both operands as unsigned
 64-bit integers.  If you pass a negative dividend (in two's-
 complement, the high bit set), `DIV` treats it as a huge positive
 number — and that is exactly the behaviour Ch 7 leans on to extract
-the sign bit (`(n + 2^63) / 2^64`, computed as `n / 2^63` with
-unsigned division).  Signed division (`IDIV`) would defeat that
+the sign bit: unsigned `n / 2^63` is `1` when the top bit is set
+and `0` when it isn't.  Signed division (`IDIV`) would defeat that
 trick.
 
 Divide by zero raises `#DE` and the kernel kills the process with
@@ -291,10 +292,13 @@ echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
 
 ## Takeaways
 
-- All five arithmetic primitives operate in-register on `rdi`,
-  loading their second argument from `[rbp]` and popping that slot
-  — no scratch register except for `*` and `/`, which need `rax`
-  (because `IMUL` and `DIV` use it implicitly).
+- All five arithmetic primitives operate in-register on `rdi`; the
+  four binary ones load their second argument from `[rbp]` and pop
+  that slot (`0=` is unary and never touches `[rbp]`).  Only `/`
+  *needs* a scratch register: `DIV` implicitly uses `rdx:rax`.
+  `*` goes through `rax` by choice — two-operand `IMUL` works on
+  any register, and `imul rdi, [rbp]` would do the job in fewer
+  bytes.
 - Unsigned division is what makes Ch 7's sign-bit trick work, and
   it's what x86 gives you most cheaply (`DIV`).
 - The primitives are silent about overflow and divide-by-zero —

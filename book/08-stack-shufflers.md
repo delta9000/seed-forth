@@ -65,9 +65,9 @@ pair-shuffles are left to be inlined at the rare call site that wants
 them.
 
 Why name a two-token word at all?  Speed (one CALL instead of two) and
-self-documentation.  Part III's lexer reaches for `nip` dozens of
-times, and the compiler uses `2drop` on every error path that discards
-a half-parsed pair — and reading `2drop` signals "I am dropping a
+self-documentation.  Part III's lexer reaches for `nip` four times,
+and the compiler uses `2drop` where it discards a half-parsed
+pair — and reading `2drop` signals "I am dropping a
 logical pair," which `drop drop`, which you have to stop and count,
 does not.
 

@@ -7,12 +7,12 @@ Artifact after this chapter: the full set of integer comparisons used throughout
 Proof link: the parsers (Chs 23-31) dispatch on = tests of token and keyword IDs at nearly every line.
 ```
 
-Eight definitions in `010-lib.fth` (lines 87–120), `=`, `<>`, `2^63`,
+Eight definitions in `010-lib.fth` (lines 88–121), `=`, `<>`, `2^63`,
 `neg-flag`, `<`, `>`, `<=`, `>=`, give the seed every comparison
 operator it will ever need without spending a single primitive
 slot.  Equality reduces to `- 0=`; the sign bit drops out of an
-unsigned divide by `2^63`; and `<`, `>`, `<=`, `>=` are each one
-token longer than the one before.  Open `010-lib.fth` to those
+unsigned divide by `2^63`; and `<`, `>`, `<=`, `>=` are two tokens
+each, every one built on the one before.  Open `010-lib.fth` to those
 34 lines and read along; the chapter takes its time on the
 sign-bit-via-unsigned-divide move (the key trick that makes the
 chain possible) and then lets the four signed comparisons fall out
@@ -20,7 +20,7 @@ in sequence.
 
 By the end of the chapter you'll be able to explain why an
 unsigned divide by `2^63` extracts the sign bit, read the chain
-from `=` through `<`, `>`, `<=`, `>=` (each one extra token),
+from `=` through `<`, `>`, `<=`, `>=` (two tokens apiece),
 and recognise the `0= 0=` "canonicalise to Forth boolean" idiom.
 The seed's `/` machine code (the `DIV` instruction) is Part II,
 Ch 15; signed division is not defined anywhere in this codebase
@@ -167,15 +167,15 @@ Any non-zero value, double-NOT'd, becomes `-1`; zero stays `0`.  It
 shows up wherever the seed needs to turn a "0-or-something-else" raw
 value into a proper Forth flag.
 
-It might feel wasteful — three tokens to go from `1` to `-1` — but
+It might feel wasteful — two tokens to go from `1` to `-1` — but
 remember the alternative: a sign-bit-test primitive in the seed.
-Three tokens at call sites that fit on one fingertip is much cheaper
-than another primitive slot in a 2,040-byte binary.
+Two tokens, written once inside `neg-flag`, are much cheaper than
+another primitive slot in a 2,040-byte binary.
 
 ## 5. The cascade
 
 Once `neg-flag` is in hand, the four signed comparisons unspool in
-one token each:
+two tokens each:
 
 ```forth
 : <   - neg-flag ;
@@ -284,12 +284,12 @@ bye
 ```sh
 ./build.sh
 { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
-  echo '[lit] 3 [lit] 5 <  0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 5 [lit] 3 <  0= [lit] 49 + emit'      \ false -> '0'
-  echo '[lit] 7 [lit] 7 =  0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 7 [lit] 8 =  0= [lit] 49 + emit'      \ false -> '0'
-  echo '[lit] 3 [lit] 3 <= 0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 4 [lit] 3 <= 0= [lit] 49 + emit'      \ false -> '0'
+  echo '[lit] 3 [lit] 5 <  0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 5 [lit] 3 <  0= [lit] 49 + emit'      # false -> '0'
+  echo '[lit] 7 [lit] 7 =  0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 7 [lit] 8 =  0= [lit] 49 + emit'      # false -> '0'
+  echo '[lit] 3 [lit] 3 <= 0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 4 [lit] 3 <= 0= [lit] 49 + emit'      # false -> '0'
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
@@ -304,9 +304,13 @@ instruction.
    colon-call indirection)?  Count tokens; consider future readers.
 
 2. **★★★ Verify.** The `2^63` literal is `0x8000000000000000`, which equals the
-   most-negative signed 64-bit integer.  What does
-   `9223372036854775808 .` print on a built seed-forth?  On gforth?
-   Why the difference?
+   most-negative signed 64-bit integer.  The seed has no `.` and
+   only reads numbers through `[lit]`, so probe it with flags
+   instead: what do `[lit] 9223372036854775808 neg-flag` and
+   `2^63 [lit] 1 - neg-flag` leave on a built seed-forth (print
+   each with the `0= [lit] 49 + emit` trick)?  What does
+   `9223372036854775808 .` print on gforth?  Why do the two views
+   of the same bit pattern differ?
 
 3. **★★ Extend.** Define `0< ( n -- f )` (true if `n < 0`) and `0> ( n -- f )` (true
    if `n > 0`).  Compare to the standard Forth names.
@@ -318,8 +322,9 @@ instruction.
 
 ## Takeaways
 
-- One arithmetic primitive (`-`) and one logic primitive (`0=`) give
-  us all six comparisons in twelve total tokens.
+- Derived subtraction (`-`, Ch 4), one division primitive (`/`),
+  and one logic primitive (`0=`) give us all six comparisons in
+  twelve total tokens.
 - The sign bit can be extracted with one unsigned divide by `2^63`,
   avoiding the need for a bitwise AND with a 64-bit immediate.
 - Forth's `-1` / `0` boolean convention is what `0= 0=` produces;

@@ -204,8 +204,8 @@ re-looking-up the type by name.
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
 \   cc-sym-type      [id] : encoded type word from cc-types
 \   cc-sym-val       [id] : kind-specific payload
-\                            sk-global/sk-func: absolute vaddr
-\                            sk-local         : rbp-relative offset (negative)
+\                            sk-global/sk-func: globals-buf offset / vaddr
+\                            sk-local         : slot index (disp -8*(slot+1))
 \                            sk-struct        : arena-pointer to descriptor
 \                            sk-enum          : integer value
 \                            sk-typedef       : encoded type word
@@ -368,16 +368,20 @@ exit.
 `kind` is one of six `sk-*` codes.  `type` is the type word from
 §1.
 
-`val` is overloaded.  For globals and functions it holds the
-absolute virtual address where the symbol lives in the emitted
-ELF.  For locals it holds the `rbp`-relative offset (always
-negative — locals live *below* the saved frame pointer).  For
-structs it holds the descriptor pointer.  For enum constants it
+`val` is overloaded.  For functions it holds the absolute virtual
+address where the function lives in the emitted ELF (0 while it's
+only forward-declared).  For globals it holds an offset into
+`cc-globals-buf` — the data's vaddr isn't known until the code ends
+(Ch 26 §5).  For locals it holds a *slot index* counted by
+`cc-fn-local-count`; the `rbp` displacement `-8*(slot+1)` is
+computed at emit time (Ch 25), so locals live *below* the saved
+frame pointer.  For structs it holds the descriptor pointer.  For enum constants it
 holds the integer value.  For typedefs it holds the type word that
 the typedef name aliases.
 
 `extra` and `extra2` are two more overload slots.  `extra` is the
-array length for `sk-local` array variables and zero otherwise.
+array length for array variables, the descriptor pointer for
+struct-typed variables and pointers, and zero otherwise.
 `extra2` is the head of a forward-reference fixup chain for
 `sk-func`.  Ch 31 covers the fixup mechanism in detail; for now,
 treat `extra2` as "future-codegen scratch space."
@@ -448,10 +452,13 @@ at file scope.  They're below every scope marker, so the reverse
 walk always reaches them.
 
 The 64-deep scope cap is overkill — nested blocks in M2-Planet rarely
-exceed 4.  But scope-depth doubles as a sanity check: if a
-`cc-scope-pop` ever happens without a matching push, depth would
-underflow and the next push would clobber stale memory.  The cap
-makes those failures loud rather than silent.
+exceed 4.  Nothing enforces it, though.  `cc-scope-push` never
+compares `cc-scope-depth` against `cc-scope-cap`, and `cc-scope-pop`
+has no underflow guard: a 65th push writes past the end of
+`cc-scope-stack`, and a pop without a matching push reads the cell
+below it.  Both failures are silent.  The parser keeps pushes and
+pops paired, and M2-Planet stays far below the cap, so neither
+happens in practice.
 
 ## 5. How types and symbols connect
 
@@ -463,14 +470,19 @@ single C declaration `struct point p;` inside a function:
 2. The parser (Chs 29–31) reaches the declaration and looks up
    `"point"` via `cc-sym-find` — finds an `sk-struct` entry.
    Reads `cc-sym-val-of` to get the descriptor pointer.
-3. Reads `cc-sd-total-size` from the descriptor — say, 24 bytes.
-4. Allocates 24 bytes of locals at offset `-24` from `rbp`.
+3. Reads `cc-sd-total-size` from the descriptor — say, 24 bytes,
+   which is three 8-byte slots.
+4. Reserves those three slots.  If `p` is the function's first
+   local they are slots 0–2, and `p` takes the *highest*, slot 2,
+   so its base address `rbp - 8*(2+1)` = `rbp - 24` is the lowest
+   of the three.
 5. Calls `cc-sym-add` with the name `"p"`, kind `sk-local`, type
-   `ty-make ty-struct 0`, val `-24`.
+   `ty-make ty-struct 0`, val `2`, then stores the descriptor
+   pointer in `p`'s `extra`.
 6. The new symbol becomes findable; references to `p.x` will look
-   `p` up, see `sk-local`, read its val for the `rbp`-offset, and
-   the codegen will emit `lea rax, [rbp + (-24)]` to get the
-   struct's base address.
+   `p` up, see `sk-local`, read slot 2 from its val and the field
+   layout from its descriptor, and the codegen will emit
+   `lea rdi, [rbp - 24]` to get the struct's base address.
 
 That's the only protocol every later chapter needs to know.
 
@@ -548,14 +560,17 @@ function symbol in the M2-Planet input.
 
 5. **★★★ Modify.** `cc-sym-find`'s newest-first walk plus "skip after hit" is
    linear in table size, even after a hit.  Could you bail
-   early?  Hint: the seed has no `exit`, but a Forth-level
-   wrapper could check a flag at every iteration and skip the
-   body.  Measure whether it's worth the bytes.
+   early?  Hint: the seed has no `exit`, and the body already
+   skips its comparisons once `cc-sym-find-result` is set — but
+   the loop keeps counting down to 0.  Fold the "still searching"
+   test into the `while,` condition instead.  Measure whether it's
+   worth the bytes.
 
 ## After this chapter
 
 The compiler has runtime data for names and C types: every type
-fits in one word (base kind + pointer depth + size), every symbol
+fits in one word (base kind + pointer depth; `ty-size` derives
+the size), every symbol
 lives in a row across parallel columns, and scopes push/pop by
 remembering a count.  Struct definitions get their own 16+40·N-byte
 descriptor.

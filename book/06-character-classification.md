@@ -7,7 +7,7 @@ Artifact after this chapter: digit?, alpha-lower?, alpha-upper?, alpha?, space?.
 Proof link: the lexer (Ch 23) reuses these for identifier and number recognition.
 ```
 
-Five small predicates in `010-lib.fth` (lines 63–86), `digit?`,
+Five small predicates in `010-lib.fth` (lines 64–86), `digit?`,
 `alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`, build a
 character classifier vocabulary on a single three-token idiom: `(c
 - base) / range 0=` is true exactly when `c` falls in `[base,
@@ -77,15 +77,17 @@ why, walking three cases through `digit?  ( c -- )  [lit] 48 -
 - `c == 0`: `0 - 48` underflows to `2^64 - 48 ≈ 1.84×10^19`; dividing
   that by 10 leaves a huge number; `0=` → `0`.  ✓ not a digit.
 
-The third case is the load-bearing one.  In a signed-arithmetic
-language you'd worry that `0 - 48 == -48` and `-48 / 10 == -4` (or
-`-5`, depending on rounding) — non-zero, so `0=` still returns 0,
-fine.  But the seed's `/` is the x86 `DIV` instruction, which is
-*unsigned*.  Negative values reinterpreted as unsigned become huge,
-the division still produces a huge quotient, and `0=` still gives 0.
-Both interpretations land on the same answer.  This isn't a happy
-accident: the seed authors chose unsigned `/` partly so this trick
-would keep working without sign-juggling.
+The third case is the load-bearing one.  With signed division,
+`0 - 48 == -48` and `-48 / 10 == -4` — non-zero, so `c == 0` happens
+to come out right.  But look just below the range: for `c` in
+39..47 (`'` through `/`), `c - 48` is -9..-1, and signed division
+truncates toward zero, so `(c - 48) / 10 == 0` and `0=` says
+"digit."  Nine false positives.  The seed's `/` is the x86 `DIV`
+instruction, which is *unsigned*.  Every negative difference,
+reinterpreted as unsigned, is at least `2^64 - 48`; the quotient
+stays huge, and `0=` gives 0.  This isn't a happy accident: the seed
+authors chose unsigned `/` partly so this trick would keep working
+without sign-juggling.
 
 The trick generalises.  Any contiguous range `[base, base+range)`
 becomes a three-token classifier by plugging in the right two
@@ -258,12 +260,12 @@ are byte-identical to the seed source.
 ```sh
 ./build.sh
 { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
-  echo '[lit] 53 digit?  0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 65 digit?  0= [lit] 49 + emit'      \ false -> '0'
-  echo '[lit] 65 alpha?  0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 33 alpha?  0= [lit] 49 + emit'      \ false -> '0'
-  echo '[lit] 32 space?  0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 88 space?  0= [lit] 49 + emit'      \ false -> '0'
+  echo '[lit] 53 digit?  0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 65 digit?  0= [lit] 49 + emit'      # false -> '0'
+  echo '[lit] 65 alpha?  0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 33 alpha?  0= [lit] 49 + emit'      # false -> '0'
+  echo '[lit] 32 space?  0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 88 space?  0= [lit] 49 + emit'      # false -> '0'
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 

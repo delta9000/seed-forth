@@ -21,7 +21,7 @@ its own `:`-definitions.
 
 By the end of the chapter you'll be able to enumerate the supported
 directives, walk the macro lookup via `bytes-eq` (Ch 12), trace an
-`#include "M2libc/..."` path through the literal-then-`tests/cc/`
+`#include "cc.h"` path through the literal-then-`tests/cc/`
 search and the recursive descent into the pool, and explain why
 macro expansion is not the preprocessor's job at all (Ch 23's lexer
 calls `cc-macro-find-int` after reading each identifier).  Why
@@ -36,14 +36,20 @@ to glue everything together before the compiler sees a single
 token.  This file is that preprocessor.
 
 It is also, deliberately, the *smallest* preprocessor that suffices
-for the job.  The bootstrap monolith needs exactly two active
-transformations: `#include "…"` for project headers (M2libc paths)
-and `#define NAME N` for integer constants.  Other directive lines
-can still appear after the monolith is assembled — angle-bracket
-includes, include guards, and similar scaffolding — but this compiler
-does not need their semantics.  The preprocessor's job is to handle
-the two active transformations faithfully and to silently elide the
-rest.
+for the job.  It supports two active transformations: `#include "…"`
+for project headers and `#define NAME N` for integer constants.
+The bootstrap monolith leans on less than that.  The script that
+assembles it deletes every column-0 `#include "…"` line from the
+`.c` files, and the `TRUE`/`FALSE` defines with them, so only the
+headers' own `#include "cc_globals.h"` and `#include "cc.h"` reach
+this pass — both resolved through the `tests/cc/` fallback.  No
+integer `#define` survives: the one left, `#define CC_H`, has no
+value and is dropped.  The integer path is exercised by the gate
+fixtures instead (see Try it).  Other directive lines — angle-bracket
+includes, include guards, and similar scaffolding — still appear,
+but this compiler does not need their semantics.  The
+preprocessor's job is to handle the two active transformations
+faithfully and to silently elide the rest.
 
 ## 1. The output buffer and the two-megabyte detour
 
@@ -1003,19 +1009,24 @@ two-stage design — register at prep, substitute at lex — is what
 makes object-like macros virtually free.
 
 **Layer check:** there is no root-level `test-040-cc-prep.fth`.
-`tests/cc/G6a.c` and `G6b.c` are the focused smoke tests for
-preprocessor behavior.
+The preprocessor's fixtures are gates: `tests/cc/G14a.c` (integer
+`#define`), `G14b.c` (`#include "…"` through the `tests/cc/`
+fallback), `G5.c` (an elided `#include <stdio.h>` plus the built-in
+macros), and the two below.
 
-**Bootstrap relevance:** Stage-A exercises the preprocessor end to
-end, including the include path and integer macro table.  Two gates
-pin defects parity alone would never catch — each fix left the
+**Bootstrap relevance:** Stage-A exercises the include path — the
+two quote-includes left in the monolith's headers — and the
+built-in macros such as `NULL` and `stdout`; no integer `#define`
+reaches the preprocessor there, so the gates above are the only
+check on that path.  Two gates pin defects parity alone would never
+catch — each fix left the
 Stage-A bytes unchanged, which means M2-Planet's source never walks
 the broken path.  `tests/cc/G-indented-define.c` holds an indented
 `#define` that the directive handler once consumed off by one byte
 and silently dropped; `tests/cc/H-comment-directive.c` ends a macro
 definition with a block comment spanning a newline, which once left
-a stray `*/` for the lexer.  `tests/cc/run-gates.sh` runs both with
-the other six gates.
+a stray `*/` for the lexer.  `tests/cc/run-gates.sh` runs both
+alongside the other 30 gates.
 
 ```sh
 ./build.sh
@@ -1039,9 +1050,10 @@ tests/cc/stage-a-check.sh
    feature and observe how the compiler handles it.  Where would
    the smallest possible patch go?
 
-4. **★★ Modify.** `#include` cycles would loop forever.  Read §4 and find the
-   (deliberately missing) cycle check.  Sketch the smallest patch
-   that would detect a cycle without parsing.
+4. **★★ Modify.** There is no `#include` cycle check.  Read §4: what stops
+   a file that includes itself, at what depth, and with which exit
+   status?  Sketch the smallest patch that would report a cycle as
+   a cycle instead.
 
 5. **★★ Extend.** `#undef NAME` and `#ifdef NAME` are absent.  Estimate the
    complexity cost of adding each.  Which would touch more code?

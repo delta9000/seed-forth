@@ -4,16 +4,16 @@
 Missing capability: defining-words have no way to emit bytes into the dictionary at compile time.
 New pattern: here-addr names the bump cursor; c,, ,4, ,8 are write-then-advance helpers.
 Artifact after this chapter: byte-level emission primitives every later library word reaches for.
-Proof link: every byte the seed compiles passes through c,; the dictionary's tail is here-addr.
+Proof link: every byte the library hand-assembles passes through c,; the dictionary's tail is here-addr.
 ```
 
-Two short definitions in `010-lib.fth` (lines 9–21), `here-addr` and
+Two short definitions in `010-lib.fth` (lines 11–21), `here-addr` and
 `c,`, give the dictionary its frontier pointer and the one-byte
 writer that pushes it forward.  `here-addr` names the absolute
 address `0x413010` on the sysvar page where the HERE cell lives;
 `c,` ("c-comma") is the read-modify-write idiom that stores a byte
 at HERE and bumps the cell by one.  Open `010-lib.fth` to those
-thirteen lines and keep them in view; everything else in this
+eleven lines and keep them in view; everything else in this
 chapter is a walk through how Forth makes "the next byte to write
 to" a first-class, user-visible value, and why that single naming
 decision is what lets the compiler be written in Forth.
@@ -97,8 +97,8 @@ Trace it with `( b -- )`, assuming HERE currently points at address
 |------|--------------------------------------|----------------------------|
 | 1    | `here` pushes the *contents* of HERE | stack: `b A`               |
 | 1    | `c!` stores low byte of TOS at `A`   | byte `b` written; stack: empty |
-| 2    | `here-addr @` fetches the sysvar cell | stack: `0x413010`         |
-| 2    | `[lit] 1 +` adds one                 | stack: `0x413011`         |
+| 2    | `here-addr @` fetches the sysvar cell | stack: `A`                |
+| 2    | `[lit] 1 +` adds one                 | stack: `A+1`              |
 | 2    | `here-addr !` stores it back         | HERE cell now holds `A+1` |
 
 The pattern repeats wherever code is emitted: read the pointer, write
@@ -116,13 +116,18 @@ encodes.
 
 ## 4. The big picture
 
-`c,` emits one byte.  Every byte in every dictionary header, every
-opcode in every colon definition, every absolute address in every
-`constant` body, every rel32 offset in a branch instruction inside
-the Forth itself travels through `c,` (or one of its multi-byte cousins
-`,4` and `,8`, which call `c,` four or eight times).  Part III's C
-compiler runs a parallel emission path of its own — its `cc-emit-byte`
-writes into an arena buffer rather than HERE — but the *idea* is the
+`c,` emits one byte.  Almost every byte that `010-lib.fth` builds by
+hand — every opcode in a `constant` or `create` body, every `CALL`
+and rel32 that `comma-call` lays down in Ch 11 — travels through `c,`
+(or one of its multi-byte cousins `,4` and `,8`, which call `c,` four
+or eight times).  The seed's own machine-code words are the
+exception: `:` builds each dictionary header, the REPL lays down each
+compiled `CALL`, `;` appends the `RET`, and `,` and `[lit]` store
+their 8-byte cells, all by writing through the HERE cell directly.
+They follow the same read-write-advance pattern; they just don't
+call `c,`.  Part III's C compiler runs a parallel emission path of
+its own — its `cc-emit-byte` writes into an arena buffer rather than
+HERE — but the *idea* is the
 same: a single one-byte primitive at the bottom of the world.  This is
 the first word after the file header because it is the word everything
 else in `010-lib.fth` builds on.
@@ -205,18 +210,20 @@ with `c@` and print it with `emit`.  The seed should print `ABC`.
 
 4. **★★ Trace.** The expression `[lit] 4272144` is 0x413010.  What sits at 0x413000,
    0x413008, 0x413018, 0x413020, 0x413028?  (You can answer from the
-   memory-map in `README.md`; the full breakdown is Ch 13.)
+   memory map in [Appendix A2](A2-memory-map.md); the full breakdown is
+   Ch 13.)
 
 ## Takeaways
 
-- Every byte the Forth system emits — every dictionary header, every
-  machine instruction inside a colon definition, every cell in a
-  `create`d array — passes through `c,`.
+- `c,` is the library's byte emitter: every hand-built `constant`
+  or `create` body and every `CALL` that `comma-call` lays down
+  passes through it.  The seed's machine-code words (`:`, `;`, `,`,
+  `[lit]`, and the REPL's `CALL` emitter) write HERE directly.
 - The sysvar page at 0x413000 is hard-coded throughout `010-lib.fth`
   by absolute address.  When 000-seed.hex0 changes layout, those
   literals must be updated in lockstep.
 - Forth's "compiler" is not a separate program.  It is a chain of
-  Forth words that ultimately call `c,`.  The C compiler in Part III
+  Forth words that ultimately write at HERE.  The C compiler in Part III
   follows the same shape with its own emitter.
 
 Next: Chapter 3 — Logic from One Primitive, where we use `nand` (and

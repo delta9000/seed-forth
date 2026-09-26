@@ -56,9 +56,9 @@ Sections §§2–4 are the *recursive-descent floor*: struct fields,
 array indexing, and `cc-parse-primary` — the leaf parser that
 handles identifiers, literals, parenthesised sub-expressions, and
 the postfix chain (`.field`, `->field`, `[idx]`, `(args)`,
-`++`/`--`).  Sections §§5–7 are the *right-associative tail*:
-unary prefix operators (§5), the ternary `?:` (§6), and the
-assignment operators (§7).  Sections §§8–9 are the top-level
+`++`/`--`) — and §5 finishes the floor with the unary prefix
+operators.  Sections §§6–7 are the *right-associative tail*: the
+ternary `?:` (§6) and the assignment operators (§7).  Sections §§8–9 are the top-level
 driver `cc-parse-expr` and a worked walk through a multi-stage
 expression that touches every layer.  Readers who already know
 expression parsing can use this chapter as a reference: each
@@ -1146,10 +1146,14 @@ trampoline), and patches two fixups: one for the "else" jump
 and one for the "end" jump.
 
 The recursion through `cc-parse-assign` (rather than
-`cc-parse-ternary` directly) is what makes `a ? b = 1 : c = 2`
-syntactically legal — assignment lives below ternary in the
-real C precedence table, but you can have an assignment inside
-a ternary arm via this routing.
+`cc-parse-ternary` directly) means each arm can hold an
+assignment.  For the middle arm that matches C.  For the last arm
+it is a deviation: in C, `a ? b = 1 : c = 2` is a syntax error,
+because the else-arm is a conditional-expression and cannot
+contain a bare `=`.  This compiler accepts it and parses the tail
+as `c = 2` (a program returning that expression with `a` false
+gets `2`).  M2-Planet never writes this, so Stage A never
+notices.
 
 ## 7. Assignment: snapshot, recurse, store
 
@@ -1340,7 +1344,8 @@ The flow:
 6. `kind=0` (no lvalue) means `1 = 2` or similar — error.
 
 Compound assignment via `cc-apply-compound-op` is a flat
-dispatch on the eleven `pt-*-eq` codes (one per operator).
+dispatch on the ten `pt-*-eq` codes (one per operator:
+`+= -= *= /= %= <<= >>= &= |= ^=`).
 Each is `drop` followed by the appropriate binary-op emitter
 from Ch 25 §5 / Ch 26 §4.
 
@@ -1478,9 +1483,12 @@ machinery in isolation.
 1. **★ Trace.** Trace what `cc-parse-primary` emits for the literal `'X'`.
    Where does the character value end up?
 
-2. **★★ Trace.** Construct a C expression that uses every postfix operator
-   in `cc-parse-primary` (`.`, `->`, `[]`, `++`, `--`) in one
-   chain.  Sketch the lvalue-kind transitions as it parses.
+2. **★★ Trace.** Construct a C expression that chains the postfix
+   operators `.`, `->` and `[]` (say, `s.next->arr[1]` with a
+   local `struct N s`).  Sketch the lvalue-kind transitions as it
+   parses.  Then append `++`: the compile dies with status 53, and
+   so do `b[1]++` and `x++--`.  Which lvalue kind does postfix `++` accept, and why
+   does every one of these operands fail that test?
 
 3. **★★★ Extend.** Compound assignment of dereference targets (`*p += 1`) is
    *not* supported (§7's kind=2 branch errors on anything but
@@ -1511,9 +1519,11 @@ lvalue kinds and when `cc-emit-materialize` fires, and follow how
 `p[i] = c;` reaches the right byte-width store without a separate
 codegen path.
 
-Toward Stage-A: pointer indirection, array indexing, struct field
-access, and assignment together generate the bulk of the M1 text in
-a real M2-Planet build, so this is where most parity hinges.
+Toward Stage-A: M2-Planet's source is dense with pointer
+indirection, array indexing, struct field access, and assignment,
+so much of the machine code in `cc-out-v1` comes from this chapter.
+Stage A never diffs that machine code.  A bug here surfaces only
+when `cc-out-v1` runs and emits different `.M1` text.
 
 ## Takeaways
 

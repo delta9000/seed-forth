@@ -12,11 +12,13 @@ every loop and conditional in the codebase: `branch_code`
 (`@ 0x42B`, lines 368–372) is an unconditional jump to an inline
 8-byte target, and `zbranch_code` (`@ 0x431`, lines 374–385) is its
 conditional counterpart, jumping when the top-of-stack flag is zero
-and otherwise stepping past the slot.  Both share `lit_code`'s
-trick of reading their inline operand off the return stack, but
-with one crucial twist: they *consume* that slot, pushing a fresh
-return address before `ret`, so the 8-byte cell does not remain on
-the return stack after the branch.
+and otherwise stepping past the slot.  Both use `lit_code`'s trick
+exactly: pop the return address (which points at the inline cell),
+read the cell, and push a corrected return address before `ret`,
+so execution never lands on the 8 raw bytes.  The one new move is
+*which* address gets pushed back: `lit_code` always pushes
+`slot + 8`, while the branches can push the cell's *contents* — the
+target.
 
 By the end of the chapter you'll be able to read both bodies byte
 for byte, explain the consumed-slot property and why it makes
@@ -46,12 +48,14 @@ own REPL avoids them, and only because the REPL is written in raw hex.
 A compiled `if,` site looks like this in memory:
 
 ```
-addr+0:  E8 xx xx xx xx          ; CALL zbranch_code   (5 bytes)
+addr+0:  E8 xx xx xx xx          ; CALL 0branch's xt   (5 bytes)
 addr+5:  TT TT TT TT TT TT TT TT ; inline target cell  (8 bytes)
 addr+13: ...                     ; next instruction (the "then" arm)
 ```
 
-The `CALL` instruction transfers control to `zbranch_code`, pushing
+The `CALL` targets `0branch`'s xt — the `JMP` stub in its header
+(Ch 17) — which passes control on to `zbranch_code`.  The `CALL`
+pushes
 the address `addr+5` (the byte after the CALL) onto the return
 stack as the return address.  `zbranch_code` is now executing with
 the address of the inline target cell sitting at `[rsp]`.
@@ -90,7 +94,7 @@ this pop/dereference/push trick specifically so that one `if,`
 combinator can read as "emit a CALL and an 8-byte slot" with no
 follow-up bookkeeping.
 
-## 3. `zbranch_code` in nine instructions
+## 3. `zbranch_code` in eleven instructions
 
 ```hex0 chunk=zbranch-code
 ;; ----- zbranch_code @ 0x431 ( flag -- ) branch if flag==0 -----
@@ -168,20 +172,28 @@ picked `push/ret` because:
 
 ## 5. The consumed-slot property
 
-This deserves its own section because it is *the* clever idea in
-the chapter.
+This is the same pop/adjust/push that `lit_code` does (Ch 18); it
+gets its own section because for the branches it is what makes
+inline targets work at all.
 
 When a Forth-level `if,` emits a 13-byte sequence at HERE (5 bytes
-for `CALL zbranch_code` + 8 bytes for the inline target), it does
-*not* leave a separate target table.  The target is right there,
+for the `CALL` to `0branch`'s xt + 8 bytes for the inline target),
+it does *not* leave a separate target table.  The target is right there,
 next to the CALL.  This is good for code locality and for compiler
 simplicity — but it means the primitive has to *jump over* the
 target cell when continuing past it.
 
 The naive approach is: don't pop the return address; just adjust it
-in-place on the return stack.  But x86 doesn't let you write
-through `rsp` arbitrarily without disturbing the call stack
-invariants.  Pop / modify / push is the cleanest path.
+in place on the return stack.  x86 can do that — `add qword [rsp],
+8` is a real 5-byte instruction, and `r@` reads `[rsp+8]` directly.
+The seed pops anyway because it is smaller.  Every `[rsp]` operand
+costs a SIB byte, and both paths need the slot address in a
+register to read the cell.  `pop rax` and `push rax` are one byte
+each, so the fall-through path is `add rax, 8` (4 bytes) inside a
+2-byte pop/push pair, and the taken path is `mov rax, [rax]` (3
+bytes) inside the same pair.  Doing the taken path in place would
+need `mov rax, [rsp]` (4) + `mov rax, [rax]` (3) + `mov [rsp], rax`
+(4).
 
 After the primitive's `ret`, the return stack looks like:
 
@@ -216,7 +228,7 @@ At a Forth-level `if,` call site:
 
 ```forth
 : if,  ( -- patch-addr )
-  0branch-xt comma-call      \ emit CALL 0branch (= zbranch_code)
+  0branch-xt comma-call      \ emit CALL to 0branch's xt
   here                       \ remember slot address for back-patching
   [lit] 0 , ;                \ reserve an 8-byte cell as placeholder
 immediate
@@ -225,7 +237,7 @@ immediate
 So an `if,` invocation emits:
 
 ```
-addr+0:  E8 xx xx xx xx     ; CALL 0branch (= zbranch_code)
+addr+0:  E8 xx xx xx xx     ; CALL 0branch's xt (stub → zbranch_code)
 addr+5:  00 00 00 00 00 00 00 00 ; placeholder target
 ```
 
@@ -241,8 +253,8 @@ the patch becomes the runtime branch target.
 
 At runtime:
 
-1. The compiled definition executes its body up to the `CALL
-   zbranch_code` instruction.
+1. The compiled definition executes its body up to the `CALL` to
+   `0branch`'s xt.
 2. The flag is popped off the data stack.  In Forth, `flag if ...
    then` enters the body when the flag is true, and `then,` patches
    the placeholder slot with the *post-body* address — so the
@@ -328,15 +340,17 @@ EOF
 ## Takeaways
 
 - `branch` and `0branch` are 34 bytes total and implement every
-  control structure in this codebase — every `if`, `else`, `while`,
-  `for`, and `return` you'll meet from Ch 30 onward sits on top of
-  one of these two primitives.
+  control structure in the Forth code — the library's combinators
+  and the C compiler's own Forth source.  The C `if`, `while`, and
+  `for` statements that compiler handles (Ch 30) are a different
+  layer: they compile to native x86 jumps in the output program,
+  not to calls to these primitives.
 - The inline-slot convention puts branch targets next to the CALL
   site, which simplifies the compiler (no separate target table)
   but requires the primitive to *consume* the slot — pop the
   callee's return address, do the work, push the new one.
 - Every Forth-level combinator in Ch 11 is a thin wrapper that
-  emits `CALL <(z)branch_code> + 8-byte slot` and arranges for
+  emits `CALL <(0)branch xt> + 8-byte slot` and arranges for
   later code to patch the slot.  The primitive makes the
   emit/remember/patch contract executable.
 

@@ -356,11 +356,11 @@ Whichever path you take, you can verify the literate side:
 tools/tangle.sh verify
 ```
 
-That extracts every code block tagged `file=010-lib.fth` from the
-book (currently, just the six in this chapter) and checks that each
-one appears, in order, in the real `010-lib.fth`.  As more chapters
-land, coverage grows; when it reaches 100% and the `--strict` mode
-passes, the book *is* the source.
+That extracts every code block tagged `file=...` from the book —
+for `010-lib.fth`, one block per Part I chapter, starting with the
+single block in this chapter — and checks that each one appears, in
+order, in the real source file.  Coverage is 100% today, and
+`tools/tangle.sh verify --strict` passes: the book *is* the source.
 
 ---
 
