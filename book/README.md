@@ -32,7 +32,7 @@ these as it needs them, in the order it needs them.
   `000-seed.hex0`, or the C compiler files and explain what it
   does, why it's shaped that way, and what would break if it
   weren't.
-- Run `./check-all.sh` and explain what each of its eight steps
+- Run `./check-all.sh` and explain what each of its nine steps
   proves about the artifact.
 - Audit the Stage-A parity claim yourself: rebuild the chain from
   the 229-byte hex0 trust root through the 1,772-byte seed, the
@@ -66,9 +66,10 @@ What you'll want installed:
   reproduce.
 - **git** to clone the repo with its `vendor/` submodules
   (stage0-posix's `hex0-seed` is checked in there).
-- **A C compiler** (gcc) and **make** **only** if you want to run
-  the Stage-A check (Appendix C) and the small assembler checks;
-  the book itself never invokes them.
+- **A C compiler** (gcc) **only** if you want to run the Stage-A
+  check (Appendix C) and the other comparisons against GCC-built
+  references (`./verify.sh`); the book itself never invokes it, and
+  `./bootstrap.sh` builds the whole chain without it.
 
 Disk budget: ~30 MiB for the repo plus vendored stage0-posix /
 M2-Planet / mescc-tools.  Memory: a few MiB at runtime; the C
@@ -78,19 +79,22 @@ Smoke check from a fresh clone:
 
 ```sh
 git submodule update --init --recursive
-./check-all.sh                  # build, tests, asm, C gates, tangle, numbers, Stage-A
+./check-all.sh                  # build, tests, asm, C gates, tangle, numbers, Stage-A, bootstrap
 ```
 
-`check-all.sh` runs eight steps and prints one OK/SKIP/FAIL line
+`check-all.sh` runs nine steps and prints one OK/SKIP/FAIL line
 for each: `01-build` (the 1,772-byte seed), `02-test` (the layer
 smoke tests), `02a-asm` (three small assembler checks),
 `02b-gates` (the registered C-compiler gates), `03-tangle-strict`
 (book and source byte-identical), `04-book-numbers` (the prose's
 exact numbers against source), `04a-tryit` (every runnable
-Try-it block, run against the built seed), and `05-stage-a` (the byte-identical
-`.M1`).  `02a-asm` and `05-stage-a` need gcc and make and report
-SKIP without them; `04-book-numbers` and `04a-tryit` need python3.  If it ends
-with `check-all: all 8 steps PASS`, the codebase is reproducing the
+Try-it block, run against the built seed), `05-stage-a` (the byte-identical
+`.M1`), and `06-bootstrap` (`./bootstrap.sh`, the GCC-free build up to
+M2-Planet's self-hosting fixed point; Appendix C).  `02a-asm` and
+`05-stage-a` need gcc, only to build the references they compare
+against, and report SKIP without it; `04-book-numbers` and `04a-tryit`
+need python3.  If it ends
+with `check-all: all 9 steps PASS`, the codebase is reproducing the
 canonical artifacts.  See
 **Troubleshooting** below if anything fails.
 
@@ -130,7 +134,7 @@ order you'd hit them:
 | `build.sh` says `hex0-seed: No such file or directory` | submodules not initialised | `git submodule update --init --recursive` |
 | `build.sh` runs but produces 0 bytes | `hex0-seed` not executable on this filesystem (some Windows / network mounts) | `chmod +x vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed` |
 | `cannot execute binary file: Exec format error` | wrong host architecture (Apple Silicon, ARM) | Run the build inside an `amd64` VM, container, or QEMU-user. |
-| `stage-a-check.sh` says `make: command not found` or `cc: ...` | GCC / make not installed | Install `build-essential` (Debian/Ubuntu) or equivalent. Only Stage-A needs it; `test.sh` does not. |
+| `stage-a-check.sh` says `gcc not on PATH` | GCC not installed | Install `gcc` (Debian/Ubuntu: `build-essential`). Only the comparisons against GCC references need it; `test.sh` and `bootstrap.sh` do not. |
 | Stage-A check fails on the `.M1` diff | something in `vendor/M2-Planet` drifted from the pin | `cd vendor/M2-Planet && git checkout 0a67a68` (see `REPRODUCIBLE.md` for canonical pins) |
 | `tangle verify --strict` reports a file mismatch | edit drifted between book block and source file | The source file is authoritative if you edited it directly; re-run `tools/tangle.sh extract /tmp/out` and diff. |
 | Out of disk during the Stage-A monolith build | `/tmp` is on a small tmpfs | `BUILDROOT=/var/tmp/seed-bootstrap ./tests/cc/stage-a-check.sh` |

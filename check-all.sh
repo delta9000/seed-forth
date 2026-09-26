@@ -6,8 +6,9 @@
 #   2.  ./test.sh passes all its seed and layer tests
 #   2a. the four light tests/asm checks (exit42, jump42, m1-jump42, and
 #       die-gates, the assembler's error codes); the heavyweight
-#       m2planet/mescc-tools checks stay opt-in
-#       (skipped if gcc or make is missing — these tests build mescc-tools)
+#       m2planet/mescc-tools checks stay opt-in in ./verify.sh
+#       (skipped if gcc is missing — these tests compare against GCC-built
+#        mescc-tools, rebuilt fresh by tests/cc/build-gcc-refs.sh)
 #   2b. tests/cc/run-gates.sh all registered C gates pass
 #   3.  tools/tangle.sh verify --strict reports 13/13 byte-identical
 #   4.  tools/check-numbers.py finds no drifted numeric claim in book/
@@ -19,9 +20,16 @@
 #       /tmp) and checks it runs cleanly, leaves no stray files, and
 #       prints the output the book states (skipped if python3 is missing)
 #   5.  tests/cc/stage-a-check.sh produces a byte-identical .M1
-#       (skipped with a SKIP line if gcc or make is missing — only
-#        Stage-A needs a host C toolchain; steps 1, 2, 3, 4, 4a do not;
-#        step 2a also requires gcc+make to build mescc-tools)
+#       (skipped with a SKIP line if gcc is missing — only 2a and 5 need a
+#        host C compiler, and only to build the references they compare to)
+#   6.  ./bootstrap.sh, the GCC-free build: hex0-seed -> seed-forth ->
+#       M2-Planet -> M1 + hex2 (via 130-asm.fth) -> M2-Planet v2 -> v3, with
+#       the v2 == v3 self-host fixed point (~30 s; output in ./build-out/out).
+#       Needs no gcc, so it is never skipped.
+#
+# Not here, because they are slow and repeat what 5 and 6 cover: the per-arch
+# chain, M2-Planet test-suite parity and the mescc-tools byte-identity checks.
+# Run ./verify.sh for those (all comparisons against GCC-built references).
 #
 # Each step's full output is captured to /tmp/check-all-NN-*.log; the
 # console shows one OK/SKIP/FAIL line per step plus the final verdict.
@@ -63,13 +71,10 @@ skip() {
 run "01-build"          ./build.sh
 run "02-test"           ./test.sh
 
-if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+if command -v gcc >/dev/null 2>&1; then
     run "02a-asm"           bash -c 'for t in tests/asm/exit42-check.sh tests/asm/jump42-check.sh tests/asm/m1-jump42-check.sh tests/asm/die-gates.sh; do "$t" || exit 1; done'
 else
-    missing=()
-    command -v gcc  >/dev/null 2>&1 || missing+=(gcc)
-    command -v make >/dev/null 2>&1 || missing+=(make)
-    skip "02a-asm" "missing: ${missing[*]}"
+    skip "02a-asm" "missing: gcc"
 fi
 
 run "02b-gates"         tests/cc/run-gates.sh
@@ -87,14 +92,13 @@ else
     skip "04a-tryit" "missing: python3"
 fi
 
-if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+if command -v gcc >/dev/null 2>&1; then
     run "05-stage-a"    tests/cc/stage-a-check.sh
 else
-    missing=()
-    command -v gcc  >/dev/null 2>&1 || missing+=(gcc)
-    command -v make >/dev/null 2>&1 || missing+=(make)
-    skip "05-stage-a" "missing: ${missing[*]}"
+    skip "05-stage-a" "missing: gcc"
 fi
+
+run "06-bootstrap"      ./bootstrap.sh
 
 echo
 if [ $FAIL -eq 0 ]; then

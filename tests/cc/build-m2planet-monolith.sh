@@ -14,11 +14,15 @@
 #     Replace the (Architecture & ARCH_FAMILY_X86) guard in
 #     write_{add,sub}_immediate with constant 0 before compiling, so cc-out-v1
 #     deliberately omits the BYTE-immediate x86 stack/offset optimization.
-#     This makes cc-out-v1's M2-Planet self-host output byte-identical to a
-#     stage0-posix-chain-built M2-Planet, whose `cc_amd64` mis-evaluates the
-#     same guard and never emits the optimized form.  Default (unset) keeps
-#     the optimization on and matches the GCC-built reference instead.  See
-#     REPRODUCIBLE.md "Stage0 byte-identity" for the rationale.
+#     The guard is `(Architecture & ARCH_FAMILY_X86) && (...)`: an ISO C
+#     compiler (GCC, our Forth compiler) evaluates it as 8 && 1 = 1, but
+#     M2-Planet-family compilers (cc_amd64, M2, M2-Planet) compile `&&` as
+#     bitwise AND, 8 & 1 = 0, so every M2-Planet-built M2-Planet skips the
+#     optimization.  With the patch, cc-out-v1's self-host output equals an
+#     M2-Planet-built M2-Planet's (stage0 route or this repo's v2/v3).
+#     Default (unset) keeps the optimization on and matches the GCC-built
+#     reference instead.  tests/cc/stage0-check.sh proves both; see
+#     REPRODUCIBLE.md "Stage0 cross-check and STAGE0_COMPAT".
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 

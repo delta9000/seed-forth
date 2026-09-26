@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Stage-A parity check — the key invariant for seed-forth correctness.
 #
+# A COMPARISON AGAINST A GCC-BUILT REFERENCE (see verify.sh; the GCC-free
+# build itself is bootstrap.sh).  Trusts the host gcc for m2-ref only.
+#
 # Verifies that seed-forth-compiled M2-Planet (cc-out-v1) produces the same
 # .M1 output as the gcc-built reference (m2-ref) when self-compiling
-# M2-Planet for amd64.  This is the "A" sub-stage of bootstrap-chain.sh
+# M2-Planet for amd64.  cc-out-v1 and m2-ref are rebuilt on every run.  This is the "A" sub-stage of bootstrap-chain.sh
 # extracted into a standalone, faster script.
 #
 # Unlike bootstrap-chain.sh, this does NOT run stages B–G (M1/hex2 assembly,
@@ -36,15 +39,15 @@ fail() { printf 'stage-a-check: FAIL: %s\n' "$1" >&2; exit 1; }
 M2_PLANET=$(cd "$M2_PLANET" && pwd)
 BUILDROOT=$(cd "$BUILDROOT" && pwd)
 
-# --- Build m2-ref (gcc reference) if needed ---
-if [ ! -x "$BUILDROOT/m2-ref" ]; then
-    (cd "$M2_PLANET" && make >/dev/null 2>&1) || fail "make M2-Planet (reference) failed"
-    cp "$M2_PLANET/bin/M2-Planet" "$BUILDROOT/m2-ref"
-fi
-[ -x "$BUILDROOT/m2-ref" ] || fail "$BUILDROOT/m2-ref not produced"
+# --- Build m2-ref (gcc reference), fresh on every run ---
+# Never reuse an m2-ref left in $BUILDROOT: it may come from another pin,
+# a STAGE0_COMPAT experiment, or another compiler.  Rebuilding takes ~1 s.
+M2_PLANET=$M2_PLANET tests/cc/build-gcc-refs.sh "$BUILDROOT/gcc-ref" >/dev/null \
+    || fail "gcc reference build failed"
+cp "$BUILDROOT/gcc-ref/m2-ref" "$BUILDROOT/m2-ref"
 
 # --- Build cc-out-v1 (seed-forth compiles M2-Planet monolith) ---
-rm -f /tmp/cc-out
+rm -f /tmp/cc-out "$BUILDROOT/cc-out-v1" "$BUILDROOT"/self-*-amd64.M1
 ./tests/cc/build-m2planet-monolith.sh >/dev/null || fail "monolith build failed"
 [ -x /tmp/cc-out ] || fail "/tmp/cc-out not produced"
 cp /tmp/cc-out "$BUILDROOT/cc-out-v1"

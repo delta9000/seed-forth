@@ -9,18 +9,53 @@ provides only the primitives needed to load the numbered Forth files and
 compile a M2-Planet monolith.  The main check is
 byte-identical M1 output against a GCC-built M2-Planet reference.
 
+## Bootstrap it (no GCC)
+
+Platform: **amd64 (x86-64) Linux only**.  From the repository root:
+
+```sh
+git submodule update --init --recursive
+./bootstrap.sh                 # ~30 s; output in ./build-out/out (BUILDROOT= to move it)
+```
+
+What you get, all in `build-out/out/` with a `SHA256SUMS` file:
+
+| Artifact | What it is |
+|----------|------------|
+| `seed-forth` | the 1,772-byte Forth, assembled from `000-seed.hex0` by stage0-posix's 229-byte `hex0-seed` |
+| `cc-out-v1` | M2-Planet, compiled by the Forth C compiler (`020`–`120-cc-*.fth`) |
+| `M1`, `hex2` | mescc-tools' assembler and linker, compiled by M2-Planet and assembled by the Forth assembler `130-asm.fth` |
+| `cc-out-v2`, `cc-out-v3` | M2-Planet self-hosted: v1's self-compile assembled by `M1`+`hex2`, and again |
+
+The script fails unless v2 and v3 compile M2-Planet to byte-identical
+`.M1` (the self-hosting fixed point), `M1`/`hex2` rebuild themselves
+byte for byte, and a `hello.c` built by v3 runs.
+
+What you trust: the 229-byte `hex0-seed`; this repository's `.hex0` and
+`.fth` sources; the pinned C and M1 *sources* of `vendor/M2-Planet` and
+`vendor/mescc-tools` (no binary from them is run); the Linux kernel; and
+the host `bash` and `cat` (bash, not `sed`, strips M2-Planet's
+`#include "..."` lines).  `mkdir`/`rm`/`mv` only manage files; `cmp`,
+`wc`, `sha256sum` only check and report.  No host C compiler, assembler
+or linker runs, and nothing is compared with a GCC-built binary.  The
+header of `bootstrap.sh` states this precisely.  The comparisons
+against GCC-built references (Stage A, the x86 and amd64 chains,
+M2-Planet test-suite parity, mescc-tools byte-identity) are a separate
+script, `./verify.sh` (~2 min, needs gcc).
+
 ## Quick Start
 
 From the repository root:
 
 ```sh
 git submodule update --init --recursive
-./check-all.sh                 # build + tests + tangle --strict + book checks + stage-A
+./check-all.sh                 # build + tests + tangle --strict + book checks + stage-A + bootstrap
 ```
 
-`check-all.sh` is a wrapper that runs eight steps
-with per-step OK/SKIP/FAIL output; Stage-A is skipped (not failed)
-if `gcc`/`make` aren't installed.  For diagnosing a failure, the
+`check-all.sh` is a wrapper that runs nine steps
+with per-step OK/SKIP/FAIL output; Stage-A and the small assembler
+checks are skipped (not failed) if `gcc` isn't installed.  The last
+step runs `./bootstrap.sh`, which needs no gcc.  For diagnosing a failure, the
 individual commands are:
 
 ```sh
@@ -30,6 +65,7 @@ tools/tangle.sh verify --strict
 tools/check-numbers.py
 tools/check-tryit.py
 tests/cc/stage-a-check.sh
+./bootstrap.sh
 ```
 
 `--recursive` is needed because both `vendor/M2-Planet` and
@@ -51,10 +87,11 @@ If you already have populated upstream checkouts elsewhere:
 M2_PLANET=/tmp/M2-Planet tests/cc/stage-a-check.sh
 ```
 
-For the slower end-to-end closure check, run:
+For every comparison against GCC-built references (Stage A, the
+per-arch closure chain, M2-Planet's test suite, mescc-tools), run:
 
 ```sh
-tests/cc/bootstrap-chain.sh
+./verify.sh                    # or tests/cc/bootstrap-chain.sh for the chain alone
 ```
 
 ## File Map
@@ -67,12 +104,15 @@ tests/cc/bootstrap-chain.sh
 | `020-cc-arena.fth` .. `116-cc-prog.fth` | C-subset compiler layers loaded by seed-forth (the parser is `100-cc-expr.fth` expressions, `110-cc-decl.fth` declarations, `112-cc-stmt.fth` statements, `114-cc-func.fth` functions, `116-cc-prog.fth` file scope and entry stub). |
 | `120-cc-main.fth` | Compiler entry point; reads C from stdin and writes `/tmp/cc-out`. |
 | `test.sh` / `test-*.fth` | Local unit/smoke tests for layers 010–070; the upper layers (080–116) are exercised end-to-end by `tests/cc/`. |
-| `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, and full bootstrap-chain scripts. |
+| `bootstrap.sh` | The GCC-free build: hex0-seed → seed-forth → M2-Planet, M1, hex2 → self-hosted M2-Planet fixed point. |
+| `verify.sh` | Every comparison against GCC-built references (runs the `tests/` scripts below). |
+| `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, full bootstrap-chain, and GCC reference (`build-gcc-refs.sh`) scripts. |
+| `tests/asm/*.sh` | `130-asm.fth` checks against GCC-built mescc-tools, small fixtures up to M2-Planet, M1 and hex2. |
 | `tests/cc/G*.c`, `M*.c`, headers | Small tracked cases that document the C subset. |
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |
 | `vendor/stage0-posix` | Pinned upstream containing the `hex0-seed` assembler `build.sh` uses. |
 
-Generated binaries such as `seed-forth` and `/tmp/cc-out` are not source.
+Generated binaries such as `seed-forth`, `/tmp/cc-out` and `build-out/` are not source.
 
 ## Reading Order
 
@@ -133,6 +173,7 @@ This project is licensed under the **MIT License**. See the `LICENSE` file for d
 - `./build.sh` must produce a 1772-byte `seed-forth`.
 - `./test.sh` must pass.
 - `tests/cc/stage-a-check.sh` must report `self-v1-amd64.M1 == self-ref-amd64.M1`.
+- `./bootstrap.sh` must reach the v2 == v3 fixed point with no GCC in provenance.
 
 See `REPRODUCIBLE.md` for the full fixed-point chain.
 

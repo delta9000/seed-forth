@@ -175,8 +175,8 @@ literals 65, 66, 67 (ASCII `A`, `B`, `C`) land at `scratch`, and
 } | ./seed-forth
 ```
 
-The `sed` strips Forth comments (which the seed's tokenizer does not
-recognise) so `010-lib.fth` loads cleanly.  The first `echo` stores
+`010-lib.fth` loads as written; the seed's reader skips its
+comments.  The first `echo` stores
 three bytes with `c,`; the second reads each back with `c@` and
 prints it with `emit`.  The seed should print `ABC`.
 

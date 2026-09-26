@@ -63,10 +63,10 @@ unless the dependency graph forbids it.
 ## Quick health check
 
 ```sh
-./check-all.sh                 # build + tests + tangle --strict + book-numbers + try-it + stage-A
+./check-all.sh                 # build + tests + tangle --strict + book-numbers + try-it + stage-A + bootstrap
 ```
 
-`check-all.sh` runs all eight steps in sequence with per-step
+`check-all.sh` runs all nine steps in sequence with per-step
 pass/fail logging.  Use it before committing or after editing any
 fenced code block — or any exact byte count, offset, or file line
 count in prose — in `book/`.  The individual commands are still
@@ -79,6 +79,9 @@ tools/tangle.sh verify --strict
 tools/check-numbers.py         # prose's exact numbers vs source (--dump shows the table)
 tools/check-tryit.py           # runs every Try-it block against ./seed-forth
 tests/cc/stage-a-check.sh      # byte-identical M1 vs GCC
+./bootstrap.sh                 # GCC-free build: seed -> M2-Planet, M1, hex2 (fixed point)
+./verify.sh                    # every comparison against GCC-built references
+tests/cc/stage0-check.sh       # stage0-posix route vs Forth route (needs stage0 nested submodules)
 ```
 
 `tools/check-numbers.py` is the numeric counterpart to the tangle
