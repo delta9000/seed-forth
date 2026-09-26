@@ -938,7 +938,7 @@ registers only because the directive handler skips blanks before the
 `#` (§6).  `tests/cc/H-comment-directive.c` ends a macro definition
 with a block comment spanning a newline, which `cc-prep-skip-to-eol`
 must consume whole (§3).  `tests/cc/run-gates.sh` runs both
-alongside the other 30 gates.  Its die gates `tests/cc/die-30-*`
+alongside the other 31 gates.  Its die gates `tests/cc/die-30-*`
 through `die-36-*` check that each preprocessor limit fails with its
 code and line.
 

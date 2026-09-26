@@ -15,7 +15,7 @@ that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
 That machinery sits at the top of `110-cc-decl.fth`, the longest file
-in Part III at 2642 lines.  This chapter reads lines 1–592.  The rest
+in Part III at 2596 lines.  This chapter reads lines 1–603.  The rest
 of the file is split by source order rather than by topic: Ch 30
 takes the statements and Ch 31 takes functions, enums, typedefs,
 globals, and the entry stub.  The split has to follow source order
@@ -56,6 +56,16 @@ variable cc-main-vaddr                            \ vaddr where main starts
 variable cc-call-main-patch                       \ file-offset of rel32 to patch
 variable cc-fn-local-count                        \ # locals in current function
 
+\ Every function gets the same frame: cc-frame-slots 8-byte slots below rbp,
+\ shared by its parameters and every local in every block of its body (a
+\ slot is never reused).  cc-fn-add-slots ( n -- ) claims the next n; the
+\ one that would pass the frame's end dies with code 193 instead of
+\ silently overlapping the stack below it.
+[lit] 32 constant cc-frame-slots
+: cc-fn-add-slots
+  dup cc-fn-local-count @ + cc-frame-slots [lit] 193 cc-check-cap
+  cc-fn-local-count +! ;
+
 \ cc-pending-struct-desc is set by cc-parse-base-type when it parses a
 \ `struct TAG` base, and consumed by cc-parse-decl / cc-parse-param-list when
 \ they record the symbol-table entry (so the struct descriptor pointer ends
@@ -67,7 +77,9 @@ variable cc-pending-struct-desc
 The header describes the whole file, including the 26-byte entry
 stub that Ch 31 emits.  The bookkeeping variables are shared across
 function definitions.  `cc-fn-local-count` is the next free local
-slot; every declaration parser in this chapter allocates from it.
+slot; every declaration parser in this chapter allocates from it
+through `cc-fn-add-slots`, which refuses (code 193) to hand out a
+slot past the frame's 32 (Ch 31 §3).
 `cc-pending-struct-desc` carries a struct descriptor from the
 base-type parser to whichever parser eventually calls `cc-sym-add`,
 so the pointer ends up in the symbol's struct-desc cell.
@@ -79,18 +91,18 @@ so the pointer ends up in the symbol's struct-desc cell.
 \ Token-expectation helpers
 \ ===========================================================================
 
-\ Each error path exits with a distinct status so failures are diagnosable
-\ from the shell.  Codes 11..29 are "decl/stmt" errors.
+\ Each error path dies through cc-die with its own code, so a failure names
+\ its site.  This file's codes are 140..219 (Appendix G).
 
 \ cc-expect-kw-id ( kw-id -- )  Consume one token; abort if not the given kw.
 : cc-expect-kw-id
   cc-next-token-keep
   tok-kind @ tk-kw <> if,
     drop
-    [lit] 11 cc-die
+    [lit] 140 cc-die
   then,
   tok-kw-id @ <> if,
-    [lit] 12 cc-die
+    [lit] 141 cc-die
   then, ;
 
 \ cc-expect-punct-c ( char -- )  Consume one token; abort if not that punct.
@@ -98,25 +110,25 @@ so the pointer ends up in the symbol's struct-desc cell.
   cc-next-token-keep
   tok-kind @ tk-punct <> if,
     drop
-    [lit] 13 cc-die
+    [lit] 142 cc-die
   then,
   tok-num @ <> if,
-    [lit] 14 cc-die
+    [lit] 143 cc-die
   then, ;
 
 \ cc-expect-ident ( -- )  Consume one token; abort if not tk-ident.
 : cc-expect-ident
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 15 cc-die
+    [lit] 144 cc-die
   then, ;
 
 ```
 
 `cc-expect-kw-id`, `cc-expect-punct-c`, and `cc-expect-ident` are the
 file's "consume one token and check it" idiom.  Each failure has its
-own code: 11/12 for the keyword pair, 13/14 for punctuation, 15 for
-an identifier.  When a compile dies, `cc-die` prints
+own code: 140/141 for the keyword pair, 142/143 for punctuation,
+144 for an identifier (this file's range is 140–219).  When a compile dies, `cc-die` prints
 `cc: line N: error C` on stderr and exits with status C, a number you
 can grep for in this file.
 
@@ -240,16 +252,16 @@ descriptor.  There are two lookups:
 : cc-lookup-struct-tag                            ( -- desc )
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 95 cc-die
+    [lit] 145 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
   dup 0< if,
     drop
-    [lit] 96 cc-die
+    [lit] 146 cc-die
   then,
   dup cc-sym-kind-of sk-struct <> if,
     drop
-    [lit] 97 cc-die
+    [lit] 147 cc-die
   then,
   cc-sym-val-of ;                                  \ descriptor pointer
 
@@ -260,7 +272,7 @@ descriptor.  There are two lookups:
 : cc-lookup-struct-tag-soft                       ( -- desc-or-0 )
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 95 cc-die
+    [lit] 148 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
   dup 0< if,
@@ -277,7 +289,7 @@ descriptor.  There are two lookups:
 
 (The comment for `cc-parse-struct-def` sits at the top of this block,
 merged into the comment for `cc-lookup-struct-tag`.)  The strict
-lookup dies with status 95–97 on a missing or non-struct tag.  The
+lookup dies with code 145–147 on a missing or non-struct tag.  The
 soft lookup returns 0 instead, which lets a header mention
 `struct type*` without defining it.
 
@@ -286,7 +298,7 @@ soft lookup returns 0 instead, which lets a header mention
   \ Expect IDENT tag.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 93 cc-die
+    [lit] 149 cc-die
   then,
   \ Snapshot tag bytes on data stack (rstack would be clobbered by ';' etc.).
   tok-str-addr @ tok-str-len @                    ( tag-addr tag-len )
@@ -336,13 +348,13 @@ soft lookup returns 0 instead, which lets a header mention
         cc-lookup-struct-tag-soft cc-sd-build-field-desc !
         ty-struct cc-sd-build-field-ty !
       else,
-        [lit] 91 cc-die
+        [lit] 150 cc-die
       then, then, then, then,
     else,
       \ tk-ident — treat as typedef-name used as a type.  Record as int
       \ (we only care about the storage size = 8).
       tok-kind @ tk-ident <> if,
-        [lit] 92 cc-die
+        [lit] 151 cc-die
       then,
       ty-int cc-sd-build-field-ty !
     then,
@@ -354,7 +366,7 @@ soft lookup returns 0 instead, which lets a header mention
     \ Read field name.
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 94 cc-die
+      [lit] 152 cc-die
     then,
     tok-str-addr @ cc-sd-build-fname-a !
     tok-str-len  @ cc-sd-build-fname-u !
@@ -466,7 +478,7 @@ second look-ahead can start while one is in progress.
   \ NAME (IDENT).
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 140 cc-die
+    [lit] 153 cc-die
   then,
   tok-str-addr @ tok-str-len @                    ( name-a name-u )
 
@@ -480,17 +492,17 @@ second look-ahead can start while one is in progress.
   ty-func [lit] 1 ty-make                         ( a u kind type )
   cc-fn-local-count @                             ( a u kind type slot )
   cc-sym-add drop
-  [lit] 1 cc-fn-local-count +!
+  [lit] 1 cc-fn-add-slots
 
   \ Optional '= expr;' initializer.
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [char] = = and if,
-    cc-parse-expr-balanced
+    cc-parse-expr
     cc-fn-local-count @ 1- cc-emit-store-local
     [char] ; cc-expect-punct-c
   else,
     tok-kind @ tk-punct = tok-num @ [char] ; = and 0= if,
-      [lit] 141 cc-die
+      [lit] 154 cc-die
     then,
   then, ;
 
@@ -534,19 +546,19 @@ variable cc-decl-base                              \ base type kind
     \ -------- Array declaration: T name [ N ] ; --------
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 23 cc-die
+      [lit] 155 cc-die
     then,
     tok-num @                                      ( ptr-depth a u N )
     dup [lit] 0 <= if,
-      [lit] 24 cc-die
+      [lit] 156 cc-die
     then,
     cc-next-token-keep
     tok-kind @ tk-punct <> tok-num @ [char] ] <> or if,
-      [lit] 25 cc-die
+      [lit] 157 cc-die
     then,
     cc-next-token-keep
     tok-kind @ tk-punct <> tok-num @ [char] ; <> or if,
-      [lit] 26 cc-die
+      [lit] 158 cc-die
     then,
     ( ptr-depth a u N )
     >r                                             ( ptr-depth a u ; R: N )
@@ -556,7 +568,7 @@ variable cc-decl-base                              \ base type kind
     cc-fn-local-count @ r@ + 1-                    ( a u kind type slot )
     cc-sym-add                                     ( id ; R: N )
     r@ swap cc-sym-set-array-len                   ( ; R: N )
-    r> cc-fn-local-count +!
+    r> cc-fn-add-slots
   else,
     \ -------- Scalar declaration: T name ('=' expr)? ; --------
     ( ptr-depth a u )
@@ -565,15 +577,15 @@ variable cc-decl-base                              \ base type kind
     cc-decl-base @ swap ty-make                    ( a u kind type )
     cc-fn-local-count @                            ( a u kind type slot )
     cc-sym-add drop                                ( -- )
-    [lit] 1 cc-fn-local-count +!
+    [lit] 1 cc-fn-add-slots
 
     tok-kind @ tk-punct = tok-num @ [char] = = and if,
-      cc-parse-expr-balanced
+      cc-parse-expr
       cc-fn-local-count @ 1- cc-emit-store-local
       cc-next-token-keep                           \ ';'
     then,
     tok-kind @ tk-punct <> tok-num @ [char] ; <> or if,
-      [lit] 142 cc-die
+      [lit] 159 cc-die
     then,
   then,
   then, ;                                          \ close fnptr-or-not
@@ -662,7 +674,7 @@ variable cc-sld-name-u
   cc-count-stars cc-sld-ptr-depth !
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 98 cc-die
+    [lit] 160 cc-die
   then,
   tok-str-addr @ cc-sld-name-a !
   tok-str-len  @ cc-sld-name-u !
@@ -678,7 +690,7 @@ variable cc-sld-name-u
     cc-sym-add                                    ( id )
     cc-sld-desc @ swap cc-sym-set-struct-desc
     \ Reserve slots.
-    cc-sld-desc @ cc-sd-total-size [lit] 8 / cc-fn-local-count +!
+    cc-sld-desc @ cc-sd-total-size [lit] 8 / cc-fn-add-slots
   else,
     \ struct TAG* p ('=' expr)? ; — one slot for the pointer.
     cc-sld-name-a @ cc-sld-name-u @
@@ -687,17 +699,17 @@ variable cc-sld-name-u
     cc-fn-local-count @                           ( a u kind ty slot )
     cc-sym-add                                    ( id )
     cc-sld-desc @ swap cc-sym-set-struct-desc
-    [lit] 1 cc-fn-local-count +!
+    [lit] 1 cc-fn-add-slots
 
     \ Optional '= expr;' initializer (M2-Planet uses `struct T* i = expr;`).
     cc-next-token-keep
     tok-kind @ tk-punct = tok-num @ [char] = = and if,
-      cc-parse-expr-balanced
+      cc-parse-expr
       cc-fn-local-count @ 1- cc-emit-store-local
       [char] ; cc-expect-punct-c
     else,
       tok-kind @ tk-punct = tok-num @ [char] ; = and 0= if,
-        [lit] 99 cc-die
+        [lit] 161 cc-die
       then,
     then,
   then, ;
@@ -782,7 +794,7 @@ end label.
     cc-emit-epilogue
   else,
     cc-putback-token
-    cc-parse-expr-balanced
+    cc-parse-expr
     cc-emit-mov-rax-rdi                           \ result -> rax (SYS-V)
     cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
@@ -878,7 +890,7 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
    struct B { struct A* a; };` — mutual recursion?  Trace what
    `cc-lookup-struct-tag-soft` returns for `struct B*` inside
    `struct A`, then explain why `b->a->y` compiles but `a->b->x`
-   dies with status 90.
+   dies with code 100.
 
 2. **★★ Verify.** Storage qualifiers are all no-ops.  Construct a program where
    omitting `static` from a local variable would cause a bug

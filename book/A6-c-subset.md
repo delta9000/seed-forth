@@ -14,7 +14,7 @@ Sources of truth, in case this appendix drifts:
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `110-cc-decl.fth` `cc-parse-stmt`
-  (lines 1326–1393).
+  (lines 1304–1371).
 
 If you discover a construct the compiler accepts that isn't listed
 below, or rejects one that is, this appendix is wrong and the
@@ -39,8 +39,8 @@ arithmetic stride.
 | `typedef` names        | yes | resolves to the aliased type | Registered in the symbol table. |
 | `T[N]` (array of T)    | yes (locals + globals) | `N * 8` (N slots, each 8 bytes) | Decays to `T*` in expressions. |
 | `T (*fp)(args)` (function pointer) | yes (in `cc_globals.c` and friends) | 8 bytes | Only the forms M2-Planet uses are exercised. |
-| `short`, `long`, `unsigned`, `signed` | recognised as basic-type keywords (`cc-tok-is-basic-type-kw?` in `110-cc-decl.fth:462`) | 8 bytes | The keywords let headers parse, but the resulting type is always 8-byte signed regardless of which modifier appeared. |
-| `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | `cc-skip-storage-quals` (`110-cc-decl.fth:97`) consumes and discards.  `static` locals behave like ordinary locals. |
+| `short`, `long`, `unsigned`, `signed` | recognised as basic-type keywords (`cc-tok-is-basic-type-kw?` in `110-cc-decl.fth:472`) | 8 bytes | The keywords let headers parse, but the resulting type is always 8-byte signed regardless of which modifier appeared. |
+| `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | `cc-skip-storage-quals` (`110-cc-decl.fth:107`) consumes and discards.  `static` locals behave like ordinary locals. |
 | `float`, `double`, `long double` | **rejected** | — | No floating-point support at any layer. |
 | bitfields              | **rejected** | — | The parser does not accept `int x : 3;`. |
 | `union`                | **rejected** | — | Not a keyword in the table. |
@@ -74,9 +74,13 @@ In `cc-parse-*` precedence order, lowest to highest:
 **Comma operator** (`a, b` as an expression) is **not** supported
 outside of argument lists and `for`-loop headers.
 
+**Escapes** in character and string literals: `\n`, `\t`, `\r` and
+`\0` are newline, tab, carriage return and NUL; any other `\c`
+stands for `c` (so `\\`, `\'` and `\"` work).  No `\xNN`, no octal.
+
 ## Statements
 
-`cc-parse-stmt` in `110-cc-decl.fth:1326` dispatches the following
+`cc-parse-stmt` in `110-cc-decl.fth:1304` dispatches the following
 forms.  Anything not listed here is rejected by the parser with one
 of `110-cc-decl.fth`'s or `100-cc-expr.fth`'s codes (Appendix G).
 
@@ -95,7 +99,7 @@ of `110-cc-decl.fth`'s or `100-cc-expr.fth`'s codes (Appendix G).
 | `goto LABEL ';'`                                          | yes | Function-local labels; max 64 labels per function; the target label must not be inside a `switch`. |
 | `LABEL ':' stmt`                                          | yes | |
 | `return ';'` / `return expr ';'`                          | yes | |
-| local declaration                                         | yes | Any C declaration form recognised at file scope, plus initialisers. |
+| local declaration                                         | yes | Any C declaration form recognised at file scope, plus initialisers.  A function's parameters and locals share 32 eight-byte slots (an array takes one per element); code 193 past that. |
 | `;` (null statement)                                      | yes | |
 
 ## Declarations
@@ -119,7 +123,7 @@ lists (`...`) are **rejected** — every function in this subset has
 a fixed arity.
 
 Function-pointer parameters use the `T (*name)(args)` form (see
-`cc-parse-fnptr-decl` in `110-cc-decl.fth:334`).
+`cc-parse-fnptr-decl` in `110-cc-decl.fth:344`).
 
 ## Preprocessor
 
@@ -199,7 +203,9 @@ tables above are not repeated.
   (`putchar`, `exit`, `getchar`, `fputs`, `fputc`, `fopen`,
   `fclose`, `fwrite`, `fread`, `calloc`, `free`) directly into
   the output ELF.  Everything else must be provided by the C
-  source under compilation.
+  source under compilation: a function that is called but never
+  defined stops the compile with code 194, and so does `memset`,
+  which is declared for the upstream tests but has no body.
 
 ## Coverage in practice
 

@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-`110-cc-decl.fth` lines 593–1430: the `cc-parse-stmt` dispatcher
+`110-cc-decl.fth` lines 604–1408: the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -88,7 +88,7 @@ variable cc-parse-stmt-vec
 \   end:
 : cc-parse-if
   lparen cc-expect-punct-c
-  cc-parse-expr-balanced
+  cc-parse-expr
   [char] ) cc-expect-punct-c
 
   cc-emit-test-rdi
@@ -142,15 +142,15 @@ patch the second.  If not, patch the first and stop.
 \ Loop helpers
 \ ===========================================================================
 \ cc-emit-jmp-vaddr lives here (rather than in 090-cc-emit.fth) alongside the
-\ loop constructs that call it.  cc-base-vaddr (080) and cc-out-pos (030) both
-\ load before 090, so the split is organizational, not a load-order dependency.
+\ loop constructs that call it.  cc-here-vaddr (080) loads before 090, so the
+\ split is organizational, not a load-order dependency.
 
 \ cc-emit-jmp-vaddr ( target-vaddr -- )  Emit `E9 <rel32>` to absolute target.
 \ After emitting the E9 opcode, cc-out-pos points at the rel32 slot's first
-\ byte; the address of the next instruction is cc-base-vaddr + cc-out-pos + 4.
+\ byte; the address of the next instruction is cc-here-vaddr + 4.
 : cc-emit-jmp-vaddr                               ( target-vaddr -- )
   [lit] 233 cc-emit-byte                          \ E9 opcode
-  cc-base-vaddr cc-out-pos @ + [lit] 4 + -        \ rel32
+  cc-here-vaddr [lit] 4 + -                       \ rel32
   cc-emit-4le ;
 
 \ cc-emit-jnz-vaddr ( target-vaddr -- )  Emit `0F 85 <rel32>` to absolute target.
@@ -158,7 +158,7 @@ patch the second.  If not, patch the first and stop.
 : cc-emit-jnz-vaddr                               ( target-vaddr -- )
   [lit]  15 cc-emit-byte                          \ 0F prefix
   [lit] 133 cc-emit-byte                          \ 85 opcode
-  cc-base-vaddr cc-out-pos @ + [lit] 4 + -        \ rel32
+  cc-here-vaddr [lit] 4 + -                       \ rel32
   cc-emit-4le ;
 
 \ cc-emit-je-vaddr ( target-vaddr -- )  Emit `0F 84 <rel32>` to absolute
@@ -166,7 +166,7 @@ patch the second.  If not, patch the first and stop.
 : cc-emit-je-vaddr                                ( target-vaddr -- )
   [lit]  15 cc-emit-byte                          \ 0F prefix
   [lit] 132 cc-emit-byte                          \ 84 opcode
-  cc-base-vaddr cc-out-pos @ + [lit] 4 + -        \ rel32
+  cc-here-vaddr [lit] 4 + -                       \ rel32
   cc-emit-4le ;
 
 ```
@@ -174,14 +174,15 @@ patch the second.  If not, patch the first and stop.
 `cc-emit-jmp-vaddr`, `cc-emit-jnz-vaddr`, `cc-emit-je-vaddr`
 emit conditional and unconditional jumps to *absolute* virtual
 addresses.  The rel32 displacement is computed at emit time
-from the target vaddr and `cc-base-vaddr + cc-out-pos + 4`.
+from the target vaddr and `cc-here-vaddr + 4` (Ch 25), the address
+of the next instruction.
 
 These live in `110-cc-decl.fth` rather than `090-cc-emit.fth`
 because they belong with the loop and control-flow constructs
 that call them, not with the primitive instruction encoders.
-They reference `cc-base-vaddr` (`080-cc-elf.fth`) and `cc-out-pos`
-(`030-cc-io.fth`), but both load before `090`, so the placement
-is a layering choice, not a load-order requirement.
+They read `cc-here-vaddr` (`080-cc-elf.fth`), which loads before
+`090`, so the placement is a layering choice, not a load-order
+requirement.
 
 ## 3. Break/continue fixup lists
 
@@ -262,7 +263,7 @@ variable cc-for-step-end
 
 \ cc-walk-and-patch-fixups ( head-ptr -- )  Patch each fixup to current cc-out-pos.
 : cc-walk-and-patch-fixups                        ( head -- )
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-walk-and-patch-to-vaddr ;
 
 ```
@@ -314,7 +315,7 @@ loops never see each other's fixups.
   cc-switch-depth @ cc-loop-switch-depth !
 
   lparen cc-expect-punct-c
-  cc-base-vaddr cc-out-pos @ +                    ( top-vaddr )
+  cc-here-vaddr                                   ( top-vaddr )
   cc-parse-expr
   [char] ) cc-expect-punct-c
   cc-emit-test-rdi
@@ -403,7 +404,7 @@ run *after* it.  The parser handles this in eight moves:
   cc-switch-depth @ cc-loop-switch-depth !
 
   \ Top of loop.
-  cc-base-vaddr cc-out-pos @ +                    ( top-vaddr )
+  cc-here-vaddr                                   ( top-vaddr )
 
   \ --- Cond (optional) ---
   cc-next-token-keep
@@ -546,7 +547,7 @@ rewind above at work.
   cc-switch-depth @ cc-loop-switch-depth !
 
   \ Record top-vaddr for the backward jnz.
-  cc-base-vaddr cc-out-pos @ + >r                 ( ; R: ... top )
+  cc-here-vaddr >r                                ( ; R: ... top )
 
   cc-parse-stmt-tramp                             \ body
 
@@ -717,17 +718,17 @@ cases with the same `K`.
       \ doesn't handle constant-expressions for case labels).
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 90 cc-die
+        [lit] 162 cc-die
       then,
       tok-num @                                   ( K )
       [char] : cc-expect-punct-c
-      cc-base-vaddr cc-out-pos @ +                ( K body-vaddr )
+      cc-here-vaddr                               ( K body-vaddr )
       cc-add-switch-case
     else,
       tok-kind @ tk-kw = tok-kw-id @ kw-default = and if,
         \ 'default' has been consumed.
         [char] : cc-expect-punct-c
-        cc-base-vaddr cc-out-pos @ +
+        cc-here-vaddr
         cc-switch-default-vaddr !
       else,
         \ Generic statement — put back, parse via the trampoline.
@@ -821,11 +822,12 @@ walks.  M2-Planet's source never does this.
 ## 8. Labels and `goto`
 
 C labels are function-local.  The label table is four parallel
-arrays, the same shape as Ch 24's symbol table, capped at 64 per
-function and reset on function entry.  Each entry's payload is a
-vaddr (0 while undefined) and a list of pending `goto` fixups.
-Labels are unique within a function, so `cc-label-find`'s linear
-scan only has to find a match, not the newest one.
+arrays, the same shape as Ch 24's symbol table, indexed with
+`cell[]` and searched with `cc-name-find` (Ch 21) just as the symbol
+table is.  It holds 64 labels per function (a 65th dies with code
+163, through `cc-check-cap`) and is reset on function entry.  Each
+entry's payload is a vaddr (0 while undefined) and a list of
+pending `goto` fixups.
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
@@ -848,50 +850,26 @@ create cc-label-vaddr      cc-label-cap [lit] 8 * allot
 create cc-label-fixup      cc-label-cap [lit] 8 * allot
 variable cc-label-count
 
-\ cc-label-slot ( id arr -- addr )  Compute the address of slot id in arr.
-: cc-label-slot  swap [lit] 8 * + ;
+\ Each table is indexed with cell[] (030).
+: cc-label-vaddr-of   cc-label-vaddr cell[] @ ;              \ ( id -- vaddr )
+: cc-label-set-vaddr  cc-label-vaddr cell[] ! ;              \ ( v id -- )
+: cc-label-fixups     cc-label-fixup cell[] ;                \ ( id -- list-cell )
 
-\ cc-label-vaddr-of ( id -- vaddr )
-: cc-label-vaddr-of   cc-label-vaddr   cc-label-slot @ ;
-: cc-label-fixup-of   cc-label-fixup   cc-label-slot @ ;
-: cc-label-set-vaddr  cc-label-vaddr   cc-label-slot ! ;     \ ( v id -- )
-: cc-label-set-fixup  cc-label-fixup   cc-label-slot ! ;     \ ( v id -- )
-
-\ Like cc-sym-find: newest first, return at the first match; the index
-\ runs down to -1, which is also the "not found" answer.
-variable cc-label-find-needle-addr
-variable cc-label-find-needle-len
-
-\ cc-label-find ( name-addr name-len -- id-or-neg1 )
+\ cc-label-find ( name-addr name-len -- id-or-neg1 )  Newest first, like
+\ cc-sym-find; cc-name-find (030) does the walk.
 : cc-label-find
-  cc-label-find-needle-len  !
-  cc-label-find-needle-addr !
-  cc-label-count @ 1-                             ( i = count-1 )
-  begin,
-    dup [lit] 0 >=
-  while,
-    dup cc-label-name-len cc-label-slot @
-    cc-label-find-needle-len @ = if,
-      dup cc-label-name-addr cc-label-slot @      ( i entry-addr )
-      cc-label-find-needle-addr @ swap
-      cc-label-find-needle-len @
-      bytes-eq if, exit, then,                    \ found: return id i
-    then,
-    1-
-  repeat, ;                                       \ not found: i = -1
+  cc-label-name-addr cc-label-name-len cc-label-count @ cc-name-find ;
 
 \ cc-label-create ( name-addr name-len -- id )  Append a new label entry.
 \ Initial vaddr=0 (undefined), fixup=0 (no forward refs yet).
 : cc-label-create                                 ( a u -- id )
-  cc-label-count @ cc-label-cap >= if,
-    [lit] 82 cc-die
-  then,
+  cc-label-count @ 1+ cc-label-cap [lit] 163 cc-check-cap
   cc-label-count @                                ( a u id )
   >r                                              \ R: id
-  r@ cc-label-name-len  cc-label-slot !           \ store len
-  r@ cc-label-name-addr cc-label-slot !           \ store addr
+  r@ cc-label-name-len  cell[] !                  \ store len
+  r@ cc-label-name-addr cell[] !                  \ store addr
   [lit] 0 r@ cc-label-set-vaddr                   \ vaddr := 0
-  [lit] 0 r@ cc-label-set-fixup                   \ fixup-list := 0
+  [lit] 0 r@ cc-label-fixups !                    \ fixup-list := 0
   [lit] 1 cc-label-count +!
   r> ;
 
@@ -909,29 +887,30 @@ variable cc-label-find-needle-len
 
 \ cc-define-label ( name-addr name-len -- )
 \ Bind the label to the current cc-out-pos and resolve any forward refs.
-\ Errors out (status 81) on duplicate definition.
+\ Dies with code 164 on a duplicate definition.
 : cc-define-label                                 ( a u -- )
   cc-label-find-or-create                         ( id )
   \ Reject duplicates.
   dup cc-label-vaddr-of [lit] 0 <> if,
-    [lit] 81 cc-die
+    [lit] 164 cc-die
   then,
   \ Set vaddr.
   dup >r                                          ( id ; R: id )
-  cc-base-vaddr cc-out-pos @ + r@ cc-label-set-vaddr
+  cc-here-vaddr r@ cc-label-set-vaddr
   \ Walk forward-fixup list, patch each to current pos.
-  r> cc-label-fixup-of cc-walk-and-patch-fixups ;
+  r> cc-label-fixups @ cc-walk-and-patch-fixups ;
 
 ```
 
 `cc-define-label` binds the label to the current output position,
 then walks its fixup list and patches every forward `goto` to here.
-A second definition of the same name dies with status 81.
+A second definition of the same name dies with code 164.
 
 `cc-parse-goto-stmt` is the other half.  If the label already has a
 vaddr, it emits an absolute backward `jmp` via `cc-emit-jmp-vaddr`.
-Otherwise it emits a placeholder and prepends a 16-byte node to the
-label's fixup list:
+Otherwise it emits a placeholder and pushes its offset onto the
+label's fixup list with `cc-add-fixup-to-list` (Ch 26), the same
+word `break` and `continue` use:
 
 ```forth file=110-cc-decl.fth
 \ cc-parse-goto-stmt ( -- )  "goto" already consumed.  Grammar:  goto IDENT ;
@@ -942,7 +921,7 @@ label's fixup list:
 : cc-parse-goto-stmt
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 80 cc-die
+    [lit] 165 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-label-find-or-create   ( id )
 
@@ -959,15 +938,7 @@ label's fixup list:
     drop                                          ( id )
     \ Forward ref: emit placeholder, prepend offset to label's fixup list.
     cc-emit-jmp-rel32-placeholder                 ( id fixup-offset )
-    over cc-label-fixup-of                        ( id off old-head )
-    \ Allocate node: { off, old-head }.
-    [lit] 16 cc-alloc                             ( id off old-head node )
-    >r                                            ( id off old-head ; R: node )
-    swap                                          ( id old-head off ; R: node )
-    r@ !                                          ( id old-head ; R: node )
-    r@ [lit] 8 + !                                ( id ; R: node )
-    \ Set label's fixup-list head to the new node.
-    r> swap cc-label-set-fixup                    ( -- )
+    swap cc-label-fixups cc-add-fixup-to-list     ( -- )
   then,
   [char] ; cc-expect-punct-c ;
 
@@ -1106,7 +1077,7 @@ earlier call to `cc-parse-stmt-tramp` now reaches it.
                             else,
                               2drop
                               cc-putback-token
-                              cc-parse-expr-balanced
+                              cc-parse-expr
                               [char] ; cc-expect-punct-c
                             then,
                           then,
@@ -1119,14 +1090,14 @@ earlier call to `cc-parse-stmt-tramp` now reaches it.
                           else,
                             2drop
                             cc-putback-token
-                            cc-parse-expr-balanced
+                            cc-parse-expr
                             [char] ; cc-expect-punct-c
                           then,
                         then,
                       else,
                         \ Expression statement leading with non-IDENT.
                         cc-putback-token
-                        cc-parse-expr-balanced
+                        cc-parse-expr
                         [char] ; cc-expect-punct-c
                       then,
                     then,

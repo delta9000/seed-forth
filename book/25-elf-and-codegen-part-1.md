@@ -16,14 +16,14 @@ next build the output side.  There is no assembler in between: every
 x86-64 instruction the compiler emits has its own Forth word that
 writes the instruction's exact bytes into `cc-out-buf`.
 
-The 68-line file `080-cc-elf.fth` writes the ELF wrapper: two entry
+The 72-line file `080-cc-elf.fth` writes the ELF wrapper: two entry
 points (`cc-emit-elf-header`, `cc-finalize-elf`) and one assumption,
 that the output is a single R-W-X PT_LOAD, exactly like the seed.
 That assumption keeps the ELF layer tiny: no section header table, no
 separate read-only segment, no relocation records.
 
-`090-cc-emit.fth` is the bigger of the pair: 1049 lines of
-instruction encoders.  This chapter covers lines 1–420, the primitive
+`090-cc-emit.fth` is the bigger of the pair: 1039 lines of
+instruction encoders.  This chapter covers lines 1–424, the primitive
 encoders that know nothing about calls, strings or globals.  Ch 26
 covers the rest.
 
@@ -40,6 +40,10 @@ covers the rest.
 
 [lit] 4194304 constant cc-base-vaddr            \ 0x400000
 [lit] 4194424 constant cc-entry-vaddr           \ 0x400078
+
+\ cc-here-vaddr ( -- vaddr )  The address the next emitted byte will have
+\ when the output runs: its file offset (cc-out-pos) plus the load address.
+: cc-here-vaddr  cc-base-vaddr cc-out-pos @ + ;
 
 \ p_filesz lives at file offset 96, 8 bytes LE.
 \ p_memsz lives at file offset 104.
@@ -107,6 +111,12 @@ PT_LOAD segment maps file bytes 0 through `p_filesz` to vaddrs
 `0x400000` through `0x400000 + p_filesz`, with zero-filled memory up
 to `p_memsz`, the same BSS-style headroom the seed uses.
 
+Because file offset and address differ only by that base, the
+compiler can name the address of whatever it emits next:
+`cc-here-vaddr` is `cc-base-vaddr` plus `cc-out-pos`.  Every jump
+target, function entry, label and string address in Chs 28–31 is
+read from it.
+
 The flags `R|W|X = 7` put code and data in one writable, executable
 segment, so there is no separate `.data` program header.  By modern
 standards this is wasteful (the kernel can't mark code pages
@@ -154,7 +164,9 @@ the default, and would otherwise get a `p_memsz` smaller than its
 \   rax  — used by idiv (low quotient/remainder); also by SYS-V return
 \   rbp  — frame base; locals at [rbp - 8*(slot+1)]
 \
-\ Depends on 030-cc-io.fth (cc-emit-byte, cc-emit-4le).
+\ Depends on 020-cc-arena.fth (cc-die, cc-check-cap, cc-alloc) and
+\ 030-cc-io.fth (cc-emit-byte, cc-emit-4le, cell[]).  cc-decode-escape comes
+\ from 050-cc-lex.fth.
 
 ```
 
@@ -241,8 +253,9 @@ encoders; Ch 26 and the parser chapters use them.
 \ Locals live at [rbp - 8*(slot+1)].  Slots 0..15 have displacements
 \ -8..-128, which fit a signed disp8 (ModR/M mod=01); deeper slots need the
 \ disp32 form (mod=10).  cc-emit-local-ea picks the right one per slot.
-\ Note: the frame itself is fixed at 256 bytes = 32 slots by the prologue
-\ call in 110-cc-decl.fth — the encoding handles any slot; the frame does not.
+\ Note: the frame itself is fixed at 256 bytes = 32 slots (cc-frame-slots in
+\ 110-cc-decl.fth, which dies rather than hand out a 33rd) — the encoding
+\ handles any slot; the frame does not.
 \
 \ cc-disp8-from-slot ( slot -- byte )
 \   = (256 - 8*(slot+1)) AND 255 = the unsigned-byte representation of the

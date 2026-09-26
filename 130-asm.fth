@@ -37,6 +37,14 @@
 \ do not overlap runtime VM state.
 skip-vm-pages                                   \ HERE = 0x414000
 
+\ asm-check-cap ( n cap code -- )  Die with code unless n <= cap: the
+\ assembler's copy of cc-check-cap (020), since this program loads none of
+\ the compiler's files.  n is how full a buffer or table will be once the
+\ write about to happen is done.  Codes are 230..249 (Appendix G).
+: asm-check-cap
+  >r > if, r> die then,
+  r> drop ;
+
 \ Raw M1 source (filled by asm-load-stdin).
 \ Sized for M2-Planet's ~2.4 MiB self-compile output plus libc + defs + ELF.
 [lit] 4194304 constant asm-src-cap            \ 4 MiB
@@ -67,14 +75,17 @@ variable asm-cur-pos
 
 : asm-reset-pos  [lit] 0 asm-cur-pos ! ;
 
-\ asm-load-stdin ( -- )  Read all of fd 0 into asm-src-buf in 4 KiB chunks.
+\ asm-load-stdin ( -- )  Read all of fd 0 into asm-src-buf.  Each read asks
+\ for all the room left; a source that fills the buffer dies with 239 (a
+\ full buffer and a longer input look the same, so one byte stays unused).
 : asm-load-stdin
   [lit] 0 asm-src-len !
   begin,
-    [lit] 0 asm-src-buf asm-src-len @ + [lit] 4096 read
+    [lit] 0 asm-src-buf asm-src-len @ +  asm-src-cap asm-src-len @ -  read
     dup [lit] 0 >
   while,
     asm-src-len +!
+    asm-src-len @ 1+ asm-src-cap [lit] 239 asm-check-cap
   repeat,
   drop ;
 
@@ -94,8 +105,9 @@ variable asm-cur-pos
   asm-peek-char
   [lit] 1 asm-cur-pos +! ;
 
-\ asm-exp-emit-byte ( b -- )  Append a byte to asm-exp-buf.
+\ asm-exp-emit-byte ( b -- )  Append a byte to asm-exp-buf; die 240 if full.
 : asm-exp-emit-byte
+  asm-exp-len @ 1+ asm-exp-cap [lit] 240 asm-check-cap
   asm-exp-buf asm-exp-len @ + c!
   [lit] 1 asm-exp-len +! ;
 
@@ -108,8 +120,9 @@ variable asm-out-pos
 
 : asm-out-init  [lit] 0 asm-out-pos ! ;
 
-\ asm-emit-byte ( b -- )
+\ asm-emit-byte ( b -- )  Append a byte to asm-out-buf; die 241 if full.
 : asm-emit-byte
+  asm-out-pos @ 1+ asm-out-cap [lit] 241 asm-check-cap
   asm-out-buf asm-out-pos @ + c!
   [lit] 1 asm-out-pos +! ;
 
@@ -129,7 +142,7 @@ variable asm-out-pos
 : asm-write-output
   [lit] 577 [lit] 493 open                      ( fd )
   dup 0< if,
-    drop [lit] 1 die
+    drop [lit] 230 die
   then,
   >r                                            ( ; R: fd )
   r@ asm-out-buf asm-out-pos @ write drop
@@ -163,8 +176,9 @@ variable asm-pass
 \ asm-rec ( i -- a )  Address of the i-th label record.
 : asm-rec  asm-rec-size *  asm-labels + ;
 
-\ asm-store-label ( name-addr name-len -- )
+\ asm-store-label ( name-addr name-len -- )  Die 242 if the table is full.
 : asm-store-label
+  asm-count @ 1+ asm-cap [lit] 242 asm-check-cap
   asm-count @ asm-rec                       ( addr len rec )
   >r                                         ( addr len ; R: rec )
   r@ [lit] 8 + !                             \ rec[8] = len
@@ -417,7 +431,7 @@ variable asm-hex-i
       if,
         asm-emit-4le
       else,
-        drop [lit] 91 asm-tok-err
+        drop [lit] 231 asm-tok-err
       then,
     then,
     [lit] 4 asm-ip +!
@@ -445,10 +459,10 @@ variable asm-hex-i
           if,
             - asm-emit-4le
           else,
-            drop drop [lit] 92 asm-tok-err
+            drop drop [lit] 232 asm-tok-err
           then,
         else,
-          drop [lit] 93 asm-tok-err
+          drop [lit] 233 asm-tok-err
         then,
       else,
         asm-token-start-tmp @ 1+
@@ -458,7 +472,7 @@ variable asm-hex-i
           asm-ip @ [lit] 4 + -
           asm-emit-4le
         else,
-          drop [lit] 94 asm-tok-err
+          drop [lit] 234 asm-tok-err
         then,
       then,
     then,
@@ -482,7 +496,7 @@ variable asm-hex-i
         asm-ip @ 1+ -
         asm-emit-1le
       else,
-        drop [lit] 95 asm-tok-err
+        drop [lit] 235 asm-tok-err
       then,
     then,
     [lit] 1 asm-ip +!
@@ -505,7 +519,7 @@ variable asm-hex-i
         asm-ip @ [lit] 2 + -
         asm-emit-2le
       else,
-        drop [lit] 96 asm-tok-err
+        drop [lit] 236 asm-tok-err
       then,
     then,
     [lit] 2 asm-ip +!
@@ -528,7 +542,7 @@ variable asm-hex-i
         asm-ip @ [lit] 3 + -
         asm-emit-3le
       else,
-        drop [lit] 97 asm-tok-err
+        drop [lit] 237 asm-tok-err
       then,
     then,
     [lit] 3 asm-ip +!
@@ -550,7 +564,7 @@ variable asm-hex-i
       if,
         asm-emit-2le
       else,
-        drop [lit] 98 asm-tok-err
+        drop [lit] 238 asm-tok-err
       then,
     then,
     [lit] 2 asm-ip +!
@@ -640,8 +654,10 @@ variable asm-def-count
 
 : asm-def-rec  asm-def-rec-size * asm-defs + ;
 
-\ asm-def-store ( name-addr name-len body-addr body-len -- )
+\ asm-def-store ( name-addr name-len body-addr body-len -- )  Die 243 if
+\ the table is full.
 : asm-def-store
+  asm-def-count @ 1+ asm-def-cap [lit] 243 asm-check-cap
   asm-def-count @ asm-def-rec                ( name-a name-l body-a body-l rec )
   >r                                          ( name-a name-l body-a body-l ; R: rec )
   r@ [lit] 24 + !                             \ rec[24] = body-len

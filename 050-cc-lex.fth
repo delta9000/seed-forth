@@ -352,22 +352,23 @@ kw, default
   tok-str-len !  tok-str-addr !
   tk-str tok-kind ! ;
 
+\ cc-decode-escape ( c -- byte )  The byte the escape \c stands for: \n \t
+\ \r \0 are newline, tab, carriage return and NUL; any other c (including
+\ \\ \' \") stands for itself.  The one table for both character literals
+\ (cc-lex-char) and string literals (cc-emit-string-bytes, 090).  \xNN is
+\ not supported.
+: cc-decode-escape
+  dup [char] n = if, drop nl       exit, then,
+  dup [char] t = if, drop tab      exit, then,
+  dup [char] r = if, drop [lit] 13 exit, then,
+  dup [char] 0 = if, drop [lit] 0  exit, then, ;
+
 \ cc-lex-char ( -- )  Read 'c' or '\c'.  Stores the byte value in tok-num.
-\ Recognised escapes: \n \t \\ \' \" \0.  Others pass through literally.
-\ \xNN deferred.
 : cc-lex-char
   cc-next-char drop                             \ consume opening '
   cc-peek-char backslash = if,                  \ escape
     cc-next-char drop                           \ consume backslash
-    cc-next-char                                ( c )
-    dup [char] n  = if, drop nl         else,   \ \n
-    dup [char] t  = if, drop tab        else,   \ \t
-    dup backslash = if, drop backslash  else,   \ \\
-    dup [char] '  = if, drop [char] '   else,   \ \'
-    dup [char] "  = if, drop [char] "   else,   \ \"
-    dup [char] 0  = if, drop [lit] 0    else,   \ \0
-    \ otherwise: pass the literal char through (stack already has it)
-    then, then, then, then, then, then,
+    cc-next-char cc-decode-escape               ( byte )
   else,
     cc-next-char                                \ literal char
   then,

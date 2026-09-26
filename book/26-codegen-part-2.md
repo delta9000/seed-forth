@@ -17,7 +17,7 @@ further down, a file-scope global, a string literal the code must jump
 over.  The compiled program also needs a C runtime (`tri.c` calls
 `putchar`), and there is no libc to link against.
 
-This chapter finishes `090-cc-emit.fth` (lines 421–1049) and answers
+This chapter finishes `090-cc-emit.fth` (lines 425–1039) and answers
 both problems.  Wide-immediate placeholders and fixup lists let
 codegen reference forward-declared functions and not-yet-placed
 globals.  Eleven libc shims, emitted straight into the output as
@@ -143,9 +143,9 @@ The word lives here rather than in `110-cc-decl.fth` because Ch 28's
 \ ===========================================================================
 \ String-literal byte emission with C-escape decoding.
 \ ===========================================================================
-\ Walks ( src-addr src-len ) and copies bytes into cc-out-buf, decoding
-\ \n, \t, \r, \\, \', \", and \0.  Other escape characters pass through
-\ literally (matches cc-lex-char behaviour).  Appends a trailing NUL byte.
+\ Walks ( src-addr src-len ) and copies bytes into cc-out-buf, decoding each
+\ \c escape with cc-decode-escape (050), the same table character literals
+\ use.  Appends a trailing NUL byte.
 \
 \ Stack convention inside the loop: ( src len ).
 
@@ -156,16 +156,7 @@ The word lives here rather than in `110-cc-decl.fth` because Ch 28's
     over c@ backslash = if,
       dup [lit] 2 >= if,
         \ Have at least one more byte for the escape.
-        over 1+ c@                                ( src len escaped )
-        dup [char] n  = if, drop nl        else,  \ \n
-        dup [char] t  = if, drop tab       else,  \ \t
-        dup [char] r  = if, drop [lit] 13  else,  \ \r (CR)
-        dup backslash = if, drop backslash else,  \ \\
-        dup [char] '  = if, drop [char] '  else,  \ \'
-        dup [char] "  = if, drop [char] "  else,  \ \"
-        dup [char] 0  = if, drop [lit] 0   else,  \ \0
-          \ Default: pass the escaped char through unchanged.
-        then, then, then, then, then, then, then,
+        over 1+ c@ cc-decode-escape               ( src len byte )
         cc-emit-byte
         \ Advance src by 2, decrement len by 2.
         swap [lit] 2 + swap [lit] 2 -
@@ -189,12 +180,10 @@ string-literal slices.  This is where they are decoded.
 
 The walk is a `begin, while, repeat,` over `(src-addr, len)`: if the
 current byte is a backslash and at least one more byte follows,
-decode the pair; otherwise copy the byte verbatim.  The seven
-recognised escapes are those `cc-lex-char` decodes (Ch 23 §4) plus
-`\r`, the only printable C escape that has no `'…'` form in the
-M2-Planet sources.  Any other escaped character passes through
-unchanged, which is more permissive than ANSI C but matches
-`cc-lex-char`.
+decode the pair with `cc-decode-escape` (Ch 23 §4), the table
+character literals use; otherwise copy the byte verbatim.  Any
+escaped character the table doesn't name passes through unchanged,
+which is more permissive than ANSI C.
 
 A trailing NUL is appended so string literals work with C's
 `printf` / `puts`-style functions.
@@ -779,7 +768,7 @@ neither are the globals' addresses.
 \ and records (patch-offset-in-cc-out-buf, slot) into the cc-gfixup arrays.
 \
 \ At cc-finalize-globals (called after parsing, before cc-finalize-elf):
-\   1. cc-globals-base-vaddr := cc-base-vaddr + cc-out-pos@.
+\   1. cc-globals-base-vaddr := cc-here-vaddr (080).
 \   2. Append cc-globals-buf bytes to cc-out-buf.
 \   3. For each fixup, compute vaddr = cc-globals-base-vaddr + slot, then
 \      patch the placeholder imm64 in cc-out-buf at the recorded patch-offset.
@@ -823,14 +812,12 @@ compiler follow the same rule of M2-Planet plus a comfort factor.
   repeat, drop ;
 
 \ cc-globals-alloc ( bytes -- slot )  Reserve `bytes` bytes; return the offset
-\ of the first reserved byte.  Aborts if cc-globals-buf would overflow.
+\ of the first reserved byte.  Dies with 80 if cc-globals-buf would overflow.
 : cc-globals-alloc                                 ( bytes -- slot )
+  dup cc-globals-pos @ + cc-globals-cap [lit] 80 cc-check-cap
   cc-globals-pos @                                 ( bytes slot )
   swap                                              ( slot bytes )
-  cc-globals-pos +!
-  cc-globals-pos @ cc-globals-cap > if,
-    [lit] 70 cc-die
-  then, ;
+  cc-globals-pos +! ;
 
 \ cc-globals-store-8le ( v slot -- )  Write `v` as 8-byte LE into globals-buf
 \ at the given slot offset.
@@ -849,10 +836,8 @@ compiler follow the same rule of M2-Planet plus a comfort factor.
 \ cc-gfixup-add ( patch-offset slot -- )  Record a deferred global-vaddr fixup.
 \ Indexes its two parallel arrays with cell[] (030-cc-io.fth).
 : cc-gfixup-add                                    ( patch-off slot -- )
-  cc-gfixup-count @ dup cc-gfixup-cap >= if,
-    [lit] 71 cc-die
-  then,
-  ( patch-off slot i )
+  cc-gfixup-count @ 1+ cc-gfixup-cap [lit] 81 cc-check-cap
+  cc-gfixup-count @                                 ( patch-off slot i )
   >r                                                \ park i on rstack
   r@ cc-gfixup-slot     cell[] !                   \ store slot
   r@ cc-gfixup-out-pos  cell[] !                   \ store patch-off
@@ -882,7 +867,8 @@ placeholder and records `(patch-offset, slot)` in the parallel arrays
 At the end of compilation, Ch 32's driver calls `cc-finalize-globals`
 (defined in Ch 31's `110-cc-decl.fth`):
 
-1. Set `cc-globals-base-vaddr = cc-base-vaddr + cc-out-pos`.
+1. Set `cc-globals-base-vaddr` to `cc-here-vaddr` (`cc-base-vaddr +
+   cc-out-pos`).
 2. Append the `cc-globals-buf` bytes to `cc-out-buf`, advancing
    `cc-out-pos` past the global data.
 3. For every recorded fixup, compute the vaddr
@@ -901,7 +887,7 @@ responsibility pattern at codegen scale, with `cc-globals-buf` and the
 
 ## 6. The path back together
 
-`090-cc-emit.fth` is 1049 lines of compiler-side machine-code
+`090-cc-emit.fth` is 1039 lines of compiler-side machine-code
 emission, used three ways:
 
 - **Per-instruction encoders** (Ch 25 §3–§7 and §4 here) write the
@@ -1039,9 +1025,10 @@ shims `tri.c` never calls are emitted anyway.
    single generic list type for both forward-call fixups and
    global fixups?  What would the consolidation save?
 
-5. **★★★ Extend.** The string-bytes decoder handles seven escapes.  Add `\xNN`
-   (two-hex-digit escape).  Where in the codegen does the new
-   case go?
+5. **★★★ Extend.** `cc-decode-escape` names four escapes and passes the
+   rest through.  Add `\xNN` (two-hex-digit escape).  Why can't it go
+   in `cc-decode-escape` alone, and what must `cc-emit-string-bytes`
+   and `cc-lex-char` each change?
 
 ## After this chapter
 

@@ -24,8 +24,8 @@ before any source is read reports line 1.
 
 ## How the codes are organised
 
-Each compiler file owns a range, so a code names one file, and, for
-the files that follow the plan, one failure:
+Each compiler file owns a range, so a code names one file, and one
+failure in it:
 
 | File | Range | What breaks there |
 |---|---|---|
@@ -44,38 +44,23 @@ the files that follow the plan, one failure:
 | `130-asm.fth`       | 230–249 | The M1 assembler, a separate program. |
 | tests               | 255     | A `test-*.fth` file's final `0= die`: some check failed. |
 
-`020-cc-arena.fth` through `070-cc-sym.fth` follow this plan: each of
-their codes is used at one place, for one failure.
-`090-cc-emit.fth`, `100-cc-expr.fth`, `110-cc-decl.fth` and
-`130-asm.fth` still carry older numbers that are being moved into
-their ranges.  Among those, a code can be shared by two files (41–43,
-70, 71, 80, 82, 90–92) or used at several places in one file (38, 73,
-82, 95, 163); the table lists every site, and the line `cc-die`
-prints tells them apart.  Codes above 100 in `100-cc-expr.fth` and
-140–143 in `110-cc-decl.fth` were moved there so as not to collide
-with the ranges of 030 and 040.
+Each code is used at one place, for one failure.  A file's codes
+were numbered in source order, and a check added since takes the
+next free code in its range (193–195 in `110-cc-decl.fth`).  Two
+sites that fail the same way still get a code each (145 and 148, for
+instance), so a code always names one line.
 
 ## Codes in detail
 
 Every die site in `020-cc-arena.fth` through `120-cc-main.fth`, traced
-to its call site.  Where one code has several sites, the row lists
-all of them, one per cited line.
+to its call site.
 
 | Code | File:line(s) | Triggered by |
 |---:|---|---|
 | 10  | `020-cc-arena.fth:96` | `cc-alloc` past the 32 KiB arena cap. |
-| 11  | `110-cc-decl.fth:48`  | `cc-expect-kw-id`: next token wasn't a keyword. |
-| 12  | `110-cc-decl.fth:51`  | `cc-expect-kw-id`: keyword id mismatch. |
-| 13  | `110-cc-decl.fth:59`  | `cc-expect-punct-c`: next token wasn't punctuation. |
-| 14  | `110-cc-decl.fth:62`  | `cc-expect-punct-c`: punctuation char mismatch. |
-| 15  | `110-cc-decl.fth:69`  | `cc-expect-ident`: next token wasn't an identifier. |
 | 20  | `030-cc-io.fth:72` | `cc-load-stdin`: the source fills the 1 MiB input buffer. |
 | 21  | `030-cc-io.fth:110` | `cc-emit-byte`: the output fills the 1 MiB output buffer. |
 | 22  | `030-cc-io.fth:170` | `cc-write-output`: `open(2)` on the output path returned an error. |
-| 23  | `110-cc-decl.fth:400` | Local array declaration: size inside `[` `]` isn't an integer literal. |
-| 24  | `110-cc-decl.fth:404` | Local array declaration: size is zero or negative. |
-| 25  | `110-cc-decl.fth:408` | Local array declaration: missing `]`. |
-| 26  | `110-cc-decl.fth:412` | Local array declaration: missing `;` after `]`. |
 | 30  | `040-cc-prep.fth:270` | `#include "…"`: file opens neither as given nor under `tests/cc/`. |
 | 31  | `040-cc-prep.fth:255` | `#include` nested deeper than the four include-pool slots. |
 | 32  | `040-cc-prep.fth:276` | `#include`d file fills its 64 KiB include-pool slot. |
@@ -83,99 +68,137 @@ all of them, one per cited line.
 | 34  | `040-cc-prep.fth:94`  | `cc-macro-add`: more than 256 macros (7 are built in). |
 | 35  | `040-cc-prep.fth:75`  | `cc-macro-name-pool-copy`: macro-name pool (16 KiB) full. |
 | 36  | `040-cc-prep.fth:44`  | `cc-prep-emit-byte`: preprocessed source fills the 2 MiB source buffer. |
-| 37  | `110-cc-decl.fth:1542` | Call: more than six arguments (the register-only calling convention). |
-| 38  | `110-cc-decl.fth:1582,1628,1631,1637,1648` | 1582: call target is neither a function nor a function-pointer local.  1628/1631: parameter type is an identifier that isn't a known typedef.  1637: parameter type is neither a keyword nor an identifier.  1648: parameter name missing. |
-| 39  | `110-cc-decl.fth:1668` | Parameter list not closed by `)`. |
-| 41  | `100-cc-expr.fth:1409` | Assignment: left-hand side isn't an lvalue. |
-| 41  | `110-cc-decl.fth:1770` | Function definition: name after the return type isn't an identifier. |
-| 42  | `100-cc-expr.fth:1382` | Compound assignment (`+=` etc.) through a pointer, subscript or member lvalue — only plain `=` is supported there. |
-| 42  | `110-cc-decl.fth:1736` | Function return type: `struct` not followed by a tag identifier. |
-| 43  | `100-cc-expr.fth:1327` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
-| 43  | `110-cc-decl.fth:1741` | Function return type: neither a keyword nor an identifier. |
-| 44  | `110-cc-decl.fth:2143` | Prototype: name after the return type isn't an identifier. |
 | 50  | `060-cc-types.fth:83` | `cc-sd-field-rec`: a struct with more than 16 fields. |
-| 51  | `100-cc-expr.fth:767` | Prefix `++`/`--`: identifier not found. |
-| 52  | `100-cc-expr.fth:771` | Prefix `++`/`--`: identifier isn't a local. |
-| 53  | `100-cc-expr.fth:520` | Postfix `++`/`--`: operand isn't a simple local. |
 | 60  | `070-cc-sym.fth:59`   | `cc-sym-add`: more than 4,096 symbols. |
 | 61  | `070-cc-sym.fth:119`  | `cc-scope-push`: scopes nested more than 64 deep. |
 | 62  | `070-cc-sym.fth:128`  | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
-| 70  | `090-cc-emit.fth:1010` | `cc-globals-alloc`: globals buffer (4,096 bytes) full. |
-| 70  | `100-cc-expr.fth:794` | Unary `&`: operand isn't an identifier. |
-| 71  | `090-cc-emit.fth:1031` | `cc-gfixup-add`: global-fixup table (4,096 entries) full. |
-| 71  | `100-cc-expr.fth:799` | Unary `&`: identifier not found. |
-| 72  | `100-cc-expr.fth:803` | Unary `&`: identifier isn't a local. |
-| 73  | `100-cc-expr.fth:709,738,742` | `sizeof(`: identifier not found (709), found but neither a typedef nor a local (738), or the token is neither a keyword nor an identifier (742). |
-| 74  | `100-cc-expr.fth:699` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
-| 75  | `100-cc-expr.fth:747` | `sizeof(...`: missing `)`. |
-| 76  | `100-cc-expr.fth:670` | `sizeof`: missing `(`. |
-| 77  | `100-cc-expr.fth:678` | `sizeof(struct`: tag isn't an identifier. |
-| 78  | `100-cc-expr.fth:682` | `sizeof(struct TAG`: tag not found. |
-| 79  | `100-cc-expr.fth:685` | `sizeof(struct TAG`: name isn't a struct tag. |
-| 80  | `100-cc-expr.fth:221` | `name[`: array base isn't a local or a global. |
-| 80  | `110-cc-decl.fth:1270` | `goto` not followed by an identifier. |
-| 81  | `110-cc-decl.fth:1254` | Label defined twice in one function. |
-| 82  | `100-cc-expr.fth:271,556` | Subscript: missing `]` (271: `name[i]`; 556: postfix `[` on any expression). |
-| 82  | `110-cc-decl.fth:1224` | Label table (64 labels) full. |
-| 90  | `100-cc-expr.fth:574` | `.` / `->` on an expression with no known struct descriptor. |
-| 90  | `110-cc-decl.fth:1090` | `case` label isn't an integer literal. |
-| 91  | `100-cc-expr.fth:591` | `.` / `->` not followed by an identifier (field name). |
-| 91  | `110-cc-decl.fth:247` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
-| 92  | `100-cc-expr.fth:182` | Field name not found in the struct descriptor. |
-| 92  | `110-cc-decl.fth:253` | Struct definition: field type is neither a keyword nor an identifier. |
-| 93  | `110-cc-decl.fth:197` | `struct` definition: tag isn't an identifier. |
-| 94  | `110-cc-decl.fth:265` | Struct definition: field name missing. |
-| 95  | `110-cc-decl.fth:160,180` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier. |
-| 96  | `110-cc-decl.fth:165` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
-| 97  | `110-cc-decl.fth:169` | `struct TAG`: name isn't a struct tag (strict lookup). |
-| 98  | `110-cc-decl.fth:501` | Struct local declaration: variable name missing. |
-| 99  | `110-cc-decl.fth:536` | Struct-pointer local not followed by `=` or `;`. |
-| 100 | `110-cc-decl.fth:1889` | `enum`: enumerator isn't an identifier. |
-| 101 | `110-cc-decl.fth:1931` | `enum`: enumerator followed by neither `,` nor `}`. |
-| 102 | `110-cc-decl.fth:1898` | `enum`: `=` not followed by an integer literal. |
-| 103 | `100-cc-expr.fth:330` | Primary expression: identifier not in the symbol table. |
-| 104 | `100-cc-expr.fth:426` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
-| 105 | `100-cc-expr.fth:484` | Parenthesised expression: missing `)`. |
-| 106 | `100-cc-expr.fth:487` | Primary expression: token can't start one (not a literal, identifier or `(`). |
-| 107 | `100-cc-expr.fth:356` | `name(...)` where `name` is neither a function nor a function-pointer local. |
-| 108 | `100-cc-expr.fth:1245` | Ternary `?`: missing `:`. |
-| 109 | `100-cc-expr.fth:762` | Prefix `++`/`--`: operand isn't an identifier. |
-| 110 | `110-cc-decl.fth:1962` | `typedef`: base keyword other than `int`, `char`, `void` or `struct`. |
-| 111 | `110-cc-decl.fth:1968` | `typedef`: base identifier not found. |
-| 112 | `110-cc-decl.fth:1971` | `typedef`: base identifier isn't itself a typedef. |
-| 113 | `110-cc-decl.fth:1975` | `typedef`: base is neither a keyword nor an identifier. |
-| 114 | `110-cc-decl.fth:2023` | `typedef`: new name isn't an identifier. |
-| 116 | `110-cc-decl.fth:1999` | Function-pointer `typedef T (*NAME)(...)`: name missing. |
-| 140 | `110-cc-decl.fth:342` | Function-pointer declarator: expected name. |
-| 141 | `110-cc-decl.fth:366` | Function-pointer declarator: expected `=` or `;`. |
-| 142 | `110-cc-decl.fth:439` | Local scalar declaration (`T x;` / `T x = e;`) not ended by `;`. |
-| 143 | `110-cc-decl.fth:1534` | Call: argument list not closed by `)`. |
-| 160 | `110-cc-decl.fth:2262` | Top-level declaration: base type is neither a keyword nor an identifier. |
-| 161 | `110-cc-decl.fth:2272` | Top-level declaration: expected variable name. |
-| 162 | `110-cc-decl.fth:2286` | Top-level array decl: bracket without integer literal size. |
-| 163 | `110-cc-decl.fth:2206,2211` | Global initialiser: expected integer literal (optionally signed). |
-| 164 | `110-cc-decl.fth:2306` | Top-level declaration: name followed by neither `[`, `=` nor `;`. |
+| 80  | `090-cc-emit.fth:1000` | `cc-globals-alloc`: globals buffer (4,096 bytes) full. |
+| 81  | `090-cc-emit.fth:1022` | `cc-gfixup-add`: global-fixup table (4,096 entries) full. |
+| 90  | `100-cc-expr.fth:187` | Field name not found in the struct descriptor. |
+| 91  | `100-cc-expr.fth:226` | `name[`: array base isn't a local or a global. |
+| 92  | `100-cc-expr.fth:276` | Subscript `name[i]`: missing `]`. |
+| 93  | `100-cc-expr.fth:331` | Primary expression: identifier not in the symbol table. |
+| 94  | `100-cc-expr.fth:357` | `name(...)` where `name` is neither a function nor a function-pointer local. |
+| 95  | `100-cc-expr.fth:427` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
+| 96  | `100-cc-expr.fth:485` | Parenthesised expression: missing `)`. |
+| 97  | `100-cc-expr.fth:488` | Primary expression: token can't start one (not a literal, identifier or `(`). |
+| 98  | `100-cc-expr.fth:521` | Postfix `++`/`--`: operand isn't a simple local. |
+| 99  | `100-cc-expr.fth:554` | Postfix `[` on any expression: missing `]`. |
+| 100 | `100-cc-expr.fth:567` | `.` / `->` on an expression with no known struct descriptor. |
+| 101 | `100-cc-expr.fth:579` | `.` / `->` not followed by an identifier (field name). |
+| 102 | `100-cc-expr.fth:658` | `sizeof`: missing `(`. |
+| 103 | `100-cc-expr.fth:666` | `sizeof(struct`: tag isn't an identifier. |
+| 104 | `100-cc-expr.fth:670` | `sizeof(struct TAG`: tag not found. |
+| 105 | `100-cc-expr.fth:673` | `sizeof(struct TAG`: name isn't a struct tag. |
+| 106 | `100-cc-expr.fth:687` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
+| 107 | `100-cc-expr.fth:697` | `sizeof(`: identifier not found. |
+| 108 | `100-cc-expr.fth:726` | `sizeof(`: identifier found but neither a typedef nor a local. |
+| 109 | `100-cc-expr.fth:730` | `sizeof(`: token is neither a keyword nor an identifier. |
+| 110 | `100-cc-expr.fth:735` | `sizeof(...`: missing `)`. |
+| 111 | `100-cc-expr.fth:750` | Prefix `++`/`--`: operand isn't an identifier. |
+| 112 | `100-cc-expr.fth:755` | Prefix `++`/`--`: identifier not found. |
+| 113 | `100-cc-expr.fth:759` | Prefix `++`/`--`: identifier isn't a local. |
+| 114 | `100-cc-expr.fth:782` | Unary `&`: operand isn't an identifier. |
+| 115 | `100-cc-expr.fth:787` | Unary `&`: identifier not found. |
+| 116 | `100-cc-expr.fth:791` | Unary `&`: identifier isn't a local. |
+| 117 | `100-cc-expr.fth:1229` | Ternary `?`: missing `:`. |
+| 118 | `100-cc-expr.fth:1311` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
+| 119 | `100-cc-expr.fth:1367` | Compound assignment (`+=` etc.) through a pointer, subscript or member lvalue — only plain `=` is supported there. |
+| 120 | `100-cc-expr.fth:1393` | Assignment: left-hand side isn't an lvalue. |
+| 140 | `110-cc-decl.fth:58` | `cc-expect-kw-id`: next token wasn't a keyword. |
+| 141 | `110-cc-decl.fth:61` | `cc-expect-kw-id`: keyword id mismatch. |
+| 142 | `110-cc-decl.fth:69` | `cc-expect-punct-c`: next token wasn't punctuation. |
+| 143 | `110-cc-decl.fth:72` | `cc-expect-punct-c`: punctuation char mismatch. |
+| 144 | `110-cc-decl.fth:79` | `cc-expect-ident`: next token wasn't an identifier. |
+| 145 | `110-cc-decl.fth:170` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag`). |
+| 146 | `110-cc-decl.fth:175` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
+| 147 | `110-cc-decl.fth:179` | `struct TAG`: name isn't a struct tag (strict lookup). |
+| 148 | `110-cc-decl.fth:190` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag-soft`). |
+| 149 | `110-cc-decl.fth:207` | `struct` definition: tag isn't an identifier. |
+| 150 | `110-cc-decl.fth:257` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
+| 151 | `110-cc-decl.fth:263` | Struct definition: field type is neither a keyword nor an identifier. |
+| 152 | `110-cc-decl.fth:275` | Struct definition: field name missing. |
+| 153 | `110-cc-decl.fth:352` | Function-pointer declarator: expected name. |
+| 154 | `110-cc-decl.fth:376` | Function-pointer declarator: expected `=` or `;`. |
+| 155 | `110-cc-decl.fth:410` | Local array declaration: size inside `[` `]` isn't an integer literal. |
+| 156 | `110-cc-decl.fth:414` | Local array declaration: size is zero or negative. |
+| 157 | `110-cc-decl.fth:418` | Local array declaration: missing `]`. |
+| 158 | `110-cc-decl.fth:422` | Local array declaration: missing `;` after `]`. |
+| 159 | `110-cc-decl.fth:449` | Local scalar declaration (`T x;` / `T x = e;`) not ended by `;`. |
+| 160 | `110-cc-decl.fth:511` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:546` | Struct-pointer local not followed by `=` or `;`. |
+| 162 | `110-cc-decl.fth:1100` | `case` label isn't an integer literal. |
+| 163 | `110-cc-decl.fth:1211` | `cc-label-create`: more than 64 labels in one function. |
+| 164 | `110-cc-decl.fth:1240` | Label defined twice in one function. |
+| 165 | `110-cc-decl.fth:1256` | `goto` not followed by an identifier. |
+| 166 | `110-cc-decl.fth:1512` | Call: argument list not closed by `)`. |
+| 167 | `110-cc-decl.fth:1520` | Call: more than six arguments (the register-only calling convention). |
+| 168 | `110-cc-decl.fth:1560` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
+| 169 | `110-cc-decl.fth:1606` | Parameter type is an identifier that isn't in the symbol table. |
+| 170 | `110-cc-decl.fth:1609` | Parameter type is an identifier that isn't a typedef. |
+| 171 | `110-cc-decl.fth:1615` | Parameter type is neither a keyword nor an identifier. |
+| 172 | `110-cc-decl.fth:1626` | Parameter name missing. |
+| 173 | `110-cc-decl.fth:1646` | Parameter list not closed by `)`. |
+| 174 | `110-cc-decl.fth:1714` | Function return type: `struct` not followed by a tag identifier. |
+| 175 | `110-cc-decl.fth:1719` | Function return type: neither a keyword nor an identifier. |
+| 176 | `110-cc-decl.fth:1749` | Function definition: name after the return type isn't an identifier. |
+| 177 | `110-cc-decl.fth:1868` | `enum`: enumerator isn't an identifier. |
+| 178 | `110-cc-decl.fth:1877` | `enum`: `=` not followed by an integer literal. |
+| 179 | `110-cc-decl.fth:1910` | `enum`: enumerator followed by neither `,` nor `}`. |
+| 180 | `110-cc-decl.fth:1941` | `typedef`: base keyword other than `int`, `char`, `void` or `struct`. |
+| 181 | `110-cc-decl.fth:1947` | `typedef`: base identifier not found. |
+| 182 | `110-cc-decl.fth:1950` | `typedef`: base identifier isn't itself a typedef. |
+| 183 | `110-cc-decl.fth:1954` | `typedef`: base is neither a keyword nor an identifier. |
+| 184 | `110-cc-decl.fth:1978` | Function-pointer `typedef T (*NAME)(...)`: name missing. |
+| 185 | `110-cc-decl.fth:2002` | `typedef`: new name isn't an identifier. |
+| 186 | `110-cc-decl.fth:2110` | Prototype: name after the return type isn't an identifier. |
+| 187 | `110-cc-decl.fth:2172` | Global initialiser: `-` not followed by an integer literal. |
+| 188 | `110-cc-decl.fth:2177` | Global initialiser: not an integer literal. |
+| 189 | `110-cc-decl.fth:2228` | Top-level declaration: base type is neither a keyword nor an identifier. |
+| 190 | `110-cc-decl.fth:2238` | Top-level declaration: expected variable name. |
+| 191 | `110-cc-decl.fth:2252` | Top-level array decl: bracket without integer literal size. |
+| 192 | `110-cc-decl.fth:2272` | Top-level declaration: name followed by neither `[`, `=` nor `;`. |
+| 193 | `110-cc-decl.fth:37` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
+| 194 | `110-cc-decl.fth:2579` | `cc-check-fns-defined`: at the end of the program, a function that was called or used as a value was never defined (its call or address fixups are still pending).  `memset` is declared but has no body, so a program that uses it lands here. |
+| 195 | `110-cc-decl.fth:2584` | `cc-check-fns-defined`: at the end of the program, there is no `main`. |
 
-Code 115 is unused.  Every buffer and table in `020-cc-arena.fth`
-through `070-cc-sym.fth` is bounds-checked with `cc-check-cap`, and
+Every buffer and table the compiler fills is bounds-checked with
+`cc-check-cap` (or `cc-read-all` for input), and
 `tests/cc/run-gates.sh` has a die gate (`tests/cc/die-NN-*`) that
-overflows each one and checks the code and the line.  Not every limit
-in the later files is checked yet: Ch 31's 256-byte stack frame, for
-one, silently overlaps its neighbour past 32 locals.
+overflows each one and checks the code and the line; so do the three
+whole-program checks, 193 (a function that needs more than its
+frame's 32 slots, Ch 31), 194 and 195.  The gates cannot reach 22
+(the output file won't open) or 62 (a parser bug).
 
 When you add a new error site, take the next free code in its file's
 range, so the code keeps naming one failure.
 
 ### The assembler's codes
 
-`130-asm.fth`, the M1 assembler, is a separate program with its
-own codes.  It exits 1 if it can't open its output file
-(`130-asm.fth:132`).
-Its other failures go through `asm-tok-err`, which, unlike the
-compiler, writes the offending token to stderr
-before exiting: 91 (`&label` undefined), 92/93 (`%target>base`:
-base / target undefined), 94 (`%label`), 95 (`!label`),
-96 (`@label`), 97 (`~label`), 98 (`$label`).
+`130-asm.fth`, the M1 assembler, is a separate program: it loads
+none of the compiler's files, so it has its own `asm-check-cap`
+(the same test as `cc-check-cap`, dying with a bare `die`) and prints
+no line number.  An undefined label goes through `asm-tok-err`, which
+writes the offending token to stderr before exiting.
+`tests/asm/die-gates.sh` overflows each buffer and table and feeds
+one undefined label.
+
+| Code | File:line(s) | Triggered by |
+|---:|---|---|
+| 230 | `130-asm.fth:145` | `asm-write-output`: `open(2)` on `/tmp/asm-out` returned an error. |
+| 231 | `130-asm.fth:434` | `&label` (4-byte absolute) undefined. |
+| 232 | `130-asm.fth:462` | `%target>base`: base label undefined. |
+| 233 | `130-asm.fth:465` | `%target>base`: target label undefined. |
+| 234 | `130-asm.fth:475` | `%label` (4-byte relative) undefined. |
+| 235 | `130-asm.fth:499` | `!label` (1-byte relative) undefined. |
+| 236 | `130-asm.fth:522` | `@label` (2-byte relative) undefined. |
+| 237 | `130-asm.fth:545` | `~label` (3-byte relative) undefined. |
+| 238 | `130-asm.fth:567` | `$label` (2-byte absolute) undefined. |
+| 239 | `130-asm.fth:88` | `asm-load-stdin`: the M1 source fills the 4 MiB source buffer. |
+| 240 | `130-asm.fth:110` | `asm-exp-emit-byte`: macro expansion fills the 4 MiB expansion buffer. |
+| 241 | `130-asm.fth:125` | `asm-emit-byte`: the output fills the 1 MiB output buffer. |
+| 242 | `130-asm.fth:181` | `asm-store-label`: more than 8,192 labels. |
+| 243 | `130-asm.fth:660` | `asm-def-store`: more than 4,096 `DEFINE`s. |
 
 ### The seed's own code
 

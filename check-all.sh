@@ -4,8 +4,9 @@
 # Exit 0 iff:
 #   1.  ./build.sh produces a 1,772-byte seed-forth
 #   2.  ./test.sh passes all its seed and layer tests
-#   2a. the three light tests/asm checks (exit42, jump42, m1-jump42);
-#       the heavyweight m2planet/mescc-tools checks stay opt-in
+#   2a. the four light tests/asm checks (exit42, jump42, m1-jump42, and
+#       die-gates, the assembler's error codes); the heavyweight
+#       m2planet/mescc-tools checks stay opt-in
 #       (skipped if gcc or make is missing — these tests build mescc-tools)
 #   2b. tests/cc/run-gates.sh all registered C gates pass
 #   3.  tools/tangle.sh verify --strict reports 13/13 byte-identical
@@ -63,7 +64,7 @@ run "01-build"          ./build.sh
 run "02-test"           ./test.sh
 
 if command -v gcc >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
-    run "02a-asm"           bash -c 'for t in tests/asm/exit42-check.sh tests/asm/jump42-check.sh tests/asm/m1-jump42-check.sh; do "$t" || exit 1; done'
+    run "02a-asm"           bash -c 'for t in tests/asm/exit42-check.sh tests/asm/jump42-check.sh tests/asm/m1-jump42-check.sh tests/asm/die-gates.sh; do "$t" || exit 1; done'
 else
     missing=()
     command -v gcc  >/dev/null 2>&1 || missing+=(gcc)
