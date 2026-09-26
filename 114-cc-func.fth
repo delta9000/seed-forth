@@ -71,16 +71,16 @@ create cc-main-name-bytes  s, main
         \ base+ptr-depth so function-pointer typedefs survive into param type.
         tok-str-addr @ tok-str-len @ cc-sym-find   ( id )
         dup 0< if,
-          [lit] 169 cc-die
+          [lit] 180 cc-die
         then,
         dup cc-sym-kind-of sk-typedef <> if,
-          [lit] 170 cc-die
+          [lit] 181 cc-die
         then,
         [lit] 0 cc-pending-struct-desc !
         cc-sym-val-of                              ( ty )
         dup ty-base swap ty-ptr                    ( base ptr-depth )
       else,
-        [lit] 171 cc-die
+        [lit] 182 cc-die
         ty-int [lit] 0                            \ unreachable
       then,
     then,
@@ -91,7 +91,7 @@ create cc-main-name-bytes  s, main
     \ Expect IDENT.
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 172 cc-die
+      [lit] 183 cc-die
     then,
     \ Add as a local: name in tok-str-addr/len, kind=sk-local, type=ty,
     \ val=current local count (= slot).  Stack on entry: ( ty ).
@@ -111,7 +111,7 @@ create cc-main-name-bytes  s, main
   \ Now consume the closing ')'.
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
-    [lit] 173 cc-die
+    [lit] 184 cc-die
   then, ;
 
 \ cc-parse-param-list ( -- )  Parse a possibly-empty comma-separated list of
@@ -179,12 +179,12 @@ create cc-main-name-bytes  s, main
     tok-kw-id @ kw-struct = if,
       cc-next-token-keep
       tok-kind @ tk-ident <> if,
-        [lit] 174 cc-die
+        [lit] 185 cc-die
       then,
     then,
   else,
     tok-kind @ tk-ident <> if,
-      [lit] 175 cc-die
+      [lit] 186 cc-die
     then,
   then,
   cc-count-stars drop ;
@@ -214,7 +214,7 @@ create cc-main-name-bytes  s, main
   \ Function name.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 176 cc-die
+    [lit] 187 cc-die
   then,
   tok-str-addr @ cc-fn-name-addr !
   tok-str-len  @ cc-fn-name-len  !

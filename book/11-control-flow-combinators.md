@@ -561,9 +561,12 @@ rather see them inside a larger battery.
    or a private cell).  Compare yours to the classical Forth `do/loop`
    convention.
 
-5. **★★ Trace.** Why does this chapter use `' branch constant branch-xt`
-   instead of a literal address?  What would have to change in
-   `000-seed.hex0` for the literal-address version to break?
+5. **★★ Extend.** Apply §3's load-time snapshot to a word of your
+   own: capture `' emit` as `emit-xt`, then write an immediate
+   `2emit,` that compiles two CALLs to `emit` with `call,`.  On the
+   seed, `: ab  [lit] 66 [lit] 65 2emit, ;  ab` should print `AB`.
+   What does `2emit,` cost at each call site compared with writing
+   `emit emit`, and when would a combinator like it pay?
 
 ## Takeaways
 

@@ -501,7 +501,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
       \ doesn't handle constant-expressions for case labels).
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 162 cc-die
+        [lit] 170 cc-die
       then,
       tok-num @                                   ( K )
       [char] : cc-expect-punct-c
@@ -612,7 +612,7 @@ variable cc-label-count
 \ cc-label-create ( name-addr name-len -- id )  Append a new label entry.
 \ Initial vaddr=0 (undefined), fixup=0 (no forward refs yet).
 : cc-label-create                                 ( a u -- id )
-  cc-label-count @ 1+ cc-label-cap [lit] 163 cc-check-cap
+  cc-label-count @ 1+ cc-label-cap [lit] 171 cc-check-cap
   cc-label-count @                                ( a u id )
   >r                                              \ R: id
   r@ cc-label-name-len  cell[] !                  \ store len
@@ -636,12 +636,12 @@ variable cc-label-count
 
 \ cc-define-label ( name-addr name-len -- )
 \ Bind the label to the current cc-out-pos and resolve any forward refs.
-\ Dies with code 164 on a duplicate definition.
+\ Dies with code 172 on a duplicate definition.
 : cc-define-label                                 ( a u -- )
   cc-label-find-or-create                         ( id )
   \ Reject duplicates.
   dup cc-label-vaddr-of [lit] 0 <> if,
-    [lit] 164 cc-die
+    [lit] 172 cc-die
   then,
   \ Set vaddr.
   dup >r                                          ( id ; R: id )
@@ -657,7 +657,7 @@ variable cc-label-count
 : cc-parse-goto-stmt
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 165 cc-die
+    [lit] 173 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-label-find-or-create   ( id )
 

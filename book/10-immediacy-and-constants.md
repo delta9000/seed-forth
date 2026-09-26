@@ -410,9 +410,11 @@ Expected output: `ZZ`.
 1. **★★ Extend.** Define `2constant ( hi lo -- )` that defines a word pushing two
    cells.  How many bytes is its runtime body?
 
-2. **★★ Trace.** Why does `constant` end with `[lit] 0 state !` instead of just
-   `;`?  (Hint: trace what STATE is at each point.  Can `constant`
-   even *use* `;` directly?)
+2. **★★ Trace.** `constant` is not immediate, so it can be compiled
+   into another word.  Predict what `: k  [lit] 53 constant ;`
+   followed by `k five  five emit` does on the seed, then run it.
+   Where does `constant`'s `:` find the name `five`, and what is
+   STATE before, during and after `k` runs?
 
 3. **★★★ Trace.** The flags byte has eight bits.  What might the other seven be
    used for in a fuller Forth?  This seed uses only bit 0 — would

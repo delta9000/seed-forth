@@ -45,12 +45,16 @@
 - [Functions: parameters, calls, globals, entry stub](31-functions-and-scope.md) — translation units, scopes, file-scope globals, the entry stub at `0x400078`
 - [End to end: main and the bootstrap chain](32-main-and-bootstrap-chain.md) — the Stage-A byte-identity proof closes the chain
 
+# Part IV — The assembler
+
+- [The assembler: M1 and hex2 in Forth](33-the-assembler.md) — `130-asm.fth`, the two-pass M1 expander and hex2 linker that builds `M1` and `hex2` without GCC
+
 # Appendices
 
 - [A — The 32 seed primitives](A1-32-seed-primitives.md) — one-row table per primitive (name, opcode, stack effect, source location)
 - [B — The memory map](A2-memory-map.md) — every address the seed and the compiler reach for
 - [C — Reproducibility: the full hex0 → seed → M2-Planet chain](A3-reproducibility-chain.md) — pinned commits + reproducible-build recipe
-- [D — Three worked exercises, one per Part](A4-worked-exercises.md) — extended walk-throughs that touch source
+- [D — Three worked exercises, one each from Parts I–III](A4-worked-exercises.md) — extended walk-throughs that touch source
 - [E — Further reading](A5-further-reading.md) — JONESFORTH, sectorforth, M2-Planet, Mes, stage0, plus surveys
 - [F — The C subset](A6-c-subset.md) — exactly which C features the compiler handles (and which it deliberately doesn't)
 - [G — Compiler exit codes](A7-error-codes.md) — every `die N` in the compiler, what triggers it, where to look
@@ -59,3 +63,4 @@
 
 - [Glossary](GLOSSARY.md) — quick definitions for every term in the book
 - [Concept index and dependency graph](CONCEPTS.md) — rung map, capability ladder, topic→chapter quick reference, reading orders
+- [Index](WORD-INDEX.md) — every word, primitive, label and key idea, with the section that defines it

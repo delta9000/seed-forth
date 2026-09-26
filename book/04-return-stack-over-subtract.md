@@ -252,8 +252,9 @@ of Forth.
    What is the bit pattern (in hex)?  Why does that bit pattern
    represent `-1` in two's complement?
 
-3. **★ Trace.** Why does `-` have an extra `+` at the end (two `+`s total)?
-   Walk the stack again and identify what each `+` consumes.
+3. **★ Trace.** Trace `-` on `( 0 0 -- )` and on `( 5 5 -- )`
+   row by row, as in §4.  At which step does an addition carry out
+   of bit 63, and why is it safe for `+` to drop that carry?
 
 4. **★★ Extend.** Write `negate ( n -- -n )` using only `nand`, `[lit]`, and `+`.
    How many tokens?  Compare to `0 swap -`.

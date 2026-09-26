@@ -10,8 +10,8 @@
 ;; each of the 32 primitives is one unit — its dictionary header (link,
 ;; flags, nlen, name) directly followed by its machine code, so a word's
 ;; execution token (xt) is simply the address of its code.  The units
-;; appear in the order the book teaches them (Chs 14-20); the three
-;; unnamed helpers and the REPL sit next to the words that use them.
+;; appear in the order the book teaches them (Chs 14-20); the six
+;; unnamed helpers and the REPL sit alongside the words that use them.
 ;; Every line is one field or one instruction; the text after ';' is a
 ;; comment (hex0 ignores it).  Addresses are file offsets; the image
 ;; loads at 0x400000, so offset 0xNNN is address 0x400NNN.

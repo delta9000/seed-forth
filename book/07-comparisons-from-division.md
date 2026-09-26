@@ -49,24 +49,36 @@ negative."  That's correct, but it raises an awkward question: how do
 you ask "is this negative?" when the only sign-related primitive is
 unsigned division?
 
-A handful of approaches don't work:
+Three textbook answers, and how each fares here:
 
 - **`0<`** would be an obvious primitive, but the seed doesn't have
   it (it would cost a slot, and we're about to show it's derivable).
-- **Bitwise AND with `0x8000000000000000`** is the textbook
-  sign-bit test, but the seed has neither a bitwise `AND` primitive
-  (only `nand`) nor a way to compile a 64-bit immediate efficiently
-  inside a derived word.
 - **Sign-extend / shift right by 63** would work on a CPU with
   arithmetic shift, but the seed doesn't expose shifts at the Forth
   level.  Adding them as primitives would cost slots; deriving them
   from `*` or `/` would be expensive.
+- **Bitwise AND with `0x8000000000000000`**, the textbook sign-bit
+  test, works fine.  Ch 3 already derived `and`, and the seed's
+  unsigned number parser reads the 64-bit mask as a literal (§3).
+  `2^63 and 0= 0=` is a correct `0<`.
 
-What the seed does have is `/`, and its `/` is unsigned.  That is
-enough: **divide by `2^63`.**  Any 64-bit value, treated as unsigned,
-divided by `2^63 = 0x8000000000000000`, yields one of exactly two
-answers: `1` if the top bit was set, `0` otherwise.  Division, of
-all things, reads the sign bit, and it costs no new primitive.
+What the library uses instead is `/`, which is unsigned: **divide by
+`2^63`.**  Any 64-bit value, treated as unsigned, divided by
+`2^63 = 0x8000000000000000`, yields one of exactly two answers: `1`
+if the top bit was set, `0` otherwise.  Division, of all things,
+reads the sign bit, and it costs no new primitive.
+
+The choice between `and` and `/` is close.  Both definitions are the
+same length, one token after `2^63`.  At run time `/` is one call to
+a primitive (a single `DIV`), while `and` is a colon word that makes
+three more calls (`nand dup nand`).  `DIV` is the slow instruction,
+so the difference washes out: swapping `/` for `and` in `0<` leaves
+the compiler's output byte-identical and its M2-Planet build time
+unchanged within run-to-run noise (about 1.4 s either way).  The
+library takes `/` because it is the same move as Ch 6's range
+tests, divide and ask whether the quotient is zero, so one idea
+covers both chapters, and `0<` then depends on a primitive rather
+than on Ch 3's derived logic.
 
 ## 3. The `2^63` trick
 

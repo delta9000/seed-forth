@@ -99,7 +99,7 @@ of the parser's codes (`100-cc-expr.fth` through `116-cc-prog.fth`; Appendix G).
 | `goto LABEL ';'`                                          | yes | Function-local labels; max 64 labels per function; the target label must not be inside a `switch`. |
 | `LABEL ':' stmt`                                          | yes | |
 | `return ';'` / `return expr ';'`                          | yes | |
-| local declaration                                         | yes | Any C declaration form recognised at file scope, plus initialisers.  A function's parameters and locals share 32 eight-byte slots (an array takes one per element); code 193 past that. |
+| local declaration                                         | yes | Any C declaration form recognised at file scope, plus initialisers.  A function's parameters and locals share 32 eight-byte slots (an array takes one per element); code 162 past that. |
 | `;` (null statement)                                      | yes | |
 
 ## Declarations
@@ -204,7 +204,7 @@ tables above are not repeated.
   `fclose`, `fwrite`, `fread`, `calloc`, `free`) directly into
   the output ELF.  Everything else must be provided by the C
   source under compilation: a function that is called but never
-  defined stops the compile with code 194, and so does `memset`,
+  defined stops the compile with code 206, and so does `memset`,
   which is declared for the upstream tests but has no body.
 
 ## Coverage in practice

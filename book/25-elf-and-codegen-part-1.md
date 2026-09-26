@@ -884,8 +884,12 @@ from §5, `push rbp; mov rbp, rsp; sub rsp, 0x100`.
 
 ## Exercises
 
-1. **★ Trace.** Read `cc-emit-elf-header`.  Why does it emit zeros for
-   `p_filesz`?  What's the alternative (and what would it cost)?
+1. **★ Trace.** `p_filesz` is written as 0 and patched at the end.
+   Suppose the compiler appended a section-header table after the
+   code (for `objdump -h`).  Which header fields could then only be
+   filled in at the end, at which file offsets, and would
+   `cc-finalize-elf` need anything beyond `cc-out-patch-4le`-style
+   patching to do it?
 
 2. **★★ Trace.** The single R-W-X segment is unusual.  Real-world ELFs separate
    `.text` (R-X) from `.data` (R-W) for memory safety.  What

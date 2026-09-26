@@ -13,7 +13,7 @@ This file does three jobs:
 3. **Dependency graph** — for each chapter, which previous chapters
    it requires.  Use this when you skip around: a chapter's row names
    what its prose assumes you have read.  (Authors: the writing-order
-   rule built on this graph is in [WRITING.md](WRITING.md).)
+   rule built on this graph is in [`book/WRITING.md`](https://github.com/delta9000/seed-forth/blob/master/book/WRITING.md).)
 
 ## Rung map
 
@@ -33,6 +33,7 @@ first principles and start using as a primitive.
 | Expression compiler | Chs 27-28 | value/lvalue codegen | Chs 29-31 |
 | Declaration/statement/function compiler | Chs 29-31 | complete C-subset parser | Ch 32 |
 | Proof harness | Ch 32 | Stage-A `.M1` parity | Appendices |
+| Assembler | Ch 33 | `130-asm.fth`: M1 expander + two-pass hex2 linker | `bootstrap.sh`, `handoff.sh` (builds `M1` and `hex2`) |
 
 ## Capability ladder
 
@@ -54,6 +55,10 @@ shows what the artifact can *do* at each step.
 | 30 | lower every C control statement: `if`/`else`, `while`, `for`, `do`/`while`, `switch`, `break`, `continue`, `goto` |
 | 31 | assemble whole translation units: functions with parameters, scopes, enums, typedefs, file-scope globals, entry stub.  Output is now a runnable ELF. |
 | 32 | self-host M2-Planet and verify byte-identical `.M1` against the GCC-built reference.  Stage-A is closed. |
+
+Ch 33 adds no compiler capability.  It gives the compiler's output a
+GCC-free way to become an ELF: `130-asm.fth` assembles M2-Planet's
+`.M1`, and then mescc-tools' `M1` and `hex2`, which take over.
 
 ## Topic → chapter quick reference
 
@@ -127,6 +132,15 @@ and given in source order within each area.
 - *Top-level classification (`cc-top-classify`: definition, prototype or variable) and the end-of-program check for undefined functions* — Ch 31
 - *The `main` entry stub at `0x400078`* — Ch 31
 
+### The assembler
+
+- *M1 and hex2 formats: `DEFINE`, sigils, strings, labels* — Ch 33
+- *Macro expansion into a second buffer (`asm-expand-pass`)* — Ch 33
+- *Two-pass assembly: count to place labels, then emit* — Ch 33
+- *One handler for six sigils (`asm-do-ref`), `%target>base`* — Ch 33
+- *Assembler capacity checks and exit codes 230–243* — Ch 33, Appendix G
+- *Why the assembler loads `010-lib.fth` alone* — Ch 33
+
 ### Reading the proof
 
 - *Stage-A parity check* — Ch 32, Appendix C
@@ -134,12 +148,13 @@ and given in source order within each area.
 - *Fixed-point closure across self-compiles* — Ch 32, `tests/cc/bootstrap-chain.sh`
 - *Reproducibility pins for M2-Planet, mescc-tools, stage0* — Appendix C, `REPRODUCIBLE.md`
 - *Compiler exit codes (`die N`) and what each means* — Appendix G
+- *Building `M1` and `hex2` without GCC (`bootstrap.sh` steps 3–5, 7)* — Ch 33
 
 ### Patterns that recur at every scale
 
 - *Emit, remember, patch* — Ch 11, 19, 21, 25, 26, 30, 31
-- *Small tables, linear search, newest wins* — Chs 17, 22, 24, 30, 31
-- *One buffer per responsibility* — Chs 21, 22, 26, 31
+- *Small tables, linear search, newest wins* — Chs 17, 22, 24, 30, 31, 33
+- *One buffer per responsibility* — Chs 21, 22, 26, 31, 33
 - *Deferred words (`defer`/`is`) for forward references* — Chs 12, 22, 27, 30
 - *Fixup-on-the-stack* — Chs 11, 19, 26, 30
 
@@ -225,9 +240,9 @@ their introducing chapter.
   *Chs 23, 29–31*
 - **Source buffer / output buffer / back-patching** — Ch 21;
   *Chs 25, 26, 30, 31*
-- **One buffer per responsibility** — Ch 21; *Chs 22, 26, 31*
+- **One buffer per responsibility** — Ch 21; *Chs 22, 26, 31, 33*
 - **Small tables, linear search, newest wins** — Ch 17; *Chs 22,
-  24, 30, 31*
+  24, 30, 31, 33*
 - **Macro table (parallel arrays)** — Ch 22
 - **Token kinds (`KW_*`, `ID`, `PUNCT`, `NUM`, `STR`, `CHR`)** —
   Ch 23; *Chs 27–31*
@@ -246,6 +261,16 @@ their introducing chapter.
   reserves the same 32-slot slab, checked by `cc-fn-add-slots`; no
   per-function back-patch)
 - **Stage-A parity (byte-identical M1 output)** — Ch 32
+
+### Assembler ideas (Part IV)
+
+- **M1 macro (`DEFINE name value`, textual substitution)** — Ch 33
+- **Sigil (`! @ ~ % $ &`: field width, absolute or end-of-field
+  relative)** — Ch 33
+- **Label table (name slice + address, newest wins)** — Ch 33
+- **Two-pass assembly (pass 1 counts, pass 2 emits)** — Ch 33;
+  *contrast with emit, remember, patch (Chs 11, 26, 30)*
+- **Self-contained program (depends on `010-lib.fth` only)** — Ch 33
 
 ## Dependency graph
 
@@ -289,6 +314,9 @@ Ch 29  decls + structs    — Chs 24, 25, 26, 28
 Ch 30  statements         — Chs 11, 12, 26, 27, 28, 29
 Ch 31  functions          — Chs 24, 25, 26, 27, 28, 29, 30
 Ch 32  main + bootstrap   — *all previous*
+        (---- Part III complete; every -cc- file fully literate ----)
+Ch 33  assembler          — Chs 5, 6, 11, 12, 21, 32          (Part IV)
+        (---- 130-asm.fth fully literate ----)
 ```
 
 ## Reading orders

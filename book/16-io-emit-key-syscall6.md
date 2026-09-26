@@ -3,7 +3,7 @@
 ```text
 Missing capability: emit, key, and syscall6 were black boxes.
 New pattern: syscall6 loads rax, rdi, rsi, rdx, r10, r8, r9 from the data stack and traps.
-Artifact after this chapter: the three primitives that connect the seed to Linux, in machine code.
+Artifact after this chapter: the four primitives that connect the seed to Linux, in machine code.
 Proof link: every byte the seed reads or writes goes through these; Ch 5's wrappers sit directly on top.
 ```
 
@@ -14,8 +14,8 @@ the other two belong to the token reader's error path, which writes
 an unknown or malformed token back out and, if it is fatal, exits
 (Ch 17).  Everything the seed ever reads arrives one byte per system
 call: feeding it the Forth of the library and the C compiler,
-comments and all, 300,446 bytes, costs 300,447 `read` calls (one per
-byte, plus one that returns EOF; `strace -c` will count them for
+comments and all, some 290,000 bytes, costs one `read` call per
+byte, plus one that returns EOF (`strace -c` will count them for
 you).
 
 The four primitives are lines 251–318 of `000-seed.hex0`: `bye`,

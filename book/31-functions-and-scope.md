@@ -298,16 +298,16 @@ a function pointer.
         \ base+ptr-depth so function-pointer typedefs survive into param type.
         tok-str-addr @ tok-str-len @ cc-sym-find   ( id )
         dup 0< if,
-          [lit] 169 cc-die
+          [lit] 180 cc-die
         then,
         dup cc-sym-kind-of sk-typedef <> if,
-          [lit] 170 cc-die
+          [lit] 181 cc-die
         then,
         [lit] 0 cc-pending-struct-desc !
         cc-sym-val-of                              ( ty )
         dup ty-base swap ty-ptr                    ( base ptr-depth )
       else,
-        [lit] 171 cc-die
+        [lit] 182 cc-die
         ty-int [lit] 0                            \ unreachable
       then,
     then,
@@ -318,7 +318,7 @@ a function pointer.
     \ Expect IDENT.
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 172 cc-die
+      [lit] 183 cc-die
     then,
     \ Add as a local: name in tok-str-addr/len, kind=sk-local, type=ty,
     \ val=current local count (= slot).  Stack on entry: ( ty ).
@@ -338,7 +338,7 @@ a function pointer.
   \ Now consume the closing ')'.
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
-    [lit] 173 cc-die
+    [lit] 184 cc-die
   then, ;
 
 ```
@@ -394,8 +394,8 @@ parameter's (above), is claimed through `cc-fn-add-slots` (Ch 29
 the check a 33rd slot would sit below `rsp`, where the next call's
 return address, saved `rbp` and locals land: an `int a[40]` in
 `main` would read back a callee's local through `a[5]`.  Instead the
-compile dies with code 193 at the declaration that doesn't fit
-(`tests/cc/die-193-frame-full.c`).  M2-Planet never needs more than
+compile dies with code 162 at the declaration that doesn't fit
+(`tests/cc/die-162-frame-full.c`).  M2-Planet never needs more than
 32 slots.
 
 The frame could instead be sized per function, by emitting the
@@ -447,12 +447,12 @@ it.
     tok-kw-id @ kw-struct = if,
       cc-next-token-keep
       tok-kind @ tk-ident <> if,
-        [lit] 174 cc-die
+        [lit] 185 cc-die
       then,
     then,
   else,
     tok-kind @ tk-ident <> if,
-      [lit] 175 cc-die
+      [lit] 186 cc-die
     then,
   then,
   cc-count-stars drop ;
@@ -514,7 +514,7 @@ when it didn't.
   \ Function name.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 176 cc-die
+    [lit] 187 cc-die
   then,
   tok-str-addr @ cc-fn-name-addr !
   tok-str-len  @ cc-fn-name-len  !
@@ -664,7 +664,7 @@ variable cc-enum-next-val
   begin,
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 177 cc-die
+      [lit] 190 cc-die
     then,
     tok-str-addr @ tok-str-len @                  ( a u )
 
@@ -673,7 +673,7 @@ variable cc-enum-next-val
     tok-kind @ tk-punct = tok-num @ [char] = = and if,
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 178 cc-die
+        [lit] 191 cc-die
       then,
       tok-num @ cc-enum-next-val !
     else,
@@ -706,7 +706,7 @@ variable cc-enum-next-val
         cc-putback-token                           \ leave '}' for the close
         [lit] 0                                    \ stop
       else,
-        [lit] 179 cc-die
+        [lit] 192 cc-die
       then,
     then,
     0=
@@ -748,20 +748,20 @@ variable cc-td-ty
       cc-lookup-struct-tag drop
       ty-struct [lit] 0 ty-make cc-td-ty !
     else,
-      [lit] 180 cc-die
+      [lit] 193 cc-die
     then, then, then, then,
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
       dup 0< if,
-        [lit] 181 cc-die
+        [lit] 194 cc-die
       then,
       dup cc-sym-kind-of sk-typedef <> if,
-        [lit] 182 cc-die
+        [lit] 195 cc-die
       then,
       cc-sym-val-of cc-td-ty !
     else,
-      [lit] 183 cc-die
+      [lit] 196 cc-die
     then,
   then,
 
@@ -785,7 +785,7 @@ variable cc-td-ty
     cc-count-stars drop                            \ at least one star expected
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 184 cc-die
+      [lit] 197 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
     [char] ) cc-expect-punct-c
@@ -809,7 +809,7 @@ variable cc-td-ty
   else,
     \ Plain IDENT (the new typedef name) — putback first since we just peeked.
     tok-kind @ tk-ident <> if,
-      [lit] 185 cc-die
+      [lit] 198 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
     sk-typedef [lit] 0 cc-td-ty @                  ( a u kind type val )
@@ -961,7 +961,7 @@ definition and whose fixups nothing patches.  So
   cc-parse-fn-return-type
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 186 cc-die
+    [lit] 199 cc-die
   then,
   tok-str-addr @ tok-str-len @                    ( a u )
   2dup cc-sym-find                                ( a u id-or-neg1 )
@@ -1023,7 +1023,7 @@ overwrite the next global.
 \ Arrays start zero-initialized.  Function-pointer, aggregate, and struct
 \ initializers are not implemented.
 \
-\ Errors die through cc-die with codes 187..192 (Appendix G).
+\ Errors die through cc-die with codes 200..205 (Appendix G).
 
 variable cc-gdecl-base
 variable cc-gdecl-name-a
@@ -1042,12 +1042,12 @@ variable cc-gdecl-ptr-depth
   tok-kind @ tk-punct = tok-num @ [char] - = and if,
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 187 cc-die
+      [lit] 200 cc-die
     then,
     [lit] 0 tok-num @ -
   else,
     tok-kind @ tk-num <> if,
-      [lit] 188 cc-die
+      [lit] 201 cc-die
     then,
     tok-num @
   then, ;
@@ -1110,7 +1110,7 @@ a scalar load) or the struct descriptor otherwise.
     \ actually resolves to a known typedef — the caller already determined
     \ this is a declaration via cc-top-classify.
     tok-kind @ tk-ident <> if,
-      [lit] 189 cc-die
+      [lit] 202 cc-die
     then,
   then,
 
@@ -1120,7 +1120,7 @@ a scalar load) or the struct descriptor otherwise.
   \ Name IDENT.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 190 cc-die
+    [lit] 203 cc-die
   then,
   tok-str-addr @ cc-gdecl-name-a !
   tok-str-len  @ cc-gdecl-name-u !
@@ -1134,7 +1134,7 @@ a scalar load) or the struct descriptor otherwise.
     \ Array form: 'T name [ N ]'.
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 191 cc-die
+      [lit] 204 cc-die
     then,
     tok-num @ cc-gdecl-n !
     true cc-gdecl-is-array !
@@ -1154,7 +1154,7 @@ a scalar load) or the struct descriptor otherwise.
         \ Bare uninitialized scalar.  Allocate the slot.
         cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
       else,
-        [lit] 192 cc-die
+        [lit] 205 cc-die
       then,
     then,
   then,
@@ -1476,9 +1476,9 @@ every function-as-value load should have been patched.
 `sk-func` whose call or address fixup list is still non-empty was
 used but never defined, and its placeholders would run a rel32 of 0
 (falling through into whatever follows the `call`) or load address 0.
-That dies with code 194.  `memset` is the one prototype registered
+That dies with code 206.  `memset` is the one prototype registered
 with no body on purpose, so a program that calls it dies here too:
-there is no `memset` to call.  A program with no `main` dies with 195
+there is no `memset` to call.  A program with no `main` dies with 207
 before the stub's `call` is patched to nowhere.
 
 `cc-parse-program` then runs the whole compile in seven calls: entry
@@ -1531,7 +1531,7 @@ create cc-name-ssize_t   s, ssize_t
 \ cc-check-fns-defined ( -- )  After the whole program: a function that was
 \ called or used as a value but never defined still has pending call or
 \ address fixups — each would run a rel32 of 0 (falling through to the next
-\ instruction) or load address 0.  Die 194 instead.  Then die 195 if there
+\ instruction) or load address 0.  Die 206 instead.  Then die 207 if there
 \ is no main for the entry stub to call.  memset is registered above with
 \ no body, so a program that uses it dies here too: this compiler has no
 \ memset to link.
@@ -1540,12 +1540,12 @@ create cc-name-ssize_t   s, ssize_t
   begin, dup cc-sym-count @ < while,
     dup cc-sym-kind-of sk-func = if,
       dup cc-sym-call-fixups @  over cc-sym-addr-fixups @  or if,
-        [lit] 194 cc-die
+        [lit] 206 cc-die
       then,
     then,
     1+
   repeat, drop
-  cc-main-vaddr @ 0= if, [lit] 195 cc-die then, ;
+  cc-main-vaddr @ 0= if, [lit] 207 cc-die then, ;
 
 \ cc-parse-program ( -- )  Emit entry stub, emit libc shims, register the
 \ one external prototype and built-in typedefs, parse all functions, check
@@ -1642,7 +1642,7 @@ reading and writing `g_counter`).  The M2-Planet monolith in
    (imm64 movabs).  Trace how both lists get populated and
    which path each fixup type originates from.
 
-2. **★★ Verify.** The 256-byte frame caps locals at 32, and code 193
+2. **★★ Verify.** The 256-byte frame caps locals at 32, and code 162
    says so.  Find the largest M2-Planet function (most locals) and
    confirm it fits.  What changes if you raise `cc-frame-slots`?
 

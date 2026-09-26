@@ -13,9 +13,17 @@
 #     trust root; after it, the two compiler lineages are independent
 #     (stage0: hand-written hex/M0 -> cc_amd64 -> M2 -> M2-Planet;
 #      ours: 000-seed.hex0 -> seed-forth -> Forth C compiler -> cc-out-v1).
-#   - stage0's M1, hex2 and blood-elf (built in stage 1) link BOTH routes'
-#     outputs in stages 3-5, so this check tests compiler lineage, not
-#     assembler/linker independence.
+#   - Stages 3-5 link BOTH routes' outputs with stage0's M1, hex2 and
+#     blood-elf (built in stage 1): compiler lineage only.  Stage 4b drops
+#     that: the Forth side links only with Forth-route tools (bootstrap.sh's
+#     M1/hex2 and a blood-elf compiled by its cc-out-v3), the stage0 side only
+#     with stage0's.  Still shared by both sides: the hex0-seed file (stage0
+#     runs it on hex0_AMD64.hex0, we on 000-seed.hex0), the C sources of
+#     M2-Planet 0a67a68, mescc-tools (5adfbf3; vendor/mescc-tools 9b13751 has
+#     identical M1/hex2/blood-elf sources) and M2libc (vendor/M2-Planet's, the
+#     .M1 defs, libc-full.M1 and ELF headers included), the kernel and bash.
+#   - Stage 4b runs ./bootstrap.sh (~30 s) unless BOOTSTRAP_OUT names an
+#     existing bootstrap.sh output whose SHA256SUMS verify.
 #   - The host kernel and bash; cp/sed/cat/mkdir/rm/mv/unshare/mount only move
 #     and filter files (sed is build-m2planet-monolith.sh's #include filter
 #     and STAGE0_COMPAT patch).  cmp, diff, wc and sha256sum only report.
@@ -36,6 +44,11 @@
 #   4. DDC: y1 = built by cc-out-v1 (default), y2 = built by y1.
 #      y2 == x2 byte for byte: the Forth-rooted and the stage0-rooted chains
 #      reach the same M2-Planet binary.  No STAGE0_COMPAT needed.
+#   4b. Fully independent lineages: f1 = built by bootstrap.sh's cc-out-v1,
+#      f2 = built by f1, each linked ONLY by Forth-route tools; f1 == y1 and
+#      f2 == x2 (x2 was built and linked ONLY by stage0's chain).  Then x2
+#      and f2 each rebuild M1, hex2 and blood-elf (stage0's mescc-tools
+#      5adfbf3), linked by their own route's tools: byte-identical pairs.
 #   5. STAGE0_COMPAT shortcut: y1c = built by cc-out-v1-compat; y1c == x2,
 #      and cc-out-v1-compat's self-host .M1 == x2's (the 02d98f86... output),
 #      while default cc-out-v1's self-host .M1 differs (it matches GCC-built
@@ -49,6 +62,8 @@
 #                wiped at the start of every run
 #   PRIVATE_TMP  auto (default) | 0.  seed-forth's compiler always writes
 #                /tmp/cc-out; with `unshare -rm` each run gets a private /tmp.
+#   BOOTSTRAP_OUT  reuse a bootstrap.sh output directory in stage 4b (its
+#                SHA256SUMS must verify) instead of running bootstrap.sh
 #
 # Exit status: 0 PASS, 77 SKIP (a stage0-posix nested submodule is not
 # checked out), anything else FAIL.
@@ -186,6 +201,81 @@ phase15 "$W/cc-out-v1" y1
 ok "y1 (built by cc-out-v1): sha256 $(h "$W/y1")...  (!= x1: a different compiler built it)"
 phase15 "$W/y1" y2
 same 4 "DDC" "$W/y2" "$W/x2"
+
+# ---------------------------------------------------------------------------
+step 4b "DDC with independent assemblers: each route links with its own tools"
+# ---------------------------------------------------------------------------
+# Stage 4 links y1/y2 with stage0's blood-elf, M1 and hex2.  Here the Forth
+# side uses only Forth-route binaries: bootstrap.sh's cc-out-v1, cc-out-v3, M1
+# and hex2 (M1/hex2 compiled by our M2-Planet, first assembled by 130-asm.fth)
+# and a blood-elf that cc-out-v3 compiles and that M1/hex2 link.  The stage0
+# side (x1, x2 above) uses only stage0's chain.
+if [ -n "${BOOTSTRAP_OUT:-}" ]; then
+    O=$(cd "$BOOTSTRAP_OUT" && pwd)
+    (cd "$O" && sha256sum -c --quiet SHA256SUMS) || fail 4b "$O/SHA256SUMS does not verify"
+    ok "reusing bootstrap.sh output $O (SHA256SUMS verified)"
+else
+    t=$SECONDS
+    BUILDROOT=$W/bootstrap PRIVATE_TMP=$PRIVATE_TMP ./bootstrap.sh > "$W/bootstrap.log" 2>&1 \
+        || { tail -20 "$W/bootstrap.log" >&2; fail 4b "bootstrap.sh failed (log: $W/bootstrap.log)"; }
+    O=$W/bootstrap/out
+    ok "bootstrap.sh PASS in $((SECONDS-t))s (log: $W/bootstrap.log)"
+fi
+same 4b "bootstrap.sh's cc-out-v1 is stage 2's" "$O/cc-out-v1" "$W/cc-out-v1"
+MT=$ROOT/vendor/mescc-tools
+F=$W/forth-tools; mkdir -p "$F"
+"$O/cc-out-v3" --architecture amd64 \
+    -f "$L/sys/types.h" -f "$L/stddef.h" -f "$L/amd64/linux/fcntl.c" -f "$L/fcntl.c" \
+    -f "$L/sys/utsname.h" -f "$L/amd64/linux/unistd.c" -f "$L/ctype.c" -f "$L/stdlib.c" \
+    -f "$L/stdarg.h" -f "$L/stdio.h" -f "$L/stdio.c" -f "$L/bootstrappable.c" \
+    -f "$MT/stringify.c" -f "$MT/blood-elf.c" -o "$F/blood-elf.M1" >/dev/null \
+    || fail 4b "cc-out-v3 failed on blood-elf.c"
+"$O/M1" --architecture amd64 --little-endian -f "$L/amd64/amd64_defs.M1" \
+    -f "$L/amd64/libc-full.M1" -f "$F/blood-elf.M1" -o "$F/blood-elf.hex2"
+"$O/hex2" --architecture amd64 --little-endian --base-address 0x00600000 \
+    -f "$L/amd64/ELF-amd64.hex2" -f "$F/blood-elf.hex2" -o "$F/blood-elf"
+cp "$O/M1" "$O/hex2" "$F/"
+chmod +x "$F/blood-elf"
+ok "Forth-route tools: M1 $(h "$F/M1")...  hex2 $(h "$F/hex2")...  blood-elf $(h "$F/blood-elf")... (by cc-out-v3)"
+# build15 <tools-dir> <compiler> <name> <sources...>: stage0's Phase-15 style
+# compile (full M2libc, --debug) + blood-elf footer + M1 + hex2 (debug ELF
+# header), with every tool taken from <tools-dir>.
+LIBC=(sys/types.h stddef.h sys/utsname.h amd64/linux/unistd.c amd64/linux/fcntl.c
+      fcntl.c ctype.c stdlib.c stdarg.h stdio.h stdio.c bootstrappable.c)
+build15() {
+    local td=$1 cc=$2 o=$W/$3 a=() s; shift 3
+    for s in "${LIBC[@]}"; do a+=( -f "$L/$s" ); done
+    for s in "$@"; do a+=( -f "$s" ); done
+    "$cc" --architecture amd64 "${a[@]}" --debug -o "$o.M1" >/dev/null \
+        || fail 4b "$(basename "$o"): compile by $cc failed"
+    "$td/blood-elf" --little-endian --64 -f "$o.M1" -o "$o-footer.M1" >/dev/null
+    "$td/M1" --architecture amd64 --little-endian \
+        -f "$L/amd64/amd64_defs.M1" -f "$L/amd64/libc-full.M1" \
+        -f "$o.M1" -f "$o-footer.M1" -o "$o.hex2"
+    "$td/hex2" --architecture amd64 --little-endian --base-address 0x00600000 \
+        -f "$L/amd64/ELF-amd64-debug.hex2" -f "$o.hex2" -o "$o"
+    chmod +x "$o"
+}
+M2SRC=("$M2/cc.h" "$M2/cc_globals.c" "$M2/cc_reader.c" "$M2/cc_strings.c" "$M2/cc_types.c"
+       "$M2/cc_emit.c" "$M2/cc_core.c" "$M2/cc_macro.c" "$M2/cc.c")
+build15 "$F" "$O/cc-out-v1" f1 "${M2SRC[@]}"
+same 4b "Forth-linked f1 == stage0-linked y1 (same .M1, two linker lineages)" "$W/f1" "$W/y1"
+build15 "$F" "$W/f1" f2 "${M2SRC[@]}"
+same 4b "DDC, independent assemblers: f2 (Forth tools only) == x2 (stage0 tools only)" "$W/f2" "$W/x2"
+# The tools themselves, rebuilt from mescc-tools 5adfbf3 (stage0-posix's pin)
+# by each route's M2-Planet 0a67a68 and linked by that route's own tools.
+S0MT=$ROOT/$S0SRC/mescc-tools
+for tool in M1 hex2 blood-elf; do
+    case $tool in
+        M1)        srcs=("$L/string.c" "$S0MT/stringify.c" "$S0MT/M1-macro.c") ;;
+        hex2)      srcs=("$L/amd64/linux/sys/stat.c" "$S0MT/hex2.h" "$S0MT/hex2_linker.c"
+                         "$S0MT/hex2_word.c" "$S0MT/hex2.c") ;;
+        blood-elf) srcs=("$S0MT/stringify.c" "$S0MT/blood-elf.c") ;;
+    esac
+    build15 "$S0/bin" "$W/x2" "s0-$tool" "${srcs[@]}"
+    build15 "$F"      "$W/f2" "forth-$tool" "${srcs[@]}"
+    same 4b "$tool rebuilt by each route's own M2-Planet + tools" "$W/forth-$tool" "$W/s0-$tool"
+done
 
 # ---------------------------------------------------------------------------
 step 5 "STAGE0_COMPAT=1 reaches the same binary one generation earlier"

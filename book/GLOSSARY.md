@@ -250,7 +250,7 @@ allocating registers.  Slow but simple.
 
 **Frame** — a function's stack region: saved `rbp`, locals,
 spilled parameters.  Addressed as `[rbp - 8n]` for local n.  Always
-256 bytes, 32 slots (`cc-frame-slots`); a 33rd dies with code 193.
+256 bytes, 32 slots (`cc-frame-slots`); a 33rd dies with code 162.
 Ch 25 (encoders), Ch 31 (per-function layout).
 
 **Identifier / keyword / punctuator** — the three main token
@@ -350,6 +350,10 @@ Ch 24.
 
 ## Bootstrapping
 
+**`asm-out`** — the output path of the Forth assembler.
+`130-asm.fth` writes its ELF to the fixed path `/tmp/asm-out`, mode
+0755; `bootstrap.sh` renames it.  Ch 33 §12.
+
 **Bootstrappable Builds** — the umbrella project at
 bootstrappable.org tracking efforts to reduce binary-blob
 dependence in software builds.
@@ -373,14 +377,17 @@ through M2-Planet's output.
 optional `;`-introduced comments.  No labels, no macros.  Assembled
 by stage0-posix's `hex0-seed`.
 
-**hex2** — a slightly richer hex assembler in the stage0 family
-that supports labels and rel32 patching.  M1 output is fed to hex2
-to produce flat binaries downstream of M2-Planet.
+**hex2** — the linker format and tool of the stage0 family: hex
+bytes, `:label` declarations, and sigil references that write a
+label's address, absolute or relative, into a 1- to 4-byte field.
+M1 output is fed to hex2 to produce flat binaries downstream of
+M2-Planet.  `130-asm.fth` implements the amd64 subset.  Ch 33 §1.
 
-**M1** — the macro-assembly format that M2-Planet emits.  Each
-M2-Planet output is a sequence of mnemonic lines (`PUSH_RAX`, `ADD
-RAX,RCX`, label definitions, etc.) consumed by `M1` (a small
-assembler in mescc-tools) to produce hex2-input.
+**M1** — the macro-assembly format that M2-Planet emits: hex2 plus
+`DEFINE name value` macros (`DEFINE mov_rax, 48C7C0`), numeric
+sigils (`%60`), and strings (`"hi"` becomes `68 69 00`).  mescc-tools'
+`M1` rewrites it into hex2 text; `130-asm.fth` expands it and links
+it in one program.  Ch 33 §1, §11.
 
 **Macro table** — the preprocessor's parallel-array storage for
 `#define`s: 256 entries × name-address / name-length / integer
@@ -399,7 +406,18 @@ inlined manually before compilation.  See Ch 32 §4.
 **Reproducible build** — same inputs produce byte-identical outputs.
 Required for any link in the bootstrap chain to be auditable.
 
+**Sigil** — the first character of an M1/hex2 reference token:
+`!` `@` `~` (1, 2, 3 bytes, relative to the end of the field), `%`
+(4 bytes relative, or `%target>base`), `$` `&` (2, 4 bytes
+absolute).  Followed by a label or a number.  One handler,
+`asm-do-ref`, serves all six.  Ch 33 §9.
+
 **Trusting trust** — Ken Thompson's 1984 paper "Reflections on
 Trusting Trust" — the founding articulation of why a compiler can't
 be trusted without auditing the binary that built it.  The
 bootstrap chain is the answer to this paper.
+
+**Two-pass assembly** — read the whole input twice: pass 1 only
+counts bytes, to give every label its address; pass 2 emits, with
+every forward and backward reference known.  The assembler's
+alternative to emit, remember, patch.  Ch 33 §10.

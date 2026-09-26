@@ -190,10 +190,13 @@ the same way.
 1. **★ Trace.** After `[lit] 65 c, [lit] 66 c,`, what's at `here-addr @ - 2` and
    `here-addr @ - 1`?  Answer in two ASCII characters.
 
-2. **★★ Trace.** Why does `c,` re-fetch `here-addr @` *after* the `c!` instead of
-   reusing the value pushed by `here` on the first line?  (Hint:
-   `here` is a primitive that pushes the *contents* of the HERE cell;
-   `here-addr` pushes the address.)
+2. **★★ Extend.** `c,` is a read-modify-write of the HERE cell.
+   Use the same pattern to write `skip, ( n -- )`, which advances
+   HERE by `n` bytes without storing anything.  Check it on the
+   built seed after loading `010-lib.fth`:
+   `here [lit] 2 skip, [lit] 65 c, [lit] 2 + c@ emit` should print
+   `A`.  Why must the address come from `here` *before* the
+   `skip,`?  (Ch 12 names this word `allot`.)
 
 3. **★★ Extend.** Write `2c,` ( w -- ) that stores the low *two* bytes of TOS at HERE
    in little-endian order.  Compare yours to `,4` when we meet it in

@@ -251,8 +251,13 @@ or a branch.  Each came from a subtract, a divide, and a zero test.
    `swap`.  What would be left on the stack if the last `swap` were
    an `over`?  Trace the stack carefully.
 
-3. **★★ Trace.** The trick assumes `/` is *unsigned* division.  What would break if
-   `/` were signed?  (Hint: the underflow argument fails.)
+3. **★★ Extend.** Every range in this chapter starts at a positive
+   `base`.  Write `small? ( n -- flag )`, true when a *signed* `n` lies
+   in -5..5, as one add-divide-test.  (The seed reads only unsigned
+   literals; build `-5` as `[lit] 0 [lit] 5 -`.)  Check it on the
+   seed for -6, -5, 5 and 6 with the `0= [lit] 49 + emit` trick of
+   Ch 7.  Why does unsigned `/` still give the right answer for
+   `-6`?
 
 4. **★★ Extend.** Write `octal-digit?` and `binary-digit?`.  Then write a generic
    `between? ( c lo hi -- flag )` that takes its range from the
@@ -274,5 +279,5 @@ subtraction, file I/O, **character tests**.  Still missing: `<`,
 
 Next: Chapter 7 — Comparisons from Unsigned Division.  `digit?`
 tests a range without `<`, but the compiler still needs `<` itself,
-for signed numbers, and the seed has no sign test, no shift, and no
-`and` primitive to read the sign bit with.
+for signed numbers, and the seed has no sign test and no shift to
+read the sign bit with.

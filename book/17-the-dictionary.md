@@ -25,7 +25,7 @@ grows forward (new entries go at `HERE`) but is searched backward
 
 This chapter reads lines 320–513 of `000-seed.hex0`: `find`, `here`,
 `,` and `execute`; then `read_word`, the routine that turns stdin
-into tokens, with its two helpers; then `state`, `latest` and `'`.
+into tokens, with its three helpers; then `state`, `latest` and `'`.
 §§1–2 (layout and lookup) stand on their own; §§3–4 read the
 primitives that build and run entries; §§5–7 read the token reader,
 including the part that skips comments and the part that complains;
@@ -409,9 +409,9 @@ recognised: `(foo` or `foo\` are ordinary tokens.
 **Return (`.done`).**  Spill the old TOS, push `0x412800`, and make
 the length the new TOS.
 
-The two loops, the comment skip and the length check all call
-`read_char`, and every call site uses a 32-bit relative displacement
-computed by hand.  `read_word` is the first routine in Part II that
+The two loops and both comment skips call `read_char`, and the
+length check jumps to `fatal_token`; every one of those sites uses a
+32-bit relative displacement computed by hand.  `read_word` is the first routine in Part II that
 calls another.
 
 ## 6. `read_char`, one byte and a verdict
@@ -691,7 +691,7 @@ of the seed's bytes, nearly a quarter, are headers: links, flags,
 lengths and names.
 
 Every one of those 32 headers was laid by hand.  The library and
-the C compiler that Part III loads contain 368 colon definitions,
+the C compiler that Part III loads contain 403 colon definitions,
 and nobody writes their headers in hex.  Ch 18 reads the 82 bytes
 that do, and `lit_code`, which gets a number into compiled code
 through a `CALL` instruction that has no room for one.

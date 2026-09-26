@@ -164,10 +164,14 @@ said it would.
 4. **★★ Extend.** Define `2swap ( a b c d -- c d a b )`.  Hint: `rot >r rot r>`
    is one route.
 
-5. **★★★ Trace.** Why is `pick` ( ... n -- ... x_n ) hard to define here?  Trace
-   what it would have to do for `n=3` using only `dup`, `swap`,
-   `drop`, `>r`, `r>`.  Show that the token count grows linearly
-   with `n`, not constant-time.
+5. **★★★ Extend.** §2 unrolls `pick` for one depth; do the same for
+   `roll`.  Define `4roll ( a b c d -- b c d a )` from `>r`, `r>`,
+   `swap` and `rot` in four tokens, then `5roll` in terms of
+   `4roll`.  On the seed,
+   `[lit] 65 [lit] 66 [lit] 67 [lit] 68 4roll emit emit emit emit`
+   should print `ADCB`.  How many primitive steps does `nroll`
+   execute as a function of `n`, and why can't one definition serve
+   every `n` here?
 
 ## Takeaways
 

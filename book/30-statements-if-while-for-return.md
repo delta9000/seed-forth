@@ -728,7 +728,7 @@ cases with the same `K`.
       \ doesn't handle constant-expressions for case labels).
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 162 cc-die
+        [lit] 170 cc-die
       then,
       tok-num @                                   ( K )
       [char] : cc-expect-punct-c
@@ -835,7 +835,7 @@ C labels are function-local.  The label table is four parallel
 arrays, the same shape as Ch 24's symbol table, indexed with
 `cell[]` and searched with `cc-name-find` (Ch 21) just as the symbol
 table is.  It holds 64 labels per function (a 65th dies with code
-163, through `cc-check-cap`) and is reset on function entry.  Each
+171, through `cc-check-cap`) and is reset on function entry.  Each
 entry's payload is a vaddr (0 while undefined) and a list of
 pending `goto` fixups.
 
@@ -873,7 +873,7 @@ variable cc-label-count
 \ cc-label-create ( name-addr name-len -- id )  Append a new label entry.
 \ Initial vaddr=0 (undefined), fixup=0 (no forward refs yet).
 : cc-label-create                                 ( a u -- id )
-  cc-label-count @ 1+ cc-label-cap [lit] 163 cc-check-cap
+  cc-label-count @ 1+ cc-label-cap [lit] 171 cc-check-cap
   cc-label-count @                                ( a u id )
   >r                                              \ R: id
   r@ cc-label-name-len  cell[] !                  \ store len
@@ -897,12 +897,12 @@ variable cc-label-count
 
 \ cc-define-label ( name-addr name-len -- )
 \ Bind the label to the current cc-out-pos and resolve any forward refs.
-\ Dies with code 164 on a duplicate definition.
+\ Dies with code 172 on a duplicate definition.
 : cc-define-label                                 ( a u -- )
   cc-label-find-or-create                         ( id )
   \ Reject duplicates.
   dup cc-label-vaddr-of [lit] 0 <> if,
-    [lit] 164 cc-die
+    [lit] 172 cc-die
   then,
   \ Set vaddr.
   dup >r                                          ( id ; R: id )
@@ -914,7 +914,7 @@ variable cc-label-count
 
 `cc-define-label` binds the label to the current output position,
 then walks its fixup list and patches every forward `goto` to here.
-A second definition of the same name dies with code 164.
+A second definition of the same name dies with code 172.
 
 `cc-parse-goto-stmt` is the other half.  If the label already has a
 vaddr, it emits an absolute backward `jmp` via `cc-emit-jmp-vaddr`.
@@ -931,7 +931,7 @@ word `break` and `continue` use:
 : cc-parse-goto-stmt
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 165 cc-die
+    [lit] 173 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-label-find-or-create   ( id )
 
