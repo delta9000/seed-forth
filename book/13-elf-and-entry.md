@@ -164,8 +164,9 @@ Two instructions, thirteen bytes.
 `mov rbp, 0x411000` initialises the **data stack**.  Throughout the
 seed, `rbp` is the data-stack pointer (it grows *down* — `sub rbp, 8`
 to push a slot, `add rbp, 8` to pop one).  The base `0x411000` is
-17 pages above `0x400000`; the stack will grow down toward the
-sysvars and the heap.
+17 pages above `0x400000`; the stack grows down toward the heap
+(which starts at `0x401000` and grows up).  The sysvar page at
+`0x413000` sits *above* the stack, out of its way.
 
 `xor rdi, rdi` clears the **TOS register cache**.  `rdi` holds the
 top of the data stack as a register, not in memory; every primitive
@@ -190,9 +191,11 @@ sysvar page at `0x413000`.  Each is 12 bytes long, total 72 bytes.
 `STATE = 0` boots us in interpret mode.  `HERE = 0x401000` puts the
 next-byte-to-write pointer at the page right above the ELF image, so
 the first `:` definition starts a clean page.  `LAST_FOUND`,
-`NUMBER_HOOK`, and `INPUT_FD` start at zero; the first two are
-filled by `find_code` and by Forth-level extensions, the third
-selects stdin.
+`NUMBER_HOOK`, and `INPUT_FD` start at zero.  `find_code` fills
+`LAST_FOUND` on every hit.  The other two are unused: no code in
+the seed ever reads them.  `NUMBER_HOOK` is a reserved slot, and
+`INPUT_FD` is not how `key` picks stdin — `key_code` hard-codes
+`mov edi, 0`.
 
 The interesting one is `LATEST = 0x4007E8`.  That is the address of
 the dictionary entry for `'` — the very last word defined in the

@@ -1,8 +1,8 @@
 # Forth From a 2040-Byte Seed
 
 2,040 bytes of hand-encoded x86-64 ELF, a Forth that those bytes
-boot into, and about 7,400 lines of Forth code that build a C
-compiler whose `.M1` output is byte-identical to GCC-built
+boot into, and 7,198 lines of Forth (`020-cc-arena.fth` through
+`120-cc-main.fth`, by `wc -l`) that build a C compiler whose `.M1` output is byte-identical to GCC-built
 M2-Planet.  This book is the manual for all of it.
 
 The sidebar is the table of contents.  If you're new, start with
@@ -28,7 +28,7 @@ these as it needs them, in the order it needs them.
   `000-seed.hex0`, or the C compiler files and explain what it
   does, why it's shaped that way, and what would break if it
   weren't.
-- Run `./check-all.sh` and explain what each of the four checks
+- Run `./check-all.sh` and explain what each of its seven steps
   proves about the artifact.
 - Audit the Stage-A parity claim yourself: rebuild the chain from
   the 229-byte hex0 trust root through the 2,040-byte seed, the
@@ -57,11 +57,15 @@ What you'll want installed:
 - **gforth** for Part I.  The playground at
   [`book/playground.fth`](playground.fth) loads under any recent
   gforth (0.7+; Debian, Fedora, Homebrew all ship a workable
-  version).  You don't need to build the seed until Part II.
+  version).  Most of Part I runs there; Chs 5, 10, and 11 need a
+  built seed, because their words lean on seed machinery (`syscall6`,
+  the real dictionary, inline branch slots) that gforth doesn't
+  reproduce.
 - **git** to clone the repo with its `vendor/` submodules
   (stage0-posix's `hex0-seed` is checked in there).
-- **A C compiler** (gcc or clang) **only** if you want to run the
-  Stage-A check (Appendix C); the book itself never invokes it.
+- **A C compiler** (gcc) and **make** **only** if you want to run
+  the Stage-A check (Appendix C) and the small assembler checks;
+  the book itself never invokes them.
 
 Disk budget: ~30 MiB for the repo plus vendored stage0-posix /
 M2-Planet / mescc-tools.  Memory: a few MiB at runtime; the C
@@ -71,11 +75,19 @@ Smoke check from a fresh clone:
 
 ```sh
 git submodule update --init --recursive
-./check-all.sh                  # build + tests + tangle strict + Stage-A
+./check-all.sh                  # build, tests, asm, C gates, tangle, numbers, Stage-A
 ```
 
-If `check-all.sh` ends with all four lines reporting OK, the
-codebase is reproducing the canonical artifacts.  See
+`check-all.sh` runs seven steps and prints one OK/SKIP/FAIL line
+for each: `01-build` (the 2,040-byte seed), `02-test` (the layer
+smoke tests), `02a-asm` (three small assembler checks),
+`02b-gates` (the registered C-compiler gates), `03-tangle-strict`
+(book and source byte-identical), `04-book-numbers` (the prose's
+exact numbers against source), and `05-stage-a` (the byte-identical
+`.M1`).  `02a-asm` and `05-stage-a` need gcc and make and report
+SKIP without them; `04-book-numbers` needs python3.  If it ends
+with `check-all: all 7 steps PASS`, the codebase is reproducing the
+canonical artifacts.  See
 **Troubleshooting** below if anything fails.
 
 ## How the book is organized
@@ -88,7 +100,8 @@ offset *n* in the source files.  Every fenced code block tagged
 codebase.
 
 - **Part I (Chs 1–12)** walks `010-lib.fth` — the Forth library
-  above the seed.  Run examples in gforth.
+  above the seed.  Run most examples in gforth; Chs 5, 10, and 11
+  need a built seed.
 - **Part II (Chs 13–20)** opens the 2,040-byte seed itself.  By
   the end, no primitive is a black box.
 - **Part III (Chs 21–32)** walks the C compiler in twelve

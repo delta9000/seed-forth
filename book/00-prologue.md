@@ -37,7 +37,7 @@ exactly that.
 ---
 
 There is a file in this repository called `000-seed.hex0`.  Its
-source form is 27,067 bytes long, but most of that is comments —
+source form is 27,002 bytes long, but most of that is comments —
 annotated hex laid out for human readers.  The machine bytes total
 exactly **2,040**, and those bytes are a working Forth.
 

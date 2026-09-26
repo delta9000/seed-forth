@@ -91,12 +91,16 @@ the syscall returns before the next `emit` can run.  In a threaded
 world this would be a race; in this codebase it is one of the moves
 that lets the seed fit in 2,040 bytes.
 
-**`mov eax, 1` not `mov rax, 1`.**  The 32-bit form is one byte
-shorter and zero-extends to 64 bits, which is exactly what we want
+**`mov eax, 1` not `mov rax, 1`.**  The 32-bit form (`B8 imm32`,
+5 bytes) is two bytes shorter than `mov rax, 1` (`48 C7 C0 imm32`,
+7 bytes) and zero-extends to 64 bits, which is exactly what we want
 when the value fits in 32 bits.  Most of the constants in this
-primitive are loaded with 32-bit moves; only the buffer address
-(which doesn't fit in 32 bits unless you sign-extend, and we don't
-want to) uses the 10-byte `movabs` form.
+primitive are loaded with 32-bit moves.  The buffer address is the
+odd one out: it uses the 10-byte `movabs` form, even though
+`0x412000` fits comfortably in 32 bits (the first instruction loads
+the same address into `rax` with a 7-byte move, and `key` below does
+the same for `rsi`).  That `movabs` is three bytes the seed could
+have saved, not a requirement.
 
 ## 3. `key_code` in 47 bytes
 

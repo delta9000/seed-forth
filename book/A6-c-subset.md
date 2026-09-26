@@ -123,15 +123,21 @@ Function-pointer parameters use the `T (*name)(args)` form (see
 ## Preprocessor
 
 `040-cc-prep.fth` is the entire preprocessor.  It runs once in
-place over the source buffer before the lexer ever sees a token.
+place over the source buffer before the lexer starts, splicing in
+`#include`d files, recording `#define`s in a table, and deleting
+every directive line.  It does *not* substitute macros: that
+happens at lex time, when `cc-lex-ident-or-kw` (`050-cc-lex.fth`)
+looks each identifier up with `cc-macro-find-int` and emits a
+number token on a match.
 
 | Directive | Accepted | Notes |
 |---|---|---|
-| `#include "path"`  | yes | Resolved against M2-Planet's source layout.  No `<...>` search path. |
-| `#define NAME body` | yes | Object-like macros only, and the body must be an integer — a decimal literal or another integer macro.  No function-like macros, no general text substitution. |
-| `#define NAME` (empty) | yes | Body is the empty string. |
-| `#ifdef`, `#ifndef`, `#if`, `#endif`, `#elif`, `#else` | **rejected** | The build scripts strip headers that depend on these. |
-| `#pragma`, `#error`, `#line` | **rejected** | |
+| `#include "path"`  | yes | Path tried verbatim, then under `tests/cc/`.  Nested up to four deep. |
+| `#include <path>`  | elided | Accepted and dropped — the compiler's built-in shims stand in for the system headers. |
+| `#define NAME body` | yes | Object-like macros only, and the body must be an integer — a decimal literal or another integer macro.  Any other body registers nothing, silently.  No function-like macros, no general text substitution. |
+| `#define NAME` (empty) | elided | Registers nothing; `NAME` stays an ordinary identifier. |
+| `#ifdef`, `#ifndef`, `#if`, `#endif`, `#elif`, `#else` | elided | Silently dropped, so *every* branch is compiled.  The build scripts strip the include guards that depend on these. |
+| `#pragma`, `#error`, `#line`, anything else | elided | Silently dropped. |
 
 The lack of `#ifndef` / `#endif` is the reason
 `build-m2planet-monolith.sh` exists: it pre-strips the

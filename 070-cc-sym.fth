@@ -6,8 +6,8 @@
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
 \   cc-sym-type      [id] : encoded type word from cc-types
 \   cc-sym-val       [id] : kind-specific payload
-\                            sk-global/sk-func: absolute vaddr
-\                            sk-local         : rbp-relative offset (negative)
+\                            sk-global/sk-func: globals-buf offset / vaddr
+\                            sk-local         : slot index (disp -8*(slot+1))
 \                            sk-struct        : arena-pointer to descriptor
 \                            sk-enum          : integer value
 \                            sk-typedef       : encoded type word

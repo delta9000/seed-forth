@@ -9,10 +9,10 @@ Proof link: Ch 6's classifiers and the lexer's compound tests (Ch 23) run on thi
 
 The seed keeps exactly one bitwise primitive, `nand`, and builds
 every other boolean operator on top of it in Forth.  This chapter
-defines `and` and `or` (lines 22–30 of `010-lib.fth`, the section
+defines `and` and `or` (lines 23–30 of `010-lib.fth`, the section
 header plus two short colon definitions) and uses them to motivate
 why a single primitive is enough.  Open `010-lib.fth` to that
-nine-line block; the rest of the chapter is the argument for the
+eight-line block; the rest of the chapter is the argument for the
 trade and a walk through the two derivations.  The bigger payoff,
 `not` and `xor`, falls out as exercises once you see how `nand
 dup nand` and De Morgan's law fit together.
@@ -111,7 +111,7 @@ The pattern `dup nand` is going to recur.  Read it as "NOT this
 value."  We just used it to undo the negation that the initial
 `nand` introduced.
 
-## 3. `or` in five words
+## 3. `or` in six words
 
 OR is harder because the obvious approach — "NOT (NOT a AND NOT b)
 by De Morgan" — needs to negate each input separately, then combine,
@@ -161,7 +161,7 @@ codebase needs them.  But they're worth deriving once so you know
 the seed isn't *missing* anything — it just isn't paying for what
 no caller uses.
 
-**`not` in three words:**
+**`not` in two words:**
 
 ```forth
 : not  dup nand ;
@@ -192,18 +192,17 @@ two inputs differ when at least one is set *and* not both are set.
 ```forth
 : xor-pure  ( a b -- a^b )
   2dup nand                ( a b nab )
-  >r over r@ nand          ( a b a-nab )
-  swap r> nand             ( a a-nab b-nab )
-  nand ;                   ( ... )
+  dup >r nand              ( a b-nab )      \ nab parked on R
+  swap r> nand             ( b-nab a-nab )
+  nand ;                   ( a^b )
 ```
 
-(`r@` peeks the top of the return stack without removing it; the
-seed provides it as one more primitive alongside `>r` and `r>`.
-This is a preview — Ch 4 introduces the return-stack family
-formally.)
+(`>r` moves the top of the data stack onto the return stack and
+`r>` moves it back; both are seed primitives.  This is a preview —
+Ch 4 introduces the return-stack family formally.)
 
-Four NANDs and some shuffling.  This is the form a textbook would
-show for "XOR using only NAND gates."  It's longer than the
+Four NANDs and some shuffling: nine tokens.  This is the form a
+textbook would show for "XOR using only NAND gates."  It's longer than the
 `or`/`and` version because we refuse to reuse intermediate logic
 words — we're proving NAND alone is enough, not optimising.
 
@@ -221,8 +220,8 @@ Look at what's now buildable from one primitive:
 |------|--------|-----------|
 | `not` | 2  | `dup nand` |
 | `and` | 3  | `nand dup nand` |
-| `or`  | 5  | `dup nand swap dup nand nand` |
-| `xor` | 8  | as above |
+| `or`  | 6  | `dup nand swap dup nand nand` |
+| `xor` | 6 / 9 | `or`/`and` form / pure-`nand` form, as above |
 
 Compare against the alternative seed where `and`, `or`, `not` are
 each primitives.  Each saved primitive is:
@@ -234,7 +233,7 @@ each primitives.  Each saved primitive is:
 
 Multiply by three saved primitives — `and`, `or`, `not` — and
 you've saved roughly 100 bytes of seed binary plus three CALL
-targets, in exchange for adding nine extra tokens to a handful of
+targets, in exchange for adding eight extra tokens to a handful of
 Forth-level definitions that get called sparingly.
 
 This is the seed's central design move: **pick the primitives that
@@ -316,14 +315,14 @@ work, but is noisier to read).
    intermediate `and`/`or`.  Confirm with the four-row truth table.
    Compare your token count to the `(a or b) and (a nand b)` form.
 
-3. **★★★ Extend.** Define `not ( a -- ~a )` in terms of `nand` alone.  How does
+3. **★ Extend.** Define `not ( a -- ~a )` in terms of `nand` alone.  How does
    `not` differ from `0=`?  Construct an input where `not` and
    `0=` disagree.
 
 4. **★★★ Trace.** Prove on paper that `nor` is also functionally complete.  Then
    redefine `and` and `or` using only `nor`.  How many tokens
-   longer do they become?  (Asymmetric: NOR-based `and` is short,
-   NOR-based `or` is long — figure out why.)
+   longer do they become?  (Asymmetric: NOR-based `or` is short,
+   `nor dup nor`, while NOR-based `and` is long — figure out why.)
 
 5. **★★★ Trace.** The seed could have spent a primitive slot on `not` and reduced
    `and` to one fewer token.  Estimate the byte cost of that primitive
@@ -339,7 +338,7 @@ work, but is noisier to read).
   not clever — they are direct transcriptions of "double negation"
   and "De Morgan's law."
 - Picking the right primitive saves bytes in the seed.  We will see
-  the same logic applied again in Ch 7 (comparisons from one
-  arithmetic primitive: subtract).
+  the same logic applied again in Ch 7 (comparisons from derived
+  subtraction plus one division primitive, `/`).
 
 Next: Chapter 4 — The Return Stack: `over` and Subtract.

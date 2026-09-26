@@ -8,14 +8,14 @@ Proof link: the seed-level rehearsal of emit-remember-patch — the pattern the 
 ```
 
 This is the chapter Part I has been building toward: nine new words
-in `010-lib.fth` (lines 194–290) — six of them immediate — that give
+in `010-lib.fth` (lines 196–292) — six of them immediate — that give
 us `if,`/`then,`/`else,` and `begin,`/`while,`/`repeat,` without a
 single new line of machine code.  Every combinator is just `c,` (Ch 2), `,4` (Ch 9),
 and `,` running at compile time, emitting a 5-byte CALL to the seed's
 `branch` or `0branch` primitive followed by an inline 8-byte target
 cell; the stack picture left behind by each one is a *fixup* that
 its partner patches when the matching keyword is parsed.  Open
-`010-lib.fth` to lines 194–290, with `branch`'s inline-cell calling
+`010-lib.fth` to lines 196–292, with `branch`'s inline-cell calling
 convention — spelled out in the comment block of the Canonical source
 below — in mind.
 
@@ -62,8 +62,8 @@ stores it into the fixup slot, and — voilà — a conditional jump.
 
 There is no special case in the compiler.  There is no parser
 involvement.  Sixty lines of Forth implement every control
-structure in this codebase.  The C compiler in Part III piggybacks
-on the same machinery.
+structure in the Forth source of this codebase, the C compiler's
+included.
 
 This is the conceptual climax of Part I.  By the end of the
 chapter, you'll have read the bytes that make it work.
@@ -312,8 +312,9 @@ slot.  When the loop body runs and `while,`'s flag is zero, the
 back-jump — i.e., out of the loop.
 
 Net: `begin, BODY while, BODY repeat,` compiles to a backward jump
-at the bottom with a forward-bailout fixup at the top, classical
-post-test loop with mid-body exit.
+at the bottom with a forward-bailout fixup at the top: a pre-test
+loop whose exit test sits wherever you put `while,` — at the top in
+the common case, or mid-body.
 
 ## 8. A worked example end to end
 
@@ -366,7 +367,7 @@ At runtime, with `5` on the stack and a call to `cnt`:
   decrement → `(4)`; `repeat,`'s `branch` jumps back to `B`.
 - iterations 2..5: same, emitting `4 3 2 1`.
 - iteration 6: dup → `(0 0)`; push 0 → `(0 0 0)`; `>` → `(0 0)`;
-  `while,`'s `0branch` sees zero, jumps out.  Falls past `drop`.
+  `while,`'s `0branch` sees zero, jumps out and lands on `drop`.
 - `drop` consumes the remaining `0`.  `;` returns.
 
 Output: `54321`.  Verified by the Try-it below.
@@ -391,10 +392,14 @@ few dozen lines away.  You'd open `010-lib.fth`, add a couple of
 immediate words that emit branches in a new pattern, and the user
 language has a new keyword.
 
-The C compiler in Part III uses these combinators directly to
-implement `if`, `else`, `while`, and `for` in the *generated* code.
-And inside its own implementation, it uses them in the *generating*
-code.  The same six combinators wear both hats.
+The C compiler in Part III uses these combinators throughout its
+own Forth source — every loop and conditional in the *generating*
+code is a `begin,` or an `if,`.  The *generated* code is different:
+for C's `if`, `while`, and `for`, the compiler emits native x86
+`jz`/`jmp` instructions through its own emitter
+(`cc-emit-jmp-rel32-placeholder`, `cc-patch-rel32-to-here`).  What
+carries over is the pattern, not the words: emit a placeholder,
+remember its address, patch it when the target is known.
 
 If you've ever wondered what people mean when they say Forth is "a
 programmable programming language," this is exactly what they
@@ -516,8 +521,8 @@ Forward branch with else-arm:
 ./build.sh
 { sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
   echo ': pick  if, [lit] 65 else, [lit] 66 then, emit ;'
-  echo '[lit] 1 pick'      \ flag non-zero -> if-arm  -> "A"
-  echo '[lit] 0 pick'      \ flag zero     -> else-arm -> "B"
+  echo '[lit] 1 pick'      # flag non-zero -> if-arm  -> "A"
+  echo '[lit] 0 pick'      # flag zero     -> else-arm -> "B"
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
@@ -574,8 +579,8 @@ rather see them inside a larger battery.
   bytes now, carry the address of the missing value, and fill it in
   when the later word knows the target.
 - This is the moment Forth becomes self-extensible.  Every control
-  construct in this codebase from here forward — and in the C
-  compiler in Part III — uses or extends these six combinators.
+  construct in this codebase's Forth source from here forward — the
+  C compiler's included — uses or extends these six combinators.
 
 Next: Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`, where
 the last 80 lines of `010-lib.fth` complete the defining-word

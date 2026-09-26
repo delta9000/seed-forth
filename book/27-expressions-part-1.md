@@ -1,22 +1,22 @@
-# Chapter 27 — Expressions, Part 1: Precedence Climbing
+# Chapter 27 — Expressions, Part 1: The Precedence Cascade
 
 ```text
 Missing capability: the token stream cannot become expression machine code.
-New pattern: precedence climbing repeats one binary-fold codegen template at each operator level.
+New pattern: a precedence cascade repeats one binary-fold codegen template at each operator level.
 Artifact after this chapter: arithmetic, comparison, bitwise, and logical binary expression codegen.
 Proof link: Stage-A binary expressions lower through one auditable cascade.
 ```
 
 This chapter installs the first half of the expression compiler: the
-binary-operator cascade.  It opens `100-cc-expr.fth` (1447 lines
+binary-operator cascade.  It opens `100-cc-expr.fth` (1478 lines
 total) and also covers the scaffolding the rest of the file needs:
 a one-token putback layer (`cc-tok-pending`, `cc-next-token-keep`,
 `cc-putback-token`) so the parser can peek past a fold boundary
 without re-lexing, plus forward-reference vecs for the mutually
 recursive parsers.  The cascade itself runs through ten precedence
 layers from
-`cc-parse-mul` to `cc-parse-log-or`, every one a textbook
-precedence-climbing loop emitting the same five-step codegen
+`cc-parse-mul` to `cc-parse-log-or`, every one the same
+left-associative loop emitting the same five-step codegen
 template (eval left, push, eval right, `pop rdi`, apply op).
 
 By the end you'll be able to read each precedence layer, follow the
@@ -43,11 +43,12 @@ representing a C expression, it emits x86-64 machine code that
 leaves the expression's value in `rdi`.
 
 The interesting question is *how the precedence works*.  C has
-fifteen levels of operator precedence; a naive recursive-descent
-parser would need fifteen mutually recursive functions.  This
-file uses *precedence climbing*: each operator level is one
-function that calls the next-tighter level, then loops on its
-own operators.
+fifteen levels of operator precedence.  This file uses a
+*precedence cascade*: plain recursive descent with one function
+per precedence level.  Each function calls the next-tighter
+level for its operands, then loops on its own operators.  (This
+is not *precedence climbing*, which uses a single function and a
+table of binding powers; see Appendix E.)
 
 Ch 27 covers the binary cascade — ten layers from `mul` through
 `log-or` (mul, add, shift, rel, eq, bit-and, bit-xor, bit-or,
@@ -147,7 +148,7 @@ variable cc-tok-pending                           \ -1 = a token is queued
 
 The lexer (Ch 23) returns one token at a time; it has no
 built-in lookahead beyond `cc-peek-char-2` (one *byte* of
-character lookahead).  A precedence-climbing parser routinely
+character lookahead).  A precedence cascade routinely
 reads one operator too many — at the end of `a * b * c`, after
 folding two `*` operations, the parser reads what *would* have
 been a third operator and discovers it's a `+`.  It needs to
@@ -209,8 +210,9 @@ fetch and execute the variable's contents.
 the file (Ch 28's `expr-top` chunk).
 `cc-parse-assign-vec` is set similarly.
 `cc-parse-call-vec` is set in `110-cc-decl.fth` (Ch 31), where
-the call-codegen lives — it needs `cc-base-vaddr` from
-`080-cc-elf.fth`, which is loaded *after* `100-cc-expr.fth`.
+the call-codegen lives — it needs `cc-emit-call-vaddr` and the
+function-symbol machinery, which are defined in
+`110-cc-decl.fth`, loaded *after* `100-cc-expr.fth`.
 
 This trampoline pattern recurs throughout Part III.  It's the
 seed Forth's solution to load-order constraints: declare the
@@ -298,6 +300,13 @@ operators — and *those* operators want the data stack free for
 their own intermediate values.  Using the return stack is the
 release valve.
 
+Don't trust the source comment above `cc-parse-mul` on this
+point.  It says the op byte is kept on the *data* stack across the
+recursive call, and names `cc-parse-primary`.  The code does
+neither: `tok-num @ >r` moves the op to the return stack, and the
+call is to `cc-parse-unary`.  The comment is stale; the code is
+what runs.
+
 ## 6. `cc-parse-add`: just like `mul`, looser
 
 ```forth chunk=expr-add
@@ -345,9 +354,10 @@ matches `+` / `-`, and the dispatch goes to
 
 The precedence chain pulls itself up: `add` calls `mul`, which
 calls `unary`, which calls `primary`.  A bare number flows
-through five layers (`expr` → `assign` → ... → `bit-or` → ... →
-`add` → `mul` → `unary` → `primary`) before hitting an actual
-literal.  Each layer is a one-token-lookahead with no
+through fifteen parser functions (`expr` → `assign` → `ternary`
+→ `log-or` → `log-and` → `bit-or` → `bit-xor` → `bit-and` → `eq`
+→ `rel` → `shift` → `add` → `mul` → `unary` → `primary`) before
+hitting an actual literal.  Each layer is a one-token-lookahead with no
 allocations and no recursion overhead beyond the call stack
 itself.
 
@@ -765,9 +775,11 @@ bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
    right-associative territory?)
 
 3. **★★★ Modify.** The short-circuit `&&` produces `1` on success.  Modify it
-   to produce the *right operand's value* instead (the C
-   standard leaves this implementation-defined — many compilers
-   don't canonicalise to 0/1).  How many bytes does that save?
+   to produce the *right operand's value* instead.  This is no
+   longer C — the standard requires `&&` to yield exactly `0` or
+   `1` — but it is what some other languages (Lua, JavaScript)
+   do.  How many bytes does that save, and which M2-Planet idiom
+   would break?
 
 4. **★★ Trace.** The three return-stack pushes in `cc-parse-log-and` are
    delicate — get the order wrong and the wrong fixup gets
@@ -786,7 +798,7 @@ through one repeated five-step fold template (left, push, right,
 pop, op).
 
 You can read `cc-parse-mul`/`add`/`rel`/`eq`/`bit`/`log`, explain
-precedence climbing, and predict what code an expression like
+the precedence cascade, and predict what code an expression like
 `a + b * c > d` will emit without running it.
 
 Toward Stage-A: every binary operator in M2-Planet's source lowers

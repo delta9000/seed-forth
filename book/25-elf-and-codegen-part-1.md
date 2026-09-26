@@ -11,11 +11,11 @@ Two files start the output side of the compiler.  `080-cc-elf.fth`
 (68 lines, entire file) writes a 120-byte ELF wrapper as a single
 R-W-X PT_LOAD at `0x400000`, leaving `p_filesz` zero so
 `cc-finalize-elf` can back-patch it once the code size is known.
-`090-cc-emit.fth` lines 1–411 then lay down the per-instruction
+`090-cc-emit.fth` lines 1–420 then lay down the per-instruction
 encoders: immediate loads, push/pop, ALU on `rdi`/`rcx`, the
 `[rbp + disp8]` family for locals, signed `idiv`, and the `rel32`
 placeholder set (`jz`, `jnz`, `jmp`, `call`) with
-`cc-patch-rel32-to-here`.  The remaining lines 412–1027 belong to
+`cc-patch-rel32-to-here`.  The remaining lines 421–1050 belong to
 Ch 26.
 
 By the end you'll be able to read each encoder and predict the
@@ -23,9 +23,8 @@ bytes it emits, justify the register convention (`rdi` =
 current expression result, `rcx` = binary-op right operand,
 `rax` = `idiv`/SYS-V return, `rbp` = frame base), and recognise
 `rel32` placeholders + `cc-patch-rel32-to-here` as the codegen
-echo of Forth's `if,` fixup-on-the-stack from Ch 11.  The
-frame-aware encoders (param spills, function-pointer call,
-in-place inc/dec), the libc shims, file-scope globals, and the
+echo of Forth's `if,` fixup-on-the-stack from Ch 11.  In-place
+inc/dec, the libc shims, file-scope globals, and the
 string-literal escape decoder are all deferred to Ch 26.
 
 ---
@@ -42,7 +41,7 @@ the seed.  That choice is the reason the compiler is so small —
 no `e_shoff` table, no separate read-only segment, no relocation
 records.
 
-`090-cc-emit.fth` is the bigger of the pair: 1027 lines of
+`090-cc-emit.fth` is the bigger of the pair: 1050 lines of
 instruction encoders.  Each is a Forth word that writes the exact
 bytes of one (or a few) x86-64 instructions into `cc-out-buf`.
 This chapter covers the first half — the primitive encoders that
@@ -162,12 +161,17 @@ This is the same emit, remember, patch pattern from Ch 11, now at
 ELF-header scale.  The placeholder is not a branch target anymore;
 it is a file-size field whose true value exists only after codegen.
 
-`p_memsz` defaults to `81920 = 0x14000`, giving 80 KiB of
-zero-initialized BSS-style space past the code image for the
-compiler's own globals.  The `if` in `cc-finalize-elf` bumps it to
-match `p_filesz` for outputs *larger* than 80 KiB — the M2-Planet
-monolith is well over a megabyte and would otherwise produce an
-invalid ELF the kernel refuses.
+`p_memsz` defaults to `81920 = 0x14000`, so the segment is mapped
+at 80 KiB even when the file is smaller, and the kernel zero-fills
+everything past the file image.  `p_memsz` counts the file image
+too: a 10 KiB program gets 70 KiB of zeroed headroom, not 80.
+(Nothing in the output relies on that headroom — globals are
+appended to the file image, Ch 26 §5.)  The `if` in
+`cc-finalize-elf` bumps `p_memsz` to match `p_filesz` for outputs
+*larger* than 80 KiB.  The compiled M2-Planet is about 203 KB —
+well under the 1 MiB `cc-out-cap`, but past the default — and would
+otherwise get a `p_memsz` smaller than its `p_filesz`, an invalid
+ELF the kernel refuses.
 
 ## 2. `090-cc-emit.fth`, part 1: register convention
 
@@ -663,8 +667,8 @@ arithmetic primitives: shift left for array indexing (multiply by
 The param-spill helpers (`cc-emit-store-local-from-rsi` and
 friends) are five tiny variants of `mov [rbp+disp8], <regsrc>` for
 the SYS-V argument registers.  They live alongside the locals
-because they target the same `[rbp+disp8]` locations; Ch 26 uses
-them at function prologue time.
+because they target the same `[rbp+disp8]` locations; Ch 31's
+`cc-parse-function` uses them right after the prologue.
 
 `cc-emit-load-local-into-rax` is the indirect-call dual: load a
 function-pointer local into `rax` so the SYS-V argument registers
@@ -693,10 +697,11 @@ AMD64 frame builders.  Prologue: `push rbp ; mov rbp, rsp ; sub
 rsp, <frame-bytes>` — 1 + 3 + 7 = 11 bytes, where the `sub` carries
 a 4-byte immediate `<frame-bytes>` behind a 3-byte opcode prefix.
 Epilogue: `mov rsp, rbp ; pop rbp ; ret` — 5 bytes.  The prologue
-takes a frame-size argument because the parser knows the local
-count by the time it emits it (Chs 30–31 cover the parser; the
-prologue is "emit me 11 bytes, with this 32-bit frame size baked
-in").
+takes a frame-size argument, but the parser never computes one:
+Ch 31's `cc-parse-function` emits the prologue before it has seen
+the body's locals, so it always passes a fixed 256 — the 32-slot
+frame §4 mentioned.  The prologue is "emit me 11 bytes, with this
+32-bit frame size baked in".
 
 ## 6. Comparisons and conditional set
 
@@ -759,17 +764,15 @@ after the rel32), and `cc-out-patch-4le` writes it.
 The NOTE at the bottom of this region is worth reading: a `jmp` to
 an *absolute* vaddr (for backward branches in `while`/`for`) lives
 in `110-cc-decl.fth` alongside the loop constructs that call it.
-The usual explanation — that it needs `cc-base-vaddr` from
-`080-cc-elf.fth`, which is supposedly loaded after `090` — is
-wrong: `080` precedes `090` in lexicographic order, so the
-constant is already available.  The placement is a layering choice
-(`090` is primitive encoders, `110` is statement-level control
-flow), not a load-order dependency.
+The placement is a layering choice (`090` is primitive encoders,
+`110` is statement-level control flow), not a load-order
+dependency — `cc-base-vaddr` and `cc-out-pos` are already defined
+when `090` loads.
 
 ## 8. The shape of the rest
 
 What this chapter has covered is the bottom layer: pure
-instruction encoders.  Ch 26 picks up at line 412 with:
+instruction encoders.  Ch 26 picks up at line 421 with:
 - `movabs rdi, imm64` and its placeholder variant for forward-
   declared function loads;
 - `cc-add-fixup-to-list` (the linked-list of patch offsets that
@@ -809,9 +812,11 @@ machine code at scale.
 
 To run the small check, drive the compiler from stdin with a
 one-shot Forth word that emits a few encoded instructions to a
-NUL-terminated path and writes the result.  We use the pre-baked
-`cc-out-path` from `120-cc-main.fth` instead of `s"`, since `s"` is
-not NUL-terminated and `cc-write-output` requires NUL termination:
+NUL-terminated path and writes the result.  `120-cc-main.fth` isn't
+loaded here, so the snippet defines its own `probe-path` with the
+same bytes as that file's `cc-out-path` — `/tmp/cc-out` plus a NUL.
+We don't use `s"`, since `s"` is not NUL-terminated and
+`cc-write-output` requires NUL termination:
 
 ```sh
 ./build.sh
@@ -863,7 +868,7 @@ disassembly after the 120-byte ELF preamble.
    useful?  (Hint: scalar multiplication by a constant could
    replace `mov rcx, imm ; imul rdi, rcx` for known constants.)
 
-5. **★★★ Modify.** The `cmp-set` helpers emit 11 bytes; a tighter encoding would
+5. **★★★ Modify.** The `cmp-set` helpers emit 12 bytes; a tighter encoding would
    use `setX r/m8` directly into `dil` and `movzx rdi, dil`.
    Estimate the saving and decide whether it's worth the code
    change.

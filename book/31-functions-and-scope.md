@@ -236,7 +236,7 @@ create cc-main-name-bytes
 
 
 `cc-parse-call` is the only entry point for the call-codegen path.
-Ch 27's `cc-parse-primary` calls it via `cc-parse-call-vec` once it
+Ch 28's `cc-parse-primary` calls it via `cc-parse-call-vec` once it
 has spotted `IDENT (`.
 
 The flow:
@@ -478,14 +478,20 @@ variable cc-top-save-tok-kw
 Each parameter becomes an `sk-local` symbol in slots
 `0 .. cc-fn-param-count-1`.  These slots are *reserved* by the
 prologue's `sub rsp, FRAMESIZE` — `cc-emit-prologue 256` gives
-32 slots' worth of space, which is comfortably more than 6
-params plus any body locals.
+32 eight-byte slots — a hard limit on params plus body locals,
+where an array takes one slot per element.  Nothing checks it.
+Exceed it and the compile succeeds, but the frame silently
+overlaps the next call's.  Fill an `int a[40]` in `main` with 7s,
+call an `f()` whose first local is set to 99, and `a[5]` comes
+back as 99.  The elements that don't fit hang below `main`'s
+`rsp`, exactly where the call's return address, `f`'s saved `rbp`,
+and `f`'s locals land.
 
 ```
    ,___,
    [o,o]   "every function gets 256 bytes whether it needs them
-   (")_)    or not.  more than 32 locals overflows silently into
-            the caller's frame.  M2-Planet never does that.
+   (")_)    or not.  more than 32 slots overflows silently into
+            the next callee's frame.  M2-Planet never does that.
             other code might."
 ```
 

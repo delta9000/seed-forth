@@ -33,9 +33,9 @@ where the `<<bracket-lit-dict>>` header flips the IMMEDIATE bit.
 
 ```
         ,_,
-   __(@___)___    "find_code is 86 bytes of machine code, twice the
-   ~~~~~~~~~~~~    size of anything else.  nobody gets it on the
-                   first pass."
+   __(@___)___    "find_code is 86 bytes of machine code and two
+   ~~~~~~~~~~~~    nested loops.  nobody gets it on the first
+                   pass."
 ```
 
 The dictionary is the seed's only data structure.  There is no hash
@@ -176,10 +176,19 @@ The `body` for every hand-laid header is a 5-byte `JMP rel32` to
 the primitive's code.  That is why the headers and the bodies can
 sit far apart in the file: the JMP makes the layout topology-free.
 
+That stub *is* the word's execution token.  For a seed primitive the
+xt is the address of the `E9` byte in its header — `dup`'s xt is
+`0x400491`, not `dup_code` at `0x40013B`.  So a compiled call to a
+primitive runs `CALL xt` → `JMP` → primitive code, and the
+primitive's `ret` comes straight back to the caller.  For words you
+define with `:`, the xt is the first byte of the compiled body.
+From here on, "xt" means exactly this address.
+
 ## 2. `find_code` ( c-addr u -- xt-or-0 )
 
-The largest primitive in the seed: 86 bytes of machine code, twice
-the size of anything else in `000-seed.hex0`.
+86 bytes of machine code, and the densest routine in the seed.  It
+is not the biggest: `read_word` (123 bytes), `colon_code` (103),
+`bracket_lit_code` (110) and the REPL loop (187) are all larger.
 
 ```hex0 chunk=find-code
 ;; ----- find_code @ 0x1C5 -----
@@ -234,8 +243,8 @@ mov rcx, [LATEST]     ; rcx = head of chain
 .bcmp:
   test rdx, rdx
   jz .hit                    ; all bytes matched — found it
-  mov r10b, [r8]
-  cmp r10b, [r9]
+  mov al, [r8]
+  cmp al, [r9]
   jne .skip                  ; byte mismatch — try next entry
   inc r8
   inc r9
@@ -261,7 +270,7 @@ pointing out.
 
 **`LAST_FOUND` is a side channel.**  On a hit, `find_code` stores
 the address of the matched entry's link cell into the sysvar at
-`0x413018`.  The REPL (Ch 20) reads this in compile mode to check
+`0x413018`.  The REPL (Ch 20) reads this on every hit to check
 the IMMEDIATE bit before deciding whether to call-now or emit-a-
 call-instruction.  Returning just the xt isn't enough; the *flag
 byte* sits one cell past the link, and the caller needs both.
@@ -273,10 +282,13 @@ first byte *after* the name — which is the start of the body.  No
 extra arithmetic.  The seed picks this register dance precisely
 because it ends up with the answer in `r8` for free.
 
-**The miss path is a tail.**  `.miss` lives *outside* the main
-loop body, at lines 197–198, because the conditional jumps in the
-loop are limited to 8-bit `rel8` offsets.  Putting `.miss` and the
-single-byte tail at the end keeps every branch within reach.
+**The exits are tails.**  `.hit`, `.skip` and `.miss` sit after
+the inner loop, in that order; `.miss` is the last two lines of the
+routine (hex lines 197–198).  Every branch is a 2-byte `rel8` jump,
+and the whole routine is 86 bytes, so any target is in reach from
+anywhere — the order is not forced.  Each exit simply ends in its
+own `ret` (or a jump back to `.next`), so none of them needs to
+fall through into another.
 
 ## 3. `here_code` and `comma_code`
 
@@ -451,7 +463,9 @@ C3                                        ; ret
 
 Both follow the same shape: spill old TOS, then load a 64-bit
 constant into `rdi`.  The constant is the *address* of the sysvar,
-so the caller does `state @` to read or `state !` to write.
+so the caller does `state @` to read or `state !` to write.  (The
+source comment's "header line 40" is stale: the sysvar layout note
+is at line 48 of `000-seed.hex0`.)
 
 These are the seed's reflection hatches.  Once you have the address
 of a sysvar, you can read it, write it, atomically check-and-update
@@ -770,8 +784,9 @@ echo "latest @ [lit] 9 + c@ [lit] 48 + emit bye" | ./seed-forth
 
 2. **★★ Trace.** Why does `find_code` write to `LAST_FOUND` instead of returning
    both the xt *and* the flag byte on the stack?  (Hint: the REPL
-   needs both, but the rare interpret-mode lookup doesn't.  Count
-   instructions in each design.)
+   reads `LAST_FOUND` on every hit, in both modes, to test the
+   IMMEDIATE bit — but `'` and Forth-level `find` want only the
+   xt.  Count instructions in each design.)
 
 3. **★★ Trace.** The `' emit execute` pattern uses `'` to push the xt and
    `execute` to call it.  Trace the data stack and the return stack

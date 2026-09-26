@@ -26,8 +26,9 @@ from a linked list of cases).
 By the end you'll be able to read each statement parser, recognise
 its forward-fixup pattern, trace how `break`/`continue` thread
 through nested loops, walk the three passes of a switch, and
-explain why `cc-emit-jmp-vaddr` had to live in this file rather
-than in `090-cc-emit.fth`.  Function definitions, parameter lists,
+explain why `cc-emit-jmp-vaddr` lives in this file rather than in
+`090-cc-emit.fth` (a layering choice, not a load-order
+requirement).  Function definitions, parameter lists,
 enums, typedefs, file-scope globals, and the top-level driver are
 all deferred to Ch 31.
 
@@ -59,12 +60,13 @@ short statements that hook into the loop machinery: `break`,
 `cc-parse-stmt` that ties the whole thing together.
 
 > The dispatch through `cc-parse-stmt-vec` is a trampoline
-> pattern: the dispatcher fills in its function pointers from a
-> table Ch 31 sets up.  Ch 31 (functions and scope) is where the
-> trampoline gets populated and where you'll see the matching
-> `cc-parse-stmt` call site.  This chapter explains the
-> statements themselves; Ch 31 explains how they get invoked
-> from a function body.
+> pattern: nested statement parsers call `cc-parse-stmt-tramp`,
+> which executes whatever the vec holds.  The vec is populated at
+> the end of this chapter's code (§9, `' cc-parse-stmt
+> cc-parse-stmt-vec !`), once `cc-parse-stmt` exists.  Ch 31
+> (functions and scope) is where you'll see the function-body
+> call site.  This chapter explains the statements themselves;
+> Ch 31 explains how they get invoked from a function body.
 
 ## 1. `if` and `else`
 
@@ -517,9 +519,13 @@ body.  The compiler handles this by:
 7. Parsing the step in that windowed source range.
 8. Restoring `cc-src-pos` and `cc-src-len`.
 
-The rewind trick is the only place in the compiler where the
-lexer state is moved backwards.  It's a careful piece of
-state management.
+The rewind trick is the only place in the compiler that moves
+the lexer backwards to *re-parse* source it has already compiled
+past.  It isn't the only backward move: the lookahead peeks
+(`cc-peek-fnptr?` in Ch 29, `cc-peek-after-is-colon?` in §9, and
+the top-level peek in Ch 31) save `cc-src-pos`, read ahead, and
+restore it.  Those undo a read; this one replays code.  It's a
+careful piece of state management.
 
 ## 5. `do`/`while`
 
@@ -1253,9 +1259,11 @@ threads its branch fixups through a per-construct list, and trace
 how a `break` inside a nested `while` finds the right outer fixup
 head.
 
-Toward Stage-A: every jump rel32 in the M1 output is patched here.
-Together with Ch 26's call rel32s, this chapter and that one
-account for nearly every position-dependent byte in the proof.
+Toward Stage-A: the jump rel32s patched here are bytes in
+`cc-out-v1`, not in the `.M1` text Stage A compares.  A wrong
+rel32 shows up only indirectly: `cc-out-v1` takes a wrong branch
+while compiling M2-Planet, and only if the self-compile reaches
+that branch.
 
 ## Takeaways
 
@@ -1263,9 +1271,9 @@ account for nearly every position-dependent byte in the proof.
   the body, walk the break list at the end, walk the continue
   list at the appropriate point.  The variation is purely in
   *when* each walk fires.
-- The `for`-step rewind is the only place the lexer's source
-  position moves backwards.  Everything else flows
-  monotonically forward.
+- The `for`-step rewind is the only place the parser re-parses
+  source it has already passed.  The other backward moves are
+  lookahead peeks that save and restore `cc-src-pos`.
 - The `cc-parse-stmt` dispatcher is the deepest nested `if`
   chain in the codebase — fourteen branches.  The Forth seed
   has no `case`, so this is what 14-way dispatch costs.

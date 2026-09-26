@@ -6,7 +6,8 @@ Each primitive has a hand-written x86-64 body, a dictionary entry in
 the seed, and (usually) further Forth-level use in `010-lib.fth` and
 beyond.  Two `_code` blocks have no dictionary entry of their own:
 `read_word` (used by the REPL and by `:`, `[lit]`, and `'`) and
-`parse_decimal_code` (used by `[lit]`'s runtime path).
+`parse_decimal_code` (called by `[lit]` at parse time, while it
+reads its token).  The REPL loop itself is the third unnamed block.
 
 The choice of 32 is not symbolic.  It is the minimum that lets
 `010-lib.fth` be a normal Forth program: arithmetic, stack
@@ -53,7 +54,7 @@ them in prose.
 | 25 | `[lit]`      | ( -- ) parse word, push n (IMM)   | `0x652` | Ch 1  | Ch 18 |
 | 26 | `syscall6`   | ( a b c d e f n -- rax )          | `0x6D4` | Ch 5  | Ch 16 |
 | 27 | `/`          | ( a b -- a/b ) unsigned           | `0x710` | Ch 7  | Ch 15 |
-| 28 | `r@`         | ( -- n ; R: n -- n )              | `0x732` | Ch 3  | Ch 14 |
+| 28 | `r@`         | ( -- n ; R: n -- n )              | `0x732` | Ch 4  | Ch 14 |
 | 29 | `*`          | ( a b -- a*b ) signed             | `0x743` | Ch 7  | Ch 15 |
 | 30 | `state`      | ( -- addr ) STATE sysvar addr     | `0x753` | Ch 10 | Ch 17 |
 | 31 | `latest`     | ( -- addr ) LATEST sysvar addr    | `0x766` | Ch 10 | Ch 17 |
@@ -62,14 +63,16 @@ them in prose.
 ## Internal helpers (not user-visible)
 
 These exist in `000-seed.hex0` but have no dictionary entry, so the
-REPL cannot call them by name.  They are reached only from compiled
-code or from other primitives.
+REPL cannot call them by name.  They are reached only from other
+primitives (and, for `read_word`, from the REPL).
 
 | Helper | Stack effect | Body @ | Called by | Asm site |
 |---|---|---|---|---|
 | `read_word`         | ( -- ; len in `rax`, 0 on EOF )                  | `0x259` | REPL, `:`, `[lit]`, `'` | Ch 17 |
-| `parse_decimal_code`| ( c-addr u -- n true &#124; 0 false )            | `0x5FD` | compiled `[lit]`        | Ch 20 |
-| `bracket_lit_code`  | ( -- ) IMMEDIATE: parse, push, or compile `lit` | `0x652` | the `[lit]` dict entry  | Ch 18 |
+| `parse_decimal_code`| ( c-addr u -- n true &#124; 0 false )            | `0x5FD` | `[lit]`, at parse time  | Ch 20 |
+
+`bracket_lit_code` at `0x652` is not a helper: it is the body of
+primitive #25, `[lit]`, reached through that entry's `JMP` stub.
 
 ## What is *not* a primitive
 
@@ -92,12 +95,14 @@ loads, the dictionary contains both, indistinguishable to user code.
 
 ## Total byte budget
 
-The hand-encoded bodies above sum to roughly 1.2 KiB of the
-2,040-byte seed.  The remainder is the ELF header (120 bytes),
-the sysvar init (72 bytes), the REPL (187 bytes; Ch 20), and the
-dictionary entries — each entry being `link(8) flags(1) name-len(1)
-name(N) jmp(5)` = `15 + len(name)` bytes.  Appendix B gives the
-full memory map.
+The 32 primitive bodies (854 bytes) plus the two helpers
+(`read_word` 123, `parse_decimal_code` 85) sum to 1,062 bytes —
+about 1.0 KiB of the 2,040-byte seed.  The remainder is the ELF
+and program headers (120 bytes), `_start` (13), the sysvar init
+(72), the `jmp repl` (5), the REPL (187 bytes; Ch 20), and the
+32 dictionary entries (581 bytes) — each entry being `link(8)
+flags(1) name-len(1) name(N) jmp(5)` = `15 + len(name)` bytes.
+Appendix B gives the full memory map.
 
 ## A note on `NUMBER_HOOK`
 

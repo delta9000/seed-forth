@@ -175,10 +175,13 @@ Three single-byte instructions, then a pop:
 C3               ret
 ```
 
-After this, the value that was on top of the data stack is now sitting
-one cell *below* the return address on the return stack.  When the
-caller continues, the next x86 `ret`/`pop` it does will skip past our
-return address, but a Forth `r>` or `r@` knows to look one cell deeper.
+Inside `>r`, the value sits one cell *below* `>r`'s own return
+address.  Once `>r`'s `ret` pops that address, the value is on top
+of the caller's return stack — directly above the caller's *own*
+return address.  If the caller now hit its `ret`, the CPU would pop
+the value and jump to it as if it were an address.  That is why
+`>r` and `r>` must balance within one definition: `r>` (or `r@`,
+which peeks) has to take the value back before the caller returns.
 
 ### `r>` ( -- n ; R: n -- )
 
@@ -423,8 +426,11 @@ each step from the table in §1.
    header overhead — which wins on size?
 
 2. **★★ Trace.** `c!` writes only the low byte of TOS, then reloads `rdi` from
-   `[rbp]`.  Trace what happens after `[lit] 0x12345678 [lit]
-   0x420000 c!`.  What's in memory at `0x420000`?  What's in `rdi`?
+   `[rbp]`.  Trace what happens after `[lit] 305419896 [lit]
+   4325376 c!` — that is, `0x12345678` stored to `0x420000`
+   (`[lit]` reads decimal only).  What's in memory at `0x420000`?
+   What's in `rdi`?  Check the first answer with
+   `[lit] 4325376 c@ emit`.
 
 3. **★★ Trace.** `>r` cannot simply do `push rdi` first: the return address is in
    the way.  Walk through the alternative encoding `push rdi ; ...`
@@ -441,11 +447,14 @@ each step from the table in §1.
 
 ## Takeaways
 
-- The data-stack-in-register-cache convention costs ~9 bytes per
-  push/pop primitive — half a cache line for the smallest.
-- Every primitive ends in `C3` (`ret`).  Inter-primitive calls go
-  through `CALL rel32`, so callee addresses must be known at
-  hex-assembly time.
+- The data-stack-in-register-cache convention costs 8 bytes per
+  push or pop (`sub`/`add rbp` plus the spill or reload), so the
+  smallest primitives — `dup`, `drop`, `+` — are 9 bytes with their
+  `ret`.
+- Almost every primitive ends in `C3` (`ret`); `bye` ends in
+  `syscall` (it never returns) and `execute` in `jmp rax`.
+  Inter-primitive calls go through `CALL rel32`, so callee
+  addresses must be known at hex-assembly time.
 - `>r`, `r>`, and `r@` bridge the data and return stacks by
   threading values around the x86 `CALL` return address; `r@` is
   the simplest semantically (a peek that leaves both stacks
