@@ -7,16 +7,17 @@ Artifact after this chapter: the full set of integer comparisons used throughout
 Proof link: the parsers (Chs 23-31) dispatch on = tests of token and keyword IDs at nearly every line.
 ```
 
-Comparison is where most languages spend a primitive per operator:
-`<`, `>`, `<=`, `>=`, `=`, `<>`, sometimes a separate set for signed
-vs unsigned.  That is six or twelve primitives, each with its own
-machine code and dictionary entry.  The seed spends none.  The eight
-definitions in `010-lib.fth` lines 88–121 build every comparison
-from `-`, `/`, and `0=`, with `2^63` as a literal constant.
+Type `[lit] 3 [lit] 5 <` into the bare seed and it prints `?`.  Most
+languages spend a primitive per comparison: `<`, `>`, `<=`, `>=`,
+`=`, `<>`, sometimes a second set for unsigned.  The seed spends
+none.  The C compiler's token checks and loop conditions will rest
+on words this chapter builds from `-`, `/`, and `0=`.
 
-Equality is easy.  The hard part is asking "is this negative?" with
-no sign test, no shift, and no `and` primitive; the answer is an unsigned
-divide by `2^63`.  The `/` primitive's machine code is Ch 15.
+Equality is easy.  The hard part is `<`, which comes down to asking
+"is this number negative?" on a machine with no sign test, no shift,
+and no `and` primitive.  The eight definitions in `010-lib.fth`
+lines 88–121 answer with an instruction nobody reaches for when
+comparing numbers.  The `/` primitive's machine code is Ch 15.
 
 ## 1. `=` and `<>`: two tokens each
 
@@ -36,13 +37,10 @@ derivation, the seed reuses `=` and flips the answer.  `0=` here
 plays the role of `not`: applied to a Forth boolean it produces the
 opposite Forth boolean (`-1 → 0`, `0 → -1`).
 
-This is the cheapest comparison story possible: two operators, four
-tokens total, one of them a function call to the other.  Notice that
-neither definition cares whether you are comparing addresses,
-characters, integers, or signed-vs-unsigned numbers.  Equality is
-bitwise, and `- 0=` is bitwise equality.  This is the same property
-that makes Forth's stack work uniformly across types: the operators
-don't see types, only 64-bit cells.
+Neither definition cares whether you are comparing addresses,
+characters, or signed or unsigned numbers.  Equality is bitwise, and
+`- 0=` is bitwise equality: the operators don't see types, only
+64-bit cells.
 
 ## 2. Signed comparison is trickier
 
@@ -64,11 +62,11 @@ A handful of approaches don't work:
   level.  Adding them as primitives would cost slots; deriving them
   from `*` or `/` would be expensive.
 
-The seed takes a different path: **unsigned divide by `2^63`.**
-Any 64-bit value, treated as unsigned, divided by `2^63 =
-0x8000000000000000`, yields one of exactly two answers: `1` if the
-top bit was set, `0` otherwise.  That's the sign-bit extraction we
-needed, and it costs no new primitives.
+What the seed does have is `/`, and its `/` is unsigned.  That is
+enough: **divide by `2^63`.**  Any 64-bit value, treated as unsigned,
+divided by `2^63 = 0x8000000000000000`, yields one of exactly two
+answers: `1` if the top bit was set, `0` otherwise.  Division, of
+all things, reads the sign bit, and it costs no new primitive.
 
 ## 3. The `2^63` trick
 
@@ -262,9 +260,10 @@ bye
 ```
 
 Expected output: `101010`, the same true/false encoding as Ch 6.  The
-seed runs the canonical `neg-flag` definition (the one that uses
-`2^63 /`) with no shim, since its `/` is the unsigned `DIV`
-instruction.
+seed runs the canonical `neg-flag` definition with no shim, so the
+first `1` is `3 < 5` decided by subtracting, then dividing by a
+nineteen-digit number: a comparison with no comparison primitive
+behind it.
 
 ## Exercises
 
@@ -297,4 +296,12 @@ instruction.
 - `0= 0=` canonicalises any zero/non-zero value to a Forth boolean
   (`0` or `-1`).
 
-Next: Chapter 8 — Stack Shufflers.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, **every comparison**.  Still
+missing: `constant`, `if,`, `variable`.
+
+Next: Chapter 8 — Stack Shufflers.  Words like Ch 6's `space?`
+already juggle one value through `dup`, `over`, and `swap` four
+times.  Before the library writes anything longer, it names the
+shuffles it will use most, so a missing `swap` stops being a bug
+you find three words later.

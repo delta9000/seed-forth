@@ -7,9 +7,12 @@ Artifact after this chapter: allot, create, variable, bytes-eq — 010-lib.fth i
 Proof link: macro (Ch 22) and symbol (Ch 24) lookup compare names via bytes-eq; every fixed compiler table is a create/allot buffer.
 ```
 
-`constant` gives a name to a value, but a compiler also needs named
-*storage*: counters, buffers, tables.  It also needs to compare
-names byte by byte, which is how every symbol lookup works.
+Where does a compiler written in this library keep its line number?
+`constant` names a value that never changes, and the data stack
+forgets everything the moment a word returns.  The compiler needs
+named *storage*: counters, buffers, tables.  And when it meets the
+identifier `main`, it needs to ask whether those four bytes match a
+name it has seen before, with no string type and no early `return`.
 
 The last 82 lines of `010-lib.fth` (294–375) supply both.  `allot`
 bumps HERE by a byte count.  `create` reuses Ch 10's 19-byte runtime
@@ -45,18 +48,10 @@ Trace it:
 | `!`           | empty (HERE := current+n)   |
 
 `allot` writes nothing, so the new region holds whatever was
-already in memory.  That is fine for its two use cases:
-
-- after `create FOO`, `[lit] 16 allot` reserves a 16-byte data
-  area whose contents are whatever happened to be at that memory.
-  You're expected to fill it before reading.
-- standalone, as a way to reserve scratch memory at the current
-  HERE, though in practice the library always uses it right after
-  `create`.
-
-If you want guaranteed zeros, write a loop that calls `c,` with zero
-`n` times.  The seed never needs this because the kernel pre-zeros
-the BSS-equivalent region.
+already in memory.  After `create FOO`, `[lit] 16 allot` reserves a
+16-byte data area you are expected to fill before reading.  In
+practice the region is fresh memory the kernel zeroed, so the seed
+never needs an explicit clear.
 
 ## 2. `create`'s runtime body
 
@@ -204,28 +199,18 @@ result.
 
 ## 5. Why no early exit?
 
-In a language with `break` or `return`, this loop would obviously
-short-circuit on the first mismatch.  In Forth, the equivalent
-primitive is `exit`, which returns from the current word to its
-caller immediately, skipping the rest of the body.  The seed
-doesn't have `exit`.
+With `break` or `return`, this loop would stop at the first
+mismatch.  Forth's equivalent is `exit`, and the seed doesn't have
+it.  Adding it would cost a primitive slot, roughly 15 bytes of
+machine code, and a dictionary entry, to speed up exactly one word.
+The C compiler calls `bytes-eq` thousands of times, but on short
+identifiers (typically 1–12 bytes), so reading every byte costs
+microseconds per compilation.  Ch 3's trade again: save a primitive,
+pay a small constant cost.
 
-Adding `exit` to the seed would cost a primitive slot, roughly 15
-bytes of machine code, and a dictionary entry.  It would speed up
-exactly one word, this one.  The C compiler in Part III calls
-`bytes-eq` thousands of times, but each call compares very short
-identifiers (typically 1–12 bytes), and most mismatches happen on
-the first byte.  Average overhead from running the full loop versus
-exiting on first mismatch: a few hundred extra `c@`+`=`+`and`+`!`
-sequences per compilation.  In wall-clock terms, microseconds.
-
-This is the trade from Ch 3 and Ch 4 again: save a primitive slot,
-pay a small constant cost at the call site.
-
-One side effect: **`bytes-eq` running time leaks no
-information about which byte mismatched.**  In a security-conscious
-context this is a feature (constant-time compare); here it's
-incidental.  The C compiler doesn't care.
+A side effect: `bytes-eq` takes the same time wherever the mismatch
+falls.  In a security context that is a constant-time compare; here
+it is incidental.
 
 ## Canonical source
 
@@ -359,6 +344,32 @@ For `bytes-eq`:
 Expected output: `10`.  `a` and `b` are identical 3-byte buffers
 (`HI\0`); `a` and `c` differ at byte 2 (`HI\0` vs `HX\0`).
 
+### The finale: every Part I word at once
+
+One last run, using nothing but words Part I built.  `src` holds the
+nine bytes of the C fragment `int x=42;`.  `kind` classifies one byte
+with nested `if,`s over Ch 6's predicates, and `scan` walks the
+buffer with a `begin,` loop:
+
+```sh
+{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+  echo 'create src  [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit] 32 c, [lit] 120 c,'
+  echo '            [lit] 61 c, [lit] 52 c, [lit] 50 c, [lit] 59 c,'
+  echo ': kind  dup alpha? if, drop [lit] 97 else,'
+  echo '        dup digit? if, drop [lit] 100 else,'
+  echo '        dup space? if, drop [lit] 95 then, then, then, emit ;'
+  echo ': scan  begin, dup [lit] 0 > while,'
+  echo '        over c@ kind  [lit] 1 - swap [lit] 1 + swap  repeat, 2drop ;'
+  echo 'src [lit] 9 scan'
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+```
+
+Expected output: `aaa_a=dd;`.  Letters became `a`, digits `d`, the
+space `_`, and punctuation passed through.  That is the first step
+of a C lexer, and most of its words (`create`, `if,`, `else,`,
+`begin,`, `>`, `-`, `alpha?`, `2drop`) get a `?` from the bare
+seed.
+
 ## Exercises
 
 1. **★★ Trace.** Why is `bytes-eq-flag` a *variable* (a shared cell) rather than a
@@ -390,22 +401,33 @@ Expected output: `10`.  `a` and `b` are identical 3-byte buffers
   variable and always reads every byte, which costs little on the
   short names the compiler compares.
 
+**Part I tally, complete.**  Byte emission, Boolean logic,
+subtraction, file I/O, character tests, comparisons, shuffles,
+multi-byte writes, `constant`, branches and loops, **variables,
+buffers, and string compare**.  `010-lib.fth` is complete.
+
 ## Bridge to Part II: what Part I bought us
 
-Part I taught Forth as a usable language while treating the seed's
-32 primitives as black boxes.  By the end of this chapter you can
-read every line of `010-lib.fth` (stack shuffles, byte writers,
-syscall wrappers, character classifiers, comparisons, the
-defining-word family, the control-flow combinators, and the
-byte-equality loop) and explain what each one does.  The only
-remaining mystery is what each primitive's machine code looks like.
+In Ch 1 the bare seed answered `?` to `over - and < if, variable`.
+You have now built all six, and every other line of `010-lib.fth`,
+and run a byte classifier built from them.  Everything in Part I
+was ordinary Forth.
+
+And every line of it stands on 32 primitives you have taken on
+faith.  `nand`, which gave you all of Boolean logic, is 12 bytes of
+machine code at offset `0x1AA`.  `dup` is 9.  `/`, which gave you
+`<` and every byte split, is 18.  What are those bytes?  How does 2,040 bytes of hex persuade a Linux kernel to run
+a REPL at all?  Those bytes are the one layer of the chain a skeptic
+cannot read as Forth, and Part I has not shown you one of them.
 
 Part II opens that box.  Eight chapters read `000-seed.hex0` and
-show the exact bytes behind the primitives the Forth code has been
-calling.  Ch 13 starts where the kernel does, at the ELF header and
-entry point.  Chs 14–16 read the stack, arithmetic and I/O
+show the exact bytes behind every primitive you have called.
+Ch 13 starts where the kernel does, at byte 0: the ELF header and
+the entry point.  Chs 14–16 read the stack, arithmetic and I/O
 primitives (`dup`, `nand`, `emit`, `syscall6`).  Chs 17–20 read the
 machinery that runs everything else: the dictionary and `find`, the
 colon compiler (`:`, `;`), `branch` and `0branch`, and the REPL.
 
-Next: Chapter 13 — The ELF and the Entry Point.
+Next: Chapter 13 — The ELF and the Entry Point, where the first 120
+bytes of the file have one job: persuading the kernel to run the
+rest.

@@ -1,51 +1,72 @@
 # Prologue — Two Thousand and Forty Bytes
 
-Most of the code in this book was written by AI.  That is the first
-thing to say, because it is usually a reason to stop reading.
+Here is where this book ends up.  From the repository root, paste
+this into a terminal:
 
-Language models now produce plausible code faster than any human can
-read it, and *plausible* is not *correct*.  The bottleneck in
-software was never typing; it is understanding, and trust.  When a
-machine out-writes you at every step, the easy outcome is a large
-pile of code that works until it doesn't and that no person actually
-understands, and a human reduced to rubber-stamping it.
+```sh
+./build.sh
+strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; cat <<'EOC'; } | ./seed-forth
+int fib(int n) { if (n < 2) return n; return fib(n - 1) + fib(n - 2); }
+void print(int n) { if (n > 9) print(n / 10); putchar('0' + n % 10); }
+int main(void) {
+    int i;
+    print(0);
+    for (i = 1; i < 12; i = i + 1) { putchar(' '); print(fib(i)); }
+    putchar('\n');
+    return fib(10);
+}
+EOC
+chmod +x /tmp/cc-out && /tmp/cc-out   # prints "0 1 1 2 3 5 8 13 21 34 55 89"
+echo $?                               # prints "55"
+```
 
-This book is an experiment in the other outcome: what it takes for
-a human to stay in the loop, guiding, auditing, and vouching for
-code an AI wrote faster than they could.
+`./seed-forth` is 2,040 bytes of x86-64 machine code, typed in as
+hex.  It read twelve files of Forth from the pipe and became a C
+compiler.  The compiler read the C that followed, recursion and
+all, and wrote `/tmp/cc-out`, a Linux executable, directly.  No
+assembler, linker, or C library took part.  Fed M2-Planet's own
+source instead of nine lines of Fibonacci, the same pipeline
+builds a C compiler whose output matches a GCC-built M2-Planet's
+byte for byte.
 
-It turns on two things working together.  The first is a *mechanical
-test of correctness that fluent-looking code cannot fake*.  The
-program built here is a compiler, and its output must match an
-independent reference byte for byte, and reproduce itself exactly
-when it compiles itself.  No amount of confident-sounding code passes
-that check; only correct code does.  The second is *this book
-itself*, a literate program in Donald Knuth's sense: source written
-to be read by a human, in narrative order, with every line that
-matters explained.  The first keeps the machine honest.  The second
-keeps the human in command.
+Every step between those 2,040 bytes and that output is in this
+book, in an order you can check.
 
-The proving ground is a bootstrap: 2,040 bytes of hand-checkable
-machine code that grow into a C compiler.  It was chosen because its
-correctness is absolute and checkable; most software offers nothing
-so unforgiving.  That is also the honest limit of the claim.  The
-lesson is not "audit any AI code this way"; it is "find or build a
-ground truth the machine can't argue with, then write the
-understanding down."  What follows is one worked example of doing
-exactly that.
+---
+
+Most of the code in this book was written by AI.  That is usually a
+reason to stop reading, so it belongs up front.
+
+Language models produce plausible code faster than anyone can read
+it, and *plausible* is not *correct*.  The easy outcome is a pile of
+code that works until it doesn't, which no person understands, and
+a human reduced to rubber-stamping it.  This book is an experiment
+in the other outcome: a human who stays in the loop, guiding,
+auditing, and vouching for code an AI wrote faster than they could.
+
+It turns on two things.  The first is a *test of correctness that
+fluent-looking code cannot fake*: the compiler's output must match
+an independent reference byte for byte, and reproduce itself exactly
+when it compiles itself.  The second is *this book*, a literate
+program in Donald Knuth's sense: source written to be read by a
+human, in narrative order, with every line that matters explained.
+The first keeps the machine honest.  The second keeps the human in
+command.
+
+A bootstrap was chosen as the proving ground because its correctness
+is absolute; most software offers nothing so unforgiving.  That is
+also the limit of the claim.  The lesson is not "audit any AI code
+this way"; it is "find or build a ground truth the machine can't
+argue with, then write the understanding down."
 
 ---
 
-There is a file in this repository called `000-seed.hex0`.  Its
-source form is 27,007 bytes long, but most of that is comments:
-annotated hex laid out for human readers.  The machine bytes total
-exactly **2,040**, and those bytes are a working Forth.
-
-This book is the manual for those 2,040 bytes, and for the
-seven-thousand-line scaffold of Forth code that grows out of them
-into a self-hosting C compiler.
-
----
+The seed lives in `000-seed.hex0`.  Its source form is 27,007 bytes
+long, most of it comments: annotated hex laid out for human readers.
+The machine bytes total exactly **2,040**.  On top of them sit
+seven thousand lines of Forth that grow into a self-hosting C
+compiler.
 
 ## The language
 
@@ -77,21 +98,15 @@ loop, you write three new immediate words that emit `branch` and
 keyword that declares typed fields, you write it.  The language
 meets you halfway.
 
-If you have read prior pedagogical Forth implementations, two are
-close enough to this one to be worth a brief calibration.  **JONESFORTH**
-(Richard Jones, 2007) is the closest ancestor in tone, a heavily
-commented assembly source for a complete Forth, but it runs on i386 with *indirect threaded code* and a separate "inner
-interpreter" that walks compiled cells.  This book's seed targets
-x86-64 with *subroutine threading*: every compiled word is just a
-`call` instruction, so the CPU itself is the inner interpreter,
-and the seed pays nothing for `NEXT`.  **sectorforth** (Cesar Blum,
-2020) goes the other direction: a 512-byte 16-bit Forth with
-eight primitives.  Our seed is four times larger (2,040 bytes) and
-has 32 primitives because it has to host a C compiler at the top,
-not just a Forth.  Appendix E lists these and others in more
-depth; for now the orientation is: the seed sits between
-sectorforth (smaller, no compiler payload) and JONESFORTH (similar
-spirit, different threading model and architecture).
+Two earlier teaching Forths make useful landmarks.  **JONESFORTH**
+(Richard Jones, 2007) is the closest in tone, a heavily commented
+assembly source, but it runs on i386 with *indirect threaded code*
+and an inner interpreter that walks compiled cells.  This seed
+targets x86-64 with *subroutine threading*: every compiled word is
+a `call` instruction, so the CPU itself is the inner interpreter.
+**sectorforth** (Cesar Blum, 2020) is a 512-byte 16-bit Forth with
+eight primitives.  Our seed is four times larger and has 32
+primitives because it has to carry a C compiler, not just a Forth.
 
 ## The moment
 
@@ -109,16 +124,12 @@ written, starting from a base of 32 hand-encoded primitives.
 Everything afterwards (the seed VM in Part II, the C compiler in
 Part III) is a payoff for understanding that one move.
 
-As for the AI side, the methodology (which models wrote what, and
-the cross-checking that pinned down every byte of the seed) is in
-`AI_STRATEGIES.md` at the repo root.  You can still read this purely
-as a Forth book and never think about any of it; the journey works
-the same way it would have worked in 1972.  But the reason it
-exists, and exists in this form, is the experiment described above:
-an AI did most of the writing, a mechanical oracle proved the result
-correct, and this book is the part that lets a human understand it
-and stand behind it.
+How the AI work was done (which models wrote what, and the
+cross-checking that pinned down every byte of the seed) is in
+`AI_STRATEGIES.md` at the repo root.  You can read this purely as a
+Forth book and never think about it.
 
-Turn the page.
+Chapter 1 starts at the bottom: a single line of Forth, which has
+no expressions, no argument lists, and no `return`.
 
 Next: [Chapter 1 — Stacks and Words](01-stacks-and-words.md).

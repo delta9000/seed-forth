@@ -683,6 +683,37 @@ Here is `a + b * c < 5` passing through the layers:
 Nothing in this trace consults a precedence table.  The order in
 which the layers call each other is the table.
 
+**tri.c at this stage.**  Line 16 of tri.c computes
+`w[r] = 1 + r * 2`.  Compile tri.c with Ch 21's command, which
+leaves the binary in `/tmp/cc-out`, and disassemble the right-hand
+side:
+
+```sh
+objdump -D -b binary -m i386:x86-64 -M intel \
+    --start-address=0x365 --stop-address=0x388 /tmp/cc-out | grep '^ '
+```
+
+```
+ 365:   48 c7 c7 01 00 00 00    mov    rdi,0x1
+ 36c:   57                      push   rdi
+ 36d:   48 8b 7d d8             mov    rdi,QWORD PTR [rbp-0x28]
+ 371:   57                      push   rdi
+ 372:   48 c7 c7 02 00 00 00    mov    rdi,0x2
+ 379:   48 89 f9                mov    rcx,rdi
+ 37c:   5f                      pop    rdi
+ 37d:   48 0f af f9             imul   rdi,rcx
+ 381:   48 89 f9                mov    rcx,rdi
+ 384:   5f                      pop    rdi
+ 385:   48 01 cf                add    rdi,rcx
+```
+
+The `1` is loaded first and parked on the machine stack at 0x36c.
+Then `cc-parse-add` asks `cc-parse-mul` for its right operand, and
+all of `r * 2` (`r` is `[rbp-0x28]`) is emitted inside that call,
+ending in the `imul` at 0x37d.  Only then does the `add` run.  The
+`*` binds tighter because its code was written inside the `+`'s
+operand.
+
 ## Try it
 
 **Small check:** read one focused expression fixture and trace it
@@ -745,6 +776,11 @@ pop, op) and two through short-circuit jumps.
 You can read `cc-parse-mul`/`add`/`rel`/`eq`/`bit`/`log`, explain
 the precedence cascade, and predict what code an expression like
 `a + b * c > d` will emit without running it.
+
+What the cascade cannot do yet is write.  In `w[r] = 1 + r * 2`,
+everything above computed the right side; the left side needs the
+*address* of `w[r]`, and the parser does not know it wants an
+address until it reaches the `=`.  Ch 28 solves that.
 
 ## Takeaways
 

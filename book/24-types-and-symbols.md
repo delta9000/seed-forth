@@ -9,13 +9,13 @@ Proof link: later Stage-A codegen can resolve names, scopes, sizes, and layouts 
 
 Ch 23 left the parser with a stream of `tok-*` tokens.  Tokens name
 things, though, and nothing yet remembers what a name means.  When the
-parser meets `struct point *p;` it has to record two facts it will
-need later: what type `p` has, and where `p` lives.  When it
-later meets `p->x`, it has to find `p` again, with the innermost
-declaration winning, and work out where `x` sits inside the struct.
-Both kinds of fact grow during parsing, but both have bounded sizes by
-the time M2-Planet's source has been read, so the simplest data
-structures suffice.
+parser meets `struct tri t;` on line 3 of `tri.c`, it has to record
+two facts it will need later: what type `t` has, and where `t` lives.
+Eleven lines later it meets `t.rows` and has to find `t` again, with
+the innermost declaration winning, and work out where `rows` sits
+inside the struct.  Both kinds of fact grow during parsing, but both
+have bounded sizes by the time M2-Planet's source has been read, so
+the simplest data structures suffice.
 
 The 88-line file `060-cc-types.fth` packs every C type into one
 64-bit word.  There are exactly five base kinds: `void`, `char`,
@@ -449,8 +449,8 @@ Every later chapter uses exactly this protocol.
 
 ## Try it
 
-**Small check:** the snippet at the end of this section adds one
-symbol and prints its id and the resulting count.
+**Small check:** the `cc-sym-add` snippet below adds one symbol and prints
+its id and the new count.
 
 **Layer check:** the root test script covers both files from this
 chapter.
@@ -466,8 +466,8 @@ chapter.
 `test-070-cc-sym.fth` exercises `cc-sym-add`, `cc-sym-find`, and
 the scope push/pop dance.
 
-For the small check, load the seven Forth files and append a few
-lines that call `cc-sym-add` directly.  Seed-forth has no `-e` flag, so everything goes through stdin:
+For the small check, load the seven Forth files and call
+`cc-sym-add` directly, all through stdin:
 
 ```sh
 ./build.sh
@@ -493,6 +493,51 @@ FORTH
 
 Expected output: `01` — the new symbol's id is `0`, and the count
 after the add is `1`.
+
+**tri.c at this stage:** feed lines 2–3 of `tri.c` through the
+parser (Chs 29–31) and read back the rows it added.  `row` prints a symbol's id, name, kind and base type:
+
+```sh
+./build.sh
+{
+  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth \
+    | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  cat <<'FORTH'
+    : .d  dup [lit] 9 > if, dup [lit] 10 / .d then,
+          dup [lit] 10 / [lit] 10 * - [lit] 48 + emit ;
+    : .n  .d [lit] 32 emit ;
+    : row  dup .n  dup [lit] 1 over cc-sym-name-addr sym-slot @
+           rot cc-sym-name-len sym-slot @ write drop [lit] 32 emit
+           dup cc-sym-kind-of .n  cc-sym-type-of ty-base .d [lit] 10 emit ;
+    : probe
+      cc-load-stdin cc-preprocess cc-out-init cc-globals-init
+      cc-emit-elf-header cc-parse-program
+      [lit] 23 row  [lit] 24 row
+      [lit] 23 cc-sym-val-of  dup cc-sd-total-size .n
+      dup cc-sd-field-count .n  dup [lit] 0 cc-sd-field-rec cc-sf-offset .n
+      [lit] 1 cc-sd-field-rec cc-sf-offset .d  bye ;
+    probe
+FORTH
+  cat <<'C'
+struct tri { int rows; int stars; };
+struct tri t;
+C
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+```
+
+```text
+23 tri 3 0
+24 t 0 4
+16 2 0 8
+```
+
+Ids 0–22 are filled before any C is read (Ch 31's libc shims, a
+`memset` prototype, built-in typedefs).  `tri` is row 23, kind 3
+(`sk-struct`), and its val points at a descriptor in the arena: 16
+bytes, 2 fields, `rows` at offset 0 and `stars` at offset 8.  `t` is
+row 24, kind 0 (`sk-global`), base type 4 (`ty-struct`).  Those two
+offsets become the `add rdi, 0x0` and `add rdi, 0x8` in every `t.rows`
+and `t.stars` the compiler emits (Ch 28).
 
 **Bootstrap relevance:** Stage-A reaches this layer through every
 identifier lookup, local declaration, struct field, typedef, and
@@ -533,7 +578,10 @@ size), every symbol is a row across parallel columns, and scopes push
 and pop by remembering a count.  Struct definitions get their own
 16+40·N-byte descriptor.  Identical name resolution gives identical
 slot assignments and struct layouts, which every load and store byte
-in the Stage-A comparison depends on.
+in the Stage-A comparison depends on.  `tri.c` now has rows for `tri`
+and `t`, but the output buffer still holds nothing a CPU can run.  Ch
+25 writes the first bytes: the ELF header and the instruction
+encoders.
 
 ## Takeaways
 

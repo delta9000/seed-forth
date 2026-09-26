@@ -153,7 +153,7 @@ Reproduced on the reviewer's machine and recorded in
 ```text
 edc749e1dd1e3d4070af263d45475cbee350ca6f91dd26f6ca276432ae2b0f05  000-seed.hex0
 131bf3ab73917a5a1c39db8114ab5c20f12ca28627f3fdc969ee34d86e41dc74  seed-forth
-957ed9d9b1b7aa2a2abfbbf757086dbe2161f0b457b362c492bf78a7f0b4f101  cc-out-v1
+23aaa5be476e5d25194dcbd178ceba9a4ccc72ca9c7d76523c6fc6fc1a409e73  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
 

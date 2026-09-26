@@ -7,11 +7,12 @@ Artifact after this chapter: the cc-next-token interface over idents, numbers, s
 Proof link: every later Stage-A parser consumes this token stream instead of raw source bytes.
 ```
 
-After Ch 22 the source is one flat stream of bytes, but a parser does
-not want bytes.  It wants to ask "what's next?" and hear "the keyword
-`int`", "the identifier `x`", "the number 42", "the punctuation
-`<<=`".  The 642-line file `050-cc-lex.fth` answers that question
-through a single word, `cc-next-token`.
+After Ch 22, `tri.c` is 470 bytes of characters, but a parser does
+not want characters.  At line 12 it should not have to see `i`, `n`,
+`t`, a space, `w`, `[`, `R`, `O`, `W`, `S`.  It wants to ask "what's
+next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
+"the number 4".  The 642-line file `050-cc-lex.fth` answers that
+question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,
 statements) sees the source only through five globals this file
@@ -872,7 +873,8 @@ byte none of the four claims falls through to `cc-lex-punct`.
 
 ## Try it
 
-**Small check:** drive the lexer by hand on `int x = 42;`.
+**Small check:** drive the lexer by hand on line 12 of `tri.c`,
+`int w[ROWS];`, with the `#define` it depends on.
 Seed-forth has no `-e` flag or `include` word, so we concatenate the
 five files (stripped of Forth comments) onto stdin, then the C source.
 A one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
@@ -895,13 +897,18 @@ digit until end-of-input:
     dump-tokens
 FORTH
   cat <<'C'
-int x = 42;
+#define ROWS 4
+    int w[ROWS];
 C
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
-The output is `6 1 5 2 5`: keyword, identifier, punctuation, number,
-punctuation.
+The output is `6 1 5 2 5 5`: keyword, identifier, `[`, number, `]`,
+`;`.  The `2` is `ROWS`: the identifier hit the macro table and left
+the lexer as `tk-num` 4.  The whole of `tri.c` lexes to 168 tokens,
+and 4 of its 14 number tokens were spelled `ROWS` in the source.  The
+three character literals arrive as `tk-chr` with their values already
+decoded: `' '` is 32, `'*'` is 42, and `'\n'` is 10.
 
 **Layer check:** the probe shows only kinds.  For every token's text
 and numeric value, run the lexer unit test:
@@ -951,7 +958,9 @@ The parser can ask for C-shaped units of source on demand: each
 punctuation token into the `tok-*` globals, with macro substitution
 already applied.  Every later parser layer reads `tok-*` rather than
 raw bytes, so the lexer's exact behaviour is the input contract for
-the rest of the Stage-A proof.
+the rest of the Stage-A proof.  `tri.c` is now 168 tokens, but when
+the parser reaches `t.rows` on line 14, nothing yet remembers that `t`
+is a struct or where `rows` sits inside it.  Ch 24 builds that memory.
 
 ## Takeaways
 

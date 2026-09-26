@@ -14,9 +14,10 @@ in the middle of a parser, and a missed `swap` is a bug that only
 shows up three words later.
 
 `010-lib.fth` (lines 123–137) names four more: `nip`, `rot`, `2dup`,
-and `2drop`.  Ch 1 previewed all four; each is two or four words you
-already know, and nothing new happens inside them.  The question this chapter answers
-is which shuffles the seed names and which it leaves out.
+and `2drop`.  Ch 1 previewed all four, and nothing new happens
+inside them.  The interesting question is the one standard Forth
+answers differently: why this seed has no `pick`, and why the C
+compiler never misses it.
 
 ## 1. The four shuffles
 
@@ -64,14 +65,12 @@ as `>r >r >r dup r> swap r> swap r> swap` or similar.  But you'd
 need a different definition for every `n`, or a runtime loop, and
 neither approach fits in the byte budget.
 
-The deeper reason is that the seed's intended use, bootstrapping a
-C compiler, doesn't need `pick` or `roll`.  The C compiler keeps
-its data-stack depth shallow at every dispatch point (typically
-three or four cells) and uses the return stack as scratch when it
-needs more breathing room.  Code that wants deep-stack access in
-this style of Forth is generally a sign of a missing abstraction,
-and the standard advice is "use a variable or a local instead."  The
-C compiler follows that advice.
+The deeper reason is that bootstrapping a C compiler doesn't need
+`pick` or `roll`.  The C compiler keeps its data stack three or four
+cells deep at every dispatch point and uses the return stack as
+scratch when it needs more.  Deep-stack access in Forth usually
+signals a missing abstraction, and the standard advice, "use a
+variable instead," is what the compiler follows.
 
 If you ported a Forth program that *did* need `pick`, the cheapest
 fix in this seed would be to define `variable`-backed slot
@@ -146,6 +145,9 @@ Expected output: `BACBYXYXBA`.  Trace each line:
 - `65 66 67 68 2drop emit emit` → `2drop` leaves `65 66`; two
   `emit`s print `B A`.
 
+Ten letters, and each one landed where the stack-effect comment
+said it would.
+
 ## Exercises
 
 1. **★ Trace.** `rot` reaches the third-from-top cell but no deeper.
@@ -177,4 +179,12 @@ Expected output: `BACBYXYXBA`.  Trace each line:
   or `roll`), so code that needs it keeps the stack shallow or uses
   variables.
 
-Next: Chapter 9 — Memory Updates and Cell Writers.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, comparisons, **named
+shuffles**.  Still missing: multi-byte writes, `constant`, `if,`,
+`variable`.
+
+Next: Chapter 9 — Memory Updates and Cell Writers.  `c,` writes one
+byte, but every x86 `CALL` the library will assemble carries a
+4-byte offset, and the seed has no shift instruction to split a
+number into bytes.

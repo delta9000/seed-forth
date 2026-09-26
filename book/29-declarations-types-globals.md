@@ -835,6 +835,45 @@ the body closes, so a function that ends with an explicit `return`
 carries 8 unreachable bytes (the 3-byte zero plus the 5-byte
 epilogue).  They cost space, not correctness.
 
+**tri.c at this stage.**  tri.c declares a struct type, a struct
+global and two locals, and none of them emits an instruction.
+With tri.c compiled to `/tmp/cc-out` (Ch 21), look at the start of
+`main` and the end of the file's code:
+
+```sh
+for r in 0x2e2:0x2fe 0x4b2:0x4c9; do
+  objdump -D -b binary -m i386:x86-64 -M intel \
+      --start-address=${r%:*} --stop-address=${r#*:} /tmp/cc-out | grep '^ '
+done
+```
+
+```
+ 2e2:   55                      push   rbp
+ 2e3:   48 89 e5                mov    rbp,rsp
+ 2e6:   48 81 ec 00 01 00 00    sub    rsp,0x100
+ 2ed:   48 bf c9 04 40 00 00    movabs rdi,0x4004c9
+ 2f4:   00 00 00 
+ 2f7:   48 81 c7 00 00 00 00    add    rdi,0x0
+ 4b2:   48 c7 c7 01 00 00 00    mov    rdi,0x1
+ 4b9:   48 89 f8                mov    rax,rdi
+ 4bc:   48 89 ec                mov    rsp,rbp
+ 4bf:   5d                      pop    rbp
+ 4c0:   c3                      ret
+ 4c1:   48 31 c0                xor    rax,rax
+ 4c4:   48 89 ec                mov    rsp,rbp
+ 4c7:   5d                      pop    rbp
+ 4c8:   c3                      ret
+```
+
+Right after the prologue, at 0x2ed, is line 14's `t.rows`: `int
+w[ROWS];` and `int r;` emitted no bytes.  What they left is
+bookkeeping that later code reads.  The `struct tri` descriptor puts
+`rows` at offset 0 (the `add rdi,0x0`) and `stars` at 8, and `w`
+reserves slots 0–3 with its symbol on the last, so its base is
+`[rbp-0x20]` and `r` gets `[rbp-0x28]`.  At the other end, `return
+1;` is `mov rax,rdi` plus the 5-byte epilogue, and the 8 bytes at
+0x4c1 are the unreachable zero-and-epilogue described above.
+
 ## Try it
 
 **Small check:** start with one fixture below and map each
@@ -898,6 +937,11 @@ file-scope globals reuse this engine but are wired up in Ch 31.
 You can trace how `int x;`, `int* p;`, `int arr[N];`, and
 `struct T s;` each become a symbol-table row, and explain why
 `struct T { struct T *next; };` works.
+
+With names declared and expressions compiled, what is missing is
+order.  tri.c's `for` must emit a jump out of the loop before it has
+seen the loop's body, so the jump's target does not exist yet.
+Ch 30 is about jumps to places that don't exist yet.
 
 ## Takeaways
 

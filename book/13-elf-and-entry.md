@@ -7,39 +7,41 @@ Artifact after this chapter: the boot prologue — ELF header, _start, sysvar in
 Proof link: the C compiler's own ELF emission (Ch 25) reuses the same shape and the same addresses.
 ```
 
-Part II reads the seed in the order the machine meets it, starting
-at byte 0.  Hex bytes on disk are not a program until the kernel
-agrees to run them.  Linux wants two things before it will: an ELF header that
-says what kind of file this is and where execution starts, and a
-program header that says which bytes to map where.  The seed spends
-120 bytes on those two headers, then 90 bytes of code that set up
+Eight bytes at file offset `0x484`, `72 04 40 00 00 00 00 00`, are
+the number `0x400472`: the address where `key`'s dictionary entry
+will sit once the program runs.  Nothing computes that at run time.
+It was typed by hand, like every other link in the dictionary, the
+starting value of `LATEST`, and the address of `lit_code` baked into
+`[lit]`.  There is no linker, no relocation table and no loader
+fix-up.  If the file lands anywhere but where those numbers assume,
+the first dictionary lookup follows a link into unmapped memory.  So
+before any Forth runs, the file has to make the kernel keep one
+promise: the byte at file offset `N` sits at address
+`0x400000 + N`.
+
+That promise costs 120 bytes of headers.  Another 90 bytes set up
 two registers and six system variables and jump to the REPL.  All
-of it is in lines 1–63 of `000-seed.hex0`.
+of it is in lines 1–63 of `000-seed.hex0`, a file of 752 lines of
+hand-assembled hex that the Stage-0 tool `hex0-seed` (from the Guix
+Full Source Bootstrap) turns into the 2,040-byte `seed-forth` by
+dropping everything after each `;` and writing the rest verbatim.
 
-That file is 752 lines of hand-assembled hex.  The Stage-0 tool
-`hex0-seed` (from the Guix Full Source Bootstrap) reads it, drops
-everything after each `;`, and writes the remaining bytes to disk
-verbatim.  The result is the 2,040-byte ELF executable `seed-forth`.
-
-Keep an ELF reference to hand while you read: `readelf -a` output
-or `man 5 elf` will do.  Primitive bodies start in Ch 14, the
-dictionary headers (the `--- bye @ 0x44D ---` entries) are Ch 17,
-and `parse_decimal_code` and the REPL are Ch 20.
+Part II reads those 2,040 bytes in the order the machine meets
+them, and by the end of Ch 20 you will have read every one.  A byte
+you have read is a byte you no longer take on trust: this book's
+answer to Thompson's "Reflections on Trusting Trust", applied at its
+smallest scale.  Each chapter ends with a running count.  Keep
+`man 5 elf` or `readelf -a` to hand for this one.
 
 ## 1. Why we start at the top
 
-Every primitive in the next seven chapters is found by its address.
-`dup_code` lives at `0x40013B`.  `nand_code` at `0x4001AA`.
-`lit_code` at `0x400419`.  The dictionary headers near the bottom of
-the file each contain a relative jump back to a primitive body, and
-those jumps are computed by hand in advance.  Nothing patches them
-at load time.
-
-This works because the *whole file is loaded contiguously at
-`0x400000`*, with the bytes at file offset `N` ending up at virtual
-address `0x400000 + N`.  That is what the ELF header and the program
-header arrange.  Read them first and every later "rel32 = …"
-arithmetic in this codebase will make sense.
+Every primitive in the next seven chapters is found by its address:
+`dup_code` at `0x40013B`, `nand_code` at `0x4001AA`, `lit_code` at
+`0x400419`.  Every relative jump between them assumes the file is
+loaded in one piece, and every absolute address assumes that piece
+starts at `0x400000`.  The ELF header and the program header are
+what make both assumptions true.  Read them first and every later "rel32 = …"
+in this codebase will make sense.
 
 ## 2. The ELF magic and `Elf64_Ehdr`
 
@@ -81,9 +83,7 @@ offset 64."  Since the ELF header is itself 64 bytes, the program
 header sits immediately after it, with no padding.
 
 **`e_shoff = 0`** says "no section headers."  Sections are a
-*linking* concept; an executable file does not need them.  Skipping
-the section-header table saves bytes and removes a source of
-complexity.  `readelf -h` will report the section count as zero.
+*linking* concept, and an executable does not need them.
 
 Everything else is a constant the kernel checks before accepting the
 file: it must be 64-bit (`02`), little-endian (`01`), an executable
@@ -115,13 +115,13 @@ The whole compile-time heap, the data stack at `0x411000`, the I/O
 scratch byte at `0x412000`, the token buffer at `0x412800`, and the
 sysvar page at `0x413000` are all *inside* this single mapping.
 
-R|W|X is unusual for modern executables, which separate code
-(`R-X`) from data (`R-W`).  The seed has one segment because it
-*writes new machine code into the same region it executes from*: the
-REPL's compile-mode handler emits `CALL` instructions at `HERE`, and
-those bytes have to be executable the moment they are written.  Two
-segments would force an `mprotect` syscall every time `HERE` crossed
-a page boundary, and the seed has no bytes to spare for that.
+R|W|X is unusual; modern executables separate code (`R-X`) from
+data (`R-W`).  The seed has one segment because it *writes new
+machine code into the same region it executes from*: the REPL emits
+`CALL` instructions at `HERE`, and they must be executable the
+moment they are written.  Two segments would need an `mprotect`
+syscall whenever `HERE` crossed a page, and the seed has no bytes to
+spare for that.
 
 `p_align = 0x1000` is the system page size.  Both `p_offset` and
 `p_vaddr` are multiples of `0x1000`, which keeps the kernel happy.
@@ -151,11 +151,9 @@ seed, `rbp` is the data-stack pointer.  The stack grows *down*:
 (which starts at `0x401000` and grows up).  The sysvar page at
 `0x413000` sits *above* the stack, out of its way.
 
-`xor rdi, rdi` clears the **TOS register cache**.  `rdi` holds the
-top of the data stack as a register, not in memory; every primitive
-in Ch 14 works on `rdi` directly and spills to `[rbp]` only when
-forced.  Starting `rdi` at zero is harmless: the first real push will
-spill this zero and overwrite the register with the new value.
+`xor rdi, rdi` clears the **TOS register cache**: `rdi` holds the
+top of the data stack, as Ch 14 explains.  The first real push
+spills this zero harmlessly.
 
 ## 5. The sysvar init at `0x085`
 
@@ -172,27 +170,24 @@ sysvar page at `0x413000`.  Each is 12 bytes long, total 72 bytes.
 ```
 
 `STATE = 0` boots us in interpret mode.  `HERE = 0x401000` puts the
-next-byte-to-write pointer at the page right above the ELF image, so
-the first `:` definition starts a clean page.  `LAST_FOUND`,
+first `:` definition on the page right above the ELF image.  `LAST_FOUND`,
 `NUMBER_HOOK`, and `INPUT_FD` start at zero.  `find_code` fills
 `LAST_FOUND` on every hit.  The other two are unused: no code in
 the seed ever reads them.  `NUMBER_HOOK` is a reserved slot, and
 `INPUT_FD` is not how `key` picks stdin — `key_code` hard-codes
 `mov edi, 0`.
 
-The interesting one is `LATEST = 0x4007E8`.  That is the address of
-the dictionary entry for `'` — the very last word defined in the
-seed image.  The dictionary is a linked list of headers, each
-pointing back to the previous one (Ch 17 has the picture); the head
-of the list is whoever was defined last.  Rather than walk the chain
-at runtime to find that tail, the seed *initialises `LATEST` to its
-known assembly-time value*.  `0x4007E8` is the address of the `'`
-entry's link cell, and the hex0 file just hard-codes it here.
+The interesting one is `LATEST = 0x4007E8`, the link cell of the
+dictionary entry for `'`, the last word in the seed image.  The
+dictionary is a linked list of headers, each pointing back to the
+previous one (Ch 17 has the picture), and its head is whoever was
+defined last.  Rather than walk the chain at runtime to find it, the
+seed hard-codes the answer.
 
 The seed does this everywhere: anything that can be resolved at
-assembly time is resolved then, not at runtime.  The cost is that
-adding a new primitive means recomputing this constant by hand; the benefit is that startup is six `mov`s and
-nothing else.
+assembly time is resolved then.  Adding a primitive means
+recomputing this constant by hand; in exchange, startup is six
+`mov`s and nothing else.
 
 ## 6. `JMP repl` at `0x0CD`
 
@@ -217,10 +212,10 @@ to its body.  All of those `rel32`s are computed by hand.
 
 That is the whole boot sequence: identify the file as an ELF, ask
 for one 16 MiB segment, initialise two registers and six sysvars,
-jump to the REPL.  It takes 90 bytes from `_start` through the end
-of the jump, 72 of them sysvar initialisation.  Everything else in
-the file is a primitive body or a dictionary header, so from here
-on the chapters follow topic, not offset.
+jump to the REPL.  It takes 90 bytes, 72 of them sysvar
+initialisation.  The rest of the file is primitive bodies and
+dictionary headers, so from here on the chapters follow topic, not
+offset.
 
 ## Canonical source
 
@@ -379,6 +374,23 @@ Compare the `readelf -h` output to the hex you read in §2 field by
 field.  `e_entry` should be `0x400078`; `e_phoff` should be `64`;
 `e_phnum` should be `1`.
 
+Now check the promise from the start of the chapter, and then let
+the kernel keep it:
+
+```sh
+od -An -tx1 -j $((0x13B)) -N 9 ./seed-forth
+# 48 83 ed 08 48 89 7d 00 c3   (dup_code, at file offset 0x13B)
+echo bye | ./seed-forth; echo "exit status $?"
+# prints "exit status 0"
+```
+
+The nine bytes at offset `0x13B` are the `dup_code` that Ch 14
+reads, and the program header puts them at `0x40013B`, the address
+every hand-computed reference to `dup_code` assumes.  The second command is the whole boot
+sequence end to end: the kernel accepted the headers, `_start` set
+up the stacks and sysvars, the jump at `0x0CD` reached the REPL, and
+the REPL understood the word `bye`.
+
 ## Exercises
 
 1. **★★ Trace.** The entry point is at `0x400078`.  The header is 64 bytes plus one
@@ -410,5 +422,14 @@ field.  `e_entry` should be `0x400078`; `e_phoff` should be `64`;
 - Every primitive in the next seven chapters is reachable from
   `_start` by direct address; the seed resolves at assembly time
   anything that can be resolved at assembly time.
+
+**Running count: 210 of 2,040 bytes read (10%).**  The 120 header
+bytes and 90 bytes of boot code are done.
+
+The jump at `0x0CD` lands in a REPL that immediately calls other
+routines, and the smallest of them are 9-byte bodies like `dup`.
+Part I called them without ever asking where the stack actually
+lives.  Ch 14 answers that, and the
+top of the stack turns out not to be in memory at all.
 
 Next: Chapter 14 — Stack Primitives in Machine Code.

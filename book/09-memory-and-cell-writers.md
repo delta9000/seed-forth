@@ -14,11 +14,12 @@ defining words (Chs 10 and 12), it needs to write those values at
 HERE in little-endian order, and the seed has no shift instruction
 to split them into bytes.
 
-`010-lib.fth` lines 139–162 add four words.  `+!` and `-!` are the
-read-modify-write on a cell, Forth's `*addr += n`, which the C
-compiler uses for every counter.  `,4` and `,8` are the
-little-endian writers, and they split values into bytes by dividing
-by 256.
+So how do you get byte 2 of `0xAABBCCDD` with no `>>`?
+`010-lib.fth` lines 139–162 answer with four words.  `+!` and `-!`
+are the read-modify-write on a cell, Forth's `*addr += n`, which the
+C compiler uses for every counter.  `,4` and `,8` are the
+little-endian writers, and §2 shows what they use in place of a
+shift.
 
 ## 1. `+!` and `-!`: idiomatic increment
 
@@ -119,23 +120,16 @@ bytes 4–7.  Eight bytes total, little-endian.
 
 ## 3. Why divide by 256?
 
-There is no `>>` operator in this seed, and the closest thing to a
-shift that Forth code can reach is division.  Dividing by
-256 is identical to shifting right by 8 (because `2^8 == 256`), and
-the seed's `/` is the x86 `DIV` instruction (a single machine-code
-operation), so the cost is one register-pair load and one `div r/m64`
-per shift.
+There is no `>>` in this seed, and the closest thing to a shift
+that Forth code can reach is division.  Dividing by 256 is
+identical to shifting right by 8 (because `2^8 == 256`), and the
+seed's `/` is the x86 `DIV` instruction.
 
-In modern CPUs `DIV` takes 20–40 cycles, far slower than a `SHR`'s
-1 cycle.  That doesn't matter here: `,8` runs a few hundred times
-during a compiler build, so the total cost is negligible.  The trade
-is Ch 3's again: save a primitive slot, pay tens of times the cycles
-on a cold path.
-
-The alternative would have been to add a `>>8` or `>>32` primitive.
-Either costs a slot, a dictionary header, and 10–20 bytes of machine
-code.  At a 2,040-byte budget, that's not worth it for a
-function called rarely on a non-hot path.
+On modern CPUs `DIV` takes 20–40 cycles against 1 for `SHR`.  That
+doesn't matter here: `,8` runs a few hundred times during a compiler
+build.  A `>>8` or `>>32` primitive would cost a slot, a dictionary
+header, and 10–20 bytes of machine code, so the trade is Ch 3's
+again: save a primitive, pay cycles on a cold path.
 
 ## 4. The shift-by-32 cascade
 
@@ -255,7 +249,9 @@ read the bytes back:
 Expected output: `87654321`.  The decimal `72623859790382856` is
 `0x0102030405060708`; `,8` emits its bytes in little-endian order
 (`08 07 06 05 04 03 02 01`); adding 48 to each byte produces ASCII
-`'8' '7' '6' '5' '4' '3' '2' '1'`.
+`'8' '7' '6' '5' '4' '3' '2' '1'`.  To reach that final `1`, the
+value was shifted right 56 bits by seven divisions, on a machine
+with no shift.
 
 ## Exercises
 
@@ -283,4 +279,12 @@ Expected output: `87654321`.  The decimal `72623859790382856` is
 - With no shift primitive, a right shift by 8 is `[lit] 256 /`, and
   a shift by 32 is that four times.
 
-Next: Chapter 10 — Immediacy and Constants.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, comparisons, shuffles,
+**counters and 4- and 8-byte writes**.  Still missing: `constant`,
+`if,`, `variable`.
+
+Next: Chapter 10 — Immediacy and Constants.  The library can now lay
+down any byte sequence at HERE, including x86 machine code.  Ch 10
+uses that to write a word that writes words: `constant`, which
+hand-assembles 19 bytes of x86-64 for every constant you define.

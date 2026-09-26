@@ -8,10 +8,12 @@ Proof link: every type tag, keyword ID, and libc shim address the C compiler rea
 ```
 
 So far every chapter has built one Forth word from a handful of
-others.  This one builds a word that **builds words**.  `constant` is
-a *defining word*: when you write `[lit] 42 constant magic`, you
-extend the dictionary with a new entry called `magic` that pushes
-`42` when invoked.
+others.  This one builds a word that **builds words**.  Write
+`[lit] 42 constant magic` and the dictionary gains an entry called
+`magic` whose body is x86-64 machine code that nobody typed: 19
+bytes that `constant` assembles on the spot, one `c,` at a time.
+The C compiler's token kinds, type tags, and keyword IDs are all
+defined this way.
 
 Two definitions in `010-lib.fth` (lines 164–194) do the job.
 `immediate` sets a flag that makes a word run at compile time, and
@@ -193,13 +195,10 @@ its work*.  Look at how the colon body opens and closes:
   word `constant` is building.  Two `;` tokens cannot share one
   outer colon definition.  So we exit compile mode by hand.
 
-Notice that `constant` ends in `;`, which closes *constant*'s own
-definition.  Inside constant's body, we manually call `:` and
-manually reset STATE, so two separate definitions are in play:
-the *outer* definition of `constant` (a normal colon definition,
-closed with `;`) and the *inner* definition of the new word the
-user is creating (opened by calling `:`, closed by emitting the
-`C3` ret byte by hand).
+So two definitions are in play: the *outer* definition of
+`constant` (a normal colon definition, closed with `;`) and the
+*inner* definition of the new word (opened by calling `:`, closed
+by emitting the `C3` ret byte by hand).
 
 Keeping those two definitions apart is the hard part of this
 chapter.  Every defining word in Ch 12 follows the same pattern.
@@ -257,7 +256,8 @@ echo '[lit] 42 constant magic  magic [lit] 48 + emit bye' \
 
 This defines `magic` as a constant pushing `42`, then calls it,
 adds 48, and emits the resulting byte.  Expected output: `Z`
-(ASCII 90 = 42 + 48).
+(ASCII 90 = 42 + 48).  That `42` came out of a `movabs` instruction
+the library assembled a moment earlier.
 
 To measure what `constant` wrote, capture HERE before and after
 it and emit the difference:
@@ -303,4 +303,14 @@ reading the dictionary header by hand, which Ch 17 makes easier.
 - `create` and `variable` in Ch 12 reuse the same 19-byte body with
   a different `V`.
 
-Next: Chapter 11 — Control-Flow Combinators (the climax).
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, comparisons, shuffles,
+multi-byte writes, **words that define words** (`constant`).  Still
+missing: `if,`, loops, `variable`.
+
+Next: Chapter 11 — Control-Flow Combinators (the climax).  Nothing
+in the library has used `immediate` yet, and every word written so
+far runs straight from its first token to its `ret`.  The seed's
+parser knows nothing about `if`, and nobody will teach it, because
+the parser is hex.  Ch 11 writes `if,` anyway, as an ordinary
+immediate word.

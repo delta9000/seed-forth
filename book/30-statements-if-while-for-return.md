@@ -493,6 +493,32 @@ re-parse source it has already passed.  The lookahead peeks
 the top-level peek in Ch 31) also save `cc-src-pos`, read ahead,
 and restore it, but they undo a read; the step rewind replays code.
 
+**tri.c at this stage.**  `main` in tri.c has one `for` and one `if`,
+and between them three jumps.  With tri.c compiled to `/tmp/cc-out`
+(Ch 21), list them:
+
+```sh
+objdump -D -b binary -m i386:x86-64 -M intel \
+    --start-address=0x312 --stop-address=0x4b2 /tmp/cc-out | grep -E 'j[a-z]+ '
+```
+
+```
+ 34d:   0f 84 fe 00 00 00       je     0x451
+ 44c:   e9 d0 fe ff ff          jmp    0x321
+ 490:   0f 84 1c 00 00 00       je     0x4b2
+```
+
+Each `je` was emitted by `cc-emit-jz-rel32-placeholder` as `0f 84
+00 00 00 00` and filled in by `cc-patch-rel32-to-here` once its target
+existed.  The loop's `je` at 0x34d got 0xfe, measured from 0x353,
+the loop's exit at 0x451.  The `if` on line 20 has no `else`, so
+it has one fixup, and 0x1c is the 28-byte `return t.stars;` it
+skips.  The `jmp` at 0x44c goes back to 0x321, the top of the
+condition, through `cc-emit-jmp-vaddr`.  Just before it, at
+0x431–0x44b, is `r = r + 1`: the step comes after the body
+(0x353–0x430) even though the source puts it before, which is the
+rewind above at work.
+
 ## 5. `do`/`while`
 
 ```forth file=110-cc-decl.fth
@@ -1228,6 +1254,11 @@ Toward Stage-A: the jump rel32s patched here are bytes in
 rel32 shows up only indirectly: `cc-out-v1` takes a wrong branch
 while compiling M2-Planet, and only if the self-compile reaches
 that branch.
+
+One kind of jump is still missing.  tri.c's `line(t.rows - 1 - r,
+w[r])` must hand two values to code elsewhere in the file and come
+back, and `main` itself must be reached from somewhere.  Ch 31
+compiles calls, parameters, and the entry stub.
 
 ## Takeaways
 
