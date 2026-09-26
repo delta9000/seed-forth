@@ -604,13 +604,11 @@ variable cc-loop-switch-depth
 \ ===========================================================================
 \ Statement dispatch
 \ ===========================================================================
-\ cc-parse-stmt is mutually recursive with cc-parse-if and cc-parse-compound,
-\ so we route through cc-parse-stmt-vec.  The vec is set after all three
-\ words are defined.
+\ cc-parse-stmt is mutually recursive with every statement that has a body
+\ (compound, if, while, for, do, switch), and those come first, so they call
+\ it through this deferred word (010-lib.fth), filled in once it is defined.
 
-variable cc-parse-stmt-vec
-
-: cc-parse-stmt-tramp  cc-parse-stmt-vec @ execute ;
+defer cc-parse-stmt-fwd
 
 \ cc-parse-compound ( -- )  '{' (stmt | decl)* '}'
 \ Caller has already consumed '{'.  Pushes/pops a scope so locals declared
@@ -623,7 +621,7 @@ variable cc-parse-stmt-vec
     tok-kind @ tk-punct = tok-num @ [char] } = and 0=
   while,
     cc-putback-token
-    cc-parse-stmt-tramp
+    cc-parse-stmt-fwd
   repeat,
   \ '}' was consumed by the loop test.
   cc-scope-pop ;
@@ -650,7 +648,7 @@ variable cc-parse-stmt-vec
   cc-emit-test-rdi
   cc-emit-jz-rel32-placeholder                    ( fixup-jz )
 
-  cc-parse-stmt-tramp                             \ then-body
+  cc-parse-stmt-fwd                             \ then-body
 
   \ Optional else.
   cc-next-token-keep
@@ -658,7 +656,7 @@ variable cc-parse-stmt-vec
     \ jmp end ; patch jz to here ; else-body ; patch jmp to here.
     cc-emit-jmp-rel32-placeholder                 ( fixup-jz fixup-jmp )
     swap cc-patch-rel32-to-here                   ( fixup-jmp )
-    cc-parse-stmt-tramp                           \ else-body
+    cc-parse-stmt-fwd                           \ else-body
     cc-patch-rel32-to-here                        ( -- )
   else,
     cc-putback-token
@@ -804,7 +802,7 @@ variable cc-for-step-end
   \ Park top-vaddr on rstack so it survives the body parse.
   swap >r                                         ( fixup-end ; R: ... top )
 
-  cc-parse-stmt-tramp                             \ body
+  cc-parse-stmt-fwd                             \ body
 
   \ Continue target = top-vaddr.  Walk continue list (no-op if empty).
   cc-continue-stack-head @ r@ cc-walk-and-patch-to-vaddr
@@ -909,7 +907,7 @@ variable cc-for-step-end
   cc-src-pos @ 1- cc-for-step-end !
 
   \ --- Body ---
-  cc-parse-stmt-tramp
+  cc-parse-stmt-fwd
 
   \ Continue target = HERE (just before step).  Walk continue list.
   cc-continue-stack-head @ cc-walk-and-patch-fixups
@@ -971,7 +969,7 @@ variable cc-for-step-end
   \ Record top-vaddr for the backward jnz.
   cc-here-vaddr >r                                ( ; R: ... top )
 
-  cc-parse-stmt-tramp                             \ body
+  cc-parse-stmt-fwd                             \ body
 
   \ Continue target = HERE (just before cond test).
   cc-continue-stack-head @ cc-walk-and-patch-fixups
@@ -1110,9 +1108,9 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
         cc-here-vaddr
         cc-switch-default-vaddr !
       else,
-        \ Generic statement — put back, parse via the trampoline.
+        \ Generic statement — put back, parse it as one.
         cc-putback-token
-        cc-parse-stmt-tramp
+        cc-parse-stmt-fwd
       then,
     then,
   repeat,
@@ -1298,113 +1296,64 @@ variable cc-label-count
     cc-peek-mark cc-lex-reset
   then, ;
 
-\ cc-parse-stmt ( -- )  Dispatch on the leading token.
-\ Silently skip any leading storage-class / type-qualifier keywords
-\ (static, extern, const, volatile, ...).
+\ cc-parse-expr-stmt ( -- )  An expression statement `e ;`.  The token
+\ that starts it has been read, so it goes back first.
+: cc-parse-expr-stmt
+  cc-putback-token
+  cc-parse-expr
+  [char] ; cc-expect-punct-c ;
+
+\ cc-parse-ident-stmt ( -- )  A statement that starts with an identifier:
+\ a declaration if the name is a typedef, a label definition if a ':'
+\ follows, an expression statement otherwise.
+: cc-parse-ident-stmt
+  tok-str-addr @ tok-str-len @ cc-sym-find        ( id | -1 )
+  dup 0< 0= if,
+    dup cc-sym-kind-of sk-typedef = if,
+      \ Resolved typedef: the IDENT is consumed (tok-* still holds it);
+      \ parse the declaration with the typedef's encoded base+ptr-depth.
+      cc-sym-val-of                               ( ty )
+      dup ty-base swap ty-ptr                     ( base ptr-depth )
+      cc-parse-decl-with-base exit,
+    then,
+  then,
+  drop
+  \ Not a typedef (or not found yet — it may be a forward label).
+  tok-str-addr @ tok-str-len @                    ( a u )
+  cc-peek-after-is-colon? if,
+    cc-define-label exit,
+  then,
+  2drop
+  cc-parse-expr-stmt ;
+
+\ cc-parse-stmt ( -- )  Dispatch on the leading token: one line per kind of
+\ statement, each returning with exit, once its parser has run.  Silently
+\ skip any leading storage-class / type-qualifier keywords (static,
+\ extern, const, volatile, ...).
 : cc-parse-stmt
   cc-skip-storage-quals
   cc-next-token-keep
-  cc-tok-is-basic-type-kw? if,
-    cc-parse-decl
-  else,
-    tok-kind @ tk-kw = tok-kw-id @ kw-struct = and if,
-      \ `struct TAG ... ;` at stmt scope is always a local declaration
-      \ (struct *definition* — `struct TAG { ... };` — is only allowed at top
-      \ level).  The 'struct' keyword is the current token and is
-      \ already consumed; cc-parse-struct-local-decl reads from here.
-      cc-parse-struct-local-decl
-    else,
-    tok-kind @ tk-kw = tok-kw-id @ kw-return = and if,
-      cc-parse-return
-    else,
-      tok-kind @ tk-kw = tok-kw-id @ kw-if = and if,
-        cc-parse-if
-      else,
-        tok-kind @ tk-kw = tok-kw-id @ kw-while = and if,
-          cc-parse-while
-        else,
-          tok-kind @ tk-kw = tok-kw-id @ kw-for = and if,
-            cc-parse-for
-          else,
-            tok-kind @ tk-kw = tok-kw-id @ kw-do = and if,
-              cc-parse-do-while
-            else,
-            tok-kind @ tk-kw = tok-kw-id @ kw-switch = and if,
-              cc-parse-switch
-            else,
-              tok-kind @ tk-kw = tok-kw-id @ kw-break = and if,
-                cc-parse-break-stmt
-              else,
-                tok-kind @ tk-kw = tok-kw-id @ kw-continue = and if,
-                  cc-parse-continue-stmt
-                else,
-                  tok-kind @ tk-kw = tok-kw-id @ kw-goto = and if,
-                    cc-parse-goto-stmt
-                  else,
-                    tok-kind @ tk-punct = tok-num @ [char] { = and if,
-                      cc-parse-compound
-                    else,
-                      \ Possibly an IDENT followed by ':' — a label definition.
-                      \ An IDENT that resolves to a typedef name introduces
-                      \ a declaration instead.  Check the symbol table first.
-                      tok-kind @ tk-ident = if,
-                        \ typedef-led declaration?
-                        tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
-                        dup [lit] 0 >= if,
-                          dup cc-sym-kind-of sk-typedef = if,
-                            \ Resolved typedef: consume IDENT (it IS consumed —
-                            \ tok-* still holds it), then parse decl with the
-                            \ typedef's encoded base+ptr-depth.
-                            cc-sym-val-of                                ( ty )
-                            dup ty-base swap ty-ptr                      ( base ptr-depth )
-                            cc-parse-decl-with-base
-                          else,
-                            \ Not a typedef; fall back to label / expr-stmt path.
-                            drop
-                            tok-str-addr @ tok-str-len @                ( a u )
-                            cc-peek-after-is-colon? if,
-                              cc-define-label
-                            else,
-                              2drop
-                              cc-putback-token
-                              cc-parse-expr
-                              [char] ; cc-expect-punct-c
-                            then,
-                          then,
-                        else,
-                          \ Symbol not found yet — still might be a forward label.
-                          drop
-                          tok-str-addr @ tok-str-len @                  ( a u )
-                          cc-peek-after-is-colon? if,
-                            cc-define-label
-                          else,
-                            2drop
-                            cc-putback-token
-                            cc-parse-expr
-                            [char] ; cc-expect-punct-c
-                          then,
-                        then,
-                      else,
-                        \ Expression statement leading with non-IDENT.
-                        cc-putback-token
-                        cc-parse-expr
-                        [char] ; cc-expect-punct-c
-                      then,
-                    then,
-                  then,
-                then,
-              then,
-            then,
-            then,
-          then,
-        then,
-      then,
-    then,
-    then,
-  then, ;
+  cc-tok-is-basic-type-kw? if, cc-parse-decl exit, then,
+  \ `struct TAG ... ;` at stmt scope is always a local declaration (a struct
+  \ *definition* — `struct TAG { ... };` — is only allowed at top level).
+  \ The 'struct' keyword is the current token and is already consumed;
+  \ cc-parse-struct-local-decl reads from here.
+  kw-struct   cc-tok-kw? if, cc-parse-struct-local-decl exit, then,
+  kw-return   cc-tok-kw? if, cc-parse-return            exit, then,
+  kw-if       cc-tok-kw? if, cc-parse-if                exit, then,
+  kw-while    cc-tok-kw? if, cc-parse-while             exit, then,
+  kw-for      cc-tok-kw? if, cc-parse-for               exit, then,
+  kw-do       cc-tok-kw? if, cc-parse-do-while          exit, then,
+  kw-switch   cc-tok-kw? if, cc-parse-switch            exit, then,
+  kw-break    cc-tok-kw? if, cc-parse-break-stmt        exit, then,
+  kw-continue cc-tok-kw? if, cc-parse-continue-stmt     exit, then,
+  kw-goto     cc-tok-kw? if, cc-parse-goto-stmt         exit, then,
+  [char] {    cc-tok-punct? if, cc-parse-compound       exit, then,
+  tok-kind @ tk-ident = if, cc-parse-ident-stmt exit, then,
+  cc-parse-expr-stmt ;
 
-\ Wire the trampoline now that cc-parse-stmt is defined.
-' cc-parse-stmt cc-parse-stmt-vec !
+\ Fill in the forward reference now that cc-parse-stmt is defined.
+' cc-parse-stmt is cc-parse-stmt-fwd
 
 \ ===========================================================================
 \ Function parsing: multiple functions, params, SYS-V calling convention
@@ -1434,138 +1383,6 @@ create cc-main-name-bytes  s, main
 : cc-block-end?
   tok-kind @ tk-punct =
   tok-num @ [char] } = and ;
-
-\ ===========================================================================
-\ Function-call codegen (the body of cc-parse-call, wired to cc-parse-call-vec)
-\ ===========================================================================
-
-\ cc-emit-call-vaddr ( target-vaddr -- )  Emit `call <abs-target>` (5 bytes).
-\ rel32 = target_vaddr - (callsite_after_E8 + 4) = target - (callsite_vaddr+5)
-\ where callsite_vaddr = cc-here-vaddr at the moment of E8.
-: cc-emit-call-vaddr
-  [lit] 232 cc-emit-byte                          \ E8 opcode
-  \ At this point cc-out-pos@ points at the rel32 slot's first byte.
-  \ rel32 = target - (cc-here-vaddr + 4)
-  cc-here-vaddr [lit] 4 + -                       ( rel32 )
-  cc-emit-4le ;
-
-\ cc-emit-pop-by-arg-index ( arg-index -- )  Emit a pop into the SYS-V arg
-\ register corresponding to arg-index (0=rdi, 1=rsi, 2=rdx, 3=rcx, 4=r8, 5=r9).
-\ Caller is responsible for not asking past 5.
-: cc-emit-pop-by-arg-index
-  dup [lit] 0 = if, drop cc-emit-pop-rdi else,
-  dup [lit] 1 = if, drop cc-emit-pop-rsi else,
-  dup [lit] 2 = if, drop cc-emit-pop-rdx else,
-  dup [lit] 3 = if, drop cc-emit-pop-rcx else,
-  dup [lit] 4 = if, drop cc-emit-pop-r8  else,
-                    drop cc-emit-pop-r9
-  then, then, then, then, then, ;
-
-\ cc-emit-pops-for-args ( n -- )  Pop n values off the stack into the first n
-\ SYS-V arg registers, in REVERSE order (so the last-pushed value lands in the
-\ n-th argument register).  After this, args 1..n live in rdi/rsi/rdx/rcx/r8/r9.
-\
-\ Walks i = n-1 down to 0, emitting pop-into-reg(i) at each step.  Loop drives
-\ a counter on the data stack.
-: cc-emit-pops-for-args                           ( n -- )
-  1-                                              ( i = n-1 )
-  begin,
-    dup [lit] 0 >=
-  while,
-    dup cc-emit-pop-by-arg-index
-    1-
-  repeat,
-  drop ;
-
-\ cc-parse-call ( id -- )  Parse a comma-separated argument list — the leading
-\ '(' has ALREADY been consumed by cc-parse-primary (it was the lookahead
-\ token that triggered dispatch here).  Evaluate each arg left-to-right
-\ (each result pushed onto the stack), then emit the SYS-V argument-register
-\ loads, the call, and post-call rdi <- rax move so the caller sees the
-\ return value in rdi.
-\
-\ Stack at entry: ( id ).  The id is the symbol-table id of the callee.
-\ Stack at exit:  ( ).
-: cc-parse-call
-  \ Parse the argument list.  Stack underneath: ( id ).  We thread an
-  \ argument count below the id.  Initial state: ( id 0 ).
-  [lit] 0                                         ( id arg-count )
-
-  \ Empty arg list?
-  cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [char] ) = and if,
-    \ ')' — empty arg list, leave count = 0.
-  else,
-    cc-putback-token
-    \ Loop: parse one arg, push, increment count; continue while next is ','.
-    begin,                                        ( id arg-count )
-      cc-parse-expr                               \ rdi := arg value
-      cc-emit-push-rdi
-      1+                                          \ count++
-      cc-next-token-keep
-      tok-kind @ tk-punct = tok-num @ [char] , = and 0=
-    until,                                        \ until the next is not ','
-    cc-putback-token
-    \ The token AFTER the last arg should be ')'.  Consume it.
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
-      [lit] 166 cc-die
-    then,
-  then,
-
-  ( id arg-count )
-
-  \ The SYS-V register path supports up to 6 args.  Reject excess.
-  dup [lit] 6 > if,
-    [lit] 167 cc-die
-  then,
-
-  \ NOTE on alignment: argument values are pushed while parsing, then popped
-  \ into registers before the call.  The pops restore rsp to its pre-argument
-  \ value, which our prologue keeps 16-aligned.  Nested calls happen during
-  \ expression parsing before these argument pushes are popped, so they have
-  \ their own balanced call sequence.
-
-  \ Pop arg-count values off the stack into the arg registers.
-  dup cc-emit-pops-for-args                       ( id arg-count )
-  drop                                            ( id )
-
-  \ Dispatch on symbol kind.
-  \   sk-func, val != 0 -> direct call: E8 <rel32> to absolute vaddr.
-  \   sk-func, val == 0 -> forward call: emit placeholder, register fixup
-  \                        on this prototype's call-fixups list.  When the
-  \                        function is later defined, cc-parse-function walks
-  \                        the list and patches each rel32.
-  \   sk-local + ty-func -> indirect call: load fp slot into rax, call rax.
-  \                        rdi/rsi/... already hold args; rax is free.
-  dup cc-sym-kind-of sk-func = if,
-    dup cc-sym-val-of [lit] 0 = if,
-      \ Forward call.  Emit E8 + 4-byte placeholder; thread the slot offset
-      \ onto the prototype's call-fixups list.
-      cc-emit-call-rel32-placeholder              ( id patch-off )
-      swap cc-sym-call-fixups                     ( patch-off list-cell )
-      cc-add-fixup-to-list
-    else,
-      cc-sym-val-of                               ( target-vaddr )
-      cc-emit-call-vaddr
-    then,
-  else,
-    dup cc-sym-kind-of sk-local =
-    over cc-sym-type-of ty-base ty-func = and if,
-      cc-sym-val-of                               ( slot )
-      cc-emit-load-local-into-rax                 \ rax := fp value
-      cc-emit-call-rax
-    else,
-      drop
-      [lit] 168 cc-die
-    then,
-  then,
-
-  \ Move return value into rdi (so the caller's expression machinery picks it up).
-  cc-emit-mov-rdi-rax ;
-
-\ Wire the trampoline so cc-parse-primary (in 100-cc-expr.fth) can dispatch here.
-' cc-parse-call cc-parse-call-vec !
 
 \ ===========================================================================
 \ Parameter-list parsing + spill
@@ -1821,7 +1638,7 @@ create cc-main-name-bytes  s, main
     cc-block-end? 0=
   while,
     cc-putback-token
-    cc-parse-stmt-tramp
+    cc-parse-stmt
   repeat,
   \ '}' was consumed by the loop test.
 

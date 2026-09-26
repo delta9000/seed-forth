@@ -14,7 +14,7 @@ Sources of truth, in case this appendix drifts:
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `110-cc-decl.fth` `cc-parse-stmt`
-  (lines 1304–1371).
+  (lines 1333–1353).
 
 If you discover a construct the compiler accepts that isn't listed
 below, or rejects one that is, this appendix is wrong and the
@@ -80,7 +80,7 @@ stands for `c` (so `\\`, `\'` and `\"` work).  No `\xNN`, no octal.
 
 ## Statements
 
-`cc-parse-stmt` in `110-cc-decl.fth:1304` dispatches the following
+`cc-parse-stmt` in `110-cc-decl.fth:1333` dispatches the following
 forms.  Anything not listed here is rejected by the parser with one
 of `110-cc-decl.fth`'s or `100-cc-expr.fth`'s codes (Appendix G).
 

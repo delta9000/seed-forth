@@ -495,11 +495,11 @@ cannot refer to a word that doesn't exist yet.
 
 ```forth file=040-cc-prep.fth
 \ ===========================================================================
-\ Directive dispatch.  Vector for recursion (#include -> process-region).
+\ Directive dispatch.  #include recurses into cc-prep-process-region, which
+\ is defined below, so it calls it through a deferred word (010-lib.fth).
 \ ===========================================================================
 
-variable cc-prep-process-vec
-: cc-prep-process-region-tramp  cc-prep-process-vec @ execute ;
+defer cc-prep-process-region-fwd
 
 \ State save / restore for recursive descent.
 \ Arrays indexed by cc-prep-inc-depth (parallel to the include-pool slots),
@@ -521,11 +521,12 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
 
 ```
 
-The fix is `cc-prep-process-vec`: declare the variable here, define a
-trampoline that executes through it, and store
-`' cc-prep-process-region` into it once the walker exists (§6).  The
+The fix is a deferred word (Ch 12): `defer cc-prep-process-region-fwd`
+names the walker now, the handler calls that name, and
+`' cc-prep-process-region is cc-prep-process-region-fwd` fills it in
+once the walker exists (§6).  The
 save arrays are length 4, matching the pool, so four nested includes
-is the hard ceiling.  M2-Planet uses at most two.  With the vector
+is the hard ceiling.  M2-Planet uses at most two.  With the deferred word
 and the save arrays in place, the handler can recurse:
 
 ```forth file=040-cc-prep.fth
@@ -566,7 +567,7 @@ and the save arrays in place, the handler can recurse:
     cc-prep-src-len !                              ( buf-a )
     cc-prep-src-addr !
     [lit] 0 cc-prep-src-pos !
-    cc-prep-process-region-tramp
+    cc-prep-process-region-fwd
     \ Restore outer region (depth has been decremented by now).
     [lit] 1 cc-prep-inc-depth -!
     cc-prep-save-addr cc-prep-save-slot @ cc-prep-src-addr !
@@ -594,7 +595,7 @@ For a quoted path, the handler measures the name up to the closing
 `"`, loads the file, and stashes the current region triple in
 `cc-prep-save-{addr,len,pos}` at the *outer* depth.  It then bumps
 the depth, points the region globals at the loaded buffer, walks it
-through the trampoline, decrements the depth and reads the triple
+through the deferred word, decrements the depth and reads the triple
 back.
 
 Angle-bracket includes (`#include <stdio.h>`) take the other branch.
@@ -766,7 +767,7 @@ variable cc-prep-at-line-start
     then,
   repeat, ;
 
-' cc-prep-process-region cc-prep-process-vec !
+' cc-prep-process-region is cc-prep-process-region-fwd
 
 ```
 
@@ -778,7 +779,7 @@ look-ahead scans the line's leading blanks, and asking at every byte
 would rescan them once per byte of the line.
 Otherwise it emits the current byte, advances, and sets the flag
 according to whether that byte was a newline.  The last line of the
-listing patches the trampoline vector from §4.
+listing fills in the deferred word from §4.
 
 `cc-prep-line-is-directive?` saves `cc-prep-src-pos`, skips blanks,
 checks for `#` and restores the position.  Because it restores, the

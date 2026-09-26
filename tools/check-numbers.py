@@ -147,8 +147,8 @@ FTH_SEMI_RE = re.compile(r"(^|\s);(\s|$)")
 # A die site is any word that exits with a literal code: `[lit] N die` (the
 # assembler, 010-lib), `[lit] N cc-die`, the compiler's two checks that die
 # with the code they are given, `cc-check-cap` and `cc-read-all`, and the
-# assembler's two, `asm-check-cap` and `asm-tok-err`.
-DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+(?:die|cc-die|cc-check-cap|cc-read-all|asm-check-cap|asm-tok-err)(?=\s|$)")
+# assembler's three, `asm-check-cap`, `asm-tok-err` and `asm-do-ref`.
+DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+(?:die|cc-die|cc-check-cap|cc-read-all|asm-check-cap|asm-tok-err|asm-do-ref)(?=\s|$)")
 CITE_RE = re.compile(r"([0-9]\d\d-[a-z0-9-]+\.fth):(\d+(?:,\d+)*)")
 ROW_CODE_RE = re.compile(r"^\s*\|\s*(\d+)\s*\|")
 NAME_TOKEN_RE = re.compile(r"`([a-z][a-z0-9?*<>=!+./-]+)`")

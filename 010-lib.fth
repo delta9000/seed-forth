@@ -401,6 +401,33 @@ immediate
 \ an 8-byte cell, initialized to 0: a create whose data area is one cell.
 : variable  create [lit] 0 , ;
 
+\ ===== Deferred words: defer / is =====
+\ A word can only call words that already exist, but two words that call
+\ each other (a statement parser and the if-statement parser inside it)
+\ cannot both come first.  defer names a word now and says what it does
+\ later: its body calls whatever xt sits in a cell after its code, and is
+\ fills that cell once the real word exists.
+\
+\ A deferred word's body is 29 bytes of code, then the cell:
+\   <18 bytes>   push-imm64, of the cell's address   ; rdi = &cell
+\   E8 <rel32>   call @                              ; rdi = the xt
+\   E8 <rel32>   call execute                        ; run it
+\   C3           ret
+\   <8 bytes>    the cell (0 until is fills it)
+' @       constant fetch-xt
+' execute constant execute-xt
+[lit] 29 constant defer-code-size
+
+\ defer ( "name" -- )  Define name as a word that runs the xt in its cell.
+: defer
+  : here defer-code-size + push-imm64,           \ rdi = address of the cell
+  fetch-xt call,  execute-xt call,  ret,
+  [lit] 0 ,  [lit] 0 state ! ;
+
+\ is ( xt "name" -- )  Make the deferred word name run xt from now on.
+\ ' finds name's code; its cell sits defer-code-size bytes further on.
+: is  ' defer-code-size + ! ;
+
 \ token ( "tok" -- a u )  read the next token; leave its address in the TIB
 \ and its length.  The seed keeps the length in a register Forth cannot
 \ see, so we blank the TIB's 256 bytes first and then count the token's

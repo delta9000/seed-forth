@@ -10,9 +10,10 @@ Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-o
 Every earlier Part III chapter compiles a piece of a C function: an
 expression, a declaration, a statement.  Nothing yet reads a whole
 file.  This chapter covers the rest of `110-cc-decl.fth`
-(lines 1409–2596), which turns those pieces into a translation-unit
-compiler.  It has four main words.  `cc-parse-call` compiles direct,
-forward, and indirect calls.  `cc-parse-function` wraps a body in a
+(lines 1358–2413), which turns those pieces into a translation-unit
+compiler, plus the call parser that the expression file needs.  It has
+four main words.  `cc-parse-call` compiles direct, forward, and
+indirect calls.  `cc-parse-function` wraps a body in a
 prologue, epilogue, and scope.  `cc-parse-function-list` loops over
 file-scope declarations until end of file.  The 26-byte entry stub
 at `0x400078` passes `argc` / `argv` to `main` and exits with its
@@ -67,17 +68,22 @@ create cc-main-name-bytes  s, main
 
 ## 2. The call codegen
 
-Ch 28's `cc-parse-primary` calls `cc-parse-call` through
-`cc-parse-call-vec` once it has seen `IDENT (`.  Three helpers come
+Ch 28's `cc-parse-primary` calls `cc-parse-call` once it has seen
+`IDENT (`.  A call is an expression, so this code lives in
+`100-cc-expr.fth`, just above `cc-parse-primary` (the `expr-call`
+chunk in Ch 27's root block); it is taught here, next to the
+function definitions it calls.  Its arguments are expressions,
+parsed through Ch 27's `cc-parse-expr-fwd`.  Three helpers come
 first.  `cc-emit-call-vaddr` emits `E8 <rel32>` to an absolute
 target.  `cc-emit-pops-for-args` pops `n` pushed argument values into
 the System V argument registers, walking `i = n-1 .. 0` so the
 last-pushed value lands in the `n`-th register; for each index it
 calls `cc-emit-pop-by-arg-index` to pick the register.
 
-```forth file=110-cc-decl.fth
+```forth chunk=expr-call
 \ ===========================================================================
-\ Function-call codegen (the body of cc-parse-call, wired to cc-parse-call-vec)
+\ Function calls: `NAME ( args )`.  cc-parse-primary calls cc-parse-call
+\ once it has seen an identifier followed by '('.
 \ ===========================================================================
 
 \ cc-emit-call-vaddr ( target-vaddr -- )  Emit `call <abs-target>` (5 bytes).
@@ -125,7 +131,7 @@ calls `cc-emit-pop-by-arg-index` to pick the register.
 1. Parse the comma-separated arguments, pushing each value with
    `cc-emit-push-rdi` and counting them.  The count sits under the
    symbol id on the data stack.
-2. After `)`, reject more than six arguments (code 167), then pop
+2. After `)`, reject more than six arguments (code 122), then pop
    the values into registers.
 3. Dispatch on the callee's symbol:
    - `sk-func` with a non-zero `val` → `call <abs-vaddr>` via
@@ -142,7 +148,7 @@ Six is the System V register limit; beyond it arguments go on the
 stack, which this compiler doesn't implement.  M2-Planet has no
 function with more than six parameters.
 
-```forth file=110-cc-decl.fth
+```forth chunk=expr-call
 \ cc-parse-call ( id -- )  Parse a comma-separated argument list — the leading
 \ '(' has ALREADY been consumed by cc-parse-primary (it was the lookahead
 \ token that triggered dispatch here).  Evaluate each arg left-to-right
@@ -165,7 +171,7 @@ function with more than six parameters.
     cc-putback-token
     \ Loop: parse one arg, push, increment count; continue while next is ','.
     begin,                                        ( id arg-count )
-      cc-parse-expr                               \ rdi := arg value
+      cc-parse-expr-fwd                           \ rdi := arg value
       cc-emit-push-rdi
       1+                                          \ count++
       cc-next-token-keep
@@ -175,7 +181,7 @@ function with more than six parameters.
     \ The token AFTER the last arg should be ')'.  Consume it.
     cc-next-token-keep
     tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
-      [lit] 166 cc-die
+      [lit] 121 cc-die
     then,
   then,
 
@@ -183,7 +189,7 @@ function with more than six parameters.
 
   \ The SYS-V register path supports up to 6 args.  Reject excess.
   dup [lit] 6 > if,
-    [lit] 167 cc-die
+    [lit] 122 cc-die
   then,
 
   \ NOTE on alignment: argument values are pushed while parsing, then popped
@@ -223,15 +229,12 @@ function with more than six parameters.
       cc-emit-call-rax
     else,
       drop
-      [lit] 168 cc-die
+      [lit] 123 cc-die
     then,
   then,
 
   \ Move return value into rdi (so the caller's expression machinery picks it up).
   cc-emit-mov-rdi-rax ;
-
-\ Wire the trampoline so cc-parse-primary (in 100-cc-expr.fth) can dispatch here.
-' cc-parse-call cc-parse-call-vec !
 
 ```
 
@@ -573,7 +576,7 @@ when it didn't.
     cc-block-end? 0=
   while,
     cc-putback-token
-    cc-parse-stmt-tramp
+    cc-parse-stmt
   repeat,
   \ '}' was consumed by the loop test.
 

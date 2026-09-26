@@ -126,13 +126,6 @@ variable asm-out-pos
   asm-out-buf asm-out-pos @ + c!
   [lit] 1 asm-out-pos +! ;
 
-\ asm-emit-4le ( v -- )  Low 4 bytes, little-endian.
-: asm-emit-4le
-  dup asm-emit-byte
-  [lit] 256 / dup asm-emit-byte
-  [lit] 256 / dup asm-emit-byte
-  [lit] 256 / asm-emit-byte ;
-
 \ ============================================================================
 \ C. Output file write
 \ ============================================================================
@@ -233,11 +226,12 @@ variable asm-dec-neg
 variable asm-dec-hex
 variable asm-dec-i
 
-\ asm-parse-decimal ( addr len -- value )
-\ Integer with optional leading '-' and optional '0x' / '0X' prefix for hex.
+\ asm-parse-number ( addr len -- value )
+\ Decimal or hex integer: optional leading '-', then an optional '0x' / '0X'
+\ prefix for hex.
 \ (Matches a subset of mescc-tools' strtoint sufficient for amd64 inputs;
 \ 0b binary and bare-0 octal are not used by M2-Planet's M1 output.)
-: asm-parse-decimal
+: asm-parse-number
   asm-dec-len ! asm-dec-addr !
   [lit] 0 asm-dec-val !
   [lit] 0 asm-dec-neg !
@@ -284,15 +278,15 @@ variable asm-dec-i
     [lit] 0 swap -
   then, ;
 
-\ Variable-width little-endian byte emitters.
-: asm-emit-1le  asm-emit-byte ;
-: asm-emit-2le
-  dup asm-emit-byte
-  [lit] 256 / asm-emit-byte ;
-: asm-emit-3le
-  dup asm-emit-byte
-  [lit] 256 / dup asm-emit-byte
-  [lit] 256 / asm-emit-byte ;
+\ asm-emit-le ( v width -- )  Emit the low width bytes of v, little-endian.
+: asm-emit-le
+  begin,
+    dup
+  while,
+    over asm-emit-byte                     ( v width )
+    swap [lit] 256 / swap 1-               ( v/256 width-1 )
+  repeat,
+  2drop ;
 
 \ ============================================================================
 \ Whitespace / comment skipper and token reader
@@ -406,169 +400,69 @@ variable asm-hex-i
   [lit] 2 asm-nl-byte [lit] 1 write drop
   die ;
 
-\ ---- Numeric / absolute / relative emission helpers ----
-\ Each handler: pass 1 just bumps IP by W; pass 2 emits W bytes resolving the
-\ ref.  Numeric form (`!42`, `%-1`, etc.) emits the value directly LE; label
-\ form looks the name up in the label table.
+\ ---- Sigil references ----
+\ A token that starts with one of the six sigils stands for a number of
+\ width bytes: its body is either a number (`!42`, `%-1`, `$0x3C`), emitted
+\ as is, or a label, whose address is emitted either absolute or relative
+\ to the end of the field.  Pass 1 only advances the IP by width; pass 2
+\ emits the bytes.
+\
+\   sigil  width  label form
+\     !      1    relative
+\     @      2    relative
+\     ~      3    relative
+\     %      4    relative, or %target>base: target - base
+\     $      2    absolute
+\     &      4    absolute
 
-\ asm-emit-numeric-N ( w -- )  Pass 2: parse decimal from token body, emit w bytes LE.
-\ For width 1/2/3/4 dispatched inline by each sigil handler (no asm-emit-Nle
-\ generic to avoid extra dispatch overhead).
+\ asm-ref-name ( -- a u )  The token's body: everything after the sigil.
+: asm-ref-name  asm-token-start-tmp @ 1+  asm-token-len-tmp @ 1- ;
 
-\ asm-do-amp-ref ( -- )  '&':  4-byte absolute (label) or 4-byte LE (numeric).
-: asm-do-amp-ref
+\ asm-do-ref ( width relative? err -- )  Handle a sigil token of width
+\ bytes.  A label that is not defined dies with err (after echoing the
+\ token).
+: asm-do-ref
   asm-pass @ [lit] 1 = if,
-    [lit] 4 asm-ip +!
+    2drop asm-ip +! exit,                   \ pass 1: count the bytes
+  then,
+  >r >r                                     ( width ; R: err relative? )
+  asm-tok-numeric? if,
+    asm-ref-name asm-parse-number           ( width v )
   else,
-    asm-tok-numeric? if,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-parse-decimal asm-emit-4le
-    else,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-find-label
-      if,
-        asm-emit-4le
-      else,
-        drop [lit] 231 asm-tok-err
-      then,
+    asm-ref-name asm-find-label 0= if,      ( width ip )
+      r> drop r> asm-tok-err                \ undefined label: exits
     then,
-    [lit] 4 asm-ip +!
-  then, ;
+    r@ if,                                  \ relative to the field's end
+      over asm-ip @ + -                     ( width ip-IP-width )
+    then,
+  then,
+  r> drop r> drop                           ( width v )
+  over asm-emit-le                          ( width )
+  asm-ip +! ;
 
-\ asm-do-pct-ref ( -- )  '%': 4-byte relative (label[>base]) or 4-byte LE (numeric).
+\ asm-do-pct-ref ( -- )  '%': asm-do-ref's 4-byte relative form, plus
+\ '%target>base', which emits target - base (two labels, no IP).
 : asm-do-pct-ref
-  asm-pass @ [lit] 1 = if,
-    [lit] 4 asm-ip +!
-  else,
-    asm-tok-numeric? if,
+  asm-pass @ [lit] 2 =  asm-tok-numeric? 0=  and if,
+    asm-find-gt
+    asm-gt-pos @ [lit] 0 >= if,
       asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-parse-decimal asm-emit-4le
-    else,
-      asm-find-gt
-      asm-gt-pos @ [lit] 0 >= if,
-        asm-token-start-tmp @ 1+
-        asm-gt-pos @
-        asm-find-label                            ( target flag )
-        if,
-          asm-token-start-tmp @ 1+ asm-gt-pos @ + 1+
-          asm-token-len-tmp @ asm-gt-pos @ - [lit] 2 -
-          asm-find-label                          ( target base flag )
-          if,
-            - asm-emit-4le
-          else,
-            drop drop [lit] 232 asm-tok-err
-          then,
-        else,
-          drop [lit] 233 asm-tok-err
-        then,
-      else,
-        asm-token-start-tmp @ 1+
-        asm-token-len-tmp @ 1-
-        asm-find-label
-        if,
-          asm-ip @ [lit] 4 + -
-          asm-emit-4le
-        else,
-          drop [lit] 234 asm-tok-err
-        then,
+      asm-gt-pos @
+      asm-find-label                        ( target flag )
+      0= if,
+        drop [lit] 233 asm-tok-err          \ target undefined
       then,
-    then,
-    [lit] 4 asm-ip +!
-  then, ;
-
-\ asm-do-bang-ref ( -- )  '!': 1-byte relative (label) or 1-byte LE (numeric).
-: asm-do-bang-ref
-  asm-pass @ [lit] 1 = if,
-    [lit] 1 asm-ip +!
-  else,
-    asm-tok-numeric? if,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-parse-decimal asm-emit-1le
-    else,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-find-label
-      if,
-        asm-ip @ 1+ -
-        asm-emit-1le
-      else,
-        drop [lit] 235 asm-tok-err
+      asm-token-start-tmp @ 1+ asm-gt-pos @ + 1+
+      asm-token-len-tmp @ asm-gt-pos @ - [lit] 2 -
+      asm-find-label                        ( target base flag )
+      0= if,
+        2drop [lit] 232 asm-tok-err         \ base undefined
       then,
+      - [lit] 4 asm-emit-le
+      [lit] 4 asm-ip +! exit,
     then,
-    [lit] 1 asm-ip +!
-  then, ;
-
-\ asm-do-at-ref ( -- )  '@': 2-byte relative (label) or 2-byte LE (numeric).
-: asm-do-at-ref
-  asm-pass @ [lit] 1 = if,
-    [lit] 2 asm-ip +!
-  else,
-    asm-tok-numeric? if,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-parse-decimal asm-emit-2le
-    else,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-find-label
-      if,
-        asm-ip @ [lit] 2 + -
-        asm-emit-2le
-      else,
-        drop [lit] 236 asm-tok-err
-      then,
-    then,
-    [lit] 2 asm-ip +!
-  then, ;
-
-\ asm-do-tilde-ref ( -- )  '~': 3-byte relative (label) or 3-byte LE (numeric).
-: asm-do-tilde-ref
-  asm-pass @ [lit] 1 = if,
-    [lit] 3 asm-ip +!
-  else,
-    asm-tok-numeric? if,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-parse-decimal asm-emit-3le
-    else,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-find-label
-      if,
-        asm-ip @ [lit] 3 + -
-        asm-emit-3le
-      else,
-        drop [lit] 237 asm-tok-err
-      then,
-    then,
-    [lit] 3 asm-ip +!
-  then, ;
-
-\ asm-do-dollar-ref ( -- )  '$': 2-byte absolute (label) or 2-byte LE (numeric).
-: asm-do-dollar-ref
-  asm-pass @ [lit] 1 = if,
-    [lit] 2 asm-ip +!
-  else,
-    asm-tok-numeric? if,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-parse-decimal asm-emit-2le
-    else,
-      asm-token-start-tmp @ 1+
-      asm-token-len-tmp @ 1-
-      asm-find-label
-      if,
-        asm-emit-2le
-      else,
-        drop [lit] 238 asm-tok-err
-      then,
-    then,
-    [lit] 2 asm-ip +!
-  then, ;
+  then,
+  [lit] 4 true [lit] 234 asm-do-ref ;
 
 \ asm-do-hex ( -- )  Token of hex digits -> 1 byte per pair.
 : asm-do-hex
@@ -588,39 +482,20 @@ variable asm-hex-i
     repeat,
   then, ;
 
-\ asm-process-token ( start len -- )  Dispatch on first char.
+\ asm-process-token ( start len -- )  Dispatch on the token's first char:
+\ a label declaration, one of the six sigils (width, relative?, and the
+\ code for an undefined label), or else hex bytes.
 : asm-process-token
   asm-token-len-tmp !  asm-token-start-tmp !
-  asm-token-start-tmp @ c@
-  dup [char] : = if,
-    drop asm-do-label-decl
-  else,
-    dup [char] ! = if,
-      drop asm-do-bang-ref
-    else,
-      dup [char] @ = if,
-        drop asm-do-at-ref
-      else,
-        dup [char] ~ = if,
-          drop asm-do-tilde-ref
-        else,
-          dup [char] % = if,
-            drop asm-do-pct-ref
-          else,
-            dup [char] $ = if,
-              drop asm-do-dollar-ref
-            else,
-              dup [char] & = if,
-                drop asm-do-amp-ref
-              else,
-                drop asm-do-hex
-              then,
-            then,
-          then,
-        then,
-      then,
-    then,
-  then, ;
+  asm-token-start-tmp @ c@                  ( c )
+  dup [char] : = if, drop asm-do-label-decl                   exit, then,
+  dup [char] ! = if, drop [lit] 1 true    [lit] 235 asm-do-ref exit, then,
+  dup [char] @ = if, drop [lit] 2 true    [lit] 236 asm-do-ref exit, then,
+  dup [char] ~ = if, drop [lit] 3 true    [lit] 237 asm-do-ref exit, then,
+  dup [char] % = if, drop asm-do-pct-ref                      exit, then,
+  dup [char] $ = if, drop [lit] 2 [lit] 0 [lit] 238 asm-do-ref exit, then,
+  dup [char] & = if, drop [lit] 4 [lit] 0 [lit] 231 asm-do-ref exit, then,
+  drop asm-do-hex ;
 
 \ ============================================================================
 \ Two-pass driver

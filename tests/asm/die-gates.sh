@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Die gates for 130-asm.fth: M1 inputs the assembler must reject, each with
 # its own exit code (Appendix G, 230-249).  Every buffer and table has one
-# gate that overflows it; 231 stands for the undefined-label family (the
+# gate that overflows it, and every sigil has one for an undefined label (the
 # token is echoed to stderr before the exit).
 set -uo pipefail
 cd "$(dirname "$0")/../.."
@@ -28,9 +28,24 @@ gate() {
     fi
 }
 
-# 231: '&label' with no ':label' anywhere.
+# 231..238: a sigil naming a label that no ':label' defines.  Each sigil
+# has its own code; '%target>base' has one for each of its two labels.
 printf ':start\n&nowhere\n' > "$TMP/in.M1"
 gate "231 undefined &label" 231
+printf ':start\n%%start>nowhere\n' > "$TMP/in.M1"
+gate "232 undefined %target>base base" 232
+printf ':start\n%%nowhere>start\n' > "$TMP/in.M1"
+gate "233 undefined %target>base target" 233
+printf ':start\n%%nowhere\n' > "$TMP/in.M1"
+gate "234 undefined %label" 234
+printf ':start\n!nowhere\n' > "$TMP/in.M1"
+gate "235 undefined !label" 235
+printf ':start\n@nowhere\n' > "$TMP/in.M1"
+gate "236 undefined @label" 236
+printf ':start\n~nowhere\n' > "$TMP/in.M1"
+gate "237 undefined ~label" 237
+printf ':start\n$nowhere\n' > "$TMP/in.M1"
+gate "238 undefined \$label" 238
 
 # 239: source fills the 4 MiB asm-src-buf (4 MiB of blanks).
 head -c 4194304 /dev/zero | tr '\0' ' ' > "$TMP/in.M1"

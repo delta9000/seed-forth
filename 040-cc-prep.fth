@@ -316,11 +316,11 @@ variable cc-prep-dec-seen
   cc-prep-dec-acc @ cc-prep-dec-seen @ ;
 
 \ ===========================================================================
-\ Directive dispatch.  Vector for recursion (#include -> process-region).
+\ Directive dispatch.  #include recurses into cc-prep-process-region, which
+\ is defined below, so it calls it through a deferred word (010-lib.fth).
 \ ===========================================================================
 
-variable cc-prep-process-vec
-: cc-prep-process-region-tramp  cc-prep-process-vec @ execute ;
+defer cc-prep-process-region-fwd
 
 \ State save / restore for recursive descent.
 \ Arrays indexed by cc-prep-inc-depth (parallel to the include-pool slots),
@@ -377,7 +377,7 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
     cc-prep-src-len !                              ( buf-a )
     cc-prep-src-addr !
     [lit] 0 cc-prep-src-pos !
-    cc-prep-process-region-tramp
+    cc-prep-process-region-fwd
     \ Restore outer region (depth has been decremented by now).
     [lit] 1 cc-prep-inc-depth -!
     cc-prep-save-addr cc-prep-save-slot @ cc-prep-src-addr !
@@ -520,7 +520,7 @@ variable cc-prep-at-line-start
     then,
   repeat, ;
 
-' cc-prep-process-region cc-prep-process-vec !
+' cc-prep-process-region is cc-prep-process-region-fwd
 
 \ ===========================================================================
 \ Built-in macro constants — pre-populate the macro table with the small set

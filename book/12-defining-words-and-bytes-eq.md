@@ -1,10 +1,10 @@
 # Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`
 
 ```text
-Missing capability: the library lacks variable storage and byte-comparison helpers.
-New pattern: create + allot for data areas; a search loop that returns the moment it knows (exit,).
-Artifact after this chapter: allot, create, variable, s,, bytes-eq — 010-lib.fth is now complete.
-Proof link: macro (Ch 22) and symbol (Ch 24) lookup compare names via bytes-eq; every fixed compiler table is a create/allot buffer.
+Missing capability: the library lacks variable storage, forward references and byte-comparison helpers.
+New pattern: create + allot for data areas; defer/is for a word whose meaning comes later; a search loop that returns the moment it knows (exit,).
+Artifact after this chapter: allot, create, variable, defer, is, s,, bytes-eq — 010-lib.fth is now complete.
+Proof link: macro (Ch 22) and symbol (Ch 24) lookup compare names via bytes-eq; every fixed compiler table is a create/allot buffer; the parsers' mutual recursion (Chs 22, 27, 30) goes through defer.
 ```
 
 Where does a compiler written in this library keep its line number?
@@ -14,12 +14,13 @@ named *storage*: counters, buffers, tables.  And when it meets the
 identifier `main`, it needs to ask whether those four bytes match a
 name it has seen before, with no string type.
 
-The last 69 lines of `010-lib.fth` (374–442) supply both.  `allot`
+The last 96 lines of `010-lib.fth` (374–469) supply both.  `allot`
 bumps HERE by a byte count.  `create` reuses Ch 10's 19-byte runtime
 body but makes it push the address of a data area that follows the
 body.  `variable` is `create` with one zero cell already in place.
 Together they cover every static-memory pattern the C compiler
-needs.  `s,` fills a data area with the bytes of a name, such as
+needs.  `defer` and `is` let a word call another word that is not
+written yet, which two parsers that call each other need.  `s,` fills a data area with the bytes of a name, such as
 `main`, and `bytes-eq` compares two byte ranges, returning with
 Ch 11's `exit,` at the first mismatch.  Its callers are the macro
 and symbol lookups of Chs 22 and 24.  The seed's `,` primitive,
@@ -124,7 +125,52 @@ what (if anything) follows the `ret`.
 | `create`   | the data-area addr   | nothing (user fills via `allot`/`c,`/`,`) |
 | `variable` | the data-area addr   | one 8-byte zero cell   |
 
-## 4. `s,`: names as data
+## 4. `defer` and `is`: a name now, a meaning later
+
+`:` compiles a call to a word it can find, so a word can only call
+words defined before it.  That is a problem for words that call each
+other.  The C compiler's statement parser calls the `if` parser, and
+the `if` parser calls the statement parser for its body; whichever is
+written first cannot name the other.
+
+A *deferred* word solves it.  `defer NAME` defines `NAME` now, with a
+body that runs whatever execution token (xt) sits in a cell after its
+code.  Callers compile ordinary calls to `NAME`.  Later, once the
+real word exists, `' REAL is NAME` stores its xt in that cell, and
+from then on every call to `NAME` runs `REAL`:
+
+```forth
+' @       constant fetch-xt
+' execute constant execute-xt
+[lit] 29 constant defer-code-size
+
+: defer
+  : here defer-code-size + push-imm64,           \ rdi = address of the cell
+  fetch-xt call,  execute-xt call,  ret,
+  [lit] 0 ,  [lit] 0 state ! ;
+
+: is  ' defer-code-size + ! ;
+```
+
+`defer` is `create`'s recipe with two calls added.  `:` builds the
+header, and the body starts at HERE with Ch 10's 18-byte
+`push-imm64,`, whose value is the address of the cell.  Then come
+two 5-byte calls: `@` fetches the xt out of the cell, and the seed's
+`execute` runs it.  A `ret` ends the code, and the cell itself
+follows, 18 + 5 + 5 + 1 = 29 bytes after the start of the body.
+
+`is` finds that cell again.  `'` reads `NAME` and returns its xt,
+which is the first byte of its body, so the cell is at xt + 29.  The
+xts of `@` and `execute` are captured with `'` at load time, as
+Ch 11 did for `branch` and `0branch`, so nothing depends on where the
+seed put them.
+
+A deferred word that is called before any `is` jumps to address 0
+and crashes, so every `defer` in the compiler is followed, later in
+the same file, by the `is` that fills it.  Chs 22, 27 and 30 use it
+wherever a parser needs a word that the file defines further down.
+
+## 5. `s,`: names as data
 
 The C compiler needs a few fixed names as bytes: `main` to find the
 entry point, `putchar` for its libc shim.  `s,` lays down the next
@@ -143,7 +189,7 @@ token with `' drop` as `char` does, and then counts bytes up to the
 first blank.  A token never contains a blank, so the count is its
 length.
 
-## 5. `bytes-eq`: stop at the first mismatch
+## 6. `bytes-eq`: stop at the first mismatch
 
 The last word in `010-lib.fth` is a byte-by-byte memory comparator.
 
@@ -221,6 +267,33 @@ first differing byte.
 \ variable ( "name" -- )  Define name as a word that pushes the address of
 \ an 8-byte cell, initialized to 0: a create whose data area is one cell.
 : variable  create [lit] 0 , ;
+
+\ ===== Deferred words: defer / is =====
+\ A word can only call words that already exist, but two words that call
+\ each other (a statement parser and the if-statement parser inside it)
+\ cannot both come first.  defer names a word now and says what it does
+\ later: its body calls whatever xt sits in a cell after its code, and is
+\ fills that cell once the real word exists.
+\
+\ A deferred word's body is 29 bytes of code, then the cell:
+\   <18 bytes>   push-imm64, of the cell's address   ; rdi = &cell
+\   E8 <rel32>   call @                              ; rdi = the xt
+\   E8 <rel32>   call execute                        ; run it
+\   C3           ret
+\   <8 bytes>    the cell (0 until is fills it)
+' @       constant fetch-xt
+' execute constant execute-xt
+[lit] 29 constant defer-code-size
+
+\ defer ( "name" -- )  Define name as a word that runs the xt in its cell.
+: defer
+  : here defer-code-size + push-imm64,           \ rdi = address of the cell
+  fetch-xt call,  execute-xt call,  ret,
+  [lit] 0 ,  [lit] 0 state ! ;
+
+\ is ( xt "name" -- )  Make the deferred word name run xt from now on.
+\ ' finds name's code; its cell sits defer-code-size bytes further on.
+: is  ' defer-code-size + ! ;
 
 \ token ( "tok" -- a u )  read the next token; leave its address in the TIB
 \ and its length.  The seed keeps the length in a register Forth cannot
@@ -308,6 +381,21 @@ For `bytes-eq`:
 Expected output: `10`.  `a` and `b` are identical 3-byte buffers
 (`HI\0`); `a` and `c` differ at byte 2 (`HI\0` vs `HX\0`).
 
+### `defer` and `is` in the seed
+
+```sh
+{ cat 010-lib.fth
+  echo 'defer greet'
+  echo ': twice  greet greet ;'
+  echo ": say-a  [lit] 65 emit ;  ' say-a is greet  twice"
+  echo ": say-b  [lit] 66 emit ;  ' say-b is greet  twice"
+} | ./seed-forth
+```
+
+Expected: `AABB`.  `twice` is compiled while `greet` still has no
+meaning.  Each `is` changes what `greet` does, and `twice` follows
+without being recompiled.
+
 ### The finale: every Part I word at once
 
 One last run, using nothing but words Part I built.  `src` holds the
@@ -362,6 +450,8 @@ seed.
   `ret`.
 - `allot` bumps HERE by `n` bytes, and with `create` it reserves a
   named data area of any size.
+- `defer` defines a word whose body runs the xt in a cell, and `is`
+  fills the cell, so a word can call one that is written later.
 - `bytes-eq` returns at the first mismatch with `exit,`, after
   `r> drop` restores the return stack it borrowed; `s,` supplies the
   fixed names it is compared against.
@@ -369,7 +459,7 @@ seed.
 **Part I tally, complete.**  Byte emission, Boolean logic,
 subtraction, file I/O, character tests, comparisons, shuffles,
 multi-byte writes, `constant`, branches and loops, **variables,
-buffers, and strings**.  `010-lib.fth` is complete.
+buffers, forward references, and strings**.  `010-lib.fth` is complete.
 
 ## Bridge to Part II: what Part I bought us
 

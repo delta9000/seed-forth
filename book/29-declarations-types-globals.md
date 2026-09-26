@@ -15,7 +15,7 @@ that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
 That machinery sits at the top of `110-cc-decl.fth`, the longest file
-in Part III at 2596 lines.  This chapter reads lines 1–603.  The rest
+in Part III at 2413 lines.  This chapter reads lines 1–603.  The rest
 of the file is split by source order rather than by topic: Ch 30
 takes the statements and Ch 31 takes functions, enums, typedefs,
 globals, and the entry stub.  The split has to follow source order

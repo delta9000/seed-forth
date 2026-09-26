@@ -245,7 +245,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 ```
 
 The claim rests on step 5.  The 1,772-byte seed, extended by
-`010-lib.fth` and running the 6,878 lines of compiler Forth in
+`010-lib.fth` and running the 6,715 lines of compiler Forth in
 `020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
 binary, compiling M2-Planet's sources, emits the same `.M1` text
@@ -297,9 +297,9 @@ seen every component along the seed-forth path:
 
 - Ch 13–20: the 1,772-byte seed itself (`000-seed.hex0`).
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
-  ~440 lines of Forth that turn the seed's 32 primitives into
+  ~470 lines of Forth that turn the seed's 32 primitives into
   a usable language.
-- Ch 21–32: the C-subset compiler, 6,878 lines of Forth
+- Ch 21–32: the C-subset compiler, 6,715 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
 
@@ -317,6 +317,17 @@ reference (x86 output): each must produce the same bytes from both,
 or be rejected by both, or the stage fails.  Nothing past
 M2-Planet (no MesCC, no TinyCC) is run.  It takes minutes;
 `stage-a-check.sh` takes seconds.
+
+Stages B and E assemble with mescc-tools' `M1` and `hex2`, which
+are built with GCC.  `130-asm.fth` is a Forth replacement for that
+pair, and the one source file no chapter teaches: a 689-line M1
+macro expander and two-pass hex2 linker that loads on
+`010-lib.fth` alone, reads M1 text on stdin and writes an ELF to
+`/tmp/asm-out`.  `tests/asm/m2planet-check.sh` feeds it M2-Planet's
+libc and the `self-v1-amd64.M1` from Stage A and checks that its
+output is byte-identical to what mescc-tools produces from the same
+input; the other `tests/asm/` scripts run it on small fixtures and
+on inputs it must reject (Appendix G).
 
 ## 6. What this proves
 
