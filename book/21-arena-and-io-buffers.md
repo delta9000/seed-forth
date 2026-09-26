@@ -296,7 +296,7 @@ three accessors:
 : cc-next-char
   cc-peek-char
   [lit] 1 cc-src-pos +!
-  dup [lit] 10 = if,
+  dup nl = if,
     [lit] 1 cc-src-line +!
   then, ;
 
@@ -368,7 +368,7 @@ second family that writes at an explicit offset:
 : cc-out-patch-4le
   >r                                                  ( v       ; R: offset )
   dup r@                       cc-out-patch-byte      ( v       ; R: offset )
-  [lit] 256 / dup r@ [lit] 1 + cc-out-patch-byte      ( v>>8    ; R: offset )
+  [lit] 256 / dup r@ 1+ cc-out-patch-byte             ( v>>8    ; R: offset )
   [lit] 256 / dup r@ [lit] 2 + cc-out-patch-byte      ( v>>16   ; R: offset )
   [lit] 256 /     r> [lit] 3 + cc-out-patch-byte ;    ( v>>24>>8 popped )
 
@@ -376,7 +376,7 @@ second family that writes at an explicit offset:
 : cc-out-patch-8le
   >r                                                  ( v       ; R: offset )
   dup r@                       cc-out-patch-byte      ( v       ; R: offset )
-  [lit] 256 / dup r@ [lit] 1 + cc-out-patch-byte
+  [lit] 256 / dup r@ 1+ cc-out-patch-byte
   [lit] 256 / dup r@ [lit] 2 + cc-out-patch-byte
   [lit] 256 / dup r@ [lit] 3 + cc-out-patch-byte
   [lit] 256 / dup r@ [lit] 4 + cc-out-patch-byte
@@ -414,7 +414,7 @@ Section C writes the buffer to a path.
 \ exits with status 1 (cannot recover — we have no place to write a diagnostic).
 : cc-write-output
   [lit] 577 [lit] 493 open                        ( fd )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop
     [lit] 1 die
   then,

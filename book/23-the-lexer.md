@@ -11,7 +11,7 @@ After Ch 22, `tri.c` is 470 bytes of characters, but a parser does
 not want characters.  At line 12 it should not have to see `i`, `n`,
 `t`, a space, `w`, `[`, `R`, `O`, `W`, `S`.  It wants to ask "what's
 next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
-"the number 4".  The 642-line file `050-cc-lex.fth` answers that
+"the number 4".  The 583-line file `050-cc-lex.fth` answers that
 question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,
@@ -105,7 +105,7 @@ the whole compilation.
 
 ## 2. The keyword table
 
-The thirty keywords are spelled out byte by byte, then numbered:
+The thirty keywords are laid down by name, then numbered:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -115,69 +115,41 @@ The thirty keywords are spelled out byte by byte, then numbered:
 \ length-byte of 0.  Defined here (before cc-check-keyword) so the latter can
 \ reference kw-table directly.
 
+\ kw, ( "name" -- )  lay down one entry: the length byte, then the bytes.
+: kw,  token dup c, bytes, ;
+
 create kw-table
-\ "int"
-[lit] 3 c, [lit] 105 c, [lit] 110 c, [lit] 116 c,
-\ "char"
-[lit] 4 c, [lit]  99 c, [lit] 104 c, [lit]  97 c, [lit] 114 c,
-\ "void"
-[lit] 4 c, [lit] 118 c, [lit] 111 c, [lit] 105 c, [lit] 100 c,
-\ "short"
-[lit] 5 c, [lit] 115 c, [lit] 104 c, [lit] 111 c, [lit] 114 c, [lit] 116 c,
-\ "long"
-[lit] 4 c, [lit] 108 c, [lit] 111 c, [lit] 110 c, [lit] 103 c,
-\ "unsigned"
-[lit] 8 c, [lit] 117 c, [lit] 110 c, [lit] 115 c, [lit] 105 c, [lit] 103 c, [lit] 110 c, [lit] 101 c, [lit] 100 c,
-\ "signed"
-[lit] 6 c, [lit] 115 c, [lit] 105 c, [lit] 103 c, [lit] 110 c, [lit] 101 c, [lit] 100 c,
-\ "const"
-[lit] 5 c, [lit]  99 c, [lit] 111 c, [lit] 110 c, [lit] 115 c, [lit] 116 c,
-\ "volatile"
-[lit] 8 c, [lit] 118 c, [lit] 111 c, [lit] 108 c, [lit]  97 c, [lit] 116 c, [lit] 105 c, [lit] 108 c, [lit] 101 c,
-\ "static"
-[lit] 6 c, [lit] 115 c, [lit] 116 c, [lit]  97 c, [lit] 116 c, [lit] 105 c, [lit]  99 c,
-\ "extern"
-[lit] 6 c, [lit] 101 c, [lit] 120 c, [lit] 116 c, [lit] 101 c, [lit] 114 c, [lit] 110 c,
-\ "auto"
-[lit] 4 c, [lit]  97 c, [lit] 117 c, [lit] 116 c, [lit] 111 c,
-\ "register"
-[lit] 8 c, [lit] 114 c, [lit] 101 c, [lit] 103 c, [lit] 105 c, [lit] 115 c, [lit] 116 c, [lit] 101 c, [lit] 114 c,
-\ "restrict"
-[lit] 8 c, [lit] 114 c, [lit] 101 c, [lit] 115 c, [lit] 116 c, [lit] 114 c, [lit] 105 c, [lit]  99 c, [lit] 116 c,
-\ "struct"
-[lit] 6 c, [lit] 115 c, [lit] 116 c, [lit] 114 c, [lit] 117 c, [lit]  99 c, [lit] 116 c,
-\ "enum"
-[lit] 4 c, [lit] 101 c, [lit] 110 c, [lit] 117 c, [lit] 109 c,
-\ "typedef"
-[lit] 7 c, [lit] 116 c, [lit] 121 c, [lit] 112 c, [lit] 101 c, [lit] 100 c, [lit] 101 c, [lit] 102 c,
-\ "sizeof"
-[lit] 6 c, [lit] 115 c, [lit] 105 c, [lit] 122 c, [lit] 101 c, [lit] 111 c, [lit] 102 c,
-\ "if"
-[lit] 2 c, [lit] 105 c, [lit] 102 c,
-\ "else"
-[lit] 4 c, [lit] 101 c, [lit] 108 c, [lit] 115 c, [lit] 101 c,
-\ "while"
-[lit] 5 c, [lit] 119 c, [lit] 104 c, [lit] 105 c, [lit] 108 c, [lit] 101 c,
-\ "for"
-[lit] 3 c, [lit] 102 c, [lit] 111 c, [lit] 114 c,
-\ "do"
-[lit] 2 c, [lit] 100 c, [lit] 111 c,
-\ "return"
-[lit] 6 c, [lit] 114 c, [lit] 101 c, [lit] 116 c, [lit] 117 c, [lit] 114 c, [lit] 110 c,
-\ "break"
-[lit] 5 c, [lit]  98 c, [lit] 114 c, [lit] 101 c, [lit]  97 c, [lit] 107 c,
-\ "continue"
-[lit] 8 c, [lit]  99 c, [lit] 111 c, [lit] 110 c, [lit] 116 c, [lit] 105 c, [lit] 110 c, [lit] 117 c, [lit] 101 c,
-\ "goto"
-[lit] 4 c, [lit] 103 c, [lit] 111 c, [lit] 116 c, [lit] 111 c,
-\ "switch"
-[lit] 6 c, [lit] 115 c, [lit] 119 c, [lit] 105 c, [lit] 116 c, [lit]  99 c, [lit] 104 c,
-\ "case"
-[lit] 4 c, [lit]  99 c, [lit]  97 c, [lit] 115 c, [lit] 101 c,
-\ "default"
-[lit] 7 c, [lit] 100 c, [lit] 101 c, [lit] 102 c, [lit]  97 c, [lit] 117 c, [lit] 108 c, [lit] 116 c,
-\ Terminator
-[lit] 0 c,
+kw, int
+kw, char
+kw, void
+kw, short
+kw, long
+kw, unsigned
+kw, signed
+kw, const
+kw, volatile
+kw, static
+kw, extern
+kw, auto
+kw, register
+kw, restrict
+kw, struct
+kw, enum
+kw, typedef
+kw, sizeof
+kw, if
+kw, else
+kw, while
+kw, for
+kw, do
+kw, return
+kw, break
+kw, continue
+kw, goto
+kw, switch
+kw, case
+kw, default
+[lit] 0 c,                                      \ terminator
 
 \ Keyword IDs in declaration order.
 [lit]  0 constant kw-int
@@ -214,10 +186,10 @@ create kw-table
 ```
 
 Each entry in `kw-table` is a length byte followed by that many name
-bytes, and a `0` length byte ends the table.  In the raw
-`[lit] 3 c, [lit] 105 c, [lit] 110 c, [lit] 116 c,` for "int" the
-length sits inline, so no parallel `[length, pointer]` table is
-needed.  The `kw-*` constants follow the entry order: `kw-int = 0`
+bytes, and a `0` length byte ends the table.  `kw,` builds one
+entry from the next token with Ch 12's `token` and `bytes,`:
+`kw, int` lays down `3 'i' 'n' 't'`.  The length sits inline, so no
+parallel `[length, pointer]` table is needed.  The `kw-*` constants follow the entry order: `kw-int = 0`
 because `"int"` is first, `kw-char = 1` because `"char"` is second,
 and so on.
 
@@ -228,9 +200,9 @@ Three small helpers come next.
 \ Helpers: ident classifiers, 2-byte peek
 \ ===========================================================================
 
-\ ident-start? ( c -- f )  letter or '_' (ASCII 95).
+\ ident-start? ( c -- f )  letter or '_'.
 : ident-start?
-  dup alpha?  swap [lit] 95 = or ;
+  dup alpha?  swap [char] _ = or ;
 
 \ ident-cont? ( c -- f )  ident-start? or digit.
 : ident-cont?
@@ -240,7 +212,7 @@ Three small helpers come next.
 \ without advancing.  Returns 0 for c2 at EOF.  c1 is also 0 at EOF.
 : cc-peek-char-2
   cc-peek-char                                  ( c1 )
-  cc-src-pos @ [lit] 1 +                        ( c1 next-pos )
+  cc-src-pos @ 1+                               ( c1 next-pos )
   dup cc-src-len @ < if,
     cc-src-buf swap + c@                        ( c1 c2 )
   else,
@@ -262,56 +234,46 @@ one walk over `kw-table`:
 \ ===========================================================================
 \ cc-check-keyword
 \ ===========================================================================
-\ Walks kw-table once.  We can't bail early (no `exit`), so we accumulate the
-\ match into a variable and stop comparing once we already have a hit.
-
-\ cc-kw-found-id holds -1 while still searching, or the matched id.
-variable cc-kw-found-id
 
 \ cc-check-keyword ( -- )  After cc-lex-ident-or-kw has set tok-str-addr/len,
-\ this walks kw-table; on match sets tok-kind=tk-kw + tok-kw-id, otherwise
-\ tok-kind=tk-ident.  Loop invariant on the data stack: ( ptr id ).
+\ this walks kw-table; on a match it sets tok-kind=tk-kw + tok-kw-id and
+\ returns at once, otherwise tok-kind=tk-ident.  Loop invariant on the data
+\ stack: ( ptr id ).
 : cc-check-keyword
-  [lit] 0 0= cc-kw-found-id !                   \ -1 = "still searching"
   kw-table                                      \ ptr
   [lit] 0                                       \ id
   begin,
     over c@ [lit] 0 >                           \ entry length non-zero?
   while,
-    cc-kw-found-id @ [lit] 0 0= = if,           \ still searching?
-      over c@ tok-str-len @ = if,               \ same length?
-        \ Stack here: ( ptr id ).  bytes-eq wants ( a1 a2 u ) where
-        \ a1 = tok-str-addr, a2 = ptr+1 (skipping length byte), u = tok-str-len.
-        over [lit] 1 +  tok-str-addr @  swap  tok-str-len @  bytes-eq if,
-          dup cc-kw-found-id !                  \ store the matched id
-        then,
+    over c@ tok-str-len @ = if,                 \ same length?
+      \ Stack here: ( ptr id ).  bytes-eq wants ( a1 a2 u ) where
+      \ a1 = tok-str-addr, a2 = ptr+1 (skipping length byte), u = tok-str-len.
+      over 1+  tok-str-addr @  swap  tok-str-len @  bytes-eq if,
+        tok-kw-id !  drop                       \ matched: record the id
+        tk-kw tok-kind !  exit,
       then,
     then,
     \ Advance: ( ptr id ) -> ( ptr+len+1 id+1 )
-    swap dup c@ [lit] 1 + over + nip swap [lit] 1 +
+    swap dup c@ 1+ + swap 1+
   repeat,
-  drop drop                                     \ discard ptr and id
-  cc-kw-found-id @ [lit] 0 0= = if,             \ -1 ?
-    tk-ident tok-kind !
-  else,
-    cc-kw-found-id @ tok-kw-id !
-    tk-kw tok-kind !
-  then, ;
+  2drop                                         \ discard ptr and id
+  tk-ident tok-kind ! ;
 
 ```
 
 `cc-check-keyword` walks the table once with `( ptr id )` on the data
-stack: a pointer into the table and the current candidate ID.  The
-seed has no `exit`, so the word cannot return early on a match.
-Instead `cc-kw-found-id` starts at `-1`, meaning "still searching";
-a match stores the ID, and the comparison in later iterations is
-gated on the variable still being `-1`.  The loop walks the whole
-table but skips the comparisons after the hit.
+stack: a pointer into the table and the current candidate ID.  An
+entry is compared only when its length byte equals the token's
+length.  On a match the word stores the ID in `tok-kw-id`, sets
+`tok-kind` to `tk-kw` and returns at once with `exit,` (Ch 11); the
+loop holds nothing on the return stack, so the early return is
+safe.  Falling off the end of the table means the token is an
+identifier.
 
 The advance step at the bottom is where the inline lengths pay off:
 
 ```
-swap dup c@ [lit] 1 + over + nip swap [lit] 1 +
+swap dup c@ 1+ + swap 1+
 ```
 
 That is `( ptr id -- ptr+len+1 id+1 )`: read the length byte at
@@ -333,67 +295,47 @@ see:
 : cc-skip-line-comment
   begin,
     cc-eof? 0=
-    cc-peek-char [lit] 10 <> and
+    cc-peek-char nl <> and
   while,
     cc-next-char drop
   repeat, ;
 
 \ cc-skip-block-comment ( -- )  Caller has already consumed the /*.  Skip
-\ to and including the closing */.  Maintains a "still scanning" flag on the
-\ data stack to avoid the missing `exit` primitive.
+\ to and including the closing */, or to EOF.
 : cc-skip-block-comment
-  [lit] 0 0=                                    \ scanning flag = -1 (true)
   begin,
-    dup cc-eof? 0= and                          \ keep going AND not eof
+    cc-eof? 0=
   while,
-    drop                                        \ discard old flag
-    cc-next-char                                ( c )
-    [lit] 42 = if,                              \ saw '*'
-      cc-peek-char [lit] 47 = if,               \ followed by '/'
-        cc-next-char drop                       \ consume '/'
-        [lit] 0                                 \ stop
-      else,
-        [lit] 0 0=                              \ keep going
+    cc-next-char [char] * = if,                 \ saw '*'
+      cc-peek-char [char] / = if,               \ followed by '/'
+        cc-next-char drop exit,                 \ consume '/': done
       then,
-    else,
-      [lit] 0 0=                                \ keep going
     then,
-  repeat,
-  drop ;                                        \ discard final flag
+  repeat, ;
 
 \ cc-skip-ws-and-comments ( -- )  Skip whitespace, // line-comments, and
-\ /* block comments.  Stops at the first non-whitespace, non-comment byte.
-\ Also uses a data-stack scanning flag.
+\ /* block comments.  Returns at the first non-whitespace, non-comment byte.
 : cc-skip-ws-and-comments
-  [lit] 0 0=                                    \ keep-going flag = -1
   begin,
-    dup cc-eof? 0= and
+    cc-eof? 0=
   while,
-    drop                                        \ discard old flag
     cc-peek-char dup space? if,
       drop cc-next-char drop
-      [lit] 0 0=                                \ keep going
     else,
-      [lit] 47 = if,                            \ '/' ?
-        cc-peek-char-2 nip [lit] 47 = if,       \ // ?
-          cc-next-char drop  cc-next-char drop
-          cc-skip-line-comment
-          [lit] 0 0=                            \ keep going
-        else,
-          cc-peek-char-2 nip [lit] 42 = if,     \ /* ?
-            cc-next-char drop  cc-next-char drop
-            cc-skip-block-comment
-            [lit] 0 0=                          \ keep going
-          else,
-            [lit] 0                             \ stop: bare '/'
-          then,
-        then,
+      [char] / <> if, exit, then,               \ stop: not ws or comment
+      cc-peek-char-2 nip [char] / = if,         \ // ?
+        cc-next-char drop  cc-next-char drop
+        cc-skip-line-comment
       else,
-        [lit] 0                                 \ stop: not ws or comment
+        cc-peek-char-2 nip [char] * = if,       \ /* ?
+          cc-next-char drop  cc-next-char drop
+          cc-skip-block-comment
+        else,
+          exit,                                 \ stop: bare '/'
+        then,
       then,
     then,
-  repeat,
-  drop ;
+  repeat, ;
 
 ```
 
@@ -408,9 +350,10 @@ Three helpers cooperate:
   whitespace, eat it; if it's `/`, peek the byte after to decide
   between a comment and a bare `/`; otherwise stop.
 
-The last two carry their "still scanning" flag on the data stack
-rather than in a variable, which saves a name at the cost of some
-`dup`/`drop` clutter.  Both styles appear throughout the compiler.
+The last two stop from inside their loops with `exit,` (Ch 11): the
+block-comment skipper as soon as it has eaten `*/`, the outer loop
+at the first byte that starts neither whitespace nor a comment.
+The `while,` test only has to watch for EOF.
 
 `cc-skip-line-comment` leaves the newline, but `cc-skip-block-comment`
 consumes the `*/`.  The newline is ordinary whitespace, so leaving it
@@ -432,13 +375,13 @@ Numbers come first, in decimal or hex:
 \ cc-hex-digit? ( c -- f )  -1 if c is 0-9, a-f, A-F.
 : cc-hex-digit?
   dup digit? if,
-    drop [lit] 0 0=                               \ -1 = true
+    drop true
   else,
     dup alpha-lower? if,
-      [lit] 97 - [lit] 6 / 0=                     \ 'a'..'f' -> 0..5 -> /6=0
+      [char] a - [lit] 6 / 0=                     \ 'a'..'f' -> 0..5 -> /6=0
     else,
       dup alpha-upper? if,
-        [lit] 65 - [lit] 6 / 0=                   \ 'A'..'F'
+        [char] A - [lit] 6 / 0=                   \ 'A'..'F'
       else,
         drop [lit] 0
       then,
@@ -448,12 +391,12 @@ Numbers come first, in decimal or hex:
 \ cc-hex-digit-val ( c -- v )  Convert hex digit char to 0..15.
 : cc-hex-digit-val
   dup digit? if,
-    [lit] 48 -
+    [char] 0 -
   else,
     dup alpha-lower? if,
-      [lit] 87 -                                  \ 'a'=97 -> 10
+      [char] a - [lit] 10 +                       \ 'a' -> 10
     else,
-      [lit] 55 -                                  \ 'A'=65 -> 10
+      [char] A - [lit] 10 +                       \ 'A' -> 10
     then,
   then, ;
 
@@ -465,7 +408,7 @@ Numbers come first, in decimal or hex:
     cc-peek-char digit? and
   while,
     [lit] 10 *
-    cc-peek-char [lit] 48 - +
+    cc-peek-char [char] 0 - +
     cc-next-char drop
   repeat,
   tok-num !
@@ -488,8 +431,8 @@ Numbers come first, in decimal or hex:
 \ cc-lex-number ( -- )  Decimal, or hex (0x/0X) if the first two chars match.
 : cc-lex-number
   cc-peek-char-2                                  ( c1 c2 )
-  over [lit] 48 = if,                             \ c1 == '0' ?
-    dup [lit] 120 = swap [lit] 88 = or if,        \ c2 == 'x' or 'X' ?
+  over [char] 0 = if,                             \ c1 == '0' ?
+    dup [char] x = swap [char] X = or if,         \ c2 == 'x' or 'X' ?
       drop                                        \ pop c1
       cc-next-char drop                           \ consume '0'
       cc-next-char drop                           \ consume 'x'/'X'
@@ -528,7 +471,7 @@ Identifiers are where Ch 22's macros finally take effect:
     cc-peek-char ident-cont? and
   while,
     cc-next-char drop
-    [lit] 1 +
+    1+
   repeat,
   tok-str-len !  tok-str-addr !
   cc-check-keyword
@@ -568,18 +511,18 @@ String and character literals close the section:
   [lit] 0                                       ( start len )
   begin,
     cc-eof? 0=
-    cc-peek-char [lit] 34 <> and
+    cc-peek-char [char] " <> and
   while,
-    cc-peek-char [lit] 92 = if,                 \ backslash: keep both bytes
+    cc-peek-char backslash = if,                \ backslash: keep both bytes
       cc-next-char drop
-      [lit] 1 +
+      1+
       cc-eof? 0= if,
         cc-next-char drop
-        [lit] 1 +
+        1+
       then,
     else,
       cc-next-char drop
-      [lit] 1 +
+      1+
     then,
   repeat,
   cc-eof? 0= if, cc-next-char drop then,        \ consume closing "
@@ -591,15 +534,15 @@ String and character literals close the section:
 \ \xNN deferred.
 : cc-lex-char
   cc-next-char drop                             \ consume opening '
-  cc-peek-char [lit] 92 = if,                   \ escape
+  cc-peek-char backslash = if,                  \ escape
     cc-next-char drop                           \ consume backslash
     cc-next-char                                ( c )
-    dup [lit] 110 = if, drop [lit] 10  else,    \ \n
-    dup [lit] 116 = if, drop [lit]  9  else,    \ \t
-    dup [lit]  92 = if, drop [lit] 92  else,    \ \\
-    dup [lit]  39 = if, drop [lit] 39  else,    \ \'
-    dup [lit]  34 = if, drop [lit] 34  else,    \ \"
-    dup [lit]  48 = if, drop [lit]  0  else,    \ \0
+    dup [char] n  = if, drop nl         else,   \ \n
+    dup [char] t  = if, drop tab        else,   \ \t
+    dup backslash = if, drop backslash  else,   \ \\
+    dup [char] '  = if, drop [char] '   else,   \ \'
+    dup [char] "  = if, drop [char] "   else,   \ \"
+    dup [char] 0  = if, drop [lit] 0    else,   \ \0
     \ otherwise: pass the literal char through (stack already has it)
     then, then, then, then, then, then,
   else,
@@ -642,51 +585,51 @@ consumed; it peeks ahead and picks the longest match.
 \ and sets tok-kind to tk-punct.
 
 : cc-punct-eq                                   \ '='  '=='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-eq-eq tok-num !
   else,
-    [lit] 61 tok-num !
+    [char] = tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-bang                                 \ '!'  '!='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-bang-eq tok-num !
   else,
-    [lit] 33 tok-num !
+    [char] ! tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-lt                                   \ '<' '<=' '<<' '<<='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-le tok-num !
   else,
-    cc-peek-char [lit] 60 = if,
+    cc-peek-char [char] < = if,
       cc-next-char drop
-      cc-peek-char [lit] 61 = if,
+      cc-peek-char [char] = = if,
         cc-next-char drop  pt-shl-eq tok-num !
       else,
         pt-shl tok-num !
       then,
     else,
-      [lit] 60 tok-num !
+      [char] < tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-gt                                   \ '>' '>=' '>>' '>>='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-ge tok-num !
   else,
-    cc-peek-char [lit] 62 = if,
+    cc-peek-char [char] > = if,
       cc-next-char drop
-      cc-peek-char [lit] 61 = if,
+      cc-peek-char [char] = = if,
         cc-next-char drop  pt-shr-eq tok-num !
       else,
         pt-shr tok-num !
       then,
     else,
-      [lit] 62 tok-num !
+      [char] > tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
@@ -699,99 +642,99 @@ The remaining nine handlers follow the same shape:
 
 ```forth file=050-cc-lex.fth
 : cc-punct-amp                                  \ '&' '&&' '&='
-  cc-peek-char [lit] 38 = if,
+  cc-peek-char [char] & = if,
     cc-next-char drop  pt-and-and tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-amp-eq tok-num !
     else,
-      [lit] 38 tok-num !
+      [char] & tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-pipe                                 \ '|' '||' '|='
-  cc-peek-char [lit] 124 = if,
+  cc-peek-char [char] | = if,
     cc-next-char drop  pt-or-or tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-pipe-eq tok-num !
     else,
-      [lit] 124 tok-num !
+      [char] | tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-plus                                 \ '+' '++' '+='
-  cc-peek-char [lit] 43 = if,
+  cc-peek-char [char] + = if,
     cc-next-char drop  pt-plus-plus tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-plus-eq tok-num !
     else,
-      [lit] 43 tok-num !
+      [char] + tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-minus                                \ '-' '--' '-=' '->'
-  cc-peek-char [lit] 45 = if,
+  cc-peek-char [char] - = if,
     cc-next-char drop  pt-minus-minus tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-minus-eq tok-num !
     else,
-      cc-peek-char [lit] 62 = if,
+      cc-peek-char [char] > = if,
         cc-next-char drop  pt-arrow tok-num !
       else,
-        [lit] 45 tok-num !
+        [char] - tok-num !
       then,
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-star                                 \ '*' '*='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-star-eq tok-num !
   else,
-    [lit] 42 tok-num !
+    [char] * tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-slash                                \ '/' '/=' (// and /* handled earlier)
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-slash-eq tok-num !
   else,
-    [lit] 47 tok-num !
+    [char] / tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-percent                              \ '%' '%='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-percent-eq tok-num !
   else,
-    [lit] 37 tok-num !
+    [char] % tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-caret                                \ '^' '^='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-caret-eq tok-num !
   else,
-    [lit] 94 tok-num !
+    [char] ^ tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-dot                                  \ '.' '...'
-  cc-peek-char [lit] 46 = if,
-    cc-peek-char-2 nip [lit] 46 = if,
+  cc-peek-char [char] . = if,
+    cc-peek-char-2 nip [char] . = if,
       cc-next-char drop  cc-next-char drop
       pt-ellipsis tok-num !
     else,
-      [lit] 46 tok-num !
+      [char] . tok-num !
     then,
   else,
-    [lit] 46 tok-num !
+    [char] . tok-num !
   then,
   tk-punct tok-kind ! ;
 
@@ -809,19 +752,19 @@ A dispatcher picks the handler from the first byte:
 \ to the default arm, which stores the byte itself as the punct code.
 : cc-lex-punct
   cc-next-char                                  ( first-char )
-  dup [lit]  61 = if, drop cc-punct-eq      else,
-  dup [lit]  33 = if, drop cc-punct-bang    else,
-  dup [lit]  60 = if, drop cc-punct-lt      else,
-  dup [lit]  62 = if, drop cc-punct-gt      else,
-  dup [lit]  38 = if, drop cc-punct-amp     else,
-  dup [lit] 124 = if, drop cc-punct-pipe    else,
-  dup [lit]  43 = if, drop cc-punct-plus    else,
-  dup [lit]  45 = if, drop cc-punct-minus   else,
-  dup [lit]  42 = if, drop cc-punct-star    else,
-  dup [lit]  47 = if, drop cc-punct-slash   else,
-  dup [lit]  37 = if, drop cc-punct-percent else,
-  dup [lit]  94 = if, drop cc-punct-caret   else,
-  dup [lit]  46 = if, drop cc-punct-dot     else,
+  dup [char] = = if, drop cc-punct-eq      else,
+  dup [char] ! = if, drop cc-punct-bang    else,
+  dup [char] < = if, drop cc-punct-lt      else,
+  dup [char] > = if, drop cc-punct-gt      else,
+  dup [char] & = if, drop cc-punct-amp     else,
+  dup [char] | = if, drop cc-punct-pipe    else,
+  dup [char] + = if, drop cc-punct-plus    else,
+  dup [char] - = if, drop cc-punct-minus   else,
+  dup [char] * = if, drop cc-punct-star    else,
+  dup [char] / = if, drop cc-punct-slash   else,
+  dup [char] % = if, drop cc-punct-percent else,
+  dup [char] ^ = if, drop cc-punct-caret   else,
+  dup [char] . = if, drop cc-punct-dot     else,
     \ Default: single-char punct.
     tok-num ! tk-punct tok-kind !
   then, then, then, then, then, then, then,
@@ -853,8 +796,8 @@ of these chains.
   else,
     cc-peek-char
     dup digit?       if, drop cc-lex-number          else,
-    dup [lit] 34 =   if, drop cc-lex-string          else,
-    dup [lit] 39 =   if, drop cc-lex-char            else,
+    dup [char] " =   if, drop cc-lex-string          else,
+    dup [char] ' =   if, drop cc-lex-char            else,
     dup ident-start? if, drop cc-lex-ident-or-kw     else,
       drop cc-lex-punct
     then, then, then, then,

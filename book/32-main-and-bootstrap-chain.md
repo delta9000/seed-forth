@@ -242,7 +242,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 ```
 
 The claim rests on step 5.  The 1,772-byte seed, extended by
-`010-lib.fth` and running the 7,198 lines of compiler Forth in
+`010-lib.fth` and running the 6,973 lines of compiler Forth in
 `020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
 binary, compiling M2-Planet's sources, emits the same `.M1` text
@@ -294,9 +294,9 @@ seen every component along the seed-forth path:
 
 - Ch 13–20: the 1,772-byte seed itself (`000-seed.hex0`).
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
-  ~384 lines of Forth that turn the seed's 32 primitives into
+  ~440 lines of Forth that turn the seed's 32 primitives into
   a usable language.
-- Ch 21–32: the C-subset compiler, 7,198 lines of Forth
+- Ch 21–32: the C-subset compiler, 6,973 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
 

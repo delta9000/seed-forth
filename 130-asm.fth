@@ -128,7 +128,7 @@ variable asm-out-pos
 \ asm-write-output ( path-addr -- )  path-addr must point at NUL-terminated bytes.
 : asm-write-output
   [lit] 577 [lit] 493 open                      ( fd )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop [lit] 1 die
   then,
   >r                                            ( ; R: fd )
@@ -136,7 +136,7 @@ variable asm-out-pos
   r> close drop ;
 
 \ Newline byte for stderr diagnostics.
-create asm-nl-byte  [lit] 10 c,
+create asm-nl-byte  nl c,
 
 \ ============================================================================
 \ Label table — flat array of (name-addr, name-len, ip) triples.
@@ -174,38 +174,26 @@ variable asm-pass
 
 variable asm-find-addr
 variable asm-find-len
-variable asm-find-ip
-variable asm-find-flag
 
 \ asm-find-label ( name-addr name-len -- ip flag )
-\ Linear scan from newest to oldest entry.  flag = -1 if found else 0.
+\ Linear scan from newest to oldest entry.  flag = -1 if found (returning
+\ at once, with exit,), else ip = flag = 0.
 : asm-find-label
   asm-find-len !  asm-find-addr !
-  [lit] 0 asm-find-flag !
-  [lit] 0 asm-find-ip !
   asm-count @
   begin,
     dup [lit] 0 >
   while,
-    [lit] 1 -                                ( i )
+    1-                                       ( i )
     dup asm-rec                              ( i rec )
-    dup [lit] 8 + @ asm-find-len @ =         ( i rec len-eq )
-    if,
-      dup @ asm-find-addr @ asm-find-len @ bytes-eq   ( i rec name-eq )
-      if,
-        [lit] 16 + @ asm-find-ip !
-        [lit] 0 0= asm-find-flag !
-        drop
-        [lit] 0
-      else,
-        drop
+    dup [lit] 8 + @ asm-find-len @ = if,
+      dup @ asm-find-addr @ asm-find-len @ bytes-eq if,
+        nip [lit] 16 + @ true exit,          ( ip -1 )
       then,
-    else,
-      drop
     then,
+    drop                                     ( i )
   repeat,
-  drop
-  asm-find-ip @ asm-find-flag @ ;
+  drop [lit] 0 [lit] 0 ;
 
 \ ============================================================================
 \ Hex digit utilities + decimal parser + variable-width emit
@@ -215,9 +203,9 @@ variable asm-find-flag
 \ Caller must ensure c is a valid hex digit.
 : hex-val
   dup digit? if,
-    [lit] 48 -
+    [char] 0 -
   else,
-    dup [lit] 97 - [lit] 6 / 0= if,
+    dup [char] a - [lit] 6 / 0= if,
       [lit] 87 -                             \ 'a'..'f' -> 10..15
     else,
       [lit] 55 -                             \ 'A'..'F' -> 10..15
@@ -243,17 +231,17 @@ variable asm-dec-i
   [lit] 0 asm-dec-i !
   \ Leading '-'?
   asm-dec-len @ [lit] 0 > if,
-    asm-dec-addr @ c@ [lit] 45 = if,
-      [lit] 0 0= asm-dec-neg !
+    asm-dec-addr @ c@ [char] - = if,
+      true asm-dec-neg !
       [lit] 1 asm-dec-i !
     then,
   then,
   \ '0x' / '0X' hex prefix?
   asm-dec-len @ asm-dec-i @ - [lit] 2 >= if,
-    asm-dec-addr @ asm-dec-i @ + c@ [lit] 48 = if,
-      asm-dec-addr @ asm-dec-i @ + [lit] 1 + c@
-      dup [lit] 120 = swap [lit] 88 = or if,    \ 'x' = 120, 'X' = 88
-        [lit] 0 0= asm-dec-hex !
+    asm-dec-addr @ asm-dec-i @ + c@ [char] 0 = if,
+      asm-dec-addr @ asm-dec-i @ + 1+ c@
+      dup [char] x = swap [char] X = or if,
+        true asm-dec-hex !
         [lit] 2 asm-dec-i +!
       then,
     then,
@@ -271,7 +259,7 @@ variable asm-dec-i
     begin,
       asm-dec-i @ asm-dec-len @ <
     while,
-      asm-dec-addr @ asm-dec-i @ + c@ [lit] 48 -
+      asm-dec-addr @ asm-dec-i @ + c@ [char] 0 -
       asm-dec-val @ [lit] 10 * +
       asm-dec-val !
       [lit] 1 asm-dec-i +!
@@ -296,119 +284,66 @@ variable asm-dec-i
 \ Whitespace / comment skipper and token reader
 \ ============================================================================
 \
-\ asm-skip-ws and asm-skip-rest-of-line use DISTINCT done-flag variables —
-\ sharing one short-circuits the outer skipper after the first comment.
-
-variable asm-ws-done
-variable asm-cl-done
-
 \ asm-skip-rest-of-line ( -- )  Consume bytes until newline or EOF.
 : asm-skip-rest-of-line
-  [lit] 0 asm-cl-done !
   begin,
-    asm-cl-done @ 0=
-  while,
-    asm-eof? if,
-      [lit] 0 0= asm-cl-done !
-    else,
-      asm-next-char [lit] 10 = if,
-        [lit] 0 0= asm-cl-done !
-      then,
-    then,
-  repeat, ;
+    asm-eof? if, exit, then,
+    asm-next-char nl =
+  until, ;
 
 \ asm-skip-ws ( -- )  Advance past whitespace and '#'/';' comments.
 : asm-skip-ws
-  [lit] 0 asm-ws-done !
   begin,
-    asm-ws-done @ 0=
-  while,
-    asm-eof? if,
-      [lit] 0 0= asm-ws-done !
+    asm-eof? if, exit, then,
+    asm-peek-char dup space? if,
+      drop asm-next-char drop
     else,
-      asm-peek-char dup space? if,
-        drop asm-next-char drop
-      else,
-        dup [lit] 35 = if,                    \ '#'
-          drop asm-next-char drop
-          asm-skip-rest-of-line
-        else,
-          dup [lit] 59 = if,                  \ ';'
-            drop asm-next-char drop
-            asm-skip-rest-of-line
-          else,
-            drop
-            [lit] 0 0= asm-ws-done !
-          then,
-        then,
-      then,
+      dup [char] # =  swap [char] ; =  or 0= if, exit, then,
+      asm-next-char drop
+      asm-skip-rest-of-line
     then,
-  repeat, ;
+  again, ;
 
 variable asm-tok-start
 variable asm-tok-len
-variable asm-tok-done
 variable asm-quote-char
+
+\ asm-read-quoted ( -- )  At an opening quote: count bytes through the
+\ matching close quote (whitespace and newlines inside are body bytes).
+: asm-read-quoted
+  asm-next-char asm-quote-char !
+  [lit] 1 asm-tok-len +!
+  begin,
+    asm-eof? if, exit, then,
+    [lit] 1 asm-tok-len +!
+    asm-next-char asm-quote-char @ =
+  until, ;
+
+\ asm-read-bareword ( -- )  Count bytes up to whitespace, '#', ';' or EOF.
+: asm-read-bareword
+  begin,
+    asm-eof? if, exit, then,
+    asm-peek-char  dup space?  over [char] # = or  swap [char] ; = or
+    if, exit, then,
+    asm-next-char drop
+    [lit] 1 asm-tok-len +!
+  again, ;
 
 \ asm-read-token ( -- start len )
 \ Whitespace/comment-delimited token slice of the active buffer; (0 0) at EOF.
 \ '"' and "'" start a quoted string token that runs until the matching close
-\ quote (whitespace and newlines inside count as body bytes).  The returned
-\ slice includes both quote characters.
+\ quote.  The returned slice includes both quote characters.
 : asm-read-token
   asm-skip-ws
-  asm-eof? if,
-    [lit] 0 [lit] 0
+  asm-eof? if, [lit] 0 [lit] 0 exit, then,
+  asm-cur-buf @ asm-cur-pos @ + asm-tok-start !
+  [lit] 0 asm-tok-len !
+  asm-peek-char dup [char] " = swap [char] ' = or if,
+    asm-read-quoted
   else,
-    asm-cur-buf @ asm-cur-pos @ + asm-tok-start !
-    [lit] 0 asm-tok-len !
-    [lit] 0 asm-tok-done !
-    asm-peek-char dup [lit] 34 = swap [lit] 39 = or if,
-      \ Quoted-string mode: read until matching close quote.
-      asm-peek-char asm-quote-char !
-      asm-next-char drop
-      [lit] 1 asm-tok-len +!
-      begin,
-        asm-tok-done @ 0=
-      while,
-        asm-eof? if,
-          [lit] 0 0= asm-tok-done !
-        else,
-          asm-next-char asm-quote-char @ = if,
-            [lit] 1 asm-tok-len +!
-            [lit] 0 0= asm-tok-done !
-          else,
-            [lit] 1 asm-tok-len +!
-          then,
-        then,
-      repeat,
-    else,
-      \ Whitespace-delimited bareword.
-      begin,
-        asm-tok-done @ 0=
-      while,
-        asm-eof? if,
-          [lit] 0 0= asm-tok-done !
-        else,
-          asm-peek-char dup space? if,
-            drop [lit] 0 0= asm-tok-done !
-          else,
-            dup [lit] 35 = if,
-              drop [lit] 0 0= asm-tok-done !
-            else,
-              dup [lit] 59 = if,
-                drop [lit] 0 0= asm-tok-done !
-              else,
-                drop asm-next-char drop
-                [lit] 1 asm-tok-len +!
-              then,
-            then,
-          then,
-        then,
-      repeat,
-    then,
-    asm-tok-start @ asm-tok-len @
-  then, ;
+    asm-read-bareword
+  then,
+  asm-tok-start @ asm-tok-len @ ;
 
 \ ============================================================================
 \ Per-token processing
@@ -426,30 +361,28 @@ variable asm-hex-i
   asm-token-len-tmp @ [lit] 2 < if,
     [lit] 0
   else,
-    asm-token-start-tmp @ [lit] 1 + c@
-    dup [lit] 45 = swap digit? or
+    asm-token-start-tmp @ 1+ c@
+    dup [char] - = swap digit? or
   then, ;
 
 \ asm-find-gt ( -- )  Set asm-gt-pos to position of '>' in token name, or -1.
 : asm-find-gt
-  [lit] 0 0= asm-gt-pos !
   [lit] 1 asm-scan-i !
   begin,
     asm-scan-i @ asm-token-len-tmp @ <
   while,
-    asm-token-start-tmp @ asm-scan-i @ + c@ [lit] 62 = if,
-      asm-scan-i @ [lit] 1 - asm-gt-pos !
-      asm-token-len-tmp @ asm-scan-i !
-    else,
-      [lit] 1 asm-scan-i +!
+    asm-token-start-tmp @ asm-scan-i @ + c@ [char] > = if,
+      asm-scan-i @ 1- asm-gt-pos ! exit,
     then,
-  repeat, ;
+    [lit] 1 asm-scan-i +!
+  repeat,
+  true asm-gt-pos ! ;
 
 \ asm-do-label-decl ( -- )
 : asm-do-label-decl
   asm-pass @ [lit] 1 = if,
-    asm-token-start-tmp @ [lit] 1 +
-    asm-token-len-tmp @ [lit] 1 -
+    asm-token-start-tmp @ 1+
+    asm-token-len-tmp @ 1-
     asm-store-label
   then, ;
 
@@ -474,12 +407,12 @@ variable asm-hex-i
     [lit] 4 asm-ip +!
   else,
     asm-tok-numeric? if,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-parse-decimal asm-emit-4le
     else,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-find-label
       if,
         asm-emit-4le
@@ -496,17 +429,17 @@ variable asm-hex-i
     [lit] 4 asm-ip +!
   else,
     asm-tok-numeric? if,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-parse-decimal asm-emit-4le
     else,
       asm-find-gt
       asm-gt-pos @ [lit] 0 >= if,
-        asm-token-start-tmp @ [lit] 1 +
+        asm-token-start-tmp @ 1+
         asm-gt-pos @
         asm-find-label                            ( target flag )
         if,
-          asm-token-start-tmp @ [lit] 1 + asm-gt-pos @ + [lit] 1 +
+          asm-token-start-tmp @ 1+ asm-gt-pos @ + 1+
           asm-token-len-tmp @ asm-gt-pos @ - [lit] 2 -
           asm-find-label                          ( target base flag )
           if,
@@ -518,8 +451,8 @@ variable asm-hex-i
           drop [lit] 93 asm-tok-err
         then,
       else,
-        asm-token-start-tmp @ [lit] 1 +
-        asm-token-len-tmp @ [lit] 1 -
+        asm-token-start-tmp @ 1+
+        asm-token-len-tmp @ 1-
         asm-find-label
         if,
           asm-ip @ [lit] 4 + -
@@ -538,15 +471,15 @@ variable asm-hex-i
     [lit] 1 asm-ip +!
   else,
     asm-tok-numeric? if,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-parse-decimal asm-emit-1le
     else,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-find-label
       if,
-        asm-ip @ [lit] 1 + -
+        asm-ip @ 1+ -
         asm-emit-1le
       else,
         drop [lit] 95 asm-tok-err
@@ -561,12 +494,12 @@ variable asm-hex-i
     [lit] 2 asm-ip +!
   else,
     asm-tok-numeric? if,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-parse-decimal asm-emit-2le
     else,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-find-label
       if,
         asm-ip @ [lit] 2 + -
@@ -584,12 +517,12 @@ variable asm-hex-i
     [lit] 3 asm-ip +!
   else,
     asm-tok-numeric? if,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-parse-decimal asm-emit-3le
     else,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-find-label
       if,
         asm-ip @ [lit] 3 + -
@@ -607,12 +540,12 @@ variable asm-hex-i
     [lit] 2 asm-ip +!
   else,
     asm-tok-numeric? if,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-parse-decimal asm-emit-2le
     else,
-      asm-token-start-tmp @ [lit] 1 +
-      asm-token-len-tmp @ [lit] 1 -
+      asm-token-start-tmp @ 1+
+      asm-token-len-tmp @ 1-
       asm-find-label
       if,
         asm-emit-2le
@@ -633,7 +566,7 @@ variable asm-hex-i
       asm-hex-i @ asm-token-len-tmp @ <
     while,
       asm-token-start-tmp @ asm-hex-i @ + c@ hex-val [lit] 16 *
-      asm-token-start-tmp @ asm-hex-i @ [lit] 1 + + c@ hex-val
+      asm-token-start-tmp @ asm-hex-i @ 1+ + c@ hex-val
       +
       asm-emit-byte
       [lit] 1 asm-ip +!
@@ -642,29 +575,28 @@ variable asm-hex-i
   then, ;
 
 \ asm-process-token ( start len -- )  Dispatch on first char.
-\ Sigil bytes:  ':' 58  '!' 33  '@' 64  '~' 126  '%' 37  '$' 36  '&' 38
 : asm-process-token
   asm-token-len-tmp !  asm-token-start-tmp !
   asm-token-start-tmp @ c@
-  dup [lit] 58 = if,                            \ ':'
+  dup [char] : = if,
     drop asm-do-label-decl
   else,
-    dup [lit] 33 = if,                          \ '!'
+    dup [char] ! = if,
       drop asm-do-bang-ref
     else,
-      dup [lit] 64 = if,                        \ '@'
+      dup [char] @ = if,
         drop asm-do-at-ref
       else,
-        dup [lit] 126 = if,                     \ '~'
+        dup [char] ~ = if,
           drop asm-do-tilde-ref
         else,
-          dup [lit] 37 = if,                    \ '%'
+          dup [char] % = if,
             drop asm-do-pct-ref
           else,
-            dup [lit] 36 = if,                  \ '$'
+            dup [char] $ = if,
               drop asm-do-dollar-ref
             else,
-              dup [lit] 38 = if,                \ '&'
+              dup [char] & = if,
                 drop asm-do-amp-ref
               else,
                 drop asm-do-hex
@@ -680,21 +612,12 @@ variable asm-hex-i
 \ Two-pass driver
 \ ============================================================================
 
-variable asm-loop-done
-
 : asm-pass-loop
-  [lit] 0 asm-loop-done !
   begin,
-    asm-loop-done @ 0=
-  while,
     asm-read-token
-    dup [lit] 0 = if,
-      drop drop
-      [lit] 0 0= asm-loop-done !
-    else,
-      asm-process-token
-    then,
-  repeat, ;
+    dup [lit] 0 = if, 2drop exit, then,
+    asm-process-token
+  again, ;
 
 : asm-init
   asm-base @ asm-ip !
@@ -729,45 +652,28 @@ variable asm-def-count
 
 variable asm-deff-addr
 variable asm-deff-len
-variable asm-deff-body-a
-variable asm-deff-body-l
-variable asm-deff-found
 
 \ asm-def-find ( name-addr name-len -- body-addr body-len flag )
 \ flag = -1 if found, 0 otherwise; body-* are 0 when not found.
 : asm-def-find
   asm-deff-len !  asm-deff-addr !
-  [lit] 0 asm-deff-found !
-  [lit] 0 asm-deff-body-a !
-  [lit] 0 asm-deff-body-l !
   asm-def-count @
   begin,
     dup [lit] 0 >
   while,
-    [lit] 1 -                                ( i )
+    1-                                       ( i )
     dup asm-def-rec                          ( i rec )
-    dup [lit] 8 + @ asm-deff-len @ =         ( i rec len-eq )
-    if,
-      dup @ asm-deff-addr @ asm-deff-len @ bytes-eq   ( i rec name-eq )
-      if,
-        dup [lit] 16 + @ asm-deff-body-a !
-        [lit] 24 + @ asm-deff-body-l !       \ consume rec
-        [lit] 0 0= asm-deff-found !
-        drop
-        [lit] 0                               \ exit loop
-      else,
-        drop
+    dup [lit] 8 + @ asm-deff-len @ = if,
+      dup @ asm-deff-addr @ asm-deff-len @ bytes-eq if,
+        nip dup [lit] 16 + @ swap [lit] 24 + @ true exit,
       then,
-    else,
-      drop
     then,
+    drop                                     ( i )
   repeat,
-  drop
-  asm-deff-body-a @ asm-deff-body-l @ asm-deff-found @ ;
+  drop [lit] 0 [lit] 0 [lit] 0 ;
 
-\ "DEFINE" = 0x44 0x45 0x46 0x49 0x4E 0x45 (6 bytes).
-create asm-define-kw
-[lit] 68 c, [lit] 69 c, [lit] 70 c, [lit] 73 c, [lit] 78 c, [lit] 69 c,
+\ asm-define-kw: the 6 bytes of "DEFINE".
+create asm-define-kw  s, DEFINE
 
 \ asm-is-define? ( addr len -- f )  True if token equals "DEFINE".
 : asm-is-define?
@@ -795,7 +701,7 @@ variable asm-cp-i
 \ asm-hex-digit ( n -- c )  Map 0..15 to ASCII '0'..'9' / 'A'..'F'.
 : asm-hex-digit
   dup [lit] 10 < if,
-    [lit] 48 +
+    [char] 0 +
   else,
     [lit] 55 +
   then, ;
@@ -808,17 +714,17 @@ variable asm-cp-i
   asm-cp-len !  asm-cp-addr !
   [lit] 1 asm-cp-i !
   begin,
-    asm-cp-i @ asm-cp-len @ [lit] 1 - <
+    asm-cp-i @ asm-cp-len @ 1- <
   while,
     asm-cp-addr @ asm-cp-i @ + c@
     dup [lit] 16 / asm-hex-digit asm-exp-emit-byte
     [lit] 15 and asm-hex-digit asm-exp-emit-byte
-    [lit] 32 asm-exp-emit-byte
+    bl asm-exp-emit-byte
     [lit] 1 asm-cp-i +!
   repeat,
   \ NUL terminator: "00 "
-  [lit] 48 asm-exp-emit-byte [lit] 48 asm-exp-emit-byte
-  [lit] 32 asm-exp-emit-byte ;
+  [char] 0 asm-exp-emit-byte [char] 0 asm-exp-emit-byte
+  bl asm-exp-emit-byte ;
 
 \ asm-exp-string-single ( start len -- )
 \ Token = "'" body "'".  Emit body bytes verbatim, then a space separator.
@@ -826,63 +732,50 @@ variable asm-cp-i
   asm-cp-len !  asm-cp-addr !
   [lit] 1 asm-cp-i !
   begin,
-    asm-cp-i @ asm-cp-len @ [lit] 1 - <
+    asm-cp-i @ asm-cp-len @ 1- <
   while,
     asm-cp-addr @ asm-cp-i @ + c@ asm-exp-emit-byte
     [lit] 1 asm-cp-i +!
   repeat,
-  [lit] 32 asm-exp-emit-byte ;
-
-variable asm-xp-done
+  bl asm-exp-emit-byte ;
 
 \ asm-expand-pass ( -- )  Walk current cursor (asm-src-buf), build defs table,
 \ write expanded text into asm-exp-buf.
 : asm-expand-pass
   [lit] 0 asm-exp-len !
   [lit] 0 asm-def-count !
-  [lit] 0 asm-xp-done !
   begin,
-    asm-xp-done @ 0=
-  while,
     asm-read-token                            ( start len )
-    dup [lit] 0 = if,
-      drop drop
-      [lit] 0 0= asm-xp-done !
+    dup [lit] 0 = if, 2drop exit, then,
+    2dup asm-is-define? if,
+      2drop
+      asm-read-token                          ( name-a name-l )
+      asm-read-token                          ( name-a name-l body-a body-l )
+      asm-def-store
     else,
-      2dup asm-is-define? if,
-        drop drop
-        asm-read-token                        ( name-a name-l )
-        asm-read-token                        ( name-a name-l body-a body-l )
-        asm-def-store
+      \ Quoted strings: dispatch on first char.
+      over c@ [char] " = if,
+        asm-exp-string-double
       else,
-        \ Quoted strings: dispatch on first char.
-        over c@ [lit] 34 = if,
-          asm-exp-string-double
+        over c@ [char] ' = if,
+          asm-exp-string-single
         else,
-          over c@ [lit] 39 = if,
-            asm-exp-string-single
+          2dup asm-def-find                   ( start len body-a body-l flag )
+          if,
+            asm-exp-bytes
+            drop drop
           else,
-            2dup asm-def-find                 ( start len body-a body-l flag )
-            if,
-              asm-exp-bytes
-              drop drop
-            else,
-              drop drop
-              asm-exp-bytes
-            then,
-            [lit] 32 asm-exp-emit-byte
+            drop drop
+            asm-exp-bytes
           then,
+          bl asm-exp-emit-byte
         then,
       then,
     then,
-  repeat, ;
+  again, ;
 
 \ Pre-baked output path: "/tmp/asm-out\0"
-create asm-out-path
-[lit]  47 c, [lit] 116 c, [lit] 109 c, [lit] 112 c,    \ /tmp
-[lit]  47 c, [lit]  97 c, [lit] 115 c, [lit] 109 c,    \ /asm
-[lit]  45 c, [lit] 111 c, [lit] 117 c, [lit] 116 c,    \ -out
-[lit]   0 c,                                            \ NUL
+create asm-out-path  s, /tmp/asm-out  [lit] 0 c,
 
 : asm-main
   asm-load-stdin

@@ -24,7 +24,7 @@ The 88-line file `060-cc-types.fth` packs every C type into one
 generalises to any level (`T**`, `T***`, …).  Struct layouts live in
 descriptors allocated from Ch 21's arena.
 
-The 154-line file `070-cc-sym.fth` is the symbol table: seven columns
+The 144-line file `070-cc-sym.fth` is the symbol table: seven columns
 of 4096 8-byte slots each, 224 KiB in all.  Every global, local,
 function, struct tag, enum constant and typedef gets one row, and
 `cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering
@@ -301,15 +301,12 @@ the release valve.
 Adding is half the job; the other half is finding a name again:
 
 ```forth file=070-cc-sym.fth
-\ cc-sym-find walks all entries top-down (most recent first).  We can't bail
-\ early (no `exit` primitive in the seed), so we stash the needle in two
-\ globals and accumulate the result in cc-sym-find-result.  Once a match is
-\ recorded the loop continues but skips further comparisons.
+\ cc-sym-find walks all entries top-down (most recent first) and returns at
+\ the first match, which gives innermost-scope semantics.  The needle waits
+\ in two globals so the loop body can reach it without deep stack juggling.
 \
-\ Result encoding: -1 (= [lit] 0 0=) means "not found"; anything >= 0 is the
-\ matched id.  Most-recent-first iteration combined with "skip once found"
-\ delivers innermost-scope semantics.
-variable cc-sym-find-result
+\ Result encoding: -1 means "not found"; anything >= 0 is the matched id.
+\ The loop index runs down to -1, so "not found" is simply the final index.
 variable cc-sym-find-needle-addr
 variable cc-sym-find-needle-len
 
@@ -317,40 +314,33 @@ variable cc-sym-find-needle-len
 : cc-sym-find
   cc-sym-find-needle-len  !
   cc-sym-find-needle-addr !
-  [lit] 0 0= cc-sym-find-result !                \ -1 = "not found yet"
-  cc-sym-count @ [lit] 1 -                       ( i = count-1 )
+  cc-sym-count @ 1-                              ( i = count-1 )
   begin,
     dup [lit] 0 >=
   while,
-    cc-sym-find-result @ [lit] 0 0= = if,        \ still searching?
-      dup cc-sym-name-len sym-slot @
-      cc-sym-find-needle-len @ = if,             \ same length?
-        dup cc-sym-name-addr sym-slot @          ( i entry-addr )
-        cc-sym-find-needle-addr @ swap           ( i needle entry )
-        cc-sym-find-needle-len @                 ( i needle entry u )
-        bytes-eq if,
-          dup cc-sym-find-result !               \ record id
-        then,
-      then,
+    dup cc-sym-name-len sym-slot @
+    cc-sym-find-needle-len @ = if,               \ same length?
+      dup cc-sym-name-addr sym-slot @            ( i entry-addr )
+      cc-sym-find-needle-addr @ swap             ( i needle entry )
+      cc-sym-find-needle-len @                   ( i needle entry u )
+      bytes-eq if, exit, then,                   \ found: return id i
     then,
-    [lit] 1 -                                    \ i--
-  repeat,
-  drop                                            \ discard final i (=-1)
-  cc-sym-find-result @ ;
+    1-                                           \ i--
+  repeat, ;                                      \ not found: i = -1
 
 ```
 
-`cc-sym-find` walks the table newest-first with the same no-`exit`
-discipline as `cc-check-keyword` (Ch 23): record the hit in a
-variable, keep iterating, skip the comparisons after the hit.
+`cc-sym-find` walks the table newest-first and, like
+`cc-check-keyword` (Ch 23), returns with `exit,` on the first hit.
 Innermost declarations appear later in the table, so the reverse walk
 finds them first, and innermost-scope-wins falls out without any
 explicit scope check.  This is Ch 17's newest-wins lookup with scope
 added.
 
-`[lit] 0 0=` produces -1, the value the result starts with, so after
-the loop the caller reads either "found id N" or "not found."  Once
-the caller has an id, it reads the row through one-line accessors:
+The loop index runs down to `-1` when nothing matches, and that `-1`
+is the "not found" answer, so the caller reads either "found id N"
+or "not found" with no flag variable.  Once the caller has an id,
+it reads the row through one-line accessors:
 
 ```forth file=070-cc-sym.fth
 \ ===========================================================================
@@ -559,13 +549,13 @@ function symbol in the M2-Planet input.
    array-to-pointer decay (in expression context) and
    `sizeof(arr)` (in `sizeof` context) are the two C rules.
 
-5. **★★★ Modify.** `cc-sym-find`'s newest-first walk plus "skip after hit" is
-   linear in table size, even after a hit.  Could you bail
-   early?  Hint: the seed has no `exit`, and the body already
-   skips its comparisons once `cc-sym-find-result` is set — but
-   the loop keeps counting down to 0.  Fold the "still searching"
-   test into the `while,` condition instead.  Measure whether it's
-   worth the bytes.
+5. **★★★ Modify.** `cc-sym-find` is linear in table size: a name
+   declared early in a large translation unit is found only after
+   every newer entry has been length-checked.  Add a hash (say, of
+   the first byte and the length) to a bucket-head array and chain
+   entries through a new column.  Keep newest-first order within a
+   bucket so shadowing still works, and measure on the M2-Planet
+   build whether it is worth the bytes.
 
 ## After this chapter
 

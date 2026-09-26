@@ -113,12 +113,20 @@ decimal, and either pushes the value (interpret mode) or appends
 not unsigned decimal is fatal: the seed prints it with `?` and exits
 with status 2.  Ch 18, Ch 20.
 
-**`comma-call`** — emits a 5-byte `CALL rel32` to a given xt at
-HERE.  Defined in `010-lib.fth` (Ch 11) using `,4` for the rel32.
+**`call,`** — emits a 5-byte `CALL rel32` to a given xt at
+HERE.  Defined in `010-lib.fth` (Ch 10) using `,4` for the rel32.
 
-**`bytes-eq`** — compares two byte ranges for equality.  No
-short-circuit because the seed lacks `exit`; accumulates the
-running flag in a variable.  Ch 12.
+**`[char]`** — immediate; compiles the first byte of the next token
+as a literal, the same 13 bytes `[lit] N` emits.  Characters that
+cannot be tokens (blank, tab, newline, `(`, `\`) are the constants
+`bl`, `tab`, `nl`, `lparen`, `backslash`.  Ch 10.
+
+**`exit,`** — immediate; compiles a `ret` for early return from the
+word being defined.  Legal wherever the return stack is as the word
+found it (no `>r` pending).  Ch 11.
+
+**`bytes-eq`** — compares two byte ranges for equality, returning
+with `exit,` at the first mismatch.  Ch 12.
 
 **Consumed-slot property** — `branch_code` and `0branch_code`
 return *to* their destination, not past the inline 8-byte slot.
@@ -153,7 +161,7 @@ codebase outputs to.  First six integer/pointer args in `rdi`,
 Ch 26 walks the call-site shims.
 
 **`call rel32`** — a 5-byte instruction: `E8` + 4-byte signed
-displacement.  Target = current `rip` + 5 + rel32.  `comma-call`
+displacement.  Target = current `rip` + 5 + rel32.  `call,`
 emits this.
 
 **`DIV` / `IDIV`** — unsigned / signed 64-bit divide.  Dividend in

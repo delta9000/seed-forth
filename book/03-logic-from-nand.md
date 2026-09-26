@@ -20,7 +20,7 @@ is this: if you may keep exactly one bitwise operation, which one?
 Not `and`, not `or`, not even both together.  Neither can produce a
 negation, and without negation there's no way to flip a bit.  The
 answer is **`nand`** (or its dual, `nor`), and with it you can build
-everything the rest of `010-lib.fth` needs.  The library's boolean section (lines 23–30) defines just
+everything the rest of `010-lib.fth` needs.  The library's boolean section (lines 25–32) defines just
 `and` and `or`; this chapter derives those two and then `not` and
 `xor` as a sidebar.  The machine code of `nand_code` itself is
 Ch 15.

@@ -77,7 +77,7 @@ variable cc-last-deref-is-byte
 variable cc-last-expr-type
 
 : cc-mark-not-lvalue
-  [lit] 0 0= cc-last-ident-slot !                  \ slot := -1
+  true cc-last-ident-slot !                        \ slot := -1
   [lit] 0    cc-last-lvalue-kind !                 \ kind := 0
   [lit] 0    cc-last-struct-desc !
   [lit] 0    cc-last-deref-is-byte !
@@ -93,7 +93,7 @@ variable cc-last-expr-type
 
 \ cc-mark-deref-lvalue ( -- )  Record kind=2 (rdi holds a pending-deref addr).
 : cc-mark-deref-lvalue
-  [lit] 0 0= cc-last-ident-slot !
+  true cc-last-ident-slot !
   [lit] 2    cc-last-lvalue-kind !
   [lit] 0    cc-last-struct-desc !
   [lit] 0    cc-last-deref-is-byte !
@@ -103,7 +103,7 @@ variable cc-last-expr-type
 \ deref as byte-width.  Used for `s[i]` on char* (and char[N]).
 : cc-mark-deref-byte-lvalue
   cc-mark-deref-lvalue
-  [lit] 0 0= cc-last-deref-is-byte ! ;
+  true cc-last-deref-is-byte ! ;
 
 \ cc-emit-materialize ( -- )  If kind==2, load [rdi] into rdi and clear state.
 \ A no-op for kind 0 or 1 (their rdi already holds a value).
@@ -151,57 +151,45 @@ with five words that is easy to check.  A binary op ends with
 \ ===========================================================================
 \ Struct-field name lookup.
 \ ===========================================================================
-\ Walks the descriptor's field array; returns the matched field's byte offset.
-\ Aborts with status 92 if no field matches (compile-time error: field not
-\ found).  Uses globals to stash the needle so the loop body has predictable
-\ stack effect.
+\ Walks the descriptor's field array and returns the first matching field's
+\ byte offset, leaving its pointee desc and encoded type in cc-ff-result-desc
+\ and cc-ff-result-type for the caller.  Aborts with status 92 if no field
+\ matches (compile-time error: field not found).  Uses globals to stash the
+\ needle so the loop body has predictable stack effect.
 
 variable cc-ff-needle-addr
 variable cc-ff-needle-len
 variable cc-ff-desc
-variable cc-ff-result                                \ -1 = not-yet-found, else offset
 variable cc-ff-result-desc                           \ matched field's pointee desc (0 if not a struct ptr)
 variable cc-ff-result-type                           \ matched field's encoded type (ty-base + ptr-depth)
-variable cc-ff-found                                 \ flag: -1 if found
 
 \ cc-find-field ( name-addr name-len desc -- offset )
 : cc-find-field
   cc-ff-desc           !
   cc-ff-needle-len     !
   cc-ff-needle-addr    !
-  [lit] 0 cc-ff-found  !                            \ found? = 0
-  [lit] 0 cc-ff-result !
-  [lit] 0 cc-ff-result-desc !
-  [lit] 0 cc-ff-result-type !
   \ Loop i = 0..field-count-1.
   cc-ff-desc @ cc-sd-field-count                    ( count )
   [lit] 0                                            ( count i )
   begin,
     over over >                                      ( count i count>i? )
   while,
-    cc-ff-found @ 0= if,
-      \ Compare names at field i.
-      cc-ff-desc @ over cc-sd-field-rec              ( count i rec )
-      dup cc-sf-name-len cc-ff-needle-len @ = if,
-        dup cc-sf-name-addr                         ( count i rec entry-addr )
-        cc-ff-needle-addr @ swap                    ( count i rec needle entry )
-        cc-ff-needle-len  @                         ( count i rec needle entry u )
-        bytes-eq if,
-          dup cc-sf-offset cc-ff-result !
-          dup cc-sf-desc cc-ff-result-desc !
-          dup cc-sf-type cc-ff-result-type !
-          [lit] 0 0= cc-ff-found !
-        then,
+    \ Compare names at field i.
+    cc-ff-desc @ over cc-sd-field-rec                ( count i rec )
+    dup cc-sf-name-len cc-ff-needle-len @ = if,
+      dup cc-sf-name-addr                           ( count i rec entry-addr )
+      cc-ff-needle-addr @ swap                      ( count i rec needle entry )
+      cc-ff-needle-len  @                           ( count i rec needle entry u )
+      bytes-eq if,                                  ( count i rec )
+        dup cc-sf-desc cc-ff-result-desc !
+        dup cc-sf-type cc-ff-result-type !
+        cc-sf-offset nip nip exit,                  ( offset )
       then,
-      drop                                          ( count i )
     then,
-    [lit] 1 +                                       ( count i+1 )
+    drop                                            ( count i )
+    1+                                              ( count i+1 )
   repeat,
-  drop drop                                          ( -- )
-  cc-ff-found @ 0= if,
-    [lit] 92 die
-  then,
-  cc-ff-result @ ;
+  [lit] 92 die ;
 
 ```
 
@@ -210,10 +198,9 @@ looking for one whose name matches the needle, returns its
 offset, and stashes the matched field's pointee descriptor and
 type in `cc-ff-result-{desc,type}` for the postfix handler.
 
-The walk uses the same "no `exit`" idiom as
-`cc-check-keyword` (Ch 23) and `cc-sym-find` (Ch 24): record the
-hit in a flag variable, keep iterating but skip work after the
-hit.
+The walk returns with `exit,` on the first match, as
+`cc-check-keyword` (Ch 23) and `cc-sym-find` (Ch 24) do; `nip nip`
+first clears the loop's count and index so only the offset is left.
 
 A missing field is fatal (status 92).  By this point
 `cc-last-struct-desc` has confirmed that the value *is* a struct,
@@ -287,7 +274,7 @@ a parsing ambiguity.
     cc-sym-type-of                                ( elem-ty )         \ array: keep type
   else,
     cc-sym-type-of                                ( ty )
-    dup ty-base swap ty-ptr [lit] 1 - ty-make     ( elem-ty )         \ ptr: depth-1
+    dup ty-base swap ty-ptr 1- ty-make            ( elem-ty )         \ ptr: depth-1
   then,
   dup >r                                          ( elem-ty ; R: elem-ty )
   dup ty-base ty-char = swap ty-ptr [lit] 0 = and ( char-step? ; R: elem-ty )
@@ -309,7 +296,7 @@ a parsing ambiguity.
 
   \ Expect ']'.
   cc-next-token-keep
-  tok-kind @ tk-punct <> tok-num @ [lit] 93 <> or if,
+  tok-kind @ tk-punct <> tok-num @ [char] ] <> or if,
     [lit] 82 die
   then,
 
@@ -432,8 +419,8 @@ of 5 bytes of `jmp` per literal.
       \ Identifier reference.  Could be a local variable, or a function call
       \ if the next token is '('.  Look up the name first.
       tok-str-addr @ tok-str-len @ cc-sym-find
-      \ -1 means "not found" (cc-sym-find result encoding: -1 == [lit] 0 0=).
-      dup [lit] 0 < if,
+      \ -1 means "not found" (cc-sym-find's result encoding).
+      dup 0< if,
         drop
         [lit] 30 die
       then,
@@ -450,7 +437,7 @@ of 5 bytes of `jmp` per literal.
       \ Otherwise it's a plain variable reference (with array decay for
       \ array-typed locals).
       cc-next-token-keep
-      tok-kind @ tk-punct = tok-num @ [lit] 40 = and if,
+      tok-kind @ tk-punct = tok-num @ lparen = and if,
         \ Function call.  The id (still on TOS) must refer either to an
         \ sk-func (direct call) or to an sk-local function pointer
         \ (indirect call).
@@ -471,7 +458,7 @@ of 5 bytes of `jmp` per literal.
         cc-parse-call-tramp
         cc-mark-not-lvalue
       else,
-        tok-kind @ tk-punct = tok-num @ [lit] 91 = and if,
+        tok-kind @ tk-punct = tok-num @ [char] [ = and if,
           \ Array index.  '[' has been read into tok-*; cc-parse-array-
           \ index consumes through ']'.  The id is on TOS.
           cc-parse-array-index
@@ -645,14 +632,14 @@ test.
 
 ```forth chunk=expr-primary-paren
     else,
-      tok-kind @ tk-punct = tok-num @ [lit] 40 = and if,
+      tok-kind @ tk-punct = tok-num @ lparen = and if,
         \ '(' expr ')' — the parenthesised expr is not an lvalue (cc-parse-
         \ primary inside the recursive call will set/clear cc-last-ident-slot;
         \ we re-clear it here so e.g. `(x) = 1` doesn't get treated as lvalue).
         cc-parse-expr-tramp
         cc-mark-not-lvalue
         cc-next-token-keep
-        tok-kind @ tk-punct <> tok-num @ [lit] 41 <> or if,
+        tok-kind @ tk-punct <> tok-num @ [char] ) <> or if,
           [lit] 32 die
         then,
       else,
@@ -681,11 +668,11 @@ and a token that can't start an expression at all is status 33.
   begin,
     cc-next-token-keep
     tok-kind @ tk-punct = if,
-      tok-num @ [lit] 46 =
+      tok-num @ [char] . =
       tok-num @ pt-arrow         = or
       tok-num @ pt-plus-plus     = or
       tok-num @ pt-minus-minus   = or
-      tok-num @ [lit] 91 =       or            \ '[' postfix subscript
+      tok-num @ [char] [ =       or            \ '[' postfix subscript
     else,
       [lit] 0
     then,
@@ -717,7 +704,7 @@ subscript:
 
 ```forth chunk=expr-primary-postfix-index
     else,
-    dup [lit] 91 = if,
+    dup [char] [ = if,
       \ Postfix '[' INDEX ']' applied to whatever value cc-parse-primary just
       \ produced (typically after a chain of '.' / '->').  Materialize so rdi
       \ holds the actual pointer value (not a deref-pending address), push it,
@@ -743,7 +730,7 @@ subscript:
       cc-emit-pop-rcx
       cc-emit-add-rdi-rcx
       cc-next-token-keep
-      tok-kind @ tk-punct <> tok-num @ [lit] 93 <> or if,
+      tok-kind @ tk-punct <> tok-num @ [char] ] <> or if,
         [lit] 82 die
       then,
       \ Mark deref: byte-width iff we just subscripted a char*.  The
@@ -757,7 +744,7 @@ subscript:
         cc-mark-deref-lvalue
       then,
       r@ ty-ptr [lit] 0 > if,
-        r@ ty-base r@ ty-ptr [lit] 1 - ty-make cc-last-expr-type !
+        r@ ty-base r@ ty-ptr 1- ty-make cc-last-expr-type !
       then,
       r> drop
 ```
@@ -884,7 +871,7 @@ variable cc-sizeof-bytes
 : cc-sizeof-count-stars-add
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 42 = and
+    tok-kind @ tk-punct = tok-num @ [char] * = and
   while,
     [lit] 8 cc-sizeof-bytes !
   repeat, ;
@@ -899,7 +886,7 @@ keyword, `struct TAG`, a typedef name, or a local variable.
   \ Expect '('.  We inline the check because cc-expect-punct-c lives in
   \ 110-cc-decl.fth (loaded AFTER 100-cc-expr.fth) and isn't visible yet.
   cc-next-token-keep
-  tok-kind @ tk-punct <> tok-num @ [lit] 40 <> or if,
+  tok-kind @ tk-punct <> tok-num @ lparen <> or if,
     [lit] 76 die
   then,
   cc-next-token-keep
@@ -911,7 +898,7 @@ keyword, `struct TAG`, a typedef name, or a local variable.
         [lit] 77 die
       then,
       tok-str-addr @ tok-str-len @ cc-sym-find
-      dup [lit] 0 < if,
+      dup 0< if,
         [lit] 78 die
       then,
       dup cc-sym-kind-of sk-struct <> if,
@@ -938,7 +925,7 @@ keyword, `struct TAG`, a typedef name, or a local variable.
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
-      dup [lit] 0 < if,
+      dup 0< if,
         [lit] 73 die
       then,
       dup cc-sym-kind-of sk-typedef = if,
@@ -976,7 +963,7 @@ keyword, `struct TAG`, a typedef name, or a local variable.
     then,
   then,
   \ Current token must be ')'.
-  tok-kind @ tk-punct <> tok-num @ [lit] 41 <> or if,
+  tok-kind @ tk-punct <> tok-num @ [char] ) <> or if,
     [lit] 75 die
   then,
   cc-sizeof-bytes @ cc-emit-mov-rdi-imm32
@@ -1004,7 +991,7 @@ Every path ends in `mov rdi, imm32`.
     [lit] 50 die
   then,
   tok-str-addr @ tok-str-len @ cc-sym-find
-  dup [lit] 0 < if,
+  dup 0< if,
     drop drop
     [lit] 51 die
   then,
@@ -1036,14 +1023,14 @@ Prefix `++` and `--` accept only a local identifier (statuses
     \ leave it as "consumed" (no putback) and dispatch into cc-parse-sizeof.
     cc-parse-sizeof
   else,
-    tok-kind @ tk-punct = tok-num @ [lit] 38 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] & = and if,
     \ '&' = address-of.  Operand must be a simple local IDENT.
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
       [lit] 70 die
     then,
     tok-str-addr @ tok-str-len @ cc-sym-find
-    dup [lit] 0 < if,
+    dup 0< if,
       drop
       [lit] 71 die
     then,
@@ -1055,7 +1042,7 @@ Prefix `++` and `--` accept only a local identifier (statuses
     cc-emit-lea-rdi-local
     cc-mark-not-lvalue                            \ &x is a value, not an lvalue
   else,
-    tok-kind @ tk-punct = tok-num @ [lit] 42 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] * = and if,
       \ '*' = dereference.  A char* operand (ty-char, ptr-depth 1) derefs to a
       \ single byte; int*, T**, etc. deref to a qword.  The operand's type sits
       \ in cc-last-expr-type when it came from a scalar variable (recorded in
@@ -1070,7 +1057,7 @@ Prefix `++` and `--` accept only a local identifier (statuses
         cc-mark-deref-lvalue                       \ rdi holds an addr; defer the load
       then,
       r> dup ty-ptr [lit] 0 > if,                  \ record pointee type for chained ops
-        dup ty-base swap ty-ptr [lit] 1 - ty-make cc-last-expr-type !
+        dup ty-base swap ty-ptr 1- ty-make cc-last-expr-type !
       else,
         drop
       then,
@@ -1084,21 +1071,21 @@ Prefix `++` and `--` accept only a local identifier (statuses
           \ inc-dec branches to the dec encoder for non-1.
           [lit] 0 cc-parse-prefix-inc-dec
         else,
-          tok-kind @ tk-punct = tok-num @ [lit] 45 = and if,
+          tok-kind @ tk-punct = tok-num @ [char] - = and if,
             \ Unary '-'.
             cc-parse-unary-tramp
             cc-emit-materialize
             cc-emit-neg-rdi
             cc-mark-not-lvalue
           else,
-            tok-kind @ tk-punct = tok-num @ [lit] 33 = and if,
+            tok-kind @ tk-punct = tok-num @ [char] ! = and if,
               \ Unary '!'.  rdi := (rdi == 0).
               cc-parse-unary-tramp
               cc-emit-materialize
               cc-emit-not-zero-flag
               cc-mark-not-lvalue
             else,
-              tok-kind @ tk-punct = tok-num @ [lit] 126 = and if,
+              tok-kind @ tk-punct = tok-num @ [char] ~ = and if,
                 \ Unary '~'.
                 cc-parse-unary-tramp
                 cc-emit-materialize
@@ -1164,7 +1151,7 @@ following postfix.  This is the rule §3 applies to `p[i]`.
 : cc-parse-ternary
   cc-parse-log-or
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 63 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ? = and if,
     \ '?' — consume and emit branch.
     cc-emit-materialize
     cc-emit-test-rdi
@@ -1174,7 +1161,7 @@ following postfix.  This is the rule §3 applies to `p[i]`.
     cc-emit-jmp-rel32-placeholder >r              \ R: f-else f-end
     \ Expect ':' — inline check (cc-expect-punct-c lives in 110-cc-decl.fth).
     cc-next-token-keep
-    tok-kind @ tk-punct <> tok-num @ [lit] 58 <> or if,
+    tok-kind @ tk-punct <> tok-num @ [char] : <> or if,
       [lit] 35 die
     then,
     \ Pop fixups: top of rstack is f-end, second is f-else.
@@ -1227,7 +1214,7 @@ so Stage A never notices.
 \ '|=' '^='.
 : cc-assign-op?
   tok-kind @ tk-punct = if,
-    tok-num @ [lit] 61      =
+    tok-num @ [char] =      =
     tok-num @ pt-plus-eq    = or
     tok-num @ pt-minus-eq   = or
     tok-num @ pt-star-eq    = or
@@ -1321,7 +1308,7 @@ after `rdi` holds the left value and `rcx` the right.
       tok-num @                                   ( slot op )
       swap >r                                     \ stash slot ( op ; R: slot )
       \ For compound assignment, save current LHS value before parsing RHS.
-      dup [lit] 61 = 0= if,
+      dup [char] = = 0= if,
         cc-emit-push-rdi
       then,
       >r                                          \ stash op ( ; R: slot op )
@@ -1329,7 +1316,7 @@ after `rdi` holds the left value and `rcx` the right.
       cc-emit-materialize                         \ ensure rdi holds a value
       r> r>                                       ( op slot )
       swap                                        ( slot op )
-      dup [lit] 61 = if,
+      dup [char] = = if,
         drop                                      ( slot )
       else,
         cc-emit-mov-rcx-rdi                       \ rcx = RHS
@@ -1345,7 +1332,7 @@ after `rdi` holds the left value and `rcx` the right.
         \ cc-parse-unary).  Plain `=` is supported on derefs; compound
         \ +=/-= would require load-modify-store and is deferred.
         2drop                                     \ discard saved kind/slot
-        tok-num @ [lit] 61 <> if,
+        tok-num @ [char] = <> if,
           [lit] 42 die
         then,
         \ Snapshot the byte-width flag BEFORE cc-parse-assign clobbers it.

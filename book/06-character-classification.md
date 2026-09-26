@@ -14,7 +14,7 @@ is zero.  A range test out of those three looks impossible, and the
 lexer in Part III needs one for every byte of every `.c` file it
 reads.
 
-`010-lib.fth` (lines 64–86) answers with five predicates: `digit?`,
+`010-lib.fth` (lines 71–95) answers with five predicates: `digit?`,
 `alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`.  The first
 three share one three-token idiom with no conditional in it; §2
 shows why it works, and why it depends on `/` being unsigned.  The
@@ -166,6 +166,8 @@ syntax errors.  A self-bootstrapping compiler doesn't need UTF-8.
 \ ===== Character classification helpers =====
 \ All return -1 if true, 0 if false (Forth boolean convention).
 \ Approach: just hard-code the literal byte values and use 0= equality chains.
+\ (char / [char] come later, in the section on immediate words, so these
+\ few spell their ASCII codes in decimal.)
 
 \ digit? ( c -- flag )  true if c is in '0'..'9' (ASCII 48..57)
 \ Approach: compute (c-48)/10.  If c<48 the subtract underflows to a huge

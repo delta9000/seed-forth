@@ -249,7 +249,7 @@ encoders; Ch 26 and the parser chapters use them.
 \   signed displacement -8*(slot+1).  Only valid for slots 0..15.
 
 : cc-disp8-from-slot
-  [lit] 1 + [lit] 8 *                            \ 8 * (slot+1)
+  1+ [lit] 8 *                                   \ 8 * (slot+1)
   [lit] 0 swap -                                  \ negate
   [lit] 255 and ;                                 \ low byte
 
@@ -264,7 +264,7 @@ encoders; Ch 26 and the parser chapters use them.
     cc-disp8-from-slot cc-emit-byte
   else,
     [lit] 64 + cc-emit-byte                       \ mod=01 -> mod=10
-    [lit] 1 + [lit] 8 *                           \ 8 * (slot+1)
+    1+ [lit] 8 *                                  \ 8 * (slot+1)
     [lit] 0 swap - cc-emit-4le                    \ negate; low 4 bytes = disp32
   then, ;
 

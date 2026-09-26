@@ -15,7 +15,7 @@ HERE in little-endian order, and the seed has no shift instruction
 to split them into bytes.
 
 So how do you get byte 2 of `0xAABBCCDD` with no `>>`?
-`010-lib.fth` lines 139–162 answer with four words.  `+!` and `-!`
+`010-lib.fth` lines 155–178 answer with four words.  `+!` and `-!`
 are the read-modify-write on a cell, Forth's `*addr += n`, which the
 C compiler uses for every counter.  `,4` and `,8` are the
 little-endian writers, and §2 shows what they use in place of a
@@ -154,8 +154,8 @@ cascade for every `imm64` it emits in a `movabs` instruction.
 `,4` and `,8` look general, but in the library they serve two
 specific clients:
 
-- **`,4` ← `comma-call` in Ch 11.**  Every 5-byte `CALL` instruction
-  is `E8` followed by a 4-byte `rel32`.  `comma-call` emits the `E8`
+- **`,4` ← `call,` in Ch 10.**  Every 5-byte `CALL` instruction
+  is `E8` followed by a 4-byte `rel32`.  `call,` emits the `E8`
   with `c,` and the offset with `,4`.
 
 - **`,8` ← `constant` in Ch 10; `create`, `variable` in Ch 12.**
@@ -182,7 +182,7 @@ program-header fields with those.
 
 \ ===== 4-byte little-endian writer =====
 \ ,4 ( v -- )  emit low 4 bytes of v at HERE in LE order.
-\ Used by comma-call (rel32) and any Forth-level code emitter that needs
+\ Used by call, (rel32) and any Forth-level code emitter that needs
 \ compact little-endian immediates.
 : ,4
   dup c,                       \ byte 0

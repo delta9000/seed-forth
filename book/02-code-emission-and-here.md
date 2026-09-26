@@ -16,7 +16,7 @@ the last.
 
 In Forth those bytes go into the dictionary, one contiguous arena,
 and the frontier of that arena is called `HERE`.  The first two
-definitions after the file header (`010-lib.fth` lines 11–22) name
+definitions after the file header (`010-lib.fth` lines 12–23) name
 that frontier and push it forward.  `here-addr`
 pushes the address of the HERE cell on the sysvar page; `c,`
 ("c-comma") stores one byte at HERE and bumps the cell by one.
@@ -105,7 +105,7 @@ encodes.
 
 `c,` emits one byte.  Almost every byte that `010-lib.fth` builds by
 hand travels through it: every opcode in a `constant` or `create`
-body, every `CALL` and rel32 that `comma-call` lays down in Ch 11.
+body, every `CALL` and rel32 that `call,` lays down in Chs 10 and 11.
 The multi-byte cousins `,4` and `,8` just call `c,` four or eight
 times.  The seed's own machine-code words are the
 exception: `:` builds each dictionary header, the REPL lays down each

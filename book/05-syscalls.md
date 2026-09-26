@@ -18,7 +18,7 @@ and the Linux kernel except code you can read in this book, which is
 the point: a trusting-trust attack needs somewhere to hide, and an
 unaudited C library is a large place.  The seed provides one way in, the primitive `syscall6`, which loads
 seven registers from the data stack and traps.  On top of it,
-`010-lib.fth` (lines 40–62) defines five wrappers: `open`, `read`,
+`010-lib.fth` (lines 47–69) defines five wrappers: `open`, `read`,
 `write`, `close`, and `die`.  Each one pins its syscall number and
 pads the argument slots it doesn't use with `[lit] 0`.  Have
 `man 2 syscall` handy if you want to check signatures.  The machine

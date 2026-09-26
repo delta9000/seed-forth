@@ -10,7 +10,7 @@ Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-o
 Every earlier Part III chapter compiles a piece of a C function: an
 expression, a declaration, a statement.  Nothing yet reads a whole
 file.  This chapter covers the rest of `110-cc-decl.fth`
-(lines 1498–2827), which turns those pieces into a translation-unit
+(lines 1485–2729), which turns those pieces into a translation-unit
 compiler.  It has four main words.  `cc-parse-call` compiles direct,
 forward, and indirect calls.  `cc-parse-function` wraps a body in a
 prologue, epilogue, and scope.  `cc-parse-function-list` loops over
@@ -46,8 +46,7 @@ variable cc-fn-prior-sym-id                       \ prior sk-func id for fwd-fix
 
 \ Pre-baked literal "main" for cc-is-main? — laid out as 4 raw bytes (no length
 \ prefix here, because cc-is-main? only consumes 4 bytes).
-create cc-main-name-bytes
-[lit] 109 c, [lit]  97 c, [lit] 105 c, [lit] 110 c,    \ "main"
+create cc-main-name-bytes  s, main
 
 \ cc-is-main? ( name-addr name-len -- f )  -1 if (addr, len) names "main".
 : cc-is-main?                                     ( addr len -- f )
@@ -62,7 +61,7 @@ create cc-main-name-bytes
 \ token is '}'.  Helper used by the function body loop.
 : cc-block-end?
   tok-kind @ tk-punct =
-  tok-num @ [lit] 125 = and ;
+  tok-num @ [char] } = and ;
 
 ```
 
@@ -110,12 +109,12 @@ calls `cc-emit-pop-by-arg-index` to pick the register.
 \ Walks i = n-1 down to 0, emitting pop-into-reg(i) at each step.  Loop drives
 \ a counter on the data stack.
 : cc-emit-pops-for-args                           ( n -- )
-  [lit] 1 -                                       ( i = n-1 )
+  1-                                              ( i = n-1 )
   begin,
     dup [lit] 0 >=
   while,
     dup cc-emit-pop-by-arg-index
-    [lit] 1 -
+    1-
   repeat,
   drop ;
 
@@ -160,31 +159,22 @@ function with more than six parameters.
 
   \ Empty arg list?
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 41 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ) = and if,
     \ ')' — empty arg list, leave count = 0.
   else,
     cc-putback-token
     \ Loop: parse one arg, push, increment count; continue while next is ','.
-    [lit] 0 0=                                    \ keep-going flag = -1
-    begin,
-      dup
-    while,
-      drop                                        ( id arg-count )
+    begin,                                        ( id arg-count )
       cc-parse-expr-balanced-2                    \ rdi := arg value
       cc-emit-push-rdi
-      [lit] 1 +                                   \ count++
+      1+                                          \ count++
       cc-next-token-keep
-      tok-kind @ tk-punct = tok-num @ [lit] 44 = and if,
-        [lit] 0 0=                                \ continue
-      else,
-        cc-putback-token
-        [lit] 0                                   \ stop
-      then,
-    repeat,
-    drop                                          \ discard final flag
+      tok-kind @ tk-punct = tok-num @ [char] , = and 0=
+    until,                                        \ until the next is not ','
+    cc-putback-token
     \ The token AFTER the last arg should be ')'.  Consume it.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 41 = and 0= if,
+    tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
       [lit] 36 die
     then,
   then,
@@ -264,11 +254,7 @@ a function pointer.
 \ ','.  T may be int / char / void / long / short / struct TAG / typedef-name,
 \ with '*' modifiers.  Consumes the closing ')'.
 : cc-parse-param-list-loop
-  [lit] 0 0=                                      \ keep-going flag = -1
   begin,
-    dup
-  while,
-    drop
     \ Base type.  Both branches leave ( base ptr-depth-so-far ); the kw path
     \ starts ptr-depth at 0; the typedef path inherits the typedef's encoded
     \ ptr-depth (so FUNCTION = void (*)() stays a function pointer in params).
@@ -295,7 +281,7 @@ a function pointer.
         \ Typedef-name (e.g. FILE, FUNCTION).  Look up and unpack its encoded
         \ base+ptr-depth so function-pointer typedefs survive into param type.
         tok-str-addr @ tok-str-len @ cc-sym-find   ( id )
-        dup [lit] 0 < if,
+        dup 0< if,
           [lit] 38 die
         then,
         dup cc-sym-kind-of sk-typedef <> if,
@@ -330,17 +316,12 @@ a function pointer.
     [lit] 1 cc-fn-param-count +!
     \ Continue if next is ','.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 44 = and if,
-      [lit] 0 0=                                  \ continue
-    else,
-      cc-putback-token
-      [lit] 0                                     \ stop
-    then,
-  repeat,
-  drop                                            \ discard flag
+    tok-kind @ tk-punct = tok-num @ [char] , = and 0=
+  until,
+  cc-putback-token
   \ Now consume the closing ')'.
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 41 = and 0= if,
+  tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
     [lit] 39 die
   then, ;
 
@@ -390,14 +371,14 @@ variable cc-top-save-tok-kw
 : cc-parse-param-list
   [lit] 0 cc-fn-param-count !
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 41 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ) = and if,
     \ ')' — empty list, done.
   else,
     \ Special case: `(void)` = no params.  Peek for kw-void followed by ')'.
     tok-kind @ tk-kw = tok-kw-id @ kw-void = and if,
       cc-top-lookahead-save
       cc-next-token                               \ advance past void; tok-* := next
-      tok-kind @ tk-punct = tok-num @ [lit] 41 = and >r
+      tok-kind @ tk-punct = tok-num @ [char] ) = and >r
       cc-top-lookahead-restore
       r> if,
         \ It IS '(void)'.  void is already consumed; now consume ')'.
@@ -543,7 +524,7 @@ when it didn't.
   tok-str-addr @ cc-fn-name-addr !
   tok-str-len  @ cc-fn-name-len  !
 
-  [lit]  40 cc-expect-punct-c                     \ '('
+  lparen cc-expect-punct-c
 
   \ Capture any prior sk-func entry for this name BEFORE adding our own,
   \ so we can walk its forward-call fixup list and patch each call site.
@@ -599,7 +580,7 @@ when it didn't.
   \ Parameter list (consumes through ')').
   cc-parse-param-list
 
-  [lit] 123 cc-expect-punct-c                     \ '{'
+  [char] { cc-expect-punct-c
 
   \ Prologue.
   [lit] 256 cc-emit-prologue
@@ -659,16 +640,12 @@ variable cc-enum-next-val
     cc-putback-token
   then,
 
-  [lit] 123 cc-expect-punct-c                     \ '{'
+  [char] { cc-expect-punct-c
 
   [lit] 0 cc-enum-next-val !
 
-  \ Enumerator loop.
-  [lit] 0 0=                                       \ keep-going flag = -1
+  \ Enumerator loop.  Each pass ends with a continue (-1) / stop (0) flag.
   begin,
-    dup
-  while,
-    drop
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
       [lit] 100 die
@@ -677,7 +654,7 @@ variable cc-enum-next-val
 
     \ Optional `= INT_LITERAL`.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] = = and if,
       cc-next-token-keep
       tok-kind @ tk-num <> if,
         [lit] 102 die
@@ -698,29 +675,29 @@ variable cc-enum-next-val
     \ Separator: ',' continues, '}' terminates.  A trailing ',' before '}'
     \ is allowed: peek the next token; if it's '}', stop.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 44 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] , = and if,
       \ Peek to allow trailing comma.
       cc-next-token-keep
-      tok-kind @ tk-punct = tok-num @ [lit] 125 = and if,
+      tok-kind @ tk-punct = tok-num @ [char] } = and if,
         cc-putback-token                           \ leave '}' for the close
         [lit] 0                                    \ stop
       else,
         cc-putback-token                           \ not '}', let next iter read
-        [lit] 0 0=                                 \ continue
+        true                                       \ continue
       then,
     else,
-      tok-kind @ tk-punct = tok-num @ [lit] 125 = and if,
+      tok-kind @ tk-punct = tok-num @ [char] } = and if,
         cc-putback-token                           \ leave '}' for the close
         [lit] 0                                    \ stop
       else,
         [lit] 101 die
       then,
     then,
-  repeat,
-  drop                                             \ discard final flag
+    0=
+  until,
 
-  [lit] 125 cc-expect-punct-c                     \ '}'
-  [lit]  59 cc-expect-punct-c ;                   \ ';'
+  [char] } cc-expect-punct-c
+  [char] ; cc-expect-punct-c ;
 
 ```
 
@@ -760,7 +737,7 @@ variable cc-td-ty
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
-      dup [lit] 0 < if,
+      dup 0< if,
         [lit] 111 die
       then,
       dup cc-sym-kind-of sk-typedef <> if,
@@ -786,7 +763,7 @@ variable cc-td-ty
   \ encodes inline `int (*op)(int)` locals — sufficient for parse-through
   \ without enabling actual indirect call via a typedef'd name yet.
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 40 = and if,
+  tok-kind @ tk-punct = tok-num @ lparen = and if,
     \ '(' — function-pointer typedef.  Consume one or more '*'s, then IDENT,
     \ then ')'.  Then consume the parameter list parens (balanced).
     cc-count-stars drop                            \ at least one star expected
@@ -795,8 +772,8 @@ variable cc-td-ty
       [lit] 116 die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
-    [lit] 41 cc-expect-punct-c                     \ ')'
-    [lit] 40 cc-expect-punct-c                     \ '(' of param list
+    [char] ) cc-expect-punct-c
+    lparen cc-expect-punct-c                       \ '(' of param list
     \ Skip tokens paren-balanced until matching ')'.  Depth starts at 1.
     [lit] 1
     begin,
@@ -804,8 +781,8 @@ variable cc-td-ty
     while,
       cc-next-token-keep
       tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 1 + else,
-        tok-num @ [lit] 41 = if, [lit] 1 - else,
+        tok-num @ lparen = if, 1+ else,
+        tok-num @ [char] ) = if, 1- else,
         then, then,
       then,
     repeat,
@@ -823,7 +800,7 @@ variable cc-td-ty
     cc-sym-add drop
   then,
 
-  [lit] 59 cc-expect-punct-c ;                    \ ';'
+  [char] ; cc-expect-punct-c ;
 
 ```
 
@@ -874,45 +851,31 @@ consumes nothing.
 
 \ cc-top-peek-is-fn-def? ( -- f )
 \ Scan tokens forward (paren-balanced) until we hit ';' or '{' at depth 0,
-\ or EOF.  Return -1 iff '{' is hit first.  ALWAYS restores lexer state.
-\ Loop convention: begin, COND while, repeat, runs while COND is non-zero.
-\ So we push -1 (continue) for "keep scanning" and 0 (stop) to exit.
-variable cc-top-peek-result
+\ or EOF.  Return -1 iff '{' is hit first.  ALWAYS restores lexer state:
+\ each of the three exits restores it before exit, returns the answer.
 variable cc-top-peek-depth
-variable cc-top-peek-go                            \ -1 keep scanning, 0 stop
 
 : cc-top-peek-is-fn-def?
   cc-top-lookahead-save
   [lit] 0 cc-top-peek-depth !
-  [lit] 0 cc-top-peek-result !                  \ default: not a fn def
-  [lit] 0 0= cc-top-peek-go !                   \ -1 = keep scanning
   begin,
-    cc-top-peek-go @
-  while,
     cc-next-token-keep
     tok-kind @ tk-eof = if,
-      [lit] 0 cc-top-peek-go !
-    else,
-      tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 1 cc-top-peek-depth +! then,
-        tok-num @ [lit] 41 = if, [lit] 1 cc-top-peek-depth -! then,
-        tok-num @ [lit] 59 = if,                  \ ';'
-          cc-top-peek-depth @ [lit] 0 = if,
-            [lit] 0 cc-top-peek-result !
-            [lit] 0 cc-top-peek-go !
-          then,
+      cc-top-lookahead-restore [lit] 0 exit,      \ EOF: not a fn def
+    then,
+    tok-kind @ tk-punct = if,
+      tok-num @ lparen = if, [lit] 1 cc-top-peek-depth +! then,
+      tok-num @ [char] ) = if, [lit] 1 cc-top-peek-depth -! then,
+      cc-top-peek-depth @ [lit] 0 = if,
+        tok-num @ [char] ; = if,
+          cc-top-lookahead-restore [lit] 0 exit,  \ ';' first: a declaration
         then,
-        tok-num @ [lit] 123 = if,                 \ '{'
-          cc-top-peek-depth @ [lit] 0 = if,
-            [lit] 0 0= cc-top-peek-result !
-            [lit] 0 cc-top-peek-go !
-          then,
+        tok-num @ [char] { = if,
+          cc-top-lookahead-restore true exit,     \ '{' first: a definition
         then,
       then,
     then,
-  repeat,
-  cc-top-lookahead-restore
-  cc-top-peek-result @ ;
+  again, ;
 
 ```
 
@@ -926,56 +889,36 @@ tells a prototype (it saw a `(`) from a global variable (it didn't).
 \ iff at least one '(' was encountered before the terminator.  Always restores
 \ lexer state.  Used to distinguish function prototypes from global decls when
 \ cc-top-peek-is-fn-def? has already returned 0.
-variable cc-top-paren-flag
-variable cc-top-paren-go
 : cc-top-peek-has-paren?
   cc-top-lookahead-save
-  [lit] 0 cc-top-paren-flag !
-  [lit] 0 0= cc-top-paren-go !
+  [lit] 0                                         ( saw-paren )
   begin,
-    cc-top-paren-go @
-  while,
     cc-next-token-keep
-    tok-kind @ tk-eof = if,
-      [lit] 0 cc-top-paren-go !
-    else,
-      tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 0 0= cc-top-paren-flag ! then,
-        tok-num @ [lit] 59 = if, [lit] 0 cc-top-paren-go ! then,
-        tok-num @ [lit] 123 = if, [lit] 0 cc-top-paren-go ! then,
+    tok-kind @ tk-eof = if, cc-top-lookahead-restore exit, then,
+    tok-kind @ tk-punct = if,
+      tok-num @ lparen = if, drop true then,
+      tok-num @ [char] ; =  tok-num @ [char] { =  or if,
+        cc-top-lookahead-restore exit,
       then,
     then,
-  repeat,
-  cc-top-lookahead-restore
-  cc-top-paren-flag @ ;
+  again, ;
 
 \ cc-top-skip-to-semi ( -- )
 \ Consume tokens through and including the next top-level ';'.  Paren-balanced
 \ so commas / parens inside parameter lists don't fool us.  If we run into
 \ EOF first, we exit cleanly so the outer loop also exits.
 variable cc-top-skip-depth
-variable cc-top-skip-go
 : cc-top-skip-to-semi
   [lit] 0 cc-top-skip-depth !
-  [lit] 0 0= cc-top-skip-go !
   begin,
-    cc-top-skip-go @
-  while,
     cc-next-token-keep
-    tok-kind @ tk-eof = if,
-      [lit] 0 cc-top-skip-go !
-    else,
-      tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 1 cc-top-skip-depth +! then,
-        tok-num @ [lit] 41 = if, [lit] 1 cc-top-skip-depth -! then,
-        tok-num @ [lit] 59 = if,
-          cc-top-skip-depth @ [lit] 0 = if,
-            [lit] 0 cc-top-skip-go !
-          then,
-        then,
-      then,
+    tok-kind @ tk-eof = if, exit, then,
+    tok-kind @ tk-punct = if,
+      tok-num @ lparen = if, [lit] 1 cc-top-skip-depth +! then,
+      tok-num @ [char] ) = if, [lit] 1 cc-top-skip-depth -! then,
+      tok-num @ [char] ; =  cc-top-skip-depth @ [lit] 0 =  and if, exit, then,
     then,
-  repeat, ;
+  again, ;
 
 ```
 
@@ -1094,7 +1037,7 @@ variable cc-gdecl-ptr-depth
 \ leading '-' for negative literals.  Anything else aborts.
 : cc-parse-global-int-literal                     ( -- v )
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 45 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] - = and if,
     cc-next-token-keep
     tok-kind @ tk-num <> if,
       [lit] 163 die
@@ -1185,27 +1128,27 @@ a scalar load) or the struct descriptor otherwise.
   [lit] 0 cc-gdecl-is-array !
   [lit] 1 cc-gdecl-n !
 
-  tok-kind @ tk-punct = tok-num @ [lit] 91 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] [ = and if,
     \ Array form: 'T name [ N ]'.
     cc-next-token-keep
     tok-kind @ tk-num <> if,
       [lit] 162 die
     then,
     tok-num @ cc-gdecl-n !
-    [lit] 0 0= cc-gdecl-is-array !
-    [lit] 93 cc-expect-punct-c                      \ ']'
-    [lit] 59 cc-expect-punct-c                      \ ';'
+    true cc-gdecl-is-array !
+    [char] ] cc-expect-punct-c
+    [char] ; cc-expect-punct-c
   else,
-    tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] = = and if,
       \ Scalar with initializer.  Allocate slot first so we can write the
       \ initializer bytes; then add the symbol.
       cc-gdecl-scalar-bytes cc-globals-alloc
       cc-gdecl-slot !
       cc-parse-global-int-literal
       cc-gdecl-slot @ cc-globals-store-8le
-      [lit] 59 cc-expect-punct-c                    \ ';'
+      [char] ; cc-expect-punct-c
     else,
-      tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
+      tok-kind @ tk-punct = tok-num @ [char] ; = and if,
         \ Bare uninitialized scalar.  Allocate the slot.
         cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
       else,
@@ -1260,7 +1203,7 @@ patches every recorded placeholder with base plus slot.
   [lit] 0
   begin, dup cc-globals-pos @ < while,
     dup cc-globals-buf + c@ cc-emit-byte
-    [lit] 1 +
+    1+
   repeat, drop
   \ Patch each fixup.  i walks 0..cc-gfixup-count-1.
   [lit] 0
@@ -1269,7 +1212,7 @@ patches every recorded placeholder with base plus slot.
     cc-globals-base-vaddr @ +                       \ vaddr = base + slot
     over cc-gfixup-out-pos sym-slot @              \ patch-offset
     cc-out-patch-8le
-    [lit] 1 +
+    1+
   repeat, drop ;
 
 ```
@@ -1307,7 +1250,7 @@ declaration it skips storage qualifiers, then:
         cc-top-lookahead-save
         cc-next-token                              \ consume tag IDENT (lookahead)
         cc-next-token                              \ peek next token
-        tok-kind @ tk-punct = tok-num @ [lit] 123 = and >r
+        tok-kind @ tk-punct = tok-num @ [char] { = and >r
         cc-top-lookahead-restore
         r> if,
           cc-parse-struct-def
@@ -1451,35 +1394,18 @@ an ordinary `call <vaddr>`.
 
 \ Pre-baked name strings (raw bytes, no length prefix; the length is supplied
 \ explicitly to cc-sym-add).
-create cc-name-putchar
-[lit] 112 c, [lit] 117 c, [lit] 116 c, [lit]  99 c,
-[lit] 104 c, [lit]  97 c, [lit] 114 c,            \ "putchar"
-
-create cc-name-exit
-[lit] 101 c, [lit] 120 c, [lit] 105 c, [lit] 116 c,    \ "exit"
-
-create cc-name-getchar
-[lit] 103 c, [lit] 101 c, [lit] 116 c, [lit]  99 c,
-[lit] 104 c, [lit]  97 c, [lit] 114 c,            \ "getchar"
-
-create cc-name-fputs
-[lit] 102 c, [lit] 112 c, [lit] 117 c, [lit] 116 c, [lit] 115 c,
-create cc-name-fopen
-[lit] 102 c, [lit] 111 c, [lit] 112 c, [lit] 101 c, [lit] 110 c,
-create cc-name-fclose
-[lit] 102 c, [lit]  99 c, [lit] 108 c, [lit] 111 c, [lit] 115 c, [lit] 101 c,
-create cc-name-fputc
-[lit] 102 c, [lit] 112 c, [lit] 117 c, [lit] 116 c, [lit]  99 c,
-create cc-name-fread
-[lit] 102 c, [lit] 114 c, [lit] 101 c, [lit]  97 c, [lit] 100 c,
-create cc-name-fwrite
-[lit] 102 c, [lit] 119 c, [lit] 114 c, [lit] 105 c, [lit] 116 c, [lit] 101 c,
-create cc-name-calloc
-[lit]  99 c, [lit]  97 c, [lit] 108 c, [lit] 108 c, [lit] 111 c, [lit]  99 c,
-create cc-name-memset
-[lit] 109 c, [lit] 101 c, [lit] 109 c, [lit] 115 c, [lit] 101 c, [lit] 116 c,
-create cc-name-free
-[lit] 102 c, [lit] 114 c, [lit] 101 c, [lit] 101 c,
+create cc-name-putchar  s, putchar
+create cc-name-exit     s, exit
+create cc-name-getchar  s, getchar
+create cc-name-fputs    s, fputs
+create cc-name-fopen    s, fopen
+create cc-name-fclose   s, fclose
+create cc-name-fputc    s, fputc
+create cc-name-fread    s, fread
+create cc-name-fwrite   s, fwrite
+create cc-name-calloc   s, calloc
+create cc-name-memset   s, memset
+create cc-name-free     s, free
 
 \ cc-emit-shims ( -- )  Emit each shim's body and register it in the symbol
 \ table as sk-func with val = its absolute vaddr.
@@ -1590,28 +1516,17 @@ with `cc-finalize-globals`, `cc-finalize-elf`, and
 \ Built-in typedefs for opaque libc/stdint names.  All map to ty-int so the
 \ parser will accept `FILE* p;`, `uint8_t x;`, etc. — codegen still treats
 \ them as 8-byte slots regardless of the C-visible width.
-create cc-name-FILE
-[lit]  70 c, [lit]  73 c, [lit]  76 c, [lit]  69 c,
-create cc-name-int8_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  56 c, [lit]  95 c, [lit] 116 c,
-create cc-name-int16_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  49 c, [lit]  54 c, [lit]  95 c, [lit] 116 c,
-create cc-name-int32_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  51 c, [lit]  50 c, [lit]  95 c, [lit] 116 c,
-create cc-name-int64_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  54 c, [lit]  52 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint8_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  56 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint16_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  49 c, [lit]  54 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint32_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  51 c, [lit]  50 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint64_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  54 c, [lit]  52 c, [lit]  95 c, [lit] 116 c,
-create cc-name-size_t
-[lit] 115 c, [lit] 105 c, [lit] 122 c, [lit] 101 c, [lit]  95 c, [lit] 116 c,
-create cc-name-ssize_t
-[lit] 115 c, [lit] 115 c, [lit] 105 c, [lit] 122 c, [lit] 101 c, [lit]  95 c, [lit] 116 c,
+create cc-name-FILE      s, FILE
+create cc-name-int8_t    s, int8_t
+create cc-name-int16_t   s, int16_t
+create cc-name-int32_t   s, int32_t
+create cc-name-int64_t   s, int64_t
+create cc-name-uint8_t   s, uint8_t
+create cc-name-uint16_t  s, uint16_t
+create cc-name-uint32_t  s, uint32_t
+create cc-name-uint64_t  s, uint64_t
+create cc-name-size_t    s, size_t
+create cc-name-ssize_t   s, ssize_t
 
 \ cc-emit-libc-typedefs ( -- )  Register the typedef names above so headers
 \ that say `FILE* fp;` or `uint8_t b;` parse without rc 30.  All map to ty-int

@@ -10,97 +10,95 @@ analytical "why is this enough?", and a step-by-step trace.
 
 | From | Tag | Exercise |
 |------|-----|---|
-| Ch 11 (Part I)   | ★★ Extend | "Add the `again,` combinator" |
+| Ch 11 (Part I)   | ★★ Extend | "Add the `?exit,` combinator" |
 | Ch 18 (Part II)  | ★ Trace   | "Why is `ret` enough to end a colon definition?" |
 | Ch 27 (Part III) | ★★ Trace  | "Trace `cc-parse-add` parsing `a - b - c`" |
 
 ---
 
-## D.1.  Ch 11 — Add the `again,` combinator
+## D.1.  Ch 11 — Add the `?exit,` combinator
 
-> **Exercise (Ch 11 #3, ★★ Extend).**  Write `again, ( back-target -- )` which
-> emits an unconditional backward jump.  It is the simplest member
-> of this family: three lines.
+> **Exercise (Ch 11 #3, ★★ Extend).**  Write `?exit, ( flag -- )`, an
+> immediate word that compiles "return now if the flag is non-zero".
+> Build it from the emitters `if,`, `exit,` and `then,` are made of,
+> not from those words themselves: three lines.
 
 ### What's being asked
 
-`begin,` already exists in `010-lib.fth` and leaves the
-*current* HERE on the stack, the address loops will eventually
-branch back *to*.  `while,` and `repeat,` close a counted loop;
-they pop `begin,`'s address and emit a `0branch` back to it.
-
-`again,` is the *unconditional* counterpart: pop a back-target and
-emit a `branch` (not `0branch`) to it.  Useful for infinite loops
-(`begin, ... again,`), or for tail calls written manually.
+Inside a definition, `if, exit, then,` already means "return if the
+flag is non-zero".  `?exit,` should compile exactly that in one
+word.  The catch is in the last sentence of the exercise: `if,`,
+`exit,` and `then,` are immediate, so writing them inside `?exit,`'s
+own body would run them while `?exit,` is being compiled, not when
+`?exit,` later runs inside some other definition.  `?exit,` has to
+emit their bytes itself.
 
 ### The shape of the answer
 
-The existing `repeat,` (in `010-lib.fth`) does exactly this for
-the conditional case.  Read it for the template:
+Read the three words it replaces (Ch 11, Ch 10):
 
 ```forth
-: repeat,                       ( back-target while-fixup -- )
-  swap branch-xt comma-call ,   \ emit `CALL branch` + back-target cell
-  here swap ! ;                 \ patch while,'s loop-exit fixup to here
-immediate
+: if,    0branch-xt call,  here  [lit] 0 , ;   immediate
+: exit,  ret, ;                                immediate
+: then,  here swap ! ;                         immediate
 ```
 
-`repeat,` does two jobs: it emits the unconditional backward jump
-(`swap branch-xt comma-call ,`), then patches the forward fixup that
-`while,` left so a failed test lands just past the loop.  `again,`
-needs only the first job.  An infinite loop has no exit test, so there
-is no fixup to patch.  We keep the backward-jump half and drop the
-patch half.
+`if,` emits `CALL 0branch` and an 8-byte slot and leaves the slot's
+address; `exit,` emits `C3`; `then,` stores HERE into the slot.
+Run the three bodies back to back and the fixup never needs to leave
+the data stack of `?exit,` itself.
 
 ### The solution
 
 ```forth
-\ again, ( back-target -- ) emit an unconditional backward branch.
-: again,
-  branch-xt comma-call   \ CALL branch_code  (5 bytes)
-  ,8 ;                   \ inline 8-byte target = back-target
+\ ?exit, ( flag -- )  compile: return now if flag is non-zero.
+: ?exit,
+  0branch-xt call,  here [lit] 0 ,     \ CALL 0branch + slot (fixup)
+  ret,  here swap ! ;                  \ C3, then patch slot to just past it
 immediate
 ```
 
 Three lines, as promised, plus the `immediate` every combinator
-needs.  Leave it off and `again,` runs when `tick` *runs* instead
-of when it compiles: the colon compiler just emits a `CALL again,`,
-the loop body prints one `.`, and `again,` then appends a stray
-branch to whatever `HERE` is at run time instead of looping.
+needs.  Leave it off and `?exit,` runs when its caller *runs*
+instead of when it compiles: the caller's body gets a `CALL ?exit,`,
+and each call appends 14 stray bytes at whatever HERE is at run
+time.
 
-Walk the bytes for `: forever begin, again, ;`:
+Walk the bytes `?exit,` lays down at offset 0 of some body:
 
 | HERE offset | Byte(s) | Source |
 |---|---|---|
-| 0 | `E8 ?? ?? ?? ??` | `comma-call branch_code` → `CALL branch_code` |
-| 5 | `B` as 8 LE bytes | `,8` of the back-target `B` = the absolute address `begin,` read from `HERE` — here, the address of offset 0 |
+| 0  | `E8 ?? ?? ?? ??` | `0branch-xt call,` → `CALL 0branch_code` |
+| 5  | 8-byte slot = address of offset 14 | `here [lit] 0 ,`, patched by `here swap !` |
+| 13 | `C3` | `ret,` |
+| 14 | (the caller's next instruction) | |
 
-When `branch_code` runs, it reads the inline cell as its new
-return address.  That cell holds `B`, the absolute address of the
-body's first byte, so control jumps back there: the infinite
-loop you'd expect.
+At run time `0branch_code` pops the flag.  If it is zero, it reads
+the slot and continues at offset 14, past the `ret`.  If it is
+non-zero, it skips the slot and falls into the `C3`, which returns
+from the word.
 
 ### Try it
 
 ```sh
 ./build.sh
 { cat 010-lib.fth
-  echo ": again,  branch-xt comma-call ,8 ;  immediate"
-  echo ": tick  begin, [lit] 46 emit again, ;"
-  # Hit Ctrl-C after a few dots — there's no way out of this loop.
-  echo "tick"
-} | timeout 1 ./seed-forth || true
+  echo ": ?exit,  0branch-xt call, here [lit] 0 , ret, here swap ! ; immediate"
+  echo ": dot-unless  ?exit, [lit] 46 emit ;"
+  echo "[lit] 0 dot-unless  [lit] 1 dot-unless  [lit] 0 dot-unless"
+} | ./seed-forth
 ```
 
-Expected: stdout fills with `.` until the `timeout 1` kills it.
+Expected output: `..`.  The two zero flags fall through to `emit`;
+the `1` returns before it.
 
 ### Why three lines
 
-The seed pays for `again,` exactly twice: once for the 5-byte
-`CALL branch_code`, once for the 8-byte inline target.  No
-runtime decision, no fixup stack, no condition.  This is the
-floor of the combinator family; everything else in Ch 11 is more
-machinery on top of these two emits.
+`?exit,` is `if,`, `exit,` and `then,` with the fixup kept private:
+14 bytes, one forward branch over one `ret`.  It is also Ch 11's
+rule about `exit,` in its smallest form: the `C3` it compiles pops
+the caller's return address, so it is only safe where nothing else
+has been pushed on the return stack.
 
 ---
 

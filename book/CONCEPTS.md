@@ -190,8 +190,11 @@ their introducing chapter.
 - **Fixup-on-the-stack** — Ch 11; *Ch 19 (the underlying mechanism),
   Ch 30 (same idea in the C compiler's output)*
 - **Emit, remember, patch** — Ch 11; *Chs 19, 21, 25, 26, 30, 31*
-- **`comma-call` (compile a 5-byte rel32 CALL)** — Ch 11; *Ch 26*
-- **Loop without `exit` (accumulate in a variable)** — Ch 12; *Ch 23*
+- **`call,` (compile a 5-byte rel32 CALL)** — Ch 10; *Chs 11, 26*
+- **`[char]` (character literals compiled as `[lit]` bytes)** — Ch 10;
+  *Chs 22–31*
+- **Early return with `exit,` (return stack must be clean)** — Ch 11;
+  *Chs 12, 23, 24*
 
 ### Seed VM internals (Part II)
 

@@ -14,7 +14,7 @@ Sources of truth, in case this appendix drifts:
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `110-cc-decl.fth` `cc-parse-stmt`
-  (lines 1393–1493).
+  (lines 1380–1447).
 
 If you discover a construct the compiler accepts that isn't listed
 below, or rejects one that is, this appendix is wrong and the
@@ -39,8 +39,8 @@ arithmetic stride.
 | `typedef` names        | yes | resolves to the aliased type | Registered in the symbol table. |
 | `T[N]` (array of T)    | yes (locals + globals) | `N * 8` (N slots, each 8 bytes) | Decays to `T*` in expressions. |
 | `T (*fp)(args)` (function pointer) | yes (in `cc_globals.c` and friends) | 8 bytes | Only the forms M2-Planet uses are exercised. |
-| `short`, `long`, `unsigned`, `signed` | recognised as basic-type keywords (`cc-tok-is-basic-type-kw?` in `110-cc-decl.fth:492`) | 8 bytes | The keywords let headers parse, but the resulting type is always 8-byte signed regardless of which modifier appeared. |
-| `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | `cc-skip-storage-quals` (`110-cc-decl.fth:98`) consumes and discards.  `static` locals behave like ordinary locals. |
+| `short`, `long`, `unsigned`, `signed` | recognised as basic-type keywords (`cc-tok-is-basic-type-kw?` in `110-cc-decl.fth:488`) | 8 bytes | The keywords let headers parse, but the resulting type is always 8-byte signed regardless of which modifier appeared. |
+| `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | `cc-skip-storage-quals` (`110-cc-decl.fth:97`) consumes and discards.  `static` locals behave like ordinary locals. |
 | `float`, `double`, `long double` | **rejected** | — | No floating-point support at any layer. |
 | bitfields              | **rejected** | — | The parser does not accept `int x : 3;`. |
 | `union`                | **rejected** | — | Not a keyword in the table. |
@@ -76,7 +76,7 @@ outside of argument lists and `for`-loop headers.
 
 ## Statements
 
-`cc-parse-stmt` in `110-cc-decl.fth:1393` dispatches the following
+`cc-parse-stmt` in `110-cc-decl.fth:1380` dispatches the following
 forms.  Anything not listed here is rejected by the parser (status
 codes in the 30s/80s/90s; see Appendix G).
 
@@ -119,7 +119,7 @@ lists (`...`) are **rejected** — every function in this subset has
 a fixed arity.
 
 Function-pointer parameters use the `T (*name)(args)` form (see
-`cc-parse-fnptr-decl` in `110-cc-decl.fth:363`).
+`cc-parse-fnptr-decl` in `110-cc-decl.fth:360`).
 
 ## Preprocessor
 

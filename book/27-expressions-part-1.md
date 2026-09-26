@@ -12,7 +12,7 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(1478 lines total) solves this with a *precedence cascade*: plain
+(1466 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a
@@ -113,7 +113,7 @@ variable cc-tok-pending                           \ -1 = a token is queued
 \ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
 \ next cc-next-token-keep returns it without advancing.
 : cc-putback-token
-  [lit] 0 0= cc-tok-pending ! ;
+  true cc-tok-pending ! ;
 
 ```
 
@@ -195,9 +195,9 @@ the real word's execution token once it exists.
 \ token is one of *, /, %.
 : cc-mul-op?
   tok-kind @ tk-punct = if,
-    tok-num @ [lit] 42 =
-    tok-num @ [lit] 47 = or
-    tok-num @ [lit] 37 = or
+    tok-num @ [char] * =
+    tok-num @ [char] / = or
+    tok-num @ [char] % = or
   else,
     [lit] 0
   then, ;
@@ -221,10 +221,10 @@ the real word's execution token once it exists.
     cc-emit-mov-rcx-rdi                           \ rcx = right
     cc-emit-pop-rdi                               \ rdi = left
     r>                                            ( op )
-    dup [lit] 42 = if,
+    dup [char] * = if,
       drop cc-emit-imul-rdi-rcx
     else,
-      [lit] 47 = if,
+      [char] / = if,
         cc-emit-idiv-quotient
       else,
         cc-emit-idiv-remainder
@@ -276,8 +276,8 @@ to `cc-parse-primary`.  The code moves it to the return stack with
 
 : cc-add-op?
   tok-kind @ tk-punct = if,
-    tok-num @ [lit] 43 =
-    tok-num @ [lit] 45 = or
+    tok-num @ [char] + =
+    tok-num @ [char] - = or
   else,
     [lit] 0
   then, ;
@@ -296,7 +296,7 @@ to `cc-parse-primary`.  The code moves it to the return stack with
     cc-emit-mov-rcx-rdi
     cc-emit-pop-rdi
     r>                                            ( op )
-    [lit] 43 = if,
+    [char] + = if,
       cc-emit-add-rdi-rcx
     else,
       cc-emit-sub-rdi-rcx
@@ -383,8 +383,8 @@ nothing calls it.
 
 : cc-rel-op?
   tok-kind @ tk-punct = if,
-    tok-num @ [lit]  60 =
-    tok-num @ [lit]  62 = or
+    tok-num @ [char] < =
+    tok-num @ [char] > = or
     tok-num @ pt-le      = or
     tok-num @ pt-ge      = or
   else,
@@ -406,10 +406,10 @@ nothing calls it.
     cc-emit-pop-rdi
     r>                                            ( op )
     \ Now rdi=left, rcx=right.  Dispatch on op code.
-    dup [lit] 60 = if,
+    dup [char] < = if,
       drop cc-emit-cmp-lt
     else,
-      dup [lit] 62 = if,
+      dup [char] > = if,
         drop cc-emit-cmp-gt
       else,
         pt-le = if,
@@ -489,7 +489,7 @@ operators below rely on that: `1 && 2` must produce 1, not 2.
   cc-parse-eq
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 38 = and
+    tok-kind @ tk-punct = tok-num @ [char] & = and
   while,
     cc-emit-materialize
     cc-emit-push-rdi
@@ -506,7 +506,7 @@ operators below rely on that: `1 && 2` must produce 1, not 2.
   cc-parse-bit-and
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 94 = and
+    tok-kind @ tk-punct = tok-num @ [char] ^ = and
   while,
     cc-emit-materialize
     cc-emit-push-rdi
@@ -523,7 +523,7 @@ operators below rely on that: `1 && 2` must produce 1, not 2.
   cc-parse-bit-xor
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 124 = and
+    tok-kind @ tk-punct = tok-num @ [char] | = and
   while,
     cc-emit-materialize
     cc-emit-push-rdi

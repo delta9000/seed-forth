@@ -212,7 +212,7 @@ jmp repl
 
 `compile_call` (Ch 18) writes `E8` and the rel32 at HERE, advances
 HERE by 5 and drops the xt: the same `CALL rel32` emitter that
-`[lit]` uses, and that Ch 11's `comma-call` rebuilds at the Forth
+`[lit]` uses, and that Ch 10's `call,` rebuilds at the Forth
 level.
 
 **Step 6: execute.**

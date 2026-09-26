@@ -18,7 +18,7 @@ Expected output: `over?-?and?<?if,?variable?`.  Every word it has
 never heard of is echoed with a `?`.  The seed's 32 primitives include `+` but no `-`, `nand` but no
 `and`, `0=` but no `<`, and two jump primitives but no `if`.  Part I
 writes every one of those six words, and the rest of a working
-language, as ordinary Forth in the 384 lines of `010-lib.fth`.
+language, as ordinary Forth in the 442 lines of `010-lib.fth`.
 
 Why not add them to the seed instead?  Because every primitive is
 hand-assembled hex that anyone checking this bootstrap has to read
@@ -122,7 +122,8 @@ header tells you that:
 \ Conventions:
 \   - All arithmetic constants use [lit] (the decimal literal compiler)
 \     because the seed has no interpret-mode number parser at all — [lit]
-\     is the only path; see Ch 20 for the parser.
+\     is the only path; see Ch 20 for the parser.  Characters use char /
+\     [char] (defined below), so no ASCII code needs a comment to explain it.
 \   - No seed address is typed in: sysvar cells are found from the seed's
 \     state and latest primitives, and primitive xts with ' (tick).
 ```
