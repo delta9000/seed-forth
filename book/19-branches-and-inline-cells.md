@@ -7,24 +7,23 @@ Artifact after this chapter: branch_code and zbranch_code plus the consumed-slot
 Proof link: the C compiler's jump fixups (Ch 30) reuse the shape, just in x86-64 rather than inline cells.
 ```
 
-Ch 11 built `if,`, `then,`, `else,`, `begin,`, `while,` and
-`repeat,` in Forth.  Each one emits a `CALL` plus an 8-byte inline
-cell at HERE, but Part I never said what those `CALL`s land on.
-They land on two primitives, 34 bytes of hex between them.
-`branch_code` (`@ 0x42B`, lines 368–372) jumps unconditionally to
-the address in the inline cell.  `zbranch_code` (`@ 0x431`, lines
-374–385) jumps only when the flag on top of the data stack is zero,
-and otherwise steps past the cell.  Every loop and conditional in
-the Forth library and in the C compiler's Forth source runs through
-them; only the seed's own REPL, written in raw hex, uses native
-jumps instead.
+`if,` and `while,` are used 508 times in the library and the C
+compiler's Forth.  Every one compiles to a `CALL` plus an 8-byte
+cell (Ch 11), and every loop's backward edge is another.  Yet
+`branch_code`, the unconditional jump behind `else,` and `repeat,`,
+is 6 bytes long and contains no jump instruction at all.  How do you
+jump with a `CALL` and a `ret`?
 
-Both reuse `lit_code`'s trick from Ch 18: pop the return address
-(which points at the inline cell), read the cell, and push a
-corrected return address before `ret`, so execution never lands on
-the 8 raw bytes.  The difference is which address goes back.
-`lit_code` always pushes `slot + 8`; the branches can push the
-cell's *contents*, the target.
+Ch 18 already showed half the answer.  `lit_code` pops its return
+address, which points at the inline cell, and pushes back
+`cell + 8`.  The branches pop the same address and can push back the
+cell's *contents* instead: the target.  `ret` then goes wherever the
+cell says.  `branch_code` (`@ 0x42B`, lines 368–372) always does
+that; `zbranch_code` (`@ 0x431`, lines 374–385) does it only when
+the flag on top of the data stack is zero, and otherwise steps past
+the cell.  Between them, 34 bytes carry every conditional and loop
+in the Forth code; only the seed's own REPL, written in raw hex,
+uses native jumps.
 
 ## 1. The compiled shape
 
@@ -65,11 +64,9 @@ C3
 C3              ret            ; jump there
 ```
 
-Six bytes total: five bytes of opcode plus a one-byte `ret`.  The
-trick is **the cell is consumed**: we popped the slot's address,
-dereferenced it to get the target, and pushed the *target* back.
-When `ret` runs, the new target is on top of the return stack and
-the slot's address is gone.
+Six bytes total.  **The cell is consumed**: we popped the slot's
+address, dereferenced it, and pushed the *target* back, so when
+`ret` runs the slot's address is gone.
 
 Had the slot's address stayed on the stack, `ret` would have jumped
 to the slot and executed its 8 raw bytes as code.  Because the
@@ -141,13 +138,10 @@ bytes).  `push rax; ret` (`50 C3`) is also two bytes.  The choice
 between them is stylistic, not size-driven.  Two things favour
 `push/ret`:
 
-- The instruction we're "returning from" is a `CALL`, so structuring
-  the primitive as "pop the call's return address, fiddle with it,
-  push a new one, ret" is a clean, symmetric handshake with the
-  `CALL`.  The reader sees `pop ... ret` and understands that the
-  primitive is replacing one return address with another.  With
-  `jmp rax` the primitive would still start with `pop rax`, leaving
-  an asymmetric pop-then-jump.
+- The primitive was entered by `CALL`, so "pop the return address,
+  replace it, `ret`" reads as one handshake: the reader sees
+  `pop ... ret` and knows one return address was swapped for
+  another.
 - Branch predictors prefer balanced call/ret stacks.  A `push/ret`
   pairs with the original `CALL` better than a `jmp` would for the
   CPU's return-address predictor.  The effect is invisible in a
@@ -280,6 +274,13 @@ EOF
 # prints "54321"
 ```
 
+Count what just happened.  `countdown` went round its loop five
+times, and each trip back to `begin,` was a `ret`: `repeat,` had
+compiled a `CALL` to `branch`, whose body popped the address of the
+inline cell, pushed the loop's start address from inside it, and
+returned there.  The sixth test failed, `0branch` read its own cell,
+and the `ret` that ended the loop was a jump forward past `repeat,`.
+
 ## Exercises
 
 1. **★★★ Modify.** The `push rax; ret` indirect-jump trick is two bytes long.  So
@@ -317,5 +318,13 @@ EOF
 - Ch 11's combinators only emit a `CALL` plus an 8-byte slot and
   patch the slot later, and these two primitives are what make that
   emit-remember-patch contract run.
+
+**Running count: 1,768 of 2,040 bytes read (87%).**  This chapter
+added 34.
+
+Every primitive has now been read, and 272 bytes remain: a decimal
+parser, and the one routine that calls `read_word`, `find_code`,
+`execute_code` and `emit_code` and has never itself been read.
+Ch 20 opens the REPL, and with it the last byte of the seed.
 
 Next: Chapter 20 — The Number Parser and REPL.

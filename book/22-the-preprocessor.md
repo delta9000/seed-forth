@@ -7,9 +7,10 @@ Artifact after this chapter: a flattened C stream plus an integer macro table.
 Proof link: Stage-A sees the same project headers and integer constants as the reference path.
 ```
 
-C source is rarely self-contained.  It pulls in headers and defines
-constants, and it relies on a preprocessor to glue everything together
-before the compiler sees a single token.  The 662-line file
+`tri.c` opens with `#define ROWS 4`, a line no C parser accepts, and
+then uses `ROWS` four times.  Before the parser sees the program,
+something has to delete that line and make each `ROWS` mean 4.  The
+preprocessor does only the first half.  The 662-line file
 `040-cc-prep.fth` is the smallest preprocessor that suffices for
 M2-Planet.  It supports two active transformations: `#include "…"` for project
 headers, spliced in recursively, and `#define NAME N` for integer
@@ -27,7 +28,7 @@ it).  Angle-bracket includes, include guards and similar scaffolding
 still appear, but this compiler does not need their semantics.
 
 Macro *substitution* is not the preprocessor's job at all.  The pass
-only records `NAME → value`; Ch 23's lexer calls `cc-macro-find-int`
+only records `ROWS → 4`; Ch 23's lexer calls `cc-macro-find-int`
 after reading each identifier.
 
 ## 1. The output buffer and the two-megabyte detour
@@ -962,13 +963,14 @@ happens at LEX time."
 
 ## Try it
 
-**Small check:** run the preprocessor directly on a tiny input and
-print the rewritten buffer.  Seed-forth has no file-`include` or
+**Small check:** run the preprocessor on the four lines of `tri.c`
+that mention `ROWS` and print the rewritten buffer.  Seed-forth has no file-`include` or
 `-e` flag, so we concatenate the four Forth files it needs onto
 stdin, strip Forth comments, and then append the C source.  The
 driver defines a one-shot word `dump-prep` that calls
 `cc-load-stdin` (which slurps whatever remains on stdin), runs
-`cc-preprocess`, and walks the rewritten buffer byte by byte:
+`cc-preprocess`, walks the rewritten buffer byte by byte, then
+prints the macro count as a digit:
 
 ```sh
 ./build.sh
@@ -984,27 +986,40 @@ driver defines a one-shot word `dump-prep` that calls
         dup cc-src-buf + c@ emit
         [lit] 1 +
       repeat, drop
+      cc-macro-count @ [lit] 48 + emit
       bye ;
     dump-prep
 FORTH
   cat <<'C'
-#define ANSWER 42
-int x = ANSWER;
+#define ROWS 4
+    int w[ROWS];
+    t.rows = ROWS;
+    if (t.stars == ROWS * ROWS) return t.stars;
 C
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
 After the REPL executes the final `dump-prep` token, `cc-load-stdin`
 reads the rest of stdin (the C source) into `cc-src-buf`,
-`cc-preprocess` runs, and the loop prints the rewritten buffer.
-Expected output ends with `int x = ANSWER;`.  `ANSWER` itself is
-*not* substituted in the buffer.  The preprocessor only
-records `ANSWER → 42` in the macro table and strips the `#define`
-directive from the source; the actual substitution happens at lex
-time (Ch 23), when `cc-next-token` consults `cc-macro-find-int`
-and emits a numeric token in place of the identifier.  Registering
-at prep time and substituting at lex time makes object-like macros
-almost free.
+`cc-preprocess` runs, and the loop prints this (the first line is
+empty):
+
+```text
+
+    int w[ROWS];
+    t.rows = ROWS;
+    if (t.stars == ROWS * ROWS) return t.stars;
+8
+```
+
+The directive is gone but its newline stayed, so every later line
+keeps its number.  All four `ROWS` are still there.  The preprocessor
+only recorded `ROWS → 4` as the eighth macro, after the seven
+built-ins of §7, which is the `8` on the last line.  Substitution
+happens at lex time (Ch 23), when `cc-next-token` consults
+`cc-macro-find-int` and emits a numeric token in place of the
+identifier.  Registering at prep time and substituting at lex time
+makes object-like macros almost free.
 
 **Layer check:** there is no root-level `test-040-cc-prep.fth`.
 The preprocessor's fixtures are gates: `tests/cc/G14a.c` (integer
@@ -1061,7 +1076,9 @@ The compiler can flatten C source: project includes splice in
 recursively, integer macros are recorded for the lexer, and the lexer
 sees one continuous stream with its position reset to zero.  Every
 M2-Planet header reaches the parser as the same text the GCC reference
-path sees.
+path sees.  For `tri.c` that stream is 470 bytes, still characters,
+still spelling `ROWS` four times.  Ch 23 turns it into tokens, and
+that is where `ROWS` finally becomes 4.
 
 ## Takeaways
 

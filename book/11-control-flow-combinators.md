@@ -7,11 +7,12 @@ Artifact after this chapter: if,, then,, else,, begin,, while,, repeat,, and the
 Proof link: the seed-level rehearsal of emit-remember-patch — the pattern the C compiler reuses in Ch 30.
 ```
 
-Ch 10 gave the library the IMMEDIATE flag, but no library word uses
-it yet, and the library still has no way to make a decision.  Every word runs
-straight through from its first token to its `ret`.  The seed does
-provide two jump primitives, `branch` and `0branch`, but nothing
-that emits calls to them with the right targets.
+The library can compare, classify, and assemble machine code, and it
+still cannot make a decision.  Every word runs straight through from
+its first token to its `ret`.  The seed provides two jump
+primitives, `branch` and `0branch`, but its parser has no `if`, and
+the parser is hex that nobody is going to edit.  Yet the C compiler
+in Part III contains hundreds of `if,`s.  Where do they come from?
 
 `010-lib.fth` lines 196–292 fill that gap with nine words, six of
 them immediate: `if,`/`then,`/`else,` and `begin,`/`while,`/`repeat,`
@@ -23,11 +24,9 @@ address on the stack for its partner to patch.  The machine code of
 
 ## 1. The big picture: `if` is not a keyword
 
-If you've written a parser before, you have a mental model of how
-control flow works.  The parser recognises `if` as a special token,
-matches the `then` or `else` that follows, builds an AST node for
-the conditional, and the code generator turns that node into branch
-instructions.  Every stage of the compiler knows about `if`.
+In most compilers the parser recognises `if` as a special token,
+builds an AST node for the conditional, and the code generator turns
+that node into branch instructions.  Every stage knows about `if`.
 
 Forth doesn't work that way.  In Forth, **`if`** (here spelled
 `if,`) **is a word**, defined in user code, two-thirds of the way
@@ -46,6 +45,8 @@ data stack as a *fixup*.  The matching `then,` later reads HERE and
 stores it into the fixup slot, which completes a conditional jump.
 
 There is no special case in the compiler and no parser involvement.
+`if` is a few dozen lines of library code away from existing, and
+the rest of this chapter writes them.
 
 ## 2. The seed's branch primitives in brief
 
@@ -87,11 +88,6 @@ of writing `[lit] 4195810 constant branch-xt` (today's `0x4005E2`)
 and updating that number every time the seed moves, we let `'`
 resolve the address at load time.  Subsequent edits to the seed
 don't require touching `010-lib.fth`.
-
-This is the canonical Forth answer to "how do I reference a thing
-whose address I don't know yet?"  Capture it by name, at the
-earliest moment the name resolves, and use the captured value
-thereafter.
 
 ## 4. `comma-call`: the rel32 calculator
 
@@ -344,19 +340,19 @@ At runtime, with `5` on the stack and a call to `cnt`:
   `while,`'s `0branch` sees zero, jumps out and lands on `drop`.
 - `drop` consumes the remaining `0`.  `;` returns.
 
-Output: `54321`.  Verified by the Try-it below.
+Output: `54321`, which the Try-it below reproduces.
 
 ## 9. The reveal
 
-About thirty lines of code implement structured programming, with
-no parser change and no new VM opcodes: just immediate words that
-emit `branch` and `0branch` calls with inline 8-byte target slots.
-Forth is now self-extensible.
+Step back and count what just happened.  The seed's parser was not
+touched and no primitive was added, yet the language now has
+`if`/`else`/`then` and a `while` loop.  About thirty lines of
+immediate words that emit `branch` and `0branch` calls with inline
+8-byte target slots implement structured programming.  Forth is now
+self-extensible.
 
-Any other control construct (`case`/`of`, exception unwinding,
-generators, multi-level exits) is a few dozen lines away.  You'd
-open `010-lib.fth`, add a couple of immediate words that emit
-branches in a new pattern, and the user language has a new keyword.
+Any other control construct (`case`/`of`, multi-level exits) is a
+few immediate words away.
 
 The C compiler in Part III uses these combinators throughout its
 own Forth source: every loop and conditional in the *generating*
@@ -368,8 +364,8 @@ carries over is the pattern, not the words: emit a placeholder,
 remember its address, patch it when the target is known.
 
 This is what people mean when they call Forth "a programmable
-programming language": no metaclasses, no macros, no AST
-manipulation, just a mode flag, a flag bit, and `c,`.
+programming language": no macros and no AST, just a mode flag, a
+flag bit, and `c,`.
 
 ## Canonical source
 
@@ -491,7 +487,8 @@ Forward branch with else-arm:
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
-Expected: `AB`.
+Expected: `AB`.  One word, two runs, two different paths, chosen by
+a word you just read.
 
 Counting loop (the worked example from §8):
 
@@ -502,7 +499,8 @@ Counting loop (the worked example from §8):
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 ```
 
-Expected: `54321`.
+Expected: `54321`.  That countdown is a loop the seed's parser has
+never heard of, compiled by three library words.
 
 `./test.sh` exercises both patterns via `test-010-lib.fth` if you'd
 rather see them inside a larger battery.
@@ -543,6 +541,13 @@ rather see them inside a larger battery.
 - Every control structure in the codebase's Forth source, the C
   compiler's included, is built from these combinators.
 
-Next: Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`, where
-the last 82 lines of `010-lib.fth` complete the defining-word
-machinery and add the first non-trivial byte-string operation.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, comparisons, shuffles,
+multi-byte writes, `constant`, **branches and loops**.  Still
+missing: variables, buffers, string compare.
+
+Next: Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`.  The
+library can now decide and loop, but it cannot *remember*: there is
+no `variable`, no named buffer, and no way to ask whether two names
+are the same, a question the C compiler asks on every identifier.
+The last 82 lines of `010-lib.fth` answer all three.

@@ -8,7 +8,10 @@ Proof link: later Stage-A compilation can place code at stable virtual addresses
 ```
 
 After Ch 24 the compiler knows what types and symbols exist, but it
-cannot yet write a single byte of machine code.  This chapter and the
+cannot yet write a single byte of machine code.  The first bytes it
+must write pose a puzzle: `tri.c`'s executable opens with a 120-byte
+ELF header that states the file's size, 1,241 bytes, and the header
+is written before any code has been compiled.  This chapter and the
 next build the output side.  There is no assembler in between: every
 x86-64 instruction the compiler emits has its own Forth word that
 writes the instruction's exact bytes into `cc-out-buf`.
@@ -818,6 +821,57 @@ objdump -D -b binary -m i386:x86-64 -M intel /tmp/cc-out | tail -10
 You should see `mov rdi, 0x2a ; push rdi ; add rdi, rcx` in the
 disassembly after the 120-byte ELF preamble.
 
+**tri.c at this stage:** compile the running example and read the
+header back:
+
+```sh
+./build.sh
+{
+  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth \
+    | sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'
+  cat <<'C'
+#define ROWS 4
+struct tri { int rows; int stars; };
+struct tri t;
+
+void line(int pad, int n) {
+    while (pad > 0) { putchar(' '); pad = pad - 1; }
+    while (n > 0) { putchar('*'); n = n - 1; }
+    putchar('\n');
+}
+
+int main() {
+    int w[ROWS];
+    int r;
+    t.rows = ROWS;
+    for (r = 0; r < t.rows; r = r + 1) {
+        w[r] = 1 + r * 2;
+        line(t.rows - 1 - r, w[r]);
+        t.stars = t.stars + w[r];
+    }
+    if (t.stars == ROWS * ROWS) return t.stars;
+    return 1;
+}
+C
+} | ./seed-forth
+readelf -l /tmp/cc-out | tail -n 4
+```
+
+```text
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  LOAD           0x0000000000000000 0x0000000000400000 0x0000000000400000
+                 0x00000000000004d9 0x0000000000014000  RWE    0x1000
+```
+
+`FileSiz` is `0x4d9`, 1,241: the zero `cc-emit-elf-header` wrote
+at offset 96 was overwritten by `cc-finalize-elf` after the last
+byte of `t`'s storage went in.  `MemSiz` kept its default `0x14000`,
+since 1,241 is far below 81,920.  The first instruction after the
+header, at `0x400078`, is the entry stub's (Ch 31); `line` starts at
+`0x40020a` and `main` at `0x4002e2` with the same 11-byte prologue
+from §5, `push rbp; mov rbp, rsp; sub rsp, 0x100`.
+
 ## Exercises
 
 1. **★ Trace.** Read `cc-emit-elf-header`.  Why does it emit zeros for
@@ -848,7 +902,9 @@ is emitted up front, and the primitive encoders for `mov`,
 `push`/`pop`, ALU operations, frame-pointer addressing, comparisons
 and rel32 placeholders are in place.  Every byte before the first
 compiled instruction is now fixed, so from here on Stage-A parity is
-purely a matter of codegen.
+purely a matter of codegen.  Two things in `tri.c` still have no
+bytes: `putchar` has no libc to call, and `t` has no address until
+the code before it has ended.  Ch 26 supplies both.
 
 ## Takeaways
 

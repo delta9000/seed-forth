@@ -7,21 +7,25 @@ Artifact after this chapter: the arithmetic and logic primitives' machine code (
 Proof link: the *unsigned* division and sign-extraction here are exactly what Ch 7's comparisons rest on.
 ```
 
-Ch 3 built every logic operation from `nand`, and Ch 7 built signed
-comparisons from unsigned division.  Neither chapter looked inside
-the primitives it leaned on.  This one does: `+`, `nand`, `0=`, `/`
-and `*`, 70 bytes of x86-64 in total.  `plus_code`, `nand_code` and
-`zeq_code` are at lines 153–170 of `000-seed.hex0`; `divide_code`,
-the `/` dictionary entry and `star_code` are at lines 649–683, with
-Ch 14's `r_at_code` between them.
+x86-64 has `AND`, `OR`, `XOR` and `NOT` instructions.  It has no
+`NAND`.  Yet `nand` is the seed's only logic primitive, and Ch 3
+rebuilt `and`, `or`, `xor` and `not` on top of it in Forth.  So the
+seed synthesises the one operation the CPU lacks, then derives the
+four it has.  The reason is the budget: every primitive costs a
+body *and* a dictionary entry, and one functionally complete
+operation buys all four others for the price of one.
 
-`+` and `nand` are 9 and 12 bytes, `0=` is 15, and `divide_code` and
-`star_code` are 18 and 16.  Each binary primitive follows Ch 14's
-pattern with one computing step in the middle: read the second
-operand from `[rbp]`, combine it into `rdi`, release the slot,
-return.  `0=` is unary and touches only `rdi`.  The one choice that
-matters outside this chapter is that `/` is *unsigned* (`DIV`, not
-`IDIV`), because Ch 7's sign-bit trick depends on it.
+The second choice is quieter.  Ch 7 got signed comparisons out of
+division, and that only works because the seed's `/` is *unsigned*
+(`DIV`, not `IDIV`).  This chapter opens both, along with `+`, `0=`
+and `*`: 70 bytes of x86-64 in total.  `+` and `nand` are 9 and 12
+bytes, `0=` is 15, and `divide_code` and `star_code` are 18 and 16.
+`plus_code`, `nand_code` and `zeq_code` are at lines 153–170 of
+`000-seed.hex0`; `divide_code`, the `/` dictionary entry and
+`star_code` are at lines 649–683, with Ch 14's `r_at_code` between
+them.  Each binary primitive follows Ch 14's pattern with one
+computing step in the middle: read the second operand from `[rbp]`,
+combine it into `rdi`, release the slot, return.
 
 ## 1. `+` in 9 bytes
 
@@ -41,16 +45,13 @@ Decoded:
 C3               ret
 ```
 
-The whole add is one instruction: `ADD r64, r/m64`.  No temporary
-register; no spill; the sum lands in `rdi` and the consumed slot is
-released.
+The whole add is one instruction, `ADD r64, r/m64`, with no
+temporary register and no spill.
 
-Overflow wraps silently in twos-complement.  The CPU sets `OF` (the
-overflow flag), but the seed never reads it.  This is fine for
-unsigned arithmetic and fine for signed arithmetic *as long as you
-don't care about overflow*.  The Forth-level `-` (Ch 4) uses `+`
-under the hood, so two's-complement wrap is what makes `a - b ==
-a + (-b)` work without any extra checks.
+Overflow wraps silently in two's complement; the CPU sets `OF`, but
+the seed never reads it.  The Forth-level `-` (Ch 4) is `+` under
+the hood, and that wrap is what makes `a - b == a + (-b)` work
+without any extra checks.
 
 ## 2. `nand` in 12 bytes
 
@@ -63,8 +64,7 @@ C3
 
 ```
 
-x86 has `AND`, `OR`, `XOR`, and `NOT`, but no `NAND`.  The seed
-synthesises NAND as AND-then-NOT:
+With no `NAND` instruction to use, the body is AND-then-NOT:
 
 ```
 48 23 7D 00      and rdi, [rbp]   ; rdi = rdi AND under-TOS
@@ -73,11 +73,8 @@ synthesises NAND as AND-then-NOT:
 C3               ret
 ```
 
-`NOT r/m64` is one of the few x86 instructions that operates on a
-single register with no second operand — it just flips every bit.
-Cost: 3 bytes (REX + opcode + ModR/M).
-
-These 12 bytes are what Ch 3 stands on.  The Forth-level `and`,
+`NOT r/m64` flips every bit of one register in 3 bytes.  These 12
+bytes are what Ch 3 stands on.  The Forth-level `and`,
 `or`, `not` and `xor` built there compile to `CALL`s to this body,
 surrounded by whatever stack shuffling `dup nand` and friends need.
 
@@ -246,7 +243,20 @@ echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
 # 0= on 0 returns -1 (the canonical Forth true).  Library-level `-`
 # (Ch 4) computes -1 - 48 = -49; emit's low byte is 0xCF, which is
 # non-printable, so spot it with `| xxd | head -1`.
+
+echo "[lit] 0 dup nand [lit] 9223372036854775808 / [lit] 48 + emit bye" | ./seed-forth
+# prints "1"
+echo "[lit] 5 [lit] 9223372036854775808 / [lit] 48 + emit bye" | ./seed-forth
+# prints "0"
 ```
+
+The last two are Ch 7's sign test with nothing in the way.
+`[lit] 0 dup nand` is `-1` (all 64 bits set), and
+9223372036854775808 is 2^63.  One unsigned `DIV` by 2^63 turns the
+top bit into a `1` for the negative number and a `0` for 5.  With
+`IDIV`, `-1` divided by that same bit pattern would give `0`, and
+`010-lib.fth`'s `<`, defined as `- neg-flag`, would answer false for
+nearly every pair where it should answer true.
 
 ## Exercises
 
@@ -283,5 +293,12 @@ echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
 - The primitives never check for overflow or divide-by-zero, because
   the seed trusts its callers: `010-lib.fth` and the Forth code of
   the C compiler.
+
+**Running count: 415 of 2,040 bytes read (20%).**  This chapter
+added 86: 70 bytes of arithmetic and `/`'s 16-byte dictionary entry.
+
+Everything so far computes on values already on the stack.  None
+of it has touched the world outside the process.  The seed contains
+exactly four `syscall` instructions, and Ch 16 reads all of them.
 
 Next: Chapter 16 — I/O: `emit`, `key`, `syscall6`.

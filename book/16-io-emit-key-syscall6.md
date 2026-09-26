@@ -7,22 +7,24 @@ Artifact after this chapter: the three primitives that connect the seed to Linux
 Proof link: every byte the seed reads or writes goes through these; Ch 5's wrappers sit directly on top.
 ```
 
-Ch 5 wrapped `open`, `read`, `write`, `close` and `die` around a
-primitive called `syscall6` and moved on.  This chapter opens the
-four primitives that every byte the seed reads or writes passes
-through: `bye_code`, `emit_code` and `key_code` at lines 65–96 of
-`000-seed.hex0`, and `syscall6_code` with its dictionary entry at
-lines 627–648.
+The seed contains exactly four `syscall` instructions (`0F 05`).
+That is its entire interface to Linux, and it is small enough to
+audit in one sitting.  Everything the seed ever reads arrives one
+byte per system call: feeding it the comment-stripped Forth of the
+library and the C compiler, 142,273 bytes, costs 142,274 `read`
+calls (one per byte, plus one that returns EOF; `strace -c` will
+count them for you).
 
-The seed reads one byte and writes one byte, nothing more, and
-leaves buffering to the Forth layers above it.  That restriction
-keeps `emit` and `key` under 50 bytes each.  Both use
-one global scratch byte at `0x412000`: `emit` stores its byte there
-and calls `write(1, scratch, 1)`, and `key` fills it with
-`read(0, scratch, 1)`.  `syscall6` is the general hatch that loads
-a syscall number and six arguments from the data stack into the
-registers the kernel expects.  The token reader `read_word`, which
-calls `key` in a loop, is Ch 17.
+The four live in four primitives: `bye_code`, `emit_code` and
+`key_code` at lines 65–96 of `000-seed.hex0`, and `syscall6_code`
+with its dictionary entry at lines 627–648.  `emit` and `key` move
+one byte each through a shared scratch byte at `0x412000`, which
+keeps them under 50 bytes and leaves buffering to the Forth layers
+above.  `syscall6` is the general hatch that Ch 5 wrapped `open`,
+`read`, `write`, `close` and `die` around: it loads a syscall number
+and six arguments from the data stack into the registers the kernel
+expects.  The token reader `read_word`, which calls `key` in a
+loop, is Ch 17.
 
 ## 1. `bye_code` in 12 bytes
 
@@ -63,19 +65,15 @@ BA 01 00 00 00          mov edx, 1         ; count = 1
 C3                      ret
 ```
 
-The body stores, calls, then pops.  The byte to emit is in `rdi`
-(TOS) at entry.  We copy its low 8 bits (`dil`) into the scratch
-byte at `0x412000`, load the `write(1, 0x412000, 1)` arguments,
-trap to the kernel, and pop the data stack so the *next* cell
-becomes TOS.
+The body stores, calls, then pops: the low 8 bits of TOS (`dil`) go
+into the scratch byte, `write(1, 0x412000, 1)` traps to the kernel,
+and the next cell becomes TOS.
 
 Two details stand out.
 
-**The scratch byte is global.**  Every call to `emit` writes to the
-same address.  That's fine because the seed is single-threaded and
-the syscall returns before the next `emit` can run.  With threads
-this would be a race; here it saves the bytes a per-call buffer
-would cost.
+**The scratch byte is global.**  Every `emit` writes to the same
+address, which is safe only because the seed is single-threaded;
+it saves the bytes a per-call buffer would cost.
 
 **`mov eax, 1` not `mov rax, 1`.**  The 32-bit form (`B8 imm32`,
 5 bytes) is two bytes shorter than `mov rax, 1` (`48 C7 C0 imm32`,
@@ -202,12 +200,9 @@ sequence of `CALL` instructions ending in `CALL syscall6`
 (`E8 xx xx xx xx`).  At runtime `syscall6_code` pulls its registers
 from the stack, executes `0F 05`, and the kernel does the work.
 
-`emit_code` and `key_code` don't go through `syscall6`.  They issue
-`0F 05` themselves: `emit_code` loads `rax = 1` with `B8 01 00 00
-00`, where a Forth-level wrapper would write `[lit] 1 syscall6`.
-Both paths reach the same syscall.  The seed takes the direct one
-for the two byte-at-a-time primitives it always needs, and uses
-`syscall6` for everything else.
+`emit_code` and `key_code` skip `syscall6` and issue `0F 05`
+themselves; `B8 01 00 00 00` in `emit_code` is what a Forth wrapper
+would spell `[lit] 1 syscall6`.
 
 ## Try it
 
@@ -244,6 +239,11 @@ printf '' | ./seed-forth
 # Prints "A".
 ```
 
+That last command made a Linux system call by pushing seven numbers
+and naming one word.  Part III's C compiler reads its C source and
+writes its executable through exactly this path, in 4 KiB reads and
+one `write` of the whole output rather than a byte at a time.
+
 ## Exercises
 
 1. **★★ Extend.** `emit` writes to fd `1` (stdout) hard-coded.  Sketch the changes
@@ -278,5 +278,15 @@ printf '' | ./seed-forth
   through `syscall6_code`.
 - `syscall6_code` is the kernel bridge for everything else, and
   every Ch 5 wrapper ends in a call to it.
+
+**Running count: 580 of 2,040 bytes read (28%).**  This chapter
+added 165: the 105 bytes of `bye`, `emit` and `key`, and `syscall6`'s
+37-byte body and 23-byte entry.
+
+The seed can now compute and talk to the kernel, but every piece
+so far is known only by its address.  Somehow the three characters
+`dup` arriving on stdin have to become a call to `0x40013B`.
+Ch 17 shows how, and why that call detours through a 5-byte jump
+in the middle of the file.
 
 Next: Chapter 17 — The Dictionary.

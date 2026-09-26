@@ -7,26 +7,26 @@ Artifact after this chapter: the seed is now a self-contained host that can load
 Proof link: this chapter is the bridge into Part III — the host the C compiler sits on top of.
 ```
 
-The seed now has primitives but nothing to drive them.  Something
-has to read tokens, look each one up, and decide whether to run it
-now or compile a call to it.  That is the REPL loop (`@ 0x35E`,
-lines 299–357, 187 bytes of hex), the last piece of
-`000-seed.hex0`.  Its companion `parse_decimal_code` (`@ 0x5FD`,
-lines 555–585) turns a token like `"42"` into a number, with the
-contract `( c-addr u -- n true | 0 false )`.  Empty input or any
-byte outside `'0'..'9'`, a leading `-` included, makes it fail.
+The seed has no shell, no command-line flags, no `include` and no
+file loader.  Part III builds a working M2-Planet with it anyway,
+using one pipe: the comment-stripped library and compiler, then
+M2-Planet's C source, all into `./seed-forth`'s stdin.  Something
+reads that stream, compiles 4,418 lines of Forth into 367 colon
+definitions, and then runs the compiler it just built on the rest of
+the input.  That something is a 187-byte loop at `0x35E`
+(lines 299–357).  It is the seed's loader, linker and command
+interpreter at once, and it is the last code in `000-seed.hex0` you
+haven't read.
 
 The REPL reads a token, looks it up, and either executes it
 (interpret mode) or compiles a call to it (compile mode).  A miss
 prints `?`, and EOF jumps to `bye_code`.  The dispatch tests the
-IMMEDIATE flag first and STATE second.  The REPL never calls
-`parse_decimal_code`: numbers enter only through `[lit]` (Ch 18),
-a choice §3 examines.  The unused `NUMBER_HOOK` sysvar at
-`0x413020` marks where a higher layer could add hex, octal or
-negative literals.
-
-With this chapter every byte of the seed is accounted for.  Part III
-builds the C compiler, in Forth, on top of this REPL.
+IMMEDIATE flag first and STATE second.  Its companion
+`parse_decimal_code` (`@ 0x5FD`, lines 555–585) turns a token like
+`"42"` into a number, with the contract `( c-addr u -- n true | 0
+false )`; empty input or any byte outside `'0'..'9'`, a leading `-`
+included, makes it fail.  The REPL never calls it: numbers enter
+only through `[lit]` (Ch 18), a choice §3 examines.
 
 ## 1. `parse_decimal_code` ( c-addr u -- n true | 0 false )
 
@@ -85,11 +85,8 @@ Loop body — for each byte:
 6. Advance the buffer pointer; decrement the count.
 7. If count is non-zero, loop.
 
-The `lea rax, [rax + rax*4]; add rax, rax` pair multiplies by 10 in
-two instructions and no temporary register.  `lea rax, [rax +
-rax*4]` is `rax = rax*5`; then `add rax, rax` doubles it.
-
-So each step is `n = n*10 + digit`: Horner's rule, most
+The `lea` computes `rax*5` and the `add` doubles it: a multiply by
+10 in two instructions and no temporary register.  So each step is `n = n*10 + digit`: Horner's rule, most
 significant digit first.  `"42"` becomes `0*10 + 4 = 4`, then
 `4*10 + 2 = 42`.  There is no overflow check: a
 value of 2^64 or more silently wraps modulo 2^64.
@@ -106,15 +103,11 @@ Failure path:
 Two things to flag.
 
 **This is a one-shot parser, not a partial parser.**  If any byte
-fails the range check, the *whole token* fails.  There is no
-"consumed N digits and stopped at a separator": the entire token
-must be digits, or it is not a number.
+fails the range check, the *whole token* fails.
 
-**No sign handling.**  `-42` would fail at the `-` byte (`0x2D <
-0x30`, the `js` test triggers).  Negative literals do not exist in
-the seed's number parser.  The C compiler in Part III handles
-negation as a unary operator, not as part of the literal, so the
-restriction is invisible to it.
+**No sign handling.**  `-42` fails at the `-` byte (`0x2D < 0x30`,
+so `js` triggers).  The C compiler in Part III treats negation as a
+unary operator, so the restriction is invisible to it.
 
 ## 2. The REPL loop
 
@@ -301,9 +294,8 @@ jmp bye_code
 
 A single rel32 jump to `exit(0)`.
 
-That's the whole REPL.  Eight steps, four `call`s into other
-primitives (`read_word`, `find_code`, `emit_code`, `execute_code`),
-one `jmp` to `bye_code`.
+That's the whole REPL: eight steps, four `call`s into other
+primitives, one `jmp` to `bye_code`.
 
 ## 3. Why no auto-number parsing in interpret mode?
 
@@ -316,10 +308,7 @@ on token:
     else: error
 ```
 
-The seed *does not* take the middle branch.  Tokens that aren't
-dictionary words just print `?`.
-
-Why?  Two reasons.
+The seed skips the middle branch, for two reasons.
 
 **Bytes.**  Inlining a `parse_decimal` call into the miss path
 would add ~30 bytes of hex (set up the stack, call, branch on
@@ -342,10 +331,6 @@ two tokens where a classical Forth needs one.
 
 ## 4. `[lit]` and the IMMEDIATE flag, end to end
 
-Recap from Ch 18: `[lit]` is an IMMEDIATE word.  Its body is
-`bracket_lit_code` at `0x652`.  Its dictionary entry has `flags =
-01`.
-
 When the REPL encounters `[lit]` in interpret mode:
 1. Find returns its xt.
 2. Dispatch path sees `flags & 1 == 1` → `.interpret`.
@@ -361,10 +346,8 @@ When the REPL encounters `[lit]` in compile mode:
 4. `bracket_lit_code` reads the next token, parses it as decimal,
    sees `STATE != 0`, emits `CALL lit_code + 8-byte cell` at HERE.
 
-Either way, the parsing happens immediately.  The compile-mode
-branch lives inside `bracket_lit_code`, not in the REPL.  That's
-why `[lit]` *has* to be IMMEDIATE: it needs to run during
-compilation to do the parsing-and-emitting.
+Either way the parsing happens immediately, and the compile-mode
+branch lives inside `bracket_lit_code`, not in the REPL.
 
 **Unparseable tokens silently become 0.**  `bracket_lit_code` pops
 `parse_decimal_code`'s flag and throws it away without testing it.
@@ -399,8 +382,7 @@ Trace `[lit] 42 emit bye`:
 8. REPL loops.  Reads `"bye"`.  Find returns xt `0x45A`.
    `.interpret`.  Execute `bye_code`.  Kernel terminates.
 
-You can confirm this is what happens by piping `echo "[lit] 42
-emit bye"` into the binary and observing `*` printed.
+The second Try-it line below runs exactly this and prints `*`.
 
 ## Try it
 
@@ -470,29 +452,59 @@ echo "thisisnotaword bye" | ./seed-forth
 
 ## Bridge to Part III: the seed is now a host
 
-Part I taught the Forth vocabulary while treating the seed
-primitives as black boxes.  Part II opened those boxes and showed
-the exact bytes behind token reading, dictionary lookup, compiling,
-branching, literals, and the REPL loop.  The inversion is complete:
-the words Part I took on trust are now tools whose every byte you
-have read.
+**Running count: 2,040 of 2,040 bytes read.**  This chapter added
+the last 272: the 85-byte number parser and the 187-byte REPL.
 
-The remaining twelve chapters use those tools as the *host* for a C
-compiler.  There is no further tour of seed internals.  Part III
-follows compiler infrastructure built from the primitives you have
-just read in machine code (`:`, `;`, `[lit]`, `branch`, `0branch`,
-`read_word`, `find`, `here`, `,`) and the Part I words built on them,
-such as `if,` and `then,`, until the compiler emits `.M1` text
-matching the GCC-built M2-Planet reference on the Stage-A inputs.
+| Chapter | What you read | Bytes | Running total |
+|---------|---------------|------:|--------------:|
+| 13 | ELF headers, boot code | 210 | 210 |
+| 14 | stack and memory primitives | 119 | 329 |
+| 15 | arithmetic, logic, `/`'s entry | 86 | 415 |
+| 16 | `bye`, `emit`, `key`, `syscall6` | 165 | 580 |
+| 17 | lookup, token reader, dictionary | 868 | 1,448 |
+| 18 | `:`, `;`, `lit`, `[lit]` | 286 | 1,734 |
+| 19 | `branch`, `0branch` | 34 | 1,768 |
+| 20 | number parser, REPL | 272 | 2,040 |
+
+There is no byte of `seed-forth` left that you have to take on
+trust.  Part I used these words as black boxes; every one of them is
+now a sequence of instructions you have decoded.
+
+Take stock of what that is.  A Forth whose only data structure is a
+linked list, whose own I/O moves one byte per system call, which
+cannot print a number, and which reads literals only as unsigned
+decimal through `[lit]`.  At the far end of Part III is M2-Planet, a
+C compiler written in C, and the Stage-A check: our compiler's
+`.M1` output for M2-Planet must match the GCC-built reference byte
+for byte.  How do you get from here to there?
+
+You can already see both ends.  §5 traced `[lit] 42 emit` printing
+`*` by hand.  Here is the same REPL, fed the compiler's Forth first
+and one line of C after it:
+
+```sh
+{
+  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  echo 'int main(void) { putchar(42); return 0; }'
+} | grep -v '^[[:space:]]*$' | ./seed-forth
+chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'
+```
+
+The same 187-byte loop read the compiler as ordinary Forth
+definitions, ran `cc-main`, the last word of the Forth, and the
+compiler it had just built read the C, wrote an x86-64 ELF to
+`/tmp/cc-out`, and exited through `bye`.  Part III is the twelve
+chapters between those two `*`s.  It uses no seed internals beyond
+the ones you have read (`:`, `;`, `[lit]`, `branch`, `0branch`,
+`read_word`, `find`, `here`, `,`) and the Part I words built on
+them, such as `if,` and `then,`.
 
 ## Reading Part III
 
-The next twelve chapters have a consistent shape: each named section
-shows you the relevant code, then walks what it does.  You can skim
-each code block once for shape and come back when the walk
-references it, or read it line by line.  The chapters
-are long because the compiler is, not because the prose is dense;
-if a chapter takes two sittings, that's its size, not your pace.
+Each named section in the next twelve chapters shows the code, then
+walks what it does; skim a block for shape and come back when the
+walk references it.  The chapters are long because the compiler is,
+and if one takes two sittings, that's its size, not your pace.
 
 Three reading aids keep you oriented:
 
@@ -528,9 +540,10 @@ Three reading aids keep you oriented:
   ownership is whose buffer the bytes live in, not who allocated
   them.
 
-If a Part III chapter ever feels like it stopped explaining and
-started listing, look for whichever of those three patterns it is
-using and the walk will resolve.
+The first problem is the plainest.  The C source arrives on the same
+stdin the REPL has been reading token by token, and the compiler
+needs all of it in memory before it can preprocess a line, along
+with somewhere to put the machine code it emits.  Ch 21 builds both.
 
 Next: Chapter 21 — Arena and I/O Buffers (Part III opens; we leave
 the seed and start reading the C compiler).

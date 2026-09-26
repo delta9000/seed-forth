@@ -7,12 +7,16 @@ Artifact after this chapter: open, read, write, close, die.
 Proof link: the Stage-A driver writes its output via write; the compiler reads stdin via read.
 ```
 
-Forth can stand entirely above the OS: push numbers, run colon
-definitions, never touch a file.  A C compiler can't.  It has to read
-source files, write its output, and exit with a status code, and all
-of those go through Linux system calls.
+Everything the library can do so far happens inside one process.
+It can add, subtract, and write bytes into its own memory, but it
+cannot open a `.c` file, and it cannot write out the bytes that
+Stage-A compares against GCC's.  A compiler that can't
+read its input or write its output is a calculator.
 
-The seed provides one way in, the primitive `syscall6`, which loads
+There is also no libc to call.  Nothing sits between this compiler
+and the Linux kernel except code you can read in this book, which is
+the point: a trusting-trust attack needs somewhere to hide, and an
+unaudited C library is a large place.  The seed provides one way in, the primitive `syscall6`, which loads
 seven registers from the data stack and traps.  On top of it,
 `010-lib.fth` (lines 40–62) defines five wrappers: `open`, `read`,
 `write`, `close`, and `die`.  Each one pins its syscall number and
@@ -43,16 +47,11 @@ Six argument registers is enough for every Linux syscall that exists
 `syscall6` primitive accepts a uniform 6-argument signature and lets
 the caller pass zeros for the slots a particular syscall doesn't use.
 
-The one quirk in that table is the 4th argument: most x86-64
-*function* calls use `rcx`, but syscalls use `r10`.  The reason is
-mechanical: the `syscall` instruction itself clobbers `rcx` (it
-stashes the return address there).  The kernel ABI had to pick a
-different register for argument 4, and `r10` was the obvious choice
-because it's caller-saved and not used by the function ABI for
-anything else.  This is irrelevant to us at the Forth level (we never
-write `rcx` or `r10` by name; the primitive handles it), but it's the
-kind of detail that bites if you ever try to make a syscall from
-inline assembly.
+The one quirk in that table is the 4th argument: *function* calls
+use `rcx`, but syscalls use `r10`, because the `syscall` instruction
+itself clobbers `rcx` (it stashes the return address there).  The
+primitive handles this; at the Forth level you never name either
+register.
 
 The full Forth-side signature is:
 
@@ -120,20 +119,13 @@ The wrappers are structurally identical; only the syscall number
 differs.  Both pad three zeros for the unused 4th/5th/6th argument
 slots.
 
-Two subtleties:
-
-- The return value `n` can be less than `count`.  A `read` from a pipe
-  may return fewer bytes than requested if more haven't arrived yet;
-  a `write` to a full disk may return fewer than requested because the
-  kernel ran out of room.  The wrappers do not retry.  Code that
-  needs reliable transfer (the C compiler's output path, for
-  instance) wraps `write` in a loop or treats short writes as fatal
-  via `die`.
-
-- A negative `n` indicates an error, with the magnitude being a Linux
-  errno code (e.g. `-9` for `EBADF`).  The wrappers do not distinguish
-  errors from short reads; the call site decides, usually by a "did
-  we get the bytes we expected?" check.
+Two subtleties.  First, `n` can be less than `count`: a `read`
+from a pipe may return before all bytes arrive, and a `write` to a
+full disk may stop short.  The wrappers do not retry.  The C
+compiler's output path (`cc-write-output`, Ch 21) makes one `write`
+of its whole buffer and drops the count.  Second, a negative `n` is
+an error, its magnitude a Linux errno (e.g. `-9` for `EBADF`); the
+call site decides what to do with it.
 
 ## 4. `close`: one real arg, five padding zeros
 
@@ -142,13 +134,10 @@ Two subtleties:
 : close  [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit]  3 syscall6 ;
 ```
 
-`close` takes only an `fd`, so we pad five zeros.  The wrapper looks
-disproportionately wide for the work it does (13 tokens to call a
-syscall that takes one argument), but `syscall6` doesn't know which
-argument slots matter.  The kernel happily ignores `rsi..r9` when the
-syscall doesn't reference them, but the primitive still has to put
-*something* in those registers.  Padding with zeros is the cheapest
-choice.
+`close` takes only an `fd`, so we pad five zeros: 13 tokens to
+make a one-argument syscall.  The kernel ignores `rsi..r9` for
+`close`, but `syscall6` loads all six registers regardless, and
+zeros are the cheapest filler.
 
 Why not specialise, with `syscall1`, `syscall2`, ..., `syscall6` so
 each wrapper has exactly the right arity?  Every specialisation costs
@@ -251,6 +240,12 @@ and emit a byte through `write` directly:
 This stores byte `65` (`A`) at HERE, then calls
 `write(fd=1, buf=here-1, count=1)`.  The seed prints `A`.
 
+Unlike `emit`, which Chs 2–4 used, that `A` left through a syscall
+the library assembled itself: number 1 in `rax`, three real
+arguments, three zeros.  Point the same `write` at an `fd` from
+`open` and you have file output; that is how the C compiler's output
+reaches disk.
+
 ## Exercises
 
 1. **★★ Extend.** Add `lseek ( fd offset whence -- pos )` as `SYS_lseek=8`.  How many
@@ -277,4 +272,11 @@ This stores byte `65` (`A`) at HERE, then calls
 - `die` is the compiler's entire error-handling story: exit with a
   status and let the kernel clean up.
 
-Next: Chapter 6 — Character Classification.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, **file I/O and exit**.  Still missing: character tests,
+`<`, `if,`, `variable`.
+
+Next: Chapter 6 — Character Classification.  With `read` the
+compiler can pull source bytes in, and the first thing a lexer asks
+of each one is "is this a digit?"  In C that is `c >= '0' && c <=
+'9'`.  The library has no `>=`, no `&&`, and no `if,` yet.

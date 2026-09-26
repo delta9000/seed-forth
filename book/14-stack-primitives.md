@@ -7,26 +7,27 @@ Artifact after this chapter: the stack and memory primitives' machine code, full
 Proof link: the compiler's codegen reuses the same rdi/rbp convention; these bytes prime you for Ch 25.
 ```
 
-Ch 13 left the CPU at the REPL with `rbp` and `rdi` initialised.
-Part I used `dup`, `swap`, `@` and `!` as if they cost nothing.
-Each one is between 4 and 20 bytes of x86-64.  This chapter reads
-ten of those bodies: `dup_code` at `0x13B` through `cstore_code` at
-`0x18E` (lines 97–152 of `000-seed.hex0`), plus `r_at_code` at
-`0x732` (lines 666–675), which sits among the entries at the end of
-the file.  Arithmetic is Ch 15.  `bye`, `emit` and `key` come just
-before `dup` in the file, so their chunks appear at the end of this
+`dup` appears 236 times in the library and the C compiler's Forth
+source.  It duplicates the top of the stack, so it has to read the
+top of the stack.  Look for that read in its body and you won't
+find one: `dup_code` is two instructions and a `ret`, and neither
+instruction loads anything from the stack.  The top of the Forth
+stack is not in memory.  It is in a register.
+
+Every body in the seed follows that convention.  `rdi` *is* the top
+of stack (TOS), and `rbp` points at the cell just below it.  "TOS
+is 42" means `rdi == 42`; "the cell below TOS is 100" means
+`[rbp] == 100`.  Cells are 8 bytes and the stack grows down.  A
+textbook stack machine keeps every value in memory; caching the top
+in a register saves a load and a store in most primitives, at the
+cost of *spilling* `rdi` to memory whenever a new value is pushed.
+
+This chapter reads ten bodies: `dup_code` at `0x13B` through
+`cstore_code` at `0x18E` (lines 97–152 of `000-seed.hex0`), plus
+`r_at_code` at `0x732` (lines 666–675), which sits among the entries
+at the end of the file.  `bye`, `emit` and `key` come just before
+`dup` in the file, so their chunks appear at the end of this
 chapter, but Ch 16 explains them.
-
-Every body follows one convention.  `rbp` points at the cell just
-below the top of the stack, and `rdi` *is* the top.  "TOS is 42"
-means `rdi == 42`; "the cell below TOS is 100" means
-`[rbp] == 100`.  Cells are 8 bytes and the stack grows down.
-
-A textbook stack machine keeps every value in memory.  Caching the
-top in a register saves a load and a store in most primitives, at
-the cost of *spilling* `rdi` to memory whenever a new value is
-pushed.  Every primitive in this chapter and the next leaves `rdi`
-holding the new TOS and reaches deeper slots through `rbp`.
 
 ## 1. The push and pop shapes
 
@@ -118,9 +119,7 @@ C3               ret
 ```
 
 There is no `sub rbp` or `add rbp`: the stack doesn't grow or
-shrink, only its contents rotate.  `rax` is the scratch register
-for the swap; any caller-saved register would do, and `rax` is the
-conventional choice.
+shrink, only its contents rotate, with `rax` as scratch.
 
 ## 5. `>r`, `r>`, and `r@`: bridging the two stacks
 
@@ -315,15 +314,10 @@ memory; the rest is lost.
 
 Ten stack primitives, 119 bytes of code in total: `dup` 9, `drop` 9,
 `swap` 12, `>r` 12, `r>` 12, `@` 4, `!` 20, `c@` 5, `c!` 19, `r@` 17.
-Compare that to the Forth-level definitions in `010-lib.fth` of
-`over`, `nip`, `rot`, etc., which average around 5–10 tokens each and
-compile (at runtime, via `:`) to roughly the same total byte count
-once the `CALL` instructions are emitted.
-
-The trade is to keep the *most-used* stack primitives in hex and
-*derive* the rest in Forth, where they cost bytes only when a
-program uses them.  Part I showed the derived side: `over`, `nip`,
-`rot`, `2dup` and `2drop` are all Forth-level.  With a 2,040-byte
+Everything else Part I used, `over`, `nip`, `rot`, `2dup` and
+`2drop`, is Forth-level, compiled at load time from these.  The trade
+is to keep the most-used shufflers in hex and derive the rest, which
+then cost the seed nothing.  With a 2,040-byte
 budget, every byte spent on one primitive is a byte unavailable to
 another.
 
@@ -391,11 +385,22 @@ echo "[lit] 67 dup emit emit bye"           | ./seed-forth
 # prints "CC"
 echo "[lit] 68 [lit] 69 drop emit bye"      | ./seed-forth
 # prints "D"  (69='E' was on top, drop discarded it, then 68='D' emits)
+echo "[lit] 65 >r [lit] 66 emit r> emit bye" | ./seed-forth
+# prints "BA"
+echo "[lit] 305419896 [lit] 4325376 c! [lit] 4325376 c@ emit bye" | ./seed-forth
+# prints "x"
 ```
 
-For each of `>r`, `r>`, `@`, `!`, `c@`, `c!`, write a one-line shell
-test before running it.  Predict the byte sequence on the stack at
-each step using the push and pop shapes from §1.
+The last two are §5 and §7 happening on real hardware.  `>r`
+parked the 65 on the x86 call stack, under the return address it
+popped and pushed back, and `r>` fetched it after the 66 had gone
+out.  (This works at the top level because the REPL is a loop that
+never executes `ret`, so nothing pops the parked value by mistake.)
+Then `c!` was handed 305419896, hex 12345678, and stored only its
+low byte: `c@` read back hex 78, the letter `x`.
+
+Before running the other primitives, predict the stack at each step
+using the push and pop shapes from §1.
 
 ## Exercises
 
@@ -436,5 +441,14 @@ each step using the push and pop shapes from §1.
 - `>r`, `r>` and `r@` move values between the data and return
   stacks by working around the x86 `CALL` return address that sits
   on top of the return stack.
+
+**Running count: 329 of 2,040 bytes read (16%).**  Ch 13's 210 plus
+this chapter's 119.  (`bye`, `emit` and `key` are listed here but
+counted in Ch 16, where they are explained.)
+
+Every body so far moves or copies cells; not one computes anything.
+Part I built all of Boolean logic on `nand` and every signed
+comparison on `/`.  Ch 15 opens both, and the one logic operation
+the seed pays for turns out to be the one x86 lacks.
 
 Next: Chapter 15 — Arithmetic, Logic, Comparison.

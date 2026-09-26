@@ -1401,6 +1401,44 @@ after `rdi` holds the left value and `rcx` the right.
    qword store.  Only plain `=` is accepted (status 42 otherwise).
 6. Kind=0 is not an lvalue, as in `1 = 2`, and dies with status 41.
 
+**tri.c at this stage.**  tri.c writes `t.rows` on line 14 and reads
+it on line 15, in the `for` condition.  With tri.c compiled to
+`/tmp/cc-out` (Ch 21), disassemble both:
+
+```sh
+for r in 0x2ed:0x312 0x326:0x33a; do
+  objdump -D -b binary -m i386:x86-64 -M intel \
+      --start-address=${r%:*} --stop-address=${r#*:} /tmp/cc-out | grep '^ '
+done
+```
+
+```
+ 2ed:   48 bf c9 04 40 00 00    movabs rdi,0x4004c9
+ 2f4:   00 00 00 
+ 2f7:   48 81 c7 00 00 00 00    add    rdi,0x0
+ 2fe:   57                      push   rdi
+ 2ff:   48 c7 c7 04 00 00 00    mov    rdi,0x4
+ 306:   48 89 f9                mov    rcx,rdi
+ 309:   5f                      pop    rdi
+ 30a:   57                      push   rdi
+ 30b:   48 89 cf                mov    rdi,rcx
+ 30e:   59                      pop    rcx
+ 30f:   48 89 39                mov    QWORD PTR [rcx],rdi
+ 326:   48 bf c9 04 40 00 00    movabs rdi,0x4004c9
+ 32d:   00 00 00 
+ 330:   48 81 c7 00 00 00 00    add    rdi,0x0
+ 337:   48 8b 3f                mov    rdi,QWORD PTR [rdi]
+```
+
+Both start the same way: the address of `t` (0x4004c9, a placeholder
+until `cc-finalize-globals` patched it; Ch 26 §5) plus the offset of `rows`, 0.  On line 14
+the `=` arrives while `rdi` is still an address, so this is the
+kind=2 path: push the address, evaluate `ROWS` (already the number
+4), swap through the stack, store at 0x30f.  On line 15, `t.rows`
+is the right operand of `<`, whose materialize turns the same
+address into the load at 0x337.  The parser emitted identical code
+for `t.rows` both times and decided afterward what it was for.
+
 ## 8. The top-level driver
 
 ```forth chunk=expr-top
@@ -1552,6 +1590,11 @@ You can read `cc-parse-primary`'s postfix chain, explain the three
 lvalue kinds and when `cc-emit-materialize` fires, and follow how
 `p[i] = c;` reaches the right byte-width store without a separate
 codegen path.
+
+All of it assumes the names are already known: the parser above
+looked up `t`'s address, `rows`'s offset and `w`'s frame slot.
+Something has to put those rows in the symbol table before any
+expression uses them, and that is Ch 29's declaration parser.
 
 ## Takeaways
 

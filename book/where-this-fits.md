@@ -1,11 +1,22 @@
 # Where this fits in the bootstrap ecosystem
 
-The Bootstrappable Builds project (bootstrappable.org) maintains a
-chain from a tiny hex-coded seed up to a self-hosting GCC, every
-byte of which is auditable source.  GNU Guix consumes the chain;
-the Live-Bootstrap project (`github.com/fosslinux/live-bootstrap`)
-runs it end-to-end as a reproducible script.  This book is **one
-rung** of that ladder, sitting at M2-Planet.
+In his 1984 Turing Award lecture, "Reflections on Trusting Trust,"
+Ken Thompson described a C compiler he had rigged to do two things:
+plant a backdoor whenever it compiled the Unix `login` program, and
+plant both tricks again whenever it compiled a clean copy of its own
+source.  Build it once, delete the evil lines from the source, and
+the binary keeps lying forever.  Reading source cannot catch it,
+because the compiler you would check with was built by an earlier
+compiler, and so on back.
+
+The response that works is to make the first binary small enough to
+read by hand and build everything else from source upward.  The
+Bootstrappable Builds project (bootstrappable.org) maintains such a
+chain, from stage0-posix's 229-byte `hex0-seed` up to a self-hosting
+GCC.  GNU Guix consumes it; Live-Bootstrap
+(`github.com/fosslinux/live-bootstrap`) runs it end-to-end.  This
+book builds a second, independent path through **one rung** of that
+ladder, M2-Planet.
 
 ## The Full Source Bootstrap, top to bottom
 
@@ -106,16 +117,14 @@ its own codegen choices.
         │                 │
         └────────┬────────┘
                  ▼
-         Stage A claim:
-         these M1 texts must be byte-identical for every
-         C source M2-Planet itself accepts, including
-         M2-Planet's own source as input
+         The claim: these M1 texts are byte-identical.
+         Checked on M2-Planet's own source (Stage A,
+         2.3 MB of M1) and its 36 test programs
+         (bootstrap-chain.sh)
 ```
 
 The two ELFs are not byte-identical and never will be.  What is
 byte-identical is what they each *emit* when fed the same C input.
-Two different M2-Planet implementations that agree on M1 output
-for every C input are, observationally, the same compiler.
 
 Once you have either of these M2-Planet binaries, you feed its M1
 output into mescc-tools and you're back on the canonical chain
@@ -136,27 +145,35 @@ into the Bootstrappable chain:
 Both routes share the same `hex0-seed` (and the same Linux kernel,
 and the same CPU), so the trust roots overlap.  Above the trust
 roots they are independent: a bug in stage0's `cc_amd64` cannot
-affect what our Forth compiler emits, and vice versa.  Stage A's
-byte-identity check on M1 output is the proof that the two
-independent paths landed at the same compiler behaviour.
-
-The value of this project is not "a smaller bootstrap" (stage0 is
-plenty small).  It is a **second route** that is also small,
-hand-readable, and built on Forth instead of M0/M1.
+affect what our Forth compiler emits, and vice versa.
 
 ## What this adds: cross-validation
 
-The Bootstrappable chain already works.  The reason for a second
-path is **redundancy**: two implementations agreeing on M1 output
-for every C input is a stronger correctness claim than either
-alone, and is exactly the kind of cross-check the Bootstrappable
-project actively wants at each rung.  Forth is the language that
-makes this particular second path small enough to hand-read in
-an afternoon (32 primitives in 2,040 bytes; a C compiler in
-twelve files); it is the means, not the point.
+The Bootstrappable chain already works.  What this project adds is
+a **second, independent route** from `hex0-seed` to M2-Planet whose
+output can be compared byte for byte against the first.  What is
+actually checked:
 
-The Forth route does not reach above M2-Planet.  Everything from there up to GCC still goes through
-Janneke's GNU Mes and the Live-Bootstrap chain.
+- **Stage A** (`tests/cc/stage-a-check.sh`): the Forth-built
+  M2-Planet compiles M2-Planet's own source to the same 2,367,260
+  bytes of `.M1` as a GCC-built M2-Planet.
+- **`STAGE0_COMPAT=1`**: with one optimization switched off, the
+  Forth-built compiler's self-compile `.M1` matches a
+  stage0-posix-built M2-Planet's instead (see `REPRODUCIBLE.md`).
+- **Fixed point** (`tests/cc/bootstrap-chain.sh`): the compiler
+  rebuilt from its own output reproduces that output exactly, and
+  matches the reference on all 36 of M2-Planet's test programs.
+
+That is the shape of David A. Wheeler's answer to Thompson,
+*diverse double-compiling*: a planted trick would have to exist in
+both independent routes, identically, to survive the comparison.
+
+What it does not add: it does not shrink the trust root.  Both
+routes still start at the 229-byte `hex0-seed`, on a Linux kernel
+and a CPU nobody here audits.  It proves agreement on the inputs
+above, not on every C program.  And it stops at M2-Planet;
+everything from there to GCC still goes through GNU Mes and the
+Live-Bootstrap chain.
 
 ## What this also demonstrates: auditable AI collaboration
 
@@ -209,10 +226,8 @@ matters because:
 
 Different bug surfaces.  An independent path catches bug *classes*
 that the canonical path would have made invisible, not just
-specific bugs.  This is the cross-validation argument made
-concrete: two implementations that agree on M1 output for every
-C input have ruled out *both* sets of language-specific failure
-modes.
+specific bugs: where the two agree, neither route's
+language-specific failure modes are in play.
 
 The 2,040-byte seed is the part that *is* genuinely smaller than
 stage0's equivalent intermediate stages.  On the AMD64 path, hex0
@@ -225,17 +240,11 @@ not a savings.
 
 ## Trust roots, plural
 
-"Auditable from a small trust root" is the honest pitch.  "Something
-from nothing" is not what the Bootstrappable chain claims and not
-what this book delivers either.
-
 The trust root for either route through this book is the union of:
 
 - the 229-byte `hex0-seed` (auditable in an afternoon),
 - the Linux kernel (~30 million lines of C, not audited here),
 - the x86-64 CPU and its microcode (opaque silicon).
-
-A small trust root is not the same as no trust root.
 
 stage0's bare-metal paths (`NATIVE/x86`, `NATIVE/knight`,
 `builder-hex0`) push the trust root below the Linux kernel by

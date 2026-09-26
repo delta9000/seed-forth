@@ -7,20 +7,18 @@ Artifact after this chapter: temporary storage with stack discipline, plus - der
 Proof link: Ch 7 builds every comparison on -; Ch 27's parser threads its operator byte through the return stack.
 ```
 
-The seed's shuffling primitives are `dup`, `drop`, and `swap`.  With
-only those, you cannot copy the second item on the stack: `dup` only
-ever sees the top.  Getting at `a` underneath `b` means putting `b`
-somewhere else for a moment, and the seed has exactly one somewhere
-else: the return stack.
+Two everyday operations are still impossible.  The seed can add but
+not subtract: there is `+` and no `-`.  And it cannot copy the value
+*under* the top of the stack, because `dup` only ever sees the top.
+With `a b` on the stack, no sequence of `dup`, `drop`, and `swap`
+ever produces `a b a`.
 
-The next two definitions in `010-lib.fth` (lines 32–38) are `over`,
-which borrows the return stack to do that, and `-`, which makes the
-same trade as Ch 3's `nand` derivations: a few extra calls at runtime
-so the seed can keep one fewer primitive.  Ch 1 previewed both
-words; this chapter is where they sit in the file, and where the
-reasons behind them come out.  The return-stack rules
-matter more than either word, because every later chapter relies on
-them.  The seed's `>r`/`r>` machine code is Ch 14, and how `:` and
+The next two definitions in `010-lib.fth` (lines 32–38) close both
+gaps without a new primitive.  `over` parks `b` somewhere else for a
+moment, and the seed has exactly one somewhere else: the return
+stack.  `-` borrows two's complement and Ch 3's `dup nand`.  Ch 1
+previewed both words; this chapter gives the reasons behind them,
+and the return-stack rules that every later chapter relies on.  The seed's `>r`/`r>` machine code is Ch 14, and how `:` and
 `;` themselves use the return stack is Ch 18.
 
 ## 1. Why two stacks at all?
@@ -112,16 +110,13 @@ extra cycles per `over` is the cheaper bill.
 
 ## 4. `-` from `+` and `nand`
 
-The seed also doesn't have subtraction as a primitive.  This is
-defensible because two's complement makes subtraction a thin glaze
-on top of addition.  Two's complement is the convention modern CPUs
-use to represent signed integers: the negative of a value `b` is
-defined as `~b + 1`, where `~b` is the bitwise complement.  The
-neat property is that the same `ADD` instruction works for signed
-and unsigned arithmetic: once you've produced the two's-complement
-negation, you just add.
+Now the second gap: how do you subtract with only `+`?  Add the
+negation.  Two's complement, the convention modern CPUs use for
+signed integers, defines the negative of `b` as `~b + 1`, where `~b`
+is the bitwise complement, and the same `ADD` works for signed and
+unsigned values.  So subtraction needs only a way to flip bits.
 
-From Ch 3 we already know that `dup nand` is the same as `~`.  So
+Ch 3 already supplied one: `dup nand` is `~`.  So
 to negate `b`, compute `b nand b` (which gives `~b`), then add 1.
 To subtract `b` from `a`, add the negated `b` to `a`.  In Forth:
 
@@ -176,8 +171,8 @@ instruction.
 
 Division `/` and multiplication `*` go the other way.  They are the
 seed's only "big" arithmetic primitives, because deriving them would
-cost more than the bytes they take.  Ch 7 builds the comparisons on
-`-` and `/`.
+cost more than the bytes they take.  And `-` will not stay a
+convenience: Ch 7 builds every comparison on it.
 
 ## Canonical source
 
@@ -228,7 +223,9 @@ The bracketed count `<3>` is gforth's depth indicator.
 
 The first test prints `121`: `over` turns `( 1 2 )` into `( 1 2 1 )`,
 and `+ 48 emit` on each value prints its ASCII digit.  The second
-test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.
+test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.  Both words
+you just ran were impossible with the seed alone; each is one line
+of Forth.
 
 ## Exercises
 
@@ -260,4 +257,11 @@ test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.
   which saves a primitive slot at the cost of five nested calls per
   use.
 
-Next: Chapter 5 — Talking to Linux: `syscall6` Wrappers.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+**`over` and subtraction**.  Still missing: files and exit, `<`,
+`if,`, `variable`.
+
+Next: Chapter 5 — Talking to Linux: `syscall6` Wrappers.  Everything
+so far happens inside the process, but a compiler has to read a file
+and write one.  The seed's only door to the kernel is `syscall6`, a
+primitive that takes seven arguments at once.

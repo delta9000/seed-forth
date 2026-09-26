@@ -7,38 +7,29 @@ Artifact after this chapter: digit?, alpha-lower?, alpha-upper?, alpha?, space?.
 Proof link: the lexer (Ch 23) reuses these for identifier and number recognition.
 ```
 
-A lexer is, at its core, a loop that asks "what kind of character is
-this?" for every byte of input.  When the C compiler in Part III
-reads a 600-line `.c` file, it asks that question several thousand
-times, so the answer should be cheap: branch-free and a handful of
-tokens.
+Is this byte a digit?  In C you would write `c >= '0' && c <= '9'`.
+The library has no `>=`, no `&&`, and no `if,`.  It has subtraction
+(Ch 4), the seed's `/`, and `0=`, which only knows whether a number
+is zero.  A range test out of those three looks impossible, and the
+lexer in Part III needs one for every byte of every `.c` file it
+reads.
 
-`010-lib.fth` (lines 64–86) answers it with five predicates:
-`digit?`, `alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`.
-The first three share one idiom, `c base - range / 0=`, which is
-true exactly when `c` falls in `[base, base+range)`.  It needs no
-conditional, and it rejects values below the range only because the
-seed's `/` is unsigned.  The other two
-combine tests with `or`.  The lexer that calls them is Ch 23; the
+`010-lib.fth` (lines 64–86) answers with five predicates: `digit?`,
+`alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`.  The first
+three share one three-token idiom with no conditional in it; §2
+shows why it works, and why it depends on `/` being unsigned.  The
+other two combine tests with Ch 3's `or`.  The lexer that calls them is Ch 23; the
 `/` primitive is Ch 15.
 
 ## 1. Why classifiers matter
 
 The whole shape of a lexer is `read a byte; classify it; dispatch.`
-The dispatch is rarely the hot path: keywords, punctuation, and
-identifiers all flow through it once each.  The classification, by
-contrast, runs on *every* byte: every space between tokens, every
-character of every identifier, every digit of every number.  If
-`digit?` takes ten tokens, you've roughly tripled the per-byte cost
-on number-heavy input.  If it takes three, you've spent the
-budget where it matters.
-
-There's a second reason classifiers are worth obsessing over.  The
-seed's lexer is written in Forth and compiled by the seed's own
-compiler.  Every classifier call is a CALL instruction in the
-output; every token inside the classifier is part of its body.
-Shorter classifiers mean a shorter compiled lexer and a smaller
-binary.
+The dispatch runs once per token; the classification runs on
+*every* byte: every space between tokens, every character of every
+identifier, every digit of every number.  If `digit?` takes ten
+tokens, you've roughly tripled the per-byte cost on number-heavy
+input.  If it takes three, you've spent the budget where it
+matters.
 
 ## 2. The range-check trick
 
@@ -158,26 +149,16 @@ codifies as the `nip`/`rot`/`2dup` family.
 
 ## 5. What's not here
 
-The seed's classifier set has only what the C lexer needs.  No
-`punct?`, no `printable?`, no `xdigit?`, no `cntrl?`.  Those either
-fall out as exercises or are folded into the lexer's
-token-class-dispatch code instead.
+The classifier set has only what the C lexer needs: no `punct?`,
+no `printable?`, no `xdigit?`.  **C punctuation** (`+`, `(`, `;`,
+and the rest) is handled in Ch 23 by direct codepoint comparison,
+because the lexer needs to know *which* character it saw, not just
+"it's punctuation."  To classify, use this chapter's trick; to
+identify, use the lexer's dispatch.
 
-In particular, **C punctuation** (`+`, `-`, `*`, `/`, `(`, `)`, `;`,
-`,`, etc.) is handled in Ch 23 by direct codepoint comparison inside
-the lexer, not by a classifier.  That's because the lexer needs to
-know *which* punctuation character it saw, not just "yes, it's
-punctuation".  When you only need to
-classify, the trick from this chapter applies; when you need to
-identify, you reach for the lexer's switch-style dispatch.
-
-There's also no locale awareness here.  ASCII is the only encoding
-the seed deals with: both `010-lib.fth` and the C source it compiles
-in Part III are 7-bit ASCII.  Everything from `0` to `127` is in
-range; everything above is treated as bytes-of-an-identifier or
-syntax error.  No UTF-8, no extended Latin, no character properties.
-A self-bootstrapping compiler doesn't need them, and adding them
-would multiply both the byte cost and the conceptual surface area.
+There is no locale awareness either.  `010-lib.fth` and the C source
+it compiles are 7-bit ASCII; bytes above 127 are identifier bytes or
+syntax errors.  A self-bootstrapping compiler doesn't need UTF-8.
 
 ## Canonical source
 
@@ -255,7 +236,8 @@ emit` turns a Forth flag into the ASCII character `'1'` (true) or
 `'0'` (false): an extra `0=` flips `-1` to `0` and `0` to `-1`, then
 adding 49 lands on `49` (`'1'`) or `48` (`'0'`).  The expected output
 is `101010`: six classifications, alternating true and false in the
-test order above.
+test order above.  Not one of those answers came from a comparison
+or a branch.  Each came from a subtract, a divide, and a zero test.
 
 ## Exercises
 
@@ -284,4 +266,11 @@ test order above.
 - Compound predicates like `alpha?` and `space?` combine single
   tests with `dup`/`over`/`swap` and `or`, needing no new primitives.
 
-Next: Chapter 7 — Comparisons from Unsigned Division.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, **character tests**.  Still missing: `<`,
+`if,`, `variable`.
+
+Next: Chapter 7 — Comparisons from Unsigned Division.  `digit?`
+tests a range without `<`, but the compiler still needs `<` itself,
+for signed numbers, and the seed has no sign test, no shift, and no
+`and` primitive to read the sign bit with.

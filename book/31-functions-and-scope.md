@@ -1641,6 +1641,47 @@ create cc-name-ssize_t
   cc-patch-call-main ;
 ```
 
+**tri.c at this stage.**  tri.c's `main` calls `line`, `line`
+receives two arguments, and the kernel has to reach `main`.  With
+tri.c compiled to `/tmp/cc-out` (Ch 21), disassemble the entry
+stub, `line`'s prologue and spill, and the call site on line 17:
+
+```sh
+for r in 0x78:0x92 0x20a:0x21d 0x3d9:0x3e3; do
+  objdump -D -b binary -m i386:x86-64 -M intel \
+      --start-address=${r%:*} --stop-address=${r#*:} /tmp/cc-out | grep '^ '
+done
+```
+
+```
+  78:   48 8b 3c 24             mov    rdi,QWORD PTR [rsp]
+  7c:   48 8d 74 24 08          lea    rsi,[rsp+0x8]
+  81:   e8 5c 02 00 00          call   0x2e2
+  86:   48 89 c7                mov    rdi,rax
+  89:   48 c7 c0 3c 00 00 00    mov    rax,0x3c
+  90:   0f 05                   syscall
+ 20a:   55                      push   rbp
+ 20b:   48 89 e5                mov    rbp,rsp
+ 20e:   48 81 ec 00 01 00 00    sub    rsp,0x100
+ 215:   48 89 7d f8             mov    QWORD PTR [rbp-0x8],rdi
+ 219:   48 89 75 f0             mov    QWORD PTR [rbp-0x10],rsi
+ 3d9:   5e                      pop    rsi
+ 3da:   5f                      pop    rdi
+ 3db:   e8 2a fe ff ff          call   0x20a
+ 3e0:   48 89 c7                mov    rdi,rax
+```
+
+The stub's `call` at 0x81 was a placeholder until
+`cc-patch-call-main` wrote `5c 02 00 00`, which lands on `main` at
+0x2e2.  At the call site, the two arguments were pushed left to
+right, so they pop in reverse: `w[r]` into `rsi`, then
+`t.rows - 1 - r` into `rdi`.  `line` was already defined, so the
+`call` got its real rel32 at once, with no fixup.  `line`'s spill
+at 0x215 and 0x219 copies `rdi` and `rsi` into slots 0 and 1, where
+`pad` and `n` live from then on.  The stub closes the loop: `main`'s
+`rax` becomes `rdi` for `exit` (syscall 60), which is how tri.c's
+star count reaches the shell as its exit status.
+
 ## Try it
 
 **Small check:** inspect one focused fixture below and trace its
@@ -1657,7 +1698,10 @@ never reaches: `tests/cc/C-struct-global.c` declares a file-scope
 `cc-gdecl-scalar-bytes` gave it a flat 8 bytes, that write would
 clobber the next global.  M2-Planet never declares a global struct
 by value, so this fixture (run by `tests/cc/run-gates.sh`) is the
-path's only coverage.
+path's only automated coverage.  tri.c's `struct tri t;` takes the
+same path:
+`od -A x -t x1 -j 0x4c9 /tmp/cc-out` shows its 16 zero bytes, the
+last 16 of the file.
 
 ```sh
 ./build.sh
@@ -1710,6 +1754,11 @@ You can read `cc-parse-function` from name through epilogue,
 explain why every function reserves the same 256-byte frame, and
 walk how `cc-parse-function-list` loops over file-scope
 declarations until EOF.
+
+Every line of tri.c now has a word that compiles it.  Two
+questions are left: what runs those words in order, and whether
+the same words, fed M2-Planet instead of tri.c, produce a compiler
+that agrees with GCC's byte for byte.  Ch 32 answers both.
 
 ## Takeaways
 

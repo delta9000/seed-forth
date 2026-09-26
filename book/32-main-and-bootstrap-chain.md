@@ -13,11 +13,6 @@ a colon definition `cc-main` that runs nine words from Chs 21–31 in
 order and then `bye`, and a bare `cc-main` on the last line, so
 that loading the file runs the compiler.
 
-The compiler is one Forth program loaded as a chain of files.  The
-seed (`000-seed.hex0`, 2,040 bytes) starts the Forth, `010-lib.fth`
-extends it, `020-cc-arena.fth` through `110-cc-decl.fth` add the C
-compiler, and `120-cc-main.fth` runs it.
-
 The second half of the chapter reads `tests/cc/stage-a-check.sh`,
 a shell script outside the literate program.  It feeds the twelve
 `.fth` files and M2-Planet's source through `./seed-forth`, then
@@ -144,6 +139,68 @@ Because the last token of `120-cc-main.fth` is a call to
 `cc-main`, a build script only has to concatenate the twelve files
 and pipe them into `./seed-forth`.  Whatever follows on stdin is
 the C source that `cc-load-stdin` reads.
+
+**tri.c, one last time.**  Chs 27–31 each disassembled one slice of
+tri.c's binary.  Here are all nine steps on the whole program:
+
+```sh
+strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; cat <<'C'
+#define ROWS 4
+struct tri { int rows; int stars; };
+struct tri t;
+
+void line(int pad, int n) {
+    while (pad > 0) { putchar(' '); pad = pad - 1; }
+    while (n > 0) { putchar('*'); n = n - 1; }
+    putchar('\n');
+}
+
+int main() {
+    int w[ROWS];
+    int r;
+    t.rows = ROWS;
+    for (r = 0; r < t.rows; r = r + 1) {
+        w[r] = 1 + r * 2;
+        line(t.rows - 1 - r, w[r]);
+        t.stars = t.stars + w[r];
+    }
+    if (t.stars == ROWS * ROWS) return t.stars;
+    return 1;
+}
+C
+} | ./seed-forth
+chmod +x /tmp/cc-out && /tmp/cc-out
+echo "exit: $?"                  # prints "exit: 16"
+wc -c < /tmp/cc-out              # prints: 1241
+```
+
+```
+   *
+  ***
+ *****
+*******
+exit: 16
+1241
+```
+
+The Forth is stripped of comments; the C is not, because the
+stripper would also delete `(int pad, int n)`.  Measured between
+the steps, `cc-load-stdin` read 484 bytes and `cc-preprocess` cut
+them to 470 (the `#define` line is gone, its newline kept) with
+`ROWS` as the eighth macro.  The header is 120 bytes, and
+`cc-parse-program` took the output to 1,225 bytes of code plus 16
+bytes of globals, which `cc-finalize-globals` appended.
+`cc-finalize-elf` wrote the resulting 1,241 into `p_filesz`
+(`d9 04 00 00` at offset 0x60).  Run it again and `sha256sum
+/tmp/cc-out` gives the same `d15b9d90…ca5ac8a`.
+
+tri.c is a teaching program, not evidence.  It is not part of
+Stage A or of any test script, and nothing compares its bytes with
+GCC's.  GCC, given the same source with `#include <stdio.h>` added,
+prints the same triangle and exits 16, but that is a check of
+behaviour, done by hand.  The evidence is the same pipeline with
+M2-Planet's source in place of tri.c's 22 lines.
 
 ## 4. Stage A: the parity proof
 
@@ -403,6 +460,15 @@ Prologue named two things that had to work together: a mechanical
 test that fluent-looking code cannot fake, and a literate program
 that keeps a human able to read every line.  Stage A is the first;
 the thirty-two chapters you just read are the second.
+
+What that leaves you with is concrete.  Pick any of the 1,241 bytes
+of tri.c's binary and you can name the Forth word that wrote it, the
+chapter that walks that word, and the seed primitives underneath.
+Run `stage-a-check.sh` and you can watch the M2-Planet built by GCC
+and the one this book's compiler built emit the same `.M1`, byte for
+byte.  And when someone asks where your compiler came from, you can
+point to a file of hex you have read, and to every line of source
+between it and the output.
 
 The appendices are reference cards for a second pass:
 

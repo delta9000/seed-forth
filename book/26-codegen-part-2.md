@@ -7,14 +7,15 @@ Artifact after this chapter: calls, libc shims, string storage, global storage, 
 Proof link: Stage-A programs can use calls, file-scope data, and forward references without relocations.
 ```
 
-Every encoder in Ch 25 takes operands that are known when it runs.  A
-compiler that writes machine code front to back keeps running into
-addresses it doesn't know yet.  A call to a function defined further
-down the file, a reference to a file-scope global whose data will land
-after the last byte of code, a string literal the code must jump over:
-each needs a number that doesn't exist at the moment the instruction
-is written.  The compiled program also needs a C runtime (`putchar`,
-`fopen`, `calloc`), and there is no libc to link against.
+Every encoder in Ch 25 takes operands that are known when it runs.
+The first statement of `tri.c`'s `main`, `t.rows = ROWS;`, has no
+such luck.  It must load the address of `t`, and `t` will live just
+past the last byte of code, which the compiler reaches only after
+writing the rest of `main`.  A compiler that writes machine code front
+to back keeps meeting such numbers: a call to a function defined
+further down, a file-scope global, a string literal the code must jump
+over.  The compiled program also needs a C runtime (`tri.c` calls
+`putchar`), and there is no libc to link against.
 
 This chapter finishes `090-cc-emit.fth` (lines 421–1050) and answers
 both problems.  Wide-immediate placeholders and fixup lists let
@@ -961,6 +962,63 @@ chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'
 `tests/cc/build-m2planet-monolith.sh` runs the same pattern at full
 scale, building M2-Planet itself with this pipe.
 
+**tri.c at this stage:** stop the compiler between parsing and
+`cc-finalize-globals` and look at the placeholder for `t`.  The probe
+loads every file except `120-cc-main.fth`, runs `cc-main`'s first
+steps, and prints in hex the fixup count and the imm64 at the first
+fixup, before and after the patch:
+
+```sh
+./build.sh
+{
+  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth \
+    | sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'
+  cat <<'FORTH'
+    : .h  dup [lit] 15 > if, dup [lit] 16 / .h then,
+          [lit] 15 and dup [lit] 9 > if, [lit] 39 + then, [lit] 48 + emit ;
+    : site  cc-gfixup-out-pos @ cc-out-buf + @ .h ;
+    : probe
+      cc-load-stdin cc-preprocess cc-out-init cc-globals-init
+      cc-emit-elf-header cc-parse-program
+      cc-gfixup-count @ .h [lit] 32 emit  site [lit] 32 emit
+      cc-finalize-globals  site  bye ;
+    probe
+FORTH
+  cat <<'C'
+#define ROWS 4
+struct tri { int rows; int stars; };
+struct tri t;
+
+void line(int pad, int n) {
+    while (pad > 0) { putchar(' '); pad = pad - 1; }
+    while (n > 0) { putchar('*'); n = n - 1; }
+    putchar('\n');
+}
+
+int main() {
+    int w[ROWS];
+    int r;
+    t.rows = ROWS;
+    for (r = 0; r < t.rows; r = r + 1) {
+        w[r] = 1 + r * 2;
+        line(t.rows - 1 - r, w[r]);
+        t.stars = t.stars + w[r];
+    }
+    if (t.stars == ROWS * ROWS) return t.stars;
+    return 1;
+}
+C
+} | ./seed-forth                   # prints "7 0 4004c9"
+```
+
+Seven `movabs rdi` sites refer to `t`, one for each `t.rows` or
+`t.stars` in the source.  The first, for `t.rows = ROWS;`, holds 0
+until `cc-finalize-globals` writes `0x4004c9`: `cc-base-vaddr` plus
+the 1,225 bytes of header and code that Ch 21's probe counted, so `t`
+starts on the byte after `main`'s last `ret`.  In `line`, all three
+`putchar` calls are `call 0x400092`, the 29-byte shim of §3; the ten
+shims `tri.c` never calls are emitted anyway.
+
 ## Exercises
 
 1. **★★★ Modify.** The `calloc` shim is 113 bytes and uses hand-counted RIP-
@@ -994,7 +1052,11 @@ calls with fixup lists for targets not yet defined, libc shims,
 inline string literals, and global-address placeholders patched once
 layout is known.  Calls and global accesses are where Stage-A parity
 first depends on exact layout, since both encode addresses and offsets
-that shift if any earlier byte changes.
+that shift if any earlier byte changes.  What the encoders cannot do
+is choose their own order.  In `1 + r * 2` on line 16 of `tri.c`,
+the `+` arrives first, one token at a time, yet the `imul` must be
+emitted before the `add`.  Ch 27 gets that order right without an
+expression tree.
 
 ## Takeaways
 

@@ -7,14 +7,17 @@ Artifact after this chapter: byte-level emission primitives every later library 
 Proof link: every byte the library hand-assembles passes through c,; the dictionary's tail is here-addr.
 ```
 
-A compiler has to put its output somewhere.  In Forth that place is
-the dictionary: a single contiguous arena of bytes.  Defining a word,
-emitting a machine instruction, reserving space for a variable: all
-of them append bytes to one growing region.  The frontier of that
-region is called `HERE`.
+The seed can store a byte: `c!` takes a value and an address.  What
+it cannot do is remember where the *next* byte goes.  Every word
+Part I builds by hand (a constant's machine code, the CALL inside a
+compiled `if,`, a variable's cell) is a run of bytes laid end to end,
+and without "write here, then move on" each one would land on top of
+the last.
 
-The first two definitions after the file header (`010-lib.fth`
-lines 11–21) name that frontier and push it forward.  `here-addr`
+In Forth those bytes go into the dictionary, one contiguous arena,
+and the frontier of that arena is called `HERE`.  The first two
+definitions after the file header (`010-lib.fth` lines 11–21) name
+that frontier and push it forward.  `here-addr`
 pushes the address of the HERE cell on the sysvar page; `c,`
 ("c-comma") stores one byte at HERE and bumps the cell by one.
 Ch 13 covers the sysvar page itself, Ch 17 the `here` primitive, and
@@ -22,12 +25,9 @@ Ch 9 the multi-byte writers `,4` and `,8` built on `c,`.
 
 ## 1. Why a "HERE" exists at all
 
-Every high-level language has a name for "the next byte to allocate."
-In C it's whatever `malloc` returns.  In assembly it's implicit in the
-program counter or the link register.  Forth makes it explicit as a
-**sysvar** (system variable), a cell in memory, and calls it `HERE`.
-
-The reason is structural: Forth's compiler is written in Forth.  When
+Forth keeps "the next byte to allocate" in a **sysvar** (system
+variable), a cell in memory, and calls it `HERE`.  The reason is
+structural: Forth's compiler is written in Forth.  When
 `: foo ... ;` compiles a new word, it does not call a linker or a
 loader.  It writes bytes into memory starting at `HERE` and advances
 `HERE` past whatever it wrote.  Every defining word in the system
@@ -171,9 +171,14 @@ literals 65, 66, 67 (ASCII `A`, `B`, `C`) land at `scratch`, and
 ```
 
 The `sed` strips Forth comments (which the seed's tokenizer does not
-recognise) so `010-lib.fth` loads cleanly.  The second `echo` appends
-the test snippet: store three bytes with `c,`, then read each back
-with `c@` and print it with `emit`.  The seed should print `ABC`.
+recognise) so `010-lib.fth` loads cleanly.  The first `echo` stores
+three bytes with `c,`; the second reads each back with `c@` and
+prints it with `emit`.  The seed should print `ABC`.
+
+Three bytes just went into memory, one after another, through a word
+the seed never had.  Every
+constant, CALL, and branch slot in the chapters ahead is laid down
+the same way.
 
 ## Exercises
 
@@ -206,5 +211,9 @@ with `c@` and print it with `emit`.  The seed should print `ABC`.
   that write at HERE, a shape the Part III C compiler repeats with
   its own emitter.
 
-Next: Chapter 3 — Logic from One Primitive, where we use `nand` (and
-nothing else) to build the full Boolean vocabulary.
+**Part I tally.**  Built so far: **byte emission** (`c,`).  Still
+missing: `and`, `-`, `<`, `if,`, `variable`.
+
+Next: Chapter 3 — Logic from One Primitive.  The seed's only logic
+operation is `nand`: no `and`, no `or`, no `not`.  Ch 3 asks whether
+one operation is enough, and builds `and` from it in three words.
