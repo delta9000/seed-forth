@@ -52,6 +52,14 @@ Run from the repository root:
 tests/cc/stage-a-check.sh
 ```
 
+The Forth sources are fed to `seed-forth` exactly as they are in the
+repository (`cat 010-lib.fth ... | ./seed-forth`): the seed's token
+reader skips `\` line comments and `( ... )` comments itself, so no
+text-processing tool sits between the `.fth` files and the seed.
+(`tests/cc/build-m2planet-monolith.sh` still uses `sed` to drop
+M2-Planet's `#include "..."` lines from the C input; that edits
+M2-Planet's source, not ours.)
+
 `stage-a-check.sh` does the essential compiler compatibility check:
 
 1. Build `seed-forth` from `000-seed.hex0`.
@@ -71,16 +79,16 @@ Shared artifact sizes (verified by running `tests/cc/stage-a-check.sh`):
 
 | File | Bytes |
 |------|------:|
-| `000-seed.hex0` | 27,007 |
-| `seed-forth` | 2,040 |
+| `000-seed.hex0` | 41,293 |
+| `seed-forth` | 1,772 |
 | `cc-out-v1` | 203,253 |
 | `self-v1-amd64.M1` | 2,367,260 |
 
 Hashes for the same run:
 
 ```text
-edc749e1dd1e3d4070af263d45475cbee350ca6f91dd26f6ca276432ae2b0f05  000-seed.hex0
-131bf3ab73917a5a1c39db8114ab5c20f12ca28627f3fdc969ee34d86e41dc74  seed-forth
+16c09d3a841fb5e62b115f225361f3006075a4998f46966d83e21d991e159e8e  000-seed.hex0
+697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e  seed-forth
 23aaa5be476e5d25194dcbd178ceba9a4ccc72ca9c7d76523c6fc6fc1a409e73  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
@@ -94,7 +102,7 @@ every downstream artifact) byte-identical even when the
 The `seed-forth` byte-identity also serves as an independent
 cross-check on the bootstrap trust root: stage0-posix's 229-byte
 `hex0-seed` and any other hex0-equivalent assembler (xxd, hand-keyed,
-etc.) must all produce the same 2040-byte binary.  Disagreement
+etc.) must all produce the same 1772-byte binary.  Disagreement
 between two assemblers on this input would be a bug in one of them.
 
 ## Stage0 byte-identity (opt-in)

@@ -26,8 +26,6 @@ M2=${M2_PLANET:-vendor/M2-Planet}
 MONOLITH=/tmp/m2planet-monolith.c
 OUT=/tmp/cc-out
 
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-
 [ -f "$M2/cc.c" ] || { echo "FAIL: M2_PLANET=$M2 is not initialized (run git submodule update --init --recursive)" >&2; exit 1; }
 [ -f "$M2/M2libc/bootstrappable.c" ] || { echo "FAIL: M2_PLANET/M2libc is not initialized (run git submodule update --init --recursive)" >&2; exit 1; }
 
@@ -53,13 +51,10 @@ fi
   done
 } > "$MONOLITH"
 
-# Step 2: feed (stripped vocab + monolith) to seed-forth.
-TMP_VOCAB=$(mktemp)
-trap 'rm -f "$TMP_VOCAB"' EXIT
-cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth > "$TMP_VOCAB"
-
+# Step 2: feed (vocab + monolith) to seed-forth.  The Forth goes in as-is;
+# the seed's reader skips \ and ( ) comments itself.
 rm -f "$OUT"
-cat "$TMP_VOCAB" "$MONOLITH" | ./seed-forth
+cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$MONOLITH" | ./seed-forth
 rc=$?
 
 if [ ! -f "$OUT" ]; then

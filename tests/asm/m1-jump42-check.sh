@@ -39,8 +39,7 @@ fi
     || fail "reference hex2 failed"
 
 # Forth-asm: amd64_defs + m1-jump42 + ELF prefix all on stdin (uniform path).
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth 130-asm.fth | strip_forth ;
+{ cat 010-lib.fth 130-asm.fth ;
   printf 'asm-main\n' ;
   cat "$M2LIBC/amd64_defs.M1" ;     # DEFINEs first (emit nothing)
   cat "$M2LIBC/ELF-amd64.hex2" ;    # ELF header, ends with :ELF_text

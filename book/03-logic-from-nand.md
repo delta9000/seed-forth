@@ -12,7 +12,7 @@ There is no `and`.  There is no `or`, `not`, or `xor` either.  The
 seed's entire logic unit is one primitive, `nand`, which computes
 `~(a & b)` and nothing else.
 
-That was a choice made under a budget: 2,040 bytes for the whole
+That was a choice made under a budget: 1,772 bytes for the whole
 binary, where every primitive costs a dictionary entry and a few
 dozen bytes of machine code.  So the question the seed had to answer
 is this: if you may keep exactly one bitwise operation, which one?
@@ -198,7 +198,7 @@ Forth-level definitions that get called sparingly.
 The seed's rule is to **pick the primitives that buy the most
 expressive power per byte**.  `nand` is one.  Ch 4 uses it again to
 build `-`, and Ch 7 gets every comparison operator out of `/`.
-Applied throughout, this rule is what makes 2,040 bytes enough, and
+Applied throughout, this rule is what makes 1,772 bytes enough, and
 it matters beyond size: a skeptic auditing the bootstrap reads each
 primitive as raw x86 bytes, but reads `and` as three Forth words.
 
@@ -249,10 +249,10 @@ unsigned-only, and the seed has no `.` for printing, so we use
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo ': mand  nand dup nand ;'
   echo '[lit] 12 [lit] 10 mand [lit] 48 + emit bye'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 # prints: 8     (12 AND 10 == 8, plus 48 is ASCII '8')
 ```
 

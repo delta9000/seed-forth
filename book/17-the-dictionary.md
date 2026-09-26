@@ -1,38 +1,35 @@
 # Chapter 17 — The Dictionary
 
 ```text
-Missing capability: how find, ', and execute actually work is unknown.
-New pattern: a singly-linked list of [link][flags][name-len][name-bytes][body] entries, scanned newest-first.
-Artifact after this chapter: the dictionary's layout and its lookup primitive in machine code.
+Missing capability: how find, ', and execute actually work is unknown, and so is how a token gets off stdin.
+New pattern: a singly-linked list of [link][flags][name-len][name-bytes][code] entries, scanned newest-first.
+Artifact after this chapter: the dictionary's layout, its lookup primitive, and the token reader, in machine code.
 Proof link: "small tables, linear search, newest wins" first appears here; Chs 22, 24, 30, 31 reapply it.
 ```
 
-`dup_code` is at `0x40013B`.  But a compiled call to `dup` does not
-call `0x40013B`.  It calls `0x400491`, 854 bytes further on, in the
-middle of a list of names, where five bytes, `E9 A5 FC FF FF`, jump
-straight back.  Every compiled call to any of the 32 seed primitives
-takes a detour like this, and the 32 stubs cost 160 of the seed's
-2,040 bytes.  A program this tight does not spend 8% of itself on
-detours by accident.  By the end of §2 the stub will look
-unavoidable.
+Ask the seed for `dup` with `' dup` and it pushes `0x4000C7`, the
+address of `dup_code`'s first instruction.  The seed stores that
+address nowhere.  It has no table of code pointers and no pointer
+field in any header.  It finds the code the same way it finds a
+word's name: `dup`'s header is 13 bytes long, and the code starts at
+the 14th.  Every word works like this, the seed's 32 and every one
+`:` adds later, and by the end of §2 you will see why that one rule
+keeps the lookup, `execute` and the compiler free of special cases.
 
-The list those stubs live in is the dictionary, and it is the
-seed's only data structure.  Every word the seed knows, from `bye`
-to `'`, and every word `:` adds later, lives in one singly linked
+The list those headers form is the dictionary, and it is the seed's
+only data structure.  Every word the seed knows, from `dup` to
+`0branch`, and every word `:` adds later, lives in one singly linked
 list: no hash table, no symbol table, no environment frame.  It
 grows forward (new entries go at `HERE`) but is searched backward
 (from `LATEST`), so redefine `dup` and the new entry matches first.
 
-The code sits in three bands of `000-seed.hex0`.  Lines 171–262 hold
-`find_code`, `here_code`, `comma_code`, `execute_code` and
-`read_word`.  Lines 387–554 are the hand-laid dictionary entries for
-every primitive from `bye` through `0branch`.  Lines 684–752 close
-the file with `state_code`, `latest_code` and `tick_code`, plus the
-entries for `r@`, `*`, `state`, `latest` and `'`.
-
-§§1–2 (layout and lookup) stand on their own; §§3–7 read the
-primitives that build, run and name entries; §§8–9 list the entries
-themselves.
+This chapter reads lines 320–513 of `000-seed.hex0`: `find`, `here`,
+`,` and `execute`; then `read_word`, the routine that turns stdin
+into tokens, with its two helpers; then `state`, `latest` and `'`.
+§§1–2 (layout and lookup) stand on their own; §§3–4 read the
+primitives that build and run entries; §§5–7 read the token reader,
+including the part that skips comments and the part that complains;
+§§8–9 name entries; §10 walks the whole chain.
 
 ## 1. The header layout
 
@@ -44,66 +41,51 @@ offset  size  field
    8     1    flags       — bit 0 = IMMEDIATE
    9     1    nlen        — name length in bytes
   10     N    name        — N bytes of the word's name (ASCII)
- 10+N    M    body        — machine code for the word
+ 10+N    M    code        — machine code for the word
 ```
 
-The seed contains 32 hand-laid headers.  Twenty-four sit in one
-block, from `bye` at `0x44D` through `0branch` at `0x5E7`; the other
-eight are scattered among the bodies near the end of the file.
-
-Here is `dup`'s entry laid out byte by byte, with the path a
-compiled call to `dup` takes at runtime:
+The seed contains 32 hand-laid headers, one in front of each
+primitive's code, and every word `:` defines later gets the same
+shape.  Here is `drop`'s entry laid out byte by byte, with the path
+a compiled call to `drop` takes at runtime:
 
 ```text
-dup's entry: file offset 0x484, virtual address 0x400484
+drop's entry: file offset 0x0D0, virtual address 0x4000D0
 
-field    link (8 bytes)             flags   nlen    name       body (5 bytes)
-        +--------------------------+-------+-------+----------+----------------+
-bytes   | 72 04 40 00 00 00 00 00  |  00   |  03   | 64 75 70 | E9 A5 FC FF FF |
-        +--------------------------+-------+-------+----------+----------------+
-offset   +0                         +8      +9      +10        +13 = 10 + nlen
-address  0x484                      0x48C   0x48D   0x48E      0x491  <-- xt
-meaning  0x400472 = key's entry     not IMM 3       "dup"      JMP dup_code
+field    link (8 bytes)            flags  nlen  name         code (9 bytes)
+        +-------------------------+------+-----+------------+----------------------------+
+bytes   | BA 00 40 00 00 00 00 00 |  00  |  04 | 64 72 6F 70 | 48 8B 7D 00 48 83 C5 08 C3 |
+        +-------------------------+------+-----+------------+----------------------------+
+offset   +0                        +8     +9    +10          +14 = 10 + nlen
+address  0x0D0                     0x0D8  0x0D9 0x0DA        0x0DE  <-- xt
+meaning  0x4000BA = dup's entry    not IMM 4    "drop"       drop_code
 
-A compiled call to dup, at runtime:
+A compiled call to drop, at runtime:
 
-  caller   E8 rel32          CALL 0x400491     (dup's xt: the JMP stub)
+  caller   E8 rel32          CALL 0x4000DE     (drop's xt: the first byte of drop_code)
                 |
                 v
-  0x491    E9 A5 FC FF FF    JMP  0x40013B     (rel32 = 0x13B - 0x496 = -859)
-                |
-                v
-  0x13B    dup_code          sub rbp, 8 / mov [rbp], rdi / ret
+  0x0DE    drop_code         mov rdi, [rbp] / add rbp, 8 / ret
                 |
                 v
   ret lands on the instruction after the caller's CALL
 ```
 
 Each header's `link` points at the *previous header's link cell*.
-The first header (`bye`) has `link = 0`.  At runtime, the sysvar
+The first header (`dup`) has `link = 0`.  At runtime, the sysvar
 `LATEST` points at the most recent entry's link cell.
 
-The `body` of every hand-laid header is the 5-byte `JMP rel32`
-stub, and that stub *is* the word's execution token (xt): for dup,
-`0x400491` rather than `0x40013B`.  A compiled call runs `CALL xt`, then
-`JMP`, then the primitive's code, whose `ret` comes straight back to
-the caller.  For words you define with `:`, the xt is the first byte
-of the compiled body.  From here on, "xt" means exactly this
-address: whatever byte follows the name.
+The word's **execution token** (xt) is the address of the first
+byte after its name: for `drop`, `0x4000DE`, which is exactly where
+`drop_code` begins.  A compiled call runs `CALL xt`, the code runs,
+and its `ret` comes straight back to the caller.  For words you
+define with `:`, the xt is likewise the first byte of the compiled
+body.  From here on, "xt" means exactly this address.
 
-Following the links from `LATEST` visits every entry, newest first:
-
-```text
-LATEST = 0x4007E8
-  |
-  v
-'  @ 0x7E8 -> latest @ 0x7D3 -> state @ 0x7BF -> *  @ 0x7AF -> r@ @ 0x79E
-  -> /  @ 0x722 -> syscall6 @ 0x6F9 -> [lit] @ 0x6C0 -> 0branch @ 0x5E7
-  -> ... -> key @ 0x472 -> emit @ 0x45F -> bye @ 0x44D -> 0 (end of chain)
-```
-
-`find` walks this chain, one link-cell load per step, comparing
-names until one matches or a link of `0` ends the search.
+Following the links from `LATEST` visits every entry, newest first;
+§10 walks the whole chain.  `find` walks it one link-cell load per
+step, comparing names until one matches or a link of `0` ends the
+search.
 
 This is the first instance of "small tables, linear search, newest
 wins": no index, and shadowing comes free because the reverse walk
@@ -112,39 +94,51 @@ sees the newest definition first.
 ## 2. `find_code` ( c-addr u -- xt-or-0 )
 
 86 bytes of machine code, and the densest routine in the seed.  It
-is not the biggest: `read_word` (123 bytes), `colon_code` (103),
-`bracket_lit_code` (110) and the REPL loop (187) are all larger.
-Here is the hex:
+is not the biggest: `read_word` (117 bytes) is larger.  Here is
+`find`'s header and code:
 
-```hex0 chunk=find-code
-;; ----- find_code @ 0x1C5 -----
-48 8B 75 00
-48 83 C5 08
-48 8B 0C 25 08 30 41 00
-48 85 C9
-74 3D
-48 0F B6 41 09
-48 39 F8
-75 2E
-48 89 FA
-4C 8D 41 0A
-49 89 F1
-48 85 D2
-74 13
-41 8A 00
-41 3A 01
-75 17
-49 FF C0
-49 FF C1
-48 FF CA
-EB E8
-48 89 0C 25 18 30 41 00
-4C 89 C7
-C3
-48 8B 09
-EB BE
-48 31 FF
-C3
+```hex0 chunk=find
+;; --- find @ 0x2F5 --- header
+BE 02 40 00 00 00 00 00                   ; link  = 0x4002BE (syscall6)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+66 69 6E 64                               ; name  = "find"
+;; ----- find_code @ 0x303  ( c-addr u -- xt | 0 ) -----
+;; Walks the chain from LATEST.  On a hit, stores the entry's address in
+;; LAST_FOUND (the REPL reads its flags byte) and returns the xt: the
+;; first byte after the name, which is where the word's code starts.
+48 8B 75 00                               ; mov rsi, [rbp]     ; rsi = c-addr
+48 83 C5 08                               ; add rbp, 8         ; pop it; rdi = u
+48 8B 0C 25 08 30 41 00                   ; mov rcx, [LATEST]  ; rcx = newest entry
+;; .next:
+48 85 C9                                  ; test rcx, rcx
+74 3D                                     ; jz .miss  (rel8 = 0x355 - 0x318)      ; link 0: end of chain
+48 0F B6 41 09                            ; movzx rax, byte [rcx+9] ; nlen
+48 39 F8                                  ; cmp rax, rdi
+75 2E                                     ; jne .skip  (rel8 = 0x350 - 0x322)     ; lengths differ
+48 89 FA                                  ; mov rdx, rdi       ; rdx = bytes left to compare
+4C 8D 41 0A                               ; lea r8, [rcx+10]   ; r8 = entry's name
+49 89 F1                                  ; mov r9, rsi        ; r9 = token
+;; .bcmp:
+48 85 D2                                  ; test rdx, rdx
+74 13                                     ; jz .hit  (rel8 = 0x344 - 0x331)       ; every byte matched
+41 8A 00                                  ; mov al, [r8]
+41 3A 01                                  ; cmp al, [r9]
+75 17                                     ; jne .skip  (rel8 = 0x350 - 0x339)
+49 FF C0                                  ; inc r8
+49 FF C1                                  ; inc r9
+48 FF CA                                  ; dec rdx
+EB E8                                     ; jmp .bcmp  (rel8 = 0x32C - 0x344)
+;; .hit:
+48 89 0C 25 18 30 41 00                   ; mov [LAST_FOUND], rcx
+4C 89 C7                                  ; mov rdi, r8        ; xt = byte after the name
+C3                                        ; ret
+;; .skip:
+48 8B 09                                  ; mov rcx, [rcx]     ; follow the link
+EB BE                                     ; jmp .next  (rel8 = 0x313 - 0x355)
+;; .miss:
+48 31 FF                                  ; xor rdi, rdi       ; not found: 0
+C3                                        ; ret
 
 ```
 
@@ -176,15 +170,13 @@ mov rcx, [LATEST]     ; rcx = head of chain
   inc r9
   dec rdx
   jmp .bcmp
-.skip:
-  ;; advance to previous entry
-  ; (the seed reuses the slot: load *[rcx] into rcx and re-loop)
-  mov rcx, [rcx]
-  jmp .next
 .hit:
   mov [LAST_FOUND], rcx     ; record entry address for caller
-  mov rdi, r8               ; r8 currently points at end of name = start of body
+  mov rdi, r8               ; r8 currently points at end of name = start of code
   ret
+.skip:
+  mov rcx, [rcx]            ; advance to the previous entry
+  jmp .next
 .miss:
   xor rdi, rdi              ; return 0
   ret
@@ -199,25 +191,24 @@ the IMMEDIATE bit before deciding whether to call-now or emit-a-
 call-instruction.  Returning just the xt isn't enough; the *flag
 byte* sits one cell past the link, and the caller needs both.
 
-**The body address is `[rcx+10+nlen]`.**  Right at the moment of
-hit, `r8` has been advancing through the name bytes (one byte per
-loop iteration), so when `rdx` hits zero `r8` is sitting at the
-first byte *after* the name.  `find_code` returns that address, with
-no extra arithmetic, whatever happens to be there.
+**The xt is `rcx+10+nlen`.**  Right at the moment of hit, `r8` has
+been advancing through the name bytes (one byte per loop
+iteration), so when `rdx` hits zero `r8` is sitting at the first
+byte *after* the name.  `find_code` returns that address, with no
+extra arithmetic.
 
-That is the answer to the detour this chapter opened with.  `find`
-hands back the byte after the name, and the REPL either `CALL`s it
-or `JMP`s to it.  For a word built by `:`, that byte is the start of
-its compiled code.  For a primitive whose code sits hundreds of
-bytes away, something runnable still has to be there, so the
-hand-laid header puts a `JMP` there.  One rule, "the xt is the byte
-after the name", then covers every word, and `find`, `execute` and
-the REPL's compile path carry no special case for primitives.  The
-price is 160 bytes and one extra jump per call.
+That is the answer to the question this chapter opened with.
+Because every header, the 32 hand-laid ones and every one `:` lays
+down, is followed immediately by the word's code, the byte after
+the name is always the word's first instruction.  One rule, "the xt
+is the byte after the name", covers every word, and `find`,
+`execute` and the REPL's compile path carry no special case for
+primitives.  It costs nothing: no pointer field in the header and
+no extra jump per call.
 
 **The exits are tails.**  `.hit`, `.skip` and `.miss` sit after
 the inner loop, in that order; `.miss` is the last two lines of the
-routine (lines 197–198 of `000-seed.hex0`).  Every branch is a
+routine (lines 359–360 of `000-seed.hex0`).  Every branch is a
 2-byte `rel8` jump, and in an 86-byte routine any target is in
 reach, so the order is not forced.  Each exit ends in its own `ret`
 (or a jump back to `.next`), so none falls through into another.
@@ -227,20 +218,18 @@ reach, so the order is not forced.  Each exit ends in its own `ret`
 `here_code` returns the *contents* of the HERE sysvar: the
 next-byte-to-write address.
 
-```hex0 chunk=here-code
-;; ----- here_code @ 0x21B -----
-48 83 ED 08
-48 89 7D 00
-48 8B 3C 25 10 30 41 00
-C3
+```hex0 chunk=here
+;; --- here @ 0x359 --- header
+F5 02 40 00 00 00 00 00                   ; link  = 0x4002F5 (find)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+68 65 72 65                               ; name  = "here"
+;; ----- here_code @ 0x367  ( -- addr ) the value of HERE -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 8B 3C 25 10 30 41 00                   ; mov rdi, [HERE]
+C3                                        ; ret
 
-```
-
-```
-sub rbp, 8
-mov [rbp], rdi
-mov rdi, [HERE]    ; HERE sysvar lives at 0x413010
-ret
 ```
 
 A standard push (spill the old TOS, load the new) where the new TOS
@@ -248,15 +237,20 @@ is the contents of `[0x413010]`.
 
 `comma_code` writes 8 bytes at HERE and advances HERE by 8.
 
-```hex0 chunk=comma-code
-;; ----- comma_code @ 0x22C -----
-48 8B 04 25 10 30 41 00
-48 89 38
-48 83 C0 08
-48 89 04 25 10 30 41 00
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=comma
+;; --- , @ 0x378 --- header
+59 03 40 00 00 00 00 00                   ; link  = 0x400359 (here)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+2C                                        ; name  = ","
+;; ----- comma_code @ 0x383  ( v -- ) store a cell at HERE, HERE += 8 -----
+48 8B 04 25 10 30 41 00                   ; mov rax, [HERE]
+48 89 38                                  ; mov [rax], rdi     ; *HERE = v
+48 83 C0 08                               ; add rax, 8
+48 89 04 25 10 30 41 00                   ; mov [HERE], rax
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -272,18 +266,24 @@ ret
 
 This is the cell-level memory writer.  In Part I we built `,4`
 and `,8` (Ch 9) on top of `c,`; the seed's `,` is the same idea
-but inlined as a primitive.
+but inlined as a primitive.  `[lit]` (Ch 18) reuses it to lay down
+a literal's cell.
 
 ## 4. `execute_code` ( xt -- )
 
 `execute` pops an xt and jumps to it:
 
-```hex0 chunk=execute-code
-;; ----- execute_code @ 0x24C -----
-48 89 F8
-48 8B 7D 00
-48 83 C5 08
-FF E0
+```hex0 chunk=execute
+;; --- execute @ 0x3A3 --- header
+78 03 40 00 00 00 00 00                   ; link  = 0x400378 (,)
+00                                        ; flags = 0
+07                                        ; nlen  = 7
+65 78 65 63 75 74 65                      ; name  = "execute"
+;; ----- execute_code @ 0x3B4  ( xt -- ) tail-jump to xt -----
+48 89 F8                                  ; mov rax, rdi       ; rax = xt
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+FF E0                                     ; jmp rax            ; xt's ret returns to our caller
 
 ```
 
@@ -297,402 +297,304 @@ jmp rax           ; tail-call to the xt
 `jmp rax` (the two-byte `FF E0`) is an *indirect tail jump*: we
 don't `call` and we don't push a return address; the xt sees the
 return address that was on top of the return stack when *we* were
-called.  When the xt's body executes `ret`, it returns to whoever
+called.  When the xt's code executes `ret`, it returns to whoever
 called `execute`, not to `execute` itself.
 
 ## 5. `read_word`, the token reader
 
 `find_code` needs a name to look up.  `read_word` supplies it, one
-whitespace-delimited token at a time from stdin:
+whitespace-delimited token at a time from stdin.  It is not a
+dictionary word: the REPL, `:`, `[lit]` and `'` call it directly.
+It follows the same stack convention as the primitives,
+`( -- c-addr u )`: it leaves the token's address (always the token
+buffer at `0x412800`) and its length on the data stack, with `u = 0`
+meaning end of input.  That is exactly the pair `find` consumes, so
+a caller can go straight from one to the other.
 
 ```hex0 chunk=read-word
-;; ----- read_word @ 0x259 ( -- ; rax = token len, 0 on EOF ) -----
-;; Uses rbx (callee-saved across syscalls) for byte count;
-;; rcx is clobbered by syscall in key_code.
-48 31 DB                                  ; xor rbx, rbx
-;; @0x25C: call key_code (rel32 = 0x10C - 0x261 = -341)
-E8 AB FE FF FF
-48 89 FA                                  ; mov rdx, rdi
-48 8B 7D 00                               ; mov rdi, [rbp]
-48 83 C5 08                               ; add rbp, 8
-48 85 D2                                  ; test rdx, rdx
-74 5F                                     ; jz .done
-48 83 FA 20                               ; cmp rdx, 0x20
-74 E5                                     ; je .skipws
-48 83 FA 09                               ; cmp rdx, 0x09
-74 DF                                     ; je .skipws
-48 83 FA 0A                               ; cmp rdx, 0x0A
-74 D9                                     ; je .skipws
-48 83 FA 0D                               ; cmp rdx, 0x0D
-74 D3                                     ; je .skipws
-88 14 25 00 28 41 00                      ; mov [0x412800], dl
-48 C7 C3 01 00 00 00                      ; mov rbx, 1
-;; @0x297: call key_code (rel32 = 0x10C - 0x29C = -400)
-E8 70 FE FF FF
-48 89 FA
-48 8B 7D 00
-48 83 C5 08
-48 85 D2
-74 24
-48 83 FA 20
-74 1E
-48 83 FA 09
-74 18
-48 83 FA 0A
-74 12
-48 83 FA 0D
-74 0C
-88 14 1D 00 28 41 00                      ; mov [0x412800 + rbx], dl
-48 FF C3                                  ; inc rbx
-EB C7
-48 89 D8                                  ; mov rax, rbx
-C3
-
-```
-
-The algorithm: read bytes from `key` until we find a non-whitespace
-byte (or EOF), then keep reading until we hit whitespace or EOF,
-copying the bytes into the token buffer at `0x412800`.  Return the
-token length in `rax`.
-
-There are *two* loops: the first skips leading whitespace and treats
-EOF as "return 0"; the second accumulates the token and treats EOF
-as "return what you have."
-
-`rbx` is used as the byte-count accumulator because the seed's
-`key` calls `syscall` directly and `syscall` clobbers `rcx` and
-`r11`.  `rbx` is callee-saved (the kernel preserves it), so the
-count survives the syscall.
-
-The two `call key_code` sites use 32-bit relative displacements
-computed by hand.  `read_word` is the first body in Part II that
-calls another primitive.
-
-## 6. `state_code` and `latest_code`
-
-Two tiny primitives hand Forth the addresses of the sysvars the REPL
-and `:` depend on:
-
-```hex0 chunk=state-code
-;; ----- state_code @ 0x753 ( -- addr ) push absolute address of STATE sysvar -----
-;; Sysvar layout (from header line 40): STATE/LATEST/HERE/LAST_FOUND/NUMBER_HOOK/INPUT_FD
-;; live at 0x413000+8N. This pushes 0x413000 (= STATE).
-48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
-48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS
-48 BF 00 30 41 00 00 00 00 00             ; movabs rdi, 0x413000  ; = &STATE
+;; ----- read_word @ 0x3C1  ( -- c-addr u ) next token from stdin; u = 0 at EOF -----
+;; Not a dictionary word.  Skips whitespace, then copies bytes to the
+;; token buffer (TIB, 0x412800) until whitespace or EOF.  The length is
+;; kept in rbx, which syscalls preserve and nothing else in the seed
+;; writes, so report_token can still find it after find or [lit] fails.
+;; A token that is exactly \ skips to the end of the line, and one that
+;; is exactly ( skips past the next ); either way reading starts over.
+;; A token longer than 255 bytes (too long for nlen) is fatal.
+31 DB                                     ; xor ebx, ebx       ; rbx = length = 0
+;; .skip_ws:
+E8 6E 00 00 00                            ; call read_char  (rel32 = 0x436 - 0x3C8)
+74 F9                                     ; je .skip_ws  (rel8 = 0x3C3 - 0x3CA)   ; whitespace: keep skipping
+85 D2                                     ; test edx, edx
+74 4F                                     ; jz .done  (rel8 = 0x41D - 0x3CE)      ; EOF before a token: u = 0
+;; .store:
+88 93 00 28 41 00                         ; mov [rbx+0x412800], dl ; TIB[len] = byte
+FF C3                                     ; inc ebx
+84 FF                                     ; test bh, bh        ; length >= 256?
+0F 85 99 00 00 00                         ; jnz fatal_token  (rel32 = 0x477 - 0x3DE) ; too long: report and exit
+E8 53 00 00 00                            ; call read_char  (rel32 = 0x436 - 0x3E3)
+74 04                                     ; je .end  (rel8 = 0x3E9 - 0x3E5)       ; whitespace ends the token
+85 D2                                     ; test edx, edx
+75 E5                                     ; jnz .store  (rel8 = 0x3CE - 0x3E9)    ; not EOF: keep the byte
+;; .end:
+;; The token is complete; dl holds the byte that ended it (0 = EOF).
+83 FB 01                                  ; cmp ebx, 1
+75 2F                                     ; jne .done  (rel8 = 0x41D - 0x3EE)     ; comment markers are 1 byte long
+8A 04 25 00 28 41 00                      ; mov al, [0x412800]
+3C 5C                                     ; cmp al, 0x5C       ; '\'
+74 14                                     ; je .line_comment  (rel8 = 0x40D - 0x3F9)
+3C 28                                     ; cmp al, 0x28       ; '('
+75 20                                     ; jne .done  (rel8 = 0x41D - 0x3FD)
+;; .paren_comment:
+E8 34 00 00 00                            ; call read_char  (rel32 = 0x436 - 0x402)
+85 D2                                     ; test edx, edx
+74 BB                                     ; jz read_word  (rel8 = 0x3C1 - 0x406)  ; EOF: start over (and return u = 0)
+80 FA 29                                  ; cmp dl, 0x29       ; ')'
+75 F2                                     ; jne .paren_comment  (rel8 = 0x3FD - 0x40B)
+EB B4                                     ; jmp read_word  (rel8 = 0x3C1 - 0x40D) ; comment over: read the next token
+;; .line_comment:
+80 FA 0A                                  ; cmp dl, 0x0A       ; reached the newline?
+74 AF                                     ; je read_word  (rel8 = 0x3C1 - 0x412)  ; comment over: read the next token
+85 D2                                     ; test edx, edx
+74 AB                                     ; jz read_word  (rel8 = 0x3C1 - 0x416)  ; EOF: start over (and return u = 0)
+E8 1B 00 00 00                            ; call read_char  (rel32 = 0x436 - 0x41B)
+EB F0                                     ; jmp .line_comment  (rel8 = 0x40D - 0x41D)
+;; .done:
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+BF 00 28 41 00                            ; mov edi, 0x412800  ; push c-addr = TIB
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 89 DF                                  ; mov rdi, rbx       ; push u
 C3                                        ; ret
 
 ```
 
-```hex0 chunk=latest-code
-;; ----- latest_code @ 0x766 ( -- addr ) push absolute address of LATEST sysvar -----
-48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
-48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS
-48 BF 08 30 41 00 00 00 00 00             ; movabs rdi, 0x413008  ; = &LATEST
+The algorithm: read bytes until one is not whitespace (or EOF), then
+keep reading until whitespace or EOF, copying the bytes into the
+token buffer at `0x412800`.  Four parts:
+
+**Skip whitespace (`.skip_ws`).**  `read_char` (§6) fetches the next
+byte into `dl` and sets the zero flag if it is whitespace, so `je`
+loops over blanks.  A zero byte is EOF: with no token yet, jump
+straight to `.done` with length 0.
+
+**Store (`.store`).**  Each byte goes to `[rbx+0x412800]`, and `rbx`
+counts.  `rbx` is used as the counter because `key` calls `syscall`
+directly and `syscall` clobbers `rcx` and `r11`; the kernel
+preserves `rbx`.  Nothing else in the seed writes `rbx`, so after
+`read_word` returns it still holds the length of the last token
+read, a fact §7 uses.  The token ends at whitespace or EOF.
+
+**Too long is fatal.**  A header stores the name length in one
+byte, so a name longer than 255 bytes cannot be represented, and a
+token that ran on for 2 KiB would run out of the buffer into the
+sysvar page.  After each byte, `test bh, bh` checks bits 8–15 of the
+count: non-zero means the token has reached 256 bytes, and
+`read_word` hands over to `fatal_token` (§7), which prints what it
+has and exits.  A token of 255 bytes or fewer is accepted.
+
+**Comments (`.end`).**  Forth source is full of comments, `\ to the
+end of the line` and `( stack effects )`, and the seed skips them
+itself, so the library and the compiler can be fed to it exactly as
+they are written.  A comment marker is a token of its own, one byte
+long: after a token is complete, `read_word` checks for a length of
+1 and a byte of `\` or `(`.  For `(` it reads on until a `)` byte;
+for `\` until a newline, unless the whitespace byte that ended the
+`\` token, still in `dl`, was already the newline.  Then it jumps
+back to the top and reads the next token, so a comment never
+reaches the caller.  EOF inside a comment ends it too, and the
+restart then returns length 0.  Only the markers themselves are
+recognised: `(foo` or `foo\` are ordinary tokens.
+
+**Return (`.done`).**  Spill the old TOS, push `0x412800`, and make
+the length the new TOS.
+
+The two loops, the comment skip and the length check all call
+`read_char`, and every call site uses a 32-bit relative displacement
+computed by hand.  `read_word` is the first routine in Part II that
+calls another.
+
+## 6. `read_char`, one byte and a verdict
+
+```hex0 chunk=read-char
+;; ----- read_char @ 0x436  ( -- ) rdx = next input byte (0 at EOF); ZF=1 iff whitespace -----
+E8 54 FE FF FF                            ; call key_code  (rel32 = 0x28F - 0x43B) ; ( -- c )
+48 89 FA                                  ; mov rdx, rdi       ; rdx = c
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+80 FA 20                                  ; cmp dl, 0x20       ; space
+74 0D                                     ; je .ret  (rel8 = 0x458 - 0x44B)
+80 FA 09                                  ; cmp dl, 0x09       ; tab
+74 08                                     ; je .ret  (rel8 = 0x458 - 0x450)
+80 FA 0A                                  ; cmp dl, 0x0A       ; newline
+74 03                                     ; je .ret  (rel8 = 0x458 - 0x455)
+80 FA 0D                                  ; cmp dl, 0x0D       ; carriage return
+;; .ret:
+C3                                        ; ret                ; ret leaves the flags alone
+
+```
+
+`read_char` calls `key`, pops the byte into `rdx`, and compares it
+with the four whitespace bytes: space, tab, newline, carriage
+return.  The last comparison's flags survive the `ret`, so the
+caller's `je` means "that was whitespace".  An EOF `0` compares
+unequal to all four, which is why `read_word` follows each `je` with
+its own `test edx, edx`.
+
+## 7. `report_token` and `fatal_token`: failing out loud
+
+Three things can go wrong with a token: `find` doesn't know it (the
+REPL, Ch 20), `[lit]` can't read it as a number (Ch 18), or it is
+too long (§5).  All three answer the same way: print the token,
+then `?`, then a newline.  An unknown word goes on to the next
+token; the other two are fatal, because continuing would compile
+garbage.
+
+```hex0 chunk=report-token
+;; ----- report_token @ 0x459  ( -- ) write the last token and '?' newline to stdout -----
+;; Uses rbx (the token length).  Clobbers rdi, so callers drop or exit.
+66 C7 83 00 28 41 00 3F 0A                ; mov word [rbx+0x412800], 0x0A3F ; append '?' and newline
+8D 53 02                                  ; lea edx, [rbx+2]   ; count = len + 2
+BE 00 28 41 00                            ; mov esi, 0x412800  ; buf = TIB
+B8 01 00 00 00                            ; mov eax, 1         ; SYS_write
+BF 01 00 00 00                            ; mov edi, 1         ; fd 1 (stdout)
+0F 05                                     ; syscall
+C3                                        ; ret
+
+;; ----- fatal_token @ 0x477  ( -- ) report the last token, then exit(2) -----
+E8 DD FF FF FF                            ; call report_token  (rel32 = 0x459 - 0x47C)
+B8 3C 00 00 00                            ; mov eax, 60        ; SYS_exit
+BF 02 00 00 00                            ; mov edi, 2         ; status 2: bad input
+0F 05                                     ; syscall
+
+```
+
+`report_token` uses the length in `rbx` that `read_word` left
+behind.  Its first instruction writes the two bytes `3F 0A` (`?`
+and newline) into the buffer right after the token, so one
+`write(1, 0x412800, len + 2)` prints both; the buffer has 2 KiB of
+room and a token is at most 256 bytes.  It clobbers `rdi`, the TOS,
+so its callers either drop a cell afterwards or never return.
+
+`fatal_token` calls `report_token` and exits with status 2.  Those
+two `syscall` instructions, `write` and `exit`, are the two Ch 16
+did not read.  Status 2 is the seed's own: no `[lit] 2 die` appears
+in the compiler (Appendix G), so a status of 2 while loading Forth
+means "the seed rejected a token", and the token is the last thing
+it printed.
+
+## 8. `state_code` and `latest_code`
+
+Two tiny primitives hand Forth the addresses of the sysvars the REPL
+and `:` depend on:
+
+```hex0 chunk=state
+;; --- state @ 0x488 --- header
+A3 03 40 00 00 00 00 00                   ; link  = 0x4003A3 (execute)
+00                                        ; flags = 0
+05                                        ; nlen  = 5
+73 74 61 74 65                            ; name  = "state"
+;; ----- state_code @ 0x497  ( -- addr ) address of the STATE sysvar -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 BF 00 30 41 00 00 00 00 00             ; mov rdi, 0x413000  ; &STATE (movabs)
+C3                                        ; ret
+
+```
+
+```hex0 chunk=latest
+;; --- latest @ 0x4AA --- header
+88 04 40 00 00 00 00 00                   ; link  = 0x400488 (state)
+00                                        ; flags = 0
+06                                        ; nlen  = 6
+6C 61 74 65 73 74                         ; name  = "latest"
+;; ----- latest_code @ 0x4BA  ( -- addr ) address of the LATEST sysvar -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 BF 08 30 41 00 00 00 00 00             ; mov rdi, 0x413008  ; &LATEST (movabs)
 C3                                        ; ret
 
 ```
 
 Both follow the same shape: spill old TOS, then load a 64-bit
 constant into `rdi`.  The constant is the *address* of the sysvar,
-so the caller does `state @` to read or `state !` to write.  (The
-source comment's "header line 40" is stale: the sysvar layout note
-is at line 48 of `000-seed.hex0`.)
+so the caller does `state @` to read or `state !` to write.  The
+comment block above `_start` gives the sysvar layout: `STATE`,
+`LATEST`, `HERE`, `LAST_FOUND`, consecutive cells from `0x413000`.
 
 With these two addresses Forth code can change the mode and the head
 of the dictionary, which is how `010-lib.fth` builds `immediate`
-(Ch 10).
+(Ch 10).  Because the cells are consecutive, the two addresses are
+also all the library needs to find the rest: `here-addr` is
+`latest [lit] 8 +`, and the page above the sysvars starts at
+`state [lit] 4096 +` (Ch 2, Ch 12), so no Forth file types in a seed
+address.
 
-## 7. `tick_code`: from name to xt
+## 9. `tick_code`: from name to xt
 
 `'` strings together the pieces from §§2 and 5:
 
-```hex0 chunk=tick-code
-;; ----- tick_code @ 0x779 ( -- xt ) read next word and look up its xt -----
-;; Calls read_word to fill TIB and return token length in rax.
-;; Then sets up find_code's calling convention: pushes (TIB, len) onto the
-;; data stack with len in rdi and TIB at [rbp]. Mirrors the repl pattern
-;; (the repl's read_word + find_code sequence).
-;;
-;; Returns 0 in rdi if word not found -- find_code already does `xor rdi,rdi; ret`
-;; on miss, so we inherit that behavior for free.
-;;
-;; @0x779: call read_word (rel32 = 0x259 - 0x77E = -1317)
-E8 DB FA FF FF
-48 83 ED 08                               ; sub rbp, 8         ; make room for spilled TOS
-48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS
-48 C7 C7 00 28 41 00                      ; mov rdi, 0x412800  ; rdi = c-addr (TIB)
-48 83 ED 08                               ; sub rbp, 8         ; make room to spill c-addr
-48 89 7D 00                               ; mov [rbp], rdi     ; [rbp] = c-addr
-48 89 C7                                  ; mov rdi, rax       ; rdi = u (token len)
-;; @0x798: call find_code (rel32 = 0x1C5 - 0x79D = -1496)
-E8 28 FA FF FF
-C3                                        ; ret  ; rdi = xt (or 0 if not found)
+```hex0 chunk=tick
+;; --- ' @ 0x4CD --- header
+AA 04 40 00 00 00 00 00                   ; link  = 0x4004AA (latest)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+27                                        ; name  = "'"
+;; ----- tick_code @ 0x4D8  ( -- xt | 0 ) read the next token and find it -----
+E8 E4 FE FF FF                            ; call read_word  (rel32 = 0x3C1 - 0x4DD) ; ( -- c-addr u )
+E9 21 FE FF FF                            ; jmp find_code  (rel32 = 0x303 - 0x4E2) ; ( c-addr u -- xt | 0 ), tail call
 
 ```
 
-After `read_word`, the token length is in `rax` and the token bytes
-are in the buffer at `0x412800`.  `tick_code` spills the current
-TOS, pushes the buffer address (`0x412800`), spills *that*, then
-loads the length into `rdi` as TOS.  Now the stack is `( ...old c-
-addr len )` and we can call `find_code`, which consumes both cells
-and pushes the xt (or 0) as new TOS.
+`read_word` leaves `( c-addr u )` on the stack, which is exactly
+what `find_code` consumes, so `'` is one call and one jump: `find`
+runs as a tail call, and its `ret` returns straight to whoever
+called `'`, with the xt (or 0) as the new TOS.
 
-`tick_code` is the seed's smallest example of composing primitives
-by chained calls: `call A; setup; call B; ret`.
+`tick_code` is the seed's smallest example of composing routines
+that share one stack convention: `call A; jmp B`.
 
-## 8. The dictionary entries
+## 10. The chain
 
-The 24 entries from `bye` to `0branch` form one contiguous block
-from `0x44D` to `0x5FD`, each 16–22 bytes long.  They appear below
-as one chunk, `<<dictionary-entries>>`, split into four listings by
-the chapter that explains each word's body.
+The 32 headers, one per unit, from `dup` at `0x0BA` to `0branch`
+at `0x617`, form one chain.  `LATEST` starts at the last of them
+(Ch 13's `<<sysvar-init>>`), and following the links from there
+visits every word:
 
-The I/O words come first.  `bye` ends the chain with a zero link.
-The next entry's link cell holds `4D 04 40 00 00 00 00 00`, which
-read little-endian is `0x40044D`, the start of `bye`'s entry.
-
-```hex0 chunk=dictionary-entries
-;; --- bye @ 0x44D (xt = 0x45A) ---
-00 00 00 00 00 00 00 00
-00
-03
-62 79 65
-E9 73 FC FF FF                              ; jmp bye_code (rel = 0x0D2 - 0x45F = -909)
-
-;; --- emit @ 0x45F (xt = 0x46D) ---
-4D 04 40 00 00 00 00 00
-00
-04
-65 6D 69 74
-E9 6C FC FF FF                              ; jmp emit_code (rel = 0x0DE - 0x472 = -916)
-
-;; --- key @ 0x472 (xt = 0x47F) ---
-5F 04 40 00 00 00 00 00
-00
-03
-6B 65 79
-E9 88 FC FF FF                              ; jmp key_code (rel = 0x10C - 0x484 = -888)
-
+```text
+LATEST = 0x400617
+  |
+  v
+0branch @ 0x617 -> branch @ 0x601 -> [lit] @ 0x5B2 -> lit @ 0x593
+  -> ; @ 0x53F -> : @ 0x4E2 -> ' @ 0x4CD -> latest @ 0x4AA
+  -> state @ 0x488 -> execute @ 0x3A3 -> , @ 0x378 -> here @ 0x359
+  -> find @ 0x2F5 -> syscall6 @ 0x2BE -> key @ 0x282 -> emit @ 0x246
+  -> bye @ 0x22D -> * @ 0x212 -> / @ 0x1F5 -> 0= @ 0x1DA
+  -> nand @ 0x1C0 -> + @ 0x1AC -> c! @ 0x18D -> c@ @ 0x17C
+  -> ! @ 0x15D -> @ @ 0x14E -> r@ @ 0x131 -> r> @ 0x119
+  -> >r @ 0x101 -> swap @ 0x0E7 -> drop @ 0x0D0 -> dup @ 0x0BA
+  -> 0 (end of chain)
 ```
 
-Every link cell points back by the size of the previous entry.
-Adding a primitive means appending an entry, setting its `link` to
-the previous entry's address, and patching the assembly-time value
-of `LATEST` in `<<sysvar-init>>`.
+Each link cell holds the address of the header before it; `drop`'s
+holds `BA 00 40 00 00 00 00 00`, which read little-endian is
+`0x4000BA`, the start of `dup`'s header.  The four routines without
+names, `read_word`, `read_char`, `report_token` and `fatal_token`,
+sit between `execute` and `state` in the file but have no header,
+so the chain steps straight over them.  Adding a primitive means
+inserting a unit, pointing its `link` at the header before it and
+the next header's `link` at it, recomputing every address that moved
+and, if it is the new last word, patching the assembly-time value of
+`LATEST` in `<<sysvar-init>>`.
 
-The stack and memory words of Ch 14:
+The headers take 421 of the seed's 1,772 bytes: 32 × 10 bytes of
+link, flags and length, plus 101 bytes of names.
 
-```hex0 chunk=dictionary-entries
-;; --- dup @ 0x484 (xt = 0x491) ---
-72 04 40 00 00 00 00 00
-00
-03
-64 75 70
-E9 A5 FC FF FF                              ; jmp dup_code (rel = 0x13B - 0x496 = -859)
+## Canonical source
 
-;; --- drop @ 0x496 (xt = 0x4A4) ---
-84 04 40 00 00 00 00 00
-00
-04
-64 72 6F 70
-E9 9B FC FF FF                              ; jmp drop_code (rel = 0x144 - 0x4A9 = -869)
-
-;; --- swap @ 0x4A9 (xt = 0x4B7) ---
-96 04 40 00 00 00 00 00
-00
-04
-73 77 61 70
-E9 91 FC FF FF                              ; jmp swap_code (rel = 0x14D - 0x4BC = -879)
-
-;; --- >r @ 0x4BC (xt = 0x4C8) ---
-A9 04 40 00 00 00 00 00
-00
-02
-3E 72
-E9 8C FC FF FF                              ; jmp to_r_code (rel = 0x159 - 0x4CD = -884)
-
-;; --- r> @ 0x4CD (xt = 0x4D9) ---
-BC 04 40 00 00 00 00 00
-00
-02
-72 3E
-E9 87 FC FF FF                              ; jmp r_from_code (rel = 0x165 - 0x4DE = -889)
-
-;; --- @ @ 0x4DE (xt = 0x4E9) ---
-CD 04 40 00 00 00 00 00
-00
-01
-40
-E9 83 FC FF FF                              ; jmp fetch_code (rel = 0x171 - 0x4EE = -893)
-
-;; --- ! @ 0x4EE (xt = 0x4F9) ---
-DE 04 40 00 00 00 00 00
-00
-01
-21
-E9 77 FC FF FF                              ; jmp store_code (rel = 0x175 - 0x4FE = -905)
-
-;; --- c@ @ 0x4FE (xt = 0x50A) ---
-EE 04 40 00 00 00 00 00
-00
-02
-63 40
-E9 7A FC FF FF                              ; jmp cfetch_code (rel = 0x189 - 0x50F = -902)
-
-;; --- c! @ 0x50F (xt = 0x51B) ---
-FE 04 40 00 00 00 00 00
-00
-02
-63 21
-E9 6E FC FF FF                              ; jmp cstore_code (rel = 0x18E - 0x520 = -914)
-
-```
-
-The arithmetic words of Ch 15, then the four dictionary primitives
-from §§2–4 of this chapter:
-
-```hex0 chunk=dictionary-entries
-;; --- + @ 0x520 (xt = 0x52B) ---
-0F 05 40 00 00 00 00 00
-00
-01
-2B
-E9 71 FC FF FF                              ; jmp plus_code (rel = 0x1A1 - 0x530 = -911)
-
-;; --- nand @ 0x530 (xt = 0x53E) ---
-20 05 40 00 00 00 00 00
-00
-04
-6E 61 6E 64
-E9 67 FC FF FF                              ; jmp nand_code (rel = 0x1AA - 0x543 = -921)
-
-;; --- 0= @ 0x543 (xt = 0x54F) ---
-30 05 40 00 00 00 00 00
-00
-02
-30 3D
-E9 62 FC FF FF                              ; jmp zeq_code (rel = 0x1B6 - 0x554 = -926)
-
-;; --- find @ 0x554 (xt = 0x562) ---
-43 05 40 00 00 00 00 00
-00
-04
-66 69 6E 64
-E9 5E FC FF FF                              ; jmp find_code (rel = 0x1C5 - 0x567 = -930)
-
-;; --- here @ 0x567 (xt = 0x575) ---
-54 05 40 00 00 00 00 00
-00
-04
-68 65 72 65
-E9 A1 FC FF FF                              ; jmp here_code (rel = 0x21B - 0x57A = -863)
-
-;; --- , @ 0x57A (xt = 0x585) ---
-67 05 40 00 00 00 00 00
-00
-01
-2C
-E9 A2 FC FF FF                              ; jmp comma_code (rel = 0x22C - 0x58A = -862)
-
-;; --- execute @ 0x58A (xt = 0x59B) ---
-7A 05 40 00 00 00 00 00
-00
-07
-65 78 65 63 75 74 65
-E9 AC FC FF FF                              ; jmp execute_code (rel = 0x24C - 0x5A0 = -852)
-
-```
-
-The colon compiler (Ch 18) and the inline-cell words (Chs 18–19).
-The flags byte is `00` for every entry here except `;`, which
-carries `01` (IMMEDIATE) so the REPL runs it instead of compiling a
-call to it:
-
-```hex0 chunk=dictionary-entries
-;; --- : @ 0x5A0 (xt = 0x5AB) ---
-8A 05 40 00 00 00 00 00
-00
-01
-3A
-E9 24 FD FF FF                              ; jmp colon_code (rel = 0x2D4 - 0x5B0 = -732)
-
-;; --- ; @ 0x5B0 (xt = 0x5BB) ---  IMMEDIATE
-A0 05 40 00 00 00 00 00
-01
-01
-3B
-E9 7B FD FF FF                              ; jmp semicolon_code (rel = 0x33B - 0x5C0 = -645)
-
-;; --- lit @ 0x5C0 (xt = 0x5CD) ---
-B0 05 40 00 00 00 00 00
-00
-03
-6C 69 74
-E9 47 FE FF FF                              ; jmp lit_code (rel = 0x419 - 0x5D2 = -441)
-
-;; --- branch @ 0x5D2 (xt = 0x5E2) ---
-C0 05 40 00 00 00 00 00
-00
-06
-62 72 61 6E 63 68
-E9 44 FE FF FF                              ; jmp branch_code (rel = 0x42B - 0x5E7 = -444)
-
-;; --- 0branch @ 0x5E7 (xt = 0x5F8) ---
-D2 05 40 00 00 00 00 00
-00
-07
-30 62 72 61 6E 63 68
-E9 34 FE FF FF                              ; jmp zbranch_code (rel = 0x431 - 0x5FD = -460)
-
-```
-
-## 9. The late dictionary entries
-
-Five more entries close the file: `r@`, `*`, `state`, `latest` and
-`'`.  The first links back to `/` at `0x722`, each later one links
-to the entry before it, and the last (`'`) is where `LATEST` starts
-(Ch 13's `<<sysvar-init>>`).
-
-```hex0 chunk=late-dicts
-;; --- r@ @ 0x79E (xt = 0x7AA) ---
-22 07 40 00 00 00 00 00                     ; link = 0x400722 (/)
-00                                        ; flags
-02                                        ; nlen
-72 40                                     ; "r@"
-E9 83 FF FF FF                              ; jmp r_at_code (rel = 0x732 - 0x7AF = -125)
-
-;; --- * @ 0x7AF (xt = 0x7BA) ---
-9E 07 40 00 00 00 00 00                     ; link = 0x40079E (r@)
-00
-01
-2A                                        ; "*"
-E9 84 FF FF FF                              ; jmp star_code (rel = 0x743 - 0x7BF = -124)
-
-;; --- state @ 0x7BF (xt = 0x7CE) ---
-AF 07 40 00 00 00 00 00                     ; link = 0x4007AF (*)
-00
-05
-73 74 61 74 65                            ; "state"
-E9 80 FF FF FF                              ; jmp state_code (rel = 0x753 - 0x7D3 = -128)
-
-;; --- latest @ 0x7D3 (xt = 0x7E3) ---
-BF 07 40 00 00 00 00 00                     ; link = 0x4007BF (state)
-00
-06
-6C 61 74 65 73 74                         ; "latest"
-E9 7E FF FF FF                              ; jmp latest_code (rel = 0x766 - 0x7E8 = -130)
-
-;; --- ' @ 0x7E8 (xt = 0x7F3) ---  <-- LATEST
-D3 07 40 00 00 00 00 00                     ; link = 0x4007D3 (latest)
-00
-01
-27                                        ; "'"
-E9 81 FF FF FF                              ; jmp tick_code (rel = 0x779 - 0x7F8 = -127)
-```
-
-(`<<late-dicts>>` has no trailing blank because it is the last chunk
-in the file.)
+This chapter's ten chunks, `<<find>>` through `<<tick>>`, are
+defined inline in the prose above, in the order the master root
+block in Ch 13 lists them.
 
 ## Try it
 
@@ -703,32 +605,46 @@ in the file.)
 echo "' emit [lit] 65 swap execute bye" | ./seed-forth
 # Expected: prints "A".  ' returns emit's xt, then 65 swap execute calls it.
 
-# Force a miss; the REPL prints '?':
+# Force a miss; the REPL echoes the token with a '?':
 echo 'wibble' | ./seed-forth
-# prints "?"
+# prints "wibble?"
+
+# Comments never reach the REPL:
+echo '[lit] 67 ( a stack comment ) emit \ a line comment' | ./seed-forth
+# prints "C"
 
 # Walk the chain by hand.  The seed has no `.`, so peek at the
 # name-length byte (offset 9 in §1's header layout) and add 48
 # to land in ASCII:
 echo "latest @ [lit] 9 + c@ [lit] 48 + emit bye" | ./seed-forth
 # prints the most-recent word's name length as a digit.  The seed's
-# newest word is `'`, a one-character name, so this prints "1".
+# newest word is `0branch`, a seven-character name, so this prints "7".
 
 # Look at the byte dup's xt points to:
 echo "' dup c@ emit bye" | ./seed-forth | od -An -tx1
-# prints " e9"
+# prints " 48"
 
 # Shadow a primitive:
 echo ": dup [lit] 88 emit ; [lit] 1 dup bye" | ./seed-forth
 # prints "X"
 ```
 
-The `e9` is the stub from the start of the chapter, read out of
-memory by the seed itself: `'` pushed dup's xt, and the byte there
-is a `JMP` opcode, not the first byte of `dup_code`.  The
-last command defines a new `dup` at `HERE`; `find` meets it first
-on its walk from `LATEST`, and the original 9-byte body is never
-reached again.
+The `48` is the first byte of `dup_code`, `sub rbp, 8`, read out of
+memory by the seed itself: `'` pushed dup's xt, and the xt is the
+code.  The last command defines a new `dup` at `HERE`; `find` meets
+it first on its walk from `LATEST`, and the original 9-byte body is
+never reached again.
+
+Now make the reader give up:
+
+```sh
+printf '%0300d' 0 | ./seed-forth | wc -c; echo "exit status ${PIPESTATUS[1]}"
+# prints "258\nexit status 2"
+```
+
+The 300-digit token hit the 256-byte limit: `fatal_token` printed
+the 256 bytes it had kept, then `?` and a newline, 258 bytes in all,
+and exited with status 2.
 
 ## Exercises
 
@@ -742,16 +658,18 @@ reached again.
    IMMEDIATE bit — but `'` and Forth-level `find` want only the
    xt.  Count instructions in each design.)
 
-3. **★★ Trace.** The `' emit execute` pattern uses `'` to push the xt and
-   `execute` to call it.  Trace the data stack and the return stack
-   for `[lit] 65 ' emit execute`.  Where does `emit`'s `ret` land?
+3. **★★ Trace.** `read_word` recognises `(` only as a token of its own.  What does
+   the seed do with `(a -- b)`, and with `( a -- b)`?  With
+   `\comment`?  Predict the output of each, then check.
 
-4. **★★★ Modify.** Modify `read_word` (in a copy of `000-seed.hex0`) to recognise
-   `\` as a line-comment marker that skips until newline.  How many
-   extra bytes?  Where in `read_word` does the change go?
+4. **★★★ Modify.** The seed puts every header directly in front of its code, so
+   the xt needs no pointer.  Sketch the alternative: headers in one
+   block, each ending in a pointer to (or a `JMP` to) its code
+   elsewhere.  What does it cost in bytes for 32 primitives, and in
+   instructions per call?  What would it buy?
 
 5. **★★ Trace.** Walk the dictionary backwards by hand starting from `LATEST @`
-   (= `0x4007E8`, the `'` entry's link cell).  Follow eight link
+   (= `0x400617`, the `0branch` entry's link cell).  Follow eight link
    cells.  What's the name at each step?
 
 ## Takeaways
@@ -759,22 +677,22 @@ reached again.
 - The dictionary is the seed's only data structure: a singly linked
   list of headers searched newest-first, which is what lets a
   redefinition shadow the old word.
-- `find_code` compares names inline in 86 bytes and records the
-  matched entry in `LAST_FOUND` so the REPL can test its IMMEDIATE
-  flag.
-- A seed primitive's xt is the 5-byte `JMP` stub at the end of its
-  header, and `'` plus `execute` turn a name into a call through it.
+- Every header sits directly in front of its word's code, so the xt
+  `find` returns, the address just past the name, is the code itself.
+- `read_word` leaves `( c-addr u )` for `find`, skips `\` and `( )`
+  comments, and hands a token that cannot be used back to the user
+  as `token?` rather than guessing.
 
-**Running count: 1,448 of 2,040 bytes read (71%).**  This chapter
-added 868, by far the largest share: 346 bytes of lookup, token
-reading and accessors, and 522 bytes of dictionary entries.  Counting
-the entries for `/`, `syscall6` and `[lit]` read elsewhere, 581 of
-the seed's bytes, more than a quarter, are headers: links, names and
-`JMP` stubs.
+**Running count: 1,250 of 1,772 bytes read (71%).**  This chapter
+added 493, by far the largest share: 196 bytes of lookup, memory and
+naming primitives, 199 bytes of token reader and its helpers, and 98
+bytes of headers.  Counting the headers read in other chapters, 421
+of the seed's bytes, nearly a quarter, are headers: links, flags,
+lengths and names.
 
-Every one of those 32 entries was laid by hand.  The library and
-the C compiler that Part III loads contain 367 colon definitions,
-and nobody writes their headers in hex.  Ch 18 reads the 103 bytes
+Every one of those 32 headers was laid by hand.  The library and
+the C compiler that Part III loads contain 368 colon definitions,
+and nobody writes their headers in hex.  Ch 18 reads the 82 bytes
 that do, and `lit_code`, which gets a number into compiled code
 through a `CALL` instruction that has no room for one.
 

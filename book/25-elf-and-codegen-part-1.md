@@ -792,12 +792,10 @@ We don't use `s"`, since `s"` is not NUL-terminated and
 ```sh
 ./build.sh
 {
-  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
-           040-cc-prep.fth 050-cc-lex.fth \
-           060-cc-types.fth 070-cc-sym.fth \
-           080-cc-elf.fth 090-cc-emit.fth; do
-    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
-  done
+  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
+      040-cc-prep.fth 050-cc-lex.fth \
+      060-cc-types.fth 070-cc-sym.fth \
+      080-cc-elf.fth 090-cc-emit.fth
   cat <<'FORTH'
     create probe-path
     [lit]  47 c, [lit] 116 c, [lit] 109 c, [lit] 112 c,
@@ -813,7 +811,7 @@ We don't use `s"`, since `s"` is not NUL-terminated and
       bye ;
     probe
 FORTH
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 
 objdump -D -b binary -m i386:x86-64 -M intel /tmp/cc-out | tail -10
 ```
@@ -827,8 +825,7 @@ header back:
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth \
-    | sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'
+  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth
   cat <<'C'
 #define ROWS 4
 struct tri { int rows; int stars; };

@@ -2,7 +2,7 @@
 
 [Seed Forth](README.md)
 [Where this fits in the bootstrap ecosystem](where-this-fits.md)
-[Prologue: Two thousand and forty bytes](00-prologue.md)
+[Prologue: Seventeen hundred and seventy-two bytes](00-prologue.md)
 
 # Part I — Forth from the lib up
 
@@ -25,10 +25,10 @@
 - [Stack primitives in machine code](14-stack-primitives.md) — `dup`, `drop`, `swap`, `over`, `>r`, `r>`, `r@`, `@`, `!`
 - [Arithmetic, logic, comparison](15-arithmetic-and-logic.md) — `+`, `nand`, `0=`, `/`, `*`
 - [I/O: `emit`, `key`, `syscall6`](16-io-emit-key-syscall6.md) — three primitives, the only Linux contact in the seed
-- [The dictionary](17-the-dictionary.md) — `find`, `'`, `execute`, header layout, linear-search lookup
+- [The dictionary](17-the-dictionary.md) — `find`, `'`, `execute`, header layout, linear-search lookup, the token reader (comments, `token?` errors)
 - [The colon compiler](18-the-colon-compiler.md) — `:`, `;`, `[lit]`, `lit_code`, subroutine threading
 - [Branches and inline cells](19-branches-and-inline-cells.md) — `branch`, `0branch`, the consumed-slot property
-- [The number parser and REPL](20-number-parser-and-repl.md) — `read_word`, decimal parse, the interpret-vs-compile loop, the bridge to Part III
+- [The number parser and REPL](20-number-parser-and-repl.md) — decimal parse, the interpret-vs-compile loop, the bridge to Part III
 
 # Part III — A C compiler in Forth
 

@@ -876,7 +876,8 @@ byte none of the four claims falls through to `cc-lex-punct`.
 **Small check:** drive the lexer by hand on line 12 of `tri.c`,
 `int w[ROWS];`, with the `#define` it depends on.
 Seed-forth has no `-e` flag or `include` word, so we concatenate the
-five files (stripped of Forth comments) onto stdin, then the C source.
+five files onto stdin as they are (the seed's reader skips their
+comments), then the C source.
 A one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
 runs the lexer in a loop, and emits each token's kind as an ASCII
 digit until end-of-input:
@@ -884,10 +885,8 @@ digit until end-of-input:
 ```sh
 ./build.sh
 {
-  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
-           040-cc-prep.fth 050-cc-lex.fth; do
-    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
-  done
+  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
+      040-cc-prep.fth 050-cc-lex.fth
   cat <<'FORTH'
     : dump-tokens
       cc-load-stdin cc-preprocess
@@ -900,7 +899,7 @@ FORTH
 #define ROWS 4
     int w[ROWS];
 C
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 The output is `6 1 5 2 5 5`: keyword, identifier, `[`, number, `]`,

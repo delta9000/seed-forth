@@ -138,7 +138,7 @@ shows up wherever the seed needs to turn a "0-or-something-else" raw
 value into a proper Forth flag.
 
 Two tokens to go from `1` to `-1`, written once inside `neg-flag`,
-are much cheaper than a sign-test primitive in a 2,040-byte binary.
+are much cheaper than a sign-test primitive in a 1,772-byte binary.
 
 ## 5. The cascade
 
@@ -249,14 +249,14 @@ bye
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo '[lit] 3 [lit] 5 <  0= [lit] 49 + emit'      # true  -> '1'
   echo '[lit] 5 [lit] 3 <  0= [lit] 49 + emit'      # false -> '0'
   echo '[lit] 7 [lit] 7 =  0= [lit] 49 + emit'      # true  -> '1'
   echo '[lit] 7 [lit] 8 =  0= [lit] 49 + emit'      # false -> '0'
   echo '[lit] 3 [lit] 3 <= 0= [lit] 49 + emit'      # true  -> '1'
   echo '[lit] 4 [lit] 3 <= 0= [lit] 49 + emit'      # false -> '0'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `101010`, the same true/false encoding as Ch 6.  The

@@ -975,9 +975,7 @@ prints the macro count as a digit:
 ```sh
 ./build.sh
 {
-  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth; do
-    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
-  done
+  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth
   cat <<'FORTH'
     : dump-prep
       cc-load-stdin cc-preprocess
@@ -996,7 +994,7 @@ FORTH
     t.rows = ROWS;
     if (t.stars == ROWS * ROWS) return t.stars;
 C
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 After the REPL executes the final `dump-prep` token, `cc-load-stdin`

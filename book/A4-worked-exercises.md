@@ -84,12 +84,12 @@ loop you'd expect.
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo ": again,  branch-xt comma-call ,8 ;  immediate"
   echo ": tick  begin, [lit] 46 emit again, ;"
   # Hit Ctrl-C after a few dots — there's no way out of this loop.
   echo "tick"
-} | grep -v '^[[:space:]]*$' | timeout 1 ./seed-forth || true
+} | timeout 1 ./seed-forth || true
 ```
 
 Expected: stdout fills with `.` until the `timeout 1` kills it.
@@ -174,7 +174,7 @@ when `foo` started.  When `foo`'s terminating `ret` ran, it would
 pop whatever happened to be on `rsp` (the previous, *unrelated*
 return address) and crash.
 
-The book's `colon_code` is 103 bytes (Ch 18) but only ~12 of
+The book's `colon_code` is 82 bytes (Ch 18) but only ~12 of
 those build the *callable* part of the new word.  The one-byte
 `ret` appended by `;` is all it takes to end one.
 

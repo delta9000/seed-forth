@@ -16,7 +16,7 @@ the last.
 
 In Forth those bytes go into the dictionary, one contiguous arena,
 and the frontier of that arena is called `HERE`.  The first two
-definitions after the file header (`010-lib.fth` lines 11–21) name
+definitions after the file header (`010-lib.fth` lines 11–22) name
 that frontier and push it forward.  `here-addr`
 pushes the address of the HERE cell on the sysvar page; `c,`
 ("c-comma") stores one byte at HERE and bumps the cell by one.
@@ -41,24 +41,28 @@ The HERE variable lives at a fixed address on the sysvar page.  To
 update it, the code needs that address on the stack.
 
 ```forth
-: here-addr  [lit] 4272144 ;            \ &HERE = 0x413010
+: here-addr  latest [lit] 8 + ;         \ &HERE = &LATEST + 8 = 0x413010
 ```
 
-`4272144` is the decimal form of `0x413010`, the address of the HERE
-cell on the sysvar page.  The definition simply pushes that address
-and returns.  There is no shuffling, no arithmetic, no lookup; it is
-the simplest possible colon definition.
+`latest` is a seed primitive that pushes the address of the LATEST
+sysvar cell, `0x413008` (Ch 10 uses it for its own sake).  The
+seed's sysvars are consecutive 8-byte cells, `STATE`, `LATEST`,
+`HERE`, so HERE's cell is the next one along, `0x413010`.  The
+definition pushes LATEST's address, adds 8, and returns.
 
 This is the `[lit]` convention from Ch 1 at work.  In a normal Forth
-you would write `4272144` and the parser would push it.  This seed
+you would write `8` and the parser would push it.  This seed
 does not auto-parse numbers in interpret mode (Ch 20 walks its
 parser), so `[lit]` marks "the next token is a decimal literal; emit
 code to push it."  Keep reading every `[lit] N` as "the number N".
 
-The address itself is baked in.  The sysvar page layout is fixed in
-`000-seed.hex0` and this literal must change if the layout ever moves.
-That is the price of building a compiler before you have a symbol
-table; Ch 13 shows the full map.
+Why not type in `0x413010` itself, as `[lit] 4272144`?  Because that
+number belongs to the seed: it is fixed in `000-seed.hex0`, and a
+library that repeated it would have to change whenever the seed's
+layout did.  The seed exports exactly two sysvar addresses, through
+the `state` and `latest` primitives, and the library derives the
+rest from them.  All it assumes is the order of the cells, which
+Ch 13 shows.
 
 ## 3. `c,` and the workhorse pattern
 
@@ -118,8 +122,9 @@ but the idea is the same: one one-byte primitive at the bottom.
 
 \ here-addr ( -- a )  push the address of the HERE sysvar cell.
 \ Useful because most "advance HERE" idioms want to update the cell, not just
-\ read its current value (which is what `here` does).
-: here-addr  [lit] 4272144 ;            \ &HERE = 0x413010
+\ read its current value (which is what `here` does).  The seed's sysvars are
+\ consecutive cells STATE, LATEST, HERE, so HERE's cell follows LATEST's.
+: here-addr  latest [lit] 8 + ;         \ &HERE = &LATEST + 8 = 0x413010
 
 \ c, ( b -- )  store low byte of TOS at HERE and advance HERE by 1.
 \ This is the workhorse for any code-emission vocabulary built in Forth.
@@ -164,10 +169,10 @@ literals 65, 66, 67 (ASCII `A`, `B`, `C`) land at `scratch`, and
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo 'here [lit] 65 c, [lit] 66 c, [lit] 67 c,'
   echo 'here [lit] 3 - c@ emit  here [lit] 2 - c@ emit  here [lit] 1 - c@ emit'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 The `sed` strips Forth comments (which the seed's tokenizer does not
@@ -194,8 +199,9 @@ the same way.
    in little-endian order.  Compare yours to `,4` when we meet it in
    Chapter 9.
 
-4. **★★ Trace.** The expression `[lit] 4272144` is 0x413010.  What sits at 0x413000,
-   0x413008, 0x413018, 0x413020, 0x413028?  (You can answer from the
+4. **★★ Trace.** `here-addr` pushes 0x413010.  What sits at 0x413000,
+   0x413008 and 0x413018?  Which of the three can the library reach
+   without typing in an address, and how?  (You can answer from the
    memory map in [Appendix A2](A2-memory-map.md); the full breakdown is
    Ch 13.)
 
@@ -204,9 +210,9 @@ the same way.
 - `c,` stores a byte at HERE and advances HERE, and every byte the
   library emits by hand passes through it (the seed's own `:`, `;`,
   `,`, and `[lit]` write HERE directly).
-- `here-addr` hard-codes the HERE cell's address on the sysvar page,
-  so it must change in lockstep with any layout change in
-  `000-seed.hex0`.
+- `here-addr` finds the HERE cell as the one after LATEST's, so the
+  library depends on the order of the seed's sysvars, not on their
+  addresses.
 - Forth's compiler is not a separate program but a chain of words
   that write at HERE, a shape the Part III C compiler repeats with
   its own emitter.

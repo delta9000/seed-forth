@@ -233,7 +233,7 @@ read the bytes back:
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo 'here [lit] 72623859790382856 ,8'        # 0x0102030405060708
   echo 'here [lit] 8 -  c@ [lit] 48 + emit'     # byte 0 = 0x08 -> '8'
   echo 'here [lit] 7 -  c@ [lit] 48 + emit'     # byte 1 = 0x07 -> '7'
@@ -243,7 +243,7 @@ read the bytes back:
   echo 'here [lit] 3 -  c@ [lit] 48 + emit'
   echo 'here [lit] 2 -  c@ [lit] 48 + emit'
   echo 'here [lit] 1 -  c@ [lit] 48 + emit'     # byte 7 = 0x01 -> '1'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `87654321`.  The decimal `72623859790382856` is

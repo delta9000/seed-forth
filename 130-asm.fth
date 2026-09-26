@@ -35,7 +35,7 @@
 \ Skip past the VM's fixed pages (data stack 0x410000..0x411000, I/O scratch
 \ 0x412000, token buffer 0x412800, sysvars 0x413000..0x414000) so our buffers
 \ do not overlap runtime VM state.
-[lit] 4276224 here-addr !                       \ 0x414000
+skip-vm-pages                                   \ HERE = 0x414000
 
 \ Raw M1 source (filled by asm-load-stdin).
 \ Sized for M2-Planet's ~2.4 MiB self-compile output plus libc + defs + ELF.

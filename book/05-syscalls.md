@@ -231,10 +231,10 @@ If you want to watch a wrapper run in isolation, drop into the seed
 and emit a byte through `write` directly:
 
 ```sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo 'here [lit] 65 c,'
   echo '[lit] 1  here [lit] 1 -  [lit] 1  write drop'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 This stores byte `65` (`A`) at HERE, then calls

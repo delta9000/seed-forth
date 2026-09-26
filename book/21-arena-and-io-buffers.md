@@ -46,7 +46,7 @@ The compiler Part III builds turns these 484 bytes into a
 
 and exits with status 16, the number of stars.  No assembler, linker
 or libc takes part: every one of the 1,241 bytes is written by Forth
-words loaded on top of the 2,040-byte seed.  How do 22 lines become
+words loaded on top of the 1,772-byte seed.  How do 22 lines become
 those bytes?  `tri.c` is Part III's running example, and every
 chapter from here to Ch 32 shows it at that chapter's stage.  This
 chapter's Try it compiles it.
@@ -234,8 +234,8 @@ starts by placing the buffer.
 \ Skip past the VM's fixed pages (data stack 0x410000..0x411000, I/O scratch
 \ 0x412000, token buffer 0x412800, sysvars 0x413000..0x414000) so the 1 MiB
 \ cc-src-buf does not overlap runtime VM state.  At 030-cc-io.fth load time HERE
-\ is well below 0x414000, so this is a forward bump of a few KiB.
-[lit] 4276224 here-addr !                         \ 0x414000
+\ is well below 0x410000, so this is a forward bump to 0x414000.
+skip-vm-pages                                     \ HERE = 0x414000
 
 create cc-src-buf  cc-src-cap allot
 variable cc-src-len
@@ -244,10 +244,11 @@ variable cc-src-line                            \ 1-based, for error messages
 
 ```
 
-`[lit] 4276224 here-addr !` is the one trick in the file.  Before
+`skip-vm-pages` is the one trick in the file.  Before
 `create cc-src-buf cc-src-cap allot` reserves a megabyte of dictionary
-space, we slide `here-addr` (the dictionary's HERE pointer, Ch 2)
-forward to `0x414000` so the buffer lives clear of the seed's reserved
+space, it slides HERE (the dictionary's next-byte pointer, Ch 2)
+forward to `0x414000`, one page above the start of the sysvar page
+(Ch 12 defines it), so the buffer lives clear of the seed's reserved
 pages: the data-stack page at `0x410000–0x411000` (with the stack
 itself growing down from the top), the I/O scratch byte at `0x412000`,
 the token buffer at `0x412800`, the sysvars at `0x413000`.  Chs 13–20
@@ -494,7 +495,6 @@ runs `cc-main`) and prints a cursor after each step:
 
 ```sh
 ./build.sh
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
 tri() { cat <<'C'
 #define ROWS 4
 struct tri { int rows; int stars; };
@@ -520,10 +520,10 @@ int main() {
 }
 C
 }
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; tri; } | ./seed-forth
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; tri; } | ./seed-forth
 /tmp/cc-out                         # draws the triangle
 echo "exit: $?"                     # prints "exit: 16"
-{ cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth | strip_forth
+{ cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01]0-cc-*.fth
   cat <<'FORTH'
 : .d  dup [lit] 9 > if, dup [lit] 10 / .d then,
       dup [lit] 10 / [lit] 10 * - [lit] 48 + emit ;

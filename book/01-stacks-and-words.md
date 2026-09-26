@@ -7,24 +7,24 @@ Artifact after this chapter: the mental model the book runs on, plus six library
 Proof link: every line of 010-lib.fth reads on this notation; later chapters assume fluency.
 ```
 
-Hand the bare seed six everyday Forth words and it answers with six
-question marks:
+Hand the bare seed six everyday Forth words and it hands each one
+back with a question mark:
 
 ```sh
 echo 'over - and < if, variable' | ./seed-forth | tr -d '\n'
 ```
 
-Expected output: `??????`.  One `?` for each word it has never heard
-of.  The seed's 32 primitives include `+` but no `-`, `nand` but no
+Expected output: `over?-?and?<?if,?variable?`.  Every word it has
+never heard of is echoed with a `?`.  The seed's 32 primitives include `+` but no `-`, `nand` but no
 `and`, `0=` but no `<`, and two jump primitives but no `if`.  Part I
 writes every one of those six words, and the rest of a working
-language, as ordinary Forth in the 375 lines of `010-lib.fth`.
+language, as ordinary Forth in the 384 lines of `010-lib.fth`.
 
 Why not add them to the seed instead?  Because every primitive is
 hand-assembled hex that anyone checking this bootstrap has to read
 byte by byte.  Each word moved out of the seed and into Forth is a
 word nobody has to audit in hex, and that is how a C compiler that
-matches GCC byte for byte can stand on 2,040 bytes.
+matches GCC byte for byte can stand on 1,772 bytes.
 
 First you need to read a Forth line at all, and Forth lines look
 nothing like C.  There are no expressions, no argument lists, and no
@@ -79,7 +79,7 @@ Three properties fall out of this:
   off the stack and leaves one.  It is not built into the parser;
   it is a dictionary entry like any other.  In this codebase it is
   defined in `000-seed.hex0` as a 9-byte machine-code routine at
-  offset `0x1A1`, whose bytes Chapter 15 reads.
+  offset `0x1B7`, whose bytes Chapter 15 reads.
 - **There is no "return value".**  A word "returns" by leaving things
   on the stack.  A word can leave zero, one, two, or any number of
   values, and *which* word it is determines how many.
@@ -122,9 +122,9 @@ header tells you that:
 \ Conventions:
 \   - All arithmetic constants use [lit] (the decimal literal compiler)
 \     because the seed has no interpret-mode number parser at all — [lit]
-\     is the only path; see Ch 20 for the parser and the NUMBER_HOOK stub.
-\   - Sysvar absolute addresses are baked in (decimal) since [lit] needs a
-\     literal.  Update if 000-seed.hex0's sysvar layout ever moves.
+\     is the only path; see Ch 20 for the parser.
+\   - No seed address is typed in: sysvar cells are found from the seed's
+\     state and latest primitives, and primitive xts with ' (tick).
 ```
 
 The block above is tagged `file=010-lib.fth`.  When you run
@@ -327,7 +327,7 @@ the repo root:
 
 ```sh
 git submodule update --init --recursive
-./build.sh         # produces ./seed-forth (2040 bytes)
+./build.sh         # produces ./seed-forth (1772 bytes)
 ./test.sh          # runs the unit tests, including this chapter's words
 ```
 
@@ -339,9 +339,9 @@ Now give the seed the library first and ask for the subtraction that
 earned a `?` at the top of this chapter:
 
 ```sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo '[lit] 10 [lit] 3 - [lit] 48 + emit'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `7`.  The `sed` strips Forth comments, which the

@@ -4,14 +4,15 @@
 \ Conventions:
 \   - All arithmetic constants use [lit] (the decimal literal compiler)
 \     because the seed has no interpret-mode number parser at all — [lit]
-\     is the only path; see Ch 20 for the parser and the NUMBER_HOOK stub.
-\   - Sysvar absolute addresses are baked in (decimal) since [lit] needs a
-\     literal.  Update if 000-seed.hex0's sysvar layout ever moves.
+\     is the only path; see Ch 20 for the parser.
+\   - No seed address is typed in: sysvar cells are found from the seed's
+\     state and latest primitives, and primitive xts with ' (tick).
 
 \ here-addr ( -- a )  push the address of the HERE sysvar cell.
 \ Useful because most "advance HERE" idioms want to update the cell, not just
-\ read its current value (which is what `here` does).
-: here-addr  [lit] 4272144 ;            \ &HERE = 0x413010
+\ read its current value (which is what `here` does).  The seed's sysvars are
+\ consecutive cells STATE, LATEST, HERE, so HERE's cell follows LATEST's.
+: here-addr  latest [lit] 8 + ;         \ &HERE = &LATEST + 8 = 0x413010
 
 \ c, ( b -- )  store low byte of TOS at HERE and advance HERE by 1.
 \ This is the workhorse for any code-emission vocabulary built in Forth.
@@ -302,6 +303,14 @@ immediate
 \ allot ( n -- )  Bump HERE by n bytes (no initialization).
 \ Used after `create` to grow an array, or stand-alone for scratch buffers.
 : allot  here-addr @ + here-addr ! ;
+
+\ skip-vm-pages ( -- )  Jump HERE to the first page above the seed's fixed VM
+\ pages: data stack (below 0x411000), I/O scratch byte (0x412000), token
+\ buffer (0x412800) and the sysvar page, which starts at STATE's cell.  So
+\ HERE becomes STATE + 4096 = 0x414000.  030-cc-io.fth and 130-asm.fth call
+\ it before creating their megabyte buffers, which then cannot overlap VM
+\ state.  HERE must still be below the data stack (0x410000) when it runs.
+: skip-vm-pages  state [lit] 4096 + here-addr ! ;
 
 \ ----- runtime body shared by constant/variable/create -----
 \ All three emit the same prologue: spill old TOS, load a new TOS via movabs.
