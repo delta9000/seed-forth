@@ -303,8 +303,8 @@ This chapter defines the first six of those chunks.
 ;; each of the 32 primitives is one unit — its dictionary header (link,
 ;; flags, nlen, name) directly followed by its machine code, so a word's
 ;; execution token (xt) is simply the address of its code.  The units
-;; appear in the order the book teaches them (Chs 14-20); the three
-;; unnamed helpers and the REPL sit next to the words that use them.
+;; appear in the order the book teaches them (Chs 14-20); the six
+;; unnamed helpers and the REPL sit alongside the words that use them.
 ;; Every line is one field or one instruction; the text after ';' is a
 ;; comment (hex0 ignores it).  Addresses are file offsets; the image
 ;; loads at 0x400000, so offset 0xNNN is address 0x400NNN.
@@ -456,7 +456,7 @@ the REPL understood the word `bye`.
 bytes and 66 bytes of boot code are done.
 
 The jump at `0x0B5` lands in a REPL that immediately calls other
-routines, and the smallest of them are 9-byte bodies like `dup`.
+routines, and most of those are short bodies, like `dup`'s nine bytes.
 Part I called them without ever asking where the stack actually
 lives.  Ch 14 answers that, and the
 top of the stack turns out not to be in memory at all.

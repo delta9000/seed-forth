@@ -25,9 +25,10 @@ Chs 14–20 read them in; the dictionary chain runs the other way, from
 the word's code, which is its xt (add `0x400000` for the address).
 "Use site" is the first Part I chapter where the word appears in
 user code or chapter prose; "Asm site" is the Part II chapter that
-explains the hex.  `find` and `execute` are used mainly by the REPL
-and have no user-code uses in `010-lib.fth`, so their Use-site
-column points to the first chapter that mentions them in prose.
+explains the hex.  `find` has no use in `010-lib.fth` (the REPL is
+its caller), and `execute` appears there only as the xt that
+`defer`'s bodies call (Ch 12), so for these two the Use-site column
+points to the first chapter that mentions them in prose.
 
 | # | Word | Stack effect | Code @ | Use site | Asm site |
 |---|------|---|---|---|---|
@@ -56,11 +57,11 @@ column points to the first chapter that mentions them in prose.
 | 23 | `execute`    | ( xt -- )                         | `0x3B4` | Ch 11 | Ch 17 |
 | 24 | `state`      | ( -- addr ) STATE sysvar addr     | `0x497` | Ch 10 | Ch 17 |
 | 25 | `latest`     | ( -- addr ) LATEST sysvar addr    | `0x4BA` | Ch 10 | Ch 17 |
-| 26 | `'`          | ( -- xt ) tick: read word, find   | `0x4D8` | Ch 11 | Ch 17 |
+| 26 | `'`          | ( -- xt &#124; 0 ) tick: read, find | `0x4D8` | Ch 11 | Ch 17 |
 | 27 | `:`          | ( -- ) start colon definition     | `0x4ED` | Ch 10 | Ch 18 |
 | 28 | `;`          | ( -- ) end colon definition (IMM) | `0x54A` | Ch 10 | Ch 18 |
 | 29 | `lit`        | ( -- v ) read inline cell, push n | `0x5A0` | Ch 11 | Ch 18 |
-| 30 | `[lit]`      | ( -- ) parse word, push n (IMM)   | `0x5C1` | Ch 1  | Ch 18 |
+| 30 | `[lit]`      | ( -- n ) parse word, push n (IMM)  | `0x5C1` | Ch 1  | Ch 18 |
 | 31 | `branch`     | ( -- ) inline target              | `0x611` | Ch 11 | Ch 19 |
 | 32 | `0branch`    | ( flag -- ) inline target         | `0x628` | Ch 11 | Ch 19 |
 

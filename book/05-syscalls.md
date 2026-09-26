@@ -251,8 +251,12 @@ reaches disk.
 1. **★★ Extend.** Add `lseek ( fd offset whence -- pos )` as `SYS_lseek=8`.  How many
    `[lit] 0` padding tokens does it need?
 
-2. **★★ Trace.** Why does the seed expose `syscall6` rather than `syscall0`,
-   `syscall1`, ..., `syscall6` separately?  (Hint: dictionary size.)
+2. **★★ Extend.** Write `getpid ( -- pid )` (`SYS_getpid=39`, no
+   arguments) and `kill ( pid sig -- err )` (`SYS_kill=62`).  How
+   many padding zeros does each need?  Signal 0 sends nothing and only
+   checks that the process exists, so on the built seed
+   `getpid [lit] 0 kill [lit] 48 + emit` should print `0`.  What
+   would it print for a pid that doesn't exist (`ESRCH` is 3)?
 
 3. **★★★ Trace.** The `die` wrapper passes its argument as the *first* syscall arg
    (`rdi`).  Look up `_exit(2)` — does that match?  What does the

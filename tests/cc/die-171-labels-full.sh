@@ -1,4 +1,4 @@
-# Error 163: more than 64 labels in one function (cc-label-cap).  Labels
+# Error 171: more than 64 labels in one function (cc-label-cap).  Labels
 # L0..L63 fill the table; L64 is one too many.
 echo "int main() {"
 echo "  int x;"

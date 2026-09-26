@@ -12,7 +12,7 @@ file loader.  Part III builds a working M2-Planet with it anyway,
 using one pipe: the library and the compiler exactly as they are
 written, comments and all, then M2-Planet's C source, all into
 `./seed-forth`'s stdin.  Something reads that stream, compiles
-7,582 lines of Forth into 368 colon definitions, and then runs the
+7,213 lines of Forth into 403 colon definitions, and then runs the
 compiler it just built on the rest of the input.  That something is
 an 83-byte loop at `0x699` (lines 664–689), the last routine in the
 file.  It is the seed's loader, linker and command interpreter at
@@ -269,7 +269,7 @@ When the REPL encounters `[lit]` in interpret mode:
 
 When the REPL encounters `[lit]` in compile mode:
 1. Find returns its xt.
-2. Dispatch path sees `flags & 1 == 1` → `.execute`.(not
+2. Dispatch path sees `flags & 1 == 1` → `.execute` (not
    compile).  *IMMEDIATE words always run now.*
 3. `execute_code` jumps to `bracket_lit_code`.
 4. `bracket_lit_code` reads the next token, parses it as decimal,

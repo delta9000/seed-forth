@@ -86,7 +86,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SEED = os.path.join(ROOT, "000-seed.hex0")
 SEED_BIN = os.path.join(ROOT, "seed-forth")
 BOOK = os.path.join(ROOT, "book")
-SEED_SIZE = os.path.getsize(SEED_BIN) if os.path.exists(SEED_BIN) else 0x800
+if not os.path.exists(SEED_BIN):
+    sys.exit("check-numbers: seed-forth not found; run ./build.sh first "
+             "(the seed's size is derived from the built binary)")
+SEED_SIZE = os.path.getsize(SEED_BIN)
 
 # Word / dictionary name -> the `_code` body label whose size & body-offset the
 # book quotes.  A bare word like `+` also has a *dictionary entry* at its own

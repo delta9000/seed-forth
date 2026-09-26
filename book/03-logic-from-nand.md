@@ -269,13 +269,20 @@ it would work but would create a shadow.
    `nand` and confirm it yields `0` (false).  Repeat on `(-1, -1)`
    and confirm `-1` (true).
 
-2. **★★ Extend.** Define `xor ( a b -- a^b )` in terms of `nand` alone, with no
-   intermediate `and`/`or`.  Confirm with the four-row truth table.
-   Compare your token count to the `(a or b) and (a nand b)` form.
+2. **★★ Extend.** Define `andn ( a b -- a&~b )`, "clear in `a` every
+   bit that is set in `b`", from `nand`, `dup` and `swap` alone, in as
+   few tokens as you can.  (Hint: negate `b` first, then reuse the
+   shape of `and`.)  Check it on the built seed:
+   `[lit] 12 [lit] 10 andn [lit] 48 + emit` should print `4`
+   (`1100` with the bits of `1010` cleared is `0100`).
 
-3. **★ Extend.** Define `not ( a -- ~a )` in terms of `nand` alone.  How does
-   `not` differ from `0=`?  Construct an input where `not` and
-   `0=` disagree.
+3. **★★ Trace.** The library combines flags with `and` and `or`,
+   but both are *bitwise*.  Find two nonzero values whose `and` is
+   `0`, so two "true" values combine to "false".  Which of `and` and
+   `or` is safe on arbitrary nonzero "truthy" values, which is safe
+   only on canonical `-1`/`0` flags, and why?  Confirm on the seed:
+   `[lit] 1 [lit] 2 and [lit] 48 + emit` prints `0`, while the same
+   line with `or` prints `3`.
 
 4. **★★★ Trace.** Prove on paper that `nor` is also functionally complete.  Then
    redefine `and` and `or` using only `nor`.  How many tokens

@@ -21,11 +21,11 @@ variable cc-fn-local-count                        \ # locals in current function
 \ Every function gets the same frame: cc-frame-slots 8-byte slots below rbp,
 \ shared by its parameters and every local in every block of its body (a
 \ slot is never reused).  cc-fn-add-slots ( n -- ) claims the next n; the
-\ one that would pass the frame's end dies with code 193 instead of
+\ one that would pass the frame's end dies with code 162 instead of
 \ silently overlapping the stack below it.
 [lit] 32 constant cc-frame-slots
 : cc-fn-add-slots
-  dup cc-fn-local-count @ + cc-frame-slots [lit] 193 cc-check-cap
+  dup cc-fn-local-count @ + cc-frame-slots [lit] 162 cc-check-cap
   cc-fn-local-count +! ;
 
 \ cc-pending-struct-desc is set by cc-parse-base-type when it parses a
@@ -39,8 +39,8 @@ variable cc-pending-struct-desc
 \ ===========================================================================
 
 \ Each error path dies through cc-die with its own code, so a failure names
-\ its site.  The parser's four files (110..116) share codes 140..219
-\ (Appendix G).
+\ its site.  This file's codes are 140..169; 112, 114 and 116 have
+\ 170..179, 180..189 and 190..219 (Appendix G).
 
 \ cc-expect-kw-id ( kw-id -- )  Consume one token; abort if not the given kw.
 : cc-expect-kw-id

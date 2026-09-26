@@ -265,10 +265,13 @@ with no shift.
 3. **★★ Trace.** Trace `0x123456789ABCDEF0 ,8` byte by byte.  What sequence does
    HERE contain after the call?
 
-4. **★★ Trace.** The shift cascade `[lit] 256 / [lit] 256 / [lit] 256 / [lit] 256 /`
-   takes 12 tokens.  A hypothetical `shr32 ( v -- v>>32 )` primitive
-   would take 1.  Why didn't the seed authors add it?  (Hint: how
-   often does `,8` actually run during a compiler build?)
+4. **★★ Extend.** `,4` takes a number apart with `[lit] 256 /`.
+   Put one back together: write `4c@ ( addr -- n )` that reads four
+   little-endian bytes with `c@`, using `[lit] 256 *` where a machine
+   with shifts would shift left.  Check the round trip on the seed:
+   `here [lit] 1094861636 ,4 4c@ [lit] 1094861636 = 0= [lit] 49 + emit`
+   should print `1`.  Which byte do you have to read first, and
+   why?
 
 ## Takeaways
 

@@ -50,7 +50,7 @@ variable cc-enum-next-val
   begin,
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 177 cc-die
+      [lit] 190 cc-die
     then,
     tok-str-addr @ tok-str-len @                  ( a u )
 
@@ -59,7 +59,7 @@ variable cc-enum-next-val
     tok-kind @ tk-punct = tok-num @ [char] = = and if,
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 178 cc-die
+        [lit] 191 cc-die
       then,
       tok-num @ cc-enum-next-val !
     else,
@@ -92,7 +92,7 @@ variable cc-enum-next-val
         cc-putback-token                           \ leave '}' for the close
         [lit] 0                                    \ stop
       else,
-        [lit] 179 cc-die
+        [lit] 192 cc-die
       then,
     then,
     0=
@@ -123,20 +123,20 @@ variable cc-td-ty
       cc-lookup-struct-tag drop
       ty-struct [lit] 0 ty-make cc-td-ty !
     else,
-      [lit] 180 cc-die
+      [lit] 193 cc-die
     then, then, then, then,
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
       dup 0< if,
-        [lit] 181 cc-die
+        [lit] 194 cc-die
       then,
       dup cc-sym-kind-of sk-typedef <> if,
-        [lit] 182 cc-die
+        [lit] 195 cc-die
       then,
       cc-sym-val-of cc-td-ty !
     else,
-      [lit] 183 cc-die
+      [lit] 196 cc-die
     then,
   then,
 
@@ -160,7 +160,7 @@ variable cc-td-ty
     cc-count-stars drop                            \ at least one star expected
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 184 cc-die
+      [lit] 197 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
     [char] ) cc-expect-punct-c
@@ -184,7 +184,7 @@ variable cc-td-ty
   else,
     \ Plain IDENT (the new typedef name) — putback first since we just peeked.
     tok-kind @ tk-ident <> if,
-      [lit] 185 cc-die
+      [lit] 198 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
     sk-typedef [lit] 0 cc-td-ty @                  ( a u kind type val )
@@ -292,7 +292,7 @@ variable cc-top-depth                             \ paren depth while scanning
   cc-parse-fn-return-type
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 186 cc-die
+    [lit] 199 cc-die
   then,
   tok-str-addr @ tok-str-len @                    ( a u )
   2dup cc-sym-find                                ( a u id-or-neg1 )
@@ -335,7 +335,7 @@ variable cc-top-depth                             \ paren depth while scanning
 \ Arrays start zero-initialized.  Function-pointer, aggregate, and struct
 \ initializers are not implemented.
 \
-\ Errors die through cc-die with codes 187..192 (Appendix G).
+\ Errors die through cc-die with codes 200..205 (Appendix G).
 
 variable cc-gdecl-base
 variable cc-gdecl-name-a
@@ -354,12 +354,12 @@ variable cc-gdecl-ptr-depth
   tok-kind @ tk-punct = tok-num @ [char] - = and if,
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 187 cc-die
+      [lit] 200 cc-die
     then,
     [lit] 0 tok-num @ -
   else,
     tok-kind @ tk-num <> if,
-      [lit] 188 cc-die
+      [lit] 201 cc-die
     then,
     tok-num @
   then, ;
@@ -410,7 +410,7 @@ variable cc-gdecl-ptr-depth
     \ actually resolves to a known typedef — the caller already determined
     \ this is a declaration via cc-top-classify.
     tok-kind @ tk-ident <> if,
-      [lit] 189 cc-die
+      [lit] 202 cc-die
     then,
   then,
 
@@ -420,7 +420,7 @@ variable cc-gdecl-ptr-depth
   \ Name IDENT.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 190 cc-die
+    [lit] 203 cc-die
   then,
   tok-str-addr @ cc-gdecl-name-a !
   tok-str-len  @ cc-gdecl-name-u !
@@ -434,7 +434,7 @@ variable cc-gdecl-ptr-depth
     \ Array form: 'T name [ N ]'.
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 191 cc-die
+      [lit] 204 cc-die
     then,
     tok-num @ cc-gdecl-n !
     true cc-gdecl-is-array !
@@ -454,7 +454,7 @@ variable cc-gdecl-ptr-depth
         \ Bare uninitialized scalar.  Allocate the slot.
         cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
       else,
-        [lit] 192 cc-die
+        [lit] 205 cc-die
       then,
     then,
   then,
@@ -752,7 +752,7 @@ create cc-name-ssize_t   s, ssize_t
 \ cc-check-fns-defined ( -- )  After the whole program: a function that was
 \ called or used as a value but never defined still has pending call or
 \ address fixups — each would run a rel32 of 0 (falling through to the next
-\ instruction) or load address 0.  Die 194 instead.  Then die 195 if there
+\ instruction) or load address 0.  Die 206 instead.  Then die 207 if there
 \ is no main for the entry stub to call.  memset is registered above with
 \ no body, so a program that uses it dies here too: this compiler has no
 \ memset to link.
@@ -761,12 +761,12 @@ create cc-name-ssize_t   s, ssize_t
   begin, dup cc-sym-count @ < while,
     dup cc-sym-kind-of sk-func = if,
       dup cc-sym-call-fixups @  over cc-sym-addr-fixups @  or if,
-        [lit] 194 cc-die
+        [lit] 206 cc-die
       then,
     then,
     1+
   repeat, drop
-  cc-main-vaddr @ 0= if, [lit] 195 cc-die then, ;
+  cc-main-vaddr @ 0= if, [lit] 207 cc-die then, ;
 
 \ cc-parse-program ( -- )  Emit entry stub, emit libc shims, register the
 \ one external prototype and built-in typedefs, parse all functions, check

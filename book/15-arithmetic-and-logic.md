@@ -300,6 +300,6 @@ added 129: 70 bytes of arithmetic and 59 of headers.
 
 Everything so far computes on values already on the stack.  None
 of it has touched the world outside the process.  The seed contains
-exactly four `syscall` instructions, and Ch 16 reads all of them.
+six `syscall` instructions, and Ch 16 reads four of them.
 
 Next: Chapter 16 — I/O: `emit`, `key`, `syscall6`.

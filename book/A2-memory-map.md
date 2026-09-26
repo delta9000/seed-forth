@@ -60,7 +60,7 @@ which way a region fills.
 The round addresses above `0x414000` are where each region nominally
 starts.  Every buffer is made with `create … allot`, so its data
 begins just past its own dictionary header (and past any
-definitions compiled in between): `cc-src-buf`'s first byte is at
+definitions compiled in between): `cc-in-buf`'s first byte is at
 `0x414000 + 76`, `cc-src-buf`'s at `0x514000 + 200`, and
 `cc-out-buf`'s at `0x714000 + 1,225`.
 

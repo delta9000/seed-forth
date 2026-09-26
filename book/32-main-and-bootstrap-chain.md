@@ -125,7 +125,7 @@ Read `cc-main` as a sequence of phases:
    - Register the 11 libc typedefs (`FILE`, `uint8_t`, ...).
    - Walk every top-level declaration in the preprocessed
      source, emitting function bodies as we go.
-   - Die (194, 195) if a used function never got a body or there
+   - Die (206, 207) if a used function never got a body or there
      is no `main`.
    - Patch the entry stub's `call <main>` rel32.
 7. **`cc-finalize-globals`** (Ch 31 §7): append
@@ -302,21 +302,24 @@ compiles `&&` as a bitwise `and`, so every M2-Planet-built M2-Planet
 `sub_rsp, imm` forms those guards select.  One generation later the
 arms meet: `tests/cc/stage0-check.sh` rebuilds M2-Planet with
 stage0's recipe from both arms and gets the same binary, byte for
-byte (amd64; the details, and what the two arms still share, are in
-Appendix C).
+byte, even when each arm links with its own `M1`, `hex2` and
+`blood-elf` (amd64; the details, and what the two arms still share,
+are in Appendix C).
 
 The seed-forth arm can also stand in for stage0's stretch from hex1
 to M2-Planet.  `./handoff.sh` feeds `bootstrap.sh`'s M2-Planet, M1
 and hex2 to stage0-posix's own recipe in place of hex1, hex2, M0 and
 `cc_amd64`, and the recipe then builds `blood-elf`, `kaem`, M2-Planet
 and the rest byte-identical to stage0-posix's published
-`amd64.answers`.  live-bootstrap takes over from those binaries, so
-past that point the chain continues as usual (amd64 only; Appendix C
+`amd64.answers`.  Cross-targeting i386, it does the same for
+stage0-posix's x86 recipe and `x86.answers`, on an amd64 kernel that
+also runs 32-bit programs.  live-bootstrap takes over from those
+binaries, so past that point the chain continues as usual (Appendix C
 and `REPRODUCIBLE.md` say exactly where and how).
 
 [Where this fits](where-this-fits.md) sets the two routes side by
-side.  By now you've seen every component along the seed-forth
-path:
+side.  With Ch 33, the book walks every component along the
+seed-forth path:
 
 - Ch 13–20: the 1,772-byte seed itself (`000-seed.hex0`).
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
@@ -325,6 +328,8 @@ path:
 - Ch 21–32: the C-subset compiler, 6,744 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
+- Ch 33: the assembler (`130-asm.fth`) that turns the compiler's
+  output into running binaries without mescc-tools.
 
 `tests/cc/bootstrap-chain.sh` (the bigger sibling of
 `stage-a-check.sh`) runs sub-stages A–G once per architecture
@@ -345,7 +350,7 @@ seconds.
 Stages B and E assemble with mescc-tools' `M1` and `hex2` as built
 by `bootstrap.sh`: compiled by the Forth-built M2-Planet and
 assembled by `130-asm.fth`, the Forth replacement for that pair and
-the one source file no chapter teaches: a 689-line M1
+the subject of Ch 33: a 689-line M1
 macro expander and two-pass hex2 linker that loads on
 `010-lib.fth` alone, reads M1 text on stdin and writes an ELF to
 `/tmp/asm-out`.  `tests/asm/m2planet-check.sh` feeds it M2-Planet's
@@ -494,41 +499,11 @@ seed-forth arm back to its source.
 - Stage A shows that the M2-Planet built by this compiler emits the same `.M1` as GCC-built M2-Planet, which covers every code path M2-Planet's self-compile exercises and leaves the rest to the test gates.
 - This book is the manual for one arm of the bootstrap chain, from 1,772 hand-coded bytes to an M2-Planet-compatible compiler.
 
-That is the end of the main book.  You started from 1,772
-hand-encoded bytes and read, in source, every step to a C compiler
-whose Stage-A `.M1` output matches M2-Planet built with GCC.  The
-Prologue named two things that had to work together: a mechanical
-test that fluent-looking code cannot fake, and a literate program
-that keeps a human able to read every line.  Stage A is the first;
-the thirty-two chapters you just read are the second.
+One piece of the seed-forth arm is still unread.  Stage A compares
+`.M1` text, and text does not run: every stage after A goes through
+mescc-tools' `M1` and `hex2`, and `bootstrap.sh` builds those with
+`130-asm.fth`, a Forth assembler this chapter has only named.  Ch 33
+reads it, and with it the last source file between the seed and
+the chain's binaries.
 
-What that leaves you with is concrete.  Pick any of the 1,241 bytes
-of tri.c's binary and you can name the Forth word that wrote it, the
-chapter that walks that word, and the seed primitives underneath.
-Run `stage-a-check.sh` and you can watch the M2-Planet built by GCC
-and the one this book's compiler built emit the same `.M1`, byte for
-byte.  Run `tests/cc/stage0-check.sh` and you can watch this route
-and stage0-posix's, from the same 229-byte seed through independent
-compilers, reach the same M2-Planet binary one generation later;
-run `./handoff.sh` and stage0-posix's own recipe, fed by this route,
-produces its 19 published binaries.  And when someone asks where your compiler came from, you can
-point to a file of hex you have read, and to every line of source
-between it and the output.
-
-The appendices are reference cards for a second pass:
-
-- **[A — The 32 seed primitives](A1-32-seed-primitives.md):** every
-  primitive in one table.
-- **[B — The memory map](A2-memory-map.md):** every fixed address
-  the book referenced.
-- **[C — The reproducibility chain](A3-reproducibility-chain.md):**
-  hex0 → seed → M2-Planet with commands and expected hashes.
-- **[D — Worked exercises](A4-worked-exercises.md):** three
-  exercises walked end to end.
-- **[E — Further reading](A5-further-reading.md):** Forth,
-  compilers, bootstrap, ELF/x86-64: the older work this book
-  stands on.
-- **[F — The C subset](A6-c-subset.md):** types, operators,
-  statements, and the features that are *not* in this compiler.
-- **[G — Compiler exit codes](A7-error-codes.md):** status codes
-  mapped to failure modes for when something dies on you.
+Next: Chapter 33 — The Assembler: M1 and hex2 in Forth.

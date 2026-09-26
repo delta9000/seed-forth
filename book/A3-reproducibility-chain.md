@@ -245,7 +245,7 @@ does not need it.
 ## Cross-check against stage0-posix (diverse double-compiling)
 
 ```sh
-tests/cc/stage0-check.sh      # amd64 only; about 40 s; no host C compiler
+tests/cc/stage0-check.sh      # amd64 only; about 60 s; no host C compiler
 ```
 
 It needs stage0-posix's nested submodules (the script's header gives
@@ -260,17 +260,24 @@ starting compilers:
 
 `y2 == x2`, byte for byte (`6008773d…`), with no `STAGE0_COMPAT`:
 one generation after `cc-out-v1`, the Forth-rooted and the
-stage0-rooted chains reach the same M2-Planet binary.  The compiler
-lineages are independent.  What the two share: the `hex0-seed`
-trust root, the M2-Planet and M2libc sources, the Linux kernel, and
-in this check stage0's `M1`, `hex2` and `blood-elf`, which link both
-routes' outputs.  So it shows the two compiler lineages agree, not
-that the assemblers are independent, and it covers amd64 only.
+stage0-rooted chains reach the same M2-Planet binary.  In that stage
+stage0's `M1`, `hex2` and `blood-elf` link both routes' outputs, so
+it shows only that the compiler lineages agree.  Stage 4b removes the
+shared tools: the Forth side links only with `bootstrap.sh`'s `M1`
+and `hex2` and a `blood-elf` compiled by `cc-out-v3`, the stage0 side
+only with stage0's own.  Still `f2 == x2` (`6008773d…`), and the two
+routes' M2-Planets, each linked by its own tools, rebuild
+byte-identical `M1`, `hex2` and `blood-elf`.  No binary is shared
+from the seed on.  What the two still share: the `hex0-seed` file
+(each runs it on a different input), the M2-Planet, mescc-tools and
+M2libc *sources* (M2libc's `.M1` definitions and ELF headers
+included), the Linux kernel and bash.  It covers amd64 only.
 
 ## Handing off to stage0-posix's recipe, and to live-bootstrap
 
 ```sh
-./handoff.sh                  # amd64 only; about 75 s; no host C compiler
+./handoff.sh                  # amd64 + x86; about 4½ min; no host C compiler
+ARCHES=amd64 ./handoff.sh     # amd64 only; about 75 s
 ```
 
 `handoff.sh` takes `bootstrap.sh`'s outputs and puts them where
@@ -285,12 +292,24 @@ binaries only `hex0-seed` runs, and none of hex1, hex2-0, catm, M0,
 itself as `artifact/M2` gives 12 of 19 (M2-Planet `0a67a68` generates
 different code from `bd2fe4b`), and all 19 one generation later.
 
+The same works for stage0-posix's x86 (i386) recipe.  The amd64
+Forth-route tools cross-target: v3 compiles the x86 Phase-5 input
+with `--architecture x86`, and `M1`/`hex2` link it into an i386
+`artifact/M2`.  stage0-posix's x86 recipe then runs from Phase 6, and
+all 19 binaries match `x86.answers` (`x86/bin/M2-Planet` is
+`f4267292…`).  From Phase 6 on every binary is 32-bit, so the kernel
+must run i386 programs: an x86-64 kernel with IA-32 emulation, which
+the script tests first, skipping x86 when it is missing.  The seed
+itself is x86-64, so this needs a machine that runs both; a pure-i386
+machine would need a 32-bit port of the seed, `010-lib.fth`'s system
+calls and the C compiler's back end (`REPRODUCIBLE.md` lists what that
+involves).
+
 live-bootstrap starts from that same stage0-posix pin and takes over
 at stage0-posix's `after.kaem` hook, reading `/AMD64/bin`.  With a
-byte-identical `AMD64/bin`, the rest is "continue with live-bootstrap
-as usual"; the manual steps, and the caveat that live-bootstrap
-supports only x86 while this route is amd64-only, are in
-`REPRODUCIBLE.md`.
+byte-identical `AMD64/bin` (or `x86/bin`, live-bootstrap's one
+supported architecture), the rest is "continue with live-bootstrap as
+usual"; the manual steps are in `REPRODUCIBLE.md`.
 
 ## What "byte-identical" means here
 
@@ -324,8 +343,10 @@ auditable.
 
 With `stage0-check.sh` and `handoff.sh`, it also shows that this
 route and stage0-posix's reach the same M2-Planet binary one
-generation later, and that the Forth route can drive stage0-posix's
-own recipe to its published `amd64.answers` (amd64 only).
+generation later, also when each route links with its own tools, and
+that the Forth route can drive stage0-posix's own recipes to their
+published `amd64.answers` and `x86.answers` (the x86 one on an amd64
+kernel with IA-32 emulation).
 
 It does *not* prove: that the resulting compiler is bug-free, that
 M2-Planet is bug-free, that the kernel running this is not

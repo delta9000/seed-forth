@@ -44,11 +44,17 @@
 #   6. stage0            tests/cc/stage0-check.sh: stage0-posix's own AMD64
 #                        chain reproduces amd64.answers, and the Forth-rooted
 #                        and stage0-rooted chains reach the same M2-Planet
-#                        0a67a68 binary one generation after cc-out-v1 (DDC).
+#                        0a67a68 binary one generation after cc-out-v1 (DDC),
+#                        also when each side links only with its own
+#                        M1/hex2/blood-elf (stage 4b, on step 3's
+#                        bootstrap.sh output).
 #   7. handoff           ./handoff.sh on step 3's bootstrap.sh output: stage0's
-#                        recipe from Phase 6 on, fed by the Forth route instead
-#                        of hex1/hex2/M0/cc_amd64, reproduces all 19
-#                        amd64.answers binaries.
+#                        AMD64 and x86 recipes from Phase 6 on, fed by the
+#                        Forth route instead of hex1/hex2/M0/cc_amd64/cc_x86,
+#                        reproduce all 19 amd64.answers and all 19
+#                        x86.answers binaries (x86 needs the kernel's IA-32
+#                        emulation; SKIP without it or without
+#                        vendor/stage0-posix/x86).
 #
 # Output: one OK/FAIL line per step, logs in $BUILDROOT/logs.
 # Env: BUILDROOT (default ./build-out/verify; wiped at start),
@@ -105,11 +111,11 @@ run 2-stage-a        env BUILDROOT="$BUILDROOT/stage-a" tests/cc/stage-a-check.s
 run 3-chain          env BUILDROOT="$BUILDROOT/chain"   tests/cc/bootstrap-chain.sh
 run 4-mescc-tools    env BUILDROOT="$BUILDROOT/asm"     tests/asm/mescc-tools-check.sh
 run 5-monolith       cmp "$BUILDROOT/stage-a/cc-out-v1" "$BUILDROOT/chain/bootstrap/out/cc-out-v1"
-run 6-stage0         env BUILDROOT="$BUILDROOT/stage0" tests/cc/stage0-check.sh
+run 6-stage0         env BUILDROOT="$BUILDROOT/stage0" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" tests/cc/stage0-check.sh
 run 7-handoff        env BUILDROOT="$BUILDROOT/handoff" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" ./handoff.sh
 
 echo
-grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC: \|match amd64.answers\|^handoff: PASS\|^stage0-check: PASS' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
+grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC\|match [a-z0-9]*\.answers\|^handoff: PASS\|^stage0-check: PASS' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
 echo
 if [ "$FAIL" = 0 ] && [ "$SKIP" = 0 ]; then
     echo "verify: all $PASS steps PASS in $((SECONDS - T0))s"

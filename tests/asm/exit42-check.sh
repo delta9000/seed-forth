@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Stage-0 of the bootstrap-gap-closing chain (Ch 33-37, in progress):
+# Smallest end-to-end check of 130-asm.fth (book Ch 33):
 # drive 130-asm.fth on the exit42 fixture and verify it produces an ELF
 # byte-identical to mescc-tools' M1+hex2 reference pipeline.
 #
 # What this proves:
-#   - forth-asm (in Forth, ~250 lines) can consume hex2 text and emit ELF
+#   - forth-asm (130-asm.fth, 689 lines of Forth) can consume hex2 text and emit ELF
 #     bytes that match the GCC-built mescc-tools reference exactly.
 #   - The resulting binary runs and exits with code 42.
 #

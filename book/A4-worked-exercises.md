@@ -1,9 +1,9 @@
-# Appendix D — Three worked exercises, one per Part
+# Appendix D — Three worked exercises, one each from Parts I–III
 
-The 32 main chapters end with 3–5 exercises each, roughly a
+The 33 main chapters end with 3–5 exercises each, roughly a
 hundred in total, with no solutions printed inline (the point of
 an exercise is the time you spend stuck).  This appendix is a
-*sampler*: one exercise from each Part, walked end to end.  The
+*sampler*: one exercise from each of Parts I–III, walked end to end.  The
 picks are one Extend and two Traces, chosen to show three
 distinct working modes fully: a hands-on derivation, an
 analytical "why is this enough?", and a step-by-step trace.

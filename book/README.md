@@ -29,7 +29,8 @@ these as it needs them, in the order it needs them.
 ## By the end of this book you will be able to
 
 - Pick any line in `010-lib.fth`, the 32 primitives in
-  `000-seed.hex0`, or the C compiler files and explain what it
+  `000-seed.hex0`, the C compiler files, or the assembler
+  `130-asm.fth` and explain what it
   does, why it's shaped that way, and what would break if it
   weren't.
 - Run `./check-all.sh` and explain what each of its nine steps
@@ -82,25 +83,29 @@ git submodule update --init --recursive
 ./check-all.sh                  # build, tests, asm, C gates, tangle, numbers, Stage-A, bootstrap
 ```
 
-`check-all.sh` runs nine steps and prints one OK/SKIP/FAIL line
+`check-all.sh` runs eleven steps and prints one OK/SKIP/FAIL line
 for each: `01-build` (the 1,772-byte seed), `02-test` (the layer
 smoke tests), `02a-asm` (three small assembler checks),
 `02b-gates` (the registered C-compiler gates), `03-tangle-strict`
 (book and source byte-identical), `04-book-numbers` (the prose's
 exact numbers against source), `04a-tryit` (every runnable
-Try-it block, run against the built seed), `05-stage-a` (the byte-identical
-`.M1`), and `06-bootstrap` (`./bootstrap.sh`, the GCC-free build up to
-M2-Planet's self-hosting fixed point; Appendix C).  `02a-asm` and
+Try-it block, run against the built seed), `04b-index` (the committed
+[Index](WORD-INDEX.md) matches what `tools/gen-index.py` generates),
+`05-stage-a` (the byte-identical
+`.M1`), `06-bootstrap` (`./bootstrap.sh`, the GCC-free build up to
+M2-Planet's self-hosting fixed point; Appendix C), and `07-handoff`
+(stage0-posix's own recipe fed by the Forth route; SKIP without its
+nested submodules).  `02a-asm` and
 `05-stage-a` need gcc, only to build the references they compare
-against, and report SKIP without it; `04-book-numbers` and `04a-tryit`
-need python3.  If it ends
-with `check-all: all 9 steps PASS`, the codebase is reproducing the
+against, and report SKIP without it; `04-book-numbers`, `04a-tryit`
+and `04b-index` need python3.  If it ends
+with `check-all: all 11 steps PASS`, the codebase is reproducing the
 canonical artifacts.  See
 **Troubleshooting** below if anything fails.
 
 ## How the book is organized
 
-Three parts plus a prologue and seven appendices.  Within each
+Four parts plus a prologue and seven appendices.  Within each
 part, chapters follow **source order**: each one picks up the file
 where the previous chapter stopped.
 
@@ -111,6 +116,9 @@ where the previous chapter stopped.
   the end, no primitive is a black box.
 - **Part III (Chs 21–32)** walks the C compiler in twelve
   chapters, ending at the Stage-A byte-identity proof.
+- **Part IV (Ch 33)** walks `130-asm.fth`, the Forth M1 assembler
+  and hex2 linker that `./bootstrap.sh` uses to build mescc-tools'
+  `M1` and `hex2` without GCC.
 - **Appendices A–G** are reference cards: primitives, memory
   map, reproducibility chain, worked exercises, further reading,
   C subset, and compiler exit codes.
