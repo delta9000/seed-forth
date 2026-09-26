@@ -503,7 +503,10 @@ Expected output: `01` — the new symbol's id is `0`, and the count
 after the add is `1`.
 
 **tri.c at this stage:** feed lines 2–3 of `tri.c` through the
-parser (Chs 29–31) and read back the rows it added.  `row` prints a symbol's id, name, kind and base type:
+parser (Chs 29–31) and read back the rows it added.  The probe runs
+`cc-parse-program`'s steps up to the top-level loop and stops there:
+the whole-program check that follows would reject a fragment with no
+`main`.  `row` prints a symbol's id, name, kind and base type:
 
 ```sh
 ./build.sh
@@ -518,7 +521,9 @@ parser (Chs 29–31) and read back the rows it added.  `row` prints a symbol's i
            dup cc-sym-kind-of .n  cc-sym-type-of ty-base .d [lit] 10 emit ;
     : probe
       cc-load-stdin cc-preprocess cc-out-init cc-globals-init
-      cc-emit-elf-header cc-parse-program
+      cc-emit-elf-header
+      cc-emit-entry-stub cc-emit-shims cc-emit-external-protos
+      cc-emit-libc-typedefs cc-parse-function-list
       [lit] 23 row  [lit] 24 row
       [lit] 23 cc-sym-val-of  dup cc-sd-total-size .n
       dup cc-sd-field-count .n  dup [lit] 0 cc-sd-field-rec cc-sf-offset .n

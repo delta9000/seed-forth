@@ -244,7 +244,8 @@ operand, `pop rdi` / `pop rcx` to recover it) rather than
 allocating registers.  Slow but simple.
 
 **Frame** — a function's stack region: saved `rbp`, locals,
-spilled parameters.  Addressed as `[rbp - 8n]` for local n.
+spilled parameters.  Addressed as `[rbp - 8n]` for local n.  Always
+256 bytes, 32 slots (`cc-frame-slots`); a 33rd dies with code 193.
 Ch 25 (encoders), Ch 31 (per-function layout).
 
 **Identifier / keyword / punctuator** — the three main token
@@ -266,7 +267,10 @@ several tokens ahead copies it away with `cc-lex-mark` and back with
 **Lvalue / rvalue** — an *lvalue* has an address you can take or
 write to (variable, deref, struct field); an *rvalue* has only a
 value (literal, expression result).  Assignment requires the LHS
-to be an lvalue.  Ch 28.
+to be an lvalue.  The expression parser records which one `rdi`
+holds in `cc-last-lvalue-kind`: `lv-value`, `lv-local`, or a
+pending deref (`lv-deref`, `lv-deref-byte`) that
+`cc-emit-materialize` loads only when the value is needed.  Ch 28.
 
 **M2-Planet** — the next link in the bootstrap chain after this C
 compiler.  A larger C compiler written in a subset of C; we

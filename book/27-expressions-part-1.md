@@ -12,7 +12,7 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(1444 lines total) solves this with a *precedence cascade*: plain
+(1415 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a
@@ -63,15 +63,25 @@ or in Ch 28, and the result is byte-identical to the checked-in
 \ Emits code that leaves the expression's value in rdi.  Uses 090-cc-emit.fth's
 \ instruction encoders.
 \
-\ Expression grammar:
-\   expr   := assign
-\   assign := eq ('=' assign)?            \ right-associative; LHS must be ident
-\   eq     := rel (('=='|'!=') rel)*
-\   rel    := add (('<'|'<='|'>'|'>=') add)*
-\   add    := mul (('+'|'-') mul)*
-\   mul    := unary (('*'|'/'|'%') unary)*
-\   unary  := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | primary
-\   primary:= NUMBER | IDENT | '(' expr ')'
+\ Expression grammar, loosest-binding first (one cc-parse-LEVEL word each):
+\   expr    := assign                                 \ then materialize
+\   assign  := ternary (ASSIGN-OP assign)?            \ = += -= *= /= %= <<= >>= &= |= ^=
+\   ternary := log-or ('?' assign ':' assign)?
+\   log-or  := log-and ('||' log-and)*
+\   log-and := bit-or ('&&' bit-or)*
+\   bit-or  := bit-xor ('|' bit-xor)*
+\   bit-xor := bit-and ('^' bit-and)*
+\   bit-and := eq ('&' eq)*
+\   eq      := rel (('=='|'!=') rel)*
+\   rel     := shift (('<'|'<='|'>'|'>=') shift)*
+\   shift   := add (('<<'|'>>') add)*
+\   add     := mul (('+'|'-') mul)*
+\   mul     := unary (('*'|'/'|'%') unary)*
+\   unary   := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | 'sizeof' '(' ... ')'
+\            | primary
+\   primary := (NUMBER | CHAR | STRING | IDENT | IDENT '(' args ')'
+\               | IDENT '[' expr ']' | '(' expr ')')
+\              ('.' IDENT | '->' IDENT | '[' expr ']' | '++' | '--')*
 \
 \ Tokens come from the lexer's interface (050-cc-lex.fth): cc-next-token-keep
 \ reads the next one, and cc-putback-token hands the current one back when a
@@ -82,10 +92,11 @@ or in Ch 28, and the result is byte-identical to the checked-in
 
 ```
 
-The grammar in the comment is a simplified version.  The file also
-handles shifts, bitwise and logical operators, the ternary, and the
-postfix operators (`[]`, `.`, `->`, `()`, `++`, `--`).  Every
-binary production has the same shape: parse an operand at the
+The grammar in the comment lists every level, loosest first, and
+each level is one `cc-parse-LEVEL` word: this chapter's cascade from
+`assign` down to `mul`, and Ch 28's `unary` and `primary` with its
+postfix chain (`[]`, `.`, `->`, `++`, `--`).  Every binary
+production has the same shape: parse an operand at the
 next-tighter level, then loop over this level's operators.
 
 ## 3. One token of putback
@@ -124,9 +135,9 @@ variable cc-parse-assign-vec                      \ xt of cc-parse-assign
   cc-parse-assign-vec @ execute ;
 
 \ ===========================================================================
-\ Forward reference for function-call codegen (defined in 110-cc-decl.fth so it
-\ can use cc-base-vaddr from 080-cc-elf.fth).  cc-parse-primary calls into
-\ cc-parse-call-tramp once it has spotted `IDENT (`; the callee consumes the
+\ Forward reference for function-call codegen.  cc-parse-call is defined in
+\ 110-cc-decl.fth, which loads after this file, so cc-parse-primary reaches it
+\ through this vector once it has spotted `IDENT (`.  The callee consumes the
 \ '(' (already peeked but not consumed), parses comma-separated arg
 \ expressions, emits the SYS-V argument-passing prologue and the call.
 \ ===========================================================================

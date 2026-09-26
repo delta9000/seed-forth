@@ -53,11 +53,13 @@ gates=(
   "F-wide-const.c 7"
   "G-indented-define.c 42"
   "H-comment-directive.c 3"
+  "I-cr-escape.c 13"
 )
 
 # Die gates: programs the compiler must reject.  Each entry:
 # "<file> <expected-exit> <expected last stderr line>" (run-die-gate.sh).
-# One per capacity check in 020-070; the line is where cc-die found the
+# One per capacity check in 020-110, plus the whole-program checks at the
+# end of cc-parse-program (194, 195); the line is where cc-die found the
 # reader (Appendix G).  Code 22 (output file won't open) and 62 (scope pop
 # without a push, a parser bug) cannot be reached from a C program.
 die_gates=(
@@ -74,6 +76,12 @@ die_gates=(
   "die-50-struct-fields.c|50|cc: line 19: error 50"
   "die-60-symbols-full.sh|60|cc: line 4075: error 60"
   "die-61-scopes-deep.c|61|cc: line 66: error 61"
+  "die-80-globals-full.c|80|cc: line 4: error 80"
+  "die-81-global-refs-full.sh|81|cc: line 4099: error 81"
+  "die-163-labels-full.sh|163|cc: line 67: error 163"
+  "die-193-frame-full.c|193|cc: line 7: error 193"
+  "die-194-fn-undefined.c|194|cc: line 8: error 194"
+  "die-195-no-main.c|195|cc: line 5: error 195"
 )
 
 fail=0

@@ -49,7 +49,7 @@ shows what the artifact can *do* at each step.
 | 25 | emit a valid 120-byte ELF prologue and the core x86-64 instruction encoders |
 | 26 | emit function calls with forward fixups, libc shims, string literals, and global-address placeholders |
 | 27 | lower binary expressions (arithmetic, comparison, bitwise, logical) through one repeated fold |
-| 28 | lower primary, unary, postfix, ternary, and assignment with three-kind lvalue tracking |
+| 28 | lower primary, unary, postfix, ternary, and assignment with four-kind lvalue tracking |
 | 29 | parse declarations: scalar, pointer, and array locals, structs (self-referential), function-pointer locals, struct locals, and `return` |
 | 30 | lower every C control statement: `if`/`else`, `while`, `for`, `do`/`while`, `switch`, `break`, `continue`, `goto` |
 | 31 | assemble whole translation units: functions with parameters, scopes, enums, typedefs, file-scope globals, entry stub.  Output is now a runnable ELF. |
@@ -96,7 +96,7 @@ and given in source order within each area.
 - *ELF header emission for compiled output* — Ch 25
 - *Instruction encoders (mov, push/pop, call, ret, idiv)* — Ch 25
 - *Forward calls, fixup lists* — Ch 26
-- *String literal storage with C-escape decoding* — Ch 26
+- *C-escape decoding (`cc-decode-escape`)* — Ch 23; *string literal storage* — Ch 26
 - *Libc shims (eleven: putchar, exit, getchar, fputs, fputc, fopen,
   fclose, fwrite, fread, calloc, free)* — Ch 26
 - *File-scope globals with deferred vaddrs* — Chs 26, 31
@@ -124,6 +124,7 @@ and given in source order within each area.
 - *`return` and implicit return* — Chs 29, 31
 - *Function definitions, parameter spill, scopes* — Ch 31
 - *Forward function calls and prototype fixups* — Ch 31
+- *Top-level classification (`cc-top-classify`: definition, prototype or variable) and the end-of-program check for undefined functions* — Ch 31
 - *The `main` entry stub at `0x400078`* — Ch 31
 
 ### Reading the proof
@@ -240,7 +241,8 @@ their introducing chapter.
 - **Precedence cascade** (one function per level; not precedence
   climbing) — Ch 27
 - **Fixed 256-byte function frame** — Ch 31 (every function
-  reserves the same conservative slab; no per-function back-patch)
+  reserves the same 32-slot slab, checked by `cc-fn-add-slots`; no
+  per-function back-patch)
 - **Stage-A parity (byte-identical M1 output)** — Ch 32
 
 ## Dependency graph

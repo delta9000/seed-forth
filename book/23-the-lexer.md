@@ -11,7 +11,7 @@ After Ch 22, `tri.c` is 470 bytes of characters, but a parser does
 not want characters.  At line 12 it should not have to see `i`, `n`,
 `t`, a space, `w`, `[`, `R`, `O`, `W`, `S`.  It wants to ask "what's
 next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
-"the number 4".  The 613-line file `050-cc-lex.fth` answers that
+"the number 4".  The 614-line file `050-cc-lex.fth` answers that
 question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,
@@ -520,22 +520,23 @@ String and character literals close the section:
   tok-str-len !  tok-str-addr !
   tk-str tok-kind ! ;
 
+\ cc-decode-escape ( c -- byte )  The byte the escape \c stands for: \n \t
+\ \r \0 are newline, tab, carriage return and NUL; any other c (including
+\ \\ \' \") stands for itself.  The one table for both character literals
+\ (cc-lex-char) and string literals (cc-emit-string-bytes, 090).  \xNN is
+\ not supported.
+: cc-decode-escape
+  dup [char] n = if, drop nl       exit, then,
+  dup [char] t = if, drop tab      exit, then,
+  dup [char] r = if, drop [lit] 13 exit, then,
+  dup [char] 0 = if, drop [lit] 0  exit, then, ;
+
 \ cc-lex-char ( -- )  Read 'c' or '\c'.  Stores the byte value in tok-num.
-\ Recognised escapes: \n \t \\ \' \" \0.  Others pass through literally.
-\ \xNN deferred.
 : cc-lex-char
   cc-next-char drop                             \ consume opening '
   cc-peek-char backslash = if,                  \ escape
     cc-next-char drop                           \ consume backslash
-    cc-next-char                                ( c )
-    dup [char] n  = if, drop nl         else,   \ \n
-    dup [char] t  = if, drop tab        else,   \ \t
-    dup backslash = if, drop backslash  else,   \ \\
-    dup [char] '  = if, drop [char] '   else,   \ \'
-    dup [char] "  = if, drop [char] "   else,   \ \"
-    dup [char] 0  = if, drop [lit] 0    else,   \ \0
-    \ otherwise: pass the literal char through (stack already has it)
-    then, then, then, then, then, then,
+    cc-next-char cc-decode-escape               ( byte )
   else,
     cc-next-char                                \ literal char
   then,
@@ -552,9 +553,14 @@ which walks the slice as it copies the literal's bytes into the code
 stream.  The lexer stays simple.
 
 `cc-lex-char` does decode escapes immediately, because its result is a
-single byte value in `tok-num`.  It handles six escapes (`\n`, `\t`,
-`\\`, `\'`, `\"`, `\0`), the ones M2-Planet uses; hex escapes
-(`\xNN`) are not supported.
+single byte value in `tok-num`.  Both kinds of literal decode with the
+same word, `cc-decode-escape`: `\n`, `\t`, `\r` and `\0` become
+newline, tab, carriage return and NUL, and any other escaped
+character stands for itself, which covers `\\`, `\'` and `\"`.  Hex
+escapes (`\xNN`) are not supported.  One table matters: when
+character literals had their own copy it lacked `\r`, so `'\r'`
+compiled to `'r'` (114) while `"\r"` gave 13;
+`tests/cc/I-cr-escape.c` checks that both now agree.
 
 ## 5. Punctuation: a fan-out
 

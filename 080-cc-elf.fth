@@ -9,6 +9,10 @@
 [lit] 4194304 constant cc-base-vaddr            \ 0x400000
 [lit] 4194424 constant cc-entry-vaddr           \ 0x400078
 
+\ cc-here-vaddr ( -- vaddr )  The address the next emitted byte will have
+\ when the output runs: its file offset (cc-out-pos) plus the load address.
+: cc-here-vaddr  cc-base-vaddr cc-out-pos @ + ;
+
 \ p_filesz lives at file offset 96, 8 bytes LE.
 \ p_memsz lives at file offset 104.
 [lit] 96 constant cc-filesz-offset

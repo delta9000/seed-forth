@@ -72,9 +72,9 @@ consumers of `cc-alloc` come later: `090-cc-emit.fth`
 descriptors, switch cases).  `040-cc-prep.fth` must load
 before `050-cc-lex.fth` because the lexer calls
 `cc-macro-find-int`.  `080-cc-elf.fth` must load before
-`110-cc-decl.fth` because the absolute-vaddr emitters
-(`cc-emit-jmp-vaddr`, `cc-emit-call-vaddr`) reference
-`cc-base-vaddr`.  And so on.
+`100-cc-expr.fth` and `110-cc-decl.fth` because their string-literal
+and absolute-vaddr emitters (`cc-emit-jmp-vaddr`,
+`cc-emit-call-vaddr`) read `cc-here-vaddr`.  And so on.
 
 ## 2. The output-path constant
 
@@ -114,7 +114,7 @@ Read `cc-main` as a sequence of phases:
 5. **`cc-emit-elf-header`** (Ch 25 §1): write 120 bytes of
    ELF64_Ehdr + Elf64_Phdr at offset 0.  `p_filesz` and
    `p_memsz` start as 0 and will be back-patched.
-6. **`cc-parse-program`** (Ch 31 §8): the big one, in six
+6. **`cc-parse-program`** (Ch 31 §8): the big one, in seven
    sub-steps:
    - Emit the 26-byte entry stub.
    - Emit the 11 libc shims and register their symbols.
@@ -122,6 +122,8 @@ Read `cc-main` as a sequence of phases:
    - Register the 11 libc typedefs (`FILE`, `uint8_t`, ...).
    - Walk every top-level declaration in the preprocessed
      source, emitting function bodies as we go.
+   - Die (194, 195) if a used function never got a body or there
+     is no `main`.
    - Patch the entry stub's `call <main>` rel32.
 7. **`cc-finalize-globals`** (Ch 31 §7): append
    `cc-globals-buf` to `cc-out-buf`, then walk every
@@ -243,7 +245,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 ```
 
 The claim rests on step 5.  The 1,772-byte seed, extended by
-`010-lib.fth` and running the 6,958 lines of compiler Forth in
+`010-lib.fth` and running the 6,878 lines of compiler Forth in
 `020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
 binary, compiling M2-Planet's sources, emits the same `.M1` text
@@ -297,7 +299,7 @@ seen every component along the seed-forth path:
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
   ~440 lines of Forth that turn the seed's 32 primitives into
   a usable language.
-- Ch 21–32: the C-subset compiler, 6,958 lines of Forth
+- Ch 21–32: the C-subset compiler, 6,878 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
 
