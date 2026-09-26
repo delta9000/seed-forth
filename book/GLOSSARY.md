@@ -21,6 +21,11 @@ TOS is cached in register `rdi`; the rest live at `[rbp]`, `[rbp+8]`,
 `[rbp+16]`, ...  Initial top at `0x411000`.  Ch 13 sets it up;
 Ch 14 explains the convention.
 
+**Deferred word** — a word defined by `defer NAME` whose body runs
+the xt stored in a cell after its code; `' REAL is NAME` fills the
+cell.  Lets a word call one that is defined later in the file, which
+mutually recursive parsers need.  Ch 12; used in Chs 22, 27, 30.
+
 **Dictionary** — the linked list of named definitions.  Each entry is
 `link(8) flags(1) name-len(1) name(N) body(M)` (Ch 10).  New entries
 are added by `:`, `create`, `variable`, `constant`.  Lookup is
@@ -296,7 +301,9 @@ introduces it; Chs 22, 24, 30, and 31 reuse it.
 **Precedence cascade** — the expression-parsing technique this
 compiler uses: plain recursive descent with one function per
 precedence level, each parsing its operands by calling the next
-tighter level and looping over its own operators.  Ch 27.
+tighter level and looping over its own operators.  Which operators
+belong to which level, and the encoder each one calls, is one table
+(`cc-binops`).  Ch 27.
 
 **Precedence climbing** — the alternative Ch 27 does *not* use: a
 single recursive function parameterised by minimum precedence,

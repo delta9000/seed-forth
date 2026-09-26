@@ -192,31 +192,22 @@ Where in the recursion does left-associativity fall out?
 
 ### The structure of `cc-parse-add`
 
-From `100-cc-expr.fth` (Ch 27 §6 walks this in detail):
+From `100-cc-expr.fth` (Chs 27 §6–7 walk this in detail):
 
 ```forth
 : cc-parse-add
   cc-parse-mul
   begin,
-    cc-next-token-keep
-    cc-add-op?
+    level-add cc-binop? dup                       ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-mul
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    [lit] 43 = if,
-      cc-emit-add-rdi-rcx
-    else,
-      cc-emit-sub-rdi-rcx
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-mul                                  \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 ```
 
 The accumulator is `rdi`, the seed VM's TOS register cache (Ch
@@ -224,14 +215,15 @@ The accumulator is `rdi`, the seed VM's TOS register cache (Ch
 register.  The loop body is a `begin, … while, … repeat,`:
 pure iteration, not recursion-on-tail.  Each pass of the loop:
 
-1. peeks the next token and asks "is it `+` or `-`?";
-2. if yes, materializes the left so it's a value (not an lvalue),
-   stashes the op byte (43 = `+`, 45 = `-`) on R, pushes the
-   running left;
+1. reads the next token and asks the operator table "is it an
+   add-level operator (`+` or `-`)?" (`level-add cc-binop?`);
+2. if yes, stashes the operator's table row on R, materializes the
+   left so it's a value (not an lvalue), and pushes the running
+   left;
 3. parses *one* mul-expression as the next right (which lands in
-   `rdi`), materializes it, moves it to `rcx`, pops the saved
-   left back into `rdi`;
-4. emits `add rdi, rcx` or `sub rdi, rcx` depending on the op;
+   `rdi`); `cc-binop-apply` materializes it, moves it to `rcx`,
+   pops the saved left back into `rdi`,
+4. and runs the row's emitter: `add rdi, rcx` or `sub rdi, rcx`;
 5. loops.
 
 ### The trace for `a - b - c`
@@ -241,25 +233,25 @@ Start: `rdi` is the eval register; the input is `a - b - c`.
 **Pass 0** (the call into `cc-parse-add` itself):
 1. `cc-parse-mul` consumes `a` and emits a load.  rdi = `a`.
 
-**Loop iteration 1**: peek finds `-` (token byte 45).
-1. Materialize left.  Push op (45) onto R.
+**Loop iteration 1**: the next token is `-` (token byte 45).
+1. Push `-`'s row onto R.  Materialize left.
 2. Emit `push rdi` (save `a`).
 3. `cc-parse-mul` consumes `b`.  rdi = `b`.  Materialize.
 4. Emit `mov rcx, rdi`.  rcx = `b`.
 5. Emit `pop rdi`.  rdi = `a`, rcx = `b`.
-6. Pop op (45) from R; op ≠ 43, so emit `sub rdi, rcx`.
+6. Pop the row from R; its emitter emits `sub rdi, rcx`.
    rdi = `a - b`.
 
-**Loop iteration 2**: peek finds `-` again.
-1. Materialize left.  Push op (45).
+**Loop iteration 2**: the next token is `-` again.
+1. Push its row.  Materialize left.
 2. Emit `push rdi` (save `(a - b)`).
 3. `cc-parse-mul` consumes `c`.  rdi = `c`.  Materialize.
 4. Emit `mov rcx, rdi`.  rcx = `c`.
 5. Emit `pop rdi`.  rdi = `a - b`, rcx = `c`.
-6. Pop op; emit `sub rdi, rcx`.  rdi = `(a - b) - c`.
+6. Pop the row; emit `sub rdi, rcx`.  rdi = `(a - b) - c`.
 
-**Loop iteration 3**: peek finds something that isn't `+` or `-`,
-so the loop exits.  `cc-putback-token` returns the peeked token.
+**Loop iteration 3**: the next token isn't `+` or `-`, so
+`cc-binop?` answers 0 and the loop exits.  `cc-putback-token` returns the peeked token.
 Final rdi = `(a - b) - c`.
 
 ### Where left-associativity comes from

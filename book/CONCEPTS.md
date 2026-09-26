@@ -73,7 +73,7 @@ and given in source order within each area.
 - *Little-endian writers `c, ,4 ,8`* — Chs 2, 9
 - *IMMEDIATE flag, STATE, `constant`* — Ch 10
 - *Control-flow combinators `if, then, begin, while, repeat,`* — Ch 11
-- *`allot skip-vm-pages create variable bytes-eq`* — Ch 12
+- *`allot skip-vm-pages create variable defer is bytes-eq`* — Ch 12
 
 ### Seed VM
 
@@ -140,7 +140,7 @@ and given in source order within each area.
 - *Emit, remember, patch* — Ch 11, 19, 21, 25, 26, 30, 31
 - *Small tables, linear search, newest wins* — Chs 17, 22, 24, 30, 31
 - *One buffer per responsibility* — Chs 21, 22, 26, 31
-- *Trampoline vectors for forward references* — Chs 18, 22, 30
+- *Deferred words (`defer`/`is`) for forward references* — Chs 12, 22, 27, 30
 - *Fixup-on-the-stack* — Chs 11, 19, 26, 30
 
 ## Concept index
@@ -197,6 +197,8 @@ their introducing chapter.
   *Chs 22–31*
 - **Early return with `exit,` (return stack must be clean)** — Ch 11;
   *Chs 12, 23, 24*
+- **Deferred words (`defer`/`is`: call a word defined later)** — Ch 12;
+  *Chs 22, 27, 30*
 
 ### Seed VM internals (Part II)
 
@@ -281,10 +283,10 @@ Ch 23  lexer              — Chs 6, 12, 21, 22
 Ch 24  types + symbols    — Chs 12, 21
 Ch 25  ELF + codegen 1    — Chs 11, 13, 21
 Ch 26  codegen 2          — Chs 24, 25
-Ch 27  expressions 1      — Chs 23, 24, 25, 26
+Ch 27  expressions 1      — Chs 12, 23, 24, 25, 26
 Ch 28  expressions 2      — Chs 24, 26, 27
 Ch 29  decls + structs    — Chs 24, 25, 26, 28
-Ch 30  statements         — Chs 11, 26, 27, 28, 29
+Ch 30  statements         — Chs 11, 12, 26, 27, 28, 29
 Ch 31  functions          — Chs 24, 25, 26, 27, 28, 29, 30
 Ch 32  main + bootstrap   — *all previous*
 ```

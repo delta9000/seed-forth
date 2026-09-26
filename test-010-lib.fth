@@ -160,6 +160,14 @@ be1 s1 [lit] 3 bytes-eq                    and
 \ allot: bump HERE without writing.
 here [lit] 32 allot here swap - [lit] 32 = and
 
+\ defer / is: a word compiled against a deferred word follows each is.
+defer dw
+: dw-five  [lit] 5 ;
+: dw-six   [lit] 6 ;
+: dw-use   dw 1+ ;                         \ compiled before dw has a meaning
+' dw-five is dw  dw-use [lit] 6 =         and
+' dw-six  is dw  dw-use [lit] 7 =         and
+
 \ ----- exit with derived code -----
 \ acc=-1 (all pass) -> 0= -> 0 -> exit 0.
 \ acc= 0 (any fail) -> 0= -> -1 -> exit 255.

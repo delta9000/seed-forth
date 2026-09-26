@@ -587,4 +587,4 @@ Next: Chapter 12 — `allot`, `create`, `variable`, `bytes-eq`.  The
 library can now decide and loop, but it cannot *remember*: there is
 no `variable`, no named buffer, and no way to ask whether two names
 are the same, a question the C compiler asks on every identifier.
-The last 69 lines of `010-lib.fth` answer all three.
+The last 96 lines of `010-lib.fth` answer all three.
