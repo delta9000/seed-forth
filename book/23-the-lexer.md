@@ -2,7 +2,7 @@
 
 ```text
 Missing capability: the parser cannot ask for C-shaped units of source.
-New pattern: one token at a time lives in tok-* globals with compact kind and punctuation IDs.
+New pattern: one token at a time lives in tok-* cells with compact kind and punctuation IDs.
 Artifact after this chapter: the cc-next-token interface over idents, numbers, strings, chars, kws, and punct.
 Proof link: every later Stage-A parser consumes this token stream instead of raw source bytes.
 ```
@@ -11,13 +11,13 @@ After Ch 22, `tri.c` is 470 bytes of characters, but a parser does
 not want characters.  At line 12 it should not have to see `i`, `n`,
 `t`, a space, `w`, `[`, `R`, `O`, `W`, `S`.  It wants to ask "what's
 next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
-"the number 4".  The 583-line file `050-cc-lex.fth` answers that
+"the number 4".  The 613-line file `050-cc-lex.fth` answers that
 question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,
-statements) sees the source only through five globals this file
-fills: `tok-kind`, `tok-num`, `tok-str-addr`, `tok-str-len` and
-`tok-kw-id`.  There is no token list and no streaming consumer.  The
+statements) sees the source only through five cells this file fills:
+`tok-kind`, `tok-num`, `tok-str-addr`, `tok-str-len` and `tok-kw-id`,
+part of the lexer-state block Ch 21 set up.  There is no token list and no streaming consumer.  The
 parser calls `cc-next-token`, reads `tok-kind`, drives its grammar
 with that one token, then asks for the next.  The lexer is hand-rolled
 (no regex, no flex), and this is also where Ch 22's macros are
@@ -31,11 +31,14 @@ The file opens by naming everything a token can be:
 ```forth file=050-cc-lex.fth
 \ 050-cc-lex.fth — C tokenizer (one-token lookahead) for the C-subset compiler.
 \ Reads bytes from cc-src-buf via cc-peek-char/cc-next-char/cc-eof? (030-cc-io.fth).
-\ Stores the current token in 5 globals: tok-kind, tok-num, tok-str-addr,
-\ tok-str-len, tok-kw-id.  Caller drives the lexer via cc-next-token.
+\ Stores the current token in 5 cells of the lexer's state block
+\ (020-cc-arena.fth): tok-kind, tok-num, tok-str-addr, tok-str-len, tok-kw-id.
+\ The parser drives the lexer through the interface at the end of this file:
+\ cc-next-token-keep / cc-putback-token, and cc-lex-mark / cc-lex-reset.
 \
 \ Depends on 010-lib.fth (control-flow combinators, classifiers, bytes-eq, etc.),
-\ 030-cc-io.fth (cc-src-buf, cc-peek-char, cc-next-char, cc-eof?), and
+\ 020-cc-arena.fth (cc-lex-state and its cells), 030-cc-io.fth (cc-src-buf,
+\ cc-peek-char, cc-next-char, cc-eof?, ident-start?, ident-cont?), and
 \ 040-cc-prep.fth (cc-macro-find-int for macro substitution).
 
 \ ===========================================================================
@@ -75,12 +78,6 @@ The file opens by naming everything a token can be:
 [lit] 276 constant pt-shr-eq        \ >>=
 [lit] 277 constant pt-ellipsis      \ ...
 
-variable tok-kind
-variable tok-num
-variable tok-str-addr
-variable tok-str-len
-variable tok-kw-id
-
 ```
 
 Seven token kinds (`eof`, `ident`, `num`, `str`, `chr`, `punct`,
@@ -95,7 +92,8 @@ punctuation needs its own namespace, so the `pt-*` codes occupy
 tell the two apart, though the parser never needs one: it compares
 against exact values.
 
-The five `tok-*` variables are the lexer's single-token state.
+The five `tok-*` cells of the lexer-state block (Ch 21) are the
+lexer's single-token state; each name works like a variable.
 `tok-kind` says what was read.  `tok-num` carries numeric values
 (including the punctuation code for `tk-punct`), `tok-str-addr/len`
 point into `cc-src-buf` for identifiers and string literals, and
@@ -197,16 +195,8 @@ Three small helpers come next.
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
-\ Helpers: ident classifiers, 2-byte peek
+\ Helper: 2-byte peek
 \ ===========================================================================
-
-\ ident-start? ( c -- f )  letter or '_'.
-: ident-start?
-  dup alpha?  swap [char] _ = or ;
-
-\ ident-cont? ( c -- f )  ident-start? or digit.
-: ident-cont?
-  dup ident-start?  swap digit? or ;
 
 \ cc-peek-char-2 ( -- c1 c2 )  Returns the byte at pos and the byte at pos+1
 \ without advancing.  Returns 0 for c2 at EOF.  c1 is also 0 at EOF.
@@ -221,8 +211,9 @@ Three small helpers come next.
 
 ```
 
-`ident-start?` and `ident-cont?` are C's identifier rules on top of
-Ch 6's `alpha?` and `digit?`.  `cc-peek-char-2` is the two-byte
+The identifier classifiers `ident-start?` and `ident-cont?` are the
+shared ones from Ch 21, the same the preprocessor uses.
+`cc-peek-char-2` is the two-byte
 lookahead.  The lexer needs it only for `0x`, `//`, `/*` and the `...`
 ellipsis; operators like `==`, `<=` and `<<=` consume their first byte
 and test the next with plain `cc-peek-char`.
@@ -781,7 +772,7 @@ of these chains.
 
 ## 6. The top-level driver
 
-`cc-next-token` is the only thing the parser calls.
+`cc-next-token` reads one token; §7 wraps it for the parser.
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -802,17 +793,85 @@ of these chains.
       drop cc-lex-punct
     then, then, then, then,
   then, ;
+
 ```
 
 Skip whitespace and comments.  At EOF, report `tk-eof`.  Otherwise
 classify on the first byte: digit → number; `"` (34) → string; `'`
 (39) → char; ident-start → identifier or keyword; everything else →
-punctuation.  The chosen word fills the `tok-*` variables and returns.
+punctuation.  The chosen word fills the `tok-*` cells and returns.
 
 The four tests are disjoint (`ident-start?` excludes digits, so a
 leading digit can only begin a number), so their order doesn't
 matter.  What matters is that punctuation is the final `else`: any
 byte none of the four claims falls through to `cc-lex-punct`.
+
+## 7. The parser's interface: putback, mark and reset
+
+A recursive-descent parser often knows it has gone one token too far
+only after reading it: `x` followed by `(` is a call, followed by
+anything else a variable.  The file ends with the words the parser
+actually drives the lexer through:
+
+```forth file=050-cc-lex.fth
+\ ===========================================================================
+\ The parser's interface: putback, mark and reset
+\ ===========================================================================
+\ The lexer reads one token at a time with no built-in peek.  A parser that
+\ has read one token too many puts it back: cc-putback-token sets
+\ cc-tok-pending, and the next cc-next-token-keep returns the same tok-*
+\ state without advancing.
+
+\ cc-next-token-keep ( -- )  Advance to the next token unless one is pending.
+: cc-next-token-keep
+  cc-tok-pending @ if,
+    [lit] 0 cc-tok-pending !
+  else,
+    cc-next-token
+  then, ;
+
+\ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
+\ next cc-next-token-keep returns it without advancing.
+: cc-putback-token
+  true cc-tok-pending ! ;
+
+\ To look further ahead, a parser marks the whole lexer state (reader
+\ cursor, line, current token, putback flag: the cc-lex-state block),
+\ reads as many tokens as it likes, and resets to the mark.  A mark is any
+\ cc-lex-state-size bytes of storage.
+
+\ cc-lex-copy ( src dst -- )  Copy one lexer-state block, last cell first.
+: cc-lex-copy
+  cc-lex-state-size
+  begin, dup while,
+    [lit] 8 -                                   ( src dst off )
+    >r  over r@ + @  over r@ + !  r>
+  repeat,
+  drop 2drop ;
+
+\ cc-lex-mark ( buf -- )  Save the lexer state into buf.
+: cc-lex-mark   cc-lex-state swap cc-lex-copy ;
+
+\ cc-lex-reset ( buf -- )  Restore the lexer state saved by cc-lex-mark.
+: cc-lex-reset  cc-lex-state cc-lex-copy ;
+```
+
+`cc-next-token-keep` is what the parsers call instead of
+`cc-next-token`.  After `cc-putback-token` sets `cc-tok-pending`, the
+next `cc-next-token-keep` clears the flag and returns without reading,
+so the same `tok-*` values are seen twice.  One token of putback is
+enough for almost all of C.
+
+The rest needs to look further: is `int (*fp)(int);` a function
+pointer, is `x :` a label, does this top-level declaration reach `{`
+before `;`?  For those the parser takes a *mark*: `cc-lex-mark` copies
+the whole 64-byte lexer-state block (reader position, line, current
+token and the putback flag) into a buffer, the parser reads as many
+tokens as it likes, and `cc-lex-reset` copies the block back.  Because
+Ch 21 put every moving part of the lexer in that one block, the copy
+cannot miss a field.  `cc-lex-copy` copies a cell at a time, walking
+the offset down from 56 to 0.  Chs 29–31 use one mark buffer,
+`cc-peek-mark`, for every such look-ahead.
 
 ## Try it
 
@@ -897,7 +956,7 @@ lexer on the full M2-Planet input.
 
 The parser can ask for C-shaped units of source on demand: each
 `cc-next-token` puts one identifier, keyword, number, string, char or
-punctuation token into the `tok-*` globals, with macro substitution
+punctuation token into the `tok-*` cells, with macro substitution
 already applied.  Every later parser layer reads `tok-*` rather than
 raw bytes, so the lexer's exact behaviour is the input contract for
 the rest of the Stage-A proof.  `tri.c` is now 168 tokens, but when
@@ -906,7 +965,8 @@ is a struct or where `rows` sits inside it.  Ch 24 builds that memory.
 
 ## Takeaways
 
-- The lexer's interface is one entry point and five variables: call `cc-next-token`, read `tok-kind`, and dispatch.
+- The lexer's interface is one entry point and five cells: call `cc-next-token` (or `cc-next-token-keep`, which honours a put-back token), read `tok-kind`, and dispatch.
+- The lexer's whole state is one 64-byte block, so looking ahead is `cc-lex-mark`, read, `cc-lex-reset`.
 - Multi-character punctuation lives at codes `>= 256` while single-character punctuation reuses its ASCII byte, so the easy cases need no separate enumeration.
 - Macro substitution happens in the lexer, where a `tk-ident` that hits the macro table becomes a `tk-num` before the parser sees it.
 

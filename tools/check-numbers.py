@@ -42,7 +42,7 @@ book's claims against it:
         per-chapter table, vs the machine bytes in the `hex0 chunk=` fences
         each chapter defines (cumulative) and the built seed's size
   * single-line `file.fth:line` citations  (A6/A7, file-absolute)
-      - A7 die-site  "| 30 | `100-cc-expr.fth:364` |" vs the `[lit] 30 die`
+      - A7 die-site  "| 30 | `040-cc-prep.fth:270` |" vs the `[lit] 30 cc-die`
                      line(s) for that error code in the cited file
       - symbol ref   "`cc-skip-storage-quals` (`110-cc-decl.fth:98`)" vs the
                      word's `:` definition line
@@ -144,7 +144,10 @@ FTH_DEF_RE = re.compile(r"^\s*:\s+(\S+)")
 FTH_SEMI_RE = re.compile(r"(^|\s);(\s|$)")
 
 # single-line `file.fth:line` citations (A6/A7)
-DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+die\b")
+# A die site is any word that exits with a literal code: `[lit] N die` (the
+# assembler, 010-lib), `[lit] N cc-die`, and the compiler's two checks that
+# die with the code they are given, `cc-check-cap` and `cc-read-all`.
+DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+(?:die|cc-die|cc-check-cap|cc-read-all)(?=\s|$)")
 CITE_RE = re.compile(r"([0-9]\d\d-[a-z0-9-]+\.fth):(\d+(?:,\d+)*)")
 ROW_CODE_RE = re.compile(r"^\s*\|\s*(\d+)\s*\|")
 NAME_TOKEN_RE = re.compile(r"`([a-z][a-z0-9?*<>=!+./-]+)`")
@@ -235,7 +238,7 @@ def build_fth_spans():
 
 
 def build_die_sites():
-    """Return {file: {code:int -> [lines]}} for every `[lit] N die` site."""
+    """Return {file: {code:int -> [lines]}} for every die site (DIE_RE)."""
     out = {}
     for path in sorted(glob.glob(os.path.join(ROOT, "*.fth"))):
         d = {}

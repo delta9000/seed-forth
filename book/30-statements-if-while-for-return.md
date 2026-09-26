@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-`110-cc-decl.fth` lines 620–1484: the `cc-parse-stmt` dispatcher
+`110-cc-decl.fth` lines 593–1430: the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -490,8 +490,9 @@ run *after* it.  The parser handles this in eight moves:
 This is the only place the compiler moves the lexer backwards to
 re-parse source it has already passed.  The lookahead peeks
 (`cc-peek-fnptr?` in Ch 29, `cc-peek-after-is-colon?` in §9, and
-the top-level peek in Ch 31) also save `cc-src-pos`, read ahead,
-and restore it, but they undo a read; the step rewind replays code.
+the top-level peek in Ch 31) also move it back, with
+`cc-lex-mark` / `cc-lex-reset` (Ch 23 §7), but they undo a read; the
+step rewind replays code.
 
 **tri.c at this stage.**  `main` in tri.c has one `for` and one `if`,
 and between them three jumps.  With tri.c compiled to `/tmp/cc-out`
@@ -716,7 +717,7 @@ cases with the same `K`.
       \ doesn't handle constant-expressions for case labels).
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 90 die
+        [lit] 90 cc-die
       then,
       tok-num @                                   ( K )
       [char] : cc-expect-punct-c
@@ -883,7 +884,7 @@ variable cc-label-find-needle-len
 \ Initial vaddr=0 (undefined), fixup=0 (no forward refs yet).
 : cc-label-create                                 ( a u -- id )
   cc-label-count @ cc-label-cap >= if,
-    [lit] 82 die
+    [lit] 82 cc-die
   then,
   cc-label-count @                                ( a u id )
   >r                                              \ R: id
@@ -913,7 +914,7 @@ variable cc-label-find-needle-len
   cc-label-find-or-create                         ( id )
   \ Reject duplicates.
   dup cc-label-vaddr-of [lit] 0 <> if,
-    [lit] 81 die
+    [lit] 81 cc-die
   then,
   \ Set vaddr.
   dup >r                                          ( id ; R: id )
@@ -941,7 +942,7 @@ label's fixup list:
 : cc-parse-goto-stmt
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 80 die
+    [lit] 80 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-label-find-or-create   ( id )
 
@@ -983,46 +984,18 @@ A statement that starts with an identifier might be a label
 (`done:`) or an expression (`done = 1;`).  Telling them apart needs
 the token *after* the identifier, and the putback buffer
 (`cc-tok-pending`) holds only one.  So `cc-peek-after-is-colon?`
-saves the whole lexer and token state, reads one token, and
-restores everything unless that token is `:`.  This is the same
-save-and-restore discipline as Ch 29's `cc-peek-fnptr?`, with its
-own state slots so the two never collide.
+marks the lexer state in `cc-peek-mark`, reads one token, and resets
+to the mark unless that token is `:`.  This is the same mark-and-reset
+discipline as Ch 29's `cc-peek-fnptr?`, with the same buffer: neither
+peek can start while the other is reading.
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ One-token lookahead used to detect "IDENT :" label definitions.
 \ ===========================================================================
-\ The current putback layer (cc-tok-pending) only buffers one token.  To peek
-\ TWO tokens ahead we save the lexer + token state, read one fresh token, and
-\ either commit (if it confirms a label) or restore everything (if not).
-variable cc-lookahead-save-pos
-variable cc-lookahead-save-line
-variable cc-lookahead-save-pending
-variable cc-lookahead-save-tok-kind
-variable cc-lookahead-save-tok-num
-variable cc-lookahead-save-tok-addr
-variable cc-lookahead-save-tok-len
-variable cc-lookahead-save-tok-kw
-
-: cc-lookahead-save
-  cc-src-pos     @ cc-lookahead-save-pos      !
-  cc-src-line    @ cc-lookahead-save-line     !
-  cc-tok-pending @ cc-lookahead-save-pending  !
-  tok-kind       @ cc-lookahead-save-tok-kind !
-  tok-num        @ cc-lookahead-save-tok-num  !
-  tok-str-addr   @ cc-lookahead-save-tok-addr !
-  tok-str-len    @ cc-lookahead-save-tok-len  !
-  tok-kw-id      @ cc-lookahead-save-tok-kw   ! ;
-
-: cc-lookahead-restore
-  cc-lookahead-save-pos      @ cc-src-pos     !
-  cc-lookahead-save-line     @ cc-src-line    !
-  cc-lookahead-save-pending  @ cc-tok-pending !
-  cc-lookahead-save-tok-kind @ tok-kind       !
-  cc-lookahead-save-tok-num  @ tok-num        !
-  cc-lookahead-save-tok-addr @ tok-str-addr   !
-  cc-lookahead-save-tok-len  @ tok-str-len    !
-  cc-lookahead-save-tok-kw   @ tok-kw-id      ! ;
+\ The putback layer (cc-tok-pending) only buffers one token.  To peek TWO
+\ tokens ahead we mark the lexer state in cc-peek-mark, read one fresh token,
+\ and either commit (if it confirms a label) or reset to the mark (if not).
 
 \ cc-peek-after-is-colon? ( -- f )
 \ Caller has already consumed one token (e.g. IDENT) into tok-* via
@@ -1033,12 +1006,12 @@ variable cc-lookahead-save-tok-kw
 \ been read into tok-* and cc-tok-pending=0 — i.e. it's "current").
 \ If false, this word restores everything so the IDENT remains pending.
 : cc-peek-after-is-colon?
-  cc-lookahead-save
+  cc-peek-mark cc-lex-mark
   cc-next-token
   tok-kind @ tk-punct = tok-num @ [char] : = and
   dup 0= if,
     \ Not a colon — rewind.
-    cc-lookahead-restore
+    cc-peek-mark cc-lex-reset
   then, ;
 
 ```

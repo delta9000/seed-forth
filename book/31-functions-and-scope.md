@@ -10,7 +10,7 @@ Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-o
 Every earlier Part III chapter compiles a piece of a C function: an
 expression, a declaration, a statement.  Nothing yet reads a whole
 file.  This chapter covers the rest of `110-cc-decl.fth`
-(lines 1485–2729), which turns those pieces into a translation-unit
+(lines 1431–2642), which turns those pieces into a translation-unit
 compiler.  It has four main words.  `cc-parse-call` compiles direct,
 forward, and indirect calls.  `cc-parse-function` wraps a body in a
 prologue, epilogue, and scope.  `cc-parse-function-list` loops over
@@ -125,14 +125,14 @@ calls `cc-emit-pop-by-arg-index` to pick the register.
 1. Parse the comma-separated arguments, pushing each value with
    `cc-emit-push-rdi` and counting them.  The count sits under the
    symbol id on the data stack.
-2. After `)`, reject more than six arguments (status 37), then pop
+2. After `)`, reject more than six arguments (code 37), then pop
    the values into registers.
 3. Dispatch on the callee's symbol:
    - `sk-func` with a non-zero `val` → `call <abs-vaddr>` via
      `cc-emit-call-vaddr`;
    - `sk-func` with `val = 0` (a prototype not yet defined) →
      `cc-emit-call-rel32-placeholder`, with the patch offset
-     threaded onto the symbol's `cc-sym-extra` fixup list;
+     threaded onto the symbol's `cc-sym-call-fixups` list;
    - `sk-local` whose base type is `ty-func` (a function-pointer
      local) → `cc-emit-load-local-into-rax` then `cc-emit-call-rax`.
 4. Copy the return value from `rax` into `rdi`, the register this
@@ -175,7 +175,7 @@ function with more than six parameters.
     \ The token AFTER the last arg should be ')'.  Consume it.
     cc-next-token-keep
     tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
-      [lit] 36 die
+      [lit] 143 cc-die
     then,
   then,
 
@@ -183,7 +183,7 @@ function with more than six parameters.
 
   \ The SYS-V register path supports up to 6 args.  Reject excess.
   dup [lit] 6 > if,
-    [lit] 37 die
+    [lit] 37 cc-die
   then,
 
   \ NOTE on alignment: argument values are pushed while parsing, then popped
@@ -199,7 +199,7 @@ function with more than six parameters.
   \ Dispatch on symbol kind.
   \   sk-func, val != 0 -> direct call: E8 <rel32> to absolute vaddr.
   \   sk-func, val == 0 -> forward call: emit placeholder, register fixup
-  \                        on this prototype's cc-sym-extra slot.  When the
+  \                        on this prototype's call-fixups list.  When the
   \                        function is later defined, cc-parse-function walks
   \                        the list and patches each rel32.
   \   sk-local + ty-func -> indirect call: load fp slot into rax, call rax.
@@ -207,9 +207,9 @@ function with more than six parameters.
   dup cc-sym-kind-of sk-func = if,
     dup cc-sym-val-of [lit] 0 = if,
       \ Forward call.  Emit E8 + 4-byte placeholder; thread the slot offset
-      \ onto the prototype's fixup list (cc-sym-extra at id).
+      \ onto the prototype's call-fixups list.
       cc-emit-call-rel32-placeholder              ( id patch-off )
-      swap cc-sym-extra sym-slot                  ( patch-off extra-cell-addr )
+      swap cc-sym-call-fixups                     ( patch-off list-cell )
       cc-add-fixup-to-list
     else,
       cc-sym-val-of                               ( target-vaddr )
@@ -223,7 +223,7 @@ function with more than six parameters.
       cc-emit-call-rax
     else,
       drop
-      [lit] 38 die
+      [lit] 38 cc-die
     then,
   then,
 
@@ -282,16 +282,16 @@ a function pointer.
         \ base+ptr-depth so function-pointer typedefs survive into param type.
         tok-str-addr @ tok-str-len @ cc-sym-find   ( id )
         dup 0< if,
-          [lit] 38 die
+          [lit] 38 cc-die
         then,
         dup cc-sym-kind-of sk-typedef <> if,
-          [lit] 38 die
+          [lit] 38 cc-die
         then,
         [lit] 0 cc-pending-struct-desc !
         cc-sym-val-of                              ( ty )
         dup ty-base swap ty-ptr                    ( base ptr-depth )
       else,
-        [lit] 38 die
+        [lit] 38 cc-die
         ty-int [lit] 0                            \ unreachable
       then,
     then,
@@ -302,7 +302,7 @@ a function pointer.
     \ Expect IDENT.
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 38 die
+      [lit] 38 cc-die
     then,
     \ Add as a local: name in tok-str-addr/len, kind=sk-local, type=ty,
     \ val=current local count (= slot).  Stack on entry: ( ty ).
@@ -311,7 +311,7 @@ a function pointer.
     sk-local swap                                  ( a u sk-local ty )
     cc-fn-local-count @                            ( a u kind ty slot )
     cc-sym-add                                    ( id )
-    cc-pending-struct-desc @ swap cc-sym-set-extra
+    cc-pending-struct-desc @ swap cc-sym-set-struct-desc
     [lit] 1 cc-fn-local-count +!
     [lit] 1 cc-fn-param-count +!
     \ Continue if next is ','.
@@ -322,49 +322,17 @@ a function pointer.
   \ Now consume the closing ')'.
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
-    [lit] 39 die
+    [lit] 39 cc-die
   then, ;
 
 ```
 
 `cc-parse-param-list` handles the two special cases before calling
 the loop: `()` and `(void)`.  Spotting `(void)` needs two tokens of
-lookahead, so it uses `cc-top-lookahead-save` /
-`cc-top-lookahead-restore`, which save the lexer position and the
-current token.  §6's top-level peeks use the same pair.
+lookahead, so it marks the lexer state in `cc-peek-mark` and resets
+to it (Ch 23 §7).  §6's top-level peeks use the same pair.
 
 ```forth file=110-cc-decl.fth
-\ Shared lexer/token lookahead save/restore.  Top-level peeking uses this,
-\ and parameter parsing uses it for the `(void)` special case.
-variable cc-top-save-pos
-variable cc-top-save-line
-variable cc-top-save-pending
-variable cc-top-save-tok-kind
-variable cc-top-save-tok-num
-variable cc-top-save-tok-addr
-variable cc-top-save-tok-len
-variable cc-top-save-tok-kw
-
-: cc-top-lookahead-save
-  cc-src-pos     @ cc-top-save-pos      !
-  cc-src-line    @ cc-top-save-line     !
-  cc-tok-pending @ cc-top-save-pending  !
-  tok-kind       @ cc-top-save-tok-kind !
-  tok-num        @ cc-top-save-tok-num  !
-  tok-str-addr   @ cc-top-save-tok-addr !
-  tok-str-len    @ cc-top-save-tok-len  !
-  tok-kw-id      @ cc-top-save-tok-kw   ! ;
-
-: cc-top-lookahead-restore
-  cc-top-save-pos      @ cc-src-pos     !
-  cc-top-save-line     @ cc-src-line    !
-  cc-top-save-pending  @ cc-tok-pending !
-  cc-top-save-tok-kind @ tok-kind       !
-  cc-top-save-tok-num  @ tok-num        !
-  cc-top-save-tok-addr @ tok-str-addr   !
-  cc-top-save-tok-len  @ tok-str-len    !
-  cc-top-save-tok-kw   @ tok-kw-id      ! ;
-
 \ cc-parse-param-list ( -- )  Parse a possibly-empty comma-separated list of
 \ parameters.  Caller has NOT yet consumed any tokens.  When this returns the
 \ closing ')' has been consumed.  Each parameter becomes an sk-local symbol.
@@ -376,10 +344,10 @@ variable cc-top-save-tok-kw
   else,
     \ Special case: `(void)` = no params.  Peek for kw-void followed by ')'.
     tok-kind @ tk-kw = tok-kw-id @ kw-void = and if,
-      cc-top-lookahead-save
+      cc-peek-mark cc-lex-mark
       cc-next-token                               \ advance past void; tok-* := next
       tok-kind @ tk-punct = tok-num @ [char] ) = and >r
-      cc-top-lookahead-restore
+      cc-peek-mark cc-lex-reset
       r> if,
         \ It IS '(void)'.  void is already consumed; now consume ')'.
         cc-next-token
@@ -453,12 +421,12 @@ it.
     tok-kw-id @ kw-struct = if,
       cc-next-token-keep
       tok-kind @ tk-ident <> if,
-        [lit] 42 die
+        [lit] 42 cc-die
       then,
     then,
   else,
     tok-kind @ tk-ident <> if,
-      [lit] 43 die
+      [lit] 43 cc-die
     then,
   then,
   cc-count-stars drop ;
@@ -479,8 +447,8 @@ later functions can call it.
 Just before that, `cc-sym-find` fetches any earlier `sk-func` entry
 for the same name, which is a prototype registered by §6's
 `cc-register-fn-proto`.  Its two fixup lists are then patched to
-the new vaddr: `cc-sym-extra` holds forward `call` sites (the
-`E8 00 00 00 00` placeholders from Ch 26 §1), and `cc-sym-extra2`
+the new vaddr: `cc-sym-call-fixups` holds forward `call` sites (the
+`E8 00 00 00 00` placeholders from Ch 26 §1), and `cc-sym-addr-fixups`
 holds forward `movabs rdi, imm64` sites that took the function's
 address as a value (Ch 28 §4).  Both heads are then zeroed so a
 repeated definition doesn't patch twice.  This is the
@@ -519,7 +487,7 @@ when it didn't.
   \ Function name.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 41 die
+    [lit] 41 cc-die
   then,
   tok-str-addr @ cc-fn-name-addr !
   tok-str-len  @ cc-fn-name-len  !
@@ -545,20 +513,20 @@ when it didn't.
   cc-sym-add drop
 
   \ Patch any forward-call fixups registered against the prior prototype.
-  \ The fixup list head lives in that entry's cc-sym-extra cell.  After
+  \ The fixup list head lives in that entry's call-fixups cell.  After
   \ patching we zero the head so a repeat definition doesn't double-patch.
-  \ cc-sym-extra2 holds a parallel list for `movabs rdi, imm64` rvalue sites
-  \ (function-pointer references that appear before the definition).
+  \ Its addr-fixups cell holds a parallel list for `movabs rdi, imm64` rvalue
+  \ sites (function-pointer references that appear before the definition).
   cc-fn-prior-sym-id @ [lit] 0 >= if,
     cc-fn-prior-sym-id @ cc-sym-kind-of sk-func = if,
-      cc-fn-prior-sym-id @ cc-sym-extra-of
+      cc-fn-prior-sym-id @ cc-sym-call-fixups @
       cc-base-vaddr cc-out-pos @ +
       cc-walk-and-patch-to-vaddr
-      [lit] 0 cc-fn-prior-sym-id @ cc-sym-set-extra
-      cc-fn-prior-sym-id @ cc-sym-extra2-of
+      [lit] 0 cc-fn-prior-sym-id @ cc-sym-call-fixups !
+      cc-fn-prior-sym-id @ cc-sym-addr-fixups @
       cc-base-vaddr cc-out-pos @ +
       cc-walk-and-patch-imm64-to-vaddr
-      [lit] 0 cc-fn-prior-sym-id @ cc-sym-set-extra2
+      [lit] 0 cc-fn-prior-sym-id @ cc-sym-addr-fixups !
     then,
   then,
 
@@ -648,7 +616,7 @@ variable cc-enum-next-val
   begin,
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 100 die
+      [lit] 100 cc-die
     then,
     tok-str-addr @ tok-str-len @                  ( a u )
 
@@ -657,7 +625,7 @@ variable cc-enum-next-val
     tok-kind @ tk-punct = tok-num @ [char] = = and if,
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 102 die
+        [lit] 102 cc-die
       then,
       tok-num @ cc-enum-next-val !
     else,
@@ -690,7 +658,7 @@ variable cc-enum-next-val
         cc-putback-token                           \ leave '}' for the close
         [lit] 0                                    \ stop
       else,
-        [lit] 101 die
+        [lit] 101 cc-die
       then,
     then,
     0=
@@ -732,20 +700,20 @@ variable cc-td-ty
       cc-lookup-struct-tag drop
       ty-struct [lit] 0 ty-make cc-td-ty !
     else,
-      [lit] 110 die
+      [lit] 110 cc-die
     then, then, then, then,
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
       dup 0< if,
-        [lit] 111 die
+        [lit] 111 cc-die
       then,
       dup cc-sym-kind-of sk-typedef <> if,
-        [lit] 112 die
+        [lit] 112 cc-die
       then,
       cc-sym-val-of cc-td-ty !
     else,
-      [lit] 113 die
+      [lit] 113 cc-die
     then,
   then,
 
@@ -769,7 +737,7 @@ variable cc-td-ty
     cc-count-stars drop                            \ at least one star expected
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 116 die
+      [lit] 116 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
     [char] ) cc-expect-punct-c
@@ -793,7 +761,7 @@ variable cc-td-ty
   else,
     \ Plain IDENT (the new typedef name) — putback first since we just peeked.
     tok-kind @ tk-ident <> if,
-      [lit] 114 die
+      [lit] 114 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
     sk-typedef [lit] 0 cc-td-ty @                  ( a u kind type val )
@@ -845,9 +813,7 @@ consumes nothing.
 \   - '{' first → function definition.  Rewind and dispatch to cc-parse-function
 \     which expects 'int' return type (so 'void f() { ... }' will still fail).
 \
-\ The peek uses a save/restore of the lexer state (cc-src-pos / cc-src-line /
-\ cc-tok-pending plus tok-* globals), separate from cc-fnptr-* slots so it
-\ won't conflict with nested function-body parsing.
+\ The peek marks the lexer state in cc-peek-mark and resets to it.
 
 \ cc-top-peek-is-fn-def? ( -- f )
 \ Scan tokens forward (paren-balanced) until we hit ';' or '{' at depth 0,
@@ -856,22 +822,22 @@ consumes nothing.
 variable cc-top-peek-depth
 
 : cc-top-peek-is-fn-def?
-  cc-top-lookahead-save
+  cc-peek-mark cc-lex-mark
   [lit] 0 cc-top-peek-depth !
   begin,
     cc-next-token-keep
     tok-kind @ tk-eof = if,
-      cc-top-lookahead-restore [lit] 0 exit,      \ EOF: not a fn def
+      cc-peek-mark cc-lex-reset [lit] 0 exit,      \ EOF: not a fn def
     then,
     tok-kind @ tk-punct = if,
       tok-num @ lparen = if, [lit] 1 cc-top-peek-depth +! then,
       tok-num @ [char] ) = if, [lit] 1 cc-top-peek-depth -! then,
       cc-top-peek-depth @ [lit] 0 = if,
         tok-num @ [char] ; = if,
-          cc-top-lookahead-restore [lit] 0 exit,  \ ';' first: a declaration
+          cc-peek-mark cc-lex-reset [lit] 0 exit,  \ ';' first: a declaration
         then,
         tok-num @ [char] { = if,
-          cc-top-lookahead-restore true exit,     \ '{' first: a definition
+          cc-peek-mark cc-lex-reset true exit,     \ '{' first: a definition
         then,
       then,
     then,
@@ -890,15 +856,15 @@ tells a prototype (it saw a `(`) from a global variable (it didn't).
 \ lexer state.  Used to distinguish function prototypes from global decls when
 \ cc-top-peek-is-fn-def? has already returned 0.
 : cc-top-peek-has-paren?
-  cc-top-lookahead-save
+  cc-peek-mark cc-lex-mark
   [lit] 0                                         ( saw-paren )
   begin,
     cc-next-token-keep
-    tok-kind @ tk-eof = if, cc-top-lookahead-restore exit, then,
+    tok-kind @ tk-eof = if, cc-peek-mark cc-lex-reset exit, then,
     tok-kind @ tk-punct = if,
       tok-num @ lparen = if, drop true then,
       tok-num @ [char] ; =  tok-num @ [char] { =  or if,
-        cc-top-lookahead-restore exit,
+        cc-peek-mark cc-lex-reset exit,
       then,
     then,
   again, ;
@@ -958,7 +924,7 @@ definition and whose fixups nothing patches.  So
   cc-parse-fn-return-type
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 44 die
+    [lit] 44 cc-die
   then,
   tok-str-addr @ tok-str-len @                    ( a u )
   2dup cc-sym-find                                ( a u id-or-neg1 )
@@ -1040,12 +1006,12 @@ variable cc-gdecl-ptr-depth
   tok-kind @ tk-punct = tok-num @ [char] - = and if,
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 163 die
+      [lit] 163 cc-die
     then,
     [lit] 0 tok-num @ -
   else,
     tok-kind @ tk-num <> if,
-      [lit] 163 die
+      [lit] 163 cc-die
     then,
     tok-num @
   then, ;
@@ -1108,7 +1074,7 @@ a scalar load) or the struct descriptor otherwise.
     \ actually resolves to a known typedef — the caller already determined
     \ this is a declaration via cc-top-peek-* lookahead.
     tok-kind @ tk-ident <> if,
-      [lit] 160 die
+      [lit] 160 cc-die
     then,
   then,
 
@@ -1118,7 +1084,7 @@ a scalar load) or the struct descriptor otherwise.
   \ Name IDENT.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 161 die
+    [lit] 161 cc-die
   then,
   tok-str-addr @ cc-gdecl-name-a !
   tok-str-len  @ cc-gdecl-name-u !
@@ -1132,7 +1098,7 @@ a scalar load) or the struct descriptor otherwise.
     \ Array form: 'T name [ N ]'.
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 162 die
+      [lit] 162 cc-die
     then,
     tok-num @ cc-gdecl-n !
     true cc-gdecl-is-array !
@@ -1152,7 +1118,7 @@ a scalar load) or the struct descriptor otherwise.
         \ Bare uninitialized scalar.  Allocate the slot.
         cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
       else,
-        [lit] 164 die
+        [lit] 164 cc-die
       then,
     then,
   then,
@@ -1169,13 +1135,13 @@ a scalar load) or the struct descriptor otherwise.
   cc-gdecl-slot @                                    ( a u kind type val )
   cc-sym-add                                         ( id )
 
-  \ Arrays: record element count in the extra field so the codegen path can
+  \ Arrays: record element count as the symbol's array length so codegen can
   \ tell array decay from scalar deref.
   cc-gdecl-is-array @ if,
-    cc-gdecl-n @ swap cc-sym-set-extra
+    cc-gdecl-n @ swap cc-sym-set-array-len
   else,
     \ Not an array — record the struct descriptor if any.
-    cc-gdecl-desc @ swap cc-sym-set-extra
+    cc-gdecl-desc @ swap cc-sym-set-struct-desc
   then, ;
 
 ```
@@ -1208,9 +1174,9 @@ patches every recorded placeholder with base plus slot.
   \ Patch each fixup.  i walks 0..cc-gfixup-count-1.
   [lit] 0
   begin, dup cc-gfixup-count @ < while,
-    dup cc-gfixup-slot     sym-slot @              \ slot
+    dup cc-gfixup-slot     cell[] @                \ slot
     cc-globals-base-vaddr @ +                       \ vaddr = base + slot
-    over cc-gfixup-out-pos sym-slot @              \ patch-offset
+    over cc-gfixup-out-pos cell[] @                \ patch-offset
     cc-out-patch-8le
     1+
   repeat, drop ;
@@ -1247,11 +1213,11 @@ declaration it skips storage qualifiers, then:
         \   `struct TAG* foo(...) { ... }` → function definition (struct-ptr return)
         \   `struct TAG* foo(...);`        → fn proto → register with vaddr=0
         \   `struct TAG* g;`               → file-scope var → cc-parse-global-decl
-        cc-top-lookahead-save
+        cc-peek-mark cc-lex-mark
         cc-next-token                              \ consume tag IDENT (lookahead)
         cc-next-token                              \ peek next token
         tok-kind @ tk-punct = tok-num @ [char] { = and >r
-        cc-top-lookahead-restore
+        cc-peek-mark cc-lex-reset
         r> if,
           cc-parse-struct-def
         else,
@@ -1634,7 +1600,7 @@ reading and writing `g_counter`).  The M2-Planet monolith in
 ## Exercises
 
 1. **★★ Trace.** The forward-fixup walk in `cc-parse-function` handles
-   both `cc-sym-extra` (rel32 calls) and `cc-sym-extra2`
+   both `cc-sym-call-fixups` (rel32 calls) and `cc-sym-addr-fixups`
    (imm64 movabs).  Trace how both lists get populated and
    which path each fixup type originates from.
 

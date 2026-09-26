@@ -1,10 +1,13 @@
 \ 050-cc-lex.fth — C tokenizer (one-token lookahead) for the C-subset compiler.
 \ Reads bytes from cc-src-buf via cc-peek-char/cc-next-char/cc-eof? (030-cc-io.fth).
-\ Stores the current token in 5 globals: tok-kind, tok-num, tok-str-addr,
-\ tok-str-len, tok-kw-id.  Caller drives the lexer via cc-next-token.
+\ Stores the current token in 5 cells of the lexer's state block
+\ (020-cc-arena.fth): tok-kind, tok-num, tok-str-addr, tok-str-len, tok-kw-id.
+\ The parser drives the lexer through the interface at the end of this file:
+\ cc-next-token-keep / cc-putback-token, and cc-lex-mark / cc-lex-reset.
 \
 \ Depends on 010-lib.fth (control-flow combinators, classifiers, bytes-eq, etc.),
-\ 030-cc-io.fth (cc-src-buf, cc-peek-char, cc-next-char, cc-eof?), and
+\ 020-cc-arena.fth (cc-lex-state and its cells), 030-cc-io.fth (cc-src-buf,
+\ cc-peek-char, cc-next-char, cc-eof?, ident-start?, ident-cont?), and
 \ 040-cc-prep.fth (cc-macro-find-int for macro substitution).
 
 \ ===========================================================================
@@ -43,12 +46,6 @@
 [lit] 275 constant pt-shl-eq        \ <<=
 [lit] 276 constant pt-shr-eq        \ >>=
 [lit] 277 constant pt-ellipsis      \ ...
-
-variable tok-kind
-variable tok-num
-variable tok-str-addr
-variable tok-str-len
-variable tok-kw-id
 
 \ ===========================================================================
 \ Keyword table + IDs
@@ -126,16 +123,8 @@ kw, default
 [lit] 29 constant kw-default
 
 \ ===========================================================================
-\ Helpers: ident classifiers, 2-byte peek
+\ Helper: 2-byte peek
 \ ===========================================================================
-
-\ ident-start? ( c -- f )  letter or '_'.
-: ident-start?
-  dup alpha?  swap [char] _ = or ;
-
-\ ident-cont? ( c -- f )  ident-start? or digit.
-: ident-cont?
-  dup ident-start?  swap digit? or ;
 
 \ cc-peek-char-2 ( -- c1 c2 )  Returns the byte at pos and the byte at pos+1
 \ without advancing.  Returns 0 for c2 at EOF.  c1 is also 0 at EOF.
@@ -581,3 +570,44 @@ kw, default
       drop cc-lex-punct
     then, then, then, then,
   then, ;
+
+\ ===========================================================================
+\ The parser's interface: putback, mark and reset
+\ ===========================================================================
+\ The lexer reads one token at a time with no built-in peek.  A parser that
+\ has read one token too many puts it back: cc-putback-token sets
+\ cc-tok-pending, and the next cc-next-token-keep returns the same tok-*
+\ state without advancing.
+
+\ cc-next-token-keep ( -- )  Advance to the next token unless one is pending.
+: cc-next-token-keep
+  cc-tok-pending @ if,
+    [lit] 0 cc-tok-pending !
+  else,
+    cc-next-token
+  then, ;
+
+\ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
+\ next cc-next-token-keep returns it without advancing.
+: cc-putback-token
+  true cc-tok-pending ! ;
+
+\ To look further ahead, a parser marks the whole lexer state (reader
+\ cursor, line, current token, putback flag: the cc-lex-state block),
+\ reads as many tokens as it likes, and resets to the mark.  A mark is any
+\ cc-lex-state-size bytes of storage.
+
+\ cc-lex-copy ( src dst -- )  Copy one lexer-state block, last cell first.
+: cc-lex-copy
+  cc-lex-state-size
+  begin, dup while,
+    [lit] 8 -                                   ( src dst off )
+    >r  over r@ + @  over r@ + !  r>
+  repeat,
+  drop 2drop ;
+
+\ cc-lex-mark ( buf -- )  Save the lexer state into buf.
+: cc-lex-mark   cc-lex-state swap cc-lex-copy ;
+
+\ cc-lex-reset ( buf -- )  Restore the lexer state saved by cc-lex-mark.
+: cc-lex-reset  cc-lex-state cc-lex-copy ;
