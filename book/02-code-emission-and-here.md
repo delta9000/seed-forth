@@ -7,48 +7,32 @@ Artifact after this chapter: byte-level emission primitives every later library 
 Proof link: every byte the library hand-assembles passes through c,; the dictionary's tail is here-addr.
 ```
 
-Two short definitions in `010-lib.fth` (lines 11–21), `here-addr` and
-`c,`, give the dictionary its frontier pointer and the one-byte
-writer that pushes it forward.  `here-addr` names the absolute
-address `0x413010` on the sysvar page where the HERE cell lives;
-`c,` ("c-comma") is the read-modify-write idiom that stores a byte
-at HERE and bumps the cell by one.  Open `010-lib.fth` to those
-eleven lines and keep them in view; everything else in this
-chapter is a walk through how Forth makes "the next byte to write
-to" a first-class, user-visible value, and why that single naming
-decision is what lets the compiler be written in Forth.
+A compiler has to put its output somewhere.  In Forth that place is
+the dictionary: a single contiguous arena of bytes.  Defining a word,
+emitting a machine instruction, reserving space for a variable: all
+of them append bytes to one growing region.  The frontier of that
+region is called `HERE`.
 
-By the end of the chapter you'll be able to explain what HERE is
-and why Forth needs a name for it, read and write the `here-addr @
-... here-addr !` idiom for updating a sysvar cell, and predict the
-post-state of HERE after any sequence of `c,` calls.  Why the
-sysvar page lives at `0x413000` and how it is initialised is Part
-II, Ch 13; the `here` seed primitive (which pushes the contents of
-the HERE cell, not its address) is Ch 17; and the multi-byte
-writers `,4` and `,8` that build on `c,` are Ch 9.
-
----
-
-A Forth dictionary is a single contiguous arena of bytes.  When you
-define a word, when the compiler emits a machine instruction, when
-`create` reserves space for a variable — all of them are appending
-bytes to one growing region.  The frontier is called `HERE`, and the
-first two definitions in `010-lib.fth` exist to name that frontier and
-to push it forward one byte at a time.
+The first two definitions after the file header (`010-lib.fth`
+lines 11–21) name that frontier and push it forward.  `here-addr`
+pushes the address of the HERE cell on the sysvar page; `c,`
+("c-comma") stores one byte at HERE and bumps the cell by one.
+Ch 13 covers the sysvar page itself, Ch 17 the `here` primitive, and
+Ch 9 the multi-byte writers `,4` and `,8` built on `c,`.
 
 ## 1. Why a "HERE" exists at all
 
 Every high-level language has a name for "the next byte to allocate."
 In C it's whatever `malloc` returns.  In assembly it's implicit in the
 program counter or the link register.  Forth makes it explicit as a
-**sysvar** (system variable) — a cell in memory — and calls it `HERE`.
+**sysvar** (system variable), a cell in memory, and calls it `HERE`.
 
 The reason is structural: Forth's compiler is written in Forth.  When
 `: foo ... ;` compiles a new word, it does not call a linker or a
 loader.  It writes bytes into memory starting at `HERE` and advances
-`HERE` past whatever it wrote.  Every defining word in the system —
-`constant`, `create`, `variable`, the control-flow combinators of Ch
-11 — works the same way.  If you understand `HERE` and the one word
+`HERE` past whatever it wrote.  Every defining word in the system
+(`constant`, `create`, `variable`, the control-flow combinators of
+Ch 11) works the same way.  If you understand `HERE` and the one word
 that advances it, you understand how the whole compiler builds itself.
 
 ## 2. `here-addr` — a one-line preview of the [lit] convention
@@ -60,7 +44,7 @@ update it, the code needs that address on the stack.
 : here-addr  [lit] 4272144 ;            \ &HERE = 0x413010
 ```
 
-`4272144` is `0x413010` in decimal — the address of the HERE cell on
+`4272144` is `0x413010` in decimal, the address of the HERE cell on
 the sysvar page.  The definition simply pushes that address and
 returns.  There is no shuffling, no arithmetic, no lookup; it is the
 simplest possible colon definition after the file header.
@@ -111,26 +95,23 @@ from line 1?  Because `here` pushes the value of the HERE cell (the
 current pointer), while `here-addr` pushes the address of that cell.
 They are different numbers.  You need the address of the cell to write
 back to it, and you cannot produce it from the pointer value without
-knowing where the cell lives — which is exactly what `here-addr`
+knowing where the cell lives, which is exactly what `here-addr`
 encodes.
 
 ## 4. The big picture
 
 `c,` emits one byte.  Almost every byte that `010-lib.fth` builds by
-hand — every opcode in a `constant` or `create` body, every `CALL`
-and rel32 that `comma-call` lays down in Ch 11 — travels through `c,`
-(or one of its multi-byte cousins `,4` and `,8`, which call `c,` four
-or eight times).  The seed's own machine-code words are the
+hand travels through it: every opcode in a `constant` or `create`
+body, every `CALL` and rel32 that `comma-call` lays down in Ch 11.
+The multi-byte cousins `,4` and `,8` just call `c,` four or eight
+times.  The seed's own machine-code words are the
 exception: `:` builds each dictionary header, the REPL lays down each
 compiled `CALL`, `;` appends the `RET`, and `,` and `[lit]` store
 their 8-byte cells, all by writing through the HERE cell directly.
 They follow the same read-write-advance pattern; they just don't
-call `c,`.  Part III's C compiler runs a parallel emission path of
-its own — its `cc-emit-byte` writes into an arena buffer rather than
-HERE — but the *idea* is the
-same: a single one-byte primitive at the bottom of the world.  This is
-the first word after the file header because it is the word everything
-else in `010-lib.fth` builds on.
+call `c,`.  Part III's C compiler has its own emitter,
+`cc-emit-byte`, which writes into an arena buffer rather than HERE,
+but the idea is the same: one one-byte primitive at the bottom.
 
 ## Canonical source
 
@@ -174,7 +155,7 @@ scratch my-here !
 scratch 3 type   \ prints "ABC"
 ```
 
-`my-c,` mirrors the seed's `c,` — it reads a private pointer, stores
+`my-c,` mirrors the seed's `c,`: it reads a private pointer, stores
 a byte, increments the pointer, and writes it back.  The three
 literals 65, 66, 67 (ASCII `A`, `B`, `C`) land at `scratch`, and
 `type` prints them.
@@ -215,16 +196,15 @@ with `c@` and print it with `emit`.  The seed should print `ABC`.
 
 ## Takeaways
 
-- `c,` is the library's byte emitter: every hand-built `constant`
-  or `create` body and every `CALL` that `comma-call` lays down
-  passes through it.  The seed's machine-code words (`:`, `;`, `,`,
-  `[lit]`, and the REPL's `CALL` emitter) write HERE directly.
-- The sysvar page at 0x413000 is hard-coded throughout `010-lib.fth`
-  by absolute address.  When 000-seed.hex0 changes layout, those
-  literals must be updated in lockstep.
-- Forth's "compiler" is not a separate program.  It is a chain of
-  Forth words that ultimately write at HERE.  The C compiler in Part III
-  follows the same shape with its own emitter.
+- `c,` stores a byte at HERE and advances HERE, and every byte the
+  library emits by hand passes through it (the seed's own `:`, `;`,
+  `,`, and `[lit]` write HERE directly).
+- `here-addr` hard-codes the HERE cell's address on the sysvar page,
+  so it must change in lockstep with any layout change in
+  `000-seed.hex0`.
+- Forth's compiler is not a separate program but a chain of words
+  that write at HERE, a shape the Part III C compiler repeats with
+  its own emitter.
 
 Next: Chapter 3 — Logic from One Primitive, where we use `nand` (and
 nothing else) to build the full Boolean vocabulary.

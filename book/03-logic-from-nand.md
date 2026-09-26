@@ -7,45 +7,25 @@ Artifact after this chapter: a complete Boolean toolkit on top of one primitive.
 Proof link: Ch 6's classifiers and the lexer's compound tests (Ch 23) run on this toolkit, never re-derived.
 ```
 
-The seed keeps exactly one bitwise primitive, `nand`, and builds
-every other boolean operator on top of it in Forth.  This chapter
-defines `and` and `or` (lines 23–30 of `010-lib.fth`, the section
-header plus two short colon definitions) and uses them to motivate
-why a single primitive is enough.  Open `010-lib.fth` to that
-eight-line block; the rest of the chapter is the argument for the
-trade and a walk through the two derivations.  The bigger payoff,
-`not` and `xor`, falls out as exercises once you see how `nand
-dup nand` and De Morgan's law fit together.
+If you could keep exactly one bitwise primitive, which would you
+keep?
 
-By the end of the chapter you'll be able to explain why `nand`
-alone is functionally complete (every two-valued boolean function
-expressible from it), derive `and`, `or`, `not`, and `xor` from
-`nand`, and read a chained-nand expression and predict its truth
-table.  The hex bytes of the `nand_code` primitive in
-`000-seed.hex0` are Part II, Ch 15; the deeper "why not `and` plus
-`invert` separately" question is touched on here and fully covered
-when we read the seed in Part II.
+The seed has to answer that question because it lives inside a
+strict size budget: 2,040 bytes for the entire binary, where every
+primitive costs a dictionary slot and a few dozen bytes of machine
+code.  Cutting logic down to a single primitive is one of the moves
+that lets it fit.
 
----
+There's only one right answer: **`nand`** (or its dual, `nor`).
+`and` alone won't do it, nor will `or`, nor both together.  None of
+them can produce a negation, and without negation there's no way to
+flip a bit.
 
-If you could keep exactly one bitwise primitive in your CPU, which
-would you keep?
-
-The answer matters because the seed-forth project lives inside a
-strict size budget — 2,040 bytes for the entire seed binary, of
-which every primitive consumes both a slot in the dictionary and a
-few dozen bytes of machine code.  Cutting "logic" down to a single
-primitive is one of the moves that lets the whole project fit.
-
-There's only one right answer: **`nand`** (or its dual, `nor`).  And
-alone won't do it.  Or alone won't do it.  Even `and` plus `or`
-together won't do it.  None of those can produce a negation, and
-without negation you're stuck — there's no way to flip a bit.
-
-Pick `nand` and you can build everything: `not`, `and`, `or`, `xor`,
-all the predicates, all the boolean glue the rest of `010-lib.fth`
-will need.  In this chapter we build `and` and `or`.  The rest fall
-out as exercises.
+Pick `nand` and you can build everything the rest of `010-lib.fth`
+needs.  The library's boolean section (lines 23–30) defines just
+`and` and `or`; this chapter derives those two and then `not` and
+`xor` as a sidebar.  The machine code of `nand_code` itself is
+Ch 15.
 
 ## 1. Why "logic from nand" matters
 
@@ -113,8 +93,8 @@ value."  We just used it to undo the negation that the initial
 
 ## 3. `or` in six words
 
-OR is harder because the obvious approach — "NOT (NOT a AND NOT b)
-by De Morgan" — needs to negate each input separately, then combine,
+OR is harder because the obvious approach, "NOT (NOT a AND NOT b)"
+by De Morgan, needs to negate each input separately, then combine,
 then negate again.  Three NOTs plus an AND, where every NOT becomes
 a `dup nand`.  Mechanically:
 
@@ -151,14 +131,14 @@ You can confirm this in the playground (see "Try it" below).
 The `swap` is the price of using a stack: with named arguments
 you'd write `~(~a & ~b)` and call it a day.  With a stack, you have
 to choreograph which value is on top when, and `swap` is how you do
-it.  Get used to that — every Forth function reads partly as logic
-and partly as a stack-shuffle plan.
+it.  Every Forth definition reads partly as logic and partly as a
+stack-shuffle plan.
 
 ## 4. Sidebar: `xor` and `not`
 
 `010-lib.fth` doesn't define `xor` or `not` because nothing in the
 codebase needs them.  But they're worth deriving once so you know
-the seed isn't *missing* anything — it just isn't paying for what
+the seed isn't *missing* anything; it just isn't paying for what
 no caller uses.
 
 **`not` in two words:**
@@ -174,7 +154,7 @@ How does `not` differ from `0=`?  `0=` is a seed primitive that
 returns `-1` if the input is exactly `0`, else `0`.  It produces
 *Forth* booleans (canonical `-1`/`0`).  `not` flips every bit; on
 input `0` it returns `-1`, on input `-1` it returns `0`, but on
-input `5` it returns `0xFFFFFFFFFFFFFFFA` — not a Forth boolean.
+input `5` it returns `0xFFFFFFFFFFFFFFFA`, which is not a Forth boolean.
 For arithmetic, use `not`; for predicate-chaining, use `0=`.
 
 **`xor` by reusing `or` and `and` (cheating):**
@@ -198,19 +178,13 @@ two inputs differ when at least one is set *and* not both are set.
 ```
 
 (`>r` moves the top of the data stack onto the return stack and
-`r>` moves it back; both are seed primitives.  This is a preview —
-Ch 4 introduces the return-stack family formally.)
+`r>` moves it back; both are seed primitives, and Ch 4 introduces
+them formally.)
 
 Four NANDs and some shuffling: nine tokens.  This is the form a
 textbook would show for "XOR using only NAND gates."  It's longer than the
-`or`/`and` version because we refuse to reuse intermediate logic
-words — we're proving NAND alone is enough, not optimising.
-
-```
-       __
-   __( o)>   "four NANDs for one XOR.  worth it for the punchline."
-   \___/
-```
+`or`/`and` version because it refuses to reuse intermediate logic
+words: the point is proving NAND alone is enough, not optimising.
 
 ## 5. What this buys
 
@@ -227,23 +201,21 @@ Compare against the alternative seed where `and`, `or`, `not` are
 each primitives.  Each saved primitive is:
 
 - one dictionary entry (link cell + flags byte + name length +
-  name bytes + body) — at minimum 10 + name-length bytes;
+  name bytes + body), at minimum 10 + name-length bytes;
 - a few dozen bytes of machine code for the body itself;
 - a slot in the assembly-time chain that maintains `LATEST`.
 
-Multiply by three saved primitives — `and`, `or`, `not` — and
+Multiply by three saved primitives (`and`, `or`, `not`) and
 you've saved roughly 100 bytes of seed binary plus three CALL
 targets, in exchange for adding eight extra tokens to a handful of
 Forth-level definitions that get called sparingly.
 
-This is the seed's central design move: **pick the primitives that
-buy you the most expressive power per byte**.  `nand` is one such
-primitive.  Ch 4's two's complement subtract turns `-` into another
-saved slot.  Ch 7's unsigned `/` lets one division primitive cover
-both arithmetic *and* sign-bit extraction, which lets every
-comparison operator be derived rather than primitive.  By the end
-of Part I you'll see this principle has been applied everywhere; it
-is what makes 2,040 bytes enough.
+The seed's rule is to **pick the primitives that buy the most
+expressive power per byte**.  `nand` is one.  Ch 4's two's-complement
+subtract saves another slot for `-`.  Ch 7's unsigned `/` covers both
+arithmetic *and* sign-bit extraction, so every comparison operator is
+derived rather than primitive.  Applied throughout, this rule is what
+makes 2,040 bytes enough.
 
 ## Canonical source
 
@@ -284,7 +256,7 @@ include book/playground.fth
 ```
 
 If you've built the seed (`./build.sh`), the same definitions work
-there too — but the seed's REPL doesn't strip `\` comments, so the
+there too, but the seed's REPL doesn't strip `\` comments, so the
 library has to be passed through `sed` first (the same trick
 `test.sh` uses).  Also, the seed's number parser is decimal and
 unsigned-only, and the seed has no `.` for printing, so we use
@@ -311,7 +283,7 @@ work, but is noisier to read).
    `nand` and confirm it yields `0` (false).  Repeat on `(-1, -1)`
    and confirm `-1` (true).
 
-2. **★★ Extend.** Define `xor ( a b -- a^b )` in terms of `nand` alone — no
+2. **★★ Extend.** Define `xor ( a b -- a^b )` in terms of `nand` alone, with no
    intermediate `and`/`or`.  Confirm with the four-row truth table.
    Compare your token count to the `(a or b) and (a nand b)` form.
 
@@ -332,13 +304,11 @@ work, but is noisier to read).
 
 ## Takeaways
 
-- `nand` is functionally complete: every boolean function is
-  expressible.
+- `nand` is functionally complete, so every boolean function can be
+  built from it.
 - `and = nand dup nand` and `or = dup nand swap dup nand nand` are
-  not clever — they are direct transcriptions of "double negation"
-  and "De Morgan's law."
-- Picking the right primitive saves bytes in the seed.  We will see
-  the same logic applied again in Ch 7 (comparisons from derived
-  subtraction plus one division primitive, `/`).
+  direct transcriptions of double negation and De Morgan's law.
+- Deriving operators instead of making them primitives saves seed
+  bytes, and Ch 7 applies the same trade to comparisons.
 
 Next: Chapter 4 — The Return Stack: `over` and Subtract.

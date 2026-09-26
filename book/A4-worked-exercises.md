@@ -1,7 +1,7 @@
 # Appendix D — Three worked exercises, one per Part
 
-The 32 main chapters end with 3–5 exercises each — roughly a
-hundred total, none with solutions printed inline (the point of
+The 32 main chapters end with 3–5 exercises each, roughly a
+hundred in total, with no solutions printed inline (the point of
 an exercise is the time you spend stuck).  This appendix is a
 *sampler*: one exercise from each Part, walked end to end.  The
 picks are one Extend and two Traces, chosen to show three
@@ -20,12 +20,12 @@ analytical "why is this enough?", and a step-by-step trace.
 
 > **Exercise (Ch 11 #3, ★★ Extend).**  Write `again, ( back-target -- )` which
 > emits an unconditional backward jump.  It is the simplest member
-> of this family — three lines.
+> of this family: three lines.
 
 ### What's being asked
 
 `begin,` already exists in `010-lib.fth` and leaves the
-*current* HERE on the stack — the address loops will eventually
+*current* HERE on the stack, the address loops will eventually
 branch back *to*.  `while,` and `repeat,` close a counted loop;
 they pop `begin,`'s address and emit a `0branch` back to it.
 
@@ -48,7 +48,7 @@ immediate
 `repeat,` does two jobs: it emits the unconditional backward jump
 (`swap branch-xt comma-call ,`), then patches the forward fixup that
 `while,` left so a failed test lands just past the loop.  `again,`
-needs only the first job — an infinite loop has no exit test, so there
+needs only the first job.  An infinite loop has no exit test, so there
 is no fixup to patch.  We keep the backward-jump half and drop the
 patch half.
 
@@ -62,7 +62,7 @@ patch half.
 immediate
 ```
 
-Three lines, as promised — plus the `immediate` every combinator
+Three lines, as promised, plus the `immediate` every combinator
 needs.  Leave it off and `again,` runs when `tick` *runs* instead
 of when it compiles: the colon compiler just emits a `CALL again,`,
 the loop body prints one `.`, and `again,` then appends a stray
@@ -76,8 +76,8 @@ again, ;`:
 
 When `branch_code` runs, it reads the inline cell as its new
 return address.  That cell holds `B`, the absolute address of the
-body's first byte, so control jumps back there — exactly the
-infinite loop you'd expect.
+body's first byte, so control jumps back there: the infinite
+loop you'd expect.
 
 ### Try it
 
@@ -98,7 +98,7 @@ Expected: stdout fills with `.` until the `timeout 1` kills it.
 The seed pays for `again,` exactly twice: once for the 5-byte
 `CALL branch_code`, once for the 8-byte inline target.  No
 runtime decision, no fixup stack, no condition.  This is the
-floor of the combinator family — everything else in Ch 11 is more
+floor of the combinator family; everything else in Ch 11 is more
 machinery on top of these two emits.
 
 ---
@@ -118,7 +118,7 @@ doesn't the body need a frame setup, a save/restore, an unwind?
 
 ### The trace
 
-When the REPL — or another colon definition — invokes our word
+When the REPL (or another colon definition) invokes our word
 `foo`, the dispatch is `CALL foo_body`.  That single x86
 instruction does two things:
 
@@ -127,10 +127,10 @@ instruction does two things:
 2. sets `rip` to `foo_body`'s first byte.
 
 Now we're executing inside `foo`.  Each line of the body is a
-further `CALL` — to `dup`, or `+`, or `emit`, or another colon
+further `CALL`: to `dup`, or `+`, or `emit`, or another colon
 word.  Each of those `CALL`s pushes another return address onto
-`rsp` and then `ret`s back — leaving `rsp` exactly where it was
-before each call.
+`rsp` and then `ret`s back, leaving `rsp` exactly where it was
+before the call.
 
 When the REPL's compile-mode handler (`;`) appended `C3` at the
 *end* of the body, it appended a single instruction that *pops
@@ -138,7 +138,7 @@ the top of `rsp` and jumps there*.  At the moment `ret` executes
 inside `foo`, the top of `rsp` is the return address that the
 *original* `CALL foo_body` pushed.
 
-So `ret` returns control to *whoever called `foo`* — the REPL,
+So `ret` returns control to *whoever called `foo`*: the REPL,
 or another colon body that contained `CALL foo`.
 
 ### Why this works (the deeper answer)
@@ -158,7 +158,7 @@ Two consequences fall out:
 
 1. `>r` and `r>` (Ch 4) work by stashing values onto the *same*
    `rsp` that the caller is using as its return stack.  This is
-   why they always come in matched pairs — leave them
+   why they always come in matched pairs.  Leave them
    unbalanced, and `ret` jumps to your stashed integer.
 2. The seed's `execute` (Ch 17) is literally `pop xt ; jmp xt`.
    It doesn't `call` because then the *xt-as-function* would
@@ -170,13 +170,12 @@ Two consequences fall out:
 If you replaced the `:` entry-point dispatch with `JMP foo_body`
 (instead of `CALL foo_body`), nothing would push a return address
 when `foo` started.  When `foo`'s terminating `ret` ran, it would
-pop whatever happened to be on `rsp` — the previous *unrelated*
-return address — and crash.
+pop whatever happened to be on `rsp` (the previous, *unrelated*
+return address) and crash.
 
 The book's `colon_code` is 103 bytes (Ch 18) but only ~12 of
-those build the *callable* part of the new word.  The `ret`
-appended by `;` is the punch line that the entire system is built
-to honour.
+those build the *callable* part of the new word.  The one-byte
+`ret` appended by `;` is all it takes to end one.
 
 ---
 
@@ -188,7 +187,7 @@ to honour.
 ### What's being asked
 
 `a - b - c` in C is `(a - b) - c`, not `a - (b - c)`.  The
-expression parser is a precedence cascade — recursive descent
+expression parser is a precedence cascade: recursive descent
 with one function per precedence level (Ch 27).
 Where in the recursion does left-associativity fall out?
 
@@ -221,9 +220,9 @@ From `100-cc-expr.fth` (Ch 27 §3 walks this in detail):
   cc-putback-token ;
 ```
 
-The accumulator is `rdi` — the seed VM's TOS register cache (Ch
+The accumulator is `rdi`, the seed VM's TOS register cache (Ch
 13 §4), which the compiler reuses as the expression-evaluation
-register.  The loop body is a `begin, … while, … repeat,` —
+register.  The loop body is a `begin, … while, … repeat,`:
 pure iteration, not recursion-on-tail.  Each pass of the loop:
 
 1. peeks the next token and asks "is it `+` or `-`?";
@@ -260,8 +259,8 @@ Start: `rdi` is the eval register; the input is `a - b - c`.
 5. Emit `pop rdi`.  rdi = `a - b`, rcx = `c`.
 6. Pop op; emit `sub rdi, rcx`.  rdi = `(a - b) - c`.
 
-**Loop iteration 3**: peek finds something that isn't `+` or `-`
-— exit the loop.  `cc-putback-token` returns the peeked token.
+**Loop iteration 3**: peek finds something that isn't `+` or `-`,
+so the loop exits.  `cc-putback-token` returns the peeked token.
 Final rdi = `(a - b) - c`.
 
 ### Where left-associativity comes from

@@ -23,7 +23,7 @@ The same chain in tabular form.  Each row is one rung; the
 
 | Stage | Input | Tool / producer | Output | Runs on | Verification | Trust notes |
 |---|---|---|---|---|---|---|
-| 0 | `000-seed.hex0` (27,002 bytes annotated; 2,040 machine bytes) | stage0-posix's 229-byte `hex0-seed` | `seed-forth` (2,040-byte x86-64 ELF) | Linux x86-64 | `wc -c seed-forth` → `2040`; `sha256sum` matches `131bf3ab…` | `hex0-seed` is externally trusted; any hex0-equivalent assembler reproduces the same bytes. |
+| 0 | `000-seed.hex0` (27,007 bytes annotated; 2,040 machine bytes) | stage0-posix's 229-byte `hex0-seed` | `seed-forth` (2,040-byte x86-64 ELF) | Linux x86-64 | `wc -c seed-forth` → `2040`; `sha256sum` matches `131bf3ab…` | `hex0-seed` is externally trusted; any hex0-equivalent assembler reproduces the same bytes. |
 | 1 | `seed-forth` + `010-lib.fth` | the seed Forth, extending itself | extended Forth in memory | same host | `./test.sh` | Self-hosted from seed primitives; no external compiler. |
 | 2 | extended Forth + `020-cc-arena.fth` … `120-cc-main.fth` + M2-Planet monolith C source | `seed-forth` running the compiler vocabulary | `cc-out-v1` (`/tmp/cc-out`, ~203 KB ELF) | same host | `[ -x /tmp/cc-out ]` and a smoke run | All compiler code is Forth source loaded by the seed; the monolith is built by `build-m2planet-monolith.sh`. |
 | A | `cc-out-v1` and `m2-ref` (GCC-built M2-Planet) | each compiles the M2-Planet source set | `self-v1-amd64.M1` and `self-ref-amd64.M1` (2,367,260 bytes) | same host | `cmp` — exits 0 iff byte-identical | Cross-validation: two independently built M2-Planet binaries must agree on output. |
@@ -34,7 +34,7 @@ The same chain in tabular form.  Each row is one rung; the
 | G | `hello.c` | `cc-out-v3-amd64`, then `M1` + `hex2` | `hello-amd64-elf` | same host | stdout is exactly `Hello from Forth-bootstrapped M2-Planet!` and exit code 0 | End-to-end smoke. |
 | 3 | every `test/test*/` program in M2-Planet | `cc-out-v1` and `m2-ref`, `--architecture x86` | one output per test from each | same host | each test: both outputs byte-identical, or both compilers reject it; anything else fails the script | Parity beyond the self-compile, on M2-Planet's own test suite. |
 
-Stage A — *byte-identity against the GCC reference* — is the
+Stage A, *byte-identity against the GCC reference*, is the
 proof the book builds toward.  `tests/cc/bootstrap-chain.sh` runs
 A–G once per architecture (`x86` and `amd64` by default; the table
 shows the amd64 names), then the Stage-3 test-suite parity once.
@@ -151,7 +151,7 @@ Reproduced on the reviewer's machine and recorded in
 ### Stage 0 and Stage A (default mode)
 
 ```text
-662ae174fd6c77909dbbfb275fc8b2aa5dda8608eac54f0e39ffc12ad5c12f2c  000-seed.hex0
+edc749e1dd1e3d4070af263d45475cbee350ca6f91dd26f6ca276432ae2b0f05  000-seed.hex0
 131bf3ab73917a5a1c39db8114ab5c20f12ca28627f3fdc969ee34d86e41dc74  seed-forth
 957ed9d9b1b7aa2a2abfbbf757086dbe2161f0b457b362c492bf78a7f0b4f101  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
@@ -162,7 +162,7 @@ assembler, which strips `;`-line-comments and whitespace before
 hex-decoding.  Edits limited to comments leave `seed-forth` (and
 every downstream artifact) byte-identical even when the
 `000-seed.hex0` hash changes.  The `seed-forth` hash is therefore
-the load-bearing reproducer checkpoint for Stage 0.
+the reproducer checkpoint that matters for Stage 0.
 
 ### Stages B–F (default mode, from `bootstrap-chain.sh`)
 
@@ -204,7 +204,7 @@ fail on the first byte and prove nothing.  What can agree is what
 they *emit*.  So the check is indirect: our Forth compiler built
 `cc-out-v1` from M2-Planet's source, and if `cc-out-v1` then emits
 the same `.M1` as `m2-ref` on the same input, our compiler
-translated M2-Planet faithfully — at least on every code path that
+translated M2-Planet faithfully, at least on every code path that
 input exercises.
 
 ## What the chain proves and does not prove

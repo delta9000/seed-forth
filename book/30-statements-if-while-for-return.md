@@ -7,66 +7,37 @@ Artifact after this chapter: codegen for blocks, branches, loops, switch, return
 Proof link: Stage-A control flow uses emit, remember, patch at statement scale.
 ```
 
-This chapter installs the statement compiler: the layer that turns
-expressions into branches, loops, switches, returns, labels, and
-fallthrough.  It covers `110-cc-decl.fth` lines 626–1497.  At the
-top sits the `cc-parse-stmt` dispatcher, with its `IDENT ':'`
-lookahead that distinguishes label definitions from expression
-statements.  The specialised parsers `cc-parse-if`,
-`cc-parse-while`, `cc-parse-for`, `cc-parse-do-while`, and
-`cc-parse-switch` each replay Ch 11's fixup-on-the-stack pattern,
-now with x86-64 `jz` / `jmp` placeholders in place of Forth
-`0branch` / `branch`.  Three tricks let that pattern scale:
-per-loop `break` / `continue` fixup lists saved across nested loops
-on the return stack, a `for`-step rewind that records the step's
-source range and re-parses it after the body, and a switch laid out
-in three passes (body in source order, dispatch table in reverse
-from a linked list of cases).
+An expression leaves a value in `rdi`.  A statement decides what
+runs next, and usually the place it needs to jump to has not been
+emitted yet.  `if` must skip a then-body it hasn't parsed; `while`
+must leave a loop whose end is still ahead; `break` must reach the
+end of whichever loop or switch encloses it.
 
-By the end you'll be able to read each statement parser, recognise
-its forward-fixup pattern, trace how `break`/`continue` thread
-through nested loops, walk the three passes of a switch, and
-explain why `cc-emit-jmp-vaddr` lives in this file rather than in
-`090-cc-emit.fth` (a layering choice, not a load-order
-requirement).  Function definitions, parameter lists,
-enums, typedefs, file-scope globals, and the top-level driver are
-all deferred to Ch 31.
+The answer in every case is Ch 11's emit-remember-patch pattern,
+now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
+instead of Forth `0branch` / `branch` cells.  This chapter covers
+`110-cc-decl.fth` lines 626–1497: the `cc-parse-stmt` dispatcher
+and the parsers it calls.  Three extensions let the pattern cover
+all of C's statements.  Per-loop `break` / `continue` fixup lists
+are saved across nested loops on the return stack.  A `for` loop
+records its step expression's source range and re-parses it after
+the body.  A `switch` emits its body first and its dispatch table
+afterwards, from a linked list of cases.
 
----
+Function definitions, parameters, enums, typedefs, file-scope
+globals, and the top-level driver are Ch 31's.
 
-Statements are control flow.  The parser sees keywords like
-`if`, `while`, `for`, `switch`, `break`, `continue`, `return`,
-`goto`, plus expression statements and compound `{}` blocks.
-Each dispatches to a specialised parser, which evaluates any
-embedded expressions via Ch 28's `cc-parse-expr` and emits
-control-flow instructions via Chs 25–26's encoders.
+The sections follow the source.  §1 is the statement trampoline,
+compound blocks, and `if`.  §§2–3 are the loop machinery (absolute
+backward jumps and the fixup lists), §§4–6 the loops and `switch`,
+§§7–8 `break`, `continue`, labels, and `goto`, and §9 the
+dispatcher.
 
-The recurring pattern is the *forward-fixup*: emit a conditional
-jump with a placeholder displacement, return when you know the
-target, and patch the placeholder.  We met it in Ch 11 (Forth
-combinators) and Ch 27 (logical operators).  This chapter is
-where it gets used at scale.
-
-**How this chapter is organized.**  The chapter walks the 851
-lines of statement parsing in `110-cc-decl.fth` in nine sections.
-Each section shows the relevant code and then walks it.  §1
-establishes the dispatch trampoline, the compound `{}` parser,
-and the simplest control statement (`if`/`else`).  §§2–3 are the
-machinery loops use: absolute backward jumps and the
-break/continue fixup lists.  §§4–6 are the loops themselves —
-`while`/`for`, `do`/`while`, and `switch`/`case`.  §§7–8 are the
-short statements that hook into the loop machinery: `break`,
-`continue`, labels, and `goto`.  §9 is the dispatcher
-`cc-parse-stmt` that ties the whole thing together.
-
-> The dispatch through `cc-parse-stmt-vec` is a trampoline
-> pattern: nested statement parsers call `cc-parse-stmt-tramp`,
-> which executes whatever the vec holds.  The vec is populated at
-> the end of this chapter's code (§9, `' cc-parse-stmt
-> cc-parse-stmt-vec !`), once `cc-parse-stmt` exists.  Ch 31
-> (functions and scope) is where you'll see the function-body
-> call site.  This chapter explains the statements themselves;
-> Ch 31 explains how they get invoked from a function body.
+Statement parsers call each other recursively (an `if` body is a
+statement), so they route through `cc-parse-stmt-vec`: nested
+parsers call `cc-parse-stmt-tramp`, which executes whatever the vec
+holds.  §9 fills the vec once `cc-parse-stmt` exists, and Ch 31
+shows the call from a function body.
 
 ## 1. `if` and `else`
 
@@ -137,12 +108,10 @@ variable cc-parse-stmt-vec
 
 ```
 
-`cc-parse-if` is the cleanest statement parser.  Read it once and
-you've seen the pattern that recurs in `while`, `for`, `do-while`,
-and `switch`: emit a placeholder branch, parse the body, patch the
-placeholder.
-
-The codegen shape is:
+`cc-parse-if` is the simplest statement parser, and its shape
+recurs in `while`, `for`, `do-while`, and `switch`: emit a
+placeholder branch, parse the body, patch the placeholder.  The
+emitted code is:
 
 ```
 test rdi, rdi
@@ -156,16 +125,12 @@ end:                   ; patch fixup #2 (only when else)
 ```
 
 `cc-emit-jz-rel32-placeholder` returns the file offset of its
-rel32 cell.  We carry it on the data stack across the recursive
-`cc-parse-stmt-tramp` call that emits the then-body (the
-trampoline preserves data-stack contents).  After the body,
-peek for `else`; if present, emit a second placeholder for the
-"jump over else" path, patch the first, recurse into the
-else-body, patch the second.  If absent, just patch the first.
-
-This is the same emit, remember, patch pattern from Ch 11, now at
-statement scale: the remembered value is a rel32 file offset in
-`cc-out-buf`, not an inline Forth cell in the dictionary.
+rel32 cell in `cc-out-buf`.  We carry it on the data stack across
+the recursive `cc-parse-stmt-tramp` call that emits the then-body;
+the trampoline leaves the data stack alone.  After the body, peek
+for `else`.  If it is there, emit a second placeholder for the
+jump over the else-body, patch the first, parse the else-body, and
+patch the second.  If not, patch the first and stop.
 
 ## 2. Loop helpers and absolute backward branches
 
@@ -293,6 +258,33 @@ variable cc-for-step-end
   cc-base-vaddr cc-out-pos @ +
   cc-walk-and-patch-to-vaddr ;
 
+```
+
+`if` has exactly one pending jump per branch, so the data stack
+holds it.  A loop can contain any number of `break`s, so each one
+is a node in a linked list instead.  Two list heads,
+`cc-break-stack-head` and `cc-continue-stack-head`, belong to the
+innermost loop.  On entry the parser saves the outer heads on the
+return stack and zeroes them.  Each `break` or `continue` in the
+body calls `cc-add-fixup-to-list` on the matching head.  When the
+loop ends, `cc-walk-and-patch-fixups` (or
+`cc-walk-and-patch-to-vaddr`, for a known target) patches every
+node's rel32.
+
+Each loop also snapshots `cc-switch-depth` into
+`cc-loop-switch-depth` (Ch 29 §6), so a `continue` buried inside
+a `switch` knows how many scrutinee pushes stand between it and
+the loop it continues.
+
+## 4. `while` and `for` (with step rewind)
+
+`cc-parse-while` is the plainest loop.  It records the top vaddr,
+parses the condition, emits a `jz` placeholder, parses the body,
+jumps back to the top, and patches the `jz`.  The outer fixup heads
+go onto the return stack on entry and come back on exit, so nested
+loops never see each other's fixups.
+
+```forth file=110-cc-decl.fth
 \ cc-parse-while ( -- )  'while' already consumed.
 \
 \ Codegen:
@@ -308,29 +300,6 @@ variable cc-for-step-end
 \ During the body, both heads are 0 (= empty list); break/continue stmts
 \ inside add forward-jmp fixup nodes that we patch at end-of-loop.
 : cc-parse-while
-```
-
-`while`, `for`, `do-while`, and `switch` each maintain two
-linked-list heads — `cc-break-stack-head` and
-`cc-continue-stack-head`.  When the parser enters a loop, it
-saves the outer heads on the return stack and resets to 0; the
-body's `break` and `continue` statements `cc-add-fixup-to-list`
-to whichever applies.  When the loop ends,
-`cc-walk-and-patch-fixups` walks the list and patches each
-fixup's rel32 to the appropriate target vaddr.
-
-This is the same fixup-on-the-stack pattern as Ch 11's `if,`,
-generalised to a list because there can be multiple `break`s in
-one loop.
-
-Each loop also snapshots `cc-switch-depth` into
-`cc-loop-switch-depth` (Ch 29 §6), so a `continue` buried inside
-a `switch` knows how many scrutinee pushes stand between it and
-the loop it continues.
-
-## 4. `while` and `for` (with step rewind)
-
-```forth file=110-cc-decl.fth
   \ Save outer break/continue list heads + loop switch-depth on rstack.
   cc-break-stack-head    @ >r
   cc-continue-stack-head @ >r
@@ -366,6 +335,26 @@ the loop it continues.
   r> cc-continue-stack-head !
   r> cc-break-stack-head    ! ;
 
+```
+
+`cc-parse-for` has the same skeleton with one complication.  The
+step expression appears in the source *before* the body but must
+run *after* it.  The parser handles this in eight moves:
+
+1. Parse the init expression normally.
+2. Record `cc-for-step-start = cc-src-pos` at the start of the
+   step.
+3. Scan forward to the matching `)` at the byte level, with
+   `cc-peek-char` / `cc-next-char` rather than the tokenizer.
+4. Record `cc-for-step-end` just before that `)`.
+5. Parse the body.
+6. Rewind `cc-src-pos` to `cc-for-step-start` and clamp
+   `cc-src-len` to `cc-for-step-end`, so the lexer stops at the
+   `)` as if it were end of file.
+7. Parse the step inside that window.
+8. Restore `cc-src-pos` and `cc-src-len`.
+
+```forth file=110-cc-decl.fth
 \ cc-parse-for ( -- )  'for' already consumed.
 \
 \ Grammar: 'for' '(' init? ';' cond? ';' step? ')' stmt
@@ -493,39 +482,11 @@ the loop it continues.
 
 ```
 
-`cc-parse-while` is the cleanest loop: emit the top label, parse
-the controlling expression, jump-forward placeholder if the test
-is zero, parse the body, unconditional jump back to the top,
-patch the forward placeholder.  Break and continue fixup heads
-are saved on the return stack on entry and restored on exit so
-nested loops do not see each other's fixups.
-
-`cc-parse-for` is the most intricate loop: the same pattern with
-one extra wrinkle.  The step expression appears textually
-*before* the body in source code, but must *execute* after the
-body.  The compiler handles this by:
-
-1. Parsing the init expression normally.
-2. Recording `cc-for-step-start = cc-src-pos` at the start of
-   the step.
-3. Scanning forward at the byte level (not the token level —
-   that's why `cc-peek-char` / `cc-next-char` are called
-   instead of `cc-next-token-keep`) until the matching `)`.
-4. Recording `cc-for-step-end` just before that `)`.
-5. Parsing the body normally.
-6. *Rewinding* `cc-src-pos` to `cc-for-step-start` and clamping
-   `cc-src-len` to `cc-for-step-end` so the lexer naturally
-   stops at the `)`.
-7. Parsing the step in that windowed source range.
-8. Restoring `cc-src-pos` and `cc-src-len`.
-
-The rewind trick is the only place in the compiler that moves
-the lexer backwards to *re-parse* source it has already compiled
-past.  It isn't the only backward move: the lookahead peeks
+This is the only place the compiler moves the lexer backwards to
+re-parse source it has already passed.  The lookahead peeks
 (`cc-peek-fnptr?` in Ch 29, `cc-peek-after-is-colon?` in §9, and
-the top-level peek in Ch 31) save `cc-src-pos`, read ahead, and
-restore it.  Those undo a read; this one replays code.  It's a
-careful piece of state management.
+the top-level peek in Ch 31) also save `cc-src-pos`, read ahead,
+and restore it, but they undo a read; the step rewind replays code.
 
 ## 5. `do`/`while`
 
@@ -590,6 +551,11 @@ heads are saved on entry, restored on exit.
 
 ## 6. `switch` with deferred dispatch
 
+`switch` doesn't fit the single-placeholder shape, because the
+dispatch table can't be emitted until every `case` has been seen.
+The compiler emits the body first and the table after it.  The
+layout comment and the case list come first:
+
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
 \ switch / case / default
@@ -651,6 +617,31 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   repeat,
   drop ;
 
+```
+
+Each `case` prepends a 24-byte node `{ K, body-vaddr, next }`, so
+`cc-emit-switch-dispatch` emits its `cmp rbx, K ; je body` pairs in
+reverse source order.  The order doesn't matter: C forbids two
+cases with the same `K`.
+
+`cc-parse-switch` then runs in seven steps:
+
+1. Evaluate the scrutinee and move it into `rbx`, a callee-saved
+   register, so calls in the body don't clobber it.
+   `cc-emit-push-rbx` preserves the outer `rbx` first.
+2. Emit a forward `jmp` to the dispatch table, which doesn't exist
+   yet.
+3. Parse the body inline, intercepting `case K :` (record
+   `(K, body-vaddr)`) and `default :` (record
+   `cc-switch-default-vaddr`).
+4. After the body, emit a `jmp end-A` and register it in the break
+   list.
+5. Patch the initial `jmp` to here and emit the dispatch chain.
+6. Jump to the default if there is one; otherwise emit another
+   `jmp end-A`.
+7. At end-A, walk the break list and emit `pop rbx`.
+
+```forth file=110-cc-decl.fth
 \ cc-parse-switch ( -- )  'switch' already consumed by cc-parse-stmt.
 \ Grammar:  switch ( expr ) { (case INT : | default : | stmt)* }
 \ The body is a single compound statement; we parse it inline rather than
@@ -750,40 +741,9 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
 
 ```
 
-`switch` doesn't fit the simple forward-fixup pattern because
-the dispatch table can't be emitted until *all* the cases have
-been collected.  The compiler's solution:
-
-1. Save the scrutinee in `rbx` (a callee-saved register — so
-   nested calls in the body don't trash it).  `cc-emit-push-rbx`
-   preserves the outer `rbx`.
-2. Emit a forward `jmp` to the dispatch table.  The dispatch
-   table doesn't exist yet — we'll patch this later.
-3. Parse the body inline, intercepting `case K :` (record
-   `(K, body-vaddr)` in `cc-switch-cases-head`) and `default :`
-   (record `cc-switch-default-vaddr`) as we go.
-4. After the body, emit a final `jmp end-A` (registered in the
-   break list).
-5. Patch the initial `jmp` to point here.  Emit the dispatch
-   chain (`cmp rbx, K ; je body-vaddr` for each case).
-6. After the dispatch chain, if there's a default, jump to it;
-   otherwise emit a final `jmp end-A`.
-7. End-A: walk the break list, patching every fixup to here.
-   `pop rbx` restores the outer scrutinee.
-
-Exits that bypass end-A — `return`, `continue`, `goto` — balance
-the `push rbx` themselves via `cc-emit-switch-unwind` (Ch 29 §6),
-driven by the `cc-switch-depth` counter that brackets the body
-parse here.
-
-The dispatch table walks the case list in *reverse source order*
-because the list is built via prepend.  That's fine because
-`case` semantics are order-independent (two cases with the same
-K is an error anyway).
-
-The case list is another small bounded table in linked-list form:
-collect simple records as they appear, then linearly replay them
-when the dispatch point is finally known.
+Exits that bypass end-A (`return`, `continue`, `goto`) balance the
+`push rbx` themselves through `cc-emit-switch-unwind` (Ch 29 §6),
+using the `cc-switch-depth` counter that brackets the body parse.
 
 ## 7. Break and continue
 
@@ -822,12 +782,18 @@ it's jumping out of, balancing each one's scrutinee `push rbx`.
 `break` never needs this: it targets the innermost loop or
 switch end label, so it never crosses a scrutinee push.
 
-There's no "break depth" tracking — the compiler assumes valid
-nesting.  A `break` outside any loop would add a fixup to the
-nearest non-loop frame's list and crash when no one walks it.
-M2-Planet's source doesn't trigger this.
+Nothing tracks break depth; the compiler assumes valid nesting.  A
+`break` outside any loop would add a fixup to a list that no loop
+walks.  M2-Planet's source never does this.
 
 ## 8. Labels and `goto`
+
+C labels are function-local.  The label table is four parallel
+arrays, the same shape as Ch 24's symbol table, capped at 64 per
+function and reset on function entry.  Each entry's payload is a
+vaddr (0 while undefined) and a list of pending `goto` fixups.
+Labels are unique within a function, so `cc-label-find`'s linear
+scan only has to find a match, not the newest one.
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
@@ -931,6 +897,18 @@ variable cc-label-find-needle-len
   \ Walk forward-fixup list, patch each to current pos.
   r> cc-label-fixup-of cc-walk-and-patch-fixups ;
 
+```
+
+`cc-define-label` binds the label to the current output position,
+then walks its fixup list and patches every forward `goto` to here.
+A second definition of the same name dies with status 81.
+
+`cc-parse-goto-stmt` is the other half.  If the label already has a
+vaddr, it emits an absolute backward `jmp` via `cc-emit-jmp-vaddr`.
+Otherwise it emits a placeholder and prepends a 16-byte node to the
+label's fixup list:
+
+```forth file=110-cc-decl.fth
 \ cc-parse-goto-stmt ( -- )  "goto" already consumed.  Grammar:  goto IDENT ;
 \
 \ If the target label is already defined, emit an absolute backward jmp.
@@ -970,33 +948,21 @@ variable cc-label-find-needle-len
 
 ```
 
-C labels are function-local.  The label table is parallel
-arrays (same shape as Ch 24's symbol table) capped at 64 per
-function.  `cc-label-count` is reset on function entry.
-
-This is the small-table pattern again, but the payload is a pending
-goto-fixup list instead of a type or value.  Labels are unique within
-a function, so the linear scan is for sufficiency rather than
-shadowing.
-
-`cc-parse-goto-stmt` consumes `goto IDENT ;` and dispatches:
-
-- If the target label is already defined (`vaddr != 0`), emit
-  an absolute backward `jmp` via `cc-emit-jmp-vaddr`.
-- If not, emit a forward-`jmp` placeholder and prepend the
-  patch offset to the label's `cc-label-fixup-of` list.
-
-Either way, it first unwinds every open switch scrutinee — which
-assumes the target label is not inside any `switch`.  A `goto`
-to a label inside any switch is unsupported (it would also need
-the scrutinee re-pushed, and M2-Planet's source never does it).
-
-`cc-define-label` is the matching definer: it sets the label's
-vaddr to the current `cc-out-pos`, then walks the fixup list
-patching each placeholder to here.  Duplicate definitions are
-caught (status 81).
+Either way, `goto` first unwinds every open switch scrutinee, which
+assumes the target label is not inside any `switch`.  A `goto` into
+a switch is unsupported; it would need the scrutinee re-pushed, and
+M2-Planet's source never does it.
 
 ## 9. The dispatcher
+
+A statement that starts with an identifier might be a label
+(`done:`) or an expression (`done = 1;`).  Telling them apart needs
+the token *after* the identifier, and the putback buffer
+(`cc-tok-pending`) holds only one.  So `cc-peek-after-is-colon?`
+saves the whole lexer and token state, reads one token, and
+restores everything unless that token is `:`.  This is the same
+save-and-restore discipline as Ch 29's `cc-peek-fnptr?`, with its
+own state slots so the two never collide.
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
@@ -1051,6 +1017,30 @@ variable cc-lookahead-save-tok-kw
     cc-lookahead-restore
   then, ;
 
+```
+
+`cc-parse-stmt` is one long `if, ... else,` chain on the leading
+token:
+
+1. Skip storage qualifiers.
+2. A basic type keyword (int/char/void/...) → `cc-parse-decl`.
+3. `struct` → `cc-parse-struct-local-decl`.
+4. `return`/`if`/`while`/`for`/`do`/`switch`/`break`/`continue`/
+   `goto` → the corresponding parser.
+5. `{` → `cc-parse-compound`.
+6. An `IDENT` has three subcases:
+   - it resolves to an `sk-typedef` → a typedef-led declaration
+     via `cc-parse-decl-with-base`;
+   - it is followed by `:` → a label, via `cc-define-label`;
+   - otherwise → an expression statement.
+7. Anything else → an expression statement.
+
+The seed has no `case` word, so the dispatch is a chain of nested
+`if,`s, one per leading-token test.  The last line points `cc-parse-stmt-vec`
+at the finished word, so every earlier call to
+`cc-parse-stmt-tramp` now reaches it.
+
+```forth file=110-cc-decl.fth
 \ cc-parse-stmt ( -- )  Dispatch on the leading token.
 \ Silently skip any leading storage-class / type-qualifier keywords
 \ (static, extern, const, volatile, ...).
@@ -1161,35 +1151,6 @@ variable cc-lookahead-save-tok-kw
 
 ```
 
-`cc-parse-stmt` is the giant `if, ... else,` chain that
-dispatches on the leading token.  Read top-down:
-
-1. Skip storage qualifiers.
-2. If basic type keyword (int/char/void/...) → `cc-parse-decl`.
-3. If `struct` → `cc-parse-struct-local-decl`.
-4. If `return`/`if`/`while`/`for`/`do`/`switch`/`break`/
-   `continue`/`goto` → dispatch to the corresponding parser.
-5. If `{` → `cc-parse-compound`.
-6. If `IDENT` — three subcases:
-   - It resolves to a `sk-typedef` → typedef-led declaration via
-     `cc-parse-decl-with-base`.
-   - Followed by `:` → label definition via `cc-define-label`.
-   - Otherwise → expression statement.
-7. Anything else → expression statement.
-
-The one-token peek after the consumed `IDENT` (to spot the `:` of a
-label) reuses `cc-peek-after-is-colon?` (defined just above the
-dispatcher).
-Its save-and-restore discipline is the same pattern we saw in
-Ch 29's `cc-peek-fnptr?` with different state slots so they
-don't collide.
-
-The final `' cc-parse-stmt cc-parse-stmt-vec !` is the
-trampoline-wiring move from Part III's pattern book: once the
-real word exists, point the vec at it so earlier code that
-called `cc-parse-stmt-tramp` now resolves to the right
-function.
-
 ## Try it
 
 **Small check:** choose one fixture below and trace the emitted
@@ -1204,13 +1165,12 @@ placeholder jumps and patches.
 
 **Bootstrap relevance:** Stage-A runs all statement forms in the
 large M2-Planet monolith, including nested control flow and labels.
-One statement path it leaves dark has its own gate:
-`tests/cc/B-switch-continue.c` exercises `continue` escaping a
-`switch` body, which once jumped out without popping the
-scrutinee's `push rbx` — a per-iteration stack leak that
-`cc-switch-depth` and `cc-emit-switch-unwind` now balance.
-M2-Planet's source never exits a switch that way, so the fix
-changed no Stage-A byte; the gate is the only check on the unwind.
+One statement path it never reaches has its own gate:
+`tests/cc/B-switch-continue.c` runs a `continue` that escapes a
+`switch` body.  Without the pop that `cc-emit-switch-unwind` emits,
+each iteration would leak the scrutinee's `push rbx`.  M2-Planet's
+source never exits a switch that way, so Stage-A cannot see this
+path; the gate is the only check on the unwind.
 
 ```sh
 tests/cc/stage-a-check.sh
@@ -1251,8 +1211,8 @@ The big M2-Planet monolith exercises all of them at once.
 
 The compiler can lower statements: blocks, `if`/`else`, `while`,
 `for`, `do`/`while`, `switch`/`case`/`default` with fall-through,
-`return`, `break`, `continue`, and `goto`/labels — all using the
-emit/remember/patch pattern from Ch 11 at statement scale.
+`return`, `break`, `continue`, and `goto`/labels, all with Ch 11's
+emit-remember-patch pattern.
 
 You can read `cc-parse-stmt`, explain how each control structure
 threads its branch fixups through a per-construct list, and trace
@@ -1267,15 +1227,8 @@ that branch.
 
 ## Takeaways
 
-- Every loop uses the same shape: save outer fixup heads, parse
-  the body, walk the break list at the end, walk the continue
-  list at the appropriate point.  The variation is purely in
-  *when* each walk fires.
-- The `for`-step rewind is the only place the parser re-parses
-  source it has already passed.  The other backward moves are
-  lookahead peeks that save and restore `cc-src-pos`.
-- The `cc-parse-stmt` dispatcher is the deepest nested `if`
-  chain in the codebase — fourteen branches.  The Forth seed
-  has no `case`, so this is what 14-way dispatch costs.
+- Every statement that jumps forward emits a rel32 placeholder and patches it once the target is known, keeping one pending offset on the data stack or many in a linked list.
+- Loops save the outer `break`/`continue` list heads on the return stack, so nested loops and switches each patch only their own fixups.
+- The `for`-step rewind is the one place the parser re-parses source it has already passed, and `switch` is the one construct that emits its body before its dispatch code.
 
 Next: Chapter 31 — Functions: Parameters, Calls, Globals, Entry Stub.

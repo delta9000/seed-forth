@@ -28,16 +28,15 @@ these as it needs them, in the order it needs them.
   `000-seed.hex0`, or the C compiler files and explain what it
   does, why it's shaped that way, and what would break if it
   weren't.
-- Run `./check-all.sh` and explain what each of its seven steps
+- Run `./check-all.sh` and explain what each of its eight steps
   proves about the artifact.
 - Audit the Stage-A parity claim yourself: rebuild the chain from
   the 229-byte hex0 trust root through the 2,040-byte seed, the
   Forth library, and the C compiler, and verify that the emitted
   `.M1` text matches a GCC-built reference byte-for-byte.
 - Read related codebases (M2-Planet, mescc-tools, stage0,
-  JONESFORTH, sectorforth) with confidence — this book trains the
-  muscle for dense low-level code in general, not just for this
-  artifact.
+  JONESFORTH, sectorforth) with confidence.  The skill of reading
+  dense low-level code carries over.
 - Know what you cannot do: the book is a manual for one specific
   chain, not a survey or a how-to-design-your-own.  Pointers to
   go further live in **Appendix E — Further Reading**.
@@ -78,15 +77,16 @@ git submodule update --init --recursive
 ./check-all.sh                  # build, tests, asm, C gates, tangle, numbers, Stage-A
 ```
 
-`check-all.sh` runs seven steps and prints one OK/SKIP/FAIL line
+`check-all.sh` runs eight steps and prints one OK/SKIP/FAIL line
 for each: `01-build` (the 2,040-byte seed), `02-test` (the layer
 smoke tests), `02a-asm` (three small assembler checks),
 `02b-gates` (the registered C-compiler gates), `03-tangle-strict`
 (book and source byte-identical), `04-book-numbers` (the prose's
-exact numbers against source), and `05-stage-a` (the byte-identical
+exact numbers against source), `04a-tryit` (every runnable
+Try-it block, run against the built seed), and `05-stage-a` (the byte-identical
 `.M1`).  `02a-asm` and `05-stage-a` need gcc and make and report
-SKIP without them; `04-book-numbers` needs python3.  If it ends
-with `check-all: all 7 steps PASS`, the codebase is reproducing the
+SKIP without them; `04-book-numbers` and `04a-tryit` need python3.  If it ends
+with `check-all: all 8 steps PASS`, the codebase is reproducing the
 canonical artifacts.  See
 **Troubleshooting** below if anything fails.
 
@@ -99,7 +99,7 @@ offset *n* in the source files.  Every fenced code block tagged
 `tools/tangle.sh verify --strict` passes, the book *is* the
 codebase.
 
-- **Part I (Chs 1–12)** walks `010-lib.fth` — the Forth library
+- **Part I (Chs 1–12)** walks `010-lib.fth`, the Forth library
   above the seed.  Run most examples in gforth; Chs 5, 10, and 11
   need a built seed.
 - **Part II (Chs 13–20)** opens the 2,040-byte seed itself.  By

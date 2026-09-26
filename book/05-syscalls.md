@@ -7,36 +7,19 @@ Artifact after this chapter: open, read, write, close, die.
 Proof link: the Stage-A driver writes its output via write; the compiler reads stdin via read.
 ```
 
-Five short wrappers in `010-lib.fth` (lines 40–62), `open`, `read`,
-`write`, `close`, and `die`, connect Forth to the Linux x86-64
-kernel through one primitive: `syscall6`.  The primitive loads
-`rax`, `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9` from the data stack
-and traps; each wrapper just pads any unused argument slots with
-`[lit] 0` and pins its own syscall number.  Open `010-lib.fth` to
-that 24-line block, and have `man 2 syscall` handy if you want to
-look up signatures while reading.  The chapter opens with a short
-sidebar on the syscall ABI (including the `rcx → r10` quirk for the
-fourth argument) and then reads the wrappers in turn.
+Forth can stand entirely above the OS: push numbers, run colon
+definitions, never touch a file.  A C compiler can't.  It has to read
+source files, write its output, and exit with a status code, and all
+of those go through Linux system calls.
 
-By the end of the chapter you'll be able to name the Linux x86-64
-syscall ABI and call it from Forth, explain why every wrapper pads
-with `[lit] 0` even when the syscall ignores those arguments, and
-write a new wrapper (e.g. `lseek`, `dup2`) by reading the Linux
-manpages alongside one existing wrapper.  The `syscall6_code`
-x86-64 implementation in the seed is Part II, Ch 16; reading and
-writing files end-to-end (we use `open`/`read`/`write` here, but
-the file-loading machinery sits in `030-cc-io.fth`) is Ch 21.
-
----
-
-Forth can stand entirely above the OS — push numbers, run colon
-definitions, never touch a file.  But the seed-forth project's whole
-point is to bootstrap a C compiler, and that means reading source
-files, writing object files, and exiting with a status code.  All of
-those go through Linux system calls.  This chapter shows the
-Forth-level wrappers that connect `010-lib.fth` to the kernel.  The
-machine-code primitive `syscall6` does the register-loading; the
-wrappers in this chapter just supply the arguments.
+The seed provides one way in, the primitive `syscall6`, which loads
+seven registers from the data stack and traps.  On top of it,
+`010-lib.fth` (lines 40–62) defines five wrappers: `open`, `read`,
+`write`, `close`, and `die`.  Each one pins its syscall number and
+pads the argument slots it doesn't use with `[lit] 0`.  Have
+`man 2 syscall` handy if you want to check signatures.  The machine
+code of `syscall6_code` is Ch 16, and the compiler's file-loading
+machinery in `030-cc-io.fth` is Ch 21.
 
 ## 1. A sidebar on the syscall ABI
 
@@ -62,7 +45,7 @@ the caller pass zeros for the slots a particular syscall doesn't use.
 
 The one quirk in that table is the 4th argument: most x86-64
 *function* calls use `rcx`, but syscalls use `r10`.  The reason is
-mechanical — the `syscall` instruction itself clobbers `rcx` (it
+mechanical: the `syscall` instruction itself clobbers `rcx` (it
 stashes the return address there).  The kernel ABI had to pick a
 different register for argument 4, and `r10` was the obvious choice
 because it's caller-saved and not used by the function ABI for
@@ -78,13 +61,12 @@ syscall6 ( a b c d e f n -- rax )
 ```
 
 Stack effect: pop seven values.  `n` is the syscall number (loaded
-into `rax`).  `a..f` are arguments 1–6, popped in that order from the
-top of the stack — but since Forth stack notation lists top-of-stack
-on the right, `a` is the *deepest* of the six and `f` is the topmost.
+into `rax`).  `a..f` are arguments 1–6.  Since Forth stack notation lists
+top-of-stack on the right, `a` is the *deepest* of the six and `f` is the topmost.
 The primitive arranges them into the right registers and executes
 `syscall`.
 
-## 2. `open` — three real args, three padding zeros
+## 2. `open`: three real args, three padding zeros
 
 The Linux `open(2)` syscall is `SYS_open = 2`.  It takes a path
 pointer, an integer flags mask (e.g. `O_RDONLY`, `O_WRONLY|O_CREAT`),
@@ -107,23 +89,23 @@ Trace it on input `( path flags mode -- )`:
 | `[lit] 2`   | `path flags mode 0 0 0 2`   |
 | `syscall6`  | `fd`                        |
 
-The three trailing zeros become `r10`, `r8`, `r9` — argument slots 4,
-5, 6 that `open` ignores.  Reading the `( a b c d e f n -- )`
+The three trailing zeros become `r10`, `r8`, `r9`: argument slots 4,
+5, 6, which `open` ignores.  Reading the `( a b c d e f n -- )`
 signature back onto our stack: `a=path`, `b=flags`, `c=mode`, `d=e=f=0`,
 `n=2`.  So `rdi=path`, `rsi=flags`, `rdx=mode`, `rax=2`.  That's
 exactly the Linux ABI for `open`.
 
-The parameter order in the wrapper matches the C signature — `open(path,
-flags, mode)` — which is the natural reading order, even though it
+The parameter order in the wrapper matches the C signature,
+`open(path, flags, mode)`, which is the natural reading order, even though it
 means the path sits deeper on the stack than mode.  When you call
 `open` from Forth, push the arguments in C-source order; the wrapper
 handles the rest.
 
-## 3. `read` and `write` — a symmetric pair
+## 3. `read` and `write`: a symmetric pair
 
 These are the I/O syscalls every program uses sooner or later.
-`SYS_read = 0`, `SYS_write = 1`.  Both take the same three arguments —
-file descriptor, buffer address, byte count — and return the actual
+`SYS_read = 0`, `SYS_write = 1`.  Both take the same three arguments
+(file descriptor, buffer address, byte count) and return the actual
 number of bytes transferred.
 
 ```forth
@@ -138,7 +120,7 @@ The wrappers are structurally identical; only the syscall number
 differs.  Both pad three zeros for the unused 4th/5th/6th argument
 slots.
 
-Two subtleties worth flagging:
+Two subtleties:
 
 - The return value `n` can be less than `count`.  A `read` from a pipe
   may return fewer bytes than requested if more haven't arrived yet;
@@ -149,17 +131,11 @@ Two subtleties worth flagging:
   via `die`.
 
 - A negative `n` indicates an error, with the magnitude being a Linux
-  errno code (e.g. `-9` for `EBADF`).  The seed does not distinguish
-  errors from short reads in Forth — that decision is made at the
-  call site, usually by a "did we get the bytes we expected?" check.
+  errno code (e.g. `-9` for `EBADF`).  The wrappers do not distinguish
+  errors from short reads; the call site decides, usually by a "did
+  we get the bytes we expected?" check.
 
-```
-   ,___,
-   [o,o]   "no retry loop here.  silent partial writes have ruined
-   (")_)    good projects.  the caller is responsible."
-```
-
-## 4. `close` — one real arg, five padding zeros
+## 4. `close`: one real arg, five padding zeros
 
 ```forth
 \ close ( fd -- err )                SYS_close=3
@@ -167,22 +143,19 @@ Two subtleties worth flagging:
 ```
 
 `close` takes only an `fd`, so we pad five zeros.  The wrapper looks
-disproportionately wide for the work it does — 13 tokens to call a
-syscall that takes one argument — but `syscall6` doesn't know which
+disproportionately wide for the work it does (13 tokens to call a
+syscall that takes one argument), but `syscall6` doesn't know which
 argument slots matter.  The kernel happily ignores `rsi..r9` when the
 syscall doesn't reference them, but the primitive still has to put
 *something* in those registers.  Padding with zeros is the cheapest
 choice.
 
-Why not specialise — make `syscall1`, `syscall2`, ..., `syscall6` so
-each wrapper has exactly the right arity?  Two reasons.  First, every
-specialisation costs a primitive slot (dictionary header + machine
-body), the same calculation we walked in Ch 3 and Ch 4.  Second, the
-"pad with zeros" pattern is fine because zeros are free — `[lit] 0` is
-two tokens, and there are at most five of them per wrapper.  Cheaper
-than another primitive.
+Why not specialise, with `syscall1`, `syscall2`, ..., `syscall6` so
+each wrapper has exactly the right arity?  Every specialisation costs
+a primitive slot (the Ch 3 trade again), while `[lit] 0` is two
+tokens and there are at most five of them per wrapper.
 
-## 5. `die` — exit unconditionally
+## 5. `die`: exit unconditionally
 
 ```forth
 \ die ( n -- )  Exit with status n via SYS_exit=60.
@@ -191,8 +164,8 @@ than another primitive.
 
 `die` is the C compiler's only error path.  No exceptions, no
 `longjmp`, no error-return convention bubbling up through every
-caller.  When something goes wrong — an unexpected token, a missing
-file, a malformed type — the offending word prints a brief message
+caller.  When something goes wrong (an unexpected token, a missing
+file, a malformed type), the offending word prints a brief message
 (or doesn't) and calls `die` with an exit status.  The kernel reaps
 the process.
 
@@ -202,15 +175,15 @@ says `( n -- )` rather than `( n -- err )` because `die` never
 returns; control transfers to the kernel and the Forth interpreter is
 gone.
 
-A typical error path in Part III's C compiler eventually reads, in
-the control-flow combinators of Ch 11, like
+A typical error path in Part III's C compiler, written with the
+control-flow combinators of Ch 11, reads like
 
 ```
 unexpected? if, [lit] 1 die then,
 ```
 
-— "if the unexpected? predicate is true, push exit status 1 and die."
-No cleanup, no resource release; the OS handles that when the process
+meaning "if the unexpected? predicate is true, push exit status 1
+and die."  No cleanup, no resource release; the OS handles that when the process
 exits.  This is a deliberate simplification: the C compiler is a
 one-shot tool that runs, produces an ELF binary, and exits.  Nothing
 it allocates needs to live past its own lifetime.
@@ -296,12 +269,12 @@ This stores byte `65` (`A`) at HERE, then calls
 
 ## Takeaways
 
-- The Linux x86-64 syscall ABI is one register-loading convention
-  away from being just another function call.
-- One primitive (`syscall6`) plus per-syscall wrappers is enough to
-  reach all of Linux from Forth.  No `libc`, no `mmap`-magic; just
-  CPU registers and a `syscall` instruction.
-- `die` is the entire error-handling story.  We will see it in
-  every codepath from Part III onwards.
+- A Linux x86-64 syscall is a register-loading convention (number in
+  `rax`, arguments in `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`) plus
+  the `syscall` instruction.
+- One primitive, `syscall6`, plus zero-padded wrappers reaches every
+  syscall the compiler needs without `libc`.
+- `die` is the compiler's entire error-handling story: exit with a
+  status and let the kernel clean up.
 
 Next: Chapter 6 — Character Classification.

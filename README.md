@@ -15,10 +15,10 @@ From the repository root:
 
 ```sh
 git submodule update --init --recursive
-./check-all.sh                 # build + test + tangle --strict + stage-A
+./check-all.sh                 # build + tests + tangle --strict + book checks + stage-A
 ```
 
-`check-all.sh` is a wrapper that runs the four canonical checks
+`check-all.sh` is a wrapper that runs eight steps
 with per-step OK/SKIP/FAIL output; Stage-A is skipped (not failed)
 if `gcc`/`make` aren't installed.  For diagnosing a failure, the
 individual commands are:
@@ -27,6 +27,8 @@ individual commands are:
 ./build.sh
 ./test.sh
 tools/tangle.sh verify --strict
+tools/check-numbers.py
+tools/check-tryit.py
 tests/cc/stage-a-check.sh
 ```
 

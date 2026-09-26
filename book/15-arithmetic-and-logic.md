@@ -7,34 +7,21 @@ Artifact after this chapter: the arithmetic and logic primitives' machine code (
 Proof link: the *unsigned* division and sign-extraction here are exactly what Ch 7's comparisons rest on.
 ```
 
-The arithmetic primitives are *small*.  `plus_code`, `nand_code`,
-and `zeq_code` sit at lines 153–170 of `000-seed.hex0`; `divide_code`,
-the `/` dictionary entry, and `star_code` are tucked further down at
-lines 649–683 (with `r_at_code`, the stack op already covered in
-Ch 14, sandwiched between them in source order).  Together they
-encode `+`, `nand`, `0=`, `/`, and `*` in 70 bytes total: every
-two-operand primitive reads `[rbp]`, modifies `rdi` in place,
-advances `rbp`, and returns.  `0=` is unary — it touches only
-`rdi`.  Open `000-seed.hex0` to lines 153–170 and 649–683 with
-Ch 14's data-stack convention (`rdi` = TOS, `[rbp]` = under-TOS) in
-mind.
+Ch 3 built every logic operation from `nand`, and Ch 7 built signed
+comparisons from unsigned division.  Neither chapter looked inside
+the primitives it leaned on.  This one does: `+`, `nand`, `0=`, `/`
+and `*`, 70 bytes of x86-64 in total.  `plus_code`, `nand_code` and
+`zeq_code` are at lines 153–170 of `000-seed.hex0`; `divide_code`,
+the `/` dictionary entry and `star_code` are at lines 649–683, with
+Ch 14's `r_at_code` between them.
 
-By the end you'll be able to read the x86-64 encoding of `+`,
-`nand`, `0=`, `/`, and `*` byte for byte, explain why `/` is
-*unsigned* (`DIV` rather than `IDIV`) and what that choice buys us
-for Ch 7's signed-comparison trick, and predict the bytes that
-`nand` and `+` will produce from any two 64-bit inputs.  The
-Forth-level wrappers that chain these primitives, like `-` (which
-chains `nand` and `+`) and the comparison operators that lean on
-unsigned `DIV` to extract a sign bit, are already covered in Chs 4
-and 7; this chapter stays at the machine-code layer below them.
-
----
-
-Here is that 70-byte total, itemised: `+` and `nand` are 9 and 12
-bytes, `0=` is 15, and `divide_code` and `star_code` are 18 and 16.
-Each follows the same Ch 14 stack-primitive pattern, with one extra
-step in the middle that actually computes something.
+`+` and `nand` are 9 and 12 bytes, `0=` is 15, and `divide_code` and
+`star_code` are 18 and 16.  Each binary primitive follows Ch 14's
+pattern with one computing step in the middle: read the second
+operand from `[rbp]`, combine it into `rdi`, release the slot,
+return.  `0=` is unary and touches only `rdi`.  The one choice that
+matters outside this chapter is that `/` is *unsigned* (`DIV`, not
+`IDIV`), because Ch 7's sign-bit trick depends on it.
 
 ## 1. `+` in 9 bytes
 
@@ -88,12 +75,9 @@ C3               ret
 single register with no second operand — it just flips every bit.
 Cost: 3 bytes (REX + opcode + ModR/M).
 
-This is exactly the primitive that made Ch 3 — "Logic from one
-primitive" — possible.  At the Forth layer we built `and`, `or`,
-`not`, and `xor` out of `nand` and `dup`.  Now we see what those
-Forth definitions *compile to*: a `CALL` to the 12 bytes above,
-preceded and followed by whatever stack-shuffling `dup nand` etc.
-expand to.
+These 12 bytes are what Ch 3 stands on.  The Forth-level `and`,
+`or`, `not` and `xor` built there compile to `CALL`s to this body,
+surrounded by whatever stack shuffling `dup nand` and friends need.
 
 ## 3. `0=` in 15 bytes
 
@@ -124,14 +108,14 @@ low byte of a register), so we have to clear the high 56 bits with
 rdi` is the cheapest way to turn `0/1` into `0/-1`: `-0 == 0` and
 `-1 == 0xFFFFFFFFFFFFFFFF` in twos-complement.
 
-If you wondered in Ch 6 why `digit?` returned `-1`/`0` rather than
-`1`/`0` — this is why.  The seed's only equality primitive emits
-that convention, and every higher layer keeps it.
+This is why Ch 6's `digit?` returns `-1`/`0` rather than `1`/`0`:
+the seed's only equality primitive produces that convention, and
+every higher layer keeps it.
 
 The `40` prefix on `sete dil` is a *REX prefix with no bits set*.
 On x86-64, accessing the low byte of `rdi` (named `dil`) requires
-this prefix; without it, the encoding would target the legacy
-register `bh`, which doesn't make sense here.
+this prefix; without it, the same encoding names the legacy
+register `bh`.
 
 ## 4. `/` and the `DIV` instruction
 
@@ -168,8 +152,8 @@ ret
 Note: **unsigned**.  `DIV` interprets both operands as unsigned
 64-bit integers.  If you pass a negative dividend (in two's-
 complement, the high bit set), `DIV` treats it as a huge positive
-number — and that is exactly the behaviour Ch 7 leans on to extract
-the sign bit: unsigned `n / 2^63` is `1` when the top bit is set
+number.  That is the behaviour Ch 7 relies on to extract the sign
+bit: unsigned `n / 2^63` is `1` when the top bit is set
 and `0` when it isn't.  Signed division (`IDIV`) would defeat that
 trick.
 
@@ -189,11 +173,10 @@ E9 DE FF FF FF                              ; jmp divide_code (rel = 0x710 - 0x7
 
 ```
 
-The dictionary entry layout (`link / flags / nlen / name / jmp body`)
-is the same shape we'll spell out in Ch 17.  Here it's worth pointing
-out only that `/` sits in source order *after* `syscall6`'s entry,
-and chains backwards through `link = 0x4006F9` (the syscall6 entry
-address).
+Ch 17 explains the entry layout (`link / flags / nlen / name / jmp
+body`).  The one thing to note here is that `/` follows `syscall6`'s
+entry in the source and links back to it through
+`link = 0x4006F9`.
 
 ## 5. `*` and the `IMUL` instruction
 
@@ -209,38 +192,38 @@ C3                                        ; ret
 ```
 
 `IMUL r64, r/m64` is the two-operand form: `rax *= [rbp]`,
-discarding the high 64 bits of the 128-bit product.  Signed or
-unsigned doesn't matter for the low half — they agree.
+discarding the high 64 bits of the 128-bit product.  Signed and
+unsigned multiplication agree on the low half, so the distinction
+doesn't matter here.  The body routes the product through `rax` by
+choice: two-operand `IMUL` works on any register, and
+`imul rdi, [rbp]` would do the job in fewer bytes.
 
 The high half *is* lost.  If you multiply two 33-bit positive
 integers, the true product has 66 bits and the top two are gone.
 For the C compiler in Part III this is acceptable: the language's
 `int` is 64-bit and overflow is undefined.
 
-There is no `*` dictionary entry yet in the source range we're
-reading; it sits near the end of the file along with the other
-late additions (`r@`, `state`, `latest`, `'`).  We'll meet it in
-Ch 17 as part of the `<<late-dicts>>` chunk.
+`*`'s dictionary entry is not next to its body.  It sits at the end
+of the file with the entries for `r@`, `state`, `latest` and `'`,
+in the `<<late-dicts>>` chunk that Ch 17 shows.
 
 ## 6. What's not here
 
 The seed exposes five arithmetic primitives.  It does *not* have:
 
-- `MOD` — derivable from `/`: `: mod  2dup / * - ;`.
-- `>` or `<` or any signed comparison primitive — Ch 7 builds them
-  from `-` and the unsigned-`/` sign-bit trick.
-- shift operators (`SHL`, `SHR`, `SAR`) — the seed doesn't need
-  them; the C compiler emits them inline.
-- bitwise OR, AND, XOR as separate primitives — Ch 3 derived them
-  from `nand`.
+- `MOD`, derivable from `/`: `: mod  2dup / * - ;`.
+- `>`, `<` or any signed comparison; Ch 7 builds them from `-` and
+  the unsigned-`/` sign-bit trick.
+- Shift operators (`SHL`, `SHR`, `SAR`).  The seed doesn't need
+  them, and the C compiler emits them inline.
+- Bitwise OR, AND and XOR; Ch 3 derives them from `nand`.
 
-Every omission saves about 10 + name-length bytes of dictionary
-header plus a primitive body of 8–15 bytes.  Five omissions ≈
-100 bytes saved.
+Every omission saves a `15 + name-length`-byte dictionary entry
+(header plus JMP stub, Appendix A) and a primitive body of 8–15
+bytes.  Five omissions save well over 100 bytes.
 
-The pattern from Ch 3 holds: keep the *one* primitive that lets you
-build the rest, and pay for the rest with Forth-level definitions
-whose runtime cost is incurred only when they are actually called.
+This is Ch 3's approach again: keep the one primitive that lets you
+build the rest, and write the rest in Forth.
 
 ## Try it
 
@@ -259,8 +242,8 @@ echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
   echo "[lit] 0 0= [lit] 48 - emit bye"
 } | grep -v '^[[:space:]]*$' | ./seed-forth
 # 0= on 0 returns -1 (the canonical Forth true).  Library-level `-`
-# (Ch 4) computes -1 - 48 = -49; emit's low byte is 0xCF — non-printable,
-# so spot it with `| xxd | head -1`.
+# (Ch 4) computes -1 - 48 = -49; emit's low byte is 0xCF, which is
+# non-printable, so spot it with `| xxd | head -1`.
 ```
 
 ## Exercises
@@ -285,24 +268,18 @@ echo "[lit] 6 [lit] 7 * [lit] 48 + emit bye" | ./seed-forth
    one byte changes?  (Hint: `rdx`, not `rax`, holds the remainder
    after `DIV`.)
 
-5. **★★★ Verify.** The `40` prefix on `sete dil` puzzled some readers.  Try
-   assembling `sete bh` (no prefix) and `sete dil` (with the `40`
+5. **★★★ Verify.** Try assembling `sete bh` (no prefix) and `sete dil` (with the `40`
    prefix) using `nasm` or `as`; compare the encodings.  Why does
    the seed need the prefix?
 
 ## Takeaways
 
-- All five arithmetic primitives operate in-register on `rdi`; the
-  four binary ones load their second argument from `[rbp]` and pop
-  that slot (`0=` is unary and never touches `[rbp]`).  Only `/`
-  *needs* a scratch register: `DIV` implicitly uses `rdx:rax`.
-  `*` goes through `rax` by choice — two-operand `IMUL` works on
-  any register, and `imul rdi, [rbp]` would do the job in fewer
-  bytes.
-- Unsigned division is what makes Ch 7's sign-bit trick work, and
-  it's what x86 gives you most cheaply (`DIV`).
-- The primitives are silent about overflow and divide-by-zero —
-  the seed trusts the caller, and its only caller is
-  `010-lib.fth` (plus, eventually, the C compiler emitting code).
+- All five primitives work in place on `rdi`, and the four binary
+  ones take their second operand from `[rbp]` and release that slot.
+- `/` uses unsigned `DIV`, which is both the cheapest x86 division
+  and the property Ch 7's sign-bit trick depends on.
+- The primitives never check for overflow or divide-by-zero, because
+  the seed trusts its callers: `010-lib.fth` and the Forth code of
+  the C compiler.
 
 Next: Chapter 16 — I/O: `emit`, `key`, `syscall6`.

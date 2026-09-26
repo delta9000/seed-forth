@@ -7,33 +7,27 @@ Artifact after this chapter: the mental model the book runs on, plus six library
 Proof link: every line of 010-lib.fth reads on this notation; later chapters assume fluency.
 ```
 
-> "Forth is the language you would have invented if you were given a
-> computer with 4 KB of RAM and a weekend."
+You cannot read a line of `010-lib.fth` until you can read a Forth
+line at all, and Forth lines look nothing like C.  There are no
+expressions, no argument lists, and no return statements.  Two ideas
+replace all of them:
 
-This chapter teaches you the two ideas that everything in this codebase
-is built on:
+1. **The data stack.**  Forth has no operator precedence and no
+   parentheses.  Every computation pushes and pops values from one
+   shared stack.
+2. **Words.**  A "word" is what Forth calls a named, callable thing:
+   what C calls a function.  Every word takes its inputs from the
+   stack and leaves its outputs on the stack.
 
-1. **The data stack.**  Forth has no expressions, no operator
-   precedence, no parentheses.  Every computation pushes and pops
-   values from one shared stack.
-2. **Words.**  A "word" is what Forth calls a named, callable thing —
-   what C calls a function and Python calls a callable.  Every word
-   takes its inputs from the stack and leaves its outputs on the stack.
+That is the whole language model.  RPN feels odd for about twenty
+minutes and then stops feeling odd.  This chapter previews six words
+from `010-lib.fth` to build that fluency before Chapter 2 starts the
+systematic walk.
 
-That is the whole language model.  By the end of this chapter you
-will have *previewed* six words from `010-lib.fth` and built enough
-intuition to read the systematic walk that begins in Chapter 2.
-
-```
-       __
-   __( o)>   "RPN is going to feel weird for about twenty minutes.
-   \___/      then it's going to feel inevitable.  push through."
-```
-
-A navigation note before we start.  Every fenced code block tagged
-`file=<path>` in this book is the canonical source for that file —
-when the strict tangle check passes, those blocks reconstruct the
-checked-in `.fth` and `.hex0` files byte-for-byte.  In this chapter,
+Every fenced code block tagged `file=<path>` in this book is the
+canonical source for that file: when the strict tangle check passes,
+those blocks reconstruct the checked-in `.fth` and `.hex0` files
+byte-for-byte.  In this chapter,
 the only canonical block is `010-lib.fth`'s file header, near the
 end of §1.3.  The six definitions we read in §§1.4–1.6 are
 *illustrative* here; their canonical, line-numbered, source-of-record
@@ -72,10 +66,10 @@ before reading any more code:
   off the stack and leaves one.  It is not built into the parser;
   it is a dictionary entry like any other.  In this codebase it is
   defined in `000-seed.hex0` as a 9-byte machine-code routine at
-  offset `0x1A1` — Chapter 15 will read its bytes.
+  offset `0x1A1`, whose bytes Chapter 15 reads.
 - **There is no "return value".**  A word "returns" by leaving things
   on the stack.  A word can leave zero, one, two, or any number of
-  values — and *which* word it is determines how many.
+  values, and *which* word it is determines how many.
 
 The last point is the one that takes adjustment.  In Python, `len(xs)`
 gives you one number back.  In Forth, the equivalent word might leave
@@ -129,7 +123,7 @@ The block above is tagged `file=010-lib.fth`.  When you run
 first nine lines of `/tmp/out/010-lib.fth`.  The book is the source.
 
 The two conventions in the header mention `[lit]` and "sysvar absolute
-addresses" — both will be explained in their own chapters.  For now,
+addresses"; both get their own chapters.  For now,
 treat them as warnings on the door: this file is allowed to assume
 nothing it does not say.
 
@@ -148,8 +142,8 @@ program needs `over`, so it is defined immediately in `010-lib.fth`:
 : over  >r dup r> swap ;
 ```
 
-Read the body slowly.  The trick uses a *second* stack — the return
-stack — which Chapter 4 will introduce in full.  For now, take it on
+Read the body slowly.  The trick uses a *second* stack, the return
+stack, which Chapter 4 introduces in full.  For now, take it on
 faith that `>r` moves the top of the data stack onto the return stack,
 and `r>` moves it back.  Trace it:
 
@@ -162,7 +156,7 @@ and `r>` moves it back.  Trace it:
 | `swap`| `a b a`      | `[ ]`        | swap top two            |
 
 We end with `( a b a )`, exactly as the comment promised.  Do not worry
-yet about *why* `>r r>` exists at all — only that the trick works.
+yet about *why* `>r r>` exists at all, only that the trick works.
 
 This is also your first colon definition.  The syntax is
 
@@ -170,13 +164,13 @@ This is also your first colon definition.  The syntax is
 : NAME  body... ;
 ```
 
-— a colon, the name, the body (any sequence of words separated by
+that is, a colon, the name, the body (any sequence of words separated by
 whitespace), and a semicolon.  No commas, no parentheses, no return
 type, no argument list.  Forth's only metasyntactic feature is
 whitespace.
 
-Chapter 18 will tell you the full truth about `:` and `;` — that they
-are themselves ordinary words, that `:` builds a dictionary header and
+Chapter 18 tells the full truth about `:` and `;`: they
+are themselves ordinary words, `:` builds a dictionary header and
 switches the system into "compile mode", and that `;` appends a `ret`
 instruction and switches back.  You do not need that truth yet.  You
 do need to be comfortable with the syntax.
@@ -216,10 +210,9 @@ token is a decimal literal to be pushed."  Chapter 20 walks the parser
 that makes this work; for now, read `[lit] N` as "the number `N`".
 
 **Second**, this is your first hint of what makes the seed special.
-The whole bitwise universe — `and`, `or`, `xor`, `not` — and now
-subtraction itself, all derive from just `nand` + `+`.  The codebase
-does this everywhere, and the rest of Part I is mostly about watching
-the trick scale up.
+The bitwise operators (`and`, `or`, `xor`, `not`) and now
+subtraction itself all derive from just `nand` and `+`.  Much of
+Part I watches that trick scale up.
 
 ---
 
@@ -227,9 +220,8 @@ the trick scale up.
 
 Skipping ahead in the file past the syscall wrappers (Ch 5), the
 character classifiers (Ch 6), and the comparison operators (Ch 7),
-we arrive at the `===== Stack shuffles =====` section.  These are the
-last names you'll meet in this chapter; they round out the standard
-Forth shuffler vocabulary.
+we arrive at the `===== Stack shuffles =====` section.  These four
+round out the standard Forth shuffler vocabulary.
 
 ```forth
 \ nip ( a b -- b )  drop second-from-top.
@@ -245,7 +237,7 @@ Forth shuffler vocabulary.
 : 2drop drop drop ;
 ```
 
-Four definitions, four lines each, no surprises.  Try `rot` on paper
+Four one-line definitions, no surprises.  Try `rot` on paper
 before reading the trace:
 
 <details>
@@ -262,10 +254,8 @@ before reading the trace:
 Net effect: `( a b c -- b c a )`.  ✓
 </details>
 
-`2dup` is a little gem.  After the first `over` the stack reads
-`a b a`; after the second `over` it reads `a b a b`, which is exactly
-the pair duplicated.  This is the kind of "just trust the algebra"
-move that becomes natural after a week.
+After the first `over` in `2dup` the stack reads `a b a`; after the
+second it reads `a b a b`, which is exactly the pair duplicated.
 
 ---
 
@@ -319,8 +309,8 @@ built-ins), paste them in:
 : 2drop drop drop ;
 ```
 
-gforth will print `redefined over redefined - ...` warnings — that is
-expected, you are deliberately shadowing the built-ins with the seed
+gforth will print `redefined over redefined - ...` warnings.  That is
+expected: you are deliberately shadowing the built-ins with the seed
 definitions.  Now `10 3 -` runs the seed's two's-complement-via-nand
 implementation, not gforth's native subtract, and produces the same 7.
 
@@ -340,7 +330,7 @@ git submodule update --init --recursive
 `000-seed.hex0` into the executable Forth.  Part II, starting in
 Chapter 13, explains those bytes; for now, treat them as a black box.
 `test.sh` exercises the
-words you just read — `over`, `-`, `nip`, etc. — by feeding
+words you just read (`over`, `-`, `nip`, and the rest) by feeding
 `010-lib.fth` plus `test-010-lib.fth` into the seed.
 
 Open `test-010-lib.fth` and read the assertions.  You will see the
@@ -356,9 +346,9 @@ Whichever path you take, you can verify the literate side:
 tools/tangle.sh verify
 ```
 
-That extracts every code block tagged `file=...` from the book —
-for `010-lib.fth`, one block per Part I chapter, starting with the
-single block in this chapter — and checks that each one appears, in
+That extracts every code block tagged `file=...` from the book
+(for `010-lib.fth`, one block per Part I chapter, starting with the
+single block in this chapter) and checks that each one appears, in
 order, in the real source file.  Coverage is 100% today, and
 `tools/tangle.sh verify --strict` passes: the book *is* the source.
 
@@ -397,19 +387,14 @@ Solutions appear in Appendix D.
 
 ## 1.9  Takeaways
 
-- Forth has one data stack.  Every word consumes and produces values
-  on that stack.
-- Stack-effect comments `( before -- after )` are how you read Forth.
-  Read them; pencil them in when they aren't there.
-- A colon definition `: NAME  body ;` is the surface syntax for
-  defining a new word.  Treat it as "function definition" for now.
-- The codebase you are reading derives everything from a tiny set of
-  primitives.  `-` is built from `+` and `nand`; `over` from
-  `>r dup r> swap`; the bigger stack-shufflers from `over`.  The next
-  nine chapters widen that lens.
-- This book is literate.  The code blocks you read are the source.
-  `tools/tangle.sh verify` checks that the book and the source
-  agree.
+- Every Forth word takes its inputs from one data stack and leaves
+  its outputs there, and its stack-effect comment `( before --
+  after )` is how you read what it does.
+- A colon definition `: NAME  body ;` defines a new word as a
+  whitespace-separated sequence of existing words.
+- The library derives missing operations from a few primitives: `-`
+  from `+` and `nand`, `over` from `>r dup r> swap`, and the other
+  shufflers from `over`.
 
 Next: Chapter 2 — Code Emission and the HERE Pointer, where we begin
 the systematic walk of `010-lib.fth` from its first two definitions

@@ -7,55 +7,27 @@ Artifact after this chapter: arithmetic, comparison, bitwise, and logical binary
 Proof link: Stage-A binary expressions lower through one auditable cascade.
 ```
 
-This chapter installs the first half of the expression compiler: the
-binary-operator cascade.  It opens `100-cc-expr.fth` (1478 lines
-total) and also covers the scaffolding the rest of the file needs:
-a one-token putback layer (`cc-tok-pending`, `cc-next-token-keep`,
-`cc-putback-token`) so the parser can peek past a fold boundary
-without re-lexing, plus forward-reference vecs for the mutually
-recursive parsers.  The cascade itself runs through ten precedence
-layers from
-`cc-parse-mul` to `cc-parse-log-or`, every one the same
-left-associative loop emitting the same five-step codegen
-template (eval left, push, eval right, `pop rdi`, apply op).
+Given `a*b + c << d == e & f | g && h || i`, the compiler has to
+emit code that applies each operator in C's precedence order, and it
+has no expression tree to lean on: the lexer hands over one token at
+a time and the emitters write bytes immediately.  `100-cc-expr.fth`
+(1478 lines total) solves this with a *precedence cascade*: plain
+recursive descent with one word per precedence level.  Each word
+asks the next-tighter level for its operands, then loops over its
+own operators.  (This is not *precedence climbing*, which uses a
+single function and a table of binding powers; see Appendix E.)
 
-By the end you'll be able to read each precedence layer, follow the
-op-byte threaded through the return stack so the data stack stays
-free for recursive operand parsing, and predict the codegen for a
-mixed expression like `a*b + c << d == e & f | g && h || i` by
-walking the layers top-down.  Ch 28 picks up the right-associative
-tail (`cc-parse-ternary`, `cc-parse-assign`, `cc-parse-expr`) and
-the recursive-descent floor (`cc-parse-unary`, `cc-parse-primary`,
-plus the lvalue-tracking globals that `cc-emit-materialize` reads).
+This chapter covers the scaffolding the whole file needs, a
+one-token putback layer and forward references for the mutually
+recursive parsers, and then the ten binary layers from
+`cc-parse-mul` to `cc-parse-log-or`.  Eight of the ten follow one
+five-step template: evaluate the left operand, push it, evaluate the
+right, pop, apply the operator.  `&&` and `||` short-circuit, so
+they emit jumps instead.  Ch 28 covers the levels above the cascade
+(ternary, assignment, `cc-parse-expr`) and below it (unary, primary,
+and the lvalue tracking that `cc-emit-materialize` reads).
 
 ---
-
-```
-        ,_,
-   __(@___)___    "ten precedence levels, one pattern repeated.
-   ~~~~~~~~~~~~    read the pattern once.  the levels become
-                   variations on the same theme."
-```
-
-The lexer hands us tokens; the codegen hands us instruction
-encoders; this file is the bridge.  Given a token stream
-representing a C expression, it emits x86-64 machine code that
-leaves the expression's value in `rdi`.
-
-The interesting question is *how the precedence works*.  C has
-fifteen levels of operator precedence.  This file uses a
-*precedence cascade*: plain recursive descent with one function
-per precedence level.  Each function calls the next-tighter
-level for its operands, then loops on its own operators.  (This
-is not *precedence climbing*, which uses a single function and a
-table of binding powers; see Appendix E.)
-
-Ch 27 covers the binary cascade — ten layers from `mul` through
-`log-or` (mul, add, shift, rel, eq, bit-and, bit-xor, bit-or,
-log-and, log-or).  Ch 28 covers everything above and below: the
-top-level driver, the right-associative `=` and `?:`, the unary
-operators, and `primary` itself (where actual identifiers,
-literals, and calls live).
 
 ## 1. The root block: how the file is assembled
 
@@ -80,12 +52,11 @@ literals, and calls live).
 <<expr-top>>
 ```
 
-That single root-block defines the assembly order: header,
-putback layer, forward references, all the parsers in source
-order, top-level driver.  Each `<<name>>` expands to a chunk
-defined either in this chapter or Ch 28.  The tangler resolves
-the references and the result is byte-identical to the
-checked-in `100-cc-expr.fth`.
+The root block fixes the assembly order: header, putback layer,
+forward references, the parsers in source order, and the top-level
+driver.  Each `<<name>>` expands to a chunk defined in this chapter
+or in Ch 28, and the result is byte-identical to the checked-in
+`100-cc-expr.fth`.
 
 ## 2. File header and dependency comment
 
@@ -115,12 +86,11 @@ checked-in `100-cc-expr.fth`.
 
 ```
 
-The grammar comment is the file's contract.  The expression
-grammar shown is the *simplified* set: the actual file extends
-it with shift, bitwise, logical, ternary, and the postfix
-operators (`[]`, `.`, `->`, `()`, `++`, `--`).  The shape is
-the same: every production parses an operand at the next-tighter
-precedence, then loops on its own operator set.
+The grammar in the comment is a simplified version.  The file also
+handles shifts, bitwise and logical operators, the ternary, and the
+postfix operators (`[]`, `.`, `->`, `()`, `++`, `--`).  Every
+binary production has the same shape: parse an operand at the
+next-tighter level, then loop over this level's operators.
 
 ## 3. The one-token putback layer
 
@@ -146,22 +116,19 @@ variable cc-tok-pending                           \ -1 = a token is queued
 
 ```
 
-The lexer (Ch 23) returns one token at a time; it has no
-built-in lookahead beyond `cc-peek-char-2` (one *byte* of
-character lookahead).  A precedence cascade routinely
-reads one operator too many — at the end of `a * b * c`, after
-folding two `*` operations, the parser reads what *would* have
-been a third operator and discovers it's a `+`.  It needs to
-"un-read" that `+` so the next-looser layer (`add`) can see it.
+The lexer (Ch 23) returns one token at a time.  Its only lookahead
+is `cc-peek-char-2`, one *byte* of character lookahead.  A cascade
+always reads one operator too many.  After folding the two `*`s in
+`a * b * c + d`, `cc-parse-mul` reads the `+`, finds it isn't a
+multiplicative operator, and has to hand it back so the next-looser
+layer (`add`) can see it.
 
-`cc-tok-pending` is a one-token putback flag.  When set,
-`cc-next-token-keep` *doesn't* advance the lexer — the existing
-`tok-kind`/`tok-num`/`tok-str-*` state is preserved.  When
-cleared, it calls `cc-next-token` as normal.
-
-`cc-putback-token` is what every binary-op fold ends with:
-"the token I just read isn't mine; the caller can have it back."
-The next call to `cc-next-token-keep` sees the same token state.
+`cc-tok-pending` is that hand-back.  `cc-putback-token` sets it, and
+the next `cc-next-token-keep` clears it *without* advancing the
+lexer, so `tok-kind`, `tok-num`, and `tok-str-*` still describe the
+same token.  When the flag is clear, `cc-next-token-keep` calls
+`cc-next-token` as normal.  Every binary layer ends with
+`cc-putback-token`.
 
 ## 4. Forward references for mutual recursion
 
@@ -200,24 +167,21 @@ variable cc-parse-call-vec                        \ xt of cc-parse-call
 
 ```
 
-The expression grammar is *mutually recursive*: `primary` parses
-`'(' expr ')'` which recurses into the entire grammar.  Forth's
-`:` can't forward-reference a word that doesn't yet exist, so we
-declare three vec variables and three tiny trampolines that
-fetch and execute the variable's contents.
+The grammar is mutually recursive: `primary` parses `'(' expr ')'`,
+which re-enters the whole grammar.  Forth's `:` can't refer to a
+word that doesn't exist yet, so the file declares three vec
+variables, each with a trampoline that fetches the variable and
+executes it.
 
-`cc-parse-expr-vec` will be set to `cc-parse-expr` at the end of
-the file (Ch 28's `expr-top` chunk).
-`cc-parse-assign-vec` is set similarly.
-`cc-parse-call-vec` is set in `110-cc-decl.fth` (Ch 31), where
-the call-codegen lives — it needs `cc-emit-call-vaddr` and the
-function-symbol machinery, which are defined in
-`110-cc-decl.fth`, loaded *after* `100-cc-expr.fth`.
+`cc-parse-expr-vec` and `cc-parse-assign-vec` are filled at the end
+of the file (Ch 28's `expr-top` chunk).  `cc-parse-call-vec` is
+filled in `110-cc-decl.fth` (Ch 31), because call codegen needs
+`cc-emit-call-vaddr` and the function-symbol machinery, which load
+after this file.
 
-This trampoline pattern recurs throughout Part III.  It's the
-seed Forth's solution to load-order constraints: declare the
-variable up front, define the trampoline, and patch the variable
-once the real word exists.
+Part III uses this pattern wherever load order and call order
+disagree: declare the variable, define the trampoline, and store
+the real word's execution token once it exists.
 
 ## 5. The binary-operator template: `cc-parse-mul`
 
@@ -271,41 +235,36 @@ once the real word exists.
 
 ```
 
-This is the template every binary-op layer follows.  Read it
-once carefully — every other binary parser is the same shape.
+Every other binary layer is a copy of this word with different
+operators, so it is worth reading slowly.
 
-1. **Parse the left operand** at the next-tighter precedence
-   (`cc-parse-unary` for `mul`).  After this, `rdi` holds the
-   left value — though if it's a pending dereference, `rdi`
-   holds an *address* that needs `cc-emit-materialize` to
-   become a value.
+1. **Parse the left operand** at the next-tighter level
+   (`cc-parse-unary` for `mul`).  `rdi` now holds the left value,
+   or, for a pending dereference, an *address* that
+   `cc-emit-materialize` must load.
 2. **Loop while the next token is one of our operators.**
-   `cc-next-token-keep` reads a token; `cc-mul-op?` tests it
-   against `*`, `/`, `%`.  If it isn't, we fall out of the loop.
-3. **Inside the loop:** materialize left (so it's an actual
-   value), stash the op byte on the return stack, push `rdi` (the
-   left operand), parse the right operand, materialize that,
-   `mov rcx, rdi` (right → temp), `pop rdi` (left → result reg),
-   pop the op byte, dispatch to the right encoder.
-4. **After the loop ends** (we read a token that wasn't ours),
-   `cc-putback-token` so the calling layer sees it.
+   `cc-next-token-keep` reads a token and `cc-mul-op?` tests it
+   against `*`, `/`, and `%`.
+3. **Inside the loop:** materialize the left value, move the
+   operator's code to the return stack, push `rdi`, parse and
+   materialize the right operand, `mov rcx, rdi` (right into the
+   temp), `pop rdi` (left into the result register), fetch the
+   operator code back, and dispatch to its encoder.
+4. **After the loop** the last token read isn't ours, so
+   `cc-putback-token` returns it to the caller.
 
-The opcode bytes are the lexer's punct codes from Ch 23: `*` =
-42 (ASCII), `/` = 47, `%` = 37.
+The operator codes are the lexer's punct codes from Ch 23, which
+for single characters are ASCII: `*` = 42, `/` = 47, `%` = 37.
 
-The op byte travels through the return stack rather than the
-data stack because the recursive `cc-parse-unary` call might
-itself parse a parenthesised expression containing further
-operators — and *those* operators want the data stack free for
-their own intermediate values.  Using the return stack is the
-release valve.
+The operator code rides on the return stack because the recursive
+`cc-parse-unary` call can parse a parenthesised expression with
+operators of its own, and those need the data stack for their own
+intermediate values.
 
-Don't trust the source comment above `cc-parse-mul` on this
-point.  It says the op byte is kept on the *data* stack across the
-recursive call, and names `cc-parse-primary`.  The code does
-neither: `tok-num @ >r` moves the op to the return stack, and the
-call is to `cc-parse-unary`.  The comment is stale; the code is
-what runs.
+The source comment above `cc-parse-mul` is out of date on this
+point.  It says the op byte stays on the *data* stack across a call
+to `cc-parse-primary`.  The code moves it to the return stack with
+`tok-num @ >r`, and the call is to `cc-parse-unary`.
 
 ## 6. `cc-parse-add`: just like `mul`, looser
 
@@ -347,19 +306,17 @@ what runs.
 
 ```
 
-Identical shape to `cc-parse-mul` with three substitutions:
-the inner call goes to `cc-parse-mul`, the operator test
-matches `+` / `-`, and the dispatch goes to
-`cc-emit-add-rdi-rcx` / `cc-emit-sub-rdi-rcx`.
+The shape is identical to `cc-parse-mul` with three substitutions:
+the operand parser is `cc-parse-mul`, the operator test matches `+`
+and `-`, and the dispatch picks `cc-emit-add-rdi-rcx` or
+`cc-emit-sub-rdi-rcx`.
 
-The precedence chain pulls itself up: `add` calls `mul`, which
-calls `unary`, which calls `primary`.  A bare number flows
-through fifteen parser functions (`expr` → `assign` → `ternary`
-→ `log-or` → `log-and` → `bit-or` → `bit-xor` → `bit-and` → `eq`
-→ `rel` → `shift` → `add` → `mul` → `unary` → `primary`) before
-hitting an actual literal.  Each layer is a one-token-lookahead with no
-allocations and no recursion overhead beyond the call stack
-itself.
+Each layer calls the one below it, so a bare number passes through
+fifteen parser words (`expr` → `assign` → `ternary` → `log-or` →
+`log-and` → `bit-or` → `bit-xor` → `bit-and` → `eq` → `rel` →
+`shift` → `add` → `mul` → `unary` → `primary`) before reaching the
+literal.  Each layer needs one token of lookahead, allocates
+nothing, and costs one call.
 
 ## 7. Shifts: between relational and additive
 
@@ -404,17 +361,16 @@ itself.
 
 ```
 
-C's precedence table puts shifts (`<<`, `>>`) *between*
-additive and relational — `a + b << c` parses as `(a + b) << c`,
-and `a << b < c` parses as `(a << b) < c`.  That layering is
-implicit in the call chain: `cc-parse-shift` calls
-`cc-parse-add` as its inner parser, and `cc-parse-rel` (next)
-calls `cc-parse-shift`.
+C puts shifts between additive and relational operators, so
+`a + b << c` parses as `(a + b) << c` and `a << b < c` as
+`(a << b) < c`.  The call chain encodes that: `cc-parse-shift` uses
+`cc-parse-add` for its operands, and `cc-parse-rel` (next) uses
+`cc-parse-shift`.
 
-`>>` is arithmetic (sign-extending) right shift here, because
-the only integer type is signed `int`.  An unsigned `>>` would
-use `cc-emit-shr-rdi-cl` (logical right shift) — which doesn't
-yet exist in `090-cc-emit.fth` because nobody calls it.
+`>>` is an arithmetic (sign-extending) shift, because the only
+integer type is signed `int`.  An unsigned `>>` would need a logical
+`cc-emit-shr-rdi-cl`, which `090-cc-emit.fth` doesn't define because
+nothing calls it.
 
 ## 8. Relational and equality
 
@@ -506,10 +462,9 @@ yet exist in `090-cc-emit.fth` because nobody calls it.
 
 ```
 
-`cc-parse-rel` and `cc-parse-eq` use Ch 25 §6's `cmp-set`
-emitters which produce a clean 0/1 result in `rdi`.  That 0/1
-invariant matters for the logical operators below: `1 && 2`
-needs to produce 1, not 2.
+`cc-parse-rel` and `cc-parse-eq` use the `cmp-set` emitters from
+Ch 25 §6, which leave exactly 0 or 1 in `rdi`.  The logical
+operators below rely on that: `1 && 2` must produce 1, not 2.
 
 ## 9. The bitwise trio
 
@@ -579,19 +534,16 @@ needs to produce 1, not 2.
 
 ```
 
-Three layers, three operators, identical shape.  Notice that
-each is even shorter than the previous parsers because there's
-only one operator per layer — no dispatch on the op code, no
-return-stack stash.
+Three layers, three operators, one shape.  Each layer has a single
+operator, so there is no dispatch on the operator code and nothing
+to keep on the return stack.
 
-The disambiguation comment is worth a moment.  C's `&`
-overloads: at the start of an expression (where an operand is
-expected) it's the *unary* address-of operator; between two
-operands it's the *binary* bitwise-and.  This compiler resolves
-the ambiguity *structurally*: `cc-parse-unary` (Ch 28) handles
-`&` at operand position, while `cc-parse-bit-and` handles it at
-operator position.  Each is called from a different point in the
-grammar, so they can't collide.
+C's `&` is overloaded.  Where an operand is expected it is unary
+address-of; between two operands it is binary bitwise-and.  The
+grammar separates the two by position: `cc-parse-unary` (Ch 28)
+sees `&` only at operand position, and `cc-parse-bit-and` sees it
+only at operator position, so they never compete for the same
+token.
 
 ## 10. Short-circuit `&&` and `||`
 
@@ -674,64 +626,58 @@ grammar, so they can't collide.
 
 ```
 
-`&&` and `||` break the binary-op template because they're
-*short-circuit* — the right-hand side might not evaluate at all
-if the left already decides the result.
+`&&` and `||` can't use the template, because the right operand
+must not run at all when the left one already decides the result.
 
-The codegen mirrors a hand-written compiler's approach: emit
-conditional jumps to a "false" join point if the operand
-decides early, emit `mov rdi, 1` on the all-true path, an
-unconditional jump to "end", a join point, `mov rdi, 0`, and
-the "end" label.
+The code follows the sketch in the comment.  Each operand is tested
+and, if it decides the result early, jumps to a shared join point.
+The path where neither does sets `rdi` to 1 and jumps to the end.
+The join point sets `rdi` to 0, and the end label follows.
 
-Three rel32 fixups need to be tracked: the early-exit jump for
-the LHS, the early-exit jump for the RHS, and the "end" jump
-from the all-true path.  Each is pushed onto the return stack as
-it's emitted; popped and patched as we reach its target.
+That takes three rel32 fixups: the early exit after the left
+operand, the early exit after the right, and the jump to the end.
+Each is pushed to the return stack as it is emitted, using the
+emit-remember-patch pattern from Ch 11.
 
-The structure `r> r> ... r>` at the patching site reverses the
-push order: top of return stack is `f-end`, second is `f-RHS`,
-third is `f-LHS`.  Two pops give `(f-end, f-RHS)` on the data
-stack; we patch `f-RHS` (current `cc-out-pos` is the join), pop
-`f-LHS`, patch it too, emit `mov rdi, 0`, then finally patch
-`f-end`.  The Forth idiom for stack juggling is dense but
-straightforward once you decode the rotation.
+The patching code pops them in reverse.  The top of the return
+stack is `f-end`, then `f-RHS`, then `f-LHS`.  Two `r>`s put
+`( f-end f-RHS )` on the data stack.  The code patches `f-RHS` to
+the current `cc-out-pos` (the join point), pops and patches
+`f-LHS` to the same place, emits `mov rdi, 0`, and finally patches
+`f-end`.
 
-`||` is the mirror image: jump-if-non-zero past the right
-operand, emit `mov rdi, 0` on the all-false path, all-true path
-falls into `mov rdi, 1`.
+`||` is the mirror image: it jumps on non-zero, the path where
+neither operand is true produces 0, and the join point produces 1.
 
 ## 11. The cascade in motion
 
-To see all of this fit together, trace what happens for
-`a + b * c < 5`:
+Here is `a + b * c < 5` passing through the layers:
 
 1. `cc-parse-rel` is the outer call (`<` is a relational op).
 2. It calls `cc-parse-shift`, which calls `cc-parse-add`, which
    calls `cc-parse-mul`, which calls `cc-parse-unary`, which
    bottoms out in `cc-parse-primary`'s `tk-ident` branch and
    emits `mov rdi, [rbp - 8]` (load `a`).
-3. `cc-parse-mul` reads the next token — `+`.  Not a mul-op;
+3. `cc-parse-mul` reads the next token, `+`.  Not a mul-op;
    putback, return.
 4. `cc-parse-add` reads `+`.  Match.  Materialize, stash `+`,
    push `rdi`, call `cc-parse-mul` again.
 5. The inner `cc-parse-mul` calls `cc-parse-unary` → `b` →
-   load.  Then reads `*`, matches, stashes, pushes, calls
+   load.  Then it reads `*`, matches, stashes, pushes, and calls
    `cc-parse-unary` → `c` → load.  Materialize, `mov rcx, rdi`,
-   `pop rdi`, dispatch `*` → `imul rdi, rcx`.  Reads next token
-   — `<`.  Not a mul-op; putback, return.
+   `pop rdi`, dispatch `*` → `imul rdi, rcx`.  It reads the next
+   token, `<`.  Not a mul-op; putback, return.
 6. Back in `cc-parse-add`: `mov rcx, rdi`, `pop rdi`, dispatch
    `+` → `add rdi, rcx`.  Reads `<`.  Not an add-op; putback,
    return.
 7. `cc-parse-shift` reads `<`.  Not a shift-op; putback, return.
 8. `cc-parse-rel` reads `<`.  Match.  Materialize, stash `<`,
-   push, call `cc-parse-shift` again — which bottoms out at `5`.
+   push, and call `cc-parse-shift` again, which bottoms out at `5`.
 9. `cc-parse-rel`: `mov rcx, rdi`, `pop rdi`, dispatch `<` →
    `cmp-lt`, which leaves a clean 0/1 in `rdi`.
 
-The whole expression has cost six layers of dispatch and one
-materialise per binary op.  The depth of the cascade *is* the
-precedence table.
+Nothing in this trace consults a precedence table.  The order in
+which the layers call each other is the table.
 
 ## Try it
 
@@ -758,9 +704,9 @@ after running the scripts.
 
 The unit tests under `tests/cc/` start at `G0.c` (return 42) and
 walk up through `G14*.c`.  `G1.c` exercises basic arithmetic
-precedence (`a + b * 2 - 1`); `G11.c` is the full sweep — shifts,
-bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
-— in a single fixture.
+precedence (`a + b * 2 - 1`); `G11.c` covers shifts, bitwise
+operators, `&&`/`||`, the ternary, postfix `++`, and compound
+assignment in a single fixture.
 
 ## Exercises
 
@@ -776,13 +722,13 @@ bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
 
 3. **★★★ Modify.** The short-circuit `&&` produces `1` on success.  Modify it
    to produce the *right operand's value* instead.  This is no
-   longer C — the standard requires `&&` to yield exactly `0` or
-   `1` — but it is what some other languages (Lua, JavaScript)
+   longer C (the standard requires `&&` to yield exactly `0` or
+   `1`), but it is what some other languages (Lua, JavaScript)
    do.  How many bytes does that save, and which M2-Planet idiom
    would break?
 
-4. **★★ Trace.** The three return-stack pushes in `cc-parse-log-and` are
-   delicate — get the order wrong and the wrong fixup gets
+4. **★★ Trace.** The order of the three return-stack pushes in
+   `cc-parse-log-and` matters: get it wrong and the wrong fixup is
    patched first.  Sketch a diagram showing each `>r`/`r>` and
    verify the comment's `R:` annotations match the code.
 
@@ -793,30 +739,25 @@ bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
 ## After this chapter
 
 The compiler can lower binary expressions: arithmetic, comparison,
-bitwise, and logical operators at every C precedence level, all
-through one repeated five-step fold template (left, push, right,
-pop, op).
+bitwise, and logical operators at every C precedence level, eight
+of them through one five-step fold template (left, push, right,
+pop, op) and two through short-circuit jumps.
 
 You can read `cc-parse-mul`/`add`/`rel`/`eq`/`bit`/`log`, explain
 the precedence cascade, and predict what code an expression like
 `a + b * c > d` will emit without running it.
 
-Toward Stage-A: every binary operator in M2-Planet's source lowers
-through this cascade — ten small layers, eight built from the same
-fold template and two (`&&`, `||`) short-circuiting — so a parity
-failure in any binary op localises to a single layer.
-
 ## Takeaways
 
-- Every binary-op layer is one function with the same five-step
-  template: parse-left, push, parse-right, mov rcx + pop, apply
-  op.  The depth of the call chain *is* the precedence table.
-- The op byte travels through the return stack so nested
-  parenthesised expressions in operands can reuse the data
-  stack freely.
-- Short-circuit `&&`/`||` break the template because they need
-  conditional branches and rel32 fixups; the fixups travel on
-  the return stack too, in carefully tracked LIFO order.
+- Each binary precedence level is one word that parses its operands
+  at the next-tighter level, so the order of the calls is the
+  precedence table.
+- The operator code travels on the return stack, which leaves the
+  data stack free for a parenthesised expression parsed inside an
+  operand.
+- `&&` and `||` replace the fold template with conditional jumps
+  whose three rel32 fixups wait on the return stack and are patched
+  in reverse order.
 
 Next: Chapter 28 — Expressions, Part 2: Primary, Unary,
 Assignment, and the Top-Level Driver.

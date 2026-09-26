@@ -8,11 +8,11 @@ read it, and *plausible* is not *correct*.  The bottleneck in
 software was never typing; it is understanding, and trust.  When a
 machine out-writes you at every step, the easy outcome is a large
 pile of code that works until it doesn't and that no person actually
-understands — and a human reduced to rubber-stamping it.
+understands, and a human reduced to rubber-stamping it.
 
 This book is an experiment in the other outcome: what it actually
-takes for a human to stay in the loop — to guide, audit, and vouch
-for — code an AI wrote faster than they could.
+takes for a human to stay in the loop: to guide, audit, and vouch
+for code an AI wrote faster than they could.
 
 It turns on two things working together.  The first is a *mechanical
 test of correctness that fluent-looking code cannot fake*.  The
@@ -20,14 +20,14 @@ program built here is a compiler, and its output must match an
 independent reference byte for byte, and reproduce itself exactly
 when it compiles itself.  No amount of confident-sounding code passes
 that check; only correct code does.  The second is *this book
-itself* — a literate program in Donald Knuth's sense: source written
-to be read by a human, in narrative order, with every load-bearing
-line explained.  The first keeps the machine honest.  The second
+itself*, a literate program in Donald Knuth's sense: source written
+to be read by a human, in narrative order, with every line that
+matters explained.  The first keeps the machine honest.  The second
 keeps the human in command.
 
 The proving ground is a bootstrap: 2,040 bytes of hand-checkable
 machine code that grow into a C compiler.  It was chosen because its
-correctness is absolute and checkable — most software offers nothing
+correctness is absolute and checkable; most software offers nothing
 so unforgiving.  That is also the honest limit of the claim.  The
 lesson is not "audit any AI code this way"; it is "find or build a
 ground truth the machine can't argue with, then write the
@@ -37,7 +37,7 @@ exactly that.
 ---
 
 There is a file in this repository called `000-seed.hex0`.  Its
-source form is 27,002 bytes long, but most of that is comments —
+source form is 27,007 bytes long, but most of that is comments:
 annotated hex laid out for human readers.  The machine bytes total
 exactly **2,040**, and those bytes are a working Forth.
 
@@ -79,14 +79,13 @@ meets you halfway.
 
 If you have read prior pedagogical Forth implementations, two are
 close enough to this one to be worth a brief calibration.  **JONESFORTH**
-(Richard Jones, 2007) is the closest spiritual ancestor in tone —
-a heavily commented assembly source for a complete Forth — but it
-runs on i386 with *indirect threaded code* and a separate "inner
+(Richard Jones, 2007) is the closest ancestor in tone, a heavily
+commented assembly source for a complete Forth, but it runs on i386 with *indirect threaded code* and a separate "inner
 interpreter" that walks compiled cells.  This book's seed targets
 x86-64 with *subroutine threading*: every compiled word is just a
 `call` instruction, so the CPU itself is the inner interpreter,
 and the seed pays nothing for `NEXT`.  **sectorforth** (Cesar Blum,
-2020) goes the other direction — a 512-byte 16-bit Forth with
+2020) goes the other direction: a 512-byte 16-bit Forth with
 eight primitives.  Our seed is four times larger (2,040 bytes) and
 has 32 primitives because it has to host a C compiler at the top,
 not just a Forth.  Appendix E lists these and others in more
@@ -99,19 +98,19 @@ spirit, different threading model and architecture).
 Most programmers who learn Forth describe a moment, somewhere
 around the middle, when they realise that `if`/`then`/`else` are
 not keywords.  They are user-defined words that emit machine code
-at compile time, and together they are only about sixty lines.  At that
+at compile time, and with the loop words they take about thirty lines of code.  At that
 point the whole language collapses into a single idea: *words
 manipulate a stack, and some words manipulate the dictionary that
 holds other words.*
 
-When you reach that moment in this book — Part I, Chapter 11 —
+When you reach that moment in this book (Part I, Chapter 11),
 you will have written it yourself, or at least watched it being
 written, starting from a base of 32 hand-encoded primitives.
 Everything afterwards (the seed VM in Part II, the C compiler in
 Part III) is a payoff for understanding that one move.
 
-The methodology — which models wrote what, and the cross-checking
-that pinned down every byte of the seed — is documented in
+The methodology (which models wrote what, and the cross-checking
+that pinned down every byte of the seed) is documented in
 `AI_STRATEGIES.md` at the repo root.  You can still read this purely
 as a Forth book and never think about any of it; the journey works
 the same way it would have worked in 1972.  But the reason it
@@ -121,11 +120,5 @@ correct, and this book is the part that lets a human understand it
 and stand behind it.
 
 Turn the page.
-
-```
-       __
-   __( o)>   "you're about to write `if` yourself.  i know."
-   \___/
-```
 
 Next: [Chapter 1 — Stacks and Words](01-stacks-and-words.md).
