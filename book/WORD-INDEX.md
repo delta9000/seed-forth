@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  857 names and 89 ideas.
+carry none.  865 names and 89 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -73,6 +73,7 @@ for which chapter depends on which, the
 - `asm-base` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §6 The label table](33-the-assembler.md#6-the-label-table)
 - `asm-cap` — *assembler word (constant, `130-asm.fth`)* — [Ch 33 §6 The label table](33-the-assembler.md#6-the-label-table)
 - `asm-check-cap` — *assembler word (`130-asm.fth`)* — [Ch 33 §3 Buffers and a cursor](33-the-assembler.md#3-buffers-and-a-cursor)
+- `asm-check-hex` — *assembler word (`130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
 - `asm-count` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §6 The label table](33-the-assembler.md#6-the-label-table)
 - `asm-cp-addr` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §11 Macro expansion](33-the-assembler.md#11-macro-expansion)
 - `asm-cp-i` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §11 Macro expansion](33-the-assembler.md#11-macro-expansion)
@@ -115,17 +116,24 @@ for which chapter depends on which, the
 - `asm-find-gt` — *assembler word (`130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
 - `asm-find-label` — *assembler word (`130-asm.fth`)* — [Ch 33 §6 The label table](33-the-assembler.md#6-the-label-table)
 - `asm-find-len` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §6 The label table](33-the-assembler.md#6-the-label-table)
+- `asm-fit` — *assembler word (`130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
+- `asm-fit-hi` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
+- `asm-fit-lo` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
 - `asm-gt-pos` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
+- `asm-half` — *assembler word (`130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
+- `asm-hex-char?` — *assembler word (`130-asm.fth`)* — [Ch 33 §7 Numbers](33-the-assembler.md#7-numbers)
 - `asm-hex-digit` — *assembler word (`130-asm.fth`)* — [Ch 33 §11 Macro expansion](33-the-assembler.md#11-macro-expansion)
 - `asm-hex-i` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
 - `asm-init` — *assembler word (`130-asm.fth`)* — [Ch 33 §10 Two passes](33-the-assembler.md#10-two-passes)
 - `asm-ip` — *assembler word (variable, `130-asm.fth`)* — [Ch 33 §6 The label table](33-the-assembler.md#6-the-label-table)
 - `asm-is-define?` — *assembler word (`130-asm.fth`)* — [Ch 33 §11 Macro expansion](33-the-assembler.md#11-macro-expansion)
+- `asm-label-bounds` — *assembler word (`130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
 - `asm-labels` — *assembler word (create, `130-asm.fth`)* — [Ch 33 §6 The label table](33-the-assembler.md#6-the-label-table)
 - `asm-load-stdin` — *assembler word (`130-asm.fth`)* — [Ch 33 §3 Buffers and a cursor](33-the-assembler.md#3-buffers-and-a-cursor)
 - `asm-main` — *assembler word (`130-asm.fth`)* — [Ch 33 §12 `asm-main`](33-the-assembler.md#12-asm-main)
 - `asm-next-char` — *assembler word (`130-asm.fth`)* — [Ch 33 §3 Buffers and a cursor](33-the-assembler.md#3-buffers-and-a-cursor)
 - `asm-nl-byte` — *assembler word (create, `130-asm.fth`)* — [Ch 33 §4 The output side](33-the-assembler.md#4-the-output-side)
+- `asm-number-bounds` — *assembler word (`130-asm.fth`)* — [Ch 33 §9 One token, one decision](33-the-assembler.md#9-one-token-one-decision)
 - `asm-out-buf` — *assembler word (create, `130-asm.fth`)* — [Ch 33 §4 The output side](33-the-assembler.md#4-the-output-side)
 - `asm-out-cap` — *assembler word (constant, `130-asm.fth`)* — [Ch 33 §4 The output side](33-the-assembler.md#4-the-output-side)
 - `asm-out-init` — *assembler word (`130-asm.fth`)* — [Ch 33 §4 The output side](33-the-assembler.md#4-the-output-side)

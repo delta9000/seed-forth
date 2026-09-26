@@ -41,6 +41,14 @@ book's claims against it:
       - "Running count: N of TOTAL bytes read" (Chs 13-20) and Ch 20's
         per-chapter table, vs the machine bytes in the `hex0 chunk=` fences
         each chapter defines (cumulative) and the built seed's size
+  * counts over the Forth Part III loads (010-lib.fth + NNN-cc-*.fth, read
+    as the seed's read_word reads it, so outside comments; corpus_pass)
+      - "`dup` appears N times in the library and the C compiler", "`if,`
+        and `while,` are used N times ..." vs the word's uses (not its own
+        `: name`, not a token `char`/`[char]` consumes)
+      - "N colon definitions" (sentence must name the library) vs the `:`
+        tokens that start a definition
+      - "N bytes of Forth (`A` through `B`" vs the range's summed wc -c
   * single-line `file.fth:line` citations  (A6/A7, file-absolute)
       - A7 die-site  "| 30 | `040-cc-prep.fth:270` |" vs the `[lit] 30 cc-die`
                      line(s) for that error code in the cited file
@@ -150,8 +158,9 @@ FTH_SEMI_RE = re.compile(r"(^|\s);(\s|$)")
 # A die site is any word that exits with a literal code: `[lit] N die` (the
 # assembler, 010-lib), `[lit] N cc-die`, the compiler's two checks that die
 # with the code they are given, `cc-check-cap` and `cc-read-all`, and the
-# assembler's three, `asm-check-cap`, `asm-tok-err` and `asm-do-ref`.
-DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+(?:die|cc-die|cc-check-cap|cc-read-all|asm-check-cap|asm-tok-err|asm-do-ref)(?=\s|$)")
+# assembler's four, `asm-check-cap`, `asm-tok-err`, `asm-do-ref` and
+# `asm-fit`.
+DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+(?:die|cc-die|cc-check-cap|cc-read-all|asm-check-cap|asm-tok-err|asm-do-ref|asm-fit)(?=\s|$)")
 CITE_RE = re.compile(r"([0-9]\d\d-[a-z0-9-]+\.fth):(\d+(?:,\d+)*)")
 ROW_CODE_RE = re.compile(r"^\s*\|\s*(\d+)\s*\|")
 NAME_TOKEN_RE = re.compile(r"`([a-z][a-z0-9?*<>=!+./-]+)`")
@@ -621,6 +630,112 @@ def sentence_pass(files, emit):
                 not sent[fms[-1].end():].strip(" .") else None
 
 
+# ---------------------------------------------------------------------------
+# Corpus counts: Part II's claims about the Forth that Part III loads
+# ---------------------------------------------------------------------------
+# The corpus is what `cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth` feeds the seed:
+# the library and the C compiler (130-asm.fth is a separate program).  It is
+# tokenised the way the seed's read_word reads it: tokens split at space, tab,
+# LF and CR; a token that is exactly `\` skips to the end of the line, one that
+# is exactly `(` skips past the next `)`.  So every count is "outside
+# comments".  Then:
+#   * a *use* of word w is a token equal to w, except the name right after
+#     `:` (w's own definition) and a token that `char` / `[char]` consumes;
+#   * a *colon definition* is a `:` token that `char` / `[char]` does not
+#     consume.
+# Claims (sentence-scoped; the sentence must name the corpus, as "the
+# library" or `010-lib.fth`, so a count of some other set never matches):
+#   "`w` appears N times in the library and the C compiler"
+#   "`a` and `b` are used N times in the library and the C compiler"
+#   "N colon definitions"
+#   "N bytes of Forth (`A` through `B`" -> summed wc -c of that file range
+# "N lines of Forth (`A` through `B`)" is sentence_pass's file-range rule.
+
+USES_RE = re.compile(r"`([^`\s]+)`(?:\s+and\s+`([^`\s]+)`)?\s+(?:appears|is used|are used)\s+"
+                     r"(\d[\d,]*)\s+times\s+in the library and the (?:C )?compiler\b")
+COLON_DEFS_RE = re.compile(r"(?<![\w.,-])(\d[\d,]*)\s+colon definitions\b")
+CORPUS_BYTES_RE = re.compile(r"(?<![\w.,-])(\d[\d,]*)\s+bytes of Forth\s+\(`(\d{3}-[^`]+)`\s+"
+                             r"(?:through|to)\s+`(\d{3}-[^`]+)`")
+NAMES_CORPUS_RE = re.compile(r"\blibrary\b|`010-lib\.fth`")
+
+
+def corpus_files():
+    return [os.path.join(ROOT, "010-lib.fth")] + \
+        sorted(glob.glob(os.path.join(ROOT, "[0-9][0-9][0-9]-cc-*.fth")))
+
+
+def seed_tokens(data):
+    """The seed's read_word over bytes `data`, comments skipped."""
+    ws, i, n, out = b" \t\n\r", 0, len(data), []
+    while True:
+        while i < n and data[i] in ws:
+            i += 1
+        if i >= n:
+            return out
+        j = i
+        while j < n and data[j] not in ws:
+            j += 1
+        tok, end, i = data[i:j], (data[j] if j < n else 0), j + 1
+        if tok == b"\\":
+            if end != 10:
+                k = data.find(b"\n", i)
+                i = n if k < 0 else k + 1
+            continue
+        if tok == b"(":
+            k = data.find(b")", i)
+            i = n if k < 0 else k + 1
+            continue
+        out.append(tok.decode("latin-1"))
+
+
+def corpus_stats():
+    toks = seed_tokens(b"".join(open(f, "rb").read() for f in corpus_files()))
+    uses, colons = {}, 0
+    for k, t in enumerate(toks):
+        prev = toks[k - 1] if k else ""
+        if prev in ("char", "[char]"):
+            continue
+        if t == ":":
+            colons += 1
+        if prev != ":":
+            uses[t] = uses.get(t, 0) + 1
+    return uses, colons
+
+
+def corpus_pass():
+    findings = []
+    uses, colons = corpus_stats()
+    numbered = {os.path.basename(p): p for p in glob.glob(os.path.join(ROOT, "[0-9][0-9][0-9]-*"))
+                if p.endswith((".fth", ".hex0"))}
+    rel = lambda md: os.path.relpath(md, ROOT)
+
+    def verdict(md, ln, label, claimed, actual):
+        if claimed == actual:
+            findings.append(("OK", rel(md), ln, f"{label} = {actual}"))
+        else:
+            findings.append(("MISMATCH", rel(md), ln, f"{label} claimed {claimed}; actual {actual}"))
+
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        for sent, base, marks in prose_sentences(md):
+            if not NAMES_CORPUS_RE.search(sent):
+                continue
+            for m in USES_RE.finditer(sent):
+                words = [w for w in m.group(1, 2) if w]
+                verdict(md, _lineno(marks, base + m.start(3)),
+                        "uses of " + " + ".join(words) + " (010 + NNN-cc, outside comments)",
+                        num(m.group(3)), sum(uses.get(w, 0) for w in words))
+            for m in COLON_DEFS_RE.finditer(sent):
+                verdict(md, _lineno(marks, base + m.start(1)),
+                        "colon definitions (010 + NNN-cc)", num(m.group(1)), colons)
+            for m in CORPUS_BYTES_RE.finditer(sent):
+                a, b = m.group(2), m.group(3)
+                lo, hi = int(a[:3]), int(b[:3])
+                members = [p for n, p in numbered.items() if lo <= int(n[:3]) <= hi]
+                verdict(md, _lineno(marks, base + m.start(1)), f"bytes of {a} through {b}",
+                        num(m.group(1)), sum(os.path.getsize(p) for p in members))
+    return findings
+
+
 def dump():
     table, _ = build_seed_table()
     for name, (off, size) in sorted(table.items(), key=lambda kv: kv[1][0]):
@@ -834,7 +949,7 @@ def main():
     findings = check()
     span_findings, sedits = span_pass(fix)
     cite_findings, cedits = citation_pass(fix)
-    findings += span_findings + cite_findings + running_pass()
+    findings += span_findings + cite_findings + running_pass() + corpus_pass()
     edits = sedits + cedits
     if fix:
         # after rewriting, the mismatches that were fixed are gone

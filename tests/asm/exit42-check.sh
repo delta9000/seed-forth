@@ -4,7 +4,7 @@
 # byte-identical to mescc-tools' M1+hex2 reference pipeline.
 #
 # What this proves:
-#   - forth-asm (130-asm.fth, 689 lines of Forth) can consume hex2 text and emit ELF
+#   - forth-asm (130-asm.fth, 785 lines of Forth) can consume hex2 text and emit ELF
 #     bytes that match the GCC-built mescc-tools reference exactly.
 #   - The resulting binary runs and exits with code 42.
 #

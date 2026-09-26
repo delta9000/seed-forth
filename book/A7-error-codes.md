@@ -186,27 +186,33 @@ none of the compiler's files, so it has its own `asm-check-cap`
 no line number.  A sigil token naming an undefined label goes
 through `asm-tok-err`, which writes the offending token to stderr
 before exiting; `asm-process-token` hands each sigil's code to
-`asm-do-ref`.  `tests/asm/die-gates.sh` overflows each buffer and
-table and feeds each sigil an undefined label.  Ch 33 walks every
-site below (§13 groups them), and names what the assembler does
-*not* check.
+`asm-do-ref`.  So do the checks copied from mescc-tools: a value that
+does not fit its field (`asm-fit`, with `hex2`'s bounds for a label
+and `M1`'s for a number) and a bare token that is not an even run of
+hex digits.  `tests/asm/die-gates.sh` overflows each buffer and
+table, feeds each sigil an undefined label, and has one input for
+each of 244–247.  Ch 33 walks every site below (§13 groups them).
 
 | Code | File:line(s) | Triggered by |
 |---:|---|---|
-| 230 | `130-asm.fth:138` | `asm-write-output`: `open(2)` on `/tmp/asm-out` returned an error. |
-| 231 | `130-asm.fth:497` | `&label` (4-byte absolute) undefined. |
-| 232 | `130-asm.fth:459` | `%target>base`: base label undefined. |
-| 233 | `130-asm.fth:453` | `%target>base`: target label undefined. |
-| 234 | `130-asm.fth:465` | `%label` (4-byte relative) undefined. |
-| 235 | `130-asm.fth:492` | `!label` (1-byte relative) undefined. |
-| 236 | `130-asm.fth:493` | `@label` (2-byte relative) undefined. |
-| 237 | `130-asm.fth:494` | `~label` (3-byte relative) undefined. |
-| 238 | `130-asm.fth:496` | `$label` (2-byte absolute) undefined. |
-| 239 | `130-asm.fth:88` | `asm-load-stdin`: the M1 source fills the 4 MiB source buffer. |
-| 240 | `130-asm.fth:110` | `asm-exp-emit-byte`: macro expansion fills the 4 MiB expansion buffer. |
-| 241 | `130-asm.fth:125` | `asm-emit-byte`: the output fills the 1 MiB output buffer. |
-| 242 | `130-asm.fth:174` | `asm-store-label`: more than 8,192 labels. |
-| 243 | `130-asm.fth:535` | `asm-def-store`: more than 4,096 `DEFINE`s. |
+| 230 | `130-asm.fth:145` | `asm-write-output`: `open(2)` on `/tmp/asm-out` returned an error. |
+| 231 | `130-asm.fth:593` | `&label` (4-byte absolute) undefined. |
+| 232 | `130-asm.fth:535` | `%target>base`: base label undefined. |
+| 233 | `130-asm.fth:529` | `%target>base`: target label undefined. |
+| 234 | `130-asm.fth:541` | `%label` (4-byte relative) undefined. |
+| 235 | `130-asm.fth:588` | `!label` (1-byte relative) undefined. |
+| 236 | `130-asm.fth:589` | `@label` (2-byte relative) undefined. |
+| 237 | `130-asm.fth:590` | `~label` (3-byte relative) undefined. |
+| 238 | `130-asm.fth:592` | `$label` (2-byte absolute) undefined. |
+| 239 | `130-asm.fth:95` | `asm-load-stdin`: the M1 source fills the 4 MiB source buffer. |
+| 240 | `130-asm.fth:117` | `asm-exp-emit-byte`: macro expansion fills the 4 MiB expansion buffer. |
+| 241 | `130-asm.fth:132` | `asm-emit-byte`: the output fills the 1 MiB output buffer. |
+| 242 | `130-asm.fth:181` | `asm-store-label`: more than 8,192 labels. |
+| 243 | `130-asm.fth:631` | `asm-def-store`: more than 4,096 `DEFINE`s. |
+| 244 | `130-asm.fth:513` | `asm-do-ref`: a label's value does not fit its field by `hex2`'s rule (`!` −128..127, `@` −32,768..32,767, `~` −8,388,608..8,388,607, `$` 0..65,535; `%` and `&` unchecked). |
+| 245 | `130-asm.fth:504` | `asm-do-ref`: a number does not fit its field by `M1`'s rule (`!` −129..256, `@` −32,769..32,768, `~` −8,388,609..8,388,608, `$` −32,769..65,536; `%` and `&` unchecked). |
+| 246 | `130-asm.fth:553` | `asm-check-hex`: a bare token is not hex digits, typically a misspelled or undefined macro name (`M1`'s "invalid other"). |
+| 247 | `130-asm.fth:558` | `asm-check-hex`: a hex token has an odd number of digits. |
 
 ### The seed's own code
 

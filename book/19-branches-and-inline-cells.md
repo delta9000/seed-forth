@@ -7,8 +7,9 @@ Artifact after this chapter: branch_code and zbranch_code plus the consumed-slot
 Proof link: the C compiler's jump fixups (Ch 30) reuse the shape, just in x86-64 rather than inline cells.
 ```
 
-`if,` and `while,` are used 435 times in the library and the C
-compiler's Forth.  Every one compiles to a `CALL` plus an 8-byte
+Outside comments and their own definitions, `if,` and `while,` are
+used 433 times in the library and the C compiler.  Every one
+compiles to a `CALL` plus an 8-byte
 cell (Ch 11), and every loop's backward edge is another.  Yet
 `branch_code`, the unconditional jump behind `else,` and `repeat,`,
 is 6 bytes long and contains no jump instruction at all.  How do you

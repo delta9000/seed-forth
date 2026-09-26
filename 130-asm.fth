@@ -23,11 +23,18 @@
 \     output for the exit42 smoke test, the m1-jump42 fixture, and the
 \     full M2-Planet self-compile (~2.4 MiB M1 in, 220 KiB ELF out).
 \
-\ Not implemented (no real-world inputs use these on amd64):
+\ What is checked, as mescc-tools checks it: a label reference must fit
+\ its field (hex2's rule; 244), a number must fit its field (M1's rule;
+\ 245), and a bare token must be an even number of hex digits (246, 247),
+\ so a misspelled macro name is an error, not bytes.
+\
+\ Not implemented (no real-world inputs use these on amd64; the token
+\ forms among them die with 246 or 247 rather than assembling differently):
 \   - '<N' padding directive
 \   - nibble accumulation across whitespace within a hex pair
 \   - architecture-specific ARM/AArch64/RISC-V displacement quirks
 \   - the rare unary-'<' / '^' alignment markers used by ARM
+\   - a quoted DEFINE body
 
 \ ============================================================================
 \ A. Buffers + cursor abstraction
@@ -207,7 +214,7 @@ variable asm-find-len
 \ ============================================================================
 
 \ hex-val ( c -- v )  Convert one hex digit char to 0-15.
-\ Caller must ensure c is a valid hex digit.
+\ Caller must ensure c is a valid hex digit (asm-hex-char?, below).
 : hex-val
   dup digit? if,
     [char] 0 -
@@ -218,6 +225,13 @@ variable asm-find-len
       [lit] 55 -                             \ 'A'..'F' -> 10..15
     then,
   then, ;
+
+\ asm-hex-char? ( c -- f )  True for 0-9, a-f and A-F, the characters
+\ hex2 reads as digits.
+: asm-hex-char?
+  dup digit?
+  over [char] a - [lit] 6 / 0= or
+  swap [char] A - [lit] 6 / 0= or ;
 
 variable asm-dec-addr
 variable asm-dec-len
@@ -400,6 +414,63 @@ variable asm-hex-i
   [lit] 2 asm-nl-byte [lit] 1 write drop
   die ;
 
+\ ---- Range checks ----
+\ mescc-tools refuses a value that does not fit its field, and so does
+\ this file.  A label's value is hex2's to check, a number's is M1's, and
+\ their bounds differ.  Neither checks a 4-byte field (% and &).
+\
+\   field               label (hex2)          number (M1)
+\   ! 1-byte relative   -128..127             -129..256
+\   @ 2-byte relative   -32768..32767         -32769..32768
+\   ~ 3-byte relative   -8388608..8388607     -8388609..8388608
+\   $ 2-byte absolute   0..65535              -32769..65536
+
+variable asm-fit-lo
+variable asm-fit-hi
+
+\ asm-half ( width -- n )  Half the values a width-byte field holds:
+\ 128, 32768 or 8388608.
+: asm-half
+  [lit] 128 swap
+  begin,
+    1- dup
+  while,
+    swap [lit] 256 * swap
+  repeat,
+  drop ;
+
+\ asm-label-bounds ( width relative? -- )  hex2's range for a label: signed
+\ for a relative field, unsigned for an absolute one.
+: asm-label-bounds
+  swap asm-half swap if,                    ( half )
+    dup [lit] 0 swap - asm-fit-lo !
+    1- asm-fit-hi !
+  else,
+    [lit] 0 asm-fit-lo !
+    dup + 1- asm-fit-hi !
+  then, ;
+
+\ asm-number-bounds ( width relative? -- )  M1's range for a number: one
+\ below hex2's signed low end, and up to half (relative) or all (absolute,
+\ and M1's 1-byte relative) of the field's values.
+: asm-number-bounds
+  swap dup asm-half                         ( relative? width half )
+  dup [lit] 0 swap - 1- asm-fit-lo !
+  swap [lit] 1 =  rot 0=  or if,            ( half )
+    dup +
+  then,
+  asm-fit-hi ! ;
+
+\ asm-fit ( width v code -- width v )  Die with code, echoing the token,
+\ unless width is 4 or asm-fit-lo <= v <= asm-fit-hi.
+: asm-fit
+  >r over [lit] 4 < if,                     ( width v ; R: code )
+    dup asm-fit-lo @ <  over asm-fit-hi @ >  or if,
+      r> asm-tok-err
+    then,
+  then,
+  r> drop ;
+
 \ ---- Sigil references ----
 \ A token that starts with one of the six sigils stands for a number of
 \ width bytes: its body is either a number (`!42`, `%-1`, `$0x3C`), emitted
@@ -420,14 +491,17 @@ variable asm-hex-i
 
 \ asm-do-ref ( width relative? err -- )  Handle a sigil token of width
 \ bytes.  A label that is not defined dies with err (after echoing the
-\ token).
+\ token); a value that does not fit the field dies with 244 (label) or
+\ 245 (number).
 : asm-do-ref
   asm-pass @ [lit] 1 = if,
     2drop asm-ip +! exit,                   \ pass 1: count the bytes
   then,
   >r >r                                     ( width ; R: err relative? )
   asm-tok-numeric? if,
+    dup r@ asm-number-bounds
     asm-ref-name asm-parse-number           ( width v )
+    [lit] 245 asm-fit
   else,
     asm-ref-name asm-find-label 0= if,      ( width ip )
       r> drop r> asm-tok-err                \ undefined label: exits
@@ -435,6 +509,8 @@ variable asm-hex-i
     r@ if,                                  \ relative to the field's end
       over asm-ip @ + -                     ( width ip-IP-width )
     then,
+    over r@ asm-label-bounds
+    [lit] 244 asm-fit
   then,
   r> drop r> drop                           ( width v )
   over asm-emit-le                          ( width )
@@ -464,9 +540,29 @@ variable asm-hex-i
   then,
   [lit] 4 true [lit] 234 asm-do-ref ;
 
-\ asm-do-hex ( -- )  Token of hex digits -> 1 byte per pair.
+\ asm-check-hex ( -- )  A bare token must be hex digits (else 246: a
+\ misspelled macro name lands here, as M1's "invalid other") and an even
+\ number of them (else 247: hex2 would carry the odd digit into the next
+\ token, which this file does not do).
+: asm-check-hex
+  [lit] 0 asm-hex-i !
+  begin,
+    asm-hex-i @ asm-token-len-tmp @ <
+  while,
+    asm-token-start-tmp @ asm-hex-i @ + c@ asm-hex-char? 0= if,
+      [lit] 246 asm-tok-err
+    then,
+    [lit] 1 asm-hex-i +!
+  repeat,
+  asm-token-len-tmp @ [lit] 1 and if,
+    [lit] 247 asm-tok-err
+  then, ;
+
+\ asm-do-hex ( -- )  Token of hex digits -> 1 byte per pair.  Pass 1
+\ checks it, so pass 2 only ever sees whole pairs of digits.
 : asm-do-hex
   asm-pass @ [lit] 1 = if,
+    asm-check-hex
     asm-token-len-tmp @ [lit] 2 / asm-ip +!
   else,
     [lit] 0 asm-hex-i !

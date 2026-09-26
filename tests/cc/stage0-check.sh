@@ -146,6 +146,8 @@ else
     ok "unshare -rm unavailable: using the shared /tmp/cc-out"
 fi
 # forth_cc <STAGE0_COMPAT> <dest>: run tests/cc/build-m2planet-monolith.sh
+# (in the private /tmp it names every input relative to the cwd, $ROOT, which
+# the mount leaves reachable even when $ROOT is under /tmp)
 forth_cc() {
     rm -rf "$W/tmp"; mkdir -p "$W/tmp"
     if [ "$use_private" = 1 ]; then
@@ -319,8 +321,11 @@ EOF
 cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$W/andand.c" > "$W/andand.in"
 rm -rf "$W/tmp"; mkdir -p "$W/tmp"
 if [ "$use_private" = 1 ]; then
-    unshare -rm sh -c 'mount --bind "$1" /tmp && exec "$2"' _ "$W/tmp" "$ROOT/seed-forth" \
-        < "$W/andand.in" >/dev/null || true
+    # stdin and seed-forth (fd 3) are opened before the mount, so they stay
+    # reachable even when $ROOT or $BUILDROOT is under /tmp (bootstrap.sh's
+    # run_forth does the same).
+    unshare -rm sh -c 'mount --bind "$1" /tmp && exec /proc/self/fd/3 3<&3' _ "$W/tmp" \
+        < "$W/andand.in" 3< "$ROOT/seed-forth" >/dev/null || true
     mv "$W/tmp/cc-out" "$W/andand-forth"
 else
     ./seed-forth < "$W/andand.in" >/dev/null || true

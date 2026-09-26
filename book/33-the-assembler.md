@@ -18,7 +18,7 @@ and `hex2` before they can run.
 stage0-posix breaks that loop from below, with hex1, hex2-0 and M0
 written in hand-assembled hex.  `verify.sh` breaks it with GCC,
 which is the compiler this whole route exists not to trust.  This
-chapter breaks it with Forth.  `130-asm.fth` is 689 lines that
+chapter breaks it with Forth.  `130-asm.fth` is 785 lines that
 load on the seed and `010-lib.fth` alone, read M1 text on stdin,
 and write an ELF to `/tmp/asm-out`.  `bootstrap.sh` runs it three
 times:
@@ -113,7 +113,10 @@ at a bare hex token such as `7F454C46` ("Received invalid other")
 and wants it quoted; that is why stage0 feeds the ELF header to
 `hex2`, not `M1`.  The Forth assembler takes raw hex anywhere, so
 `bootstrap.sh`'s `forth_asm` can simply concatenate `amd64_defs.M1`,
-`ELF-amd64.hex2`, `libc-full.M1` and the program onto stdin.
+`ELF-amd64.hex2`, `libc-full.M1` and the program onto stdin.  It is
+no more forgiving than that: a bare token that is neither a macro
+nor hex is still an error, and so is a value too big for its field
+(§13).
 
 ## 2. The file's contract
 
@@ -143,20 +146,29 @@ and wants it quoted; that is why stage0 feeds the ELF header to
 \     output for the exit42 smoke test, the m1-jump42 fixture, and the
 \     full M2-Planet self-compile (~2.4 MiB M1 in, 220 KiB ELF out).
 \
-\ Not implemented (no real-world inputs use these on amd64):
+\ What is checked, as mescc-tools checks it: a label reference must fit
+\ its field (hex2's rule; 244), a number must fit its field (M1's rule;
+\ 245), and a bare token must be an even number of hex digits (246, 247),
+\ so a misspelled macro name is an error, not bytes.
+\
+\ Not implemented (no real-world inputs use these on amd64; the token
+\ forms among them die with 246 or 247 rather than assembling differently):
 \   - '<N' padding directive
 \   - nibble accumulation across whitespace within a hex pair
 \   - architecture-specific ARM/AArch64/RISC-V displacement quirks
 \   - the rare unary-'<' / '^' alignment markers used by ARM
+\   - a quoted DEFINE body
 
 ```
 
-Three promises are worth holding on to.  The file depends on
+Four promises are worth holding on to.  The file depends on
 `010-lib.fth` and nothing else, which §5 comes back to.  It is
-two-pass, so a reference may come before its label.  And the "not
-implemented" list is the price of 689 lines: padding, alignment and
-the ARM, AArch64 and RISC-V field encodings, none of which amd64 M1
-from M2-Planet uses.
+two-pass, so a reference may come before its label.  What it checks,
+it checks the way mescc-tools does, so a malformed input dies here
+wherever it would die there (§13).  And the "not implemented" list
+is the price of 785 lines: padding, alignment and the ARM, AArch64
+and RISC-V field encodings, none of which amd64 M1 from M2-Planet
+uses; the token forms among them die rather than assemble wrong.
 
 ## 3. Buffers and a cursor
 
@@ -449,7 +461,7 @@ what a hash would buy.
 ## 7. Numbers
 
 A sigil's body may be a number instead of a label, and hex tokens
-need their digits converted.  Three words cover it.
+need their digits converted.  Four words cover it.
 
 ```forth file=130-asm.fth
 \ ============================================================================
@@ -457,7 +469,7 @@ need their digits converted.  Three words cover it.
 \ ============================================================================
 
 \ hex-val ( c -- v )  Convert one hex digit char to 0-15.
-\ Caller must ensure c is a valid hex digit.
+\ Caller must ensure c is a valid hex digit (asm-hex-char?, below).
 : hex-val
   dup digit? if,
     [char] 0 -
@@ -469,11 +481,21 @@ need their digits converted.  Three words cover it.
     then,
   then, ;
 
+\ asm-hex-char? ( c -- f )  True for 0-9, a-f and A-F, the characters
+\ hex2 reads as digits.
+: asm-hex-char?
+  dup digit?
+  over [char] a - [lit] 6 / 0= or
+  swap [char] A - [lit] 6 / 0= or ;
+
 ```
 
 `hex-val` uses Ch 6's range check, `(c - 'a') / 6 == 0`, to tell
 lower-case from upper-case letters.  It trusts its input: a
 character that is not a hex digit gives a wrong value, not an error.
+`asm-hex-char?` is the same range check asked as a question, three
+times, and pass 1 asks it of every character of a hex token before
+`hex-val` ever sees one (§9).
 
 ```forth file=130-asm.fth
 variable asm-dec-addr
@@ -715,6 +737,89 @@ pass 1; in pass 2 the table is already complete.  `asm-tok-err`
 writes the offending token and a newline to fd 2 and dies with the
 code it is given.
 
+A value written into a field has to fit it.  mescc-tools checks this
+twice, with different bounds: `M1` checks a number such as `!300`
+when it turns it into hex (`range_check` in `M1-macro.c`), and `hex2`
+checks a label's value when it writes it (`range_check` in
+`hex2_linker.c`).  The Forth assembler does both jobs, so it keeps
+both rules, in a table:
+
+```forth file=130-asm.fth
+\ ---- Range checks ----
+\ mescc-tools refuses a value that does not fit its field, and so does
+\ this file.  A label's value is hex2's to check, a number's is M1's, and
+\ their bounds differ.  Neither checks a 4-byte field (% and &).
+\
+\   field               label (hex2)          number (M1)
+\   ! 1-byte relative   -128..127             -129..256
+\   @ 2-byte relative   -32768..32767         -32769..32768
+\   ~ 3-byte relative   -8388608..8388607     -8388609..8388608
+\   $ 2-byte absolute   0..65535              -32769..65536
+
+variable asm-fit-lo
+variable asm-fit-hi
+
+\ asm-half ( width -- n )  Half the values a width-byte field holds:
+\ 128, 32768 or 8388608.
+: asm-half
+  [lit] 128 swap
+  begin,
+    1- dup
+  while,
+    swap [lit] 256 * swap
+  repeat,
+  drop ;
+
+\ asm-label-bounds ( width relative? -- )  hex2's range for a label: signed
+\ for a relative field, unsigned for an absolute one.
+: asm-label-bounds
+  swap asm-half swap if,                    ( half )
+    dup [lit] 0 swap - asm-fit-lo !
+    1- asm-fit-hi !
+  else,
+    [lit] 0 asm-fit-lo !
+    dup + 1- asm-fit-hi !
+  then, ;
+
+\ asm-number-bounds ( width relative? -- )  M1's range for a number: one
+\ below hex2's signed low end, and up to half (relative) or all (absolute,
+\ and M1's 1-byte relative) of the field's values.
+: asm-number-bounds
+  swap dup asm-half                         ( relative? width half )
+  dup [lit] 0 swap - 1- asm-fit-lo !
+  swap [lit] 1 =  rot 0=  or if,            ( half )
+    dup +
+  then,
+  asm-fit-hi ! ;
+
+\ asm-fit ( width v code -- width v )  Die with code, echoing the token,
+\ unless width is 4 or asm-fit-lo <= v <= asm-fit-hi.
+: asm-fit
+  >r over [lit] 4 < if,                     ( width v ; R: code )
+    dup asm-fit-lo @ <  over asm-fit-hi @ >  or if,
+      r> asm-tok-err
+    then,
+  then,
+  r> drop ;
+
+```
+
+hex2's rule is the one you would write: a relative field holds a
+signed value, an absolute one an unsigned value, so `!` reaches
+−128 to 127 and `$` 0 to 65,535.  `M1`'s bounds are its own, and
+they are copied here exactly rather than tidied: the low end is one
+below the signed range for every field, even the absolute `$`
+(`!-129` passes and writes `7f`); the high end is one above it for
+`@` and `~`, and one above the *unsigned* range for `!` and `$`
+(`!256` passes and writes `00`).  `asm-half` gives half a field's
+range, 128, 32,768 or 8,388,608, and the two `-bounds` words set
+`asm-fit-lo` and `asm-fit-hi` from it.  `asm-fit` then dies with the
+code it is given, echoing the token like every other token error,
+unless the value lies between them.  A four-byte field is never
+checked, by either tool, which is why `asm-fit` looks at `width`
+first: every `%` and `&` passes, and those are the only label
+references M2-Planet writes.
+
 Now the heart of the file.  Six sigils could be six handlers; they
 differ in only two ways, the width of the field and whether a label
 is written as its address or relative to the end of the field.  So
@@ -742,14 +847,17 @@ relativity, and the code to die with if its label does not exist.
 
 \ asm-do-ref ( width relative? err -- )  Handle a sigil token of width
 \ bytes.  A label that is not defined dies with err (after echoing the
-\ token).
+\ token); a value that does not fit the field dies with 244 (label) or
+\ 245 (number).
 : asm-do-ref
   asm-pass @ [lit] 1 = if,
     2drop asm-ip +! exit,                   \ pass 1: count the bytes
   then,
   >r >r                                     ( width ; R: err relative? )
   asm-tok-numeric? if,
+    dup r@ asm-number-bounds
     asm-ref-name asm-parse-number           ( width v )
+    [lit] 245 asm-fit
   else,
     asm-ref-name asm-find-label 0= if,      ( width ip )
       r> drop r> asm-tok-err                \ undefined label: exits
@@ -757,6 +865,8 @@ relativity, and the code to die with if its label does not exist.
     r@ if,                                  \ relative to the field's end
       over asm-ip @ + -                     ( width ip-IP-width )
     then,
+    over r@ asm-label-bounds
+    [lit] 244 asm-fit
   then,
   r> drop r> drop                           ( width v )
   over asm-emit-le                          ( width )
@@ -771,16 +881,20 @@ Read `asm-do-ref` in its two passes:
   fixed, so pass 1 can place every label without knowing the value
   of any reference.
 - **Pass 2** parks the error code and `relative?` on the return
-  stack.  A numeric body is parsed and used as is.  A label body is
-  looked up; if missing, the code comes back off the return stack
-  and `asm-tok-err` exits.  If the sigil is relative, the value
-  becomes `target − (IP + width)`: `over asm-ip @ + -`.  Then
-  `asm-emit-le` writes `width` bytes and `asm-ip` advances.
+  stack.  A numeric body is parsed, checked against `M1`'s bounds
+  (245) and used as is.  A label body is looked up; if missing, the
+  code comes back off the return stack and `asm-tok-err` exits.  If
+  the sigil is relative, the value becomes `target − (IP + width)`:
+  `over asm-ip @ + -`, and it is checked against `hex2`'s bounds
+  (244).  Then `asm-emit-le` writes `width` bytes and `asm-ip`
+  advances.
 
-The return stack is clean on every path out, as `exit,` and `;`
-require (Ch 11).  The error path pops both cells on its way into
-`asm-tok-err`, which does not return; the normal path pops both at
-`r> drop r> drop`.
+The return stack is clean on every path that returns, as `exit,` and
+`;` require (Ch 11): the normal path pops both cells at
+`r> drop r> drop`.  The error paths end in `asm-tok-err`, which does
+not return, so what is left on either stack no longer matters; the
+undefined-label path pops both anyway, to hand `asm-tok-err` its
+code.
 
 ```forth file=130-asm.fth
 \ asm-do-pct-ref ( -- )  '%': asm-do-ref's 4-byte relative form, plus
@@ -819,9 +933,29 @@ sigil; amd64 inputs only ever put it after `%`, and this file only
 supports it there.
 
 ```forth file=130-asm.fth
-\ asm-do-hex ( -- )  Token of hex digits -> 1 byte per pair.
+\ asm-check-hex ( -- )  A bare token must be hex digits (else 246: a
+\ misspelled macro name lands here, as M1's "invalid other") and an even
+\ number of them (else 247: hex2 would carry the odd digit into the next
+\ token, which this file does not do).
+: asm-check-hex
+  [lit] 0 asm-hex-i !
+  begin,
+    asm-hex-i @ asm-token-len-tmp @ <
+  while,
+    asm-token-start-tmp @ asm-hex-i @ + c@ asm-hex-char? 0= if,
+      [lit] 246 asm-tok-err
+    then,
+    [lit] 1 asm-hex-i +!
+  repeat,
+  asm-token-len-tmp @ [lit] 1 and if,
+    [lit] 247 asm-tok-err
+  then, ;
+
+\ asm-do-hex ( -- )  Token of hex digits -> 1 byte per pair.  Pass 1
+\ checks it, so pass 2 only ever sees whole pairs of digits.
 : asm-do-hex
   asm-pass @ [lit] 1 = if,
+    asm-check-hex
     asm-token-len-tmp @ [lit] 2 / asm-ip +!
   else,
     [lit] 0 asm-hex-i !
@@ -854,8 +988,18 @@ supports it there.
 
 ```
 
-`asm-do-hex` counts `len / 2` bytes in pass 1 and writes one byte per
-digit pair in pass 2.  `asm-process-token` is the dispatcher: one
+`asm-do-hex` checks the token in pass 1 and counts `len / 2` bytes;
+pass 2 writes one byte per digit pair.  `asm-check-hex` is where a
+misspelled macro name ends up: `syscal` was not `DEFINE`d, so
+expansion copied it through, and it is not hex, so it dies with 246
+where `M1` would say "Received invalid other".  A hex token with an
+odd number of digits dies with 247.  `hex2` would not stop there; it
+reads digits one at a time and carries the odd one into the next
+token, so `'1 2'` is the byte 0x12.  This file reads a hex token as
+whole pairs, and refusing the odd digit keeps both passes counting
+the same bytes.  Checking in pass 1 is enough: pass 2 reads the
+same text, and pass 1 has already refused anything it could not
+count.  `asm-process-token` is the dispatcher: one
 line per kind, first character decides, hex is the fallback.  The
 whole sigil table from the comment above `asm-ref-name` is in these
 seven lines: `!`, `@` and `~` are relative with widths 1, 2 and 3;
@@ -865,15 +1009,16 @@ Every sigil at once, on a label at the base address:
 
 ```sh
 { cat 010-lib.fth 130-asm.fth; echo asm-main
-  printf ':a %%-1 !a @0x3C ~a $a &a\n'; } | ./seed-forth
-od -An -tx1 /tmp/asm-out | cut -c2-   # prints "ff ff ff ff fb 3c 00 f6 ff ff 00 00 00 00 60 00"
+  printf ':a %%-1 !a @0x3C ~a $258 &a\n'; } | ./seed-forth
+od -An -tx1 /tmp/asm-out | cut -c2-   # prints "ff ff ff ff fb 3c 00 f6 ff ff 02 01 00 00 60 00"
 ```
 
 `%-1` is four `ff`.  `!a` sits at 0x600004, so its field ends at
 0x600005 and `a - 0x600005` is −5, `fb`.  `@0x3C` is a number,
 `3c 00`.  `~a`'s field ends at 0x60000A: −10 in three bytes,
-`f6 ff ff`.  `$a` is the low two bytes of 0x600000, and `&a` all
-four: `00 00 60 00`.
+`f6 ff ff`.  `$258` is the number 0x102, `02 01`: `$a` would be
+refused, since 0x600000 does not fit two unsigned bytes (244).
+`&a` is all four bytes of the address: `00 00 60 00`.
 
 ## 10. Two passes
 
@@ -910,8 +1055,8 @@ already in the table.
 
 That argument has one condition: both passes must agree on every
 token's size.  Sigils have fixed widths, labels have none, and a hex
-token is `len / 2` bytes in both passes, provided `len` is even (§13
-shows what happens when it is not).
+token is `len / 2` bytes in both passes, because pass 1 refuses one
+whose `len` is odd (247, §9).
 
 Stop after pass 1 and print the table, then run both passes on the
 same input:
@@ -1213,9 +1358,10 @@ cat amd64_defs.M1 ELF-amd64.hex2 libc-full.M1 program.M1
 
 ## 13. Capacity and failure
 
-Every buffer and table has a cap, and every sigil a code for an
-undefined label.  Appendix G lists the sites with file and line;
-this is the same table grouped by where the checks live:
+Every buffer and table has a cap, every sigil a code for an
+undefined label, and every check mescc-tools makes on well-formed
+tokens a code of its own.  Appendix G lists the sites with file and
+line; this is the same table grouped by where the checks live:
 
 | Codes | Where | Fails when |
 |---|---|---|
@@ -1227,38 +1373,44 @@ this is the same table grouped by where the checks live:
 | 241 | `asm-emit-byte` | the output fills 1 MiB |
 | 242 | `asm-store-label` | more than 8,192 labels |
 | 243 | `asm-def-store` | more than 4,096 `DEFINE`s |
+| 244 | `asm-do-ref` → `asm-fit` | a label's value does not fit its field (`hex2`'s bounds) |
+| 245 | `asm-do-ref` → `asm-fit` | a number does not fit its field (`M1`'s bounds) |
+| 246 | `asm-do-hex` → `asm-check-hex` | a bare token is not hex: an undefined macro name |
+| 247 | `asm-do-hex` → `asm-check-hex` | a hex token has an odd number of digits |
 
-An undefined label is the error you will actually meet, and it is
-the only one that says more than its code:
+An undefined label and a misspelled macro name are the errors you
+will actually meet.  Like every token error (231–238, 244–247) they
+echo the token before the code:
 
 ```sh
 { cat 010-lib.fth 130-asm.fth; echo asm-main; printf ':start\n&nowhere\n'; } | ./seed-forth 2>&1; echo "exit: $?"   # prints "&nowhere\nexit: 231"
 ```
 
-`tests/asm/die-gates.sh` runs one input per code from 231 to 243
+```sh
+{ cat 010-lib.fth 130-asm.fth; echo asm-main; printf 'DEFINE syscall 0F05\n:start\nsyscal\n'; } | ./seed-forth 2>&1; echo "exit: $?"   # prints "syscal\nexit: 246"
+```
+
+`tests/asm/die-gates.sh` runs one input per code from 231 to 247
 and checks both the exit status and that no `/tmp/asm-out` was left.
 
-What the assembler does *not* check matters as much, because it is
-exactly where it can disagree with mescc-tools:
+The last four codes are malformed input that mescc-tools refuses,
+refused here too, and each is checked against the tool it copies.  `tests/asm/die-gates.sh` has a gate
+for each; the bounds of 244 and 245 were compared at their edges
+with GCC-built `M1` and `hex2` (`!` 127 bytes ahead passes, 128
+dies; `!256` passes, `!257` dies), and `mescc-tools-check.sh` and
+`m2planet-check.sh` still match byte for byte, since well-formed
+input never reaches them.
 
-- **Range.**  mescc-tools' `hex2` stops with "out of range for field
-  type" when a relative value does not fit its field.  `asm-emit-le`
-  keeps the low bytes: a `!label` 200 bytes away silently becomes a
-  wrong jump.  M2-Planet's amd64 output writes every label reference
-  as `%` or `&`, four bytes, and uses `!` only for small numbers such
-  as `!3`, so there is nothing for the check to catch there.
-- **Hex digits.**  `hex-val` assumes a hex digit, so a misspelled
-  macro name (`syscal` for `syscall`) is not "invalid other", as
-  `M1` would say, but three bytes of garbage.
-- **Odd-length hex.**  Pass 1 counts `len / 2` bytes, rounded down;
-  pass 2 writes a byte for every started pair, reading one character
-  past the token for the last.  A token `123` counts one byte and
-  writes two, and every label after it is off by one.
-
-None of these arise in the inputs `bootstrap.sh` feeds it, and the
-byte-identity checks below would catch it if one did.  They are the
-honest boundary of "cmp-identical to mescc-tools": identical on
-well-formed amd64 M1, not a validator of it.
+What is left is where the Forth assembler is *stricter*, never
+looser.  It refuses `'1 2'` (247), which `hex2` reads as 0x12, and
+the forms in the "not implemented" list (a `<` or `^` token, a
+quoted `DEFINE` body) die with 246.  And one silent difference
+remains: an undefined name that happens to be an even run of hex
+digits, such as `face`, is two bytes to the Forth assembler, which
+reads `ELF-amd64.hex2`'s raw hex through the same path, where `M1`
+would call it "invalid other".  None of this arises in the inputs
+`bootstrap.sh` feeds it, and the byte-identity checks below would
+catch it if it did.
 
 ## 14. In the chain
 
@@ -1392,16 +1544,21 @@ and numbers gone, labels still symbolic.  `hex2` resolves them, and
    `EB 04`.  Using the label addresses (`_start` is 0x600078), work
    out where the field ends and why the displacement is 4.
 
-2. **★★ Verify.** Add `!far` to a program whose `:far` is 200 bytes
-   ahead (pad with `'00'` tokens or a `DEFINE` of 100 bytes used
-   twice).  What does the Forth assembler write?  What does the
-   bootstrapped `hex2` say?  Where in `asm-do-ref` would a range
-   check go, and which code would you give it?
+2. **★★ Verify.** Write `EB !far` followed by exactly 127 bytes of
+   `'00'` and then `:far`, and assemble it with the Forth assembler
+   and with the bootstrapped `M1` and `hex2`.  Add one more byte of
+   padding and do it again.  Both tools should accept the first and
+   refuse the second; which message does each print?  Now move the
+   label *before* the jump: how many bytes of padding can a backward
+   `!` cross, and why is that one fewer than forward?
 
-3. **★★ Modify.** Give `asm-do-hex` an odd-length check that dies
-   with the next free code (244).  Which pass should check, and why
-   does checking in only one of them suffice?  Run
-   `tests/asm/die-gates.sh` and the byte-identity checks afterwards.
+3. **★★ Modify.** `M1` accepts `!256` and writes `00`, because its
+   1-byte bound is wider than the byte.  Change `asm-number-bounds`
+   to hex2's signed rule and run `tests/asm/mescc-tools-check.sh`
+   and `m2planet-check.sh`.  Do they still pass?  What would it take
+   to be sure no amd64 input the chain feeds the assembler writes a
+   1-byte number above 127, and is the stricter rule worth the
+   disagreement with `M1`?
 
 4. **★★★ Extend.** `asm-find-label` is a linear scan, run once per
    label reference in pass 2 over up to 4,023 labels for M2-Planet.
@@ -1428,9 +1585,9 @@ on `010-lib.fth` alone, and `bootstrap.sh` uses it to build `M1` and
 
 You can read any line of M2-Planet's `.M1` output and say which
 bytes it becomes and at what address, trace a label from its
-declaration in pass 1 to every reference in pass 2, and name the
-three kinds of malformed input the assembler would accept where
-mescc-tools would not.
+declaration in pass 1 to every reference in pass 2, and say which
+malformed input dies with which code, and which of mescc-tools' two
+tools the check was copied from.
 
 ## Takeaways
 
