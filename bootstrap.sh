@@ -246,7 +246,7 @@ ok "self-v2-amd64.M1 == self-v3-amd64.M1 ($(wc -c < "$OUT/self-v3-amd64.M1") byt
 if cmp -s "$OUT/self-v1-amd64.M1" "$OUT/self-v2-amd64.M1"; then
     ok "self-v1 == self-v2 as well"
 else
-    ok "self-v1 != self-v2 (expected: M2-Planet's host-arch nudge, see REPRODUCIBLE.md)"
+    ok "self-v1 != self-v2 (expected: v1 was compiled with C's logical &&, v2 with M2-Planet's bitwise &&; see REPRODUCIBLE.md)"
 fi
 
 # ---------------------------------------------------------------------------

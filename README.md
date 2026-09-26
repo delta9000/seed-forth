@@ -41,7 +41,40 @@ or linker runs, and nothing is compared with a GCC-built binary.  The
 header of `bootstrap.sh` states this precisely.  The comparisons
 against GCC-built references (Stage A, the x86 and amd64 chains,
 M2-Planet test-suite parity, mescc-tools byte-identity) are a separate
-script, `./verify.sh` (~2 min, needs gcc).
+script, `./verify.sh` (~3½ min, needs gcc), which also runs the two
+stage0-posix checks below.
+
+### Hand off to stage0-posix and live-bootstrap
+
+```sh
+git -C vendor/stage0-posix submodule update --init \
+    M2-Planet M2libc mescc-tools mescc-tools-extra M2-Mesoplanet   # once
+./handoff.sh                   # ~75 s; output in ./build-out/handoff
+```
+
+`handoff.sh` puts the Forth route where stage0-posix's hex1 → hex2 →
+M0 → `cc_amd64` → M2 phases would be: `cc-out-v3` compiles stage0's
+Phase-5 input (M2-Planet `bd2fe4b`) into `artifact/M2`, and the
+Forth-route `M1`/`hex2` stand in for `M0`/`hex2-0`.  Then
+stage0-posix's own AMD64 recipe runs unchanged from Phase 6, and all
+19 binaries it builds (M2-Planet, blood-elf, M1, hex2, kaem,
+M2-Mesoplanet, mescc-tools-extra) match stage0-posix's
+`amd64.answers`.  Of stage0-posix's seed binaries only `hex0-seed`
+runs.  With `cc-out-v2` itself in the `M2` slot, 12 of 19 match, and
+all 19 one generation later.  live-bootstrap reads exactly that set
+at stage0-posix's `after.kaem` hook, so from there you continue with
+live-bootstrap as usual; `REPRODUCIBLE.md` says what to do by hand
+(and that live-bootstrap's supported architecture is x86, while this
+route is amd64 only).
+
+**Diverse double-compiling.**  `tests/cc/stage0-check.sh` (~40 s)
+runs stage0-posix's chain from its seeds, then rebuilds M2-Planet
+`0a67a68` with stage0's recipe starting once from stage0's
+`cc_amd64`-built M2 and once from the Forth-built `cc-out-v1`.  One
+generation later both give the same binary, byte for byte.  The two
+compiler lineages are independent; they share the `hex0-seed`, the
+sources, the kernel, and (in that check) stage0's M1/hex2/blood-elf.
+amd64 only.
 
 ## Quick Start
 
@@ -49,13 +82,15 @@ From the repository root:
 
 ```sh
 git submodule update --init --recursive
-./check-all.sh                 # build + tests + tangle --strict + book checks + stage-A + bootstrap
+./check-all.sh                 # build + tests + tangle --strict + book checks + stage-A + bootstrap + handoff
 ```
 
-`check-all.sh` is a wrapper that runs nine steps
+`check-all.sh` is a wrapper that runs ten steps
 with per-step OK/SKIP/FAIL output; Stage-A and the small assembler
 checks are skipped (not failed) if `gcc` isn't installed.  The last
-step runs `./bootstrap.sh`, which needs no gcc.  For diagnosing a failure, the
+two steps run `./bootstrap.sh` and `./handoff.sh` (its main route
+only, on bootstrap.sh's output), which need no gcc; the handoff step
+is skipped if stage0-posix's nested submodules are not checked out.  For diagnosing a failure, the
 individual commands are:
 
 ```sh
@@ -66,6 +101,7 @@ tools/check-numbers.py
 tools/check-tryit.py
 tests/cc/stage-a-check.sh
 ./bootstrap.sh
+BOOTSTRAP_OUT=build-out/out ROUTE_B=0 ./handoff.sh
 ```
 
 `--recursive` is needed because both `vendor/M2-Planet` and
@@ -77,7 +113,8 @@ tests/cc/stage-a-check.sh
 Source Bootstrap.  No `xxd` / `vim` dependency.  Override with
 `HEX0=/path/to/your/hex0 ./build.sh` to use a different assembler.
 
-`stage-a-check.sh` builds `/tmp/cc-out` with seed-forth, uses it to compile
+`stage-a-check.sh` builds `cc-out-v1` with seed-forth (in its `BUILDROOT`,
+with a private `/tmp` when `unshare -rm` works), uses it to compile
 M2-Planet for `amd64`, and compares that `.M1` output byte-for-byte with the
 GCC-built M2-Planet reference.
 
@@ -88,7 +125,8 @@ M2_PLANET=/tmp/M2-Planet tests/cc/stage-a-check.sh
 ```
 
 For every comparison against GCC-built references (Stage A, the
-per-arch closure chain, M2-Planet's test suite, mescc-tools), run:
+per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
+`stage0-check.sh` and the full `handoff.sh`, run:
 
 ```sh
 ./verify.sh                    # or tests/cc/bootstrap-chain.sh for the chain alone
@@ -105,8 +143,9 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), run:
 | `120-cc-main.fth` | Compiler entry point; reads C from stdin and writes `/tmp/cc-out`. |
 | `test.sh` / `test-*.fth` | Local unit/smoke tests for layers 010–070; the upper layers (080–116) are exercised end-to-end by `tests/cc/`. |
 | `bootstrap.sh` | The GCC-free build: hex0-seed → seed-forth → M2-Planet, M1, hex2 → self-hosted M2-Planet fixed point. |
-| `verify.sh` | Every comparison against GCC-built references (runs the `tests/` scripts below). |
-| `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, full bootstrap-chain, and GCC reference (`build-gcc-refs.sh`) scripts. |
+| `verify.sh` | Every comparison against GCC-built references (runs the `tests/` scripts below), then `tests/cc/stage0-check.sh` and `handoff.sh`. |
+| `handoff.sh` | The Forth route in place of stage0-posix's hex1/hex2/M0/`cc_amd64` phases; stage0-posix's own recipe then reproduces all 19 `amd64.answers` binaries. |
+| `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, full bootstrap-chain, the stage0-posix cross-check (`stage0-check.sh`), and GCC reference (`build-gcc-refs.sh`) scripts. |
 | `tests/asm/*.sh` | `130-asm.fth` checks against GCC-built mescc-tools, small fixtures up to M2-Planet, M1 and hex2. |
 | `tests/cc/G*.c`, `M*.c`, headers | Small tracked cases that document the C subset. |
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |

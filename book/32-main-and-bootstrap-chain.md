@@ -293,20 +293,26 @@ part, and live-bootstrap carries on from there:
 This book covers the *seed-forth* arm of that diagram: an
 independent path from `hex0-seed` to an M2-Planet-compatible
 compiler, through a 1,772-byte Forth instead of through hex1, hex2,
-M0 and `cc_amd64`.  The two arms do not agree by default.  The
-default `cc-out-v1` matches the GCC-built reference, not a
-stage0-built M2-Planet: stage0's toolchain skips one
-`sub_rsp, imm` optimization that GCC-built M2-Planet takes.  Build
-`cc-out-v1` with `STAGE0_COMPAT=1` and its `.M1` matches a
-stage0-built M2-Planet compiled from the same M2-Planet source
-(Appendix C).
+M0 and `cc_amd64`.  The two arms' first M2-Planets are different
+binaries that emit slightly different `.M1`.  `cc-out-v1` matches
+the GCC-built reference, because this compiler, like GCC, reads the
+`&&` in two of M2-Planet's codegen guards as ISO C does; M2-Planet
+compiles `&&` as a bitwise `and`, so every M2-Planet-built M2-Planet
+(stage0's, and this chain's own v2 and v3) skips the short
+`sub_rsp, imm` forms those guards select.  One generation later the
+arms meet: `tests/cc/stage0-check.sh` rebuilds M2-Planet with
+stage0's recipe from both arms and gets the same binary, byte for
+byte (amd64; the details, and what the two arms still share, are in
+Appendix C).
 
-That makes the seed-forth arm a cross-check on stage0's stretch
-from hex1 to M2-Planet, and a candidate replacement for it, not a
-drop-in one.  It produces an M2-Planet (and, with `130-asm.fth`,
-an M1 and hex2), but nothing yet builds `blood-elf`, `kaem` and
-the rest of mescc-tools from it and hands them to live-bootstrap.
-That hand-off is still being written.
+The seed-forth arm can also stand in for stage0's stretch from hex1
+to M2-Planet.  `./handoff.sh` feeds `bootstrap.sh`'s M2-Planet, M1
+and hex2 to stage0-posix's own recipe in place of hex1, hex2, M0 and
+`cc_amd64`, and the recipe then builds `blood-elf`, `kaem`, M2-Planet
+and the rest byte-identical to stage0-posix's published
+`amd64.answers`.  live-bootstrap takes over from those binaries, so
+past that point the chain continues as usual (amd64 only; Appendix C
+and `REPRODUCIBLE.md` say exactly where and how).
 
 [Where this fits](where-this-fits.md) sets the two routes side by
 side.  By now you've seen every component along the seed-forth
@@ -333,12 +339,13 @@ program in M2-Planet's own test suite with v1 and with the GCC
 reference (x86 output): each must produce the same bytes from both,
 or be rejected by both, or the stage fails.  Nothing past
 M2-Planet (no Mes, no TinyCC) is run.  From an empty `BUILDROOT`
-it took about 40 s on a 4-core machine; `stage-a-check.sh` takes
+it took about 70 s on a 4-core machine, `bootstrap.sh` included; `stage-a-check.sh` takes
 seconds.
 
-Stages B and E assemble with mescc-tools' `M1` and `hex2`, which
-are built with GCC.  `130-asm.fth` is a Forth replacement for that
-pair, and the one source file no chapter teaches: a 689-line M1
+Stages B and E assemble with mescc-tools' `M1` and `hex2` as built
+by `bootstrap.sh`: compiled by the Forth-built M2-Planet and
+assembled by `130-asm.fth`, the Forth replacement for that pair and
+the one source file no chapter teaches: a 689-line M1
 macro expander and two-pass hex2 linker that loads on
 `010-lib.fth` alone, reads M1 text on stdin and writes an ELF to
 `/tmp/asm-out`.  `tests/asm/m2planet-check.sh` feeds it M2-Planet's
@@ -370,8 +377,10 @@ byte.
 come from a higher-level source language.  This book explains that
 arm up to the M2-Planet-compatible compiler it produces; the
 canonical downstream chain continues in M2-Planet, mescc-tools,
-MesCC, TinyCC, and GCC.  Closure means you can keep following source
-all the way down instead of trusting an unexplained binary jump.
+MesCC, TinyCC, and GCC, and `handoff.sh` shows that the arm's output
+drives stage0-posix's recipe to exactly the binaries that chain
+starts from.  Closure means you can keep following source all the
+way down instead of trusting an unexplained binary jump.
 
 That last property is what motivates the project.  Modern
 software bootstraps are circular: GCC is compiled by GCC,
@@ -498,7 +507,11 @@ of tri.c's binary and you can name the Forth word that wrote it, the
 chapter that walks that word, and the seed primitives underneath.
 Run `stage-a-check.sh` and you can watch the M2-Planet built by GCC
 and the one this book's compiler built emit the same `.M1`, byte for
-byte.  And when someone asks where your compiler came from, you can
+byte.  Run `tests/cc/stage0-check.sh` and you can watch this route
+and stage0-posix's, from the same 229-byte seed through independent
+compilers, reach the same M2-Planet binary one generation later;
+run `./handoff.sh` and stage0-posix's own recipe, fed by this route,
+produces its 19 published binaries.  And when someone asks where your compiler came from, you can
 point to a file of hex you have read, and to every line of source
 between it and the output.
 

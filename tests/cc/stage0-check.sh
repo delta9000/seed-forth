@@ -50,6 +50,9 @@
 #   PRIVATE_TMP  auto (default) | 0.  seed-forth's compiler always writes
 #                /tmp/cc-out; with `unshare -rm` each run gets a private /tmp.
 #
+# Exit status: 0 PASS, 77 SKIP (a stage0-posix nested submodule is not
+# checked out), anything else FAIL.
+#
 # Prerequisite (network, once):
 #   git -C vendor/stage0-posix submodule update --init \
 #       M2-Planet M2libc mescc-tools mescc-tools-extra M2-Mesoplanet
@@ -91,7 +94,8 @@ step 0 "prereqs: stage0-posix nested submodules at their recorded commits"
 for sm in bootstrap-seeds AMD64 M2-Planet M2libc mescc-tools mescc-tools-extra M2-Mesoplanet; do
     line=$(git -C "$S0SRC" submodule status "$sm" 2>/dev/null) || fail 0 "cannot query $S0SRC/$sm"
     case "$line" in
-        -*) fail 0 "$S0SRC/$sm not checked out; see 'Prerequisite' at the top of $0" ;;
+        -*) echo "stage0-check: SKIP: $S0SRC/$sm is not checked out; see 'Prerequisite' at the top of $0"
+            exit 77 ;;
         +*) fail 0 "$S0SRC/$sm is not at stage0-posix's recorded commit: $line" ;;
         U*) fail 0 "$S0SRC/$sm has merge conflicts" ;;
     esac

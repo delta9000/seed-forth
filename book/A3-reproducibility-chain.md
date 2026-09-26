@@ -183,7 +183,7 @@ exit 0).  Then Stage 3 compiles every program in M2-Planet's test
 suite with v1 and with the GCC reference at `--architecture x86`;
 each must give byte-identical output or be rejected by both.
 
-This script takes about a minute and exercises the full chain.
+This script takes a little over a minute and exercises the full chain.
 
 ## Expected hashes
 
@@ -229,9 +229,68 @@ GCC's:
 | default | `22465aa1…` | GCC-built M2-Planet reference |
 | `STAGE0_COMPAT=1` | `02d98f86…` | stage0-posix-derived M2-Planet *and* the default mode's `cc-out-v2`/`v3` |
 
-The mode is explained at length in `REPRODUCIBLE.md`; in short, it
-disables one codegen optimization that stage0-posix's `cc_amd64`
-already skips, so the fixed point closes at v1 instead of at v2.
+The mode is explained at length in `REPRODUCIBLE.md`.  In short,
+M2-Planet's `cc_emit.c` guards two short add/sub-immediate forms with
+`(Architecture & ARCH_FAMILY_X86) && (reg == ...)`.  Our compiler,
+like GCC, reads `&&` as ISO C does, so the guard is `8 && 1`, true,
+and `cc-out-v1` emits the short forms.  M2-Planet compiles `&&` as a
+bitwise `and`, so any M2-Planet-built M2-Planet (stage0's, or our own
+v2 and v3) computes `8 & 1`, false, and never does.  Nothing in
+stage0 is at fault; the difference is in M2-Planet's source.
+`STAGE0_COMPAT=1` rewrites those two guards to `0`, so `cc-out-v1`
+behaves like an M2-Planet-built M2-Planet and the fixed point closes
+at v1 instead of at v2.  It is a shortcut: the cross-check below
+does not need it.
+
+## Cross-check against stage0-posix (diverse double-compiling)
+
+```sh
+tests/cc/stage0-check.sh      # amd64 only; about 40 s; no host C compiler
+```
+
+It needs stage0-posix's nested submodules (the script's header gives
+the one-time `git submodule update` line) and skips with exit 77
+without them.  It runs stage0-posix's own AMD64 chain from its seeds
+(all 19 binaries must match `amd64.answers`), then rebuilds
+M2-Planet `0a67a68` with stage0's Phase-15 recipe twice over from two
+starting compilers:
+
+- stage0 route: `cc_amd64` → `artifact/M2` → `x1` → `x2`;
+- Forth route: seed-forth → our C compiler → `cc-out-v1` → `y1` → `y2`.
+
+`y2 == x2`, byte for byte (`6008773d…`), with no `STAGE0_COMPAT`:
+one generation after `cc-out-v1`, the Forth-rooted and the
+stage0-rooted chains reach the same M2-Planet binary.  The compiler
+lineages are independent.  What the two share: the `hex0-seed`
+trust root, the M2-Planet and M2libc sources, the Linux kernel, and
+in this check stage0's `M1`, `hex2` and `blood-elf`, which link both
+routes' outputs.  So it shows the two compiler lineages agree, not
+that the assemblers are independent, and it covers amd64 only.
+
+## Handing off to stage0-posix's recipe, and to live-bootstrap
+
+```sh
+./handoff.sh                  # amd64 only; about 75 s; no host C compiler
+```
+
+`handoff.sh` takes `bootstrap.sh`'s outputs and puts them where
+stage0-posix's hex1 → hex2 → M0 → `cc_amd64` → `M2` stretch would
+have put its own: v3 compiles stage0's Phase-5 input (M2-Planet
+`bd2fe4b`) into `artifact/M2`, and the Forth route's `M1` and `hex2`
+stand in for `M0` and `hex2-0`.  Then it runs stage0-posix's recipe
+from Phase 6 on, unchanged.  All 19 binaries match stage0-posix's
+`amd64.answers`, including `bin/M2-Planet` (`7cf19de2…`).  Of stage0-posix's seed
+binaries only `hex0-seed` runs, and none of hex1, hex2-0, catm, M0,
+`cc_amd64` or stage0's own `M2` is built.  Using `cc-out-v2`
+itself as `artifact/M2` gives 12 of 19 (M2-Planet `0a67a68` generates
+different code from `bd2fe4b`), and all 19 one generation later.
+
+live-bootstrap starts from that same stage0-posix pin and takes over
+at stage0-posix's `after.kaem` hook, reading `/AMD64/bin`.  With a
+byte-identical `AMD64/bin`, the rest is "continue with live-bootstrap
+as usual"; the manual steps, and the caveat that live-bootstrap
+supports only x86 while this route is amd64-only, are in
+`REPRODUCIBLE.md`.
 
 ## What "byte-identical" means here
 
@@ -263,11 +322,16 @@ M2-Planet with its own `M1` and `hex2` at a byte-identical fixed
 point, with no GCC-built binary run anywhere.  Every byte is
 auditable.
 
+With `stage0-check.sh` and `handoff.sh`, it also shows that this
+route and stage0-posix's reach the same M2-Planet binary one
+generation later, and that the Forth route can drive stage0-posix's
+own recipe to its published `amd64.answers` (amd64 only).
+
 It does *not* prove: that the resulting compiler is bug-free, that
 M2-Planet is bug-free, that the kernel running this is not
 compromised, or that the broader Guix Full Source Bootstrap chain
 beyond M2-Planet is auditable.  See `REPRODUCIBLE.md` for the
-caveats and the stage0-byte-identity option.
+caveats, the hand-off details and the `STAGE0_COMPAT` shortcut.
 
 The chain is *one segment* of a larger one.  See
 [bootstrappable.org](https://bootstrappable.org) for the rest.

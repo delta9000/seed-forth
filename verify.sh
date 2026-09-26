@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
-# verify.sh — COMPARISONS AGAINST GCC-BUILT REFERENCES.
+# verify.sh — COMPARISONS AGAINST GCC-BUILT REFERENCES (steps 1-5) and
+# against stage0-posix (steps 6-7).
 #
 # bootstrap.sh is the GCC-free build and checks only its own fixed point.
 # This script is the other half: it rebuilds GCC reference binaries
 # (tests/cc/build-gcc-refs.sh: M2-Planet as m2-ref, mescc-tools' M1 and hex2)
 # and shows that the GCC-free artifacts agree with them byte for byte.
 #
+# Steps 6-7 then compare the Forth route with the canonical stage0-posix
+# route and hand it over to stage0-posix's own recipe.
+#
 # TRUSTS, in addition to what bootstrap.sh trusts: the host gcc (for the
 # references only) and the host tools the test scripts use to compare and
-# report (cmp, diff, file, timeout, wc, cp, sed, od).
+# report (cmp, diff, file, timeout, wc, cp, sed, od).  Steps 6-7 trust the
+# vendor/stage0-posix sources at its pins; step 6 also runs stage0-posix's
+# kaem-optional-seed and the chain it builds.  Their headers are exact.
 #
 # WHAT IT PROVES (each step is an existing script; all rebuild from scratch):
 #   1. asm-light         130-asm.fth == GCC mescc-tools M1+hex2 on the small
@@ -31,6 +37,19 @@
 #                        tests/cc/build-m2planet-monolith.sh give the same
 #                        cc-out-v1 (so Stage A covers bootstrap.sh's v1).
 #
+# Then two cross-checks against stage0-posix instead of GCC (no gcc used;
+# each SKIPs, exit 77, when vendor/stage0-posix's nested submodules
+# M2-Planet, M2libc, mescc-tools, mescc-tools-extra, M2-Mesoplanet are not
+# checked out; see the Prerequisite note in either script):
+#   6. stage0            tests/cc/stage0-check.sh: stage0-posix's own AMD64
+#                        chain reproduces amd64.answers, and the Forth-rooted
+#                        and stage0-rooted chains reach the same M2-Planet
+#                        0a67a68 binary one generation after cc-out-v1 (DDC).
+#   7. handoff           ./handoff.sh on step 3's bootstrap.sh output: stage0's
+#                        recipe from Phase 6 on, fed by the Forth route instead
+#                        of hex1/hex2/M0/cc_amd64, reproduces all 19
+#                        amd64.answers binaries.
+#
 # Output: one OK/FAIL line per step, logs in $BUILDROOT/logs.
 # Env: BUILDROOT (default ./build-out/verify; wiped at start),
 #      PRIVATE_TMP=auto|0 — by default the whole run gets a private /tmp via
@@ -45,7 +64,7 @@ PRIVATE_TMP=${PRIVATE_TMP:-auto}
 if [ -z "${VERIFY_IN_PRIVATE_TMP:-}" ]; then
     mkdir -p "$BUILDROOT"
     BUILDROOT=$(cd "$BUILDROOT" && pwd)
-    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light}
+    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light,stage0,handoff}
     mkdir -p "$BUILDROOT/tmp"
     case "$ROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac   # we'd hide our own tree
     case "$BUILDROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac
@@ -63,12 +82,16 @@ LOGS=$BUILDROOT/logs
 mkdir -p "$LOGS"
 T0=$SECONDS
 PASS=0 FAIL=0
+SKIP=0
 run() {
     local name=$1; shift
-    local t=$SECONDS
+    local t=$SECONDS rc=0
     printf '%-18s' "$name ..."
-    if "$@" > "$LOGS/$name.log" 2>&1; then
+    "$@" > "$LOGS/$name.log" 2>&1 || rc=$?
+    if [ "$rc" = 0 ]; then
         echo " OK   ($((SECONDS - t))s)"; PASS=$((PASS + 1))
+    elif [ "$rc" = 77 ]; then
+        echo " SKIP ($(grep -m1 'SKIP' "$LOGS/$name.log" | sed 's/^[^:]*: SKIP: //'))"; SKIP=$((SKIP + 1))
     else
         echo " FAIL ($((SECONDS - t))s, see $LOGS/$name.log)"; FAIL=$((FAIL + 1))
         tail -20 "$LOGS/$name.log" | sed 's/^/    | /'
@@ -82,12 +105,16 @@ run 2-stage-a        env BUILDROOT="$BUILDROOT/stage-a" tests/cc/stage-a-check.s
 run 3-chain          env BUILDROOT="$BUILDROOT/chain"   tests/cc/bootstrap-chain.sh
 run 4-mescc-tools    env BUILDROOT="$BUILDROOT/asm"     tests/asm/mescc-tools-check.sh
 run 5-monolith       cmp "$BUILDROOT/stage-a/cc-out-v1" "$BUILDROOT/chain/bootstrap/out/cc-out-v1"
+run 6-stage0         env BUILDROOT="$BUILDROOT/stage0" tests/cc/stage0-check.sh
+run 7-handoff        env BUILDROOT="$BUILDROOT/handoff" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" ./handoff.sh
 
 echo
-grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
+grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC: \|match amd64.answers\|^handoff: PASS\|^stage0-check: PASS' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
 echo
-if [ "$FAIL" = 0 ]; then
+if [ "$FAIL" = 0 ] && [ "$SKIP" = 0 ]; then
     echo "verify: all $PASS steps PASS in $((SECONDS - T0))s"
+elif [ "$FAIL" = 0 ]; then
+    echo "verify: $PASS PASS, $SKIP SKIP, 0 FAIL in $((SECONDS - T0))s"
 else
-    echo "verify: $FAIL FAIL, $PASS PASS"; exit 1
+    echo "verify: $FAIL FAIL, $PASS PASS, $SKIP SKIP"; exit 1
 fi
