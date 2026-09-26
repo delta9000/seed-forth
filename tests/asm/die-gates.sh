@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Die gates for 130-asm.fth: M1 inputs the assembler must reject, each with
 # its own exit code (Appendix G, 230-249).  Every buffer and table has one
-# gate that overflows it, and every sigil has one for an undefined label (the
-# token is echoed to stderr before the exit).
+# gate that overflows it, every sigil has one for an undefined label, and
+# each of the checks mescc-tools also makes (range, bad token, odd-length
+# hex) has one; those echo the token to stderr before the exit.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -69,5 +70,23 @@ gate "242 label table full" 242
 # 243: more than 4,096 DEFINEs.
 awk 'BEGIN { for (i = 0; i < 4097; i++) print "DEFINE D" i " 00" }' > "$TMP/in.M1"
 gate "243 DEFINE table full" 243
+
+# 244: a label that does not fit its field (hex2's rule): a 1-byte relative
+# '!b' 128 bytes short of its target, one past the signed range.
+{ printf ':a EB !b\n'; awk 'BEGIN { for (i = 0; i < 128; i++) print "00" }'
+  printf ':b\n'; } > "$TMP/in.M1"
+gate "244 label out of range" 244
+
+# 245: a number that does not fit its field (M1's rule: -129..256 for '!').
+printf ':start\n!257\n' > "$TMP/in.M1"
+gate "245 number out of range" 245
+
+# 246: a bare token that is neither a macro nor hex: a misspelled 'syscall'.
+printf 'DEFINE syscall 0F05\n:start\nsyscal\n' > "$TMP/in.M1"
+gate "246 not a macro or hex" 246
+
+# 247: an odd number of hex digits.
+printf ':start\n123\n' > "$TMP/in.M1"
+gate "247 odd-length hex" 247
 
 exit $fail

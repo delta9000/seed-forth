@@ -51,7 +51,7 @@ The practical facts first.
   to compare against, and never run their output as part of the
   chain.  `bootstrap.sh`, `handoff.sh` and `tests/cc/stage0-check.sh`
   use no host C compiler.  The GCC-free assembler is `130-asm.fth`:
-  689 lines of Forth, an M1 expander and hex2 linker, taught in
+  785 lines of Forth, an M1 expander and hex2 linker, taught in
   Chapter 33; `bootstrap.sh` uses it to build `M1` and `hex2`.
 - **Where it stops.**  `bootstrap.sh` stops at a self-hosted
   M2-Planet (`0a67a68`) with its own `M1` and `hex2`.  `./handoff.sh`
@@ -321,7 +321,7 @@ wc -l 000-seed.hex0 010-lib.fth [0-9][0-9][0-9]-cc-*.fth
 Neither row counts the tools each route needs to turn M2-Planet's
 `.M1` output into an ELF.  stage0 builds `M1` and `hex2` from
 mescc-tools' C with its first M2; the Forth route's equivalent is
-`130-asm.fth` (Ch 33), another 689 lines.  Nor does the stage0 row count
+`130-asm.fth` (Ch 33), another 785 lines.  Nor does the stage0 row count
 `kaem-minimal.hex0`, the 406-line script runner stage0 uses to
 drive those steps; the Forth route leans on the host shell instead.
 

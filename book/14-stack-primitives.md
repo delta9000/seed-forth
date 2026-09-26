@@ -7,9 +7,10 @@ Artifact after this chapter: the stack and memory primitives' machine code, full
 Proof link: the compiler's codegen reuses the same rdi/rbp convention; these bytes prime you for Ch 25.
 ```
 
-`dup` appears 218 times in the library and the C compiler's Forth
-source.  It duplicates the top of the stack, so it has to read the
-top of the stack.  Look for that read in its body and you won't
+Outside comments, `dup` appears 218 times in the library and the C
+compiler, the Forth that Part III loads.  It duplicates the top of
+the stack, so it has to read the top of the stack.  Look for that
+read in its body and you won't
 find one: `dup_code` is two instructions and a `ret`, and neither
 instruction loads anything from the stack.  The top of the Forth
 stack is not in memory.  It is in a register.

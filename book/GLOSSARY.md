@@ -409,8 +409,10 @@ Required for any link in the bootstrap chain to be auditable.
 **Sigil** — the first character of an M1/hex2 reference token:
 `!` `@` `~` (1, 2, 3 bytes, relative to the end of the field), `%`
 (4 bytes relative, or `%target>base`), `$` `&` (2, 4 bytes
-absolute).  Followed by a label or a number.  One handler,
-`asm-do-ref`, serves all six.  Ch 33 §9.
+absolute).  Followed by a label or a number, whose value must fit
+the field (hex2's bounds for a label, M1's for a number; 4-byte
+fields are unchecked).  One handler, `asm-do-ref`, serves all six.
+Ch 33 §9.
 
 **Trusting trust** — Ken Thompson's 1984 paper "Reflections on
 Trusting Trust" — the founding articulation of why a compiler can't

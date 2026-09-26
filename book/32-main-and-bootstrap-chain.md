@@ -350,7 +350,7 @@ seconds.
 Stages B and E assemble with mescc-tools' `M1` and `hex2` as built
 by `bootstrap.sh`: compiled by the Forth-built M2-Planet and
 assembled by `130-asm.fth`, the Forth replacement for that pair and
-the subject of Ch 33: a 689-line M1
+the subject of Ch 33: a 785-line M1
 macro expander and two-pass hex2 linker that loads on
 `010-lib.fth` alone, reads M1 text on stdin and writes an ELF to
 `/tmp/asm-out`.  `tests/asm/m2planet-check.sh` feeds it M2-Planet's
