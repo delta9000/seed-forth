@@ -8,13 +8,13 @@ Proof link: later stages can assemble /tmp/cc-out deterministically for Stage-A 
 ```
 
 A compiler needs somewhere to put the program it is reading and the
-program it is writing.  Before any C can be parsed, the Forth we built
-in Part II has to slurp up to a megabyte of source from stdin, hand
+program it is writing.  Before any C can be parsed, the compiler has
+to slurp up to a megabyte of source from stdin, hand
 it out one byte at a time, collect up to a megabyte of machine code,
 and write it to disk.  It also needs a way to allocate the odd record
 whose size isn't known in advance.
 
-Part III uses that Forth to host a compiler for a small subset of C:
+Part III uses the seed's Forth to host a compiler for a small subset of C:
 enough to rebuild M2-Planet, whose binary is the next link in the Guix
 Full Source Bootstrap chain.  The compiler is split across eleven
 files (`020-cc-arena.fth` through `120-cc-main.fth`), loaded in
@@ -27,9 +27,9 @@ memory model so the interesting code can be about C, not about `mmap`.
 
 Ch 20 closed by naming Part III's three recurring motifs: emit,
 remember, patch; small tables with newest-wins lookup; one buffer per
-responsibility.  All three appear in this chapter's two files.  Before
-reading them, here is the whole compiler at a glance, as `cc-main` in
-`120-cc-main.fth` drives it:
+responsibility.  The first and third show up in this chapter's two
+files.  Before reading them, here is the whole compiler at a glance,
+as `cc-main` in `120-cc-main.fth` drives it:
 
 ```text
   stdin (C source)
@@ -222,6 +222,9 @@ itself growing down from the top), the I/O scratch byte at `0x412000`,
 the token buffer at `0x412800`, the sysvars at `0x413000`.  Chs 13–20
 introduced those addresses.
 
+With the buffer placed, the reader is a reset word, a load loop and
+three accessors:
+
 ```forth file=030-cc-io.fth
 \ cc-src-init ( -- )  Reset reader state.
 : cc-src-init
@@ -324,6 +327,9 @@ These mirror `010-lib.fth`'s `,4` and `,8` (Ch 9), but write into
 `cc-out-buf` rather than at the dictionary's HERE.  `cc-emit-4le`
 needs no temporary variable: `dup`, emit, divide, repeat.
 
+The emitters only append.  Fixing up bytes already written takes a
+second family that writes at an explicit offset:
+
 ```forth file=030-cc-io.fth
 \ cc-out-patch-byte ( v offset -- )  Overwrite cc-out-buf[offset] with low byte of v.
 : cc-out-patch-byte  cc-out-buf + c! ;
@@ -351,8 +357,7 @@ needs no temporary variable: `dup`, emit, divide, repeat.
 
 ```
 
-The patch family writes into `cc-out-buf[offset]` rather than at the
-cursor.  `cc-out-patch-4le` stashes `offset` on the return stack with
+`cc-out-patch-4le` stashes `offset` on the return stack with
 `>r`/`r@`/`r>` (Ch 4) so the four byte-writes can each compute
 `offset+0` through `offset+3`.  This is Ch 11's emit-remember-patch
 pattern, moved from dictionary branch slots to `cc-out-buf` offsets.

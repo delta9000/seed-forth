@@ -100,14 +100,15 @@ codes in the 30s/80s/90s; see Appendix G).
 
 ## Declarations
 
-Top-level forms accepted by the `cc-parse-program` loop (Ch 31):
+Top-level forms accepted by the top-level loop, `cc-parse-function-list`
+(Ch 31):
 
 | Form | Notes |
 |---|---|
 | `T name '(' params ')' '{' body '}'` (function definition) | The main case. |
-| `T name '(' params ')' ';'` (function prototype)           | Registered for type-checking; not emitted. |
-| `T name [ = init ] ';'` (global scalar / pointer)          | Initialiser is a constant expression. |
-| `T name '[' INT ']' [ = '{' init-list '}' ] ';'`           | Globals with array initialisers; sizes are integer literals. |
+| `T name '(' params ')' ';'` (function prototype)           | Registered as an `sk-func` with vaddr 0 so forward calls resolve; not emitted. |
+| `T name [ = init ] ';'` (global scalar / pointer)          | Initialiser must be an integer literal, possibly negated. |
+| `T name '[' INT ']' ';'`                                   | Global arrays start zeroed; no initialiser list.  Sizes are integer literals. |
 | `struct TAG '{' field-decl* '}' ';'`                       | Up to 16 fields per struct; each field is a full 8-byte slot. |
 | `enum [TAG] '{' name [= INT] (',' …)* '}' ';'`             | Tag optional. |
 | `typedef T name ';'`                                       | Stored in the symbol table with kind `sk-typedef`. |
@@ -159,7 +160,9 @@ Structs are storage and field-naming only.
   struct.
 - Structs are passed and returned **by pointer only**.  Pass-by-
   value of struct values is not supported (the calling convention
-  cannot express it).
+  cannot express it).  Struct-typed locals and globals are fine
+  (Ch 29 §5, Ch 31 §7); only crossing a call boundary needs a
+  pointer.
 - `sizeof(struct T)` returns `8 * field-count`.
 - Nested struct *types* are allowed via tag references (`struct
   inner *next;`); inlined nested structs are not.

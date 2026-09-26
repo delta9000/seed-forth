@@ -14,9 +14,9 @@ through: `bye_code`, `emit_code` and `key_code` at lines 65–96 of
 `000-seed.hex0`, and `syscall6_code` with its dictionary entry at
 lines 627–648.
 
-The seed reads one byte and writes one byte, nothing more.
-`010-lib.fth` and `030-cc-io.fth` add buffering on top.  That
-restriction keeps `emit` and `key` under 50 bytes each.  Both use
+The seed reads one byte and writes one byte, nothing more, and
+leaves buffering to the Forth layers above it.  That restriction
+keeps `emit` and `key` under 50 bytes each.  Both use
 one global scratch byte at `0x412000`: `emit` stores its byte there
 and calls `write(1, scratch, 1)`, and `key` fills it with
 `read(0, scratch, 1)`.  `syscall6` is the general hatch that loads
@@ -37,7 +37,8 @@ BF 00 00 00 00          mov edi, 0         ; exit code 0
 Three instructions.  No `ret`, because the kernel terminates the
 process and never returns to userspace.  The body lives at `0x0D2`
 and is referenced from the REPL's EOF path: when `read_word` returns
-length zero, the REPL emits `jmp bye_code` and the kernel takes over.
+length zero, the REPL executes `jmp bye_code` and the kernel takes
+over.
 
 (The chunk itself, `<<bye-code>>`, is defined in Ch 14 so that the
 source runs on from `<<jmp-to-repl>>` without a gap.)
@@ -116,8 +117,8 @@ the byte we read (zero-extended to a cell) or `0` if `read` returned
 zero (which on a pipe or redirected file means EOF).
 
 The EOF sentinel matters.  `read_word` (Ch 17) calls `key` in a
-loop and passes the `0` outward as "no token."  The REPL (Ch 20)
-turns that into `jmp bye_code`.  The seed's entire shutdown path
+loop and passes the `0` outward as "no token," and the REPL (Ch 20)
+answers that with the `jmp bye_code` from §1.  The seed's entire shutdown path
 starts at this one `xor rdi, rdi`.
 
 `mov rsi, 0x412000` here uses the *32-bit-immediate* form (`48 C7

@@ -92,12 +92,9 @@ canonical artifacts.  See
 
 ## How the book is organized
 
-Three parts plus a prologue and seven appendices.  Chapter order
-is **source order**: chapter *n* explains the code that appears at
-offset *n* in the source files.  Every fenced code block tagged
-`file=<path>` is the canonical source for that file; when
-`tools/tangle.sh verify --strict` passes, the book *is* the
-codebase.
+Three parts plus a prologue and seven appendices.  Within each
+part, chapters follow **source order**: each one picks up the file
+where the previous chapter stopped.
 
 - **Part I (Chs 1–12)** walks `010-lib.fth`, the Forth library
   above the seed.  Run most examples in gforth; Chs 5, 10, and 11
@@ -140,5 +137,5 @@ Every fenced code block tagged `file=<path>` is the canonical
 source for that file.  `tools/tangle.sh verify --strict` confirms
 the book and the source agree byte-for-byte; that strict check is
 the literate-program claim that "the book compiles."  Operator
-details (`tangle.sh extract`, `status`, the per-file migration
-policy) live in `CLAUDE.md` at the repo root.
+details (`tangle.sh extract`, `status`) live in `tools/tangle.sh`
+and `CLAUDE.md` at the repo root.

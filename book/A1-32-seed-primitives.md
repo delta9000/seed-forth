@@ -3,7 +3,8 @@
 The `000-seed.hex0` image contains 32 dictionary entries, one per
 user-visible primitive, plus a few unnamed internal helpers.  Each
 primitive has a hand-written x86-64 body and a dictionary entry, and
-most are used again at the Forth level in `010-lib.fth` and beyond.  Two `_code` blocks have no dictionary entry of their own:
+most are used again at the Forth level in `010-lib.fth` and beyond.
+Two `_code` blocks have no dictionary entry of their own:
 `read_word` (used by the REPL and by `:`, `[lit]`, and `'`) and
 `parse_decimal_code` (called by `[lit]` at parse time, while it
 reads its token).  The REPL loop itself is the third unnamed block.

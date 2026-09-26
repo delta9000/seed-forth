@@ -66,8 +66,9 @@ Three lines, as promised, plus the `immediate` every combinator
 needs.  Leave it off and `again,` runs when `tick` *runs* instead
 of when it compiles: the colon compiler just emits a `CALL again,`,
 the loop body prints one `.`, and `again,` then appends a stray
-branch to whatever `HERE` is at run time instead of looping.  Walk the bytes for `: forever begin,
-again, ;`:
+branch to whatever `HERE` is at run time instead of looping.
+
+Walk the bytes for `: forever begin, again, ;`:
 
 | HERE offset | Byte(s) | Source |
 |---|---|---|
@@ -193,7 +194,7 @@ Where in the recursion does left-associativity fall out?
 
 ### The structure of `cc-parse-add`
 
-From `100-cc-expr.fth` (Ch 27 §3 walks this in detail):
+From `100-cc-expr.fth` (Ch 27 §6 walks this in detail):
 
 ```forth
 : cc-parse-add

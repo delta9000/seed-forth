@@ -155,8 +155,7 @@ makes this particular second path small enough to hand-read in
 an afternoon (32 primitives in 2,040 bytes; a C compiler in
 twelve files); it is the means, not the point.
 
-This is not a fork of the bootstrap.  It does not reach above
-M2-Planet.  Everything from there up to GCC still goes through
+The Forth route does not reach above M2-Planet.  Everything from there up to GCC still goes through
 Janneke's GNU Mes and the Live-Bootstrap chain.
 
 ## What this also demonstrates: auditable AI collaboration
@@ -247,21 +246,6 @@ kernel underneath, because that is what `000-seed.hex0`'s
 `syscall6` primitive for builder-hex0's bare-metal interface and
 reach below.
 
-## Cross-references
-
-- The trust-root link (hex0-seed): **[Appendix C](A3-reproducibility-chain.md)**
-  for the reader-facing walk-through; `REPRODUCIBLE.md` at the
-  repo root has the operator-facing pins, SHA-256s, and the
-  `STAGE0_COMPAT=1` notes.
-- The C compiler's specification target (M2-Planet): see
-  `vendor/M2-Planet/README.md`, or the original at
-  `github.com/oriansj/M2-Planet`.
-- The downstream consumer (Guix Full Source Bootstrap): see
-  `bootstrappable.org` and `github.com/fosslinux/live-bootstrap`.
-- Further reading: **[Appendix E](A5-further-reading.md)** has
-  grouped pointers to Bootstrappable, stage0, M2-Planet, Mes, and
-  the academic background.
-
 ## The byte-identity claim, made precise
 
 `tests/cc/stage-a-check.sh` does this:
@@ -286,3 +270,20 @@ diffing what those two binaries *emit* on identical input.
 If anything in either chain were wrong (seed-forth, the Forth
 compiler, the GCC reference build, the M2-Planet source itself),
 the M1 outputs would diverge and the script would fail.
+
+## Cross-references
+
+- The trust-root link (hex0-seed): **[Appendix C](A3-reproducibility-chain.md)**
+  for the reader-facing walk-through; `REPRODUCIBLE.md` at the
+  repo root has the operator-facing pins, SHA-256s, and the
+  `STAGE0_COMPAT=1` notes.
+- The C compiler's specification target (M2-Planet): see
+  `vendor/M2-Planet/README.md`, or the original at
+  `github.com/oriansj/M2-Planet`.
+- The downstream consumer (Guix Full Source Bootstrap): see
+  `bootstrappable.org` and `github.com/fosslinux/live-bootstrap`.
+- Further reading: **[Appendix E](A5-further-reading.md)** has
+  grouped pointers to Bootstrappable, stage0, M2-Planet, Mes, and
+  the academic background.
+
+Next: [Prologue — Two Thousand and Forty Bytes](00-prologue.md).

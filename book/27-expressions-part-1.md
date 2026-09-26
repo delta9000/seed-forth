@@ -7,8 +7,9 @@ Artifact after this chapter: arithmetic, comparison, bitwise, and logical binary
 Proof link: Stage-A binary expressions lower through one auditable cascade.
 ```
 
-Given `a*b + c << d == e & f | g && h || i`, the compiler has to
-emit code that applies each operator in C's precedence order, and it
+Chs 25–26 supplied the encoders; the parser now has to call them in
+the right order.  Given `a*b + c << d == e & f | g && h || i`, the
+compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
 (1478 lines total) solves this with a *precedence cascade*: plain
@@ -424,6 +425,9 @@ nothing calls it.
 
 ```
 
+`cc-parse-eq` is the same template one level looser, over `==` and
+`!=`:
+
 ```forth chunk=expr-eq
 \ ===========================================================================
 \ cc-parse-eq: rel (('==' | '!=') rel)*
@@ -682,7 +686,11 @@ which the layers call each other is the table.
 ## Try it
 
 **Small check:** read one focused expression fixture and trace it
-through the precedence cascade.
+through the precedence cascade.  The fixtures under `tests/cc/` start
+at `G0.c` (return 42) and walk up through `G14*.c`.  `G1.c` exercises
+basic arithmetic precedence (`a + b * 2 - 1`); `G11.c` covers shifts,
+bitwise operators, `&&`/`||`, the ternary, postfix `++`, and compound
+assignment in a single fixture.
 
 **Layer check:** `./test.sh` exercises the expression parser through
 the focused C fixtures.
@@ -698,15 +706,6 @@ expression paths emit byte-identical `.M1` for M2-Planet.
 ```sh
 tests/cc/stage-a-check.sh
 ```
-
-For the small check, use the focused fixtures named below before or
-after running the scripts.
-
-The unit tests under `tests/cc/` start at `G0.c` (return 42) and
-walk up through `G14*.c`.  `G1.c` exercises basic arithmetic
-precedence (`a + b * 2 - 1`); `G11.c` covers shifts, bitwise
-operators, `&&`/`||`, the ternary, postfix `++`, and compound
-assignment in a single fixture.
 
 ## Exercises
 
@@ -759,5 +758,4 @@ the precedence cascade, and predict what code an expression like
   whose three rel32 fixups wait on the return stack and are patched
   in reverse order.
 
-Next: Chapter 28 — Expressions, Part 2: Primary, Unary,
-Assignment, and the Top-Level Driver.
+Next: Chapter 28 — Expressions, Part 2: Primary, Unary, Assignment.

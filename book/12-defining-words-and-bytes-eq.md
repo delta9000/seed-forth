@@ -16,9 +16,11 @@ bumps HERE by a byte count.  `create` reuses Ch 10's 19-byte runtime
 body but makes it push the address of a data area that follows the
 body.  `variable` is `create` with one zero cell already in place.
 Together they cover every static-memory pattern the C compiler
-needs.  Finally, `bytes-eq` compares two byte ranges, and because the
-seed has no `exit` primitive it cannot stop at the first mismatch.
-Its callers are in Ch 24; the seed's `,` primitive is Ch 17.
+needs.  Finally, `bytes-eq` compares two byte ranges; because the
+seed has no `exit` primitive, it cannot stop at the first mismatch.
+Its callers are the macro and symbol lookups of Chs 22 and 24.  The
+seed's `,` primitive, which `variable` uses to lay down its zero
+cell, is Ch 17.
 
 ## 1. `allot` in one line
 
@@ -42,8 +44,8 @@ Trace it:
 | `here-addr`   | `current-HERE+n addr-of-HERE` |
 | `!`           | empty (HERE := current+n)   |
 
-The values written into the new region are *unspecified*.  This is
-fine for two use cases:
+`allot` writes nothing, so the new region holds whatever was
+already in memory.  That is fine for its two use cases:
 
 - after `create FOO`, `[lit] 16 allot` reserves a 16-byte data
   area whose contents are whatever happened to be at that memory.
@@ -52,9 +54,9 @@ fine for two use cases:
   HERE, though in practice the library always uses it right after
   `create`.
 
-`allot` doesn't initialise.  If you want zero-filled memory, write
-a loop that calls `c,` with zero `n` times.  The seed never needs
-this because the kernel pre-zeros the BSS-equivalent region.
+If you want guaranteed zeros, write a loop that calls `c,` with zero
+`n` times.  The seed never needs this because the kernel pre-zeros
+the BSS-equivalent region.
 
 ## 2. `create`'s runtime body
 
@@ -99,8 +101,7 @@ After `create FOO`, FOO's dictionary entry looks like:
 
 The data area sits in the dictionary, contiguous with the body, so
 there is no separate allocator, no fixup, and no pointer
-indirection.  You name
-a thing, then you fill in its bytes.
+indirection.  You name a thing, then you fill in its bytes.
 
 ## 3. `variable` = `create` + a cell
 
@@ -135,9 +136,8 @@ the shared shape.
 
 Read side by side, Ch 10's `constant` and this chapter's `create`
 and `variable` are variations on one 19-byte template, differing
-only in
-(a) which 64-bit value goes into the `movabs` slot, and (b) what (if
-anything) follows the `ret`.
+only in (a) which 64-bit value goes into the `movabs` slot, and (b)
+what (if anything) follows the `ret`.
 
 | Word       | imm64                | post-body data         |
 |------------|----------------------|------------------------|
@@ -374,7 +374,7 @@ Expected output: `10`.  `a` and `b` are identical 3-byte buffers
    Try-it's `create a`), then `create greeting` and use `string,` to
    copy those bytes into its data area as a named string blob.
 
-4. **★★★ Trace.** The arithmetic-without-exit constraint forced O(n) compare even
+4. **★★★ Trace.** The no-`exit` constraint forced O(n) compare even
    on mismatch.  How much extra work does that cost the C compiler
    in the worst case?  (Hint: longest identifier in the M2-Planet
    source; total `bytes-eq` calls per build.)
@@ -400,10 +400,12 @@ defining-word family, the control-flow combinators, and the
 byte-equality loop) and explain what each one does.  The only
 remaining mystery is what each primitive's machine code looks like.
 
-Part II opens that box.  Eight chapters read `000-seed.hex0` from
-the ELF header through the REPL loop, taking the same primitives
-the Forth code has been calling (`dup`, `nand`, `here`, `find`,
-`:`, `;`, `branch`, `read_word`) and showing the exact bytes
-that make each one work.
+Part II opens that box.  Eight chapters read `000-seed.hex0` and
+show the exact bytes behind the primitives the Forth code has been
+calling.  Ch 13 starts where the kernel does, at the ELF header and
+entry point.  Chs 14–16 read the stack, arithmetic and I/O
+primitives (`dup`, `nand`, `emit`, `syscall6`).  Chs 17–20 read the
+machinery that runs everything else: the dictionary and `find`, the
+colon compiler (`:`, `;`), `branch` and `0branch`, and the REPL.
 
 Next: Chapter 13 — The ELF and the Entry Point.

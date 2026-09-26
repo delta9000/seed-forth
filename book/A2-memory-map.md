@@ -135,7 +135,7 @@ during its own self-compile, and the simplest allocator that gets
 the job done is "bump until the mmap is full, then crash."  Free
 is a no-op.
 
-Both regimes share one principle: *one mmap, one bump pointer*.
+Both regimes share one principle: *one region, one bump pointer*.
 The seed avoids mmap entirely (it gets its segment from the
 kernel's ELF loader); compiled programs make one mmap call at
 startup and never another.

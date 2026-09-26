@@ -16,7 +16,9 @@ else: the return stack.
 The next two definitions in `010-lib.fth` (lines 32–38) are `over`,
 which borrows the return stack to do that, and `-`, which makes the
 same trade as Ch 3's `nand` derivations: a few extra calls at runtime
-so the seed can keep one fewer primitive.  The return-stack rules
+so the seed can keep one fewer primitive.  Ch 1 previewed both
+words; this chapter is where they sit in the file, and where the
+reasons behind them come out.  The return-stack rules
 matter more than either word, because every later chapter relies on
 them.  The seed's `>r`/`r>` machine code is Ch 14, and how `:` and
 `;` themselves use the return stack is Ch 18.
@@ -159,7 +161,7 @@ agnostic, and the same `+` and `-` work for both interpretations.
 
 ## 5. Why subtraction isn't a primitive
 
-This is Ch 3's trade again.  A primitive costs a dictionary header
+This is Ch 3's trade again, with the same arithmetic as `over` in §3.  A primitive costs a dictionary header
 (around 18 bytes for a short name) and a machine-code body (15–30
 bytes for a one-instruction primitive), which is 30–50 bytes total.
 A derived definition costs a header plus a sequence of calls to

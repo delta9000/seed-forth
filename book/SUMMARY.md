@@ -37,9 +37,9 @@
 - [The lexer](23-the-lexer.md) — one token at a time in the `tok-*` globals
 - [Types and symbols](24-types-and-symbols.md) — one-word types, parallel-column symbols, struct descriptors
 - [ELF emission and codegen, part 1](25-elf-and-codegen-part-1.md) — write executable bytes: ELF prologue + instruction encoders
-- [Codegen, part 2: calls and locals](26-codegen-part-2.md) — calls, libc shims, string literals, global-address fixups
+- [Codegen, part 2: calls, shims, and globals](26-codegen-part-2.md) — calls, libc shims, string literals, global-address fixups
 - [Expressions, part 1: the precedence cascade](27-expressions-part-1.md) — binary expressions through one repeated five-step fold
-- [Expressions, part 2: assignment, postfix, struct access](28-expressions-part-2.md) — primary, unary, postfix, ternary, assignment with lvalue tracking
+- [Expressions, part 2: primary, unary, assignment](28-expressions-part-2.md) — primary, unary, postfix, ternary, assignment with lvalue tracking
 - [Declarations: types, structs, locals](29-declarations-types-globals.md) — expectation helpers, scalar/pointer/array locals, struct definitions, function-pointer declarations, struct locals, and `return`
 - [Statements: if, while, for, switch, break, continue, goto](30-statements-if-while-for-return.md) — every C control structure through emit/remember/patch
 - [Functions: parameters, calls, globals, entry stub](31-functions-and-scope.md) — translation units, scopes, file-scope globals, the entry stub at `0x400078`

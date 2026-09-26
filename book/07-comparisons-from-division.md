@@ -15,7 +15,7 @@ definitions in `010-lib.fth` lines 88–121 build every comparison
 from `-`, `/`, and `0=`, with `2^63` as a literal constant.
 
 Equality is easy.  The hard part is asking "is this negative?" with
-no sign test, no shift, and no `and`; the answer is an unsigned
+no sign test, no shift, and no `and` primitive; the answer is an unsigned
 divide by `2^63`.  The `/` primitive's machine code is Ch 15.
 
 ## 1. `=` and `<>`: two tokens each
@@ -64,7 +64,7 @@ A handful of approaches don't work:
   level.  Adding them as primitives would cost slots; deriving them
   from `*` or `/` would be expensive.
 
-The seed's answer is a third path: **unsigned divide by `2^63`.**
+The seed takes a different path: **unsigned divide by `2^63`.**
 Any 64-bit value, treated as unsigned, divided by `2^63 =
 0x8000000000000000`, yields one of exactly two answers: `1` if the
 top bit was set, `0` otherwise.  That's the sign-bit extraction we

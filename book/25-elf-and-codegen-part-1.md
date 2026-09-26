@@ -296,6 +296,8 @@ fixed 256 bytes, so only 32 slots exist per function.
 
 `cc-emit-load-local` and `cc-emit-store-local` are `48 8B` and `48 89`
 followed by `cc-emit-local-ea`: four bytes apiece in the disp8 case.
+The next group applies the same ModR/M arithmetic to address-of,
+dereference, and pointer arithmetic:
 
 ```forth file=090-cc-emit.fth
 \ lea rdi, [rbp + disp]:  48 8D 7D <disp8>  (or 48 8D BD <disp32>)
@@ -371,6 +373,8 @@ ModR/M arithmetic; read one and you can predict the rest.
 `cc-emit-shl-rdi-imm8` and `cc-emit-add-rdi-imm32` are
 pointer-arithmetic primitives: shift left for array indexing
 (multiply by `sizeof(T)`), add an immediate for a struct field offset.
+The section ends with the words that spill arguments into local slots
+and call through a function pointer:
 
 ```forth file=090-cc-emit.fth
 \ Param-spill helpers: store the SYS-V argument register holding the i'th
@@ -626,15 +630,10 @@ passes 256, the 32-slot frame from §4.
 
 ```
 
-`cc-emit-cmp-set` is the shared tail for all six comparisons.  It
-emits 12 bytes:
-
-```
-xor rax, rax     48 31 C0      ; clear rax
-cmp rdi, rcx     48 39 CF      ; set flags from left - right
-setX al          0F 9X C0      ; set al = 1 iff condition holds
-mov rdi, rax     48 89 C7      ; rdi := rax (now 0 or 1)
-```
+`cc-emit-cmp-set` is the shared tail for all six comparisons: the
+12-byte `xor`/`cmp`/`setX`/`mov` sequence spelled out in its header
+comment.  `rax` is cleared first because `setX al` writes only the low
+byte, and the final `mov` must carry a clean 0 or 1 into `rdi`.
 
 The six `cc-emit-cmp-*` words differ only in the second byte of the
 `setX` opcode: `0x94` (setE), `0x95` (setNE), `0x9C` (setL), `0x9D`
@@ -763,7 +762,7 @@ writes them to `/tmp/cc-out`, and disassembles the bytes.
 exercise these encoders through compiled programs.
 
 **Bootstrap relevance:** this chapter's ELF header and primitive
-encoders are covered by the Stage-A parity gate.  One path parity
+encoders are covered by the Stage-A parity gate below.  One path parity
 cannot see has a gate of its own: `tests/cc/A-locals18.c` forces
 locals past slot 15, where the `[rbp + disp8]` encoding overflows
 and `cc-emit-local-ea` must switch to `disp32`.  M2-Planet's
@@ -857,4 +856,4 @@ purely a matter of codegen.
 - Each x86-64 instruction the compiler emits has its own Forth word, so the opcode bytes live in the source rather than in an assembler's table.
 - `rel32` placeholders plus `cc-patch-rel32-to-here` are the codegen equivalent of Forth's `if,` fixup, and the same mechanism serves `if`, `while`, `for`, `||`, `&&` and forward calls (Chs 27, 30, 31).
 
-Next: Chapter 26 — Codegen, Part 2: Calls, Locals, Shims, Globals.
+Next: Chapter 26 — Codegen, Part 2: Calls, Shims, and Globals.

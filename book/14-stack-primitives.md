@@ -2,11 +2,12 @@
 
 ```text
 Missing capability: dup, drop, swap, over, @, !, and return-stack ops were black boxes.
-New pattern: each primitive is two to seven bytes of x86-64; rdi holds TOS, rbp is the data-stack pointer.
+New pattern: each primitive is two to six x86-64 instructions; rdi holds TOS, rbp is the data-stack pointer.
 Artifact after this chapter: the stack and memory primitives' machine code, fully readable.
 Proof link: the compiler's codegen reuses the same rdi/rbp convention; these bytes prime you for Ch 25.
 ```
 
+Ch 13 left the CPU at the REPL with `rbp` and `rdi` initialised.
 Part I used `dup`, `swap`, `@` and `!` as if they cost nothing.
 Each one is between 4 and 20 bytes of x86-64.  This chapter reads
 ten of those bodies: `dup_code` at `0x13B` through `cstore_code` at
@@ -46,7 +47,7 @@ pattern-matching.
 48 83 C5 08     add rbp, 8       ; release the slot
 ```
 
-That is the whole calling convention.  `48` is the REX.W prefix
+That is the whole data-stack convention.  `48` is the REX.W prefix
 ("operate on 64-bit operands"); the rest of the bytes encode the
 operation and the addressing mode.  After a few primitives the
 patterns become familiar.
@@ -117,8 +118,9 @@ C3               ret
 ```
 
 There is no `sub rbp` or `add rbp`: the stack doesn't grow or
-shrink, only its contents rotate.  `rax` is the scratch register for the swap.
-Any caller-saved register would do; `rax` is the conventional choice.
+shrink, only its contents rotate.  `rax` is the scratch register
+for the swap; any caller-saved register would do, and `rax` is the
+conventional choice.
 
 ## 5. `>r`, `r>`, and `r@`: bridging the two stacks
 
@@ -251,6 +253,8 @@ C3
 
 ```
 
+Decoded:
+
 ```
 48 8B 45 00      mov rax, [rbp]   ; rax = value (under-TOS)
 48 89 07         mov [rdi], rax   ; *addr = value   (TOS is the addr)
@@ -373,7 +377,7 @@ C3
 
 ```
 
-(The eight stack-primitive chunks `<<dup-code>>` through
+(The nine stack-primitive chunks `<<dup-code>>` through
 `<<cstore-code>>`, plus `<<r-at-code>>`, are defined inline in the
 prose above.)
 
@@ -391,7 +395,7 @@ echo "[lit] 68 [lit] 69 drop emit bye"      | ./seed-forth
 
 For each of `>r`, `r>`, `@`, `!`, `c@`, `c!`, write a one-line shell
 test before running it.  Predict the byte sequence on the stack at
-each step from the table in §1.
+each step using the push and pop shapes from §1.
 
 ## Exercises
 

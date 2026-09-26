@@ -14,8 +14,8 @@ in the middle of a parser, and a missed `swap` is a bug that only
 shows up three words later.
 
 `010-lib.fth` (lines 123–137) names four more: `nip`, `rot`, `2dup`,
-and `2drop`.  Each is two or four words you already know, and
-nothing new happens inside them.  The question this chapter answers
+and `2drop`.  Ch 1 previewed all four; each is two or four words you
+already know, and nothing new happens inside them.  The question this chapter answers
 is which shuffles the seed names and which it leaves out.
 
 ## 1. The four shuffles
@@ -42,8 +42,8 @@ single-copies).  That asymmetry is why `2dup` earns a name and deeper
 pair-shuffles are left to be inlined at the rare call site that wants
 them.
 
-Why name a two-token word at all?  Speed (one CALL instead of two) and
-self-documentation.  Part III's lexer reaches for `nip` four times,
+Why name a two-token word at all?  Size (one CALL at each call site
+instead of two) and self-documentation.  Part III's lexer reaches for `nip` four times,
 and the compiler uses `2drop` where it discards a half-parsed
 pair.  `2drop` says "I am dropping a logical pair"; `drop drop`
 makes you stop and count.

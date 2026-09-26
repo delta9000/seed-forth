@@ -30,6 +30,8 @@ builds the C compiler, in Forth, on top of this REPL.
 
 ## 1. `parse_decimal_code` ( c-addr u -- n true | 0 false )
 
+The parser is one digit loop with a success tail and a failure tail:
+
 ```hex0 chunk=parse-decimal-code
 ;; ----- parse_decimal_code @ 0x5FD ( c-addr u -- n true | 0 false ) -----
 ;; Pure-decimal parser. Empty length or any non-digit byte => fail (0, 0).
@@ -115,6 +117,8 @@ negation as a unary operator, not as part of the literal, so the
 restriction is invisible to it.
 
 ## 2. The REPL loop
+
+The loop that drives everything is 187 bytes:
 
 ```hex0 chunk=repl
 ;; ----- repl @ 0x35E -----
@@ -312,8 +316,8 @@ on token:
     else: error
 ```
 
-The seed *does not* do step 2.  Tokens that aren't dictionary
-words just print `?`.
+The seed *does not* take the middle branch.  Tokens that aren't
+dictionary words just print `?`.
 
 Why?  Two reasons.
 
@@ -329,9 +333,8 @@ leaves the door open for higher layers to add their own number
 parsing: hex, octal, negative numbers, fixed-point.  The
 `NUMBER_HOOK` sysvar at `0x413020` is the seed's stub for this; it
 gets initialised to 0 in `<<sysvar-init>>` and is never read by
-the seed itself, but a Forth-level extension can install an xt
-there and *the existing REPL* (if it had number-fallback support)
-would consult it.
+the seed itself.  A REPL with a number fallback could consult an xt
+that a Forth-level extension installs there.
 
 The seed is strict: every token must be in the dictionary or
 `[lit]`-quoted.  Source that wants to push `42` writes `[lit] 42`,
@@ -477,10 +480,10 @@ have read.
 The remaining twelve chapters use those tools as the *host* for a C
 compiler.  There is no further tour of seed internals.  Part III
 follows compiler infrastructure built from the primitives you have
-just read in machine code (`:`, `;`, `[lit]`, `if,`, `then,`,
-`branch`, `0branch`, `read_word`, `find`, `here`, `,`) until the
-compiler emits `.M1` text matching the GCC-built M2-Planet reference
-on the stage-A inputs.
+just read in machine code (`:`, `;`, `[lit]`, `branch`, `0branch`,
+`read_word`, `find`, `here`, `,`) and the Part I words built on them,
+such as `if,` and `then,`, until the compiler emits `.M1` text
+matching the GCC-built M2-Planet reference on the Stage-A inputs.
 
 ## Reading Part III
 
@@ -491,8 +494,7 @@ references it, or read it line by line.  The chapters
 are long because the compiler is, not because the prose is dense;
 if a chapter takes two sittings, that's its size, not your pace.
 
-Three reading aids are placed in every Part III chapter to keep
-you oriented:
+Three reading aids keep you oriented:
 
 - The **chapter-contract block** at the top names the missing
   capability, the new pattern, the artifact the chapter delivers,
@@ -510,9 +512,9 @@ you oriented:
 - *Emit, remember, patch.*  Emit a placeholder, stash where you
   put it, patch it once the answer is known.  We met this in
   Ch 11 (`if,` / `then,`) and Ch 19 (`branch` / `0branch`).  It
-  returns in Ch 21 for ELF header fields, Chs 25–26 for forward
-  calls and globals, and Ch 30 at full scale for branches,
-  loops, `switch`, and `goto`.
+  returns in Ch 21's output-buffer patch words, which Chs 25–26 use
+  for ELF header fields, forward calls and globals, and in Ch 30 at
+  full scale for branches, loops, `switch`, and `goto`.
 
 - *Small tables, linear search, newest wins.*  The dictionary
   (Ch 17), macro table (Ch 22), symbol table (Ch 24), label

@@ -16,8 +16,9 @@ tokens.
 `010-lib.fth` (lines 64–86) answers it with five predicates:
 `digit?`, `alpha-lower?`, `alpha-upper?`, `alpha?`, and `space?`.
 The first three share one idiom, `c base - range / 0=`, which is
-true exactly when `c` falls in `[base, base+range)` and needs no
-conditional because the seed's `/` is unsigned.  The other two
+true exactly when `c` falls in `[base, base+range)`.  It needs no
+conditional, and it rejects values below the range only because the
+seed's `/` is unsigned.  The other two
 combine tests with `or`.  The lexer that calls them is Ch 23; the
 `/` primitive is Ch 15.
 
@@ -70,7 +71,7 @@ authors chose unsigned `/` partly so this trick would keep working
 without sign-juggling.
 
 The trick generalises.  Any contiguous range `[base, base+range)`
-becomes a three-token classifier by plugging in the right two
+becomes a subtract-divide-test classifier by plugging in the right two
 literals.  No conditionals, no comparisons, no temporaries.
 
 ## 3. `digit?`, `alpha-lower?`, `alpha-upper?`, `alpha?`
@@ -83,7 +84,7 @@ Three classifiers fall out of the trick with no further work:
 : alpha-upper?   [lit] 65 - [lit] 26 / 0= ;     \ 'A'..'Z'
 ```
 
-Each is the same three-token shape with a different `(base, range)`
+Each is the same subtract-divide-test shape with a different `(base, range)`
 pair: `(48, 10)` for digits, `(97, 26)` for lowercase, `(65, 26)` for
 uppercase.  The ranges are chosen to cover the relevant ASCII block
 exactly: 26 lowercase letters, 26 uppercase, 10 digits.
@@ -231,9 +232,9 @@ Save as `/tmp/ch6.fth` and run `gforth book/playground.fth /tmp/ch6.fth`:
 bye
 ```
 
-The seed's `[lit]` is a no-op in standard Forth, so the playground
-omits it; numbers parse directly.  Other than that the definitions
-are byte-identical to the seed source.
+The seed's `[lit]` is a no-op in standard Forth, so this snippet
+omits it; numbers parse directly.  Otherwise the definitions match
+the seed source token for token.
 
 ### The full path: build the seed
 

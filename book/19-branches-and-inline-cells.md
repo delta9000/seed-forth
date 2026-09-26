@@ -47,6 +47,8 @@ shape is the same except the `CALL` lands on `branch_code` instead.
 
 ## 2. `branch_code` in four instructions
 
+The unconditional branch is the simpler of the two:
+
 ```hex0 chunk=branch-code
 ;; ----- branch_code @ 0x42B ( -- ) unconditional, target = inline cell -----
 58                                        ; pop rax
@@ -76,6 +78,8 @@ CALL and an 8-byte slot, with no follow-up bookkeeping.
 
 ## 3. `zbranch_code` in eleven instructions
 
+The conditional branch adds a data-stack pop and a test:
+
 ```hex0 chunk=zbranch-code
 ;; ----- zbranch_code @ 0x431 ( flag -- ) branch if flag==0 -----
 48 89 FA                                  ; mov rdx, rdi    ; save flag
@@ -92,11 +96,7 @@ C3
 
 ```
 
-The encoding `48 85 D2` decodes as `test rdx, rdx`: `48` is REX.W,
-`85` is the `TEST r/m64, r64` opcode, and the ModR/M byte `D2`
-(`mod=11, reg=010, r/m=010`) names rdx in both operand slots.
-
-Pseudocode:
+In assembly:
 
 ```
 mov rdx, rdi      ; save the flag in rdx
@@ -113,6 +113,11 @@ add rax, 8        ; skip past the slot
 push rax          ; new return address
 ret
 ```
+
+One encoding is worth decoding by hand.  `48 85 D2` is
+`test rdx, rdx`: `48` is REX.W, `85` is the `TEST r/m64, r64`
+opcode, and the ModR/M byte `D2` (`mod=11, reg=010, r/m=010`) names
+rdx in both operand slots.
 
 `zbranch_code` does two things `branch_code` doesn't.
 
@@ -133,17 +138,16 @@ when the flag is true (non-zero), you *enter* the `if`-body;
 
 `JMP r/m64` is a real x86 instruction (`FF E0` for `jmp rax`, two
 bytes).  `push rax; ret` (`50 C3`) is also two bytes.  The choice
-between them is stylistic, not size-driven.  Three things favour
+between them is stylistic, not size-driven.  Two things favour
 `push/ret`:
 
 - The instruction we're "returning from" is a `CALL`, so structuring
   the primitive as "pop the call's return address, fiddle with it,
   push a new one, ret" is a clean, symmetric handshake with the
   `CALL`.  The reader sees `pop ... ret` and understands that the
-  primitive is replacing one return address with another.
-- `jmp rax` would also work, but the primitive would still start
-  with `pop rax`, leaving an asymmetric pop-then-jump.  `push/ret`
-  keeps the shape symmetric.
+  primitive is replacing one return address with another.  With
+  `jmp rax` the primitive would still start with `pop rax`, leaving
+  an asymmetric pop-then-jump.
 - Branch predictors prefer balanced call/ret stacks.  A `push/ret`
   pairs with the original `CALL` better than a `jmp` would for the
   CPU's return-address predictor.  The effect is invisible in a
@@ -234,14 +238,10 @@ At runtime:
    - Flag zero: `zbranch_code` reads the slot → jump to the
      post-body address → body is skipped.
 
-The naming `zbranch` = "branch if zero" matches: zero flag → take
-the branch (skip the body); non-zero flag → fall through (enter the
-body).
-
 Walk this end-to-end for `: pos? [lit] 0 > if, [lit] 89 emit
-else, [lit] 78 emit then, ;` and you'll find the runtime emits
-exactly the four-block structure that Ch 11's `if,/else,/then,`
-combinators set up.
+else, [lit] 78 emit then, ;` and you'll find that `else,` ends the
+first arm with an unconditional `branch` over the second, whose slot
+`then,` patches, exactly as Ch 11's combinators set up.
 
 ## Try it
 

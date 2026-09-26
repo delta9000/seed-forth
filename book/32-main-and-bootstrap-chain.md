@@ -81,9 +81,6 @@ before `050-cc-lex.fth` because the lexer calls
 (`cc-emit-jmp-vaddr`, `cc-emit-call-vaddr`) reference
 `cc-base-vaddr`.  And so on.
 
-The shell driver concatenates the files in this order and pipes
-them through `./seed-forth`.
-
 ## 2. The output-path constant
 
 `cc-out-path` is a 12-byte buffer holding `/tmp/cc-out\0`:
@@ -187,8 +184,8 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 ```
 
 The claim rests on step 5.  The 2,040-byte seed, extended by
-`010-lib.fth` and running the 7,198 lines of compiler Forth in `020-cc-arena.fth` through `120-cc-main.fth`,
-compiles a real-world C program (M2-Planet: 8,479 lines across the
+`010-lib.fth` and running the 7,198 lines of compiler Forth in
+`020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
 binary, compiling M2-Planet's sources, emits the same `.M1` text
 as GCC-built M2-Planet does.
@@ -234,8 +231,8 @@ M2-Planet takes.  Build `cc-out-v1` with `STAGE0_COMPAT=1` and its
 M2-Planet source (Appendix C).  In that mode the seed-forth arm is
 a drop-in alternative for that segment of the bootstrap.
 
-The Prologue had a longer treatment of the diagram.  By now
-you've seen every component along the seed-forth path:
+The Prologue drew this diagram in more detail.  By now you've
+seen every component along the seed-forth path:
 
 - Ch 13–20: the 2,040-byte seed itself (`000-seed.hex0`).
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
@@ -343,8 +340,8 @@ then globs the eleven `-cc-` files (`020-cc-arena.fth` through
 `120-cc-main.fth`) in numerical (load) order, which names all
 twelve files without listing them.  The `-cc-` infix matters: it skips
 `130-asm.fth`, which is not part of the C-compiler vocabulary and
-would corrupt the compile if fed in.  If you find yourself editing this pipeline,
-edit `build-m2planet-monolith.sh` instead.  It is the version the
+would corrupt the compile if fed in.  If you find yourself editing
+this pipeline, edit `build-m2planet-monolith.sh` instead.  It is the version the
 test suite exercises, and a divergence between the two would go
 unnoticed until Stage-A broke.
 
@@ -402,9 +399,10 @@ seed-forth arm back to its source.
 That is the end of the main book.  You started from 2,040
 hand-encoded bytes and read, in source, every step to a C compiler
 whose Stage-A `.M1` output matches M2-Planet built with GCC.  The
-prologue promised two stories: a Forth small enough to host its own
-compiler, and a bootstrap chain auditable because its seed is small
-enough to read.  They are the same program, read from either end.
+Prologue named two things that had to work together: a mechanical
+test that fluent-looking code cannot fake, and a literate program
+that keeps a human able to read every line.  Stage A is the first;
+the thirty-two chapters you just read are the second.
 
 The appendices are reference cards for a second pass:
 
