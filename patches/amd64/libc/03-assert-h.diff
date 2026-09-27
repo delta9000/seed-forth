@@ -1,0 +1,22 @@
+# portable_libc: add <assert.h>.
+#
+# Applies to: libc64/include/assert.h (new file).
+#
+# Why: tcc's x86_64-gen.c includes <assert.h>, which portable_libc does not
+# have (the i386 build never compiles x86_64-gen.c).  assert(x) calls
+# pnut_abort with the failed expression; NDEBUG turns it off.
+--- /dev/null
++++ b/include/assert.h
+@@ -0,0 +1,12 @@
++#ifndef _ASSERT_H
++#define _ASSERT_H
++
++#include <pnut_lib.h>
++
++#ifdef NDEBUG
++#define assert(x) do { } while (0)
++#else
++#define assert(x) do { if (!(x)) pnut_abort("assertion failed: " #x "\n"); } while (0)
++#endif
++
++#endif

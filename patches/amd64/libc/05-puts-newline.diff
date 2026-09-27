@@ -1,0 +1,21 @@
+# portable_libc: puts() writes the newline.
+#
+# Applies to: libc64/src/stdio.c.
+#
+# Why: portable_libc's puts is fputs, so it leaves out the '\n' that C
+# requires puts to append (fputs, correctly, does not append one).  pnut.c
+# and tcc's compiler sources never call puts, so no tool in the chain
+# behaves differently; it is for the programs tcc-boot2 builds.
+--- a/src/stdio.c
++++ b/src/stdio.c
+@@ -151,7 +151,9 @@
+ }
+ 
+ int puts(const char *s) {
+-  return fputs(s, stdout);
++  fputs(s, stdout);
++  fputc('\n', stdout);
++  return 0;
+ }
+ 
+ int fflush(FILE *stream) {

@@ -1,0 +1,3 @@
+hello from tcc-boot2, argc=3
+lld 1099511627776 ld 1099511627776 sizeof(long)=8 ptr=8
+c=Z x=ff s=a

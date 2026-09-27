@@ -52,8 +52,9 @@ git -C vendor/stage0-posix submodule update --init bootstrap-seeds
 ```
 
 `vendor/pnut` (pnut at `abc34a5`, no nested submodules) is needed only
-by `tests/pnut/sf-pnut-check.sh`, which builds pnut with the Forth C
-compiler; the check reports SKIP without it:
+by `tests/pnut/sf-pnut-check.sh` and `tests/pnut/sf-pnut-amd64-check.sh`,
+which build pnut with the Forth C compiler (and go on to TinyCC); both
+report SKIP without it:
 
 ```sh
 git submodule update --init vendor/pnut
@@ -137,23 +138,68 @@ M1, hex2 and blood-elf.  No binary is shared from the seed on; they
 share the `hex0-seed` file, the C/M1 sources, the kernel and bash.
 amd64 only.
 
+### On to TinyCC, without Mes
+
+The Forth C compiler also builds [pnut](https://github.com/udem-dlteam/pnut)
+(`vendor/pnut`, `pnut.c` exactly as shipped), and pnut's TinyCC kit
+builds tcc-0.9.27 from there.  There are two routes:
+
+```sh
+tests/pnut/sf-pnut-amd64-check.sh    # amd64 route, ~10 s, no gcc
+SF_PNUT_TCC=1 tests/pnut/sf-pnut-check.sh   # i386 route (needs IA-32 emulation), ~2 min
+```
+
+- **i386 route** (`sf-pnut-check.sh`): SF builds a pnut that emits i386
+  code.  pnut's own kit then runs unchanged to its published
+  `tcc-boot2 = tcc-boot3` hash.  An M2-Planet-built pnut builds the same
+  `pnut-exe`.
+- **amd64 route** (`sf-pnut-amd64-check.sh`): every program is an x86-64
+  ELF.  SF builds `pnut.c` for `target_x86_64_linux` and pnut self-hosts
+  (g2 = g3).  pnut's kit, adapted for x86_64, then builds tcc-0.9.27 with
+  `TCC_TARGET_X86_64` up to `tcc-boot2 = tcc-boot3`.  `tcc-boot2` then
+  builds and runs 64-bit arithmetic, printf and hello-world tests and
+  portable_libc's own test suite.  It also builds a pnut that rebuilds
+  pnut64-g2 byte for byte.  Every stage's sha256 is pinned in the script.
+  `./verify.sh` adds a reference comparison: a gcc-built tcc, seeded the
+  same way, reaches the same `tcc-boot2`.
+
+pnut's kit supports only i386, so the amd64 route carries its own changes
+in [`patches/amd64/`](patches/amd64/README.md).  Upstream sources are
+pinned by hash, and nothing is sent upstream.  There are 11 unified diffs,
+each with a header that explains it:
+
+- **pnut** (1): `HEAP_SIZE` goes up by a third, only for the pnut that
+  compiles tcc.
+- **tcc** (4): two work around pnut limits (a block-scope `enum`, a VLA).
+  The other two fix bugs in tcc-0.9.27's own x86_64 `-static` linking
+  (the PLT and GOT are never filled).  A gcc-built tcc-0.9.27 makes the
+  same crashing binary without them.
+- **portable_libc** (6): x86_64 `crt1`, tcc's x86_64 `stdarg.h`,
+  `assert.h` and `abort`.  Also `printf`'s `l`/`ll` modifiers and unsigned
+  conversions, and `puts`' newline.
+
+The tcc source is the tarball vendored in pnut (`kit/tcc-0.9.27.tar.gz`).
+The script checks its sha256 before unpacking it.  `REPRODUCIBLE.md`
+("Past M2-Planet on amd64 alone") lists the pins and every hash.
+
 ## Quick Start
 
 From the repository root, with the submodules fetched as in
 [Get the sources](#get-the-sources):
 
 ```sh
-./check-all.sh                 # ~80 s: build + tests + tangle --strict + book checks + stage-A + bootstrap + handoff
+./check-all.sh                 # ~90 s: build + tests + tangle --strict + book checks + stage-A + bootstrap + pnut (i386, amd64 to tcc) + handoff
 ./verify.sh                    # ~6½ min, needs gcc: every GCC-reference comparison + stage0-posix checks
 ```
 
-`check-all.sh` is a wrapper that runs thirteen steps
+`check-all.sh` is a wrapper that runs fourteen steps
 with per-step OK/SKIP/FAIL output (logs in `${TMPDIR:-/tmp}/check-all-*.log`); Stage-A and the small assembler
 checks are skipped (not failed) if `gcc` isn't installed.  The last
-three steps run `./bootstrap.sh`, `tests/pnut/sf-pnut-check.sh` (the
+four steps run `./bootstrap.sh`, `tests/pnut/sf-pnut-check.sh` (the
 Forth C compiler builds pnut unmodified, and that pnut agrees with an
-M2-Planet-built one) and `./handoff.sh` (its main route only, on
-bootstrap.sh's output), which need no gcc; the pnut step is skipped
+M2-Planet-built one), `tests/pnut/sf-pnut-amd64-check.sh` (the amd64
+route on to tcc-0.9.27) and `./handoff.sh` (its main route only, on
+bootstrap.sh's output), which need no gcc; the pnut steps are skipped
 without `vendor/pnut`, the handoff step if stage0-posix's nested
 submodules are not checked out.  For diagnosing a failure, the
 individual commands are:
@@ -169,6 +215,7 @@ tools/check-links.py           # book links + heading anchors (mdBook slug rules
 tests/cc/stage-a-check.sh
 ./bootstrap.sh
 BOOTSTRAP_OUT=build-out/out tests/pnut/sf-pnut-check.sh   # SF_PNUT_TCC=1: on to tcc-0.9.27
+tests/pnut/sf-pnut-amd64-check.sh                         # amd64 route to tcc-0.9.27
 BOOTSTRAP_OUT=build-out/out ARCHES=amd64 ROUTE_B=0 ./handoff.sh
 ```
 
@@ -222,6 +269,8 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |
 | `vendor/stage0-posix` | Pinned upstream containing the `hex0-seed` assembler `build.sh` uses. |
 | `vendor/pnut` | Pinned pnut (`abc34a5`), the C compiler `tests/pnut/sf-pnut-check.sh` builds with the Forth C compiler, unmodified. |
+| `tests/pnut/` | `sf-pnut-check.sh` (i386 route to TinyCC) and `sf-pnut-amd64-check.sh` (amd64 route; its test programs in `tests/pnut/amd64/`). |
+| `patches/amd64/` | Our patches for the amd64 route: pnut's heap size, four tcc-0.9.27 patches, six portable_libc patches (see its README). |
 
 Generated binaries such as `seed-forth`, `/tmp/cc-out` and `build-out/` are not source.
 

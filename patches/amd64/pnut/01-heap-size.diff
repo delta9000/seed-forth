@@ -1,0 +1,25 @@
+# pnut: raise HEAP_SIZE from 786432 to 1048576 words.
+#
+# Applies to: vendor/pnut/pnut.c (pnut abc34a5), on a scratch copy only;
+#             vendor/pnut itself is never modified.
+# Used for:   pnut-exe-for-tcc only (the pnut that compiles tcc.c).
+#
+# Why: pnut keeps its whole AST, symbol table and strings in one static
+# `intptr_t heap[HEAP_SIZE]`.  Compiling tcc-0.9.27 with TCC_TARGET_X86_64
+# needs 795,176 words (790,991 with TCC_IS_NATIVE undefined), measured with
+# a pnut built with PRINT_MEMORY_STATS; the limit is 786,432 (the i386 tcc
+# build needs 758,502).  Without this change tcc-pnut fails with
+# "libtcc.c:1115: heap overflow".  HEAP_SIZE has no #ifndef guard, so no -D
+# can raise it, and trimming libc cannot save enough (all of libc is ~25k
+# words).  The upstreamable form would be an #ifndef HEAP_SIZE guard.
+--- a/pnut.c
++++ b/pnut.c
+@@ -766,7 +766,7 @@
+ #ifdef SMALL_HEAP
+ #define HEAP_SIZE 131072 // 128 KB
+ #else
+-#define HEAP_SIZE 786432 // 768 KB
++#define HEAP_SIZE 1048576 // 1 M words: x86_64 tcc needs 790991
+ #endif
+ intptr_t heap[HEAP_SIZE];
+ int heap_alloc = HASH_PRIME;

@@ -1,0 +1,26 @@
+# portable_libc: add abort().
+#
+# Applies to: libc64/include/stdlib.h, libc64/src/stdlib.c.
+#
+# Why: tcc's x86_64 code generator calls abort(), which portable_libc does
+# not provide.  It prints "abort" and exits through pnut_abort.
+--- a/include/stdlib.h
++++ b/include/stdlib.h
+@@ -8,6 +8,7 @@
+ #endif
+ 
+ void exit(int status);
++void abort(void);
+ void *malloc(size_t size);
+ void free(void *ptr);
+ void *realloc(void *ptr, size_t size);
+--- a/src/stdlib.c
++++ b/src/stdlib.c
+@@ -259,3 +259,7 @@
+     qsort (base + p * size, count - p, size, compare);
+   }
+ }
++
++void abort(void) {
++  pnut_abort("abort\n");
++}
