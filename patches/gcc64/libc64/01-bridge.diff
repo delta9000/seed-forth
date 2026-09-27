@@ -1,0 +1,137 @@
+# Provenance: ours (seed-forth gcc64), not in live-bootstrap.
+# Applies to libc64 (portable_libc + patches/amd64/libc, from stage 0's kit), for
+# stage 1 only: the libc that tcc-boot2 links into tcc-p0, the first tcc to build
+# musl.  portable_libc's ldexp() aborts and its strtod() knows only a few
+# literals, but tcc needs both for floating-point constants (musl's math code is
+# full of them).  This adds an exact IEEE-754 ldexp, a general strtod (accurate to
+# a few ulp, not correctly rounded), and a 1 GiB heap (tcc -ar over all of musl
+# needs more than the default).  musl-1, built by tcc-p0, therefore differs from
+# musl-2; the musl/tcc fixed point starts at musl-2 = musl-3, once musl's own
+# strtod is in use.
+diff -ru a/src/math.c b/src/math.c
+--- a/src/math.c	2026-09-27 14:18:35.333460505 +0000
++++ b/src/math.c	2026-09-27 14:18:35.351041401 +0000
+@@ -2,8 +2,39 @@
+ 
+ #ifdef ADD_LIBC_STUB
+ 
++/* gcc64 bridge: an exact ldexp (IEEE binary64 bit manipulation, round to
++   nearest even on underflow).  tcc's parser needs it for hex float literals. */
+ double ldexp(double x, int exp) {
+-  pnut_abort("ldexp not implemented");
++  unsigned long long u = *(unsigned long long *)&x;
++  unsigned long long sign = u & 0x8000000000000000ULL;
++  unsigned long long m = u & 0x000FFFFFFFFFFFFFULL;
++  int e = (int)((u >> 52) & 0x7FF);
++  if (e == 0x7FF) return x;                     /* inf or nan */
++  if (e == 0) {                                 /* zero or subnormal */
++    if (m == 0) return x;
++    while (!(m & 0x0010000000000000ULL)) { m <<= 1; e--; }
++    e++;
++  } else {
++    m |= 0x0010000000000000ULL;
++  }
++  /* now value = m * 2^(e - 1075), m has 53 bits */
++  if (exp > 5000) exp = 5000;
++  if (exp < -5000) exp = -5000;
++  e += exp;
++  if (e >= 0x7FF) { u = sign | 0x7FF0000000000000ULL; return *(double *)&u; }
++  if (e <= 0) {                                 /* subnormal result */
++    int sh = 1 - e;
++    unsigned long long half, rem;
++    if (sh > 54) { u = sign; return *(double *)&u; }
++    rem = m & ((1ULL << sh) - 1);
++    half = 1ULL << (sh - 1);
++    m >>= sh;
++    if (rem > half || (rem == half && (m & 1))) m++;
++    u = sign | m;                               /* may carry into exponent 1: still right */
++    return *(double *)&u;
++  }
++  u = sign | ((unsigned long long)e << 52) | (m & 0x000FFFFFFFFFFFFFULL);
++  return *(double *)&u;
+ }
+ 
+ #endif
+diff -ru a/src/stdlib.c b/src/stdlib.c
+--- a/src/stdlib.c	2026-09-27 14:18:35.333371777 +0000
++++ b/src/stdlib.c	2026-09-27 14:20:05.036404379 +0000
+@@ -3,7 +3,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ 
+-#define HEAP_SIZE 26214400 // 25 MB heap size
++#define HEAP_SIZE 1073741824 // gcc64 bridge: 1 GiB (BSS), for "tcc -ar" over all of musl
+ 
+ // TCC defines malloc, free and realloc as macros in libtcc.c which conflicts
+ // with our definitions here. This wouldn't be a problem if the libc was
+@@ -68,24 +68,54 @@
+ // mes libc sources compiled during the bootstrap. The IEEE bit patterns are
+ // assembled with integer operations and reinterpreted as a double, to work
+ // around the lact of support for float literals and int-to-float casts.
++/* gcc64 bridge: a general decimal strtod, replacing the four-literal
++   table above.  Accurate to a few ulp, not correctly rounded: it only has to
++   carry tcc through the first musl build, whose own strtod (floatscan.c)
++   replaces it from the next tcc on.  No float literals are used here. */
+ double strtod(const char *str, char **endptr) {
+-  if (strcmp(str, "0.0") == 0) {
+-    if (endptr) *endptr = (char *) str + 3;
+-    return assemble_double(0x00000000, 0x00000000);
+-  } else if (strcmp(str, "0.9999") == 0) {
+-    if (endptr) *endptr = (char *) str + 6;
+-    return assemble_double(0x3FEFFF2E, 0x48E8A71E);
+-  } else if (strcmp(str, "1.0") == 0) {
+-    if (endptr) *endptr = (char *) str + 3;
+-    return assemble_double(0x3FF00000, 0x00000000);
+-  } else if (strcmp(str, "4294967296.0") == 0) {
+-    if (endptr) *endptr = (char *) str + 12;
+-    return assemble_double(0x41F00000, 0x00000000);
+-  } else {
+-    printf("strtod: Unknown string: %s\n", str);
+-    pnut_abort("strtod: Unknown string: ");
+-    return 0;
++  const char *p = str;
++  int neg = 0, e10 = 0, digits = 0, esign = 1, ev = 0, any = 0;
++  unsigned long long mant = 0;
++  double r, ten = (double)10;
++  while (*p == ' ' || *p == '\t' || *p == '\n') p++;
++  if (*p == '-') { neg = 1; p++; } else if (*p == '+') p++;
++  while (*p >= '0' && *p <= '9') {
++    any = 1;
++    if (digits < 18) { mant = mant * 10 + (*p - '0'); if (mant) digits++; }
++    else e10++;
++    p++;
++  }
++  if (*p == '.') {
++    p++;
++    while (*p >= '0' && *p <= '9') {
++      any = 1;
++      if (digits < 18) { mant = mant * 10 + (*p - '0'); if (mant) digits++; e10--; }
++      p++;
++    }
++  }
++  if (!any) { if (endptr) *endptr = (char *)str; return (double)0; }
++  if (*p == 'e' || *p == 'E') {
++    const char *q = p + 1;
++    if (*q == '-') { esign = -1; q++; } else if (*q == '+') q++;
++    if (*q >= '0' && *q <= '9') {
++      while (*q >= '0' && *q <= '9') { if (ev < 100000) ev = ev * 10 + (*q - '0'); q++; }
++      p = q;
++      e10 += esign * ev;
++    }
++  }
++  if (endptr) *endptr = (char *)p;
++  r = (double)(long long)mant;   /* < 10^18: fits a signed long long */
++  if (mant == 0) return neg ? -r : r;
++  /* scale by 10^e10 with exact powers of ten up to 1e22 where possible */
++  if (e10 > 400) e10 = 400;
++  if (e10 < -400) e10 = -400;
++  while (e10 != 0) {
++    int k = e10 > 0 ? (e10 > 22 ? 22 : e10) : (e10 < -22 ? 22 : -e10);
++    double pw = (double)1; int i;
++    for (i = 0; i < k; i++) pw = pw * ten;      /* exact for k <= 22 */
++    if (e10 > 0) { r = r * pw; e10 -= k; } else { r = r / pw; e10 += k; }
+   }
++  return neg ? -r : r;
+ }
+ 
+ float strtof(const char *str, char **endptr) {

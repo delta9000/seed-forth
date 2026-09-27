@@ -32,6 +32,13 @@ vendored inside pnut, `kit/tcc-0.9.27.tar.gz`, with sha256
 tarball.  The route's own patches to pnut, tcc and pnut's libc are in
 `patches/amd64/`.  See "Past M2-Planet on amd64 alone" below.
 
+The amd64 chain on to GCC 15.2 (`gcc64/run-gcc64.sh`) uses eleven more
+source tarballs (musl, binutils, flex, gmp, mpfr, mpc, four GCCs).  They
+are not vendored or submodules: `gcc64/SOURCES` pins each by sha256 with
+its URLs, and the script fetches them into a gitignored cache and
+refuses any mismatch.  See "Past TinyCC on amd64: GCC 15.2 via musl"
+below.
+
 Initialize them (recursively — `vendor/M2-Planet` has its own nested
 `M2libc` submodule, and `vendor/stage0-posix` has its own nested
 `bootstrap-seeds` submodule) before running the checks:
@@ -729,3 +736,109 @@ This runs after the GCC-free chain and takes no part in it:
 This route trusts two things beyond the i386 route: the patches in
 `patches/amd64/`, and GNU `patch`, which applies them.  The tcc tarball is
 the same one the i386 route's stage 3 unpacks.  Here its hash is checked.
+
+## Past TinyCC on amd64: GCC 15.2 via musl
+
+`gcc64/run-gcc64.sh` carries the amd64 route on from `tcc-boot2` to
+GCC 15.2.0 with no host compiler, assembler or linker (a guard refuses
+them, on `PATH` and by absolute path).  `gcc64/README.md` has the
+chain, the per-stage table, the trust statement and the open issues;
+`patches/gcc64/README.md` has every patch.  It takes about 100 minutes
+on 4 cores, so it is not in `check-all.sh`; `verify.sh` runs it as step
+10 only with `VERIFY_GCC64=1` (SKIP otherwise), starting from step 9's
+`tcc-boot2` (`GCC64_STAGE0`, checked against `sf-pnut-amd64-check.sh`'s
+pins).
+
+```sh
+gcc64/run-gcc64.sh --fetch          # sources into build-out/gcc64-cache (GCC64_CACHE)
+gcc64/run-gcc64.sh                  # stages 0-12 + pins, in build-out/gcc64 (BUILDROOT)
+BUILDROOT=DIR gcc64/run-gcc64.sh stage11 stage12   # re-run stages in place
+```
+
+### Pins
+
+- **Sources:** `gcc64/SOURCES`, one line per tarball: name, sha256, URLs
+  (upstream first, then the Ubuntu archive URL actually used).  Eight
+  of the eleven are byte-identical to live-bootstrap `b1ceced7`'s pins;
+  gmp is Debian's `+dfsg` repack, gcc-4.7.4 an `.xz` (lb pins the
+  `.bz2`; the uncompressed tar's hash is recorded for comparison), and
+  gcc-4.0.4 a `git archive` of gcc-mirror's `releases/gcc-4.0.4` tag
+  (commit `944765863eec87a9f37e297994fd2af960397138`), pinned as the
+  uncompressed tar, sha256
+  `091f7e50fb712289632fb14d93582a6a49d731c59b8c095cc75cff01c1f40a67`,
+  which a fresh clone and `git archive` reproduced.  Every file is
+  checked before any stage runs; a mismatch fails, and a source that is
+  neither cached nor fetchable is a SKIP (exit 77).
+- **tcc-0.9.27 and portable_libc:** via stage 0, pinned as in the
+  previous section.
+- **Patches:** `patches/gcc64/`; those from live-bootstrap are
+  byte-identical to its files below a three-line provenance header.
+- **Artifacts:** `gcc64/HASHES`, checked by the pins step at the end of
+  every run.
+
+### Fixed points (enforced wherever it runs)
+
+| Stage | Fixed point |
+|---|---|
+| 0 | `pnut64-g2 = g3`; `tcc-boot2 = tcc-boot3` (`514bc4d3…`) |
+| 2 | musl-2 = musl-3 (`libc.a` `57d4b5e9…`); tcc-2 = tcc-3 |
+| 6 | gcc-B = gcc-C in `bin/gcc`, `bin/cpp`, `cc1`, `collect2`, `libgcc.a`, `crtbegin.o`, `crtend.o` |
+| 11 | gcc-15.2.0's `make compare`: "Comparison successful" (stage2 = stage3) |
+
+### Path dependence
+
+Most outputs embed absolute paths under `BUILDROOT` (install prefixes,
+sysroot, tcc's library paths, flex's `m4`, source paths), so their
+hashes hold only at the build path.  A second build of stages 0–7 in
+another directory (with `JOBS=2`) gave the same bytes for `tcc-boot2`,
+musl's `libc.a` (built by tcc and by gcc-B), `libgmp.a` and gcc-B's
+`crtbegin.o`/`crtend.o`, and different bytes for everything else
+(every tcc after `tcc-boot2`, `libtcc1.a`, binutils, flex, gcc-4.0.4,
+`libgcc.a`, `libmpfr.a`, `libmpc.a`).  `HASHES` marks the former `any`
+(enforced for every `BUILDROOT`) and the rest `root` (enforced only at
+the canonical `BUILDROOT`, the development sandbox's
+`/tmp/claude-0/-home-user-seed-forth/cc676fea-56ac-5a23-8fc7-209074f2e383/scratchpad/gcc64/clean`).
+
+At that path two independent from-scratch runs, the development kit's
+and the repository scripts' on 2026-09-27, produced all 43 pinned
+artifacts bit for bit.
+
+### Canonical hashes (`BUILDROOT` as above)
+
+| Artifact | Built by | sha256 |
+|---|---|---|
+| `tccboot/kit/build/tcc-boot2` (any path) | tcc-boot1 | `514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1` |
+| `p0/bin/tcc` (tcc-p0) | tcc-boot2 | `58a727bf581d451c9b958beed99ba3267f898779e29078af4dc8d833d8014440` |
+| `m1/lib/libc.a` (musl-1, any path) | tcc-p0 | `4cccfbd5e2eb803abcbbd6b4bc118e9028127220cdc6d78f6b91b39a6afe8ac6` |
+| `tc/lib/libc.a` (musl-2 = musl-3, any path) | tcc-1, tcc-2 | `57d4b5e9f78026c4ea9f05ed32b3cc27f955c9f56e167727c69aa4343e5c74ac` |
+| `tc/bin/tcc` (tcc-2 = tcc-3) | tcc-1, tcc-2 | `c716b5cbfb7048c2fc6c3947bb8af53334a97d79f772c8704e542f8e5281aad9` |
+| `bu/bin/as` (binutils-2.30) | tcc | `2e84e27648fb6610075400d39987376fc43827e1b36d047172199dc55e47ff52` |
+| `bu/bin/ld` | tcc | `09fac7ff68ce65ba24efd5a4ad508e56bbc92c7a67734bf96c5790b9af3c0a8c` |
+| `tools/bin/flex` | tcc | `0e4154018e502a194977022fc34ecdd5892a95b055fa34344bb3afdbd76eb045` |
+| `g4/libexec/.../4.0.4/cc1` (gcc-A) | tcc | `692c9fc1f8cf737d0e8abe0af86686fa84d62dd3c9035807531cc4deedd977d1` |
+| `g4s/libexec/.../4.0.4/cc1` (gcc-B = gcc-C) | gcc-A, gcc-B | `ea8a8a8bae10e63d8264f447488d90b3d7220f0ee19be8368c7dfc989237f5fd` |
+| `sysroot/usr/lib/libc.a` (musl, any path) | gcc-B | `58202246c15fa1fe9a68377a6704cabe7d236c50e3f4d6e47b0d81c59064edf8` |
+| `sysroot/usr/lib/libgmp.a` (any path) | gcc-B | `74c8f43fc80aa8a4374b96c6eb54f0f12c49e83f7d0715940445d9078f9be2c8` |
+| `g47/libexec/.../4.7.4/cc1plus` | gcc-B | `2101e5497f9fb925583713bc3144089835262f6eba3be8e944e001575ecf81e5` |
+| `bu2/bin/as` (binutils-2.41) | gcc-4.7.4 | `da5308f95f0b881bc7b174686e302b105aa1468feaf3ced5f8976a794e903ab1` |
+| `bu2/bin/ld` | gcc-4.7.4 | `8907f0ab58be00ed2ebe8055f75ee256e858a2ee72f862fdd2363db2a730d292` |
+| `g10/libexec/.../10.5.0/cc1plus` | gcc-4.7.4 | `f3988ecd89a57a9550fb0bd86c2b95700cb0bac3c497686cfa0af447f3763314` |
+| `g15/bin/gcc` | gcc-15 stage 2 | `64835436a39bfae810393c57b66abd4989573ee68941bc35e9135341a2a2006a` |
+| `g15/libexec/.../15.2.0/cc1` | gcc-15 stage 2 | `a9f6b8a7c9ba3b2d8ae85e0031df4979def38dbf8fd05e234093bf5a8830909f` |
+| `g15/libexec/.../15.2.0/cc1plus` | gcc-15 stage 2 | `545b8545bdaa081b7be3980e212bf1a316d1a9d48eab049f543d0962b614bf89` |
+| `g15/lib/gcc/.../15.2.0/libgcc.a` | gcc-15 | `a2d43204f0f386c7b58f1575d892b1f70fd0067d512dbc423e899166c97513f0` |
+
+`gcc64/HASHES` has all 43.  After a deliberate change, run with
+`GCC64_REPIN=1` and copy `BUILDROOT/logs/hashes.txt` into it.
+
+### Tests and guard (canonical run)
+
+libc test at `-O2` under tcc-musl and every gcc: 0 failures.  tcc's
+`tests2`: 83/84 under tcc-musl (`96_nodata_wanted` needs `dlsym`), 68/84
+under tcc-boot2 with portable_libc; the script requires exactly these
+failure lists.  gmp, mpfr, mpc `make check`: 175, 179 and 69 pass, 0
+fail.  C++ test under gcc-4.7.4, 10.5.0 and 15.2.0: pass.  gcc-15's
+sysroot, `as` and `ld` are the chain's, and its `-v` run executes only
+chain files.  Guard: 91 configure-time probes of host tools, all
+refused (34 `nm`, 18 `ld`, 18 `cc`, 8 `strip`, 8 `objdump`, 5 `gcc`);
+no other guard hit.

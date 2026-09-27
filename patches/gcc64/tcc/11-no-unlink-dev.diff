@@ -1,0 +1,19 @@
+# Provenance: ours (seed-forth gcc64), not in live-bootstrap.
+# gcc64: tcc unlinks its output file before writing it.  Autoconf and musl's
+# configure link with -o /dev/null; as root that replaced /dev/null with a
+# regular file (live-bootstrap works around it with rm /dev/null after
+# configure).  Do not unlink anything under /dev/.
+--- a/tccelf.c
++++ b/tccelf.c
+@@ -1998,7 +1998,10 @@
+         mode = 0666;
+     else
+         mode = 0777;
+-    unlink(filename);
++    /* gcc64: configure scripts link to "-o /dev/null"; unlinking that as
++       root replaces the device with a regular file.  Never unlink /dev/... */
++    if (strncmp(filename, "/dev/", 5) != 0)
++        unlink(filename);
+     fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
+     if (fd < 0) {
+         tcc_error_noabort("could not write '%s'", filename);

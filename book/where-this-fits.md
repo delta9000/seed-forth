@@ -50,7 +50,9 @@ The practical facts first.
   and the `tests/asm` checks build a GCC M2-Planet or GCC mescc-tools
   to compare against, and never run their output as part of the
   chain.  `bootstrap.sh`, `handoff.sh` and `tests/cc/stage0-check.sh`
-  use no host C compiler.  The GCC-free assembler is `130-asm.fth`:
+  use no host C compiler.  (GCC also appears as an *output*: the
+  amd64 chain to GCC 15.2 below builds it, with no host compiler.)
+  The GCC-free assembler is `130-asm.fth`:
   785 lines of Forth, an M1 expander and hex2 linker, taught in
   Chapter 33; `bootstrap.sh` uses it to build `M1` and `hex2`.
 - **Where it stops.**  `bootstrap.sh` stops at a self-hosted
@@ -76,6 +78,19 @@ The practical facts first.
   patches to pnut, tcc and pnut's libc, kept in `patches/amd64/`.  Two
   of them fix bugs in tcc-0.9.27's own x86_64 static linking.
   Appendix C has the route.
+- **Past TinyCC, to GCC (amd64).**  `gcc64/run-gcc64.sh` carries that
+  amd64 `tcc-boot2` on through musl-1.1.24 (tcc and musl rebuilt to a
+  fixed point), binutils, gcc-4.0.4 (rebuilt to a fixed point),
+  gcc-4.7.4 and gcc-10.5.0 to GCC 15.2.0, whose own three-stage
+  bootstrap ends with stage 2 = stage 3.  Every compiler, assembler and
+  linker in it is built by the stage before it; a guard refuses any
+  host one.  It still runs host build glue (bash, make, sed, coreutils,
+  tar, xz, patch, python3 for one text substitution), uses host bison
+  and m4 to generate gcc-4.0.4's parser and lexer, and trusts the
+  source tarballs' pregenerated `configure` scripts.  It takes about
+  1.5 hours on 4 cores, so only `./verify.sh` runs it, and only when
+  asked (`VERIFY_GCC64=1`).  `gcc64/README.md` has the stages, pins and
+  trust statement.
 
   The prior-art research for this project found other Mes-free routes
   to TinyCC that go through a small C compiler: pnut's kit and
@@ -288,8 +303,14 @@ routes still start at the 229-byte `hex0-seed`, on a Linux kernel
 and a CPU nobody here audits.  It proves agreement on the inputs
 above, not on every C program.  And its main chain stops where
 stage0-posix stops.  The pnut checks go one rung further, to TinyCC
-without Mes, but they stop at tcc-0.9.27.  Nothing here builds GCC,
-and the established road from there to GCC is still Live-Bootstrap's.
+without Mes, and on amd64 `gcc64/run-gcc64.sh` goes on to GCC 15.2
+with no host compiler, assembler or linker.  That last leg is not a
+full source bootstrap, though.  It runs host build glue that
+Live-Bootstrap builds from source (make, bash, coreutils, bison, m4,
+...), it trusts pregenerated `configure` scripts that Live-Bootstrap
+regenerates, and its GCC has not been compared with Live-Bootstrap's.
+For a full source bootstrap to GCC, Live-Bootstrap's road is still
+the established one.
 
 ## What this also demonstrates: auditable AI collaboration
 

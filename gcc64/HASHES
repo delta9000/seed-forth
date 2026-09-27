@@ -1,0 +1,50 @@
+# gcc64/HASHES -- sha256 of the chain's key outputs, checked by run-gcc64.sh's pins step.
+# Format: SHA256  FILE (relative to BUILDROOT)  SCOPE
+#   any   the hash holds for every BUILDROOT
+#   root  the file embeds absolute paths under BUILDROOT (prefixes, sysroot, tcc's
+#         CONFIG_TCCDIR, flex's m4 path, ...), so the hash holds only for the
+#         BUILDROOT on the "root" line; run-gcc64.sh --new <that path> reproduces it.
+root /tmp/claude-0/-home-user-seed-forth/cc676fea-56ac-5a23-8fc7-209074f2e383/scratchpad/gcc64/clean
+514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1  tccboot/kit/build/tcc-boot2  any
+58a727bf581d451c9b958beed99ba3267f898779e29078af4dc8d833d8014440  p0/bin/tcc  root
+c716b5cbfb7048c2fc6c3947bb8af53334a97d79f772c8704e542f8e5281aad9  tc/bin/tcc  root
+57d4b5e9f78026c4ea9f05ed32b3cc27f955c9f56e167727c69aa4343e5c74ac  tc/lib/libc.a  any
+335d9e5dc9bbc53570f3bb6749233170ab2f5e550955001c974813d7faea9799  tc/lib/tcc/libtcc1.a  root
+2e84e27648fb6610075400d39987376fc43827e1b36d047172199dc55e47ff52  bu/bin/as  root
+09fac7ff68ce65ba24efd5a4ad508e56bbc92c7a67734bf96c5790b9af3c0a8c  bu/bin/ld  root
+1ca2548308d0fb6f26e9be46f5b2a8a9b06facc74f7563d7e4e25ec5e6e47213  bu/bin/ar  root
+0e4154018e502a194977022fc34ecdd5892a95b055fa34344bb3afdbd76eb045  tools/bin/flex  root
+2d5f4df1a31746af412f9824a31819eadbd9524320f4f2ac95d523ad6117fa9a  g4/bin/gcc  root
+692c9fc1f8cf737d0e8abe0af86686fa84d62dd3c9035807531cc4deedd977d1  g4/libexec/gcc/x86_64-unknown-linux-gnu/4.0.4/cc1  root
+376ac33d7baaf57ab896d75aa2a352f8e1a105c5d34ead8bfa2a0e122f09d415  g4s/bin/gcc  root
+ea8a8a8bae10e63d8264f447488d90b3d7220f0ee19be8368c7dfc989237f5fd  g4s/libexec/gcc/x86_64-unknown-linux-gnu/4.0.4/cc1  root
+f1d1ee237f6f987f480ff58241021411e903b767cd7a4238136cccf65d467536  g4s/lib/gcc/x86_64-unknown-linux-gnu/4.0.4/libgcc.a  root
+58202246c15fa1fe9a68377a6704cabe7d236c50e3f4d6e47b0d81c59064edf8  sysroot/usr/lib/libc.a  any
+74c8f43fc80aa8a4374b96c6eb54f0f12c49e83f7d0715940445d9078f9be2c8  sysroot/usr/lib/libgmp.a  any
+333a5e02ef285f21f60ee8b4025a5da9827b9cdb783a077bbe2fdd6258cfea1c  sysroot/usr/lib/libmpfr.a  root
+4ea812bbbaba9c55899c7b5aa4b377e4407be7984095969c3d4851f8b4b64a51  sysroot/usr/lib/libmpc.a  root
+f22533e370b0c729dc6cb0eec38d82aadca022060937109a8038a764a8260c4c  g47/bin/gcc  root
+036608da3569557298c743f10197edcfd3a633f19024e1245a3ae16f9f6b2c62  g47/libexec/gcc/x86_64-linux-musl/4.7.4/cc1  root
+2101e5497f9fb925583713bc3144089835262f6eba3be8e944e001575ecf81e5  g47/libexec/gcc/x86_64-linux-musl/4.7.4/cc1plus  root
+93895af634f5fe2168e4e35a4b13ff39209f5bc20ea38f25eb084ead674f6d1b  g47/lib64/libstdc++.a  root
+f79d7aa3be91ac6ce833f035472db5c8894d272d1408145fd9eda4967b45b0b2  g10/lib64/libstdc++.a  root
+da0649d98cf4c4da3b65af1c98f12a0ef31673579b19b2e46ae5af84df38699d  g15/lib64/libstdc++.a  root
+da5308f95f0b881bc7b174686e302b105aa1468feaf3ced5f8976a794e903ab1  bu2/bin/as  root
+8907f0ab58be00ed2ebe8055f75ee256e858a2ee72f862fdd2363db2a730d292  bu2/bin/ld  root
+bba88fe0b1571d69355bb20f2037549c3a7c40a60cd8917486aedb9bd6bddfc7  bu2/bin/ar  root
+226b217d3ef4e7620c0022a760650c476481f1ade4917613d70384fc6d5d9f17  g10/bin/gcc  root
+700f06834d18faeb6135d2cc8b946a968ad189319dfe8270e736b254836fa5a6  g10/libexec/gcc/x86_64-linux-musl/10.5.0/cc1  root
+f3988ecd89a57a9550fb0bd86c2b95700cb0bac3c497686cfa0af447f3763314  g10/libexec/gcc/x86_64-linux-musl/10.5.0/cc1plus  root
+64835436a39bfae810393c57b66abd4989573ee68941bc35e9135341a2a2006a  g15/bin/gcc  root
+a9f6b8a7c9ba3b2d8ae85e0031df4979def38dbf8fd05e234093bf5a8830909f  g15/libexec/gcc/x86_64-linux-musl/15.2.0/cc1  root
+545b8545bdaa081b7be3980e212bf1a316d1a9d48eab049f543d0962b614bf89  g15/libexec/gcc/x86_64-linux-musl/15.2.0/cc1plus  root
+a2d43204f0f386c7b58f1575d892b1f70fd0067d512dbc423e899166c97513f0  g15/lib/gcc/x86_64-linux-musl/15.2.0/libgcc.a  root
+4cccfbd5e2eb803abcbbd6b4bc118e9028127220cdc6d78f6b91b39a6afe8ac6  m1/lib/libc.a  any
+35d9c380cf4928dee023986e9a90f290f9e7fdf11b952dd69218d7745dc7dee4  t1/bin/tcc  root
+2d231ea6ca5ca3a62ebbf51b239e51bff95a428a4071eadcb6f08398862de835  bu/bin/nm  root
+3ed574b1db0673046497f92323c78edb6774ccc324be6854e8fe7c126d9ace26  bu/bin/objcopy  root
+c090255e79666c8300120f7632b96dcd6e0cc207c5c458531bdf679e83edab59  bu/bin/objdump  root
+4d9e07964eac78ed82cb52b2705331b64f4b67c75cdf791f0d2addeb9d0b3c2b  g4s/bin/cpp  root
+7eb1981d85093f287792a8093fd94d80df4557498491a0eed170fb84321fd486  g4s/libexec/gcc/x86_64-unknown-linux-gnu/4.0.4/collect2  root
+da889d9a4143b1073b1caa30d0e70dca1b62a60f7af5fbf2e88b44a042a85750  g4s/lib/gcc/x86_64-unknown-linux-gnu/4.0.4/crtbegin.o  any
+e389bbbcd60d56547aedb01b698464ccc9d8a6f00dd326de71cfad8cd12abde7  g4s/lib/gcc/x86_64-unknown-linux-gnu/4.0.4/crtend.o  any

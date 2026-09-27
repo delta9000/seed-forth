@@ -35,6 +35,13 @@ compiler's M1 output against GCC-built M2-Planet.
   4 tcc-0.9.27, 6 portable_libc), unified diffs with explanatory
   headers, applied to scratch copies; never edit `vendor/pnut`.  After
   changing one, re-pin with `SF_PNUT64_REPIN=1` (see its README).
+- `gcc64/run-gcc64.sh` — the amd64 chain on from `tcc-boot2` to GCC 15.2
+  via musl (stage 0 = `sf-pnut-amd64-check.sh`; ~1.5 h, so only in
+  `verify.sh` with `VERIFY_GCC64=1`).  Sources pinned in `gcc64/SOURCES`
+  (fetched into gitignored `build-out/gcc64-cache`, never committed),
+  artifact pins in `gcc64/HASHES` (`root`-scoped ones embed the build
+  path), patches in `patches/gcc64/` (provenance header on each), tests in
+  `tests/gcc64/`.  See `gcc64/README.md`.
 - `tests/cc/stage-a-check.sh` — the byte-identity proof.
 - `REPRODUCIBLE.md` — full fixed-point chain (deeper than book
   Appendix C, which is the reader-facing summary).
@@ -97,6 +104,7 @@ tests/cc/stage0-check.sh       # stage0-posix route vs Forth route (needs stage0
 tests/pnut/sf-pnut-check.sh    # our compiler builds unmodified pnut; SF_PNUT_TCC=1 goes on to tcc-0.9.27
 tests/pnut/sf-pnut-amd64-check.sh  # amd64 route to tcc-0.9.27 (~10 s, no gcc); SF_PNUT64_GCC_ORACLE=1 adds the gcc reference
 ./handoff.sh                   # Forth route reproduces stage0-posix's AMD64 and x86 bin/ (19/19 answers each)
+gcc64/run-gcc64.sh             # amd64 tcc-boot2 -> musl -> gcc-4.0.4/4.7.4/10.5.0 -> GCC 15.2 (~1.5 h; not in check-all)
 tools/gen-index.py --check     # book/WORD-INDEX.md is up to date
 tools/check-links.py           # every link and anchor in book/ resolves
 ```
