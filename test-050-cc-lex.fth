@@ -235,6 +235,71 @@ tok-kind @ tk-chr   =                              and
 tok-num  @ [lit] 10 =                              and  \ '\n' = 10
 
 \ ===========================================================================
+\ Source 5: number bases, a suffix, numeric escapes
+\ Source: 010 0x1F 7UL '\x41' '\101'
+\ Tokens: 8, 31, 7, 'A' (65), 'A' (65), EOF
+\ ===========================================================================
+
+[lit]  48 [lit]  0 tput
+[lit]  49 [lit]  1 tput
+[lit]  48 [lit]  2 tput
+[lit]  32 [lit]  3 tput
+[lit]  48 [lit]  4 tput
+[lit] 120 [lit]  5 tput
+[lit]  49 [lit]  6 tput
+[lit]  70 [lit]  7 tput
+[lit]  32 [lit]  8 tput
+[lit]  55 [lit]  9 tput
+[lit]  85 [lit] 10 tput
+[lit]  76 [lit] 11 tput
+[lit]  32 [lit] 12 tput
+[lit]  39 [lit] 13 tput
+[lit]  92 [lit] 14 tput
+[lit] 120 [lit] 15 tput
+[lit]  52 [lit] 16 tput
+[lit]  49 [lit] 17 tput
+[lit]  39 [lit] 18 tput
+[lit]  32 [lit] 19 tput
+[lit]  39 [lit] 20 tput
+[lit]  92 [lit] 21 tput
+[lit]  49 [lit] 22 tput
+[lit]  48 [lit] 23 tput
+[lit]  49 [lit] 24 tput
+[lit]  39 [lit] 25 tput
+
+[lit] 26 cc-src-len !
+[lit]  0 cc-src-pos !
+[lit]  1 cc-src-line !
+
+\ 010 is octal
+cc-next-token
+tok-kind @ tk-num   =                              and
+tok-num  @ [lit] 8  =                              and
+
+\ 0x1F
+cc-next-token
+tok-kind @ tk-num   =                              and
+tok-num  @ [lit] 31 =                              and
+
+\ 7UL: suffix skipped
+cc-next-token
+tok-kind @ tk-num   =                              and
+tok-num  @ [lit] 7  =                              and
+
+\ '\x41'
+cc-next-token
+tok-kind @ tk-chr   =                              and
+tok-num  @ [lit] 65 =                              and
+
+\ '\101'
+cc-next-token
+tok-kind @ tk-chr   =                              and
+tok-num  @ [lit] 65 =                              and
+
+cc-next-token
+tok-kind @ tk-eof =                                and
+
+\ ===========================================================================
 \ Final exit
 \ ===========================================================================
 0= die

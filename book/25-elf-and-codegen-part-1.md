@@ -16,14 +16,14 @@ next build the output side.  There is no assembler in between: every
 x86-64 instruction the compiler emits has its own Forth word that
 writes the instruction's exact bytes into `cc-out-buf`.
 
-The 72-line file `080-cc-elf.fth` writes the ELF wrapper: two entry
+The 80-line file `080-cc-elf.fth` writes the ELF wrapper: two entry
 points (`cc-emit-elf-header`, `cc-finalize-elf`) and one assumption,
 that the output is a single R-W-X PT_LOAD, exactly like the seed.
 That assumption keeps the ELF layer tiny: no section header table, no
 separate read-only segment, no relocation records.
 
-`090-cc-emit.fth` is the bigger of the pair: 1039 lines of
-instruction encoders.  This chapter covers lines 1–424, the primitive
+`090-cc-emit.fth` is the bigger of the pair: 1187 lines of
+instruction encoders.  This chapter covers lines 1–433, the primitive
 encoders that know nothing about calls, strings or globals.  Ch 26
 covers the rest.
 
@@ -90,17 +90,25 @@ covers the rest.
   [lit] 81920 cc-emit-8le                        \ p_memsz = 0x14000
   [lit] 4096 cc-emit-8le ;                       \ p_align = 0x1000
 
+\ cc-bss-size ( -- a )  Bytes of zeroed memory the program needs after its
+\ file image (its bss, 090-cc-emit.fth); cc-finalize-globals sets it.
+variable cc-bss-size
+
 \ cc-finalize-elf ( -- )  After codegen, patch p_filesz to current cc-out-pos.
 \ We patch only the low 4 bytes — our outputs are well under 4 GiB and the
-\ high 4 bytes were already emitted as zero.  Also bump p_memsz so it is at
-\ least p_filesz (otherwise large outputs like the M2-Planet monolith — well
-\ past the 0x14000 default — produce an invalid ELF that the kernel won't
-\ load correctly).  Keep the 0x14000 minimum for small outputs that need
-\ BSS-style headroom past their file image.
+\ high 4 bytes were already emitted as zero.  p_memsz covers the file image
+\ plus the bss; it keeps the 0x14000 it was emitted with unless that is
+\ too small (otherwise large outputs like the M2-Planet monolith — well
+\ past the 0x14000 default — would produce an invalid ELF that the kernel
+\ won't load correctly).  Small outputs keep the 0x14000 minimum as
+\ headroom past their file image.
 : cc-finalize-elf
   cc-out-pos @ cc-filesz-offset cc-out-patch-4le
-  cc-out-pos @ [lit] 81920 > if,
-    cc-out-pos @ cc-memsz-offset cc-out-patch-4le
+  cc-out-pos @ cc-bss-size @ +                   ( memsz )
+  dup [lit] 81920 > if,
+    cc-memsz-offset cc-out-patch-4le
+  else,
+    drop
   then, ;
 ```
 
@@ -142,13 +150,19 @@ to a file-size field instead of a branch target.
 `p_memsz` defaults to `81920 = 0x14000`, so the segment is mapped at
 80 KiB even when the file is smaller, and the kernel zero-fills
 everything past the file image.  `p_memsz` counts the file image too:
-a 10 KiB program gets 70 KiB of zeroed headroom, not 80.  (Nothing in
-the output relies on that headroom; globals are appended to the file
-image, Ch 26 §5.)  The `if` in `cc-finalize-elf` bumps `p_memsz` to
-match `p_filesz` for outputs *larger* than 80 KiB.  The compiled
-M2-Planet is about 203 KB, well under the 1 MiB `cc-out-cap` but past
-the default, and would otherwise get a `p_memsz` smaller than its
-`p_filesz`, an invalid ELF the kernel refuses.
+a 10 KiB program gets 70 KiB of zeroed headroom, not 80.
+
+That zero-filled tail is also where a program's global *arrays* live:
+its *bss*.  They start zeroed, so they need memory but no bytes in the
+file.  `cc-bss-size`, which Ch 26's `cc-finalize-globals` sets, is how
+much the program needs past the file image, and `cc-finalize-elf`
+makes `p_memsz` the file image plus that, if the sum is past the
+default.  The compiled M2-Planet has no global arrays and is about
+202 KB, well under the 1 MiB `cc-out-cap` but past the default, and
+would otherwise get a `p_memsz` smaller than its `p_filesz`, an
+invalid ELF the kernel refuses.  The compiled pnut is 151 KB of file and a 4.6 MB
+bss (its string pool, heap and code buffer are global arrays), so its
+segment is mostly zeroes the kernel supplies.
 
 ## 2. `090-cc-emit.fth`, part 1: register convention
 
@@ -341,6 +355,15 @@ dereference, and pointer arithmetic:
   [lit] 182 cc-emit-byte
   [lit]  63 cc-emit-byte ;
 
+\ movzx edi, dil:  40 0F B6 FF
+\ Keeps only rdi's low byte (writing edi clears the upper half of rdi).
+\ REX=0x40 selects dil rather than bh.  Used by a (char) cast.
+: cc-emit-zx-byte-rdi
+  [lit]  64 cc-emit-byte
+  [lit]  15 cc-emit-byte
+  [lit] 182 cc-emit-byte
+  [lit] 255 cc-emit-byte ;
+
 \ mov [rcx], rdi:  48 89 39
 \ ModR/M(mod=00, reg=rdi=7, rm=rcx=1) = 0x39.  Stores rdi to the qword address
 \ in rcx (assignment via dereference).
@@ -385,6 +408,8 @@ dereference, and pointer arithmetic:
 `cc-emit-store-via-rcx` and `cc-emit-store-byte-via-rcx` are the
 dereference patterns, three or four bytes each.  The comments give the
 ModR/M arithmetic; read one and you can predict the rest.
+`cc-emit-zx-byte-rdi` is the odd one out: it loads nothing, it keeps
+only `rdi`'s low byte, which is what a `(char)` cast does (Ch 29).
 
 `cc-emit-shl-rdi-imm8` and `cc-emit-add-rdi-imm32` are
 pointer-arithmetic primitives: shift left for array indexing

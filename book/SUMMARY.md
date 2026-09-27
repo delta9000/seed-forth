@@ -33,7 +33,7 @@
 # Part III — A C compiler in Forth
 
 - [Arena and I/O buffers](21-arena-and-io-buffers.md) — the compiler's deterministic memory model
-- [The preprocessor](22-the-preprocessor.md) — flatten C source, expand integer macros
+- [The preprocessor](22-the-preprocessor.md) — flatten C source: includes, macros, conditional compilation
 - [The lexer](23-the-lexer.md) — one token at a time in the `tok-*` globals
 - [Types and symbols](24-types-and-symbols.md) — one-word types, parallel-column symbols, struct descriptors
 - [ELF emission and codegen, part 1](25-elf-and-codegen-part-1.md) — write executable bytes: ELF prologue + instruction encoders

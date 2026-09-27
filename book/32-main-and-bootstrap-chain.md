@@ -32,8 +32,8 @@ point (v2 == v3) is a separate stage, covered in §5.
 \   010-lib.fth        — primitives, syscalls, control-flow, defining words
 \   020-cc-arena.fth   — bump allocator (must load before 030-cc-io.fth)
 \   030-cc-io.fth      — source buffer, output buffer, file I/O
-\   040-cc-prep.fth    — preprocessor (#include, #define)
-\   050-cc-lex.fth     — tokenizer (depends on 040-cc-prep.fth for macro lookup)
+\   040-cc-prep.fth    — preprocessor (#include, #define, #if; expands macros)
+\   050-cc-lex.fth     — tokenizer (reads what 040-cc-prep.fth wrote)
 \   060-cc-types.fth   — type encoding (int, char, pointer, struct)
 \   070-cc-sym.fth     — symbol table (parallel arrays, scope stack)
 \   080-cc-elf.fth     — ELF header emission
@@ -73,8 +73,10 @@ code needs.  The comment says `020-cc-arena.fth` must load before
 consumers of `cc-alloc` come later: `090-cc-emit.fth`
 (`cc-add-fixup-to-list`), `110-cc-decl.fth` (struct
 descriptors), and `112-cc-stmt.fth` (switch cases).  `040-cc-prep.fth` must load
-before `050-cc-lex.fth` because the lexer calls
-`cc-macro-find-int`.  `080-cc-elf.fth` must load before
+before `050-cc-lex.fth` only in the sense that it runs first: the
+lexer reads what the preprocessor wrote, and calls none of its words.
+The one call between them goes the other way, `#if`'s evaluator in
+`100-cc-expr.fth`, through a deferred word.  `080-cc-elf.fth` must load before
 `100-cc-expr.fth` and `112-cc-stmt.fth` because their string-literal
 and absolute-vaddr emitters (`cc-emit-jmp-vaddr`,
 `cc-emit-call-vaddr`) read `cc-here-vaddr`.  And so on.
@@ -106,34 +108,36 @@ Read `cc-main` as a sequence of phases:
    into `cc-in-buf` with `cc-read-all`.  Ends when `read`
    returns 0; a source that fills the 1 MiB buffer is error 20.
 2. **`cc-preprocess`** (Ch 22 §8): rewrite `cc-in-buf` into
-   `cc-src-buf`: splice in `#include`s, register `#define`s in
-   the macro table, prime the built-in macros (`NULL`, `EOF`,
-   etc.).  Resets `cc-src-pos` and `cc-src-line` so the lexer
-   starts at the top.
+   `cc-src-buf`: prime the built-in macros (`NULL`, `EOF`, etc.),
+   splice in `#include`s, record `#define`s and expand every macro
+   use, and drop the lines of false `#if` groups.  Resets
+   `cc-src-pos` and `cc-src-line` so the lexer starts at the top.
 3. **`cc-out-init`** (Ch 21 §2): zero `cc-out-pos`.
 4. **`cc-globals-init`** (Ch 26 §5): zero
-   `cc-globals-pos`, `cc-gfixup-count`, and the globals
-   buffer itself.
+   `cc-globals-pos`, `cc-bss-pos`, `cc-gfixup-count`, and the
+   globals buffer itself.
 5. **`cc-emit-elf-header`** (Ch 25 §1): write 120 bytes of
    ELF64_Ehdr + Elf64_Phdr at offset 0.  `p_filesz` and
    `p_memsz` start as 0 and will be back-patched.
-6. **`cc-parse-program`** (Ch 31 §8): the big one, in seven
+6. **`cc-parse-program`** (Ch 31 §8): the big one, in nine
    sub-steps:
    - Emit the 26-byte entry stub.
    - Emit the 11 libc shims and register their symbols.
+   - Register the 8 late shims as prototypes.
    - Register the `memset` external prototype.
-   - Register the 11 libc typedefs (`FILE`, `uint8_t`, ...).
+   - Register the 12 libc typedefs (`FILE`, `uint8_t`, ...).
    - Walk every top-level declaration in the preprocessed
      source, emitting function bodies as we go.
+   - Emit the late shims the program called.
    - Die (206, 207) if a used function never got a body or there
      is no `main`.
    - Patch the entry stub's `call <main>` rel32.
 7. **`cc-finalize-globals`** (Ch 31 §7): append
-   `cc-globals-buf` to `cc-out-buf`, then walk every
-   recorded fixup patching `movabs rdi, imm64` placeholders
-   with the now-known global vaddrs.
+   `cc-globals-buf` to `cc-out-buf`, place the bss after it, then
+   walk every recorded fixup patching `movabs rdi, imm64`
+   placeholders with the now-known global vaddrs.
 8. **`cc-finalize-elf`** (Ch 25 §1): patch the program
-   header's `p_filesz` (and `p_memsz` if the output is large)
+   header's `p_filesz`, and `p_memsz` to cover the bss too,
    to the final `cc-out-pos`.
 9. **`cc-write-output`** (Ch 21 §2): open `/tmp/cc-out` with
    `O_WRONLY|O_CREAT|O_TRUNC` mode 0755, write all of
@@ -194,8 +198,8 @@ Forth comments itself (Ch 17), and once `cc-main` runs, the rest of
 stdin is read raw, so `(int pad, int n)` reaches the compiler
 intact.  Measured between
 the steps, `cc-load-stdin` read 484 bytes and `cc-preprocess` cut
-them to 470 (the `#define` line is gone, its newline kept) with
-`ROWS` as the eighth macro.  The header is 120 bytes, and
+them to 466 (the `#define` line is gone, its newline kept, and each
+of the four `ROWS` became ` 4 `), with `ROWS` as the twelfth macro.  The header is 120 bytes, and
 `cc-parse-program` took the output to 1,225 bytes of code plus 16
 bytes of globals, which `cc-finalize-globals` appended.
 `cc-finalize-elf` wrote the resulting 1,241 into `p_filesz`
@@ -248,7 +252,7 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
 ```
 
 The claim rests on step 5.  The 1,772-byte seed, extended by
-`010-lib.fth` and running the 6,744 lines of compiler Forth in
+`010-lib.fth` and running the 8,123 lines of compiler Forth in
 `020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
 11 files of the self-compile source set) into a binary.  That
 binary, compiling M2-Planet's sources, emits the same `.M1` text
@@ -317,6 +321,22 @@ also runs 32-bit programs.  live-bootstrap takes over from those
 binaries, so past that point the chain continues as usual (Appendix C
 and `REPRODUCIBLE.md` say exactly where and how).
 
+The compiler is not tied to M2-Planet.  `tests/pnut/sf-pnut-check.sh`
+gives it `pnut.c`, the C compiler of the pnut project
+(`vendor/pnut`, 10,211 lines across four files) exactly as shipped,
+with the configuration of pnut's own M2-Planet CI job put in front
+as `#define` lines, since this compiler reads stdin and has no `-D`.
+What that took is spread over Chs 22–31: real conditional
+compilation and function-like macros, casts, constant expressions,
+`static` and `extern`, compound assignment on any lvalue, the bss,
+and eight more libc shims.  The pnut this compiler builds (an amd64
+program that generates i386 code) then compiles `pnut.c` for pnut's
+TinyCC kit to the same bytes as a pnut that `bootstrap.sh`'s
+M2-Planet builds, and pnut's kit carries that on to
+`tcc-0.9.27`, whose `tcc-boot2` and `tcc-boot3` match the hash pnut
+publishes (`./verify.sh`, step 8).  That is a path from the 1,772-byte
+seed to TinyCC with no Mes and no GCC in it.
+
 [Where this fits](where-this-fits.md) sets the two routes side by
 side.  With Ch 33, the book walks every component along the
 seed-forth path:
@@ -325,7 +345,7 @@ seed-forth path:
 - Ch 1–12: the seed's first extension (`010-lib.fth`),
   ~470 lines of Forth that turn the seed's 32 primitives into
   a usable language.
-- Ch 21–32: the C-subset compiler, 6,744 lines of Forth
+- Ch 21–32: the C-subset compiler, 8,123 lines of Forth
   (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
 - Ch 33: the assembler (`130-asm.fth`) that turns the compiler's

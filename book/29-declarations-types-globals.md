@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (594 lines), the first of the
+That machinery is `110-cc-decl.fth` (724 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
@@ -131,16 +131,36 @@ can grep for in those files.
 \ Statement parsing
 \ ===========================================================================
 
+\ cc-qualifier? ( -- f )  True if the current token is a type qualifier
+\ (const / volatile / restrict).  They change nothing in this subset, so
+\ every place that reads a type skips them.
+: cc-qualifier?
+  tok-kind @ tk-kw =
+    tok-kw-id @ kw-const    =
+    tok-kw-id @ kw-volatile = or
+    tok-kw-id @ kw-restrict = or
+  and ;
+
+\ cc-skip-qualifiers ( -- )  Read past any qualifiers; the first token that
+\ isn't one is left pending.
+: cc-skip-qualifiers
+  begin,
+    cc-next-token-keep cc-qualifier?
+  while,
+  repeat,
+  cc-putback-token ;
+
 \ cc-count-stars ( -- depth )  After consuming a base type (e.g. 'int'), peek
-\ zero or more '*' tokens and return the resulting pointer depth.  Leaves the
-\ first non-'*' token pending for the caller.
+\ zero or more '*' tokens and return the resulting pointer depth.  A
+\ qualifier may follow each '*' (`char * const msg`).  Leaves the first
+\ other token pending for the caller.
 : cc-count-stars                                  ( -- depth )
   [lit] 0
   begin,
     cc-next-token-keep
     tok-kind @ tk-punct = tok-num @ [char] * = and
   while,
-    1+
+    1+ cc-skip-qualifiers
   repeat,
   cc-putback-token ;
 
@@ -150,11 +170,16 @@ can grep for in those files.
 \ and the loop continues.  When a non-qualifier is encountered it is put back
 \ so the caller sees it as the next token.
 \
-\ These are treated as no-ops.  In particular, local `static int z` behaves
-\ like a regular local; M2-Planet does not rely on static local persistence.
+\ Only `static` matters: cc-decl-static records whether it was seen, and a
+\ local declared static gets file-scope storage instead of a frame slot
+\ (cc-parse-local-declarator).  The rest are no-ops.
+variable cc-decl-static
+
 : cc-skip-storage-quals
+  [lit] 0 cc-decl-static !
   begin,
     cc-next-token-keep
+    kw-static cc-tok-kw? if, true cc-decl-static ! then,
     tok-kind @ tk-kw =
       tok-kw-id @ kw-static    =
       tok-kw-id @ kw-extern    = or
@@ -169,19 +194,32 @@ can grep for in those files.
   repeat,
   cc-putback-token ;
 
+\ cc-skip-enum-tag ( -- )  The current token is `enum` used as a type
+\ (`enum BINDING kind`): consume the tag.  An enum's values are ints, so
+\ the type is int.
+: cc-skip-enum-tag
+  cc-next-token-keep
+  tok-kind @ tk-ident <> if, cc-putback-token then, ;
+
 ```
 
 `cc-count-stars` reads zero or more `*` tokens after a base type,
 returns the count, and puts back the first token that isn't a `*`.
 Every pointer-depth calculation in the file goes through it.  (The
 "Statement parsing" banner above it is a leftover; the statements
-start in Ch 30.)
+start in Ch 30.)  A qualifier may follow any `*`, as in pnut's
+`char * const msg`, so the loop skips them with `cc-skip-qualifiers`;
+`cc-qualifier?` recognises `const`, `volatile` and `restrict`, and
+every place in the parser that reads a type skips them, since the
+type system has no `const`.
 
 `cc-skip-storage-quals` consumes `static`, `extern`, `auto`,
-`register`, `const`, `volatile`, and `restrict` and ignores them.
-The frame layout doesn't distinguish `static` from `auto`, and the
-type system has no `const`.  The words exist so M2-Planet's source
-parses.
+`register` and the qualifiers.  Only one of them changes anything:
+`static` sets `cc-decl-static`, and a `static` local gets file-scope
+storage (§4).  `extern` needs no flag: a global declared twice is one
+variable (Ch 31 §7).  `cc-skip-enum-tag` handles `enum TAG` used as a
+type, as in pnut's `enum BINDING kind`: an enum's values are ints, so
+the tag is read and dropped and the type is `int`.
 
 ## 3. Struct definitions
 
@@ -328,11 +366,15 @@ soft lookup returns 0 instead, which lets a header mention
     \ Parse base type.  Default the pointee-descriptor to 0; the struct-tag
     \ branch overrides when the field is `struct TAG ...`.
     [lit] 0 cc-sd-build-field-desc !
+    cc-skip-qualifiers
     cc-next-token-keep
     tok-kind @ tk-kw = if,
       tok-kw-id @ kw-int     = if, ty-int  cc-sd-build-field-ty ! else,
       tok-kw-id @ kw-char    = if, ty-char cc-sd-build-field-ty ! else,
       tok-kw-id @ kw-void    = if, ty-void cc-sd-build-field-ty ! else,
+      tok-kw-id @ kw-enum    = if,
+        cc-skip-enum-tag ty-int cc-sd-build-field-ty !
+      else,
       tok-kw-id @ kw-struct  = if,
         \ Look up the tag's descriptor (soft — self-referential `struct T*
         \ next` inside `struct T {...}` works because cc-parse-struct-def
@@ -343,7 +385,7 @@ soft lookup returns 0 instead, which lets a header mention
         ty-struct cc-sd-build-field-ty !
       else,
         [lit] 150 cc-die
-      then, then, then, then,
+      then, then, then, then, then,
     else,
       \ tk-ident — treat as typedef-name used as a type.  Record as int
       \ (we only care about the storage size = 8).
@@ -383,8 +425,9 @@ still-empty descriptor pointer, which goes into the field record.
 The field loop fills that same descriptor in place, so by the closing
 `}` every `next` field points at a complete descriptor.
 
-The field loop dispatches on the base type.  `int`, `char`, and
-`void` set a plain type word; `struct` looks up the tag's descriptor
+The field loop dispatches on the base type, after skipping any
+qualifiers.  `int`, `char`, and `void` set a plain type word, and so
+does `enum TAG` (an int); `struct` looks up the tag's descriptor
 and records it as the field's pointee; an identifier is taken as a
 typedef name and recorded as `ty-int`, since only the 8-byte slot
 matters.  `cc-count-stars` supplies the pointer depth, and `ty-make`
@@ -407,25 +450,21 @@ Ch 27 can give back.  So this code snapshots the entire lexer state:
 \
 \ Detection: after the base type is parsed, we need 2-token lookahead to
 \ distinguish `int (*fp)(int);` from `int x;` and `int *p;`.  Putback holds
-\ only one token, so we mark the lexer state (cc-lex-mark, 050-cc-lex.fth),
+\ only one token, so we mark the lexer state in cc-peek-mark (050-cc-lex.fth),
 \ read ahead, and reset to the mark.
-\
-\ cc-peek-mark is the one mark every lookahead in the parser uses.  Between
-\ marking and resetting, each of them only reads tokens, so no lookahead
-\ can start while another is in progress and one buffer serves them all.
-create cc-peek-mark  cc-lex-state-size allot
 
 \ cc-peek-fnptr? ( -- f )  Look ahead 2 tokens; -1 iff we see '(' then '*'.
+\ The first may be a token put back (the mark saves the putback flag too).
 \ Always restores the lexer state so the caller resumes at the original
 \ position regardless of the result.
 : cc-peek-fnptr?
   cc-peek-mark cc-lex-mark
-  cc-next-token
+  cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ lparen = and 0= if,
     cc-peek-mark cc-lex-reset
     [lit] 0
   else,
-    cc-next-token
+    cc-next-token-keep
     tok-kind @ tk-punct = tok-num @ [char] * = and
     cc-peek-mark cc-lex-reset
   then, ;
@@ -435,6 +474,10 @@ create cc-peek-mark  cc-lex-state-size allot
 `cc-peek-fnptr?` marks the lexer state in `cc-peek-mark` (Ch 23 §7),
 reads up to two tokens, tests for `(` then `*`, and resets to the mark
 on both paths.  The caller gets a flag and a lexer that hasn't moved.
+It reads with `cc-next-token-keep`, so the first of the two may be a
+token that was put back: after `unsigned long`, `cc-more-type-kws`
+has read one token too many and put it back, and the mark saves the
+putback flag with everything else.
 `cc-peek-mark` is the only mark buffer in the parser: every look-ahead
 that uses it reads only tokens between marking and resetting, so no
 second look-ahead can start while one is in progress.
@@ -500,6 +543,63 @@ second look-ahead can start while one is in progress.
     then,
   then, ;
 
+variable cc-decl-base                              \ base type kind
+
+\ cc-parse-local-declarator ( init-ptr -- )  One declarator of a local
+\ declaration whose base type is in cc-decl-base: '*'* NAME, then
+\ '[' SIZE ']' or ('=' EXPR)? .  SIZE is a constant expression.  Ends with
+\ the token after the declarator read (the caller wants ',' or ';').
+\ init-ptr is non-zero only when the base came from a pointer-typed
+\ typedef (`typedef int* int_ptr;`).
+\
+\ An array's element 0 sits in its deepest slot.  A `static` local
+\ (cc-decl-static) gets file-scope storage instead of frame slots, so it
+\ keeps its value between calls: the symbol is an sk-global that only
+\ this block can see, an array in the bss, a scalar in the data area with
+\ its constant initializer.
+: cc-parse-local-declarator                       ( init-ptr -- )
+  cc-count-stars +                                 ( ptr-depth )
+  cc-expect-ident
+  tok-str-addr @ tok-str-len @ rot                 ( a u ptr-depth )
+  cc-decl-base @ swap ty-make                      ( a u type )
+  cc-next-token-keep
+  [char] [ cc-tok-punct? if,
+    \ -------- Array: T name [ N ] --------
+    cc-parse-const                                 ( a u type N )
+    dup [lit] 0 <= if, [lit] 156 cc-die then,
+    cc-next-token-keep
+    [char] ] cc-tok-punct? 0= if, [lit] 157 cc-die then,
+    >r                                             ( a u type ; R: N )
+    cc-decl-static @ if,
+      sk-global swap  r@ [lit] 8 * cc-bss-alloc    ( a u kind type slot )
+    else,
+      sk-local swap  cc-fn-local-count @ r@ + 1-
+    then,
+    cc-sym-add                                     ( id ; R: N )
+    r@ swap cc-sym-set-array-len
+    cc-decl-static @ 0= if, r@ cc-fn-add-slots then,
+    r> drop
+    cc-next-token-keep exit,
+  then,
+  \ -------- Scalar: T name ('=' expr)? --------
+  cc-decl-static @ if,
+    sk-global swap  [lit] 8 cc-globals-alloc       ( a u kind type slot )
+    dup >r cc-sym-add drop                         ( ; R: slot )
+    [char] = cc-tok-punct? if,
+      cc-parse-const r@ cc-globals-store-8le
+      cc-next-token-keep
+    then,
+    r> drop exit,
+  then,
+  sk-local swap  cc-fn-local-count @               ( a u kind type slot )
+  cc-sym-add drop
+  [lit] 1 cc-fn-add-slots
+  [char] = cc-tok-punct? if,
+    cc-parse-expr
+    cc-fn-local-count @ 1- cc-emit-store-local
+    cc-next-token-keep
+  then, ;
+
 ```
 
 Once the peek says yes, `cc-parse-fnptr-decl` consumes `(`, `*`, the
@@ -511,108 +611,58 @@ tests to accept an indirect call.
 
 ```forth file=110-cc-decl.fth
 \ cc-parse-decl-with-base ( base initial-ptr -- )
-\ Common scalar/array declaration parser.  Caller has already consumed any
-\ keyword or typedef-name that established the base type, and supplies
-\ (base, initial-ptr-depth) on the stack.  initial-ptr-depth is non-zero only
-\ when the base came from a pointer-typed typedef (`typedef int* int_ptr;`).
-\ Parses `'*'* ident ( '[' NUM ']' | ('=' expr)? ) ';'`.
+\ A local declaration after its base type: one or more declarators
+\ separated by ',', then ';' (else die 159).  The caller has consumed the
+\ keyword or typedef-name that gave the base type, and supplies (base,
+\ initial-ptr-depth).
 \
 \ If the next two tokens after the base are '(' '*', dispatch to
 \ cc-parse-fnptr-decl instead (function-pointer declaration).
-\
-\ The base type is stashed in cc-decl-base so the data stack only needs to
-\ thread ( ptr-depth a u [N] ) — preserving the layouts of the older code.
-variable cc-decl-base                              \ base type kind
 : cc-parse-decl-with-base                         ( base init-ptr -- )
   swap cc-decl-base !                              ( init-ptr )
   \ Detect function-pointer decl shape.  Only when there are no leading
   \ stars from the caller (init-ptr=0) — `int* (*fp)()` is a func-ptr returning
   \ int*, which is outside this subset.
   dup [lit] 0 = cc-peek-fnptr? and if,
-    drop                                           ( -- )
-    cc-parse-fnptr-decl
-  else,
-  cc-count-stars +                                 ( ptr-depth )
-  cc-expect-ident
-  tok-str-addr @ tok-str-len @                     ( ptr-depth a u )
-  cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [char] [ = and if,
-    \ -------- Array declaration: T name [ N ] ; --------
-    cc-next-token-keep
-    tok-kind @ tk-num <> if,
-      [lit] 155 cc-die
-    then,
-    tok-num @                                      ( ptr-depth a u N )
-    dup [lit] 0 <= if,
-      [lit] 156 cc-die
-    then,
-    cc-next-token-keep
-    tok-kind @ tk-punct <> tok-num @ [char] ] <> or if,
-      [lit] 157 cc-die
-    then,
-    cc-next-token-keep
-    tok-kind @ tk-punct <> tok-num @ [char] ; <> or if,
-      [lit] 158 cc-die
-    then,
-    ( ptr-depth a u N )
-    >r                                             ( ptr-depth a u ; R: N )
-    rot                                            ( a u ptr-depth ; R: N )
-    sk-local swap                                  ( a u sk-local ptr-depth )
-    cc-decl-base @ swap ty-make                    ( a u kind type )
-    cc-fn-local-count @ r@ + 1-                    ( a u kind type slot )
-    cc-sym-add                                     ( id ; R: N )
-    r@ swap cc-sym-set-array-len                   ( ; R: N )
-    r> cc-fn-add-slots
-  else,
-    \ -------- Scalar declaration: T name ('=' expr)? ; --------
-    ( ptr-depth a u )
-    rot                                            ( a u ptr-depth )
-    sk-local swap                                  ( a u sk-local ptr-depth )
-    cc-decl-base @ swap ty-make                    ( a u kind type )
-    cc-fn-local-count @                            ( a u kind type slot )
-    cc-sym-add drop                                ( -- )
-    [lit] 1 cc-fn-add-slots
-
-    tok-kind @ tk-punct = tok-num @ [char] = = and if,
-      cc-parse-expr
-      cc-fn-local-count @ 1- cc-emit-store-local
-      cc-next-token-keep                           \ ';'
-    then,
-    tok-kind @ tk-punct <> tok-num @ [char] ; <> or if,
-      [lit] 159 cc-die
-    then,
+    drop cc-parse-fnptr-decl exit,
   then,
-  then, ;                                          \ close fnptr-or-not
-
+  begin,
+    dup cc-parse-local-declarator                  ( init-ptr )
 ```
 
 `cc-parse-decl-with-base` takes the base type and an initial pointer
 depth (non-zero only for a pointer typedef).  With no leading stars
-it tries the function-pointer peek first.  Otherwise it counts stars,
-reads the name, and looks at the next token:
+it tries the function-pointer peek first.  Otherwise it parses
+declarators separated by commas, `int a = 1, *b, c[4];`, until the
+`;` (code 159 if something else ends them).  `cc-parse-local-declarator`
+does one: it counts stars, reads the name, and looks at the next token:
 
-- `[` starts an array.  The size must be a positive literal.  The
-  symbol's slot is the *last* of the N slots it reserves, and N goes
-  in as the array length (`cc-sym-set-array-len`) so Ch 28 can tell an
-  array from a scalar.
+- `[` starts an array.  The size is a constant expression (Ch 28 §9),
+  `int buf[N * 2]`, and must be positive (code 156).  The symbol's
+  slot is the *last* of the N slots it reserves, and N goes in as the
+  array length (`cc-sym-set-array-len`) so Ch 28 can tell an array
+  from a scalar.
 - Anything else is a scalar: one slot, and an optional `= expr`
   whose value is stored with `cc-emit-store-local`.
 
+A `static` local is different: its value must outlive the call, so it
+cannot live in the frame.  It gets file-scope storage instead, a data
+slot (Ch 26 §5) for a scalar, whose initializer must then be a
+constant and is written into the data area once, or the bss for an
+array.  Its symbol is an `sk-global` added in the block's scope, so
+only the block can name it; when the scope ends the name goes, the
+storage stays.  `tests/cc/K-static-local.c` counts calls with one,
+with other calls in between that reuse the stack; when `static` was
+ignored, the count came out as whatever the stack held.
+
 ```forth file=110-cc-decl.fth
-\ cc-parse-decl ( -- )  Legacy entry from cc-parse-stmt.  The basic-type kw is
-\ the current token (still in tok-*); pick ty-char for `char`, ty-int for the
-\ rest (int / long / short / unsigned / signed).  ty-char matters because the
-\ array-index path uses base==ty-char + ptr-depth==1 to decide on a byte-wide
-\ load/store for `s[i]` where s is `char*` — without this distinction every
-\ char pointer is treated like an int pointer (qword stride / qword load).
-\ void as a local doesn't make sense; it would have been rejected anyway.
-: cc-parse-decl
-  tok-kw-id @ kw-char = if,
-    ty-char
-  else,
-    ty-int
-  then,
-  [lit] 0 cc-parse-decl-with-base ;
+    [char] , cc-tok-punct?
+  while,
+  repeat,
+  drop
+  [char] ; cc-tok-punct? 0= if,
+    [lit] 159 cc-die
+  then, ;
 
 \ cc-tok-is-basic-type-kw? ( -- f )  -1 iff current token is a basic-type
 \ keyword that introduces a local declaration: int / char / void / long /
@@ -628,6 +678,34 @@ reads the name, and looks at the next token:
     tok-kw-id @ kw-signed   = or
   and ;
 
+\ cc-more-type-kws ( base -- base' )  After a basic-type keyword, read any
+\ more (`unsigned int`, `long long`, `unsigned char`): they all name the
+\ one 8-byte integer, except that a char among them makes the type char.
+: cc-more-type-kws
+  begin,
+    cc-next-token-keep cc-tok-is-basic-type-kw?
+  while,
+    kw-char cc-tok-kw? if, drop ty-char then,
+  repeat,
+  cc-putback-token ;
+
+\ cc-parse-decl ( -- )  Entry from cc-parse-stmt.  The basic-type kw is
+\ the current token (still in tok-*); pick ty-char for `char`, ty-int for the
+\ rest (int / long / short / unsigned / signed), then read any further type
+\ keywords.  ty-char matters because the
+\ array-index path uses base==ty-char + ptr-depth==1 to decide on a byte-wide
+\ load/store for `s[i]` where s is `char*` — without this distinction every
+\ char pointer is treated like an int pointer (qword stride / qword load).
+\ void as a local doesn't make sense; it would have been rejected anyway.
+: cc-parse-decl
+  tok-kw-id @ kw-char = if,
+    ty-char
+  else,
+    ty-int
+  then,
+  cc-more-type-kws
+  [lit] 0 cc-parse-decl-with-base ;
+
 ```
 
 `cc-parse-decl` is the entry from the statement parser.  It maps
@@ -635,9 +713,117 @@ reads the name, and looks at the next token:
 distinction matters: Ch 28's subscript code uses base `char` with
 pointer depth 1 to choose byte-wide loads and stores for `s[i]`.
 `cc-tok-is-basic-type-kw?` is the test the statement dispatcher uses
-to decide that a statement is a declaration.
+to decide that a statement is a declaration, and `cc-more-type-kws`
+reads the keywords that may follow the first (`unsigned long x`,
+`long long n`, `unsigned char c`): they all name the one 8-byte
+integer, except that a `char` among them makes a `char`.
 
-## 5. Struct-local declarations
+## 5. Type names and casts
+
+A cast, `(char*) p`, names a type without declaring anything.  Ch 28's
+`cc-parse-operand` meets a `(` and cannot tell a cast from a
+parenthesised expression without knowing whether the next token
+starts a type, and type names are this file's business, so the whole
+cast is parsed here and reached through `cc-try-cast-fwd` (Ch 27 §4):
+
+```forth file=110-cc-decl.fth
+\ ===========================================================================
+\ Type names and casts
+\ ===========================================================================
+\ A cast `( TYPE ) operand` names a type without declaring anything:
+\ qualifiers, a base (a type keyword or several, struct TAG, enum TAG, or
+\ a typedef-name), then '*'s.  Its value is the operand's; only the type
+\ the parser tracks changes, so `*(char*)p` loads one byte and
+\ `((struct T*)p)->f` finds the field.  A (char) cast keeps the low byte.
+
+variable cc-cast-desc                              \ struct TAG's descriptor, or 0
+
+\ cc-type-start? ( -- f )  Does the current token begin a type name?
+: cc-type-start?
+  cc-tok-is-basic-type-kw?  cc-qualifier? or
+  kw-struct cc-tok-kw? or  kw-enum cc-tok-kw? or
+  tok-kind @ tk-ident = if,
+    tok-str-addr @ tok-str-len @ cc-sym-find
+    dup 0< if, drop else, cc-sym-kind-of sk-typedef = or then,
+  then, ;
+
+\ cc-parse-type-name ( -- ty )  The current token begins a type name; read
+\ it, stars and all, and leave the token after it pending.
+: cc-parse-type-name
+  [lit] 0 cc-cast-desc !
+  begin, cc-qualifier? while, cc-next-token-keep repeat,
+  kw-struct cc-tok-kw? if,
+    cc-lookup-struct-tag-soft cc-cast-desc !
+    ty-struct [lit] 0
+  else,
+  kw-enum cc-tok-kw? if,
+    cc-skip-enum-tag ty-int [lit] 0
+  else,
+  tok-kind @ tk-ident = if,
+    tok-str-addr @ tok-str-len @ cc-sym-find cc-sym-val-of
+    dup ty-base swap ty-ptr
+  else,
+    \ Keywords: int, char, void, and combinations such as `unsigned int`
+    \ or `long long`; any char makes it char.
+    ty-int
+    begin,
+      kw-char cc-tok-kw? if, drop ty-char then,
+      kw-void cc-tok-kw? if, drop ty-void then,
+      cc-next-token-keep cc-tok-is-basic-type-kw?
+    while,
+    repeat,
+    cc-putback-token
+    [lit] 0
+  then, then, then,                                ( base ptr )
+  cc-skip-qualifiers
+  cc-count-stars + ty-make ;
+
+\ cc-try-cast ( -- f )  The current token is '('.  If a type name follows,
+\ compile the whole cast — type, ')', then the operand, a unary
+\ expression — and answer true.  Otherwise answer false with the token
+\ after the '(' put back, for cc-parse-paren.
+: cc-try-cast
+  cc-next-token-keep
+  cc-type-start? 0= if,
+    cc-putback-token [lit] 0 exit,
+  then,
+  cc-parse-type-name >r                            ( ; R: ty )
+  [char] ) cc-expect-punct-c
+  cc-cast-desc @ >r                                ( ; R: ty desc )
+  cc-parse-unary
+  cc-emit-materialize
+  r> r>                                            ( desc ty )
+  dup ty-base ty-char =  over ty-ptr 0= and if,
+    cc-emit-zx-byte-rdi
+  then,
+  cc-mark-not-lvalue
+  cc-last-expr-type !
+  cc-last-struct-desc !
+  true ;
+
+' cc-try-cast is cc-try-cast-fwd
+
+```
+
+`cc-type-start?` accepts a type keyword, a qualifier, `struct`,
+`enum`, or a name the symbol table knows as a typedef; anything else
+means the `(` groups an expression.  `cc-parse-type-name` reads the
+type into one type word (Ch 24), keeping a struct's descriptor aside
+in `cc-cast-desc`.  `cc-try-cast` then parses the operand as a unary
+expression, since a cast binds tighter than any binary operator
+(`(char) x + 1` is `((char) x) + 1`), and materializes it.
+
+A cast changes no bits, except `(char)`, which keeps the low byte
+(`movzx edi, dil`, Ch 25), so `(char) 321` is 65.  What it changes is
+what the parser believes about the value: its type goes into
+`cc-last-expr-type`, so `*(char*) p` loads one byte, and a struct
+pointer's descriptor into `cc-last-struct-desc`, so
+`((struct pt*) raw)->y` finds `y`.  `(void) 0` evaluates and discards,
+as everywhere.  `tests/cc/P3-casts.c` checks each of these.  pnut casts
+a lot: `(intptr_t) fd` into its include stack and `(char*)` back out,
+and `((void) 0)` as an empty statement.
+
+## 6. Struct-local declarations
 
 ```forth file=110-cc-decl.fth
 \ ===========================================================================
@@ -724,7 +910,7 @@ descriptor the same way, which is what Ch 28's postfix `->`
 reads to resolve field offsets.  It accepts `= expr`, because
 M2-Planet writes `struct T* i = expr;` constantly.
 
-## 6. `cc-parse-return`
+## 7. `cc-parse-return`
 
 `cc-parse-switch` (Ch 30) saves the outer `rbx` with a `push` whose
 matching `pop` sits at the switch's end label.  A statement that
@@ -874,7 +1060,10 @@ The fixtures for the small check:
 `tests/cc/G3.c` exercises basic local declarations inside function
 bodies; `G9b.c` exercises struct declarations and field arithmetic;
 `G14d.c` exercises global variables (`g_counter`) and global arrays
-(`g_array[5]`).  `G10b.c` tests `typedef`.
+(`g_array[5]`).  `G10b.c` tests `typedef`.  `P3-casts.c` casts to
+every kind of type, `P4-declarations.c` puts `const` everywhere it
+may go and declares several names per declaration, and
+`K-static-local.c` keeps a count in a `static` local.
 
 ## Exercises
 
@@ -885,10 +1074,11 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
    `struct A`, then explain why `b->a->y` compiles but `a->b->x`
    dies with code 100.
 
-2. **★★ Verify.** Storage qualifiers are all no-ops.  Construct a program where
-   omitting `static` from a local variable would cause a bug
-   (e.g. expecting cross-call persistence) and verify the
-   compiler's behaviour.
+2. **★★ Verify.** A `static` local is an `sk-global` in the block's scope.
+   Declare `static int n;` in two different functions: do they share
+   storage?  Now declare a global `n` *after* both functions.  Which
+   variable does each `n` name, and why does Ch 31's "a global
+   declared twice is one variable" rule not merge them?
 
 3. **★★★ Modify.** Function-pointer decls use 2-token lookahead.  How could you
    reduce this to 1?  Hint: `(*` is two ASCII bytes; you could
@@ -907,8 +1097,9 @@ bodies; `G9b.c` exercises struct declarations and field arithmetic;
 ## After this chapter
 
 The compiler can parse declarations: base types with pointer and
-array modifiers, struct definitions (including self-referential ones),
-function pointers, and struct locals.  Typedefs, enum constants, and
+array modifiers, several declarators at once, `static` locals, struct
+definitions (including self-referential ones), function pointers,
+struct locals, and the type names inside casts.  Typedefs, enum constants, and
 file-scope globals reuse this engine but are wired up in Ch 31.
 
 You can trace how `int x;`, `int* p;`, `int arr[N];`, and

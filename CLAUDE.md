@@ -25,8 +25,8 @@ compiler's M1 output against GCC-built M2-Planet.
   `hex2` without GCC.
 - `book/` — literate-programming book.  Every fenced code block
   tagged `file=...` is the canonical source for that file.
-- `vendor/stage0-posix`, `vendor/M2-Planet`, `vendor/mescc-tools`
-  — pinned submodules.
+- `vendor/stage0-posix`, `vendor/M2-Planet`, `vendor/mescc-tools`,
+  `vendor/pnut` — pinned submodules.
 - `tests/cc/stage-a-check.sh` — the byte-identity proof.
 - `REPRODUCIBLE.md` — full fixed-point chain (deeper than book
   Appendix C, which is the reader-facing summary).
@@ -67,10 +67,10 @@ unless the dependency graph forbids it.
 ## Quick health check
 
 ```sh
-./check-all.sh                 # build, tests, tangle --strict, book numbers/index/links, try-it, stage-A, bootstrap, handoff
+./check-all.sh                 # build, tests, tangle --strict, book numbers/index/links, try-it, stage-A, bootstrap, pnut, handoff
 ```
 
-`check-all.sh` runs all twelve steps in sequence with per-step
+`check-all.sh` runs all thirteen steps in sequence with per-step
 pass/fail logging.  Use it before committing or after editing any
 fenced code block — or any exact byte count, offset, or file line
 count in prose — in `book/`.  The individual commands are still
@@ -86,6 +86,7 @@ tests/cc/stage-a-check.sh      # byte-identical M1 vs GCC
 ./bootstrap.sh                 # GCC-free build: seed -> M2-Planet, M1, hex2 (fixed point)
 ./verify.sh                    # every comparison against GCC-built references
 tests/cc/stage0-check.sh       # stage0-posix route vs Forth route (needs stage0 nested submodules)
+tests/pnut/sf-pnut-check.sh    # our compiler builds unmodified pnut; SF_PNUT_TCC=1 goes on to tcc-0.9.27
 ./handoff.sh                   # Forth route reproduces stage0-posix's AMD64 and x86 bin/ (19/19 answers each)
 tools/gen-index.py --check     # book/WORD-INDEX.md is up to date
 tools/check-links.py           # every link and anchor in book/ resolves

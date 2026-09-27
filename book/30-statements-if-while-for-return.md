@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-all of `112-cc-stmt.fth` (762 lines): the `cc-parse-stmt` dispatcher
+all of `112-cc-stmt.fth` (766 lines): the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -288,7 +288,7 @@ loop ends, `cc-walk-and-patch-fixups` (or
 node's rel32.
 
 Each loop also snapshots `cc-switch-depth` into
-`cc-loop-switch-depth` (Ch 29 §6), so a `continue` buried inside
+`cc-loop-switch-depth` (Ch 29 §7), so a `continue` buried inside
 a `switch` knows how many scrutinee pushes stand between it and
 the loop it continues.
 
@@ -676,7 +676,12 @@ cases with the same `K`.
    yet.
 3. Parse the body inline, intercepting `case K :` (record
    `(K, body-vaddr)`) and `default :` (record
-   `cc-switch-default-vaddr`).
+   `cc-switch-default-vaddr`).  `K` is a constant expression, read by
+   Ch 28's `cc-parse-const`: `case 5:`, and also `case 'x':`,
+   `case -1:`, `case T_PLUS:` with an enum constant, or
+   `case BASE + 1:` with a macro.  A label not followed by `:` is code
+   170.  pnut's lexer and code generator switch on enum constants and
+   characters throughout (`tests/cc/P6-case-labels.c`).
 4. After the body, emit a `jmp end-A` and register it in the break
    list.
 5. Patch the initial `jmp` to here and emit the dispatch chain.
@@ -686,7 +691,7 @@ cases with the same `K`.
 
 ```forth file=112-cc-stmt.fth
 \ cc-parse-switch ( -- )  'switch' already consumed by cc-parse-stmt.
-\ Grammar:  switch ( expr ) { (case INT : | default : | stmt)* }
+\ Grammar:  switch ( expr ) { (case CONSTANT : | default : | stmt)* }
 \ The body is a single compound statement; we parse it inline rather than
 \ via cc-parse-compound so that case/default can be intercepted.
 : cc-parse-switch
@@ -722,16 +727,15 @@ cases with the same `K`.
     \ Stop on '}'.
     tok-kind @ tk-punct = tok-num @ [char] } = and 0=
   while,
-    \ Three sub-cases: 'case' INT ':', 'default' ':', or generic stmt.
+    \ Three sub-cases: 'case' CONSTANT ':', 'default' ':', or generic stmt.
     tok-kind @ tk-kw = tok-kw-id @ kw-case = and if,
-      \ 'case' has been consumed; read constant (int literal only
-      \ doesn't handle constant-expressions for case labels).
+      \ 'case' has been consumed; the label is a constant expression
+      \ (cc-parse-const): a number, a character, an enum constant, -1 ...
+      cc-parse-const                              ( K )
       cc-next-token-keep
-      tok-kind @ tk-num <> if,
+      [char] : cc-tok-punct? 0= if,
         [lit] 170 cc-die
       then,
-      tok-num @                                   ( K )
-      [char] : cc-expect-punct-c
       cc-here-vaddr                               ( K body-vaddr )
       cc-add-switch-case
     else,
@@ -785,7 +789,7 @@ cases with the same `K`.
 ```
 
 Exits that bypass end-A (`return`, `continue`, `goto`) balance the
-`push rbx` themselves through `cc-emit-switch-unwind` (Ch 29 §6),
+`push rbx` themselves through `cc-emit-switch-unwind` (Ch 29 §7),
 using the `cc-switch-depth` counter that brackets the body parse.
 
 ## 7. Break and continue
@@ -820,7 +824,7 @@ using the `cc-switch-depth` counter that brackets the body parse.
 `cc-parse-break-stmt` and `cc-parse-continue-stmt` are tiny:
 expect `;`, emit a placeholder `jmp`, add the offset to the
 break or continue list.  `continue` additionally calls
-`cc-emit-switch-unwind` (Ch 29 §6) with the number of switches
+`cc-emit-switch-unwind` (Ch 29 §7) with the number of switches
 it's jumping out of, balancing each one's scrutinee `push rbx`.
 `break` never needs this: it targets the innermost loop or
 switch end label, so it never crosses a scrutinee push.
@@ -1002,18 +1006,21 @@ statement.  Each line tests the current token with Ch 27's
 `cc-tok-kw?` or `cc-tok-punct?` and, if it matches, runs that
 statement's parser and returns with `exit,` (Ch 11):
 
-1. Skip storage qualifiers.
-2. A basic type keyword (int/char/void/...) → `cc-parse-decl`.
-3. `struct` → `cc-parse-struct-local-decl`.
-4. `return`/`if`/`while`/`for`/`do`/`switch`/`break`/`continue`/
+1. Skip storage qualifiers, noting `static` (Ch 29 §2).
+2. A lone `;` is the empty statement: nothing to do.  (pnut writes
+   `while (cond);` and `;;`.)
+3. A basic type keyword (int/char/void/...) → `cc-parse-decl`; `enum
+   TAG` → the same engine with type `int`.
+4. `struct` → `cc-parse-struct-local-decl`.
+5. `return`/`if`/`while`/`for`/`do`/`switch`/`break`/`continue`/
    `goto` → the corresponding parser.
-5. `{` → `cc-parse-compound`.
-6. An `IDENT` → `cc-parse-ident-stmt`, which has three subcases:
+6. `{` → `cc-parse-compound`.
+7. An `IDENT` → `cc-parse-ident-stmt`, which has three subcases:
    - it resolves to an `sk-typedef` → a typedef-led declaration
      via `cc-parse-decl-with-base`;
    - it is followed by `:` → a label, via `cc-define-label`;
    - otherwise → an expression statement.
-7. Anything else → an expression statement, `cc-parse-expr-stmt`.
+8. Anything else → an expression statement, `cc-parse-expr-stmt`.
 
 A table from keyword to handler would do the same job, but ten
 keywords with one caller don't need a data structure: the flat list
@@ -1056,11 +1063,16 @@ reaches the finished word.
 \ cc-parse-stmt ( -- )  Dispatch on the leading token: one line per kind of
 \ statement, each returning with exit, once its parser has run.  Silently
 \ skip any leading storage-class / type-qualifier keywords (static,
-\ extern, const, volatile, ...).
+\ extern, const, volatile, ...).  A lone ';' is the empty statement, and
+\ `enum TAG x;` declares an int.
 : cc-parse-stmt
   cc-skip-storage-quals
   cc-next-token-keep
+  [char] ;    cc-tok-punct? if, exit, then,           \ the empty statement
   cc-tok-is-basic-type-kw? if, cc-parse-decl exit, then,
+  kw-enum     cc-tok-kw? if,
+    cc-skip-enum-tag  ty-int [lit] 0 cc-parse-decl-with-base exit,
+  then,
   \ `struct TAG ... ;` at stmt scope is always a local declaration (a struct
   \ *definition* — `struct TAG { ... };` — is only allowed at top level).
   \ The 'struct' keyword is the current token and is already consumed;

@@ -58,15 +58,23 @@
   [lit] 81920 cc-emit-8le                        \ p_memsz = 0x14000
   [lit] 4096 cc-emit-8le ;                       \ p_align = 0x1000
 
+\ cc-bss-size ( -- a )  Bytes of zeroed memory the program needs after its
+\ file image (its bss, 090-cc-emit.fth); cc-finalize-globals sets it.
+variable cc-bss-size
+
 \ cc-finalize-elf ( -- )  After codegen, patch p_filesz to current cc-out-pos.
 \ We patch only the low 4 bytes — our outputs are well under 4 GiB and the
-\ high 4 bytes were already emitted as zero.  Also bump p_memsz so it is at
-\ least p_filesz (otherwise large outputs like the M2-Planet monolith — well
-\ past the 0x14000 default — produce an invalid ELF that the kernel won't
-\ load correctly).  Keep the 0x14000 minimum for small outputs that need
-\ BSS-style headroom past their file image.
+\ high 4 bytes were already emitted as zero.  p_memsz covers the file image
+\ plus the bss; it keeps the 0x14000 it was emitted with unless that is
+\ too small (otherwise large outputs like the M2-Planet monolith — well
+\ past the 0x14000 default — would produce an invalid ELF that the kernel
+\ won't load correctly).  Small outputs keep the 0x14000 minimum as
+\ headroom past their file image.
 : cc-finalize-elf
   cc-out-pos @ cc-filesz-offset cc-out-patch-4le
-  cc-out-pos @ [lit] 81920 > if,
-    cc-out-pos @ cc-memsz-offset cc-out-patch-4le
+  cc-out-pos @ cc-bss-size @ +                   ( memsz )
+  dup [lit] 81920 > if,
+    cc-memsz-offset cc-out-patch-4le
+  else,
+    drop
   then, ;

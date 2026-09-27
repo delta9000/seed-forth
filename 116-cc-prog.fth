@@ -21,7 +21,7 @@
 \ ===========================================================================
 \ Enum and typedef definitions (file-scope only).
 \ ===========================================================================
-\ Enum:  `enum [TAG] { NAME (= INT)?, NAME, ... };`
+\ Enum:  `enum [TAG] { NAME (= CONSTANT)?, NAME, ... };`
 \ Typedef: `typedef BASE '*'* NAME ;`   (BASE = int / char / void / struct TAG)
 \
 \ Both register their introduced names in the symbol table so later code can
@@ -32,7 +32,8 @@ variable cc-enum-next-val
 \ cc-parse-enum-def ( -- )  'enum' keyword has been consumed by the dispatcher.
 \ Parses an optional tag, then `{ enumerator-list };`.
 \ Each enumerator becomes an sk-enum entry whose val is the enumerator's
-\ integer value (0-based by default, restart-from-N after `= N`).
+\ integer value (0-based by default, restart-from-N after `= N`, where N
+\ is a constant expression, which may use the enumerators before it).
 : cc-parse-enum-def
   \ Optional tag — discard.
   cc-next-token-keep
@@ -54,14 +55,10 @@ variable cc-enum-next-val
     then,
     tok-str-addr @ tok-str-len @                  ( a u )
 
-    \ Optional `= INT_LITERAL`.
+    \ Optional `= CONSTANT` (cc-parse-const).
     cc-next-token-keep
     tok-kind @ tk-punct = tok-num @ [char] = = and if,
-      cc-next-token-keep
-      tok-kind @ tk-num <> if,
-        [lit] 191 cc-die
-      then,
-      tok-num @ cc-enum-next-val !
+      cc-parse-const cc-enum-next-val !
     else,
       cc-putback-token
     then,
@@ -103,7 +100,8 @@ variable cc-enum-next-val
 
 \ cc-parse-typedef ( -- )  'typedef' has been consumed by the dispatcher.
 \ Grammar: typedef BASE '*'* NAME ';'
-\ Supported bases: int / char / void / struct TAG / another typedef.
+\ Supported bases: int / char / void / struct TAG / enum TAG / another
+\ typedef.
 \ Registers NAME as sk-typedef with val = encoded type word.
 \
 \ Uses cc-td-ty to stage the type so the data stack stays shallow across
@@ -122,9 +120,12 @@ variable cc-td-ty
     else, tok-kw-id @ kw-struct = if,
       cc-lookup-struct-tag drop
       ty-struct [lit] 0 ty-make cc-td-ty !
+    else, tok-kw-id @ kw-enum = if,
+      cc-skip-enum-tag
+      ty-int [lit] 0 ty-make cc-td-ty !
     else,
       [lit] 193 cc-die
-    then, then, then, then,
+    then, then, then, then, then,
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
@@ -217,6 +218,7 @@ variable cc-td-ty
 \ depth 0 and sorts the declaration into one of three classes:
 \   - '{' first               → top-fndef: a function definition.
 \   - ';' first, a '(' before → top-proto: a prototype; register the name.
+\     (Only a '(' ahead of any '=' or '[' counts.)
 \   - ';' first, no '('       → top-var: a file-scope variable.
 \ The peek marks the lexer state in cc-peek-mark and resets to it, so the
 \ parser that handles the class starts from the declaration's first token.
@@ -226,13 +228,17 @@ variable cc-td-ty
 [lit] 2 constant top-fndef
 
 variable cc-top-depth                             \ paren depth while scanning
+variable cc-top-var-seen                          \ an '=' or '[' came first
 
 \ cc-top-classify ( -- class )  Scan forward to the first ';' or '{' at paren
-\ depth 0 (or EOF), noting whether a '(' came first.  Always restores the
-\ lexer state; each of the three exits resets it, then returns the class.
+\ depth 0 (or EOF), noting whether a '(' came first — before any '=' or
+\ '[' at depth 0, since `int x = (1);` and `int a[(2)];` are variables.
+\ Always restores the lexer state; each of the three exits resets it, then
+\ returns the class.
 : cc-top-classify
   cc-peek-mark cc-lex-mark
   [lit] 0 cc-top-depth !
+  [lit] 0 cc-top-var-seen !
   top-var                                         ( class )
   begin,
     cc-next-token-keep
@@ -240,8 +246,15 @@ variable cc-top-depth                             \ paren depth while scanning
       cc-peek-mark cc-lex-reset exit,             \ EOF: no body
     then,
     tok-kind @ tk-punct = if,
+      cc-top-depth @ [lit] 0 = if,
+        tok-num @ [char] = =  tok-num @ [char] [ = or if,
+          true cc-top-var-seen !
+        then,
+      then,
       tok-num @ lparen = if,
-        drop top-proto                            \ a '(' before the end
+        cc-top-var-seen @ 0= if,
+          drop top-proto                          \ a '(' before the end
+        then,
         [lit] 1 cc-top-depth +!
       then,
       tok-num @ [char] ) = if, [lit] 1 cc-top-depth -! then,
@@ -316,53 +329,36 @@ variable cc-top-depth                             \ paren depth while scanning
 \ ===========================================================================
 \ File-scope global variable declaration.
 \ ===========================================================================
-\ Parses ONE top-level declaration of the form
+\ Parses ONE top-level declaration: a base type, then one or more
+\ declarators separated by ',', then ';'.  A declarator is
 \
-\    T '*'* name ';'
-\    T '*'* name '=' int-literal ';'
-\    T '*'* name '[' N ']' ';'
+\    '*'* name                      a scalar
+\    '*'* name '=' CONSTANT         a scalar with an initializer
+\    '*'* name '[' SIZE ']'         an array
 \
-\ where T is one of int/char/void/long/short/etc.  The base type is consumed
-\ by the caller (cc-parse-function-list) — when we get here the lookahead has
-\ been put back so cc-next-token-keep yields the type keyword again.  We
-\ re-consume it, accept star-modifiers, then expect IDENT, then optional
-\ [N] OR optional `= NUM`, then ';'.
+\ where the base type is int/char/void/long/short/etc., `struct TAG`,
+\ `enum TAG` or a typedef-name, and SIZE and CONSTANT are constant
+\ expressions (cc-parse-const).  The base type is consumed by the caller
+\ (cc-parse-function-list) — when we get here the lookahead has been put
+\ back so cc-next-token-keep yields the type keyword again.
 \
-\ Storage is allocated in cc-globals-buf (8 bytes per scalar — a struct
-\ VALUE gets its full descriptor size rounded up to 8 — N*8 per array).
-\ Scalar initializer (must be an int literal — possibly negated) is written
-\ into the buffer directly so the runtime image already contains the value.
-\ Arrays start zero-initialized.  Function-pointer, aggregate, and struct
-\ initializers are not implemented.
+\ A scalar takes a data slot (8 bytes — a struct VALUE gets its full
+\ descriptor size rounded up to 8), and its initializer is written into
+\ the data area so the runtime image already contains the value.  An array
+\ takes N*8 bytes of the bss.  A second declaration of a global that
+\ already exists — `extern int g;` early on, `int g = 3;` later — names
+\ the same slot, so both see one variable and the initializer lands in
+\ it.  Function-pointer, aggregate, and struct initializers are not
+\ implemented.
 \
-\ Errors die through cc-die with codes 200..205 (Appendix G).
+\ Errors die through cc-die with codes 202..205 (Appendix G).
 
 variable cc-gdecl-base
 variable cc-gdecl-name-a
 variable cc-gdecl-name-u
-variable cc-gdecl-n                                \ element count (>=1)
-variable cc-gdecl-is-array
 variable cc-gdecl-slot
 variable cc-gdecl-desc
 variable cc-gdecl-ptr-depth
-
-\ cc-parse-global-int-literal ( -- v )
-\ Read a single int literal as an initializer value.  Accepts an optional
-\ leading '-' for negative literals.  Anything else aborts.
-: cc-parse-global-int-literal                     ( -- v )
-  cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [char] - = and if,
-    cc-next-token-keep
-    tok-kind @ tk-num <> if,
-      [lit] 200 cc-die
-    then,
-    [lit] 0 tok-num @ -
-  else,
-    tok-kind @ tk-num <> if,
-      [lit] 201 cc-die
-    then,
-    tok-num @
-  then, ;
 
 \ cc-gdecl-scalar-bytes ( -- n )  Byte size of one non-array global slot.
 \ A struct VALUE (ty-struct base, zero pointer depth, descriptor known)
@@ -379,6 +375,57 @@ variable cc-gdecl-ptr-depth
     [lit] 8
   then, ;
 
+\ cc-gdecl-add ( -- id )  Register the declarator's name as an sk-global
+\ in cc-gdecl-slot.
+: cc-gdecl-add
+  cc-gdecl-name-a @ cc-gdecl-name-u @               ( a u )
+  sk-global                                          ( a u kind )
+  cc-gdecl-base @ cc-gdecl-ptr-depth @ ty-make      ( a u kind type )
+  cc-gdecl-slot @                                    ( a u kind type val )
+  cc-sym-add ;
+
+\ cc-gdecl-declared ( -- id | -1 )  The global this name already is, if
+\ it is one.
+: cc-gdecl-declared
+  cc-gdecl-name-a @ cc-gdecl-name-u @ cc-sym-find
+  dup 0< 0= if,
+    dup cc-sym-kind-of sk-global <> if, drop true then,
+  then, ;
+
+\ cc-gdecl-declarator ( -- )  One declarator; ends with the token after it
+\ read (the caller wants ',' or ';').
+: cc-gdecl-declarator
+  cc-count-stars cc-gdecl-ptr-depth !
+  cc-next-token-keep
+  tok-kind @ tk-ident <> if,
+    [lit] 203 cc-die
+  then,
+  tok-str-addr @ cc-gdecl-name-a !
+  tok-str-len  @ cc-gdecl-name-u !
+  cc-next-token-keep
+  [char] [ cc-tok-punct? if,
+    \ Array form: 'T name [ N ]', in the bss.  The symbol records the
+    \ element count as its array length, so codegen can tell array decay
+    \ from scalar deref.
+    cc-parse-const                                   ( n )
+    [char] ] cc-expect-punct-c
+    dup [lit] 8 * cc-bss-alloc cc-gdecl-slot !
+    cc-gdecl-add cc-sym-set-array-len
+    cc-next-token-keep exit,
+  then,
+  \ Scalar: a new data slot, or the one an earlier declaration made.
+  cc-gdecl-declared dup 0< if,
+    drop
+    cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
+    cc-gdecl-desc @ cc-gdecl-add cc-sym-set-struct-desc
+  else,
+    cc-sym-val-of cc-gdecl-slot !
+  then,
+  [char] = cc-tok-punct? if,
+    cc-parse-const cc-gdecl-slot @ cc-globals-store-8le
+    cc-next-token-keep
+  then, ;
+
 \ cc-parse-global-decl ( -- )  Caller has already done cc-skip-storage-quals;
 \ the next token is the base-type keyword OR a typedef-name IDENT.  Consumes
 \ through ';'.
@@ -388,22 +435,26 @@ variable cc-gdecl-ptr-depth
   \ Read base type.
   cc-next-token-keep
   tok-kind @ tk-kw = if,
-    \ Support struct TAG as base type.
     tok-kw-id @ kw-struct = if,
+      \ Support struct TAG as base type.  Soft lookup: descriptor pointer
+      \ if the struct is defined, 0 otherwise.  cc_globals.c declares
+      \ `struct type* foo;` without a `struct type {...}` in scope — that's
+      \ an opaque-pointer pattern we still need to parse.
       ty-struct cc-gdecl-base !
-      \ Soft lookup: descriptor pointer if the struct is defined, 0 otherwise.
-      \ cc_globals.c declares `struct type* foo;` without a `struct type {...}`
-      \ in scope — that's an opaque-pointer pattern we still need to parse.
       cc-lookup-struct-tag-soft cc-gdecl-desc !
-    then,
-    \ Distinguish `char` from other primitives so `char* foo;` records ty-char
-    \ in the symbol table.  Without this, `char* hold_string;` looks identical
-    \ to `int* foo;` and the array-index path uses qword stride/load on its
-    \ bytes — corrupting tokenizer scratch buffers in M2-Planet's preprocessor.
-    \ int/void/long/short/etc. all collapse to ty-int (storage is 8 bytes
-    \ regardless; only the byte-stride dispatch cares).
-    tok-kw-id @ kw-char = if,
-      ty-char cc-gdecl-base !
+    else,
+      \ Distinguish `char` from other primitives so `char* foo;` records
+      \ ty-char in the symbol table.  Without this, `char* hold_string;`
+      \ looks identical to `int* foo;` and the array-index path uses qword
+      \ stride/load on its bytes — corrupting tokenizer scratch buffers in
+      \ M2-Planet's preprocessor.  int/void/long/short/enum TAG all
+      \ collapse to ty-int (storage is 8 bytes regardless; only the
+      \ byte-stride dispatch cares).
+      tok-kw-id @ kw-char = if, ty-char cc-gdecl-base ! then,
+      tok-kw-id @ kw-enum = if, cc-skip-enum-tag then,
+      cc-tok-is-basic-type-kw? if,
+        cc-gdecl-base @ cc-more-type-kws cc-gdecl-base !
+      then,
     then,
   else,
     \ Typedef-name IDENT (FILE, uint8_t, ...).  We don't need to verify it
@@ -413,80 +464,28 @@ variable cc-gdecl-ptr-depth
       [lit] 202 cc-die
     then,
   then,
-
-  \ Star-modifiers (pointer depth).
-  cc-count-stars cc-gdecl-ptr-depth !
-
-  \ Name IDENT.
-  cc-next-token-keep
-  tok-kind @ tk-ident <> if,
-    [lit] 203 cc-die
-  then,
-  tok-str-addr @ cc-gdecl-name-a !
-  tok-str-len  @ cc-gdecl-name-u !
-
-  \ Peek next token: '[', '=', or ';'.
-  cc-next-token-keep
-  [lit] 0 cc-gdecl-is-array !
-  [lit] 1 cc-gdecl-n !
-
-  tok-kind @ tk-punct = tok-num @ [char] [ = and if,
-    \ Array form: 'T name [ N ]'.
-    cc-next-token-keep
-    tok-kind @ tk-num <> if,
-      [lit] 204 cc-die
-    then,
-    tok-num @ cc-gdecl-n !
-    true cc-gdecl-is-array !
-    [char] ] cc-expect-punct-c
-    [char] ; cc-expect-punct-c
-  else,
-    tok-kind @ tk-punct = tok-num @ [char] = = and if,
-      \ Scalar with initializer.  Allocate slot first so we can write the
-      \ initializer bytes; then add the symbol.
-      cc-gdecl-scalar-bytes cc-globals-alloc
-      cc-gdecl-slot !
-      cc-parse-global-int-literal
-      cc-gdecl-slot @ cc-globals-store-8le
-      [char] ; cc-expect-punct-c
-    else,
-      tok-kind @ tk-punct = tok-num @ [char] ; = and if,
-        \ Bare uninitialized scalar.  Allocate the slot.
-        cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
-      else,
-        [lit] 205 cc-die
-      then,
-    then,
-  then,
-
-  \ For arrays, allocate the slot now (initializer was not consumed above).
-  cc-gdecl-is-array @ if,
-    cc-gdecl-n @ [lit] 8 * cc-globals-alloc cc-gdecl-slot !
-  then,
-
-  \ Register the symbol.  Stack target for cc-sym-add: ( a u kind type val ).
-  cc-gdecl-name-a @ cc-gdecl-name-u @               ( a u )
-  sk-global                                          ( a u kind )
-  cc-gdecl-base @ cc-gdecl-ptr-depth @ ty-make      ( a u kind type )
-  cc-gdecl-slot @                                    ( a u kind type val )
-  cc-sym-add                                         ( id )
-
-  \ Arrays: record element count as the symbol's array length so codegen can
-  \ tell array decay from scalar deref.
-  cc-gdecl-is-array @ if,
-    cc-gdecl-n @ swap cc-sym-set-array-len
-  else,
-    \ Not an array — record the struct descriptor if any.
-    cc-gdecl-desc @ swap cc-sym-set-struct-desc
+  cc-skip-qualifiers
+  begin,
+    cc-gdecl-declarator
+    [char] , cc-tok-punct?
+  while,
+  repeat,
+  [char] ; cc-tok-punct? 0= if,
+    [lit] 205 cc-die
   then, ;
 
 \ cc-finalize-globals ( -- )  After the entire program has been parsed and
-\ all functions emitted, append cc-globals-buf to cc-out-buf and patch every
-\ recorded fixup to point at the now-known global vaddrs.
+\ all functions emitted, append cc-globals-buf to cc-out-buf, place the bss
+\ after it, and patch every recorded fixup to point at the now-known global
+\ vaddrs.
 \
 \ cc-globals-base-vaddr is set to cc-base-vaddr + (cc-out-pos at the moment
-\ globals are appended).  Once that's known, each fixup's imm64 placeholder
-\ is overwritten with (cc-globals-base-vaddr + slot).
+\ globals are appended).  The bss starts at the next 8-aligned vaddr (the
+\ file is padded with zeros to reach it), and cc-bss-size tells
+\ cc-finalize-elf how much memory it adds.  Then each fixup's imm64
+\ placeholder is overwritten with the slot's vaddr: cc-globals-base-vaddr
+\ + slot for a data slot, cc-bss-base-vaddr + (slot - cc-bss-flag) for a
+\ bss one.
 : cc-finalize-globals
   cc-here-vaddr cc-globals-base-vaddr !
   \ Append cc-globals-pos bytes from cc-globals-buf to cc-out-buf.
@@ -495,11 +494,21 @@ variable cc-gdecl-ptr-depth
     dup cc-globals-buf + c@ cc-emit-byte
     1+
   repeat, drop
+  \ Align the bss, if there is one.
+  cc-bss-pos @ if,
+    begin, cc-out-pos @ [lit] 7 and while, [lit] 0 cc-emit-byte repeat,
+  then,
+  cc-here-vaddr cc-bss-base-vaddr !
+  cc-bss-pos @ cc-bss-size !
   \ Patch each fixup.  i walks 0..cc-gfixup-count-1.
   [lit] 0
   begin, dup cc-gfixup-count @ < while,
     dup cc-gfixup-slot     cell[] @                \ slot
-    cc-globals-base-vaddr @ +                       \ vaddr = base + slot
+    dup cc-bss-flag < if,
+      cc-globals-base-vaddr @ +                     \ vaddr = base + slot
+    else,
+      cc-bss-flag - cc-bss-base-vaddr @ +           \ vaddr = bss base + offset
+    then,
     over cc-gfixup-out-pos cell[] @                \ patch-offset
     cc-out-patch-8le
     1+
@@ -515,14 +524,27 @@ variable cc-gdecl-ptr-depth
   tok-kind @ tk-punct = tok-num @ [char] { = and
   cc-peek-mark cc-lex-reset ;
 
+\ cc-enum-def-ahead? ( -- f )  The current token is `enum`.  True iff an
+\ enumerator list follows: '{', or TAG '{'.  Otherwise the enum only names
+\ a type (`enum BINDING f(...)`).  Restores the lexer state.
+: cc-enum-def-ahead?
+  cc-peek-mark cc-lex-mark
+  cc-next-token
+  tok-kind @ tk-ident = if, cc-next-token then,
+  tok-kind @ tk-punct = tok-num @ [char] { = and
+  cc-peek-mark cc-lex-reset ;
+
 \ cc-parse-top-decl ( -- )  The current token starts a top-level item.
 \ Definitions of a struct, enum or typedef have their own parsers; anything
 \ else is a function definition, a prototype or a file-scope variable, and
 \ cc-top-classify says which.  A `struct TAG` that isn't followed by '{'
-\ (`struct TAG* f(...)`, `struct TAG* g;`) is one of those three.
+\ (`struct TAG* f(...)`, `struct TAG* g;`) is one of those three, and so
+\ is an `enum TAG` without an enumerator list.
 : cc-parse-top-decl
   tok-kind @ tk-kw = if,
-    tok-kw-id @ kw-enum    = if, cc-parse-enum-def exit, then,
+    tok-kw-id @ kw-enum    = if,
+      cc-enum-def-ahead? if, cc-parse-enum-def exit, then,
+    then,
     tok-kw-id @ kw-typedef = if, cc-parse-typedef  exit, then,
     tok-kw-id @ kw-struct  = if,
       cc-struct-def-ahead? if, cc-parse-struct-def exit, then,
@@ -625,6 +647,14 @@ create cc-name-fwrite   s, fwrite
 create cc-name-calloc   s, calloc
 create cc-name-memset   s, memset
 create cc-name-free     s, free
+create cc-name-open     s, open
+create cc-name-read     s, read
+create cc-name-write    s, write
+create cc-name-close    s, close
+create cc-name-malloc   s, malloc
+create cc-name-strlen   s, strlen
+create cc-name-memcpy   s, memcpy
+create cc-name-strrchr  s, strrchr
 
 \ cc-emit-shims ( -- )  Emit each shim's body and register it in the symbol
 \ table as sk-func with val = its absolute vaddr.
@@ -710,6 +740,70 @@ create cc-name-free     s, free
   cc-emit-free-shim ;
 
 \ ===========================================================================
+\ Shims emitted only when used: malloc, open, read, write, close, strlen,
+\ memcpy, strrchr.
+\ ===========================================================================
+\ These are registered like prototypes (sk-func, vaddr 0) before the
+\ program is parsed, so a call to one is a forward call whose fixup waits
+\ on the symbol (cc-parse-call).  If the program defines the function
+\ itself, its definition takes the fixups as for any prototype.  After the
+\ program, cc-emit-late-shims emits the body of each one still waiting and
+\ patches its callers, so a program that uses none of them is not a byte
+\ longer.
+\
+\ One row per shim: name, name length, emitter xt, and the symbol id
+\ (filled in by cc-register-late-shims).  A 0 name ends the table.
+
+: cc-emit-open-shim   [lit] 2 cc-emit-syscall-shim ;
+: cc-emit-read-shim   [lit] 0 cc-emit-syscall-shim ;
+: cc-emit-write-shim  [lit] 1 cc-emit-syscall-shim ;
+: cc-emit-close-shim  [lit] 3 cc-emit-syscall-shim ;
+\ malloc jumps into the calloc shim, the first sk-func named calloc.
+: cc-emit-malloc-late
+  cc-name-calloc [lit] 6 cc-sym-find cc-sym-val-of cc-emit-malloc-shim ;
+
+create cc-late-shims
+cc-name-malloc  , [lit] 6 , ' cc-emit-malloc-late  , [lit] 0 ,
+cc-name-open    , [lit] 4 , ' cc-emit-open-shim    , [lit] 0 ,
+cc-name-read    , [lit] 4 , ' cc-emit-read-shim    , [lit] 0 ,
+cc-name-write   , [lit] 5 , ' cc-emit-write-shim   , [lit] 0 ,
+cc-name-close   , [lit] 5 , ' cc-emit-close-shim   , [lit] 0 ,
+cc-name-strlen  , [lit] 6 , ' cc-emit-strlen-shim  , [lit] 0 ,
+cc-name-memcpy  , [lit] 6 , ' cc-emit-memcpy-shim  , [lit] 0 ,
+cc-name-strrchr , [lit] 7 , ' cc-emit-strrchr-shim , [lit] 0 ,
+[lit] 0 ,
+
+\ cc-register-late-shims ( -- )  Add each as a prototype; keep its id.
+: cc-register-late-shims
+  cc-late-shims
+  begin, dup @ while,
+    dup @  over [lit] 8 + @                       ( row a u )
+    sk-func ty-int [lit] 0 ty-make [lit] 0 cc-sym-add
+    over [lit] 24 + !
+    [lit] 32 +
+  repeat,
+  drop ;
+
+\ cc-emit-late-shims ( -- )  Emit each shim that has callers still waiting,
+\ and point them at it.
+: cc-emit-late-shims
+  cc-late-shims
+  begin, dup @ while,
+    dup [lit] 24 + @                               ( row id )
+    dup cc-sym-call-fixups @  over cc-sym-addr-fixups @  or if,
+      cc-here-vaddr over cc-sym-val cell[] !
+      dup cc-sym-call-fixups @ cc-here-vaddr cc-walk-and-patch-to-vaddr
+      dup cc-sym-addr-fixups @ cc-here-vaddr cc-walk-and-patch-imm64-to-vaddr
+      [lit] 0 over cc-sym-call-fixups !
+      [lit] 0 over cc-sym-addr-fixups !
+      over [lit] 16 + @ execute
+    then,
+    drop
+    [lit] 32 +
+  repeat,
+  drop ;
+
+\ ===========================================================================
 \ M2 test-suite external prototype.  The M2 monolith itself does not call
 \ memset, but the published parity script compares selected upstream tests
 \ where memset is declared by an elided system header.
@@ -732,6 +826,7 @@ create cc-name-uint32_t  s, uint32_t
 create cc-name-uint64_t  s, uint64_t
 create cc-name-size_t    s, size_t
 create cc-name-ssize_t   s, ssize_t
+create cc-name-intptr_t  s, intptr_t
 
 \ cc-emit-libc-typedefs ( -- )  Register the typedef names above so headers
 \ that say `FILE* fp;` or `uint8_t b;` parse as types.  All map to ty-int
@@ -747,7 +842,8 @@ create cc-name-ssize_t   s, ssize_t
   cc-name-uint32_t [lit] 8  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop
   cc-name-uint64_t [lit] 8  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop
   cc-name-size_t   [lit] 6  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop
-  cc-name-ssize_t  [lit] 7  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop ;
+  cc-name-ssize_t  [lit] 7  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop
+  cc-name-intptr_t [lit] 8  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop ;
 
 \ cc-check-fns-defined ( -- )  After the whole program: a function that was
 \ called or used as a value but never defined still has pending call or
@@ -769,13 +865,16 @@ create cc-name-ssize_t   s, ssize_t
   cc-main-vaddr @ 0= if, [lit] 207 cc-die then, ;
 
 \ cc-parse-program ( -- )  Emit entry stub, emit libc shims, register the
-\ one external prototype and built-in typedefs, parse all functions, check
-\ every used function got a body, patch entry stub.
+\ late shims, the one external prototype and built-in typedefs, parse all
+\ functions, emit the late shims that were called, check every used
+\ function got a body, patch entry stub.
 : cc-parse-program
   cc-emit-entry-stub
   cc-emit-shims
+  cc-register-late-shims
   cc-emit-external-protos
   cc-emit-libc-typedefs
   cc-parse-function-list
+  cc-emit-late-shims
   cc-check-fns-defined
   cc-patch-call-main ;
