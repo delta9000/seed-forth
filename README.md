@@ -182,6 +182,37 @@ The tcc source is the tarball vendored in pnut (`kit/tcc-0.9.27.tar.gz`).
 The script checks its sha256 before unpacking it.  `REPRODUCIBLE.md`
 ("Past M2-Planet on amd64 alone") lists the pins and every hash.
 
+### On to GCC 15.2, on amd64
+
+[`gcc64/run-gcc64.sh`](gcc64/README.md) carries the amd64 route's
+`tcc-boot2` on through musl-1.1.24 to GCC 15.2.0, with no host compiler,
+assembler or linker:
+
+```
+tcc-boot2 -> tcc + musl-1.1.24 (fixed point) -> binutils-2.30 -> gcc-4.0.4
+  (gcc-B = gcc-C) -> musl, gmp, mpfr, mpc -> gcc-4.7.4 -> binutils-2.41
+  -> gcc-10.5.0 -> gcc-15.2.0 (its own 3-stage bootstrap: stage2 = stage3)
+```
+
+```sh
+gcc64/run-gcc64.sh --fetch      # sources into build-out/gcc64-cache, every sha256 checked
+gcc64/run-gcc64.sh              # all 13 stages, ~1.5 h on 4 cores; output in build-out/gcc64
+VERIFY_GCC64=1 ./verify.sh      # the same as verify.sh's opt-in step 10
+```
+
+Every compiler, assembler and linker is built by the stage before it,
+and each GCC compiles and runs C tests (and C++ from 4.7.4 on).  The
+fixed points are enforced, and every key output is pinned in
+`gcc64/HASHES`; most hashes embed the build path, so they are checked in
+full only at the canonical `BUILDROOT`.  Sources are pinned by sha256 in
+`gcc64/SOURCES`, not vendored.  Patches (most from live-bootstrap, some
+ours for tcc on x86_64) are in [`patches/gcc64/`](patches/gcc64/README.md).
+Still trusted from the host: build glue (bash, make, sed, coreutils,
+tar, xz, patch, python3 for one text substitution, ...), host bison and
+m4 as code generators for gcc-4.0.4, and the tarballs' pregenerated
+`configure` scripts.  `gcc64/README.md` has the trust statement, the
+open issues and the plan for replacing the glue with chain-built tools.
+
 ## Quick Start
 
 From the repository root, with the submodules fetched as in
@@ -261,7 +292,7 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
 | `120-cc-main.fth` | Compiler entry point; reads C from stdin and writes `/tmp/cc-out`. |
 | `test.sh` / `test-*.fth` | Local unit/smoke tests for layers 010–070; the upper layers (080–116) are exercised end-to-end by `tests/cc/`. |
 | `bootstrap.sh` | The GCC-free build: hex0-seed → seed-forth → M2-Planet, M1, hex2 → self-hosted M2-Planet fixed point. |
-| `verify.sh` | Every comparison against GCC-built references (runs the `tests/` scripts below), then `tests/cc/stage0-check.sh` and `handoff.sh`. |
+| `verify.sh` | Every comparison against GCC-built references (runs the `tests/` scripts below), then `tests/cc/stage0-check.sh` and `handoff.sh`; with `VERIFY_GCC64=1` also `gcc64/run-gcc64.sh`. |
 | `handoff.sh` | The Forth route in place of stage0-posix's hex1/hex2/M0/`cc_amd64`/`cc_x86` phases; stage0-posix's own recipes then reproduce all 19 `amd64.answers` and all 19 `x86.answers` binaries. |
 | `tests/cc/*.sh` | M2-Planet monolith build, Stage-A parity, full bootstrap-chain, the stage0-posix cross-check (`stage0-check.sh`), and GCC reference (`build-gcc-refs.sh`) scripts. |
 | `tests/asm/*.sh` | `130-asm.fth` checks against GCC-built mescc-tools, small fixtures up to M2-Planet, M1 and hex2. |
@@ -271,6 +302,8 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
 | `vendor/pnut` | Pinned pnut (`abc34a5`), the C compiler `tests/pnut/sf-pnut-check.sh` builds with the Forth C compiler, unmodified. |
 | `tests/pnut/` | `sf-pnut-check.sh` (i386 route to TinyCC) and `sf-pnut-amd64-check.sh` (amd64 route; its test programs in `tests/pnut/amd64/`). |
 | `patches/amd64/` | Our patches for the amd64 route: pnut's heap size, four tcc-0.9.27 patches, six portable_libc patches (see its README). |
+| `gcc64/` | `run-gcc64.sh`, the amd64 chain from `tcc-boot2` to GCC 15.2 via musl, its build helpers, `SOURCES` (source pins) and `HASHES` (artifact pins); see its README. |
+| `patches/gcc64/`, `tests/gcc64/` | That chain's patches (musl, tcc, gcc-4.0.4, and live-bootstrap's gcc-4.7.4/10.5.0 ones) and test programs. |
 
 Generated binaries such as `seed-forth`, `/tmp/cc-out` and `build-out/` are not source.
 

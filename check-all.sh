@@ -54,6 +54,8 @@
 # Not here, because they are slow and repeat what 5 and 6 cover: the per-arch
 # chain, M2-Planet test-suite parity and the mescc-tools byte-identity checks.
 # Run ./verify.sh for those (all comparisons against GCC-built references).
+# Also not here: gcc64/run-gcc64.sh, the amd64 chain from tcc-boot2 to
+# GCC 15.2 (~1.5 h); run it directly or as VERIFY_GCC64=1 ./verify.sh.
 #
 # Each step's full output is captured to /tmp/check-all-NN-*.log; the
 # console shows one OK/SKIP/FAIL line per step plus the final verdict.

@@ -1,0 +1,15 @@
+# Provenance: ours (seed-forth gcc64), not in live-bootstrap.
+# musl-1.1.24, for gcc >= 15 (C23 default): string.h's non-prototype
+# 'char *basename();' now means basename(void) and clashes with libiberty's
+# prototype when gcc-15 builds libstdc++.  Later musl dropped this
+# declaration upstream; do the same.  Only for the gcc-built musl.
+--- a/include/string.h
++++ b/include/string.h
+@@ -94,7 +94,6 @@
+ void *memrchr(const void *, int, size_t);
+ void *mempcpy(void *, const void *, size_t);
+ #ifndef __cplusplus
+-char *basename();
+ #endif
+ #endif
+ 
