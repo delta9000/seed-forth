@@ -1,0 +1,40 @@
+# tcc-0.9.27 bug (x86_64, -static): the GOT of a static executable stays zero.
+#
+# Applies to: tcc-0.9.27/tccelf.c (elf_output_file).
+#
+# Why: for a -static executable elf_output_file calls fill_got only after
+# tidy_section_headers, which has already moved the unnamed .rela sections
+# past nb_sections; fill_got walks sections 1..nb_sections-1, so it never
+# sees them and every GOT entry stays zero: anything reached through the
+# GOT is read from, or jumped to at, address 0.  (tidy_section_headers sets
+# nb_sections to the number of named sections.)  Under BOOTSTRAP fill_got
+# runs before tidy_section_headers instead of after it.
+#
+# Evidence that this is tcc's bug: see 03-static_no_plt.diff (a gcc-built
+# tcc makes the same crashing binary without these two patches).
+--- a/tccelf.c
++++ b/tccelf.c
+@@ -2219,11 +2219,23 @@
+         ret = final_sections_reloc(s1);
+         if (ret)
+             goto the_end;
++#ifdef BOOTSTRAP
++        /* tcc-0.9.27 fills the GOT of a -static exe after
++           tidy_section_headers has moved the unnamed .rela sections past
++           nb_sections, so fill_got never sees them and the GOT stays zero.
++           Fill it first. */
++        if (file_type == TCC_OUTPUT_EXE && s1->static_link)
++            fill_got(s1);
++#endif
+ 	tidy_section_headers(s1, sec_order);
+ 
+         /* Perform relocation to GOT or PLT entries */
+         if (file_type == TCC_OUTPUT_EXE && s1->static_link)
++#ifndef BOOTSTRAP
+             fill_got(s1);
++#else
++            ;
++#endif
+         else if (s1->got)
+             fill_local_got_entries(s1);
+     }

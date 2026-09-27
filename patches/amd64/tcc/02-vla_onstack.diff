@@ -1,0 +1,23 @@
+# tcc-0.9.27: no variable-length array in gfunc_call, under PNUT_CC.
+#
+# Applies to: tcc-0.9.27/x86_64-gen.c (gfunc_call).
+#
+# Why: pnut has no VLAs, and gfunc_call sizes `_onstack` by the number of
+# call arguments.  Under PNUT_CC it is a fixed 512-byte array, so tcc-pnut
+# (only tcc-pnut; tcc-boot0 onwards is built from the VLA branch) cannot
+# compile a call with more than 512 arguments.  Nothing in the chain comes
+# close.
+--- a/x86_64-gen.c
++++ b/x86_64-gen.c
+@@ -1247,7 +1247,11 @@
+     int nb_reg_args = 0;
+     int nb_sse_args = 0;
+     int sse_reg, gen_reg;
++#ifdef PNUT_CC
++    char _onstack[512], *onstack = _onstack; /* no VLA; calls with > 512 args unsupported */
++#else
+     char _onstack[nb_args], *onstack = _onstack;
++#endif
+ 
+     /* calculate the number of integer/float register arguments, remember
+        arguments to be passed via stack (in onstack[]), and also remember

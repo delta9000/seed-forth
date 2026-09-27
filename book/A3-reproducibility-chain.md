@@ -321,6 +321,39 @@ built by `bootstrap.sh`'s M2-Planet (sha256 `19d96d9e…`), and with
 `tcc-boot3` must equal pnut's published `03e96a1a…`.  `REPRODUCIBLE.md`
 ("Past M2-Planet") has the configuration and the full hashes.
 
+That kit targets i386, so its tcc stages need a kernel that runs 32-bit
+programs.  `tests/pnut/sf-pnut-amd64-check.sh` takes a second route in
+which every program is x86-64:
+
+```
+seed-forth -> sf-pnut64 (pnut.c, target_x86_64_linux) -> pnut-exe
+  -> pnut-exe-for-tcc -> tcc-pnut (tcc-0.9.27, x86_64)
+  -> tcc-boot0 -> tcc-boot1 -> tcc-boot2 = tcc-boot3
+```
+
+It takes about 10 seconds and runs no gcc.  The sha256 of every stage is
+pinned in the script, from the SF-built pnut to `tcc-boot2`
+(`514bc4d3…`) and its `crt1.o`, `libc.a` and `libtcc1.a`.  The tcc
+source is the tarball vendored in pnut, and the script checks its hash
+before unpacking it.  The route needs eleven small patches, which live
+in `patches/amd64/` (see its README):
+
+- one line of pnut: a larger heap, only for the pnut that compiles tcc;
+- two tcc changes for what pnut cannot parse;
+- two fixes for tcc-0.9.27's own x86_64 `-static` linking.  A gcc-built
+  tcc makes the same crashing binary without them.
+- six changes to pnut's portable libc: x86_64 start-up, system calls
+  and `va_list`, `assert.h`, `abort`, `printf`'s `l`/`ll`, and `puts`.
+
+After `tcc-boot2` is built, the script uses it to compile and run 64-bit
+arithmetic, `printf` and hello-world tests and portable_libc's own test
+suite.  It also builds a pnut that reproduces the SF-built pnut's
+self-compile byte for byte.  `./verify.sh` then compares against gcc as a
+reference, outside the chain: a gcc-built pnut builds the same
+`pnut-exe`, and a gcc-built tcc, seeded the same way, reaches the same
+`tcc-boot2`.  `REPRODUCIBLE.md` ("Past M2-Planet on amd64 alone") has
+the pins and every hash.
+
 ## What "byte-identical" means here
 
 The `.M1` files compared in Stage A are *textual* M1 assembly

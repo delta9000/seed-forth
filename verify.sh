@@ -65,6 +65,18 @@
 #                        tcc-0.9.27 with pnut's published tcc-boot2 =
 #                        tcc-boot3 hash (~2 min; SKIP without vendor/pnut).
 #
+# And one more REFERENCE COMPARISON against gcc, on the amd64 route:
+#   9. pnut-amd64        tests/pnut/sf-pnut-amd64-check.sh with
+#                        SF_PNUT64_GCC_ORACLE=1: the GCC-free amd64 chain
+#                        (seed-forth -> SF-built pnut -> tcc-0.9.27 x86_64,
+#                        tcc-boot2 = tcc-boot3, every hash pinned; the same
+#                        run as check-all.sh's 06b), then the reference: a
+#                        gcc-built pnut builds the same pnut64-g2 and
+#                        pnut-exe, and a gcc-built tcc-0.9.27 (same patched
+#                        sources and -D flags as tcc-pnut) seeds the same
+#                        tcc-boot2 and boot2 crt1.o/libc.a/libtcc1.a
+#                        (~16 s; SKIP without vendor/pnut).
+#
 # Output: one OK/FAIL line per step, logs in $BUILDROOT/logs.
 # Env: BUILDROOT (default ./build-out/verify; wiped at start),
 #      PRIVATE_TMP=auto|0 — by default the whole run gets a private /tmp via
@@ -79,7 +91,7 @@ PRIVATE_TMP=${PRIVATE_TMP:-auto}
 if [ -z "${VERIFY_IN_PRIVATE_TMP:-}" ]; then
     mkdir -p "$BUILDROOT"
     BUILDROOT=$(cd "$BUILDROOT" && pwd)
-    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light,stage0,handoff,pnut}
+    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light,stage0,handoff,pnut,pnut-amd64}
     mkdir -p "$BUILDROOT/tmp"
     case "$ROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac   # we'd hide our own tree
     case "$BUILDROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac
@@ -123,9 +135,10 @@ run 5-monolith       cmp "$BUILDROOT/stage-a/cc-out-v1" "$BUILDROOT/chain/bootst
 run 6-stage0         env BUILDROOT="$BUILDROOT/stage0" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" tests/cc/stage0-check.sh
 run 7-handoff        env BUILDROOT="$BUILDROOT/handoff" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" ./handoff.sh
 run 8-pnut           env BUILDROOT="$BUILDROOT/pnut" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" SF_PNUT_TCC=1 tests/pnut/sf-pnut-check.sh
+run 9-pnut-amd64     env BUILDROOT="$BUILDROOT/pnut-amd64" SF_PNUT64_GCC_ORACLE=1 tests/pnut/sf-pnut-amd64-check.sh
 
 echo
-grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC\|match [a-z0-9]*\.answers\|^handoff: PASS\|^stage0-check: PASS\|^sf-pnut-check: stage' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
+grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC\|match [a-z0-9]*\.answers\|^handoff: PASS\|^stage0-check: PASS\|^sf-pnut-check: stage\|^sf-pnut-amd64-check: .*tcc-boot2 = tcc-boot3\|^sf-pnut-amd64-check: reference' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
 echo
 if [ "$FAIL" = 0 ] && [ "$SKIP" = 0 ]; then
     echo "verify: all $PASS steps PASS in $((SECONDS - T0))s"

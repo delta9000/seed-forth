@@ -30,8 +30,8 @@ The practical facts first.
   32-bit support.
 - **Time.**  `./bootstrap.sh` (the GCC-free build) takes about 30 s;
   `./check-all.sh` (build, unit tests, gates, the three book checks,
-  Stage A, `bootstrap.sh`, and `handoff.sh`'s main route) about
-  80 s; `./verify.sh` (every comparison, plus `stage0-check.sh`
+  Stage A, `bootstrap.sh`, the two pnut checks, and `handoff.sh`'s
+  main route) about 90 s; `./verify.sh` (every comparison, plus `stage0-check.sh`
   and the full `handoff.sh`, x86 hand-off included) about 6½ minutes.  All on a 4-core machine;
   yours will differ.
 - **What you trust.**  For `./bootstrap.sh`: the 229-byte `hex0-seed`
@@ -66,6 +66,25 @@ The practical facts first.
   supports, provided the amd64 kernel also runs 32-bit binaries; a
   pure-i386 machine would need a 32-bit seed.  Nothing here runs
   live-bootstrap itself; `REPRODUCIBLE.md` has the manual steps.
+- **Past M2-Planet, to TinyCC.**  The same Forth C compiler builds
+  pnut (`vendor/pnut`, unmodified).  Two scripts carry on from there to
+  tcc-0.9.27 without GNU Mes: no Mes interpreter, no MesCC and no mes
+  libc.  `tests/pnut/sf-pnut-check.sh` uses pnut's own kit, which is
+  i386, so its tcc stages need a kernel that runs 32-bit programs.
+  `tests/pnut/sf-pnut-amd64-check.sh` is x86-64 from the seed to
+  `tcc-boot2 = tcc-boot3` and uses no gcc.  It needs eleven small
+  patches to pnut, tcc and pnut's libc, kept in `patches/amd64/`.  Two
+  of them fix bugs in tcc-0.9.27's own x86_64 static linking.
+  Appendix C has the route.
+
+  The prior-art research for this project found other Mes-free routes
+  to TinyCC that go through a small C compiler: pnut's kit and
+  cosinusoidally's tcc_simple / tcc_bootstrap_alt.  All of them are
+  i386-only.  The amd64 routes it found reach TinyCC by other means.
+  blynn-bootstrap goes through a C compiler written in Haskell and uses
+  mes libc.  pommicket/bootstrap goes through its own non-C languages
+  from its own seed.  That research was a survey of public repositories
+  in September 2026, not an exhaustive search.
 
 ### Auditing the seed in an afternoon
 
@@ -267,9 +286,10 @@ both independent routes, identically, to survive the comparison.
 What it does not add: it does not shrink the trust root.  Both
 routes still start at the 229-byte `hex0-seed`, on a Linux kernel
 and a CPU nobody here audits.  It proves agreement on the inputs
-above, not on every C program.  And it stops where stage0-posix
-stops: everything from there to GCC still goes through GNU Mes and
-the Live-Bootstrap chain.
+above, not on every C program.  And its main chain stops where
+stage0-posix stops.  The pnut checks go one rung further, to TinyCC
+without Mes, but they stop at tcc-0.9.27.  Nothing here builds GCC,
+and the established road from there to GCC is still Live-Bootstrap's.
 
 ## What this also demonstrates: auditable AI collaboration
 

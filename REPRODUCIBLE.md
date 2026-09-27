@@ -23,7 +23,14 @@ The repository carries upstreams as submodules:
 | M2-Planet | `vendor/M2-Planet` | `0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb` | — |
 | mescc-tools | `vendor/mescc-tools` | `9b1375115f9175d876c360dbbfd7e231dd9f2a2f` | — |
 | stage0-posix | `vendor/stage0-posix` | `45d90f5955b6907dc6cdea9ebafce558359edcd3` | `Release_1.9.1` |
-| pnut | `vendor/pnut` | `abc34a5` | — |
+| pnut | `vendor/pnut` | `abc34a5` (`abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d`) | — |
+
+The amd64 route to TinyCC also uses tcc-0.9.27.  Its source is the tarball
+vendored inside pnut, `kit/tcc-0.9.27.tar.gz`, with sha256
+`db0a0bf390c746621b2dc9b8ddf9ff4eeda0c7e3e65e292de5bd8be902eb230d`.
+`tests/pnut/sf-pnut-amd64-check.sh` checks that hash before it uses the
+tarball.  The route's own patches to pnut, tcc and pnut's libc are in
+`patches/amd64/`.  See "Past M2-Planet on amd64 alone" below.
 
 Initialize them (recursively — `vendor/M2-Planet` has its own nested
 `M2libc` submodule, and `vendor/stage0-posix` has its own nested
@@ -605,3 +612,120 @@ SF_PNUT_TCC=1 tests/pnut/sf-pnut-check.sh     # and stage 3, ~2 min
 (step 8).  The one trusted input added is pnut's source tree
 (`pnut.c`, `x86.c`, `exe.c`, `elf.c`, and for stage 3 the kit, its
 tcc-0.9.27 tarball and patches, and `portable_libc`).
+
+## Past M2-Planet on amd64 alone
+
+`tests/pnut/sf-pnut-amd64-check.sh` climbs to TinyCC with every program
+an x86-64 ELF.  No IA-32 emulation is needed, and no gcc runs:
+
+```sh
+tests/pnut/sf-pnut-amd64-check.sh                          # ~10 s; check-all.sh step 06b
+SF_PNUT64_GCC_ORACLE=1 tests/pnut/sf-pnut-amd64-check.sh   # + gcc reference, ~16 s; verify.sh step 9
+```
+
+Output goes to `./build-out/pnut-amd64` (`BUILDROOT=`), which is wiped at
+the start of each run.  When `unshare -rm` works, the script runs with a
+private `/tmp`.
+
+### Pins
+
+| Input | Pin |
+|---|---|
+| pnut (`vendor/pnut`) | commit `abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d` (the script fails on any other `HEAD`) |
+| tcc-0.9.27 source | `vendor/pnut/kit/tcc-0.9.27.tar.gz`, sha256 `db0a0bf390c746621b2dc9b8ddf9ff4eeda0c7e3e65e292de5bd8be902eb230d` (added to pnut by commit `920cb3f`; the tcc 0.9.27 release tree of 2017-12-17; checked before bintools unpacks it) |
+| `tcc-0.9.27/lib/va_list.c` (goes into `libtcc1.a` unmodified) | sha256 `3204e28b30bc7cbd4ea9520377e69a6feef11e110081bd05d1136fdcbf50c6f1` (checked after unpacking) |
+| the kit's 8 tcc patches, `kit/config.h`, `kit/libtcc1.c`, `kit/bintools/`, `portable_libc/` | pnut commit above |
+| our patches | `patches/amd64/{pnut,tcc,libc}/*.diff`, in this repository |
+
+The upstream tcc project distributes 0.9.27 as `tcc-0.9.27.tar.bz2`
+(download.savannah.gnu.org/releases/tinycc/).  No script compares pnut's
+`.tar.gz` with that file.
+
+### Stages and hashes
+
+| Stage | Artifact | sha256 | Bytes | Time |
+|---|---|---|---:|---:|
+| 1 | SF compiles `pnut.c` (as shipped; `#define target_x86_64_linux 1`, `#define ONE_PASS_GENERATOR 1`) → `sf-pnut64` | `e05b69f8d5eb010507bd87fde3ef185417da4f1ed73df78a1e8dc26dbc3bfeb8` | 152,480 | 1.9 s |
+| 2 | `sf-pnut64` → `pnut64-g2` → `pnut64-g3`, g2 = g3 | `5bee065d3332230129036b1e7b154ef2ed8bc2fee643135f227e1c39f856f0de` | 230,706 | 0.5 s |
+| 3 | `sf-pnut64 pnut.c` with the kit options for x86_64 → `pnut-exe` | `b9ebaecc589e9944f25827df112257a2ff1ed0eb9df1c50cb21cd79b21b1d1a1` | 230,454 | 0.6 s |
+| 3 | `pnut-exe` → `bintools` | `6aafe3ce91ae38772c607f9b75709046a16bb0df1cd134c6f57ecb6ded156205` | 87,162 | <0.1 s |
+| 4 | unpack and patch tcc-0.9.27 (8 kit + 4 amd64 patches); `libc64` = portable_libc + 6 patches | — | | 1.6 s |
+| 5 | `pnut-exe` builds `pnut.c` + `01-heap-size.diff`, without ONE_PASS_GENERATOR, with SAFE_MODE and libc64 → `pnut-exe-for-tcc` | `b8ade68772e2d360e28109e9ea2d0a91c5091332a269deee0c363e69e77bad53` | 279,456 | 0.4 s |
+| 6 | `pnut-exe-for-tcc` compiles `tcc.c` (`TCC_TARGET_X86_64`) → `tcc-pnut` | `97d00391969ea15eb35707d57e14b9f0576bfdfc22d807b6ba568e2fc543b5e4` | 1,120,921 | 2.1 s |
+| 6 | `tcc-boot0` | `0605483829e454c0a0422c28949ecec94d9b3624d294a9f65d8f16b7923b15de` | 305,496 | 0.9 s |
+| 6 | `tcc-boot1` | `c382b52cc298438c52d6626e9a535b17d1177d0f93e1899bd8d681c58878a886` | 305,496 | 0.6 s |
+| 6 | `tcc-boot2` = `tcc-boot3` (and `tcc-boot2.o` = `tcc-boot3.o`) | `514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1` | 305,496 | 1.2 s |
+| 6 | `boot2-lib/crt1.o` | `9fc015dbe5674217d8d2b92b0bdbed91f3456b2b80afeb72c27a16ffa0247d51` | 2,016 | |
+| 6 | `boot2-lib/libc.a` | `6f35761d40d06c58b1e3a014110b0b59a4dd6db1a140769ddf4474d524d7c86a` | 22,384 | |
+| 6 | `boot2-lib/tcc/libtcc1.a` | `21312cd01450bba923f9c1f91193b810693084a5bf98bcc51d2ddce78057307e` | 3,170 | |
+| 7 | functional tests (below) | — | | 0.4 s |
+
+The kit options in stage 3 are `-Dtarget_x86_64_linux -DONE_PASS_GENERATOR
+-DUNDEFINED_LABELS_ARE_RUNTIME_ERRORS -DENABLE_PNUT_INLINE_INTERRUPT
+-DNO_BUILTIN_LIBC`.  They are kit/bootstrap.sh's `PNUT_EXE_TCC_OPTIONS`
+without the i386-only `SUPPORT_EMULATED_INT64`.  Stage 6's `go` is
+kit/bootstrap.sh's `go()` with `TCC_TARGET_X86_64`, libc64 as the libc,
+and `lib/va_list.c` added to `libtcc1.a`.  The timings come from one run
+on the development machine: 10.2 s wall-clock in total, and 15.6 s with
+the gcc reference.
+
+Stage 5 drops ONE_PASS_GENERATOR because that mode caps output at
+1,000,000 bytes, and `tcc-pnut` is 1.12 MB.  With `SF_PNUT64_REPIN=1`
+the script prints the stage hashes instead of failing on them.  Use it
+after a deliberate patch change.
+
+### Patches (`patches/amd64/`, README there)
+
+| Patch | Why |
+|---|---|
+| `pnut/01-heap-size.diff` | `HEAP_SIZE` 786,432 → 1,048,576 words.  x86_64 tcc needs 790,991, and pnut has no `-D` override.  Applied to a copy used only for `pnut-exe-for-tcc`. |
+| `tcc/01-local_enum.diff` | pnut rejects a block-scope `enum`.  Uses `#define`s under `PNUT_CC`. |
+| `tcc/02-vla_onstack.diff` | pnut has no VLAs.  Uses a fixed 512-byte array under `PNUT_CC`. |
+| `tcc/03-static_no_plt.diff` | tcc-0.9.27 bug: an x86_64 `-static` exe calls through a PLT that `relocate_plt` never fills (it runs only when there is a `.dynamic` section). |
+| `tcc/04-static_fill_got.diff` | tcc-0.9.27 bug: `fill_got` runs after `tidy_section_headers` has moved the `.rela` sections out of its range, so the GOT stays zero. |
+| `libc/01-crt1-x86_64.diff` | x86_64 `_start` and `syscall` wrappers (portable_libc has only i386). |
+| `libc/02-stdarg-x86_64.diff` | tcc's x86_64 `va_list` under `__TINYC__ && __x86_64__`. |
+| `libc/03-assert-h.diff`, `libc/04-abort.diff` | `<assert.h>` and `abort()`, which `x86_64-gen.c` uses. |
+| `libc/05-puts-newline.diff` | `puts` appends `'\n'`. |
+| `libc/06-printf-length.diff` | `printf` handles `l`/`ll` (`%ld %lld %lu %llu %lx …`), and `%u`/`%o`/`%x` are unsigned. |
+
+Evidence that 03 and 04 are tcc's bugs and not pnut's: a gcc-built
+tcc-0.9.27, with the same sources and flags and without them, builds a
+static hello-world that segfaults.  That binary is byte-identical to the
+one the pnut-built tcc makes (sha256 `e3c6d1b2…`).  With either patch
+alone the result still crashes.  This was established once, by hand, and
+is not rerun by a script.  i386 does not need these two patches.
+
+### Functional tests (stage 7)
+
+`tcc-boot2` compiles each of the following, statically, and each binary's
+output must match exactly:
+
+- `tests/pnut/amd64/t64.c`: 64-bit multiply, divide and modulo; signed and
+  unsigned shifts; sign and zero extension; `sizeof(long) == 8`; struct
+  layout; recursion; malloc.
+- `hello.c`: exit status 7, and `%lld`/`%ld` of `1 << 40`.
+- `printf.c`: length modifiers, unsigned conversions, widths and flags,
+  `LLONG_MIN`, `ULLONG_MAX`, and `puts`.  This test fails 15 checks
+  against unpatched portable_libc.
+- portable_libc's own `test-libc.c`: all 136 checks pass.
+
+`pnut-exe` also builds `printf.c` with libc64, which is pnut's side of
+the same libc.  The `long` cases are left out there, because pnut's
+`long` is 4 bytes.  Finally, `tcc-boot2` compiles `pnut.c`, and that pnut
+rebuilds `pnut64-g2` byte for byte.
+
+### Reference comparison (verify.sh step 9, `SF_PNUT64_GCC_ORACLE=1`)
+
+This runs after the GCC-free chain and takes no part in it:
+
+- A gcc-built pnut, with stage 1's flags, builds the same `pnut64-g2`
+  and `pnut-exe` as `sf-pnut64`.
+- A gcc-built `tcc.c` (the same patched tree, tcc-pnut's `-D` flags, host
+  libc) seeds its own boot0 → boot1 → boot2.  That `tcc-boot2`, and its
+  boot2 `crt1.o`, `libc.a` and `libtcc1.a`, are byte-identical to the
+  pnut-seeded ones.
+
+This route trusts two things beyond the i386 route: the patches in
+`patches/amd64/`, and GNU `patch`, which applies them.  The tcc tarball is
+the same one the i386 route's stage 3 unpacks.  Here its hash is checked.
