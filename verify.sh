@@ -56,6 +56,15 @@
 #                        emulation; SKIP without it or without
 #                        vendor/stage0-posix/x86).
 #
+# And one long GCC-free run that check-all.sh does only in part:
+#   8. pnut              tests/pnut/sf-pnut-check.sh with SF_PNUT_TCC=1: the
+#                        Forth C compiler builds pnut (vendor/pnut)
+#                        unmodified; that pnut and an M2-Planet-built one
+#                        (step 3's cc-out-v3/M1/hex2) build the same
+#                        pnut-exe, and pnut's own TCC kit carries it on to
+#                        tcc-0.9.27 with pnut's published tcc-boot2 =
+#                        tcc-boot3 hash (~2 min; SKIP without vendor/pnut).
+#
 # Output: one OK/FAIL line per step, logs in $BUILDROOT/logs.
 # Env: BUILDROOT (default ./build-out/verify; wiped at start),
 #      PRIVATE_TMP=auto|0 — by default the whole run gets a private /tmp via
@@ -70,7 +79,7 @@ PRIVATE_TMP=${PRIVATE_TMP:-auto}
 if [ -z "${VERIFY_IN_PRIVATE_TMP:-}" ]; then
     mkdir -p "$BUILDROOT"
     BUILDROOT=$(cd "$BUILDROOT" && pwd)
-    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light,stage0,handoff}
+    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light,stage0,handoff,pnut}
     mkdir -p "$BUILDROOT/tmp"
     case "$ROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac   # we'd hide our own tree
     case "$BUILDROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac
@@ -113,9 +122,10 @@ run 4-mescc-tools    env BUILDROOT="$BUILDROOT/asm"     tests/asm/mescc-tools-ch
 run 5-monolith       cmp "$BUILDROOT/stage-a/cc-out-v1" "$BUILDROOT/chain/bootstrap/out/cc-out-v1"
 run 6-stage0         env BUILDROOT="$BUILDROOT/stage0" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" tests/cc/stage0-check.sh
 run 7-handoff        env BUILDROOT="$BUILDROOT/handoff" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" ./handoff.sh
+run 8-pnut           env BUILDROOT="$BUILDROOT/pnut" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" SF_PNUT_TCC=1 tests/pnut/sf-pnut-check.sh
 
 echo
-grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC\|match [a-z0-9]*\.answers\|^handoff: PASS\|^stage0-check: PASS' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
+grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC\|match [a-z0-9]*\.answers\|^handoff: PASS\|^stage0-check: PASS\|^sf-pnut-check: stage' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
 echo
 if [ "$FAIL" = 0 ] && [ "$SKIP" = 0 ]; then
     echo "verify: all $PASS steps PASS in $((SECONDS - T0))s"

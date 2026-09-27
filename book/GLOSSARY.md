@@ -310,11 +310,11 @@ single recursive function parameterised by minimum precedence,
 driven by a table, in place of one function per precedence level.
 Contrast **Precedence cascade**.
 
-**Preprocessor** — the pass that splices in `#include`d files,
-records `#define`s, and deletes every directive line before the
-lexer runs.  Other directives (`#ifdef`, `#if`, …) are silently
-dropped (there is no conditional compilation), and macro names
-are replaced by their values at lex time, not here.  Ch 22.
+**Preprocessor** — the pass before the lexer that splices in
+`#include`d files, records `#define`s and expands every macro use
+(object-like and function-like), and keeps or drops lines by
+`#if`, `#ifdef`, `#ifndef`, `#elif`, `#else` and `#endif`.  No
+directive and no macro name reaches the lexer.  Ch 22.
 
 **Prologue / epilogue** — the boilerplate at function entry / exit.
 Prologue: `push rbp ; mov rbp, rsp ; sub rsp, FRAMESIZE` plus
@@ -390,9 +390,10 @@ sigils (`%60`), and strings (`"hi"` becomes `68 69 00`).  mescc-tools'
 it in one program.  Ch 33 §1, §11.
 
 **Macro table** — the preprocessor's parallel-array storage for
-`#define`s: 256 entries × name-address / name-length / integer
-value triples plus a 16 KiB name pool.  Only integer values are
-stored — there are no body strings.  Ch 22 §2.
+`#define`s: 1,024 entries of name, body, parameter count and a busy
+flag, with names and bodies copied into a 64 KiB pool.  A
+function-like macro's body stores each parameter as a two-byte
+marker.  Ch 22 §2.
 
 **mescc-tools** — the small toolchain (`M1`, `hex2`, `blood-elf`,
 `get_machine`) that turns M2-Planet's `.M1` output into a working

@@ -23,6 +23,7 @@ The repository carries upstreams as submodules:
 | M2-Planet | `vendor/M2-Planet` | `0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb` | — |
 | mescc-tools | `vendor/mescc-tools` | `9b1375115f9175d876c360dbbfd7e231dd9f2a2f` | — |
 | stage0-posix | `vendor/stage0-posix` | `45d90f5955b6907dc6cdea9ebafce558359edcd3` | `Release_1.9.1` |
+| pnut | `vendor/pnut` | `abc34a5` | — |
 
 Initialize them (recursively — `vendor/M2-Planet` has its own nested
 `M2libc` submodule, and `vendor/stage0-posix` has its own nested
@@ -105,7 +106,7 @@ Timings measured here (4-core x86-64, Linux 6.18): `bootstrap.sh`
 
 ```text
 697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e  seed-forth
-23aaa5be476e5d25194dcbd178ceba9a4ccc72ca9c7d76523c6fc6fc1a409e73  cc-out-v1
+025208db31342c4070dbcd3b72f56ddfdde7d38c582c96ea9fdc59bcc6ef7d1e  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 1ac93f9ba1da2369a496ac417d779be5528df0dcdd7cc9e43326115c60a08b2e  cc-out-v2
 02d98f86fed9c207a8b7e1cc90429e76b282ab5c24dbbcb35e9d7bea49c888d5  self-v2-amd64.M1
@@ -295,7 +296,7 @@ Shared artifact sizes (verified by running `tests/cc/stage-a-check.sh`):
 |------|------:|
 | `000-seed.hex0` | 41,293 |
 | `seed-forth` | 1,772 |
-| `cc-out-v1` | 203,253 |
+| `cc-out-v1` | 202,405 |
 | `self-v1-amd64.M1` | 2,367,260 |
 
 Hashes for the same run:
@@ -303,7 +304,7 @@ Hashes for the same run:
 ```text
 16c09d3a841fb5e62b115f225361f3006075a4998f46966d83e21d991e159e8e  000-seed.hex0
 697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e  seed-forth
-23aaa5be476e5d25194dcbd178ceba9a4ccc72ca9c7d76523c6fc6fc1a409e73  cc-out-v1
+025208db31342c4070dbcd3b72f56ddfdde7d38c582c96ea9fdc59bcc6ef7d1e  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
 
@@ -500,7 +501,7 @@ What "M2-Planet-compatible" means here:
 `STAGE0_COMPAT=1 tests/cc/build-m2planet-monolith.sh` rewrites exactly
 those two guards to `0` in the monolith before seed-forth compiles
 it. This gives `cc-out-v1` the behaviour an M2-Planet-built M2-Planet
-has (`cc-out-v1` shrinks from 203,253 to 203,016 bytes). With it,
+has (`cc-out-v1` shrinks from 202,405 to 202,168 bytes). With it,
 `self-v1 == self-v2 == self-v3` (`02d98f86…`), and
 `stage-a-check.sh` fails by design. It is a convenience for one-step
 byte-identity with the stage0 route, not a correctness fix. Neither
@@ -567,3 +568,40 @@ M2-Planet tests: identical=36  both-fail=0  differ=0  (of 36)
 
 All stages passed.
 ```
+
+## Past M2-Planet: pnut and TinyCC
+
+`tests/pnut/sf-pnut-check.sh` takes the chain in a second direction,
+past M2-Planet to TinyCC, with no Mes and no GCC:
+
+```sh
+tests/pnut/sf-pnut-check.sh                   # stages 1-2, ~15 s
+SF_PNUT_TCC=1 tests/pnut/sf-pnut-check.sh     # and stage 3, ~2 min
+```
+
+1. The Forth C compiler (`010-lib.fth` + `[0-9][0-9][0-9]-cc-*.fth`)
+   compiles `vendor/pnut/pnut.c` exactly as shipped.  It reads stdin,
+   so the configuration, pnut's own `compile-with-M2-Planet` CI flags
+   `target_i386_linux NO_TERNARY_SUPPORT ONE_PASS_GENERATOR
+   SMALL_HEAP`, goes in front as `#define NAME 1` lines, the
+   equivalent of `-D`.  The result, `sf-pnut`, is an amd64 program that
+   generates i386 code.
+2. `bootstrap.sh`'s `cc-out-v3`, `M1` and `hex2` build an M2-Planet
+   pnut from the same source and flags (`m2-pnut`, i386).  Both compile
+   `pnut.c` with the TinyCC kit's options (`-Dtarget_i386_linux
+   -DONE_PASS_GENERATOR -DSUPPORT_EMULATED_INT64
+   -DUNDEFINED_LABELS_ARE_RUNTIME_ERRORS -DENABLE_PNUT_INLINE_INTERRUPT
+   -DNO_BUILTIN_LIBC`), and the two `pnut-exe` must be byte-identical:
+   sha256 `19d96d9ed04eacaab4bba58cc3a8fcf180ac4ec88369599ef3c20d349d0fb159`.
+   (Without the kernel's IA-32 emulation `m2-pnut` cannot run, and
+   `sf-pnut`'s output is compared with that hash instead.)
+3. pnut's own `kit/bootstrap.sh` carries that `pnut-exe` on through its
+   `bintools`, tcc-0.9.27 with the kit's patches, and pnut's portable
+   libc to `tcc-boot0` … `tcc-boot3`.  `tcc-boot2` and `tcc-boot3` must
+   both be `03e96a1a63cc9bb3f577a14e50d20476507e3759bdc803f79e31d184bba44185`,
+   the hash pnut's kit README publishes.
+
+`check-all.sh` runs stages 1-2 (step 06a); `verify.sh` runs all three
+(step 8).  The one trusted input added is pnut's source tree
+(`pnut.c`, `x86.c`, `exe.c`, `elf.c`, and for stage 3 the kit, its
+tcc-0.9.27 tarball and patches, and `portable_libc`).

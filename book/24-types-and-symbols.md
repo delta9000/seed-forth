@@ -522,10 +522,10 @@ the whole-program check that follows would reject a fragment with no
     : probe
       cc-load-stdin cc-preprocess cc-out-init cc-globals-init
       cc-emit-elf-header
-      cc-emit-entry-stub cc-emit-shims cc-emit-external-protos
-      cc-emit-libc-typedefs cc-parse-function-list
-      [lit] 23 row  [lit] 24 row
-      [lit] 23 cc-sym-val-of  dup cc-sd-total-size .n
+      cc-emit-entry-stub cc-emit-shims cc-register-late-shims
+      cc-emit-external-protos cc-emit-libc-typedefs cc-parse-function-list
+      [lit] 32 row  [lit] 33 row
+      [lit] 32 cc-sym-val-of  dup cc-sd-total-size .n
       dup cc-sd-field-count .n  dup [lit] 0 cc-sd-field-rec cc-sf-offset .n
       [lit] 1 cc-sd-field-rec cc-sf-offset .d  bye ;
     probe
@@ -538,16 +538,17 @@ C
 ```
 
 ```text
-23 tri 3 0
-24 t 0 3
+32 tri 3 0
+33 t 0 3
 16 2 0 8
 ```
 
-Ids 0–22 are filled before any C is read (Ch 31's libc shims, a
-`memset` prototype, built-in typedefs).  `tri` is row 23, kind 3
+Ids 0–31 are filled before any C is read (Ch 31's eleven libc shims,
+its eight late shims, a `memset` prototype, twelve built-in typedefs).
+`tri` is row 32, kind 3
 (`sk-struct`), and its val points at a descriptor in the arena: 16
 bytes, 2 fields, `rows` at offset 0 and `stars` at offset 8.  `t` is
-row 24, kind 0 (`sk-global`), base type 3 (`ty-struct`).  Those two
+row 33, kind 0 (`sk-global`), base type 3 (`ty-struct`).  Those two
 offsets become the `add rdi, 0x0` and `add rdi, 0x8` in every `t.rows`
 and `t.stars` the compiler emits (Ch 28).
 

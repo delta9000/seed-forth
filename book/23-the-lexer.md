@@ -7,11 +7,11 @@ Artifact after this chapter: the cc-next-token interface over idents, numbers, s
 Proof link: every later Stage-A parser consumes this token stream instead of raw source bytes.
 ```
 
-After Ch 22, `tri.c` is 470 bytes of characters, but a parser does
+After Ch 22, `tri.c` is 466 bytes of characters, but a parser does
 not want characters.  At line 12 it should not have to see `i`, `n`,
-`t`, a space, `w`, `[`, `R`, `O`, `W`, `S`.  It wants to ask "what's
+`t`, a space, `w`, `[`, a space, `4`.  It wants to ask "what's
 next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
-"the number 4".  The 614-line file `050-cc-lex.fth` answers that
+"the number 4".  The 669-line file `050-cc-lex.fth` answers that
 question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,
@@ -20,9 +20,9 @@ statements) sees the source only through five cells this file fills:
 part of the lexer-state block Ch 21 set up.  There is no token list and no streaming consumer.  The
 parser calls `cc-next-token`, reads `tok-kind`, drives its grammar
 with that one token, then asks for the next.  The lexer is hand-rolled
-(no regex, no flex), and this is also where Ch 22's macros are
-substituted: a non-keyword identifier found in the macro table leaves
-as a number.
+(no regex, no flex), and it never sees a macro: Ch 22 has already
+replaced every macro name with its body, so `ROWS` arrives as the
+text `4`.
 
 ## 1. Token kinds and punctuation IDs
 
@@ -38,8 +38,7 @@ The file opens by naming everything a token can be:
 \
 \ Depends on 010-lib.fth (control-flow combinators, classifiers, bytes-eq, etc.),
 \ 020-cc-arena.fth (cc-lex-state and its cells), 030-cc-io.fth (cc-src-buf,
-\ cc-peek-char, cc-next-char, cc-eof?, ident-start?, ident-cont?), and
-\ 040-cc-prep.fth (cc-macro-find-int for macro substitution).
+\ cc-peek-char, cc-next-char, cc-eof?, ident-start?, ident-cont?).
 
 \ ===========================================================================
 \ Token kinds and punctuation IDs
@@ -379,6 +378,9 @@ Numbers come first, in decimal or hex:
     then,
   then, ;
 
+\ cc-octal-digit? ( c -- f )  True for '0'..'7'.
+: cc-octal-digit?  [char] 0 - [lit] 8 / 0= ;
+
 \ cc-hex-digit-val ( c -- v )  Convert hex digit char to 0..15.
 : cc-hex-digit-val
   dup digit? if,
@@ -419,41 +421,69 @@ Numbers come first, in decimal or hex:
   tok-num !
   tk-num tok-kind ! ;
 
-\ cc-lex-number ( -- )  Decimal, or hex (0x/0X) if the first two chars match.
+\ cc-lex-number-oct ( -- )  A leading '0' already consumed; read octal
+\ digits into tok-num (C's 010 is eight).
+: cc-lex-number-oct
+  [lit] 0
+  begin,
+    cc-eof? 0=
+    cc-peek-char cc-octal-digit? and
+  while,
+    [lit] 8 *
+    cc-peek-char [char] 0 - +
+    cc-next-char drop
+  repeat,
+  tok-num !
+  tk-num tok-kind ! ;
+
+\ cc-lex-number ( -- )  Hex if it starts 0x or 0X, octal if it starts with
+\ 0 and another digit, else decimal.  A u/U/l/L suffix is skipped: every
+\ integer is 64 bits here.
 : cc-lex-number
   cc-peek-char-2                                  ( c1 c2 )
   over [char] 0 = if,                             \ c1 == '0' ?
-    dup [char] x = swap [char] X = or if,         \ c2 == 'x' or 'X' ?
-      drop                                        \ pop c1
+    dup [char] x = over [char] X = or if,         \ c2 == 'x' or 'X' ?
+      2drop
       cc-next-char drop                           \ consume '0'
       cc-next-char drop                           \ consume 'x'/'X'
       cc-lex-number-hex
     else,
-      drop                                        \ pop c1
-      cc-lex-number-dec
+      digit? if,                                  \ c2 a digit: octal
+        drop
+        cc-next-char drop                         \ consume '0'
+        cc-lex-number-oct
+      else,
+        drop cc-lex-number-dec
+      then,
     then,
   else,
     2drop
     cc-lex-number-dec
-  then, ;
+  then,
+  begin,
+    cc-peek-char dup [char] u = over [char] U = or
+    over [char] l = or  swap [char] L = or
+  while,
+    cc-next-char drop
+  repeat, ;
 
 ```
 
 `cc-lex-number` does one `cc-peek-char-2` to decide between hex
-(`0x…` / `0X…`) and decimal.  Each path accumulates digits with
+(`0x…` / `0X…`), octal (a `0` followed by another digit, so `010` is
+8, as in C) and decimal.  Each path accumulates digits with
 `*base + digit` on the data stack, then stores into `tok-num` and sets
-`tok-kind = tk-num`.
+`tok-kind = tk-num`.  The accumulator is the full 64-bit cell and
+wraps, which is how the built-in `EOF` of Ch 22, spelled
+`0xFFFFFFFFFFFFFFFF`, reads as -1.  A suffix (`10UL`, `0xffL`) is
+skipped: every integer here is 64 bits wide.
 
-Identifiers are where Ch 22's macros finally take effect:
+Identifiers are read as a slice and checked against the keywords:
 
 ```forth file=050-cc-lex.fth
 \ cc-lex-ident-or-kw ( -- )  Read [a-zA-Z_][a-zA-Z0-9_]* and check the
-\ keyword table.  Sets tok-str-addr/len, then dispatches kind.
-\
-\ After the keyword check, if the ident did NOT match a keyword, consult the
-\ preprocessor's macro table (cc-macro-find-int).  On match,
-\ replace the token: tk-num with tok-num = the macro's integer value.
-\ Object-like, integer-valued macros only.
+\ keyword table.  Sets tok-str-addr/len, then dispatches kind.  Macros are
+\ already expanded (040-cc-prep.fth), so an identifier is just a name.
 : cc-lex-ident-or-kw
   cc-src-buf cc-src-pos @ +                     \ start address
   [lit] 0                                       ( start len )
@@ -465,29 +495,15 @@ Identifiers are where Ch 22's macros finally take effect:
     1+
   repeat,
   tok-str-len !  tok-str-addr !
-  cc-check-keyword
-  tok-kind @ tk-ident = if,
-    tok-str-addr @ tok-str-len @ cc-macro-find-int  ( v found? )
-    if,
-      tok-num !
-      tk-num tok-kind !
-    else,
-      drop
-    then,
-  then, ;
+  cc-check-keyword ;
 
 ```
 
 `cc-lex-ident-or-kw` reads the identifier as a `(start, len)` slice
 of `cc-src-buf` into `tok-str-addr` / `tok-str-len`, then calls
-`cc-check-keyword`.  If the result is `tk-ident` (not a keyword), it
-also calls Ch 22's `cc-macro-find-int`.  On a hit the token becomes a
-`tk-num` whose `tok-num` is the macro's integer value.
-
-This is the other half of Ch 22: the preprocessor records macros, and
-the lexer substitutes them when it meets the name where an identifier
-would otherwise be reported.  Object-like, integer-valued macros are
-the only kind supported (Ch 22 §5), which is enough for M2-Planet.
+`cc-check-keyword`, which settles whether it is a `tk-kw` or a
+`tk-ident`.  Nothing else can happen to a name here; what it means is
+the parser's question (Ch 24's symbol table).
 
 String and character literals close the section:
 
@@ -520,23 +536,56 @@ String and character literals close the section:
   tok-str-len !  tok-str-addr !
   tk-str tok-kind ! ;
 
-\ cc-decode-escape ( c -- byte )  The byte the escape \c stands for: \n \t
-\ \r \0 are newline, tab, carriage return and NUL; any other c (including
-\ \\ \' \") stands for itself.  The one table for both character literals
-\ (cc-lex-char) and string literals (cc-emit-string-bytes, 090).  \xNN is
-\ not supported.
+\ cc-decode-escape ( a -- byte n )  a is the address of what follows a
+\ backslash; answer the byte the escape stands for and how many bytes the
+\ escape takes after the backslash.  \n \t \r \a \b \f \v are the usual
+\ control characters; \ooo (one to three octal digits, so \0 too) and
+\ \xhh... (hex digits) give a byte by value; any other \c (including \\
+\ \' \") stands for c itself.  The one table for both character literals
+\ (cc-lex-char) and string literals (cc-emit-string-bytes, 090).
+variable cc-esc-a
+variable cc-esc-v
+variable cc-esc-n
 : cc-decode-escape
-  dup [char] n = if, drop nl       exit, then,
-  dup [char] t = if, drop tab      exit, then,
-  dup [char] r = if, drop [lit] 13 exit, then,
-  dup [char] 0 = if, drop [lit] 0  exit, then, ;
+  dup cc-esc-a !  c@
+  dup [char] x = if,
+    drop  [lit] 0 cc-esc-v !  [lit] 1 cc-esc-n !
+    begin,
+      cc-esc-a @ cc-esc-n @ + c@  dup cc-hex-digit?
+    while,
+      cc-hex-digit-val  cc-esc-v @ [lit] 16 * +  cc-esc-v !
+      [lit] 1 cc-esc-n +!
+    repeat,
+    drop  cc-esc-v @ [lit] 255 and  cc-esc-n @ exit,
+  then,
+  dup cc-octal-digit? if,
+    drop  [lit] 0 cc-esc-v !  [lit] 0 cc-esc-n !
+    begin,
+      cc-esc-a @ cc-esc-n @ + c@
+      dup cc-octal-digit?  cc-esc-n @ [lit] 3 < and
+    while,
+      [char] 0 -  cc-esc-v @ [lit] 8 * +  cc-esc-v !
+      [lit] 1 cc-esc-n +!
+    repeat,
+    drop  cc-esc-v @ [lit] 255 and  cc-esc-n @ exit,
+  then,
+  dup [char] n = if, drop nl       [lit] 1 exit, then,
+  dup [char] t = if, drop tab      [lit] 1 exit, then,
+  dup [char] r = if, drop [lit] 13 [lit] 1 exit, then,
+  dup [char] a = if, drop [lit]  7 [lit] 1 exit, then,
+  dup [char] b = if, drop [lit]  8 [lit] 1 exit, then,
+  dup [char] f = if, drop [lit] 12 [lit] 1 exit, then,
+  dup [char] v = if, drop [lit] 11 [lit] 1 exit, then,
+  [lit] 1 ;
 
 \ cc-lex-char ( -- )  Read 'c' or '\c'.  Stores the byte value in tok-num.
 : cc-lex-char
   cc-next-char drop                             \ consume opening '
   cc-peek-char backslash = if,                  \ escape
     cc-next-char drop                           \ consume backslash
-    cc-next-char cc-decode-escape               ( byte )
+    cc-src-buf cc-src-pos @ + cc-decode-escape  ( byte n )
+    begin, dup while, cc-next-char drop 1- repeat,
+    drop
   else,
     cc-next-char                                \ literal char
   then,
@@ -554,13 +603,17 @@ stream.  The lexer stays simple.
 
 `cc-lex-char` does decode escapes immediately, because its result is a
 single byte value in `tok-num`.  Both kinds of literal decode with the
-same word, `cc-decode-escape`: `\n`, `\t`, `\r` and `\0` become
-newline, tab, carriage return and NUL, and any other escaped
-character stands for itself, which covers `\\`, `\'` and `\"`.  Hex
-escapes (`\xNN`) are not supported.  One table matters: when
+same word, `cc-decode-escape`, which is handed the address after the
+backslash and answers the byte and how many bytes the escape used:
+`\n`, `\t`, `\r`, `\a`, `\b`, `\f` and `\v` are the usual control
+characters; one to three octal digits (`\0`, `\033`) or `\x` and hex
+digits (`\x1b`) give a byte by value; and any other escaped character
+stands for itself, which covers `\\`, `\'` and `\"`.  pnut prints its
+error messages in colour with `"\x1b[31m"`.  One table matters: when
 character literals had their own copy it lacked `\r`, so `'\r'`
 compiled to `'r'` (114) while `"\r"` gave 13;
-`tests/cc/I-cr-escape.c` checks that both now agree.
+`tests/cc/I-cr-escape.c` checks that both now agree, and
+`tests/cc/O-octal-escapes.c` checks the numeric escapes and `010`.
 
 ## 5. Punctuation: a fan-out
 
@@ -860,6 +913,11 @@ actually drives the lexer through:
 
 \ cc-lex-reset ( buf -- )  Restore the lexer state saved by cc-lex-mark.
 : cc-lex-reset  cc-lex-state cc-lex-copy ;
+
+\ cc-peek-mark is the one mark every lookahead in the parser uses.  Between
+\ marking and resetting, each of them only reads tokens, so no lookahead
+\ can start while another is in progress and one buffer serves them all.
+create cc-peek-mark  cc-lex-state-size allot
 ```
 
 `cc-next-token-keep` is what the parsers call instead of
@@ -876,8 +934,8 @@ token and the putback flag) into a buffer, the parser reads as many
 tokens as it likes, and `cc-lex-reset` copies the block back.  Because
 Ch 21 put every moving part of the lexer in that one block, the copy
 cannot miss a field.  `cc-lex-copy` copies a cell at a time, walking
-the offset down from 56 to 0.  Chs 29–31 use one mark buffer,
-`cc-peek-mark`, for every such look-ahead.
+the offset down from 56 to 0.  Chs 27–31 use one mark buffer,
+`cc-peek-mark`, the last thing in the file, for every such look-ahead.
 
 ## Try it
 
@@ -911,8 +969,8 @@ C
 ```
 
 The output is `6 1 5 2 5 5`: keyword, identifier, `[`, number, `]`,
-`;`.  The `2` is `ROWS`: the identifier hit the macro table and left
-the lexer as `tk-num` 4.  The whole of `tri.c` lexes to 168 tokens,
+`;`.  The `2` is `ROWS`, which the preprocessor had already replaced
+with the text `4`, so the lexer read a `tk-num` 4.  The whole of `tri.c` lexes to 168 tokens,
 and 4 of its 14 number tokens were spelled `ROWS` in the source.  The
 three character literals arrive as `tk-chr` with their values already
 decoded: `' '` is 32, `'*'` is 42, and `'\n'` is 10.
@@ -926,8 +984,8 @@ and numeric value, run the lexer unit test:
 ```
 
 `test-050-cc-lex.fth` exercises every token kind, every multi-char
-punctuation, the keyword table, the comment skipper, and the
-macro-substitution hook.  Read it to see what each entry point is
+punctuation, the keyword table, the comment skipper, the three number
+bases and the numeric escapes.  Read it to see what each entry point is
 supposed to produce.
 
 **Bootstrap relevance:** every Stage-A parser consumes source only

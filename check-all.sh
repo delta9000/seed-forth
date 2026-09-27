@@ -32,6 +32,11 @@
 #       M2-Planet -> M1 + hex2 (via 130-asm.fth) -> M2-Planet v2 -> v3, with
 #       the v2 == v3 self-host fixed point (~30 s; output in ./build-out/out).
 #       Needs no gcc, so it is never skipped.
+#   6a. tests/pnut/sf-pnut-check.sh on step 6's output (~15 s): the Forth
+#       C compiler builds pnut (vendor/pnut) unmodified, and that pnut
+#       builds the same pnut-exe as the M2-Planet-built pnut (no gcc).
+#       SKIP when vendor/pnut is not checked out (it exits 77).
+#       ./verify.sh runs it on to tcc-0.9.27 (SF_PNUT_TCC=1, ~90 s).
 #   7.  ./handoff.sh route A on step 6's output (ARCHES=amd64 ROUTE_B=0,
 #       ~20 s): stage0-posix's own recipe from Phase 6 on, fed by the Forth
 #       route in place of hex1/hex2/M0/cc_amd64, reproduces all 19
@@ -123,6 +128,20 @@ else
 fi
 
 run "06-bootstrap"      ./bootstrap.sh
+
+# 06a: tests/pnut/sf-pnut-check.sh exits 77 when vendor/pnut is missing.
+printf '%-40s' "06a-pnut ..."
+rc=0
+BOOTSTRAP_OUT=build-out/out tests/pnut/sf-pnut-check.sh > "$LOGDIR/check-all-06a-pnut.log" 2>&1 || rc=$?
+if [ $rc -eq 0 ]; then
+    echo " OK"; PASS=$((PASS + 1))
+elif [ $rc -eq 77 ]; then
+    echo " SKIP ($(grep -m1 'SKIP' "$LOGDIR/check-all-06a-pnut.log" | sed 's/^sf-pnut-check: SKIP: //'))"
+    SKIP=$((SKIP + 1))
+else
+    echo " FAIL (see $LOGDIR/check-all-06a-pnut.log)"; FAIL=$((FAIL + 1))
+    tail -20 "$LOGDIR/check-all-06a-pnut.log" | sed 's/^/    | /'
+fi
 
 # 07: handoff.sh exits 77 when stage0-posix's nested submodules are missing.
 printf '%-40s' "07-handoff ..."

@@ -54,13 +54,29 @@ gates=(
   "G-indented-define.c 42"
   "H-comment-directive.c 3"
   "I-cr-escape.c 13"
+  # Correctness fixes found while building pnut (research notes).
+  "J-extern-then-def.c 3"
+  "K-static-local.c 3"
+  "L-starpp-char.c 45"
+  "N-string-index.c 98"
+  "O-octal-escapes.c 179"
+  # The C that pnut needs (tests/pnut/sf-pnut-check.sh).
+  "P1-conditionals.c 63"
+  "P2-fn-macros.c 30"
+  "P3-casts.c 74"
+  "P4-declarations.c 42"
+  "P5-lvalue-ops.c 46"
+  "P6-case-labels.c 31"
+  "P7-array-sizes.c 42"
+  "P8-libc-shims.c 42 ok"
 )
 
 # Die gates: programs the compiler must reject.  Each entry:
 # "<file> <expected-exit> <expected last stderr line>" (run-die-gate.sh).
-# One per capacity check in 020-110, plus the whole-program checks at the
-# end of cc-parse-program (206, 207); the line is where cc-die found the
-# reader (Appendix G).  Code 22 (output file won't open) and 62 (scope pop
+# One per capacity check in 020-116, one per malformed-directive and
+# constant-expression check, plus the whole-program checks at the end of
+# cc-parse-program (206, 207); the line is where cc-die found the reader
+# (Appendix G).  Code 22 (output file won't open) and 62 (scope pop
 # without a push, a parser bug) cannot be reached from a C program.
 die_gates=(
   "die-10-arena-full.sh|10|cc: line 50: error 10"
@@ -70,14 +86,34 @@ die_gates=(
   "die-31-include-deep.c|31|cc: line 11: error 31"
   "die-32-include-too-big.sh|32|cc: line 1: error 32"
   "die-33-include-path-long.sh|33|cc: line 1: error 33"
-  "die-34-macro-table-full.sh|34|cc: line 250: error 34"
-  "die-35-macro-names-full.sh|35|cc: line 164: error 35"
+  "die-34-macro-table-full.sh|34|cc: line 1014: error 34"
+  "die-35-macro-pool-full.sh|35|cc: line 328: error 35"
   "die-36-source-too-big.sh|36|cc: line 69: error 36"
+  "die-37-macro-scratch-full.sh|37|cc: line 2: error 37"
+  "die-38-if-too-deep.sh|38|cc: line 65: error 38"
+  "die-39-if-unterminated.c|39|cc: line 7: error 39"
+  "die-40-error-directive.c|40|cc: line 5: error 40"
+  "die-41-else-without-if.c|41|cc: line 5: error 41"
+  "die-42-ifdef-no-name.c|42|cc: line 2: error 42"
+  "die-43-macro-scratch-deep.sh|43|cc: line 2: error 43"
+  "die-44-macro-call-open.c|44|cc: line 6: error 44"
+  "die-45-macro-args.c|45|cc: line 5: error 45"
+  "die-46-macro-args-max.c|46|cc: line 4: error 46"
+  "die-47-define-params.c|47|cc: line 3: error 47"
+  "die-48-define-params-max.c|48|cc: line 2: error 48"
   "die-50-struct-fields.c|50|cc: line 19: error 50"
-  "die-60-symbols-full.sh|60|cc: line 4075: error 60"
+  "die-60-symbols-full.sh|60|cc: line 4066: error 60"
   "die-61-scopes-deep.c|61|cc: line 66: error 61"
-  "die-80-globals-full.c|80|cc: line 4: error 80"
-  "die-81-global-refs-full.sh|81|cc: line 4099: error 81"
+  "die-80-globals-full.sh|80|cc: line 515: error 80"
+  "die-81-global-refs-full.sh|81|cc: line 16387: error 81"
+  "die-82-bss-full.c|82|cc: line 3: error 82"
+  "die-113-inc-not-lvalue.c|113|cc: line 4: error 113"
+  "die-124-const-div-zero.c|124|cc: line 2: error 124"
+  "die-125-const-not-enum.c|125|cc: line 4: error 125"
+  "die-126-const-bad.c|126|cc: line 4: error 126"
+  "die-127-const-paren.c|127|cc: line 2: error 127"
+  "die-128-const-colon.c|128|cc: line 2: error 128"
+  "die-129-if-trailing.c|129|cc: line 2: error 129"
   "die-162-frame-full.c|162|cc: line 7: error 162"
   "die-171-labels-full.sh|171|cc: line 67: error 171"
   "die-206-fn-undefined.c|206|cc: line 8: error 206"

@@ -12,7 +12,7 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(1435 lines total) solves this with a *precedence cascade*: plain
+(1674 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a
@@ -149,11 +149,14 @@ value, and the number 40 is not a `(`.
 \ and a call's arguments re-enter the whole grammar, and the ternary's arms
 \ parse assignments.  cc-parse-expr and cc-parse-assign are defined near the
 \ end of this file, so the words before them call these deferred words
-\ (010-lib.fth), which the last lines of the file fill in.
+\ (010-lib.fth), which the last lines of the file fill in.  A cast needs
+\ the type parser of 110-cc-decl.fth, which fills in cc-try-cast-fwd.
 \ ===========================================================================
 
 defer cc-parse-expr-fwd                           \ runs cc-parse-expr
 defer cc-parse-assign-fwd                         \ runs cc-parse-assign
+defer cc-try-cast-fwd                             \ runs cc-try-cast (110)
+defer cc-parse-unary-fwd                          \ runs cc-parse-unary
 
 ```
 
@@ -164,8 +167,12 @@ soon as its header is built, but it cannot call a word that comes
 later in the file.  So the file declares two deferred words
 (Ch 12): `cc-parse-expr-fwd` and `cc-parse-assign-fwd` run whatever
 xt their cells hold.  The words before `cc-parse-expr` call them,
-and the last two lines of the file (Ch 28's `expr-top` chunk) fill
-the cells with `is`.
+and the last lines of the file (Ch 28's `expr-top` chunk) fill
+the cells with `is`.  `cc-parse-unary-fwd` serves prefix `++`, whose
+operand is a unary expression parsed by a word defined after it.
+`cc-try-cast-fwd` reaches further: a cast has to read a type name,
+and the type parser is in `110-cc-decl.fth` (Ch 29), which fills it
+in.
 
 Part III uses this pattern wherever load order and call order
 disagree: `defer NAME-fwd` before the callers, `' NAME is NAME-fwd`
@@ -180,7 +187,78 @@ level, and while the next token is one of *its* operators, parses
 another operand and combines the two with one instruction sequence.
 What differs from level to level is only which operators it accepts
 and which encoder each one calls.  That is data, so it lives in one
-table:
+table.
+
+A row has one more column, for a second use of the same operators.
+Array sizes, case labels, enum values and `#if` lines are *constant
+expressions*: their value is needed while compiling, so there is no
+code to emit, only a number to compute (Ch 28 §9).  For that, every
+operator also names a Forth word that does to two 64-bit values what
+its instructions do at run time.  The seed's `/` is unsigned and it has
+no shifts and no xor, so the signed versions come first:
+
+```forth chunk=expr-binops
+\ ===========================================================================
+\ Arithmetic at compile time
+\ ===========================================================================
+\ A constant expression (an array size, a case label, an #if line) is
+\ computed while compiling, so each operator also needs a Forth word that
+\ does what its instructions do at run time, on two 64-bit values.  The
+\ seed's / is unsigned and it has no shift or xor, so the signed
+\ versions are built here.
+
+: cc-negate  [lit] 0 swap - ;                     ( n -- -n )
+: cc-invert  dup nand ;                           ( n -- ~n )
+: cc-xor     2dup or >r and cc-invert r> and ;     ( a b -- a^b )
+: cc-flag    0= 1+ ;                              \ ( f -- 1|0 ): C truth
+: cc-abs     dup 0< if, cc-negate then, ;         ( n -- |n| )
+
+\ cc-divisor ( b -- b )  Die with 124 if a constant divisor is 0.
+: cc-divisor  dup 0= if, [lit] 124 cc-die then, ;
+
+\ cc-div ( a b -- q )  Signed division, truncating toward zero like idiv.
+\ cc-mod ( a b -- r )  Its remainder, which takes the sign of a.
+: cc-div
+  cc-divisor
+  2dup cc-xor 0< >r  cc-abs swap cc-abs swap /  r> if, cc-negate then, ;
+: cc-mod
+  cc-divisor
+  over 0< >r  cc-abs swap cc-abs swap  2dup / * -  r> if, cc-negate then, ;
+
+\ cc-pow2 ( n -- 2^n )
+: cc-pow2
+  [lit] 1 swap
+  begin, dup while, swap dup + swap 1- repeat,
+  drop ;
+\ cc-shl ( a n -- a<<n )   cc-sar ( a n -- a>>n ), the sign bit copied in.
+: cc-shl  cc-pow2 * ;
+: cc-sar
+  over 0< if,
+    swap cc-invert swap cc-pow2 / cc-invert
+  else,
+    cc-pow2 /
+  then, ;
+
+\ The comparisons answer C's 1 or 0.
+: cc-lt  <  cc-flag ;
+: cc-gt  >  cc-flag ;
+: cc-le  <= cc-flag ;
+: cc-ge  >= cc-flag ;
+: cc-eq  =  cc-flag ;
+: cc-ne  <> cc-flag ;
+
+```
+
+`cc-div` and `cc-mod` divide the magnitudes with the seed's unsigned
+`/` and fix the sign afterwards, which gives `idiv`'s truncation
+toward zero: -7 / 2 is -3 and -7 % 3 is -1, the values the emitted
+code computes.  Dividing by zero dies with code 124 rather than
+faulting inside the compiler.  `cc-sar` shifts a negative number by
+complementing it, shifting the non-negative result, and complementing
+back, which copies the sign bit in, as `sar` does.  `cc-flag` turns
+Forth's -1/0 into C's 1/0.
+
+Now the table itself:
 
 ```forth chunk=expr-binops
 \ ===========================================================================
@@ -190,12 +268,13 @@ table:
 \ operand at the next-tighter level, then, while the next token is one of
 \ this level's operators, parse another operand and combine the two.  Only
 \ the operators and the instructions that combine differ, so those live in
-\ this table, one row of four cells per operator:
+\ this table, one row of five cells per operator:
 \
 \   op        the operator's punct code (tok-num)
 \   compound  the code of its compound assignment (`+` has `+=`); 0 if none
 \   level     which level parses it (level-mul .. level-bit-or)
 \   emitter   xt of the 090 word that emits rdi := rdi OP rcx
+\   evaluator xt of the word above that computes a OP b now
 \
 \ Each level's parser looks its operators up by op; cc-parse-assign looks
 \ `+=` and the rest up by compound, so `a + b` and `a += b` share an
@@ -214,45 +293,47 @@ table:
 [lit]  8 constant bo-compound
 [lit] 16 constant bo-level
 [lit] 24 constant bo-emitter
-[lit] 32 constant bo-size
+[lit] 32 constant bo-eval
+[lit] 40 constant bo-size
 
 ```
 
-A row is four cells.  `op` is the punct code the lexer gives the
+A row is five cells.  `op` is the punct code the lexer gives the
 operator; `level` names the precedence level that owns it; `emitter`
 is the execution token of the Ch 25–26 encoder that computes
-`rdi := rdi OP rcx`.  `compound` is the operator's compound-assignment
+`rdi := rdi OP rcx`; `evaluator` is the word above (or the seed's own
+`+`, `-`, `*`, `and`, `or`) that computes the same thing now.  `compound` is the operator's compound-assignment
 twin, which Ch 28's assignment parser looks up in the same table, so
 `a + b` and `a += b` reach the same `add rdi, rcx`.  The level
 numbers only label rows; they don't rank anything.
 
-`cc-binop,` lays down one row.  Its last field comes from the input,
-the way `char` takes its argument: `'` reads the encoder's name and
+`cc-binop,` lays down one row.  Its last two fields come from the
+input, the way `char` takes its argument: `'` reads a word's name and
 `,` stores its xt.
 
 ```forth chunk=expr-binops
-\ cc-binop, ( op compound level "emitter" -- )  Lay down one row; the
-\ emitter's name follows in the input.
-: cc-binop,  rot , swap , ,  ' , ;
+\ cc-binop, ( op compound level "emitter" "evaluator" -- )  Lay down one
+\ row; the emitter's and the evaluator's names follow in the input.
+: cc-binop,  rot , swap , ,  ' ,  ' , ;
 
 create cc-binops
-\ op          compound       level
-char *      pt-star-eq     level-mul      cc-binop, cc-emit-imul-rdi-rcx
-char /      pt-slash-eq    level-mul      cc-binop, cc-emit-idiv-quotient
-char %      pt-percent-eq  level-mul      cc-binop, cc-emit-idiv-remainder
-char +      pt-plus-eq     level-add      cc-binop, cc-emit-add-rdi-rcx
-char -      pt-minus-eq    level-add      cc-binop, cc-emit-sub-rdi-rcx
-pt-shl      pt-shl-eq      level-shift    cc-binop, cc-emit-shl-rdi-cl
-pt-shr      pt-shr-eq      level-shift    cc-binop, cc-emit-sar-rdi-cl   \ signed
-char <      [lit] 0        level-rel      cc-binop, cc-emit-cmp-lt
-char >      [lit] 0        level-rel      cc-binop, cc-emit-cmp-gt
-pt-le       [lit] 0        level-rel      cc-binop, cc-emit-cmp-le
-pt-ge       [lit] 0        level-rel      cc-binop, cc-emit-cmp-ge
-pt-eq-eq    [lit] 0        level-eq       cc-binop, cc-emit-cmp-eq
-pt-bang-eq  [lit] 0        level-eq       cc-binop, cc-emit-cmp-ne
-char &      pt-amp-eq      level-bit-and  cc-binop, cc-emit-and-rdi-rcx
-char ^      pt-caret-eq    level-bit-xor  cc-binop, cc-emit-xor-rdi-rcx
-char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx
+\ op          compound       level                  emitter                evaluator
+char *      pt-star-eq     level-mul      cc-binop, cc-emit-imul-rdi-rcx   *
+char /      pt-slash-eq    level-mul      cc-binop, cc-emit-idiv-quotient  cc-div
+char %      pt-percent-eq  level-mul      cc-binop, cc-emit-idiv-remainder cc-mod
+char +      pt-plus-eq     level-add      cc-binop, cc-emit-add-rdi-rcx    +
+char -      pt-minus-eq    level-add      cc-binop, cc-emit-sub-rdi-rcx    -
+pt-shl      pt-shl-eq      level-shift    cc-binop, cc-emit-shl-rdi-cl     cc-shl
+pt-shr      pt-shr-eq      level-shift    cc-binop, cc-emit-sar-rdi-cl     cc-sar   \ signed
+char <      [lit] 0        level-rel      cc-binop, cc-emit-cmp-lt         cc-lt
+char >      [lit] 0        level-rel      cc-binop, cc-emit-cmp-gt         cc-gt
+pt-le       [lit] 0        level-rel      cc-binop, cc-emit-cmp-le         cc-le
+pt-ge       [lit] 0        level-rel      cc-binop, cc-emit-cmp-ge         cc-ge
+pt-eq-eq    [lit] 0        level-eq       cc-binop, cc-emit-cmp-eq         cc-eq
+pt-bang-eq  [lit] 0        level-eq       cc-binop, cc-emit-cmp-ne         cc-ne
+char &      pt-amp-eq      level-bit-and  cc-binop, cc-emit-and-rdi-rcx    and
+char ^      pt-caret-eq    level-bit-xor  cc-binop, cc-emit-xor-rdi-rcx    cc-xor
+char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx     or
 [lit] 0 ,                                         \ end of table
 
 ```

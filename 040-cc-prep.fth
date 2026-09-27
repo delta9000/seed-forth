@@ -1,123 +1,214 @@
-\ 040-cc-prep.fth — preprocessor for the C-subset compiler.
+\ 040-cc-prep.fth — the C preprocessor.
 \
-\ Responsibilities:
-\   1. Process #include "FILE" / #include <FILE>.
-\      - "FILE":  open it, recursively preprocess its content (nested
-\                 includes / defines work), splice into output.
-\      - <FILE>:  elide (the compiler has built-in shims for stdio.h).
-\   2. Process #define NAME INT_OR_NAME.  Object-like macros only; the
-\      value must be a decimal literal OR another previously-defined macro
-\      name resolving to one.  The directive is elided.
-\   3. All other characters are copied verbatim from input to output.
-\   4. Macro substitution happens at LEX time via cc-macro-find-int (called
-\      from cc-lex-ident-or-kw).  The lexer emits a tk-num token instead of
-\      tk-ident when a macro matches.
+\ One pass over the raw source, before the lexer sees anything:
+\   1. #include "FILE" splices FILE in (searched as given, then under
+\      tests/cc/); #include <FILE> is dropped, because the compiler's
+\      built-in functions, typedefs and macros stand in for the system
+\      headers.
+\   2. #define NAME BODY and #define NAME(PARAMS) BODY record a macro, and
+\      #undef NAME forgets it.  Outside directives every identifier is
+\      looked up: a macro's name is replaced by its body (for a function-
+\      like macro, with the call's arguments put in for the parameters),
+\      and the replacement is scanned again for more macros.
+\   3. #if, #ifdef, #ifndef, #elif, #else and #endif keep or drop lines;
+\      #if and #elif evaluate a constant expression in which
+\      `defined NAME` asks whether NAME is a macro.
+\   4. #error stops the compiler.  Any other directive is dropped.
+\   5. Everything else is copied through unchanged.
 \
-\ Implementation: walk a region (addr,len,pos) byte-by-byte.  '#' at line
-\ start triggers directive dispatch.  Recursion = save current region globals,
-\ swap to the included region, process, restore.
+\ Every source line keeps its line number, so cc-die's "line N" is the line
+\ of the spliced-together program: a dropped line or directive leaves its
+\ newline behind, and the newlines a directive or a macro call spanning
+\ several lines swallows are written out right after it.
 \
-\ Include buffers: a small fixed pool of 4 slots × 64 KiB.  cc-prep-inc-depth
-\ tracks which slot we're using.  Sufficient for up to 4 levels of nested
-\ #include.  M2-Planet's #include "M2libc/..." depth is at most 2.
+\ The pass reads a region (addr, len, pos) byte by byte and writes to a
+\ sink.  The first region is the program in cc-in-buf; an #include pushes
+\ the included file as a new region, and a macro expansion pushes the
+\ replacement text.  The sink is cc-src-buf, the buffer the lexer reads
+\ (030), except while an argument or a replacement is being built in a
+\ temporary buffer.
 \
-\ Include search paths (first match wins):
-\   1. Path verbatim (absolute, or relative to cwd).
-\   2. tests/cc/<path>  — tracked local test fallback.
-\
-\ Input and output: the pass reads the raw source from cc-in-buf and writes
-\ its result straight into cc-src-buf, the buffer the lexer reads (030).
-\
-\ Depends on 010-lib.fth (open/close, digit?, bytes-eq, control-flow),
+\ Depends on 010-lib.fth (open/close, digit?, bytes-eq, control flow),
 \ 020-cc-arena.fth (cc-src-line, cc-die, cc-check-cap) and 030-cc-io.fth
 \ (cc-in-buf, cc-src-buf, cc-src-init, cc-read-all, ident-start?/ident-cont?,
-\ cell[], cc-name-find).
+\ cell[], cc-name-find).  #if's expression evaluator comes from
+\ 100-cc-expr.fth, through the deferred word cc-pp-eval.
 
 \ ===========================================================================
-\ Output: the lexer's source buffer
+\ The sink
 \ ===========================================================================
+\ Where output bytes go: one 4-cell block, so a sink can be parked and
+\ restored by copying the block.
 
-\ cc-prep-emit-byte ( b -- )  Append b to cc-src-buf; die 36 if it is full.
-\ Counts lines as it goes, so a failure during the pass reports the line of
-\ the output it had reached.
+create cc-pp-sink  [lit] 32 allot
+cc-pp-sink             constant cc-pp-out          \ buffer address
+cc-pp-sink [lit]  8 +  constant cc-pp-out-pos      \ bytes written so far
+cc-pp-sink [lit] 16 +  constant cc-pp-out-cap      \ buffer size
+cc-pp-sink [lit] 24 +  constant cc-pp-out-code     \ die code when it fills
+
+\ cc-prep-emit-byte ( b -- )  Append b to the sink; die with the sink's
+\ code if it is full.  Counts lines as it goes, so a failure during the
+\ pass reports the line of the output it had reached.
 : cc-prep-emit-byte
-  cc-src-len @ 1+ cc-src-cap [lit] 36 cc-check-cap
-  dup cc-src-buf cc-src-len @ + c!
-  [lit] 1 cc-src-len +!
+  cc-pp-out-pos @ 1+ cc-pp-out-cap @ cc-pp-out-code @ cc-check-cap
+  dup cc-pp-out @ cc-pp-out-pos @ + c!
+  [lit] 1 cc-pp-out-pos +!
   nl = if, [lit] 1 cc-src-line +! then, ;
 
-\ ===========================================================================
-\ Macro table (parallel arrays).  Object-like macros, integer values only.
-\ ===========================================================================
+\ cc-pp-emit-bytes ( a u -- )  Append u bytes from a.
+: cc-pp-emit-bytes
+  begin, dup while,
+    over c@ cc-prep-emit-byte
+    1- swap 1+ swap
+  repeat,
+  2drop ;
 
-[lit] 256 constant cc-macro-cap
+\ cc-pp-copy4 ( src dst -- )  Copy one 4-cell block (a sink).
+: cc-pp-copy4
+  [lit] 32
+  begin, dup while,
+    [lit] 8 -                                    ( src dst off )
+    >r  over r@ + @  over r@ + !  r>
+  repeat,
+  drop 2drop ;
+
+\ Parked sinks, innermost last.  Every sink parked here but the first
+\ two (the source buffer and the macro pool, §2) belongs to a temp
+\ buffer, and each temp buffer takes cc-pp-temp-cap bytes of the scratch
+\ area below, so the scratch runs out (code 43) before this stack could:
+\ it has room for as many temp buffers as the scratch holds, plus two.
+[lit] 34 constant cc-pp-sinks-cap
+create cc-pp-sinks  cc-pp-sinks-cap [lit] 32 * allot
+variable cc-pp-sink-depth
+
+\ cc-pp-sink-push ( addr pos cap code -- )  Park the current sink and make
+\ a new one.
+: cc-pp-sink-push
+  cc-pp-sink  cc-pp-sink-depth @ [lit] 32 * cc-pp-sinks +  cc-pp-copy4
+  [lit] 1 cc-pp-sink-depth +!
+  cc-pp-out-code ! cc-pp-out-cap ! cc-pp-out-pos ! cc-pp-out ! ;
+
+\ cc-pp-sink-pop ( -- )  Resume writing to the most recently parked sink.
+: cc-pp-sink-pop
+  [lit] 1 cc-pp-sink-depth -!
+  cc-pp-sink-depth @ [lit] 32 * cc-pp-sinks +  cc-pp-sink  cc-pp-copy4 ;
+
+\ ===========================================================================
+\ Scratch space for temporary text
+\ ===========================================================================
+\ A macro call's arguments and its replacement are built here, in temporary
+\ sinks allocated from the top of a stack.  A temp buffer being written
+\ owns cc-pp-temp-cap bytes; once finished it keeps only its text.  Each
+\ macro call gives back everything it took when it is done.
+
+[lit] 2097152 constant cc-pp-scratch-cap          \ 2 MiB
+create cc-pp-scratch  cc-pp-scratch-cap allot
+variable cc-pp-scratch-top                        \ first free byte
+[lit] 65536 constant cc-pp-temp-cap               \ one temp buffer's room
+
+\ cc-pp-scratch-alloc ( n -- a )  Take n bytes; die 43 if they aren't
+\ there (macro calls nested some 32 deep inside each other's arguments).
+: cc-pp-scratch-alloc
+  cc-pp-scratch-top @ swap over +                  ( a new-top )
+  dup cc-pp-scratch - cc-pp-scratch-cap [lit] 43 cc-check-cap
+  cc-pp-scratch-top ! ;
+
+\ cc-pp-temp-begin ( -- )  Park the sink; write to a new temp buffer.  A
+\ temp buffer that fills dies with 37.
+: cc-pp-temp-begin
+  cc-pp-temp-cap cc-pp-scratch-alloc  [lit] 0  cc-pp-temp-cap  [lit] 37
+  cc-pp-sink-push ;
+
+\ cc-pp-temp-end ( -- a u )  Finish the temp buffer: answer its text, give
+\ back the room it did not use, and resume the parked sink.
+: cc-pp-temp-end
+  cc-pp-out @ cc-pp-out-pos @                      ( a u )
+  2dup + cc-pp-scratch-top !
+  cc-pp-sink-pop ;
+
+\ ===========================================================================
+\ The macro table
+\ ===========================================================================
+\ Parallel arrays indexed by macro number (cell[], 030).  A macro's name
+\ and body are copied into cc-macro-pool: the source they came from may be
+\ an include-pool slot that the next #include at that depth overwrites.
+\   name-addr / name-len  the name; #undef sets the length to 0, so the
+\                         entry can never match again
+\   body-addr / body-len  the replacement text.  In a function-like macro's
+\                         body each use of parameter k is the two bytes
+\                         1, k (a byte no C text contains).
+\   params                -1 for an object-like macro; else how many
+\                         parameters the function-like macro has
+\   busy                  -1 while the macro's own replacement is being
+\                         scanned: a macro met inside itself is not
+\                         expanded again, so no expansion loops.
+
+[lit] 1024 constant cc-macro-cap
 create cc-macro-name-addr  cc-macro-cap [lit] 8 * allot
 create cc-macro-name-len   cc-macro-cap [lit] 8 * allot
-create cc-macro-value      cc-macro-cap [lit] 8 * allot
+create cc-macro-body-addr  cc-macro-cap [lit] 8 * allot
+create cc-macro-body-len   cc-macro-cap [lit] 8 * allot
+create cc-macro-params     cc-macro-cap [lit] 8 * allot
+create cc-macro-busy       cc-macro-cap [lit] 8 * allot
 variable cc-macro-count
 
-\ Dedicated name pool.  A #define's name may sit in an include-pool slot
-\ (below), which the next #include at the same depth overwrites while the
-\ lexer still needs the macro.  So the names are deep-copied here.
-[lit] 16384 constant cc-macro-name-pool-cap
-create cc-macro-name-pool  cc-macro-name-pool-cap allot
-variable cc-macro-name-pool-pos
+[lit] 65536 constant cc-macro-pool-cap            \ 64 KiB
+create cc-macro-pool  cc-macro-pool-cap allot
+variable cc-macro-pool-pos
 
-\ cc-macro-name-pool-copy ( src-addr src-len -- dest-addr )
-\ Copy src-len bytes into the name pool, returning their dest address.
-\ Dies with code 35 if the pool overflows.
-variable cc-mn-src-a
-variable cc-mn-src-u
-variable cc-mn-dst
-: cc-macro-name-pool-copy
-  cc-mn-src-u ! cc-mn-src-a !
-  cc-macro-name-pool-pos @ cc-mn-src-u @ +
-  cc-macro-name-pool-cap [lit] 35 cc-check-cap
-  cc-macro-name-pool cc-macro-name-pool-pos @ +    ( dst )
-  dup cc-mn-dst !
-  begin,
-    cc-mn-src-u @ [lit] 0 >
-  while,
-    cc-mn-src-a @ c@ cc-mn-dst @ c!
-    [lit] 1 cc-mn-src-a +!
-    [lit] 1 cc-mn-dst +!
-    [lit] 1 cc-mn-src-u -!
-  repeat,
-  \ Advance pool pos by the original length.
-  cc-mn-dst @ cc-macro-name-pool - cc-macro-name-pool-pos !
-  ;
+\ cc-pp-to-pool ( -- )  Make the macro pool the sink (die 35 when full).
+: cc-pp-to-pool
+  cc-macro-pool cc-macro-pool-pos @ cc-macro-pool-cap [lit] 35
+  cc-pp-sink-push ;
 
-\ cc-macro-add ( name-addr name-len value -- )
-\ Deep-copies the name into the name pool before recording the entry.
-\ Dies with code 34 if the table already holds cc-macro-cap macros.
-: cc-macro-add
+\ cc-pp-from-pool ( -- )  Keep what was written to the pool; resume the
+\ parked sink.
+: cc-pp-from-pool
+  cc-pp-out-pos @ cc-macro-pool-pos !
+  cc-pp-sink-pop ;
+
+\ cc-pp-pool-copy ( a u -- a' u )  Copy u bytes into the pool.
+: cc-pp-pool-copy
+  cc-macro-pool cc-macro-pool-pos @ + >r          ( a u ; R: a' )
+  cc-pp-to-pool  dup >r cc-pp-emit-bytes  cc-pp-from-pool
+  r> r> swap ;
+
+\ cc-macro-record ( name-a name-u body-a body-u params -- )  Add an entry
+\ whose name and body already sit in the pool.  Dies with code 34 if the
+\ table already holds cc-macro-cap macros.
+: cc-macro-record
   cc-macro-count @ 1+ cc-macro-cap [lit] 34 cc-check-cap
-  cc-macro-count @ >r                              ( a u v ; R: i )
-  r@ cc-macro-value cell[] !                       ( a u )
-  \ Copy name into the pool; replace addr with pool addr.
-  over over                                        ( a u a u )
-  cc-macro-name-pool-copy                          ( a u pool-addr )
-  \ Now we have ( a u pool-addr ).  We need to store pool-addr and u.
-  r@ cc-macro-name-addr cell[] !                   ( a u )
-  r@ cc-macro-name-len  cell[] !                   ( a )
-  drop                                             ( -- )
-  [lit] 1 cc-macro-count +!
-  r> drop ;
+  cc-macro-count @ >r
+  r@ cc-macro-params    cell[] !
+  r@ cc-macro-body-len  cell[] !
+  r@ cc-macro-body-addr cell[] !
+  r@ cc-macro-name-len  cell[] !
+  r@ cc-macro-name-addr cell[] !
+  [lit] 0 r> cc-macro-busy cell[] !
+  [lit] 1 cc-macro-count +! ;
 
-\ cc-macro-find-int ( name-addr name-len -- value found? )
-\ Newest first (cc-name-find), so a later #define wins.
-: cc-macro-find-int
-  cc-macro-name-addr cc-macro-name-len cc-macro-count @ cc-name-find  ( i )
-  dup 0< if, drop [lit] 0 [lit] 0 exit, then,      \ not found: 0 0
-  cc-macro-value cell[] @ true ;                   ( value -1 )
+\ cc-macro-add ( name-a name-u body-a body-u -- )  Add an object-like
+\ macro, copying name and body into the pool (the built-in macros).
+: cc-macro-add
+  >r >r cc-pp-pool-copy r> r> cc-pp-pool-copy
+  true cc-macro-record ;
+
+\ cc-macro-find ( a u -- i | -1 )  The newest macro named a u, so a later
+\ #define of the same name wins.
+: cc-macro-find
+  cc-macro-name-addr cc-macro-name-len cc-macro-count @ cc-name-find ;
 
 \ ===========================================================================
-\ Walking-region state.  Globals so recursion just saves/restores.
+\ The region being read
 \ ===========================================================================
+\ cc-prep-in-file is true while the region is a source file, where a line
+\ may be a directive; false while it is macro text being scanned again.
 
 variable cc-prep-src-addr
 variable cc-prep-src-len
 variable cc-prep-src-pos
+variable cc-prep-in-file
+variable cc-prep-at-line-start                    \ true at the start of a line
 
 \ cc-prep-eor? ( -- f )  End-of-region.
 : cc-prep-eor?
@@ -136,7 +227,7 @@ variable cc-prep-src-pos
   [lit] 1 cc-prep-src-pos +! ;
 
 \ cc-prep-peek2 ( -- c )  The byte one past pos; 0 if that is at/after EOR.
-\ Used to recognise the two-byte comment markers /* and */.
+\ Used to recognise two-byte markers such as /* and */.
 : cc-prep-peek2
   cc-prep-src-pos @ 1+ cc-prep-src-len @ >= if,
     [lit] 0
@@ -153,43 +244,178 @@ variable cc-prep-src-pos
     cc-prep-advance
   repeat, ;
 
-\ cc-prep-skip-block-comment-tail ( -- )  pos is just past an opening /*.
-\ Consume bytes through the closing */ (crossing newlines), or to EOR.
-: cc-prep-skip-block-comment-tail
-  begin,
-    cc-prep-eor? 0=
-    cc-prep-peek [char] * = cc-prep-peek2 [char] / = and 0=  \ not yet "*/"
-    and
-  while,
-    cc-prep-advance
-  repeat,
-  cc-prep-peek  [char] * = if, cc-prep-advance then,         \ consume '*'
-  cc-prep-peek  [char] / = if, cc-prep-advance then, ;       \ consume '/'
+\ cc-prep-at? ( c1 c2 -- f )  True if the next two bytes are c1 c2.
+: cc-prep-at?
+  cc-prep-peek2 = swap cc-prep-peek = and ;
 
-\ cc-prep-skip-to-eol ( -- )  Stop at newline (which is left unconsumed) or EOR.
-\ A directive's tokens may be followed by a /* block comment */ that runs past
-\ the newline; consume such a comment whole so its closing */ doesn't leak into
-\ the emitted stream as stray tokens.  Comments are otherwise the lexer's job —
-\ this only matters here because directive tails are elided before lexing.
-: cc-prep-skip-to-eol
-  begin,
-    cc-prep-eor? 0=
-    cc-prep-peek nl <> and
-  while,
-    cc-prep-peek [char] / = cc-prep-peek2 [char] * = and if,
-      cc-prep-advance cc-prep-advance                       \ skip '/*'
-      cc-prep-skip-block-comment-tail
-    else,
-      cc-prep-advance
-    then,
+\ ===========================================================================
+\ Newlines that are owed
+\ ===========================================================================
+\ A newline swallowed without being written (inside a directive's comment,
+\ a continued line, a macro call's arguments) is counted here and written
+\ out after the directive or the macro call, so later lines keep their
+\ numbers.
+
+variable cc-pp-pending-nl
+
+: cc-pp-flush-nl
+  begin, cc-pp-pending-nl @ while,
+    nl cc-prep-emit-byte
+    [lit] 1 cc-pp-pending-nl -!
   repeat, ;
 
 \ ===========================================================================
-\ Include buffer pool (4 slots × 64 KiB).
+\ Walking comments and literals
+\ ===========================================================================
+\ One walker per construct; what happens to each byte walked over is set by
+\ cc-pp-put-mode: put-emit copies it to the sink, put-count only counts its
+\ newlines as owed, put-drop does nothing.
+
+[lit] 0 constant put-drop
+[lit] 1 constant put-emit
+[lit] 2 constant put-count
+variable cc-pp-put-mode
+
+\ cc-pp-put ( c -- )  Dispose of one walked-over byte.
+: cc-pp-put
+  cc-pp-put-mode @ put-emit = if, cc-prep-emit-byte exit, then,
+  cc-pp-put-mode @ put-count = if,
+    nl = if, [lit] 1 cc-pp-pending-nl +! then, exit,
+  then,
+  drop ;
+
+\ cc-pp-take ( -- )  Put the current byte and step past it.
+: cc-pp-take  cc-prep-peek cc-pp-put cc-prep-advance ;
+
+\ cc-pp-block-comment ( -- )  pos at "/*": walk through the closing "*/",
+\ or to EOR.
+: cc-pp-block-comment
+  cc-pp-take cc-pp-take
+  begin,
+    cc-prep-eor? if, exit, then,
+    [char] * [char] / cc-prep-at? 0=
+  while,
+    cc-pp-take
+  repeat,
+  cc-pp-take cc-pp-take ;
+
+\ cc-pp-line-comment ( -- )  pos at "//": walk to the newline, which is
+\ left for the caller.
+: cc-pp-line-comment
+  begin,
+    cc-prep-eor? 0= cc-prep-peek nl <> and
+  while,
+    cc-pp-take
+  repeat, ;
+
+\ cc-pp-literal ( -- )  pos at a ' or ": walk through the closing quote.
+\ A backslash takes the next byte with it; an unclosed literal stops at the
+\ end of its line.
+: cc-pp-literal
+  cc-prep-peek cc-pp-take                          ( q )
+  begin,
+    cc-prep-eor? if, drop exit, then,
+    cc-prep-peek nl = if, drop exit, then,
+    cc-prep-peek backslash = if,
+      cc-pp-take
+      cc-prep-eor? 0= if, cc-pp-take then,
+    else,
+      cc-prep-peek over = if, drop cc-pp-take exit, then,
+      cc-pp-take
+    then,
+  again, ;
+
+\ cc-prep-skip-to-eol ( -- )  Step to the end of the line: pos stops on the
+\ newline (or at EOR).  A /* comment */ or a backslash-newline on the way
+\ is stepped over whole, and the newlines inside it are owed.
+: cc-prep-skip-to-eol
+  put-count cc-pp-put-mode !
+  begin,
+    cc-prep-eor? 0= cc-prep-peek nl <> and
+  while,
+    [char] / [char] * cc-prep-at? if,
+      cc-pp-block-comment
+    else,
+      backslash nl cc-prep-at? if, cc-prep-advance then,
+      cc-pp-take
+    then,
+  repeat, ;
+
+\ cc-pp-line-slice ( -- a u )  The rest of the directive line, from pos to
+\ (not including) the newline that ends it; pos moves there.  Comments and
+\ backslash-newlines stay in the slice (scanning it counts their newlines).
+: cc-pp-line-slice
+  cc-prep-src-addr @ cc-prep-src-pos @ +  cc-prep-src-pos @   ( a start )
+  put-drop cc-pp-put-mode !
+  begin,
+    cc-prep-eor? 0= cc-prep-peek nl <> and
+  while,
+    [char] / [char] * cc-prep-at? if,
+      cc-pp-block-comment
+    else,
+      backslash nl cc-prep-at? if, cc-prep-advance then,
+      cc-prep-advance
+    then,
+  repeat,
+  cc-prep-src-pos @ swap - ;
+
+\ ===========================================================================
+\ Identifiers and numbers
 \ ===========================================================================
 
-[lit] 65536 constant cc-prep-inc-slot-cap
-[lit] 4     constant cc-prep-inc-slot-count
+variable cc-prep-ident-addr
+variable cc-prep-ident-len
+
+\ cc-prep-read-ident ( -- )  Reads an identifier at cc-prep-src-pos into
+\ cc-prep-ident-{addr,len}.  Pre: peek is ident-start.  Advances pos past it.
+: cc-prep-read-ident
+  cc-prep-src-addr @ cc-prep-src-pos @ +  cc-prep-ident-addr !
+  cc-prep-src-pos @                                ( start )
+  begin,
+    cc-prep-eor? 0=
+    cc-prep-peek ident-cont? and
+  while,
+    cc-prep-advance
+  repeat,
+  cc-prep-src-pos @ swap -  cc-prep-ident-len ! ;
+
+\ cc-prep-ident= ( a u -- f )  True if the identifier just read is a u.
+: cc-prep-ident=
+  dup cc-prep-ident-len @ = if,
+    cc-prep-ident-addr @ swap bytes-eq
+  else,
+    2drop [lit] 0
+  then, ;
+
+\ cc-pp-need-name ( -- )  Read the name a directive requires (#ifdef NAME,
+\ defined NAME) into cc-prep-ident-{addr,len}; die 42 if there is none.
+: cc-pp-need-name
+  cc-prep-skip-blanks
+  cc-prep-peek ident-start? 0= if, [lit] 42 cc-die then,
+  cc-prep-read-ident ;
+
+\ cc-pp-need-rparen ( -- )  Step past the ')' that closes `defined(NAME`
+\ or a #define's parameter list; die 47 if it isn't there.
+: cc-pp-need-rparen
+  cc-prep-skip-blanks
+  cc-prep-peek [char] ) <> if, [lit] 47 cc-die then,
+  cc-prep-advance ;
+
+\ cc-pp-copy-number ( -- )  A number is copied whole, suffix and all, so
+\ the letters in 0x1F or 10UL are never taken for an identifier.
+: cc-pp-copy-number
+  begin,
+    cc-prep-peek ident-cont?  cc-prep-peek [char] . = or
+  while,
+    cc-prep-peek cc-prep-emit-byte cc-prep-advance
+  repeat, ;
+
+\ ===========================================================================
+\ Include buffer pool (4 slots × 256 KiB).
+\ ===========================================================================
+
+[lit] 262144 constant cc-prep-inc-slot-cap
+[lit] 4      constant cc-prep-inc-slot-count
 
 create cc-prep-inc-pool  cc-prep-inc-slot-cap cc-prep-inc-slot-count * allot
 variable cc-prep-inc-depth
@@ -277,50 +503,448 @@ variable cc-prep-load-name-u
   r> close drop ;
 
 \ ===========================================================================
-\ Ident / decimal readers (operate on cc-prep-src region).
+\ Scanning: the main walker and macro expansion
 \ ===========================================================================
+\ cc-pp-scan walks the current region to its end.  A macro use pushes the
+\ replacement as a new region and scans it (cc-pp-expand-text), which
+\ calls cc-pp-scan again: the two are mutually recursive, and the
+\ directive dispatcher (defined further on) is reached from the walker as
+\ well, so both go through deferred words (010-lib.fth).
 
-variable cc-prep-ident-addr
-variable cc-prep-ident-len
+defer cc-pp-scan-fwd
+defer cc-prep-handle-directive-fwd
 
-\ cc-prep-read-ident ( -- )  Reads an identifier at cc-prep-src-pos into
-\ cc-prep-ident-{addr,len}.  Pre: peek is ident-start.  Advances pos past it.
-: cc-prep-read-ident
-  cc-prep-src-addr @ cc-prep-src-pos @ +  cc-prep-ident-addr !
-  cc-prep-src-pos @                                ( start )
+\ cc-pp-expand-text ( a u -- )  Scan the text a u (macro text, never a
+\ file) as a region of its own, then return to the region we were in.  A
+\ blank on either side keeps the replacement from gluing onto its
+\ neighbours (`-N` with N defined as -1 is `- -1`, not `--1`).
+: cc-pp-expand-text
+  cc-prep-src-addr @ >r  cc-prep-src-len @ >r  cc-prep-src-pos @ >r
+  cc-prep-in-file @ >r  cc-prep-at-line-start @ >r
+  cc-prep-src-len ! cc-prep-src-addr !  [lit] 0 cc-prep-src-pos !
+  [lit] 0 cc-prep-in-file !
+  bl cc-prep-emit-byte  cc-pp-scan-fwd  bl cc-prep-emit-byte
+  r> cc-prep-at-line-start !  r> cc-prep-in-file !
+  r> cc-prep-src-pos !  r> cc-prep-src-len !  r> cc-prep-src-addr ! ;
+
+\ ---------------------------------------------------------------------------
+\ `defined` in #if and #elif
+\ ---------------------------------------------------------------------------
+\ While an #if line is being expanded, cc-pp-in-if is true and
+\ `defined NAME` / `defined(NAME)` becomes 1 or 0, before NAME itself could
+\ be expanded.
+
+variable cc-pp-in-if
+create cc-pp-n-defined  s, defined
+
+\ cc-pp-defined ( -- )  `defined` has just been read.
+: cc-pp-defined
+  cc-prep-skip-blanks
+  cc-prep-peek lparen = dup if, cc-prep-advance then,
+  cc-pp-need-name
+  cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find 0< 0=   ( paren? f )
+  swap if, cc-pp-need-rparen then,
+  if, [char] 1 else, [char] 0 then, cc-prep-emit-byte ;
+
+\ ---------------------------------------------------------------------------
+\ Function-like macro calls
+\ ---------------------------------------------------------------------------
+
+\ cc-pp-paren-ahead? ( -- f )  After a function-like macro's name: true,
+\ with pos past it, if the next thing (blanks and newlines skipped) is '('.
+\ Otherwise pos is left where it was, and the name is not a call.
+: cc-pp-paren-ahead?
+  cc-prep-src-pos @ [lit] 0                        ( pos0 nls )
   begin,
-    cc-prep-eor? 0=
-    cc-prep-peek ident-cont? and
+    cc-prep-peek bl =  cc-prep-peek tab = or  cc-prep-peek nl = or
   while,
+    cc-prep-peek nl = if, 1+ then,
     cc-prep-advance
   repeat,
-  cc-prep-src-pos @ swap -  cc-prep-ident-len ! ;
+  cc-prep-peek lparen = if,
+    cc-pp-pending-nl +!  drop  cc-prep-advance  true
+  else,
+    drop  cc-prep-src-pos !  [lit] 0
+  then, ;
 
-variable cc-prep-dec-acc
-variable cc-prep-dec-seen
+\ A call's arguments are recorded as (addr, len) pairs, 16 bytes each, in a
+\ record block taken from the scratch space.
+[lit] 16 constant cc-pp-args-max
 
-\ cc-prep-read-decimal ( -- n found? )
-: cc-prep-read-decimal
-  [lit] 0 cc-prep-dec-acc !
-  [lit] 0 cc-prep-dec-seen !
+variable cc-pp-ca-recs                            \ the record block
+variable cc-pp-ca-n                               \ arguments so far
+variable cc-pp-ca-depth                           \ ( ) nesting inside the call
+variable cc-pp-ca-start                           \ where this argument began
+
+\ cc-pp-ca-record ( -- )  The argument from cc-pp-ca-start to pos is done.
+\ Dies with 46 past cc-pp-args-max arguments.
+: cc-pp-ca-record
+  cc-pp-ca-n @ 1+ cc-pp-args-max [lit] 46 cc-check-cap
+  cc-pp-ca-recs @ cc-pp-ca-n @ [lit] 16 * +                 ( rec )
+  cc-prep-src-addr @ cc-pp-ca-start @ + over !
+  cc-prep-src-pos @ cc-pp-ca-start @ -  swap [lit] 8 + !
+  [lit] 1 cc-pp-ca-n +! ;
+
+\ cc-pp-collect-args ( recs -- n )  pos is just past the call's '('.  Split
+\ the arguments at the commas outside inner parentheses, record each as a
+\ slice of the region, and stop past the closing ')'.  A call that runs off
+\ the end of its region dies with 44.
+: cc-pp-collect-args
+  cc-pp-ca-recs !  [lit] 0 cc-pp-ca-n !  [lit] 1 cc-pp-ca-depth !
+  cc-prep-src-pos @ cc-pp-ca-start !
+  put-drop cc-pp-put-mode !
+  begin,
+    cc-prep-eor? if, [lit] 44 cc-die then,
+    cc-prep-peek
+    dup [char] " =  over [char] ' = or if, drop cc-pp-literal else,
+    [char] / [char] * cc-prep-at? if, drop cc-pp-block-comment else,
+    [char] / [char] / cc-prep-at? if, drop cc-pp-line-comment else,
+    dup lparen = if, drop [lit] 1 cc-pp-ca-depth +! cc-prep-advance else,
+    dup [char] , =  cc-pp-ca-depth @ [lit] 1 = and if,
+      drop cc-pp-ca-record cc-prep-advance
+      cc-prep-src-pos @ cc-pp-ca-start !
+    else,
+    [char] ) = if,
+      [lit] 1 cc-pp-ca-depth -!
+      cc-pp-ca-depth @ 0= if,
+        cc-pp-ca-record cc-prep-advance cc-pp-ca-n @ exit,
+      then,
+      cc-prep-advance
+    else,
+      cc-prep-advance
+    then, then, then, then, then, then,
+  again, ;
+
+\ cc-pp-expand-args ( recs n -- )  Expand every argument fully, before it
+\ is substituted (C's rule), and record the expanded text in its place.
+: cc-pp-expand-args
+  begin, dup while,
+    1- 2dup [lit] 16 * +                           ( recs k rec )
+    dup >r  dup @ swap [lit] 8 + @                 ( recs k a u ; R: rec )
+    cc-pp-temp-begin cc-pp-expand-text cc-pp-temp-end
+    r@ [lit] 8 + !  r> !
+  repeat,
+  2drop ;
+
+variable cc-pp-sub-recs
+variable cc-pp-sub-n
+
+\ cc-pp-substitute ( a u -- )  Write a function-like macro's body, each
+\ parameter marker (1, k) replaced by argument k's expanded text between
+\ blanks; a parameter with no argument is empty.
+: cc-pp-substitute
+  begin, dup while,
+    over c@ [lit] 1 = if,
+      over 1+ c@                                   ( a u k )
+      dup cc-pp-sub-n @ < if,
+        [lit] 16 * cc-pp-sub-recs @ +
+        bl cc-prep-emit-byte
+        dup @ swap [lit] 8 + @ cc-pp-emit-bytes
+        bl cc-prep-emit-byte
+      else,
+        drop
+      then,
+      swap [lit] 2 + swap [lit] 2 -
+    else,
+      over c@ cc-prep-emit-byte
+      swap 1+ swap 1-
+    then,
+  repeat,
+  2drop ;
+
+\ The busy flag of macro i.
+: cc-macro-busy-cell  cc-macro-busy cell[] ;       ( i -- cell )
+
+\ cc-pp-expand-object ( i -- )  Scan object-like macro i's body in place of
+\ its name.
+: cc-pp-expand-object
+  true over cc-macro-busy-cell !
+  dup cc-macro-body-addr cell[] @  over cc-macro-body-len cell[] @
+  cc-pp-expand-text
+  [lit] 0 swap cc-macro-busy-cell ! ;
+
+\ cc-pp-expand-call ( i -- )  The '(' of function-like macro i's call has
+\ been read.  Collect and expand the arguments, substitute them into the
+\ body, and scan the result in place of the call.  A call with more
+\ arguments than the macro has parameters dies with 45 (a macro with no
+\ parameters takes one empty argument).
+: cc-pp-expand-call
+  cc-pp-scratch-top @ >r                           ( i ; R: top )
+  cc-pp-args-max [lit] 16 * cc-pp-scratch-alloc    ( i recs )
+  dup cc-pp-collect-args >r                        ( i recs ; R: top n )
+  over cc-macro-params cell[] @ r@ <  r@ [lit] 1 > and if,
+    [lit] 45 cc-die
+  then,
+  r>                                               ( i recs n )
+  2dup cc-pp-expand-args                           ( i recs n )
+  cc-pp-temp-begin
+  cc-pp-sub-n ! cc-pp-sub-recs !                   ( i )
+  dup cc-macro-body-addr cell[] @  over cc-macro-body-len cell[] @
+  cc-pp-substitute
+  cc-pp-temp-end                                   ( i a u )
+  rot true over cc-macro-busy-cell ! >r            ( a u ; R: top i )
+  cc-pp-expand-text
+  [lit] 0 r> cc-macro-busy-cell !
+  r> cc-pp-scratch-top ! ;
+
+\ cc-pp-ident ( -- )  pos is at an identifier.  Replace it if it names a
+\ macro that is not busy (a function-like one only when '(' follows);
+\ otherwise copy it.  Newlines a file-level call swallowed are owed; write
+\ them now.
+: cc-pp-ident
+  cc-prep-read-ident
+  cc-pp-in-if @ if,
+    cc-pp-n-defined [lit] 7 cc-prep-ident= if, cc-pp-defined exit, then,
+  then,
+  cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find     ( i )
+  dup 0< 0= if,
+    dup cc-macro-busy-cell @ if, drop true then,
+  then,
+  dup 0< if,
+    drop cc-prep-ident-addr @ cc-prep-ident-len @ cc-pp-emit-bytes exit,
+  then,
+  dup cc-macro-params cell[] @ 0< if,
+    cc-pp-expand-object
+  else,
+    cc-prep-ident-addr @ cc-prep-ident-len @ rot    ( a u i )
+    cc-pp-paren-ahead? if,
+      nip nip cc-pp-expand-call
+    else,
+      drop cc-pp-emit-bytes
+    then,
+  then,
+  cc-prep-in-file @ if, cc-pp-flush-nl then, ;
+
+\ ---------------------------------------------------------------------------
+\ Conditional groups
+\ ---------------------------------------------------------------------------
+\ One cell per open #if, innermost last, saying what happens to the lines of
+\ its current group:
+\   cond-take  the group is compiled
+\   cond-done  a group was already taken, or the whole #if sits inside a
+\              dropped group: drop lines up to the #endif
+\   cond-seek  no group taken yet: drop lines, but an #elif or #else may
+\              take the next one
+
+[lit] 0 constant cond-take
+[lit] 1 constant cond-done
+[lit] 2 constant cond-seek
+
+[lit] 64 constant cc-pp-cond-cap
+create cc-pp-cond  cc-pp-cond-cap [lit] 8 * allot
+variable cc-pp-cond-depth
+
+\ cc-pp-cond-top ( -- cell )  The innermost open #if's cell.
+: cc-pp-cond-top  cc-pp-cond-depth @ 1- cc-pp-cond cell[] ;
+
+\ cc-pp-skipping? ( -- f )  True while lines are being dropped.
+: cc-pp-skipping?
+  cc-pp-cond-depth @ if,
+    cc-pp-cond-top @ cond-take <>
+  else,
+    [lit] 0
+  then, ;
+
+\ ---------------------------------------------------------------------------
+\ The walker
+\ ---------------------------------------------------------------------------
+
+\ cc-pp-skip-char ( -- )  One byte of a dropped line.  A comment or literal
+\ is stepped over whole (a '#' or quote inside it means nothing), and the
+\ newlines inside it are owed.
+: cc-pp-skip-char
+  put-count cc-pp-put-mode !
+  [char] / [char] * cc-prep-at? if, cc-pp-block-comment exit, then,
+  [char] / [char] / cc-prep-at? if, cc-pp-line-comment  exit, then,
+  cc-prep-peek dup [char] " = swap [char] ' = or if, cc-pp-literal exit, then,
+  cc-prep-advance ;
+
+\ cc-pp-comment ( -- )  pos at a comment.  A file's comments are copied (the
+\ lexer skips them); in macro text a comment is one blank.
+: cc-pp-comment
+  cc-prep-in-file @ if,
+    put-emit cc-pp-put-mode !
+  else,
+    put-count cc-pp-put-mode !
+    bl cc-prep-emit-byte
+  then,
+  [char] / [char] * cc-prep-at? if,
+    cc-pp-block-comment
+  else,
+    cc-pp-line-comment
+  then, ;
+
+\ cc-pp-scan-char ( -- )  Deal with the byte at pos, and the construct it
+\ starts.  A newline in macro text (an argument spread over lines) is a
+\ blank, and the newline is owed.
+: cc-pp-scan-char
+  cc-prep-peek nl = if,
+    cc-prep-advance
+    cc-prep-in-file @ if,
+      nl cc-prep-emit-byte  true cc-prep-at-line-start !
+    else,
+      bl cc-prep-emit-byte  [lit] 1 cc-pp-pending-nl +!
+    then,
+    exit,
+  then,
+  [lit] 0 cc-prep-at-line-start !
+  cc-prep-in-file @ if,
+    cc-pp-skipping? if, cc-pp-skip-char exit, then,
+  then,
+  cc-prep-peek dup [char] " = swap [char] ' = or if,
+    put-emit cc-pp-put-mode !  cc-pp-literal exit,
+  then,
+  [char] / [char] * cc-prep-at?  [char] / [char] / cc-prep-at? or if,
+    cc-pp-comment exit,
+  then,
+  backslash nl cc-prep-at?  cc-prep-in-file @ 0= and if,
+    cc-prep-advance cc-prep-advance  [lit] 1 cc-pp-pending-nl +! exit,
+  then,
+  cc-prep-peek digit?       if, cc-pp-copy-number exit, then,
+  cc-prep-peek ident-start? if, cc-pp-ident       exit, then,
+  cc-prep-peek cc-prep-emit-byte  cc-prep-advance ;
+
+\ cc-prep-line-is-directive? ( -- f )  -1 iff the first non-blank byte on
+\ the current line is '#'.  Does NOT advance pos.
+variable cc-prep-isd-save-pos
+
+: cc-prep-line-is-directive?
+  cc-prep-src-pos @ cc-prep-isd-save-pos !
+  cc-prep-skip-blanks
+  cc-prep-peek [char] # = >r
+  cc-prep-isd-save-pos @ cc-prep-src-pos !
+  r> ;
+
+\ cc-prep-at-directive? ( -- f )  -1 iff pos is at a line start and the line
+\ is a directive.  Looks ahead only at a line start, so a long line of
+\ blanks is scanned once, not once per byte.
+: cc-prep-at-directive?
+  cc-prep-at-line-start @ 0= if, [lit] 0 exit, then,
+  cc-prep-line-is-directive? ;
+
+\ cc-pp-scan ( -- )  Walk the current region to its end.  In a file, a line
+\ that starts with '#' is a directive; the newlines it owes are written
+\ right after it.
+: cc-pp-scan
+  true cc-prep-at-line-start !
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek digit? and
   while,
-    cc-prep-dec-acc @ [lit] 10 *
-    cc-prep-peek [char] 0 - +
-    cc-prep-dec-acc !
-    true cc-prep-dec-seen !
-    cc-prep-advance
-  repeat,
-  cc-prep-dec-acc @ cc-prep-dec-seen @ ;
+    cc-prep-in-file @ if, cc-prep-at-directive? else, [lit] 0 then,
+    if,
+      cc-prep-handle-directive-fwd
+      cc-pp-flush-nl
+      [lit] 0 cc-prep-at-line-start !
+    else,
+      cc-pp-scan-char
+    then,
+  repeat, ;
+
+' cc-pp-scan is cc-pp-scan-fwd
 
 \ ===========================================================================
-\ Directive dispatch.  #include recurses into cc-prep-process-region, which
-\ is defined below, so it calls it through a deferred word (010-lib.fth).
+\ Directives
 \ ===========================================================================
 
-defer cc-prep-process-region-fwd
+\ ---------------------------------------------------------------------------
+\ #if, #ifdef, #ifndef, #elif, #else, #endif
+\ ---------------------------------------------------------------------------
+
+\ cc-pp-eval ( a u -- n )  The value of the constant expression a u, which
+\ has no macros left in it.  100-cc-expr.fth fills it in: #if uses the
+\ same evaluator as array sizes and case labels.
+defer cc-pp-eval
+
+\ cc-pp-if-value ( -- f )  Expand the rest of the #if / #elif line into a
+\ temp buffer, with `defined` answered first, and evaluate it.
+: cc-pp-if-value
+  cc-pp-scratch-top @ >r
+  cc-pp-line-slice
+  true cc-pp-in-if !
+  cc-pp-temp-begin cc-pp-expand-text cc-pp-temp-end
+  [lit] 0 cc-pp-in-if !
+  cc-pp-eval 0= 0=
+  r> cc-pp-scratch-top ! ;
+
+\ cc-pp-cond-push ( state -- )  Open an #if.  Dies with 38 past
+\ cc-pp-cond-cap nested ones.
+: cc-pp-cond-push
+  cc-pp-cond-depth @ 1+ cc-pp-cond-cap [lit] 38 cc-check-cap
+  cc-pp-cond-depth @ cc-pp-cond cell[] !
+  [lit] 1 cc-pp-cond-depth +! ;
+
+\ cc-pp-cond-open ( f -- )  Open an #if whose first group is taken iff f.
+: cc-pp-cond-open
+  if, cond-take else, cond-seek then, cc-pp-cond-push ;
+
+\ cc-pp-defined-name? ( -- f )  #ifdef / #ifndef: is the next name a macro?
+: cc-pp-defined-name?
+  cc-pp-need-name
+  cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find 0< 0= ;
+
+\ cc-pp-need-group ( -- )  #elif / #else / #endif with no #if open: die 41.
+: cc-pp-need-group
+  cc-pp-cond-depth @ 0= if, [lit] 41 cc-die then, ;
+
+create cc-pp-n-if      s, if
+create cc-pp-n-ifdef   s, ifdef
+create cc-pp-n-ifndef  s, ifndef
+create cc-pp-n-elif    s, elif
+create cc-pp-n-else    s, else
+create cc-pp-n-endif   s, endif
+
+\ cc-pp-cond-directive ( -- f )  If the directive just read is one of the
+\ six conditionals, act on it and answer true.  Inside a dropped group an
+\ #if is not evaluated: the whole #if is dropped.
+: cc-pp-cond-directive
+  cc-pp-n-if [lit] 2 cc-prep-ident= if,
+    cc-pp-skipping? if,
+      cond-done cc-pp-cond-push
+    else,
+      cc-pp-if-value cc-pp-cond-open
+    then,
+    true exit,
+  then,
+  cc-pp-n-ifdef [lit] 5 cc-prep-ident= if,
+    cc-pp-skipping? if,
+      cond-done cc-pp-cond-push
+    else,
+      cc-pp-defined-name? cc-pp-cond-open
+    then,
+    true exit,
+  then,
+  cc-pp-n-ifndef [lit] 6 cc-prep-ident= if,
+    cc-pp-skipping? if,
+      cond-done cc-pp-cond-push
+    else,
+      cc-pp-defined-name? 0= cc-pp-cond-open
+    then,
+    true exit,
+  then,
+  cc-pp-n-elif [lit] 4 cc-prep-ident= if,
+    cc-pp-need-group
+    cc-pp-cond-top @ cond-take = if, cond-done cc-pp-cond-top ! then,
+    cc-pp-cond-top @ cond-seek = if,
+      cc-pp-if-value if, cond-take cc-pp-cond-top ! then,
+    then,
+    true exit,
+  then,
+  cc-pp-n-else [lit] 4 cc-prep-ident= if,
+    cc-pp-need-group
+    cc-pp-cond-top @ cond-seek = if, cond-take else, cond-done then,
+    cc-pp-cond-top !
+    true exit,
+  then,
+  cc-pp-n-endif [lit] 5 cc-prep-ident= if,
+    cc-pp-need-group
+    [lit] 1 cc-pp-cond-depth -!
+    true exit,
+  then,
+  [lit] 0 ;
+
+\ ---------------------------------------------------------------------------
+\ #include
+\ ---------------------------------------------------------------------------
 
 \ State save / restore for recursive descent.
 \ Arrays indexed by cc-prep-inc-depth (parallel to the include-pool slots),
@@ -377,7 +1001,7 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
     cc-prep-src-len !                              ( buf-a )
     cc-prep-src-addr !
     [lit] 0 cc-prep-src-pos !
-    cc-prep-process-region-fwd
+    cc-pp-scan
     \ Restore outer region (depth has been decremented by now).
     [lit] 1 cc-prep-inc-depth -!
     cc-prep-save-addr cc-prep-save-slot @ cc-prep-src-addr !
@@ -396,61 +1020,142 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
       repeat,
       cc-prep-peek [char] > = if, cc-prep-advance then,
     then,
-  then,
-  cc-prep-skip-to-eol ;
+  then, ;
 
-\ cc-prep-handle-define
-\ Pre: pos is just past "define".  Parses NAME VALUE.  VALUE may be a decimal
-\ literal or an ident resolving to a defined macro.  Registers in cc-macro
-\ and elides the directive.
-variable cc-prep-def-state
+\ ---------------------------------------------------------------------------
+\ #define and #undef
+\ ---------------------------------------------------------------------------
 
-: cc-prep-handle-define
-  [lit] 0 cc-prep-def-state !
-  cc-prep-skip-blanks
-  cc-prep-peek ident-start? if,
-    cc-prep-read-ident
+\ A function-like macro's parameter names, while its body is copied: slices
+\ of the #define line, looked up with cc-name-find.
+[lit] 16 constant cc-pp-params-max
+create cc-pp-param-addr  cc-pp-params-max [lit] 8 * allot
+create cc-pp-param-len   cc-pp-params-max [lit] 8 * allot
+variable cc-pp-param-count
+
+\ cc-pp-read-params ( -- )  pos is just past the '(' of `#define NAME(`.
+\ Read the parameter names through the ')'.  Anything but names, commas
+\ and blanks before the ')' dies with 47, more than cc-pp-params-max
+\ parameters with 48.
+: cc-pp-read-params
+  [lit] 0 cc-pp-param-count !
+  begin,
     cc-prep-skip-blanks
-    cc-prep-peek digit? if,
-      cc-prep-read-decimal                         ( v found? )
-      if,
-        cc-prep-ident-addr @  cc-prep-ident-len @  rot
-        cc-macro-add
+    cc-prep-peek ident-start? if,
+      cc-pp-param-count @ 1+ cc-pp-params-max [lit] 48 cc-check-cap
+      cc-prep-read-ident
+      cc-prep-ident-addr @ cc-pp-param-count @ cc-pp-param-addr cell[] !
+      cc-prep-ident-len  @ cc-pp-param-count @ cc-pp-param-len  cell[] !
+      [lit] 1 cc-pp-param-count +!
+      cc-prep-skip-blanks
+    then,
+    cc-prep-peek [char] , =
+  while,
+    cc-prep-advance
+  repeat,
+  cc-pp-need-rparen ;
+
+\ cc-pp-param? ( -- k | -1 )  Is the identifier just read parameter k?
+: cc-pp-param?
+  cc-prep-ident-addr @ cc-prep-ident-len @
+  cc-pp-param-addr cc-pp-param-len cc-pp-param-count @ cc-name-find ;
+
+\ cc-pp-copy-body ( -- )  Copy the rest of the #define line to the sink (the
+\ macro pool): a comment becomes one blank, a backslash-newline joins the
+\ lines (the newline is owed), and a parameter becomes the marker 1, k.
+: cc-pp-copy-body
+  begin,
+    cc-prep-eor? 0= cc-prep-peek nl <> and
+  while,
+    backslash nl cc-prep-at? if,
+      cc-prep-advance cc-prep-advance  [lit] 1 cc-pp-pending-nl +!
+    else,
+    [char] / [char] * cc-prep-at?  [char] / [char] / cc-prep-at? or if,
+      put-count cc-pp-put-mode !
+      [char] / [char] * cc-prep-at? if,
+        cc-pp-block-comment
       else,
-        drop
+        cc-pp-line-comment
+      then,
+      bl cc-prep-emit-byte
+    else,
+    cc-prep-peek dup [char] " = swap [char] ' = or if,
+      put-emit cc-pp-put-mode !  cc-pp-literal
+    else,
+    cc-prep-peek digit? if,
+      cc-pp-copy-number
+    else,
+    cc-prep-peek ident-start? if,
+      cc-prep-read-ident
+      cc-pp-param? dup 0< if,
+        drop cc-prep-ident-addr @ cc-prep-ident-len @ cc-pp-emit-bytes
+      else,
+        [lit] 1 cc-prep-emit-byte  cc-prep-emit-byte
       then,
     else,
-      cc-prep-peek ident-start? if,
-        \ ident-valued: resolve through existing table.
-        cc-prep-src-addr @ cc-prep-src-pos @ +     ( val-a )
-        cc-prep-src-pos @                          ( val-a start )
-        begin,
-          cc-prep-eor? 0=
-          cc-prep-peek ident-cont? and
-        while,
-          cc-prep-advance
-        repeat,
-        cc-prep-src-pos @ swap -                   ( val-a len )
-        cc-macro-find-int                          ( v found? )
-        if,
-          cc-prep-ident-addr @  cc-prep-ident-len @  rot
-          cc-macro-add
-        else,
-          drop
-        then,
-      then,
-    then,
-  then,
-  cc-prep-skip-to-eol ;
+      cc-prep-peek cc-prep-emit-byte  cc-prep-advance
+    then, then, then, then, then,
+  repeat, ;
 
-\ ===========================================================================
+\ cc-pp-trim ( start -- start )  Drop the blanks that end the text written
+\ to the sink since address start.
+: cc-pp-trim
+  begin,
+    cc-pp-out @ cc-pp-out-pos @ +                  ( start end )
+    2dup < if,
+      1- c@ dup bl = swap tab = or
+    else,
+      drop [lit] 0
+    then,
+  while,
+    [lit] 1 cc-pp-out-pos -!
+  repeat, ;
+
+\ cc-prep-handle-define ( -- )  pos is just past "define".  `NAME(` with no
+\ blank before the '(' makes a function-like macro.  The name and the body
+\ go to the pool.  A #define with no name is dropped.
+: cc-prep-handle-define
+  cc-prep-skip-blanks
+  cc-prep-peek ident-start? 0= if, exit, then,
+  cc-prep-read-ident
+  cc-prep-ident-addr @ cc-prep-ident-len @ cc-pp-pool-copy   ( na nu )
+  cc-prep-peek lparen = if,
+    cc-prep-advance cc-pp-read-params  cc-pp-param-count @
+  else,
+    [lit] 0 cc-pp-param-count !  true
+  then,
+  >r                                               ( na nu ; R: params )
+  cc-prep-skip-blanks
+  cc-macro-pool cc-macro-pool-pos @ +              ( na nu ba )
+  cc-pp-to-pool  cc-pp-copy-body  cc-pp-trim  cc-pp-from-pool
+  cc-macro-pool cc-macro-pool-pos @ + over -       ( na nu ba bu )
+  r> cc-macro-record ;
+
+\ cc-prep-handle-undef ( -- )  pos is just past "undef".  Forget every
+\ definition of the name (a zero length never matches).
+: cc-prep-handle-undef
+  cc-prep-skip-blanks
+  cc-prep-peek ident-start? 0= if, exit, then,
+  cc-prep-read-ident
+  begin,
+    cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find
+    dup 0< 0=
+  while,
+    [lit] 0 swap cc-macro-name-len cell[] !
+  repeat,
+  drop ;
+
+\ ---------------------------------------------------------------------------
 \ cc-prep-handle-directive  ( -- )
-\ Pre: pos is at '#'.  Consume '#', read the directive name, dispatch.
-\ Unknown directives are elided.  Always advances to end-of-line.
-\ ===========================================================================
+\ ---------------------------------------------------------------------------
+\ Pre: pos is at the line's '#'.  Read the directive's name and dispatch.
+\ In a dropped group only the conditionals count.  #error dies with 40.
+\ Anything else is dropped.  Always ends at the end of the line.
 
 create cc-prep-name-include  s, include
 create cc-prep-name-define   s, define
+create cc-prep-name-undef    s, undef
+create cc-prep-name-error    s, error
 
 : cc-prep-handle-directive
   cc-prep-skip-blanks                              \ leading indent before '#'
@@ -458,76 +1163,40 @@ create cc-prep-name-define   s, define
   cc-prep-skip-blanks
   cc-prep-peek ident-start? if,
     cc-prep-read-ident
-    cc-prep-ident-len @ [lit] 7 = if,
-      cc-prep-ident-addr @ cc-prep-name-include [lit] 7 bytes-eq if,
-        cc-prep-handle-include exit,
+    cc-pp-cond-directive if, cc-prep-skip-to-eol exit, then,
+    cc-pp-skipping? 0= if,
+      cc-prep-name-include [lit] 7 cc-prep-ident= if,
+        cc-prep-handle-include cc-prep-skip-to-eol exit,
       then,
-    then,
-    cc-prep-ident-len @ [lit] 6 = if,
-      cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
-        cc-prep-handle-define exit,
+      cc-prep-name-define [lit] 6 cc-prep-ident= if,
+        cc-prep-handle-define cc-prep-skip-to-eol exit,
+      then,
+      cc-prep-name-undef [lit] 5 cc-prep-ident= if,
+        cc-prep-handle-undef cc-prep-skip-to-eol exit,
+      then,
+      cc-prep-name-error [lit] 5 cc-prep-ident= if,
+        [lit] 40 cc-die
       then,
     then,
   then,
-  cc-prep-skip-to-eol ;                            \ unknown directive: elide it
+  cc-prep-skip-to-eol ;
+
+' cc-prep-handle-directive is cc-prep-handle-directive-fwd
 
 \ ===========================================================================
-\ cc-prep-line-is-directive?  ( -- f )
-\ Looks ahead from current pos: -1 iff the first non-blank byte on the
-\ current line is '#'.  Does NOT advance pos.
+\ Built-in macros
 \ ===========================================================================
+\ What the dropped system headers would have defined and the subset's
+\ programs use: <stdio.h>'s NULL, EOF, stdin/stdout/stderr (file
+\ descriptors, see Appendix F), <stdlib.h>'s EXIT_SUCCESS/EXIT_FAILURE and
+\ <fcntl.h>'s open(2) flags.
 
-variable cc-prep-isd-save-pos
-
-: cc-prep-line-is-directive?
-  cc-prep-src-pos @ cc-prep-isd-save-pos !
-  cc-prep-skip-blanks
-  cc-prep-peek [char] # = >r
-  cc-prep-isd-save-pos @ cc-prep-src-pos !
-  r> ;
-
-\ ===========================================================================
-\ cc-prep-process-region  ( -- )
-\ Main walker.  Emits bytes to cc-src-buf, dispatching directives at
-\ line start.  Recursion happens via cc-prep-handle-include.
-\ ===========================================================================
-
-variable cc-prep-at-line-start
-
-\ cc-prep-at-directive? ( -- f )  -1 iff pos is at a line start and the line
-\ is a directive.  Looks ahead only at a line start, so a long line of
-\ blanks is scanned once, not once per byte.
-: cc-prep-at-directive?
-  cc-prep-at-line-start @ 0= if, [lit] 0 exit, then,
-  cc-prep-line-is-directive? ;
-
-: cc-prep-process-region
-  true cc-prep-at-line-start !                     \ -1 = at start
-  begin,
-    cc-prep-eor? 0=
-  while,
-    cc-prep-at-directive? if,
-      cc-prep-handle-directive
-      true cc-prep-at-line-start !
-    else,
-      cc-prep-peek dup cc-prep-emit-byte
-      nl = if,
-        true cc-prep-at-line-start !
-      else,
-        [lit] 0 cc-prep-at-line-start !
-      then,
-      cc-prep-advance
-    then,
-  repeat, ;
-
-' cc-prep-process-region is cc-prep-process-region-fwd
-
-\ ===========================================================================
-\ Built-in macro constants — pre-populate the macro table with the small set
-\ of stdio.h / stdlib.h identifiers used by M2-Planet sources.  Source code
-\ that references e.g. NULL or EXIT_FAILURE picks them up via the standard
-\ cc-macro-find-int path during lexing.
-\ ===========================================================================
+create cc-pp-t0      s, 0
+create cc-pp-t1      s, 1
+create cc-pp-t2      s, 2
+create cc-pp-t64     s, 64
+create cc-pp-t512    s, 512
+create cc-pp-teof    s, 0xFFFFFFFFFFFFFFFF
 
 create cc-builtin-name-NULL          s, NULL
 create cc-builtin-name-EOF           s, EOF
@@ -536,31 +1205,50 @@ create cc-builtin-name-EXIT_FAILURE  s, EXIT_FAILURE
 create cc-builtin-name-stdin         s, stdin
 create cc-builtin-name-stdout        s, stdout
 create cc-builtin-name-stderr        s, stderr
+create cc-builtin-name-O_RDONLY      s, O_RDONLY
+create cc-builtin-name-O_WRONLY      s, O_WRONLY
+create cc-builtin-name-O_CREAT       s, O_CREAT
+create cc-builtin-name-O_TRUNC       s, O_TRUNC
 
 : cc-prep-builtins
-  cc-builtin-name-NULL          [lit]  4 [lit]  0 cc-macro-add
-  cc-builtin-name-EOF           [lit]  3 true      cc-macro-add   \ EOF = -1
-  cc-builtin-name-EXIT_SUCCESS  [lit] 12 [lit]  0 cc-macro-add
-  cc-builtin-name-EXIT_FAILURE  [lit] 12 [lit]  1 cc-macro-add
-  cc-builtin-name-stdin         [lit]  5 [lit]  0 cc-macro-add
-  cc-builtin-name-stdout        [lit]  6 [lit]  1 cc-macro-add
-  cc-builtin-name-stderr        [lit]  6 [lit]  2 cc-macro-add ;
+  cc-builtin-name-NULL          [lit]  4  cc-pp-t0   [lit] 1  cc-macro-add
+  cc-builtin-name-EOF           [lit]  3  cc-pp-teof [lit] 18 cc-macro-add
+  cc-builtin-name-EXIT_SUCCESS  [lit] 12  cc-pp-t0   [lit] 1  cc-macro-add
+  cc-builtin-name-EXIT_FAILURE  [lit] 12  cc-pp-t1   [lit] 1  cc-macro-add
+  cc-builtin-name-stdin         [lit]  5  cc-pp-t0   [lit] 1  cc-macro-add
+  cc-builtin-name-stdout        [lit]  6  cc-pp-t1   [lit] 1  cc-macro-add
+  cc-builtin-name-stderr        [lit]  6  cc-pp-t2   [lit] 1  cc-macro-add
+  cc-builtin-name-O_RDONLY      [lit]  8  cc-pp-t0   [lit] 1  cc-macro-add
+  cc-builtin-name-O_WRONLY      [lit]  8  cc-pp-t1   [lit] 1  cc-macro-add
+  cc-builtin-name-O_CREAT       [lit]  7  cc-pp-t64  [lit] 2  cc-macro-add
+  cc-builtin-name-O_TRUNC       [lit]  7  cc-pp-t512 [lit] 3  cc-macro-add ;
 
 \ ===========================================================================
 \ cc-preprocess  ( -- )
-\ Top-level driver.  Walks cc-in-buf and writes the result into cc-src-buf,
-\ then rewinds the reader (cc-src-pos 0, cc-src-line 1) for the lexer.
 \ ===========================================================================
+\ Top-level driver.  Walks cc-in-buf and writes the result into cc-src-buf,
+\ then rewinds the reader (cc-src-pos 0, cc-src-line 1) for the lexer.  An
+\ #if still open at the end dies with 39.
 
 : cc-preprocess
   cc-src-init
   [lit] 0 cc-macro-count !
-  [lit] 0 cc-macro-name-pool-pos !
+  [lit] 0 cc-macro-pool-pos !
   [lit] 0 cc-prep-inc-depth !
+  [lit] 0 cc-pp-cond-depth !
+  [lit] 0 cc-pp-sink-depth !
+  [lit] 0 cc-pp-pending-nl !
+  [lit] 0 cc-pp-in-if !
+  cc-pp-scratch cc-pp-scratch-top !
+  cc-src-buf cc-pp-out !  [lit] 0 cc-pp-out-pos !
+  cc-src-cap cc-pp-out-cap !  [lit] 36 cc-pp-out-code !
   cc-prep-builtins
   cc-in-buf cc-prep-src-addr !
   cc-in-len @ cc-prep-src-len !
   [lit] 0 cc-prep-src-pos !
-  cc-prep-process-region
+  true cc-prep-in-file !
+  cc-pp-scan
+  cc-pp-cond-depth @ if, [lit] 39 cc-die then,
+  cc-pp-out-pos @ cc-src-len !
   [lit] 0 cc-src-pos !
   [lit] 1 cc-src-line ! ;

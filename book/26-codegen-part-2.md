@@ -17,12 +17,13 @@ further down, a file-scope global, a string literal the code must jump
 over.  The compiled program also needs a C runtime (`tri.c` calls
 `putchar`), and there is no libc to link against.
 
-This chapter finishes `090-cc-emit.fth` (lines 425–1039) and answers
+This chapter finishes `090-cc-emit.fth` (lines 434–1187) and answers
 both problems.  Wide-immediate placeholders and fixup lists let
 codegen reference forward-declared functions and not-yet-placed
-globals.  Eleven libc shims, emitted straight into the output as
+globals.  Nineteen libc shims, emitted straight into the output as
 machine code, stand in for the C runtime.  A separate globals buffer,
-appended after the code at the end, holds file-scope data.  Every
+appended after the code at the end, holds file-scope data, and global
+arrays get zeroed memory past the end of the file.  Every
 deferred address is handled the same way: emit a placeholder, remember
 where it is, patch it when the value is known.
 
@@ -144,7 +145,7 @@ The word lives here rather than in `112-cc-stmt.fth` because Ch 28's
 \ String-literal byte emission with C-escape decoding.
 \ ===========================================================================
 \ Walks ( src-addr src-len ) and copies bytes into cc-out-buf, decoding each
-\ \c escape with cc-decode-escape (050), the same table character literals
+\ escape with cc-decode-escape (050), the same table character literals
 \ use.  Appends a trailing NUL byte.
 \
 \ Stack convention inside the loop: ( src len ).
@@ -156,10 +157,10 @@ The word lives here rather than in `112-cc-stmt.fth` because Ch 28's
     over c@ backslash = if,
       dup [lit] 2 >= if,
         \ Have at least one more byte for the escape.
-        over 1+ c@ cc-decode-escape               ( src len byte )
-        cc-emit-byte
-        \ Advance src by 2, decrement len by 2.
-        swap [lit] 2 + swap [lit] 2 -
+        over 1+ cc-decode-escape                  ( src len byte n )
+        swap cc-emit-byte 1+                      ( src len k )
+        \ Advance src by k (the backslash and the escape), len by -k.
+        >r swap r@ + swap r> -
       else,
         \ Trailing backslash with no follow-up char: emit literally.
         over c@ cc-emit-byte
@@ -190,13 +191,15 @@ A trailing NUL is appended so string literals work with C's
 
 ## 3. The libc shims: write/read/open/close/mmap
 
-The eleven shims in this section are the entire libc the compiled
+The nineteen shims in this section are the entire libc the compiled
 programs see.
-There is no `printf`, no `malloc` with `free`, no `strcmp`, no
-`errno`: just write, read, open/close, mmap-backed allocation, and
-`exit`.  Ch 31's `cc-emit-shims` emits each one into the code segment
-at startup and registers its vaddr in the symbol table, so a call to
-`putchar(c)` in user code is an ordinary `call rel32` into the shim.
+There is no `printf`, no `free` that frees, no `strcmp`, no
+`errno`: just write, read, open/close, mmap-backed allocation, three
+string functions and `exit`.  Ch 31's `cc-emit-shims` emits the first
+eleven into the code segment at startup and registers each vaddr in
+the symbol table, so a call to `putchar(c)` in user code is an
+ordinary `call rel32` into the shim.  The last eight are emitted only
+when called (end of this section).
 
 All but `free` share one shape: marshal the arguments, load the
 syscall number into `rax`, `syscall`, fix up the result, `ret`.  The
@@ -647,6 +650,133 @@ insertion.  That makes this the fragile shim of the set.
 memory, and with a 256 MiB heap and M2-Planet's small working set,
 that is fine for the duration of one compilation.
 
+The last eight shims are for programs written against POSIX and
+`<string.h>` rather than M2-Planet's small set: pnut calls `open`,
+`read`, `write` and `close` on file descriptors, allocates with
+`malloc`, and uses `strlen`, `memcpy` and `strrchr`.  Unlike the
+eleven above, which every program carries, these are emitted only
+into a program that calls them (Ch 31's late shims), so a program that
+uses none is not a byte longer.
+
+```forth file=090-cc-emit.fth
+\ ===========================================================================
+\ Libc shims: the POSIX calls open, read, write, close; malloc, and the
+\ string functions strlen, memcpy, strrchr.
+\ ===========================================================================
+
+\ -- open / read / write / close: the arguments are already where the
+\ syscall wants them (rdi, rsi, rdx), so each is the syscall plus C's
+\ error convention: a negative result (Linux's -errno) becomes -1.  22 bytes.
+\
+\   mov eax, N          B8 <N>
+\   syscall             0F 05
+\   test rax, rax       48 85 C0
+\   jns +7  (.ok)       79 07
+\   mov rax, -1         48 C7 C0 FF FF FF FF
+\ .ok:
+\   ret                 C3
+: cc-emit-syscall-shim                            ( n -- )
+  [lit] 184 cc-emit-byte cc-emit-4le              \ mov eax, n
+  [lit]  15 cc-emit-byte [lit]   5 cc-emit-byte   \ syscall
+  [lit]  72 cc-emit-byte [lit] 133 cc-emit-byte
+  [lit] 192 cc-emit-byte                          \ test rax, rax
+  [lit] 121 cc-emit-byte [lit]   7 cc-emit-byte   \ jns +7
+  [lit]  72 cc-emit-byte [lit] 199 cc-emit-byte [lit] 192 cc-emit-byte
+  [lit] 255 cc-emit-byte [lit] 255 cc-emit-byte
+  [lit] 255 cc-emit-byte [lit] 255 cc-emit-byte   \ mov rax, -1
+  [lit] 195 cc-emit-byte ;                        \ ret
+
+\ -- malloc(size_t n) -> calloc(n, 1).  12 bytes.
+\
+\   mov rsi, 1          48 C7 C6 01 00 00 00
+\   jmp calloc          E9 <rel32>
+: cc-emit-malloc-shim                             ( calloc-vaddr -- )
+  [lit]  72 cc-emit-byte [lit] 199 cc-emit-byte
+  [lit] 198 cc-emit-byte [lit]   1 cc-emit-4le    \ mov rsi, 1
+  [lit] 233 cc-emit-byte
+  cc-here-vaddr [lit] 4 + - cc-emit-4le ;         \ jmp calloc
+
+\ -- strlen(char *s) -> length.  14 bytes.
+\
+\   xor eax, eax             31 C0
+\ .loop:
+\   cmp byte [rdi+rax], 0    80 3C 07 00
+\   je +5  (.done)           74 05
+\   inc rax                  48 FF C0
+\   jmp .loop                EB F5
+\ .done:
+\   ret                      C3
+: cc-emit-strlen-shim
+  [lit]  49 cc-emit-byte [lit] 192 cc-emit-byte   \ xor eax, eax
+  [lit] 128 cc-emit-byte [lit]  60 cc-emit-byte
+  [lit]   7 cc-emit-byte [lit]   0 cc-emit-byte   \ cmp byte [rdi+rax], 0
+  [lit] 116 cc-emit-byte [lit]   5 cc-emit-byte   \ je +5
+  [lit]  72 cc-emit-byte [lit] 255 cc-emit-byte
+  [lit] 192 cc-emit-byte                          \ inc rax
+  [lit] 235 cc-emit-byte [lit] 245 cc-emit-byte   \ jmp .loop  (disp = -11)
+  [lit] 195 cc-emit-byte ;                        \ ret
+
+\ -- memcpy(void *d, void *s, size_t n) -> d.  9 bytes.
+\
+\   mov rax, rdi     48 89 F8
+\   mov rcx, rdx     48 89 D1
+\   rep movsb        F3 A4           (rdi = d, rsi = s already)
+\   ret              C3
+: cc-emit-memcpy-shim
+  [lit]  72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 248 cc-emit-byte                          \ mov rax, rdi
+  [lit]  72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 209 cc-emit-byte                          \ mov rcx, rdx
+  [lit] 243 cc-emit-byte [lit] 164 cc-emit-byte   \ rep movsb
+  [lit] 195 cc-emit-byte ;                        \ ret
+
+\ -- strrchr(char *s, int c) -> pointer to the last c in s (the NUL
+\ counts, so c = 0 finds the end), or NULL.  23 bytes.
+\
+\   xor eax, eax               31 C0
+\ .loop:
+\   movzx ecx, byte [rdi]      0F B6 0F
+\   cmp cl, sil                40 38 F1
+\   jne +3  (.skip)            75 03
+\   mov rax, rdi               48 89 F8
+\ .skip:
+\   test cl, cl                84 C9
+\   je +5  (.done)             74 05
+\   inc rdi                    48 FF C7
+\   jmp .loop                  EB EC
+\ .done:
+\   ret                        C3
+: cc-emit-strrchr-shim
+  [lit]  49 cc-emit-byte [lit] 192 cc-emit-byte   \ xor eax, eax
+  [lit]  15 cc-emit-byte [lit] 182 cc-emit-byte
+  [lit]  15 cc-emit-byte                          \ movzx ecx, byte [rdi]
+  [lit]  64 cc-emit-byte [lit]  56 cc-emit-byte
+  [lit] 241 cc-emit-byte                          \ cmp cl, sil
+  [lit] 117 cc-emit-byte [lit]   3 cc-emit-byte   \ jne +3
+  [lit]  72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 248 cc-emit-byte                          \ mov rax, rdi
+  [lit] 132 cc-emit-byte [lit] 201 cc-emit-byte   \ test cl, cl
+  [lit] 116 cc-emit-byte [lit]   5 cc-emit-byte   \ je +5
+  [lit]  72 cc-emit-byte [lit] 255 cc-emit-byte
+  [lit] 199 cc-emit-byte                          \ inc rdi
+  [lit] 235 cc-emit-byte [lit] 236 cc-emit-byte   \ jmp .loop  (disp = -20)
+  [lit] 195 cc-emit-byte ;                        \ ret
+
+```
+
+The four system calls share one body, `cc-emit-syscall-shim`: the C
+arguments are already in `rdi`, `rsi` and `rdx`, where Linux wants
+them, so the shim loads the call number and adds C's convention on
+top: Linux answers `-errno`, C answers -1.  `malloc(n)` is
+`calloc(n, 1)`: it sets the second argument and jumps into the calloc
+shim, whose bump allocator already hands out zeroed memory.  The three
+string functions are the obvious loops, each a few bytes.  `memcpy`
+is the x86 string instruction `rep movsb`, which copies `rcx` bytes
+from `[rsi]` to `[rdi]`.  `strrchr` keeps the last match in `rax` and
+counts the terminating NUL as part of the string, as C does, so
+`strrchr(s, 0)` finds the end.  Their short jumps are counted by hand,
+like `getchar`'s; `tests/cc/P8-libc-shims.c` calls each of them.
+
 ## 4. Bitwise, shifts, inc/dec, and unary `!`
 
 ```forth file=090-cc-emit.fth
@@ -713,6 +843,24 @@ that is fine for the duration of one compilation.
   [lit] 255 cc-emit-byte
   [lit]  77 cc-emit-local-ea ;
 
+\ The same through the address in rcx, for a ++ / -- whose operand is a
+\ pointer target, an element or a field (rcx holds its address).
+\ byte? picks the one-byte form (a char).
+\   inc qword [rcx]  48 FF 01      inc byte [rcx]  FE 01
+\   dec qword [rcx]  48 FF 09      dec byte [rcx]  FE 09
+: cc-emit-inc-via-rcx                             ( byte? -- )
+  0= if, [lit] 72 cc-emit-byte [lit] 255 else, [lit] 254 then,
+  cc-emit-byte  [lit] 1 cc-emit-byte ;
+: cc-emit-dec-via-rcx                             ( byte? -- )
+  0= if, [lit] 72 cc-emit-byte [lit] 255 else, [lit] 254 then,
+  cc-emit-byte  [lit] 9 cc-emit-byte ;
+
+\ mov rdi, [rcx]  48 8B 39   /  movzx rdi, byte [rcx]  48 0F B6 39
+: cc-emit-load-via-rcx                            ( byte? -- )
+  [lit] 72 cc-emit-byte
+  if, [lit] 15 cc-emit-byte [lit] 182 else, [lit] 139 then,
+  cc-emit-byte  [lit] 57 cc-emit-byte ;
+
 \ cc-emit-not-zero-flag.  Canonicalize rdi to 0/1 = (rdi == 0).
 \ Pattern: xor rax,rax; test rdi,rdi; sete al; mov rdi,rax.  Used by unary '!'.
 : cc-emit-not-zero-flag
@@ -741,7 +889,10 @@ arithmetic on every x86 compiler).  An unsigned shift would need
 slot in place (disp8 or disp32 per slot, via Ch 25's
 `cc-emit-local-ea`).  They bypass `rdi` entirely, which is what
 post-increment (`i++`) needs: `rdi` keeps the *old* value of `i`
-while the slot is incremented.
+while the slot is incremented.  `cc-emit-inc-via-rcx` and
+`cc-emit-dec-via-rcx` do the same to memory whose address is in `rcx`,
+a byte or a qword, and `cc-emit-load-via-rcx` reads it first: that is
+`g++`, `a[i]--` and `++p->n` (Ch 28).
 
 `cc-emit-not-zero-flag` is C's unary `!`: 12 bytes that compute `rdi
 := (rdi == 0) ? 1 : 0`, the comparison pattern from Ch 25 §6 with
@@ -750,57 +901,76 @@ while the slot is incremented.
 ## 5. File-scope globals and deferred vaddr fixups
 
 File-scope variables live immediately after the code, in the same
-PT_LOAD segment.  The code's length isn't known until parsing ends, so
-neither are the globals' addresses.
+PT_LOAD segment: scalars in a *data* area that is part of the file,
+arrays in a *bss* past the end of the file, which the kernel
+zero-fills (Ch 25 §1).  The code's length isn't known until parsing
+ends, so neither are the globals' addresses.
 
 ```forth file=090-cc-emit.fth
 \ ===========================================================================
 \ File-scope global variables.
 \ ===========================================================================
-\ Globals are accumulated in a parallel buffer (cc-globals-buf) during
-\ parsing.  Each global gets a SLOT offset into that buffer (0 for the first
-\ one, +8 for each subsequent qword, +N*8 for arrays).  Initializer bytes
-\ are written directly into cc-globals-buf at the slot offset; uninitialized
-\ globals stay zero (Forth `allot` zeroes the memory).
+\ Globals live in two areas placed after the code, in the same PT_LOAD
+\ segment:
+\   data  scalars, and whatever has an initializer.  Built in
+\         cc-globals-buf during parsing (initializer bytes are written
+\         straight in; the rest stays zero) and appended to the output
+\         file.
+\   bss   arrays.  They start zeroed, so they take no room in the file:
+\         the segment's p_memsz simply extends past its p_filesz, and
+\         the kernel zero-fills the difference.
+\ Each global gets a SLOT: its offset in the data area, or cc-bss-flag
+\ plus its offset in the bss.
 \
 \ At codegen time, an IDENT referring to a sk-global emits
 \     movabs rdi, <imm64 placeholder = 0>          ; 10 bytes
 \ and records (patch-offset-in-cc-out-buf, slot) into the cc-gfixup arrays.
 \
 \ At cc-finalize-globals (called after parsing, before cc-finalize-elf):
-\   1. cc-globals-base-vaddr := cc-here-vaddr (080).
+\   1. cc-globals-base-vaddr := cc-here-vaddr (080); the bss starts at
+\      the first 8-aligned address after the data.
 \   2. Append cc-globals-buf bytes to cc-out-buf.
-\   3. For each fixup, compute vaddr = cc-globals-base-vaddr + slot, then
-\      patch the placeholder imm64 in cc-out-buf at the recorded patch-offset.
-\
-\ This places the globals immediately after the code in the same PT_LOAD
-\ segment — no holes, no extra phdr.
+\   3. For each fixup, compute the slot's vaddr and patch the placeholder
+\      imm64 in cc-out-buf at the recorded patch-offset.
 
-[lit] 4096 constant cc-globals-cap
+[lit] 65536 constant cc-globals-cap                \ data area: 64 KiB
 create cc-globals-buf  cc-globals-cap allot
 variable cc-globals-pos
 
-\ Capacity for deferred global-vaddr fixups.  M2-Planet's cc_core.c emits
-\ ~891 global references — 256 is far too low; 4096 gives healthy headroom.
-[lit] 4096 constant cc-gfixup-cap
+[lit] 268435456 constant cc-bss-cap                \ bss: 256 MiB
+variable cc-bss-pos
+[lit] 1099511627776 constant cc-bss-flag           \ 2^40: "this slot is in the bss"
+
+\ Capacity for deferred global-vaddr fixups (each use of a global's name
+\ is one).  M2-Planet's source has about 1,600, and so has pnut's.
+[lit] 16384 constant cc-gfixup-cap
 create cc-gfixup-out-pos  cc-gfixup-cap [lit] 8 * allot
 create cc-gfixup-slot     cc-gfixup-cap [lit] 8 * allot
 variable cc-gfixup-count
 
 variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
+variable cc-bss-base-vaddr                       \ set by cc-finalize-globals
 
 ```
 
-`cc-globals-buf` is a 4 KiB area that accumulates global initialisers
-during parsing.  The 4096-entry fixup cap is sized for M2-Planet:
-`cc_core.c` emits about 891 references to globals, so 256 entries
-would overflow and 4096 leaves headroom.  Capacities throughout the
-compiler follow the same rule of M2-Planet plus a comfort factor.
+`cc-globals-buf` is a 64 KiB area that accumulates the data area,
+initialisers included, during parsing; M2-Planet needs 488 bytes of
+it and pnut 848, because their arrays go to the bss.  The bss is only
+a size, `cc-bss-pos`, capped at 256 MiB (code 82): pnut's global
+arrays add up to 4.6 MB, which would not fit in any buffer of the
+compiler, and need not, since the bss has no bytes in the file.  A
+slot in the bss is marked by adding `cc-bss-flag`, 2^40, far above
+any data offset, so one cell tells the two areas apart.  The
+16,384-entry fixup cap is ten times what M2-Planet (about 1,600
+references to globals) or pnut (about the same) needs.  Capacities
+throughout the compiler follow the same rule: what the programs it
+builds need, plus a comfort factor.
 
 ```forth file=090-cc-emit.fth
 \ cc-globals-init ( -- )  Reset globals + fixup state at the start of compile.
 : cc-globals-init
   [lit] 0 cc-globals-pos !
+  [lit] 0 cc-bss-pos !
   [lit] 0 cc-gfixup-count !
   [lit] 0 cc-globals-base-vaddr !
   \ Zero the globals buffer so uninitialized globals are guaranteed zero
@@ -811,13 +981,21 @@ compiler follow the same rule of M2-Planet plus a comfort factor.
     1+
   repeat, drop ;
 
-\ cc-globals-alloc ( bytes -- slot )  Reserve `bytes` bytes; return the offset
-\ of the first reserved byte.  Dies with 80 if cc-globals-buf would overflow.
+\ cc-globals-alloc ( bytes -- slot )  Reserve `bytes` bytes of the data
+\ area; return the offset of the first reserved byte.  Dies with 80 if
+\ cc-globals-buf would overflow.
 : cc-globals-alloc                                 ( bytes -- slot )
   dup cc-globals-pos @ + cc-globals-cap [lit] 80 cc-check-cap
   cc-globals-pos @                                 ( bytes slot )
   swap                                              ( slot bytes )
   cc-globals-pos +! ;
+
+\ cc-bss-alloc ( bytes -- slot )  Reserve `bytes` zeroed bytes in the bss;
+\ return the slot (cc-bss-flag + offset).  Dies with 82 past cc-bss-cap.
+: cc-bss-alloc                                     ( bytes -- slot )
+  dup cc-bss-pos @ + cc-bss-cap [lit] 82 cc-check-cap
+  cc-bss-pos @ cc-bss-flag +                       ( bytes slot )
+  swap cc-bss-pos +! ;
 
 \ cc-globals-store-8le ( v slot -- )  Write `v` as 8-byte LE into globals-buf
 \ at the given slot offset.
@@ -845,8 +1023,8 @@ compiler follow the same rule of M2-Planet plus a comfort factor.
   [lit] 1 cc-gfixup-count +! ;
 
 \ cc-emit-global-ref ( slot -- )  Emit `movabs rdi, <vaddr placeholder>` and
-\ record a deferred fixup so the imm64 will be patched to cc-globals-base-
-\ vaddr + slot once globals are placed.  Used by the sk-global IDENT path in
+\ record a deferred fixup so the imm64 will be patched to the slot's
+\ address once globals are placed.  Used by the sk-global IDENT path in
 \ cc-parse-primary.
 : cc-emit-global-ref                                ( slot -- )
   [lit]  72 cc-emit-byte                            \ REX.W (0x48)
@@ -856,8 +1034,9 @@ compiler follow the same rule of M2-Planet plus a comfort factor.
   swap cc-gfixup-add ;
 ```
 
-Each global's declaration calls `cc-globals-alloc <bytes>` to reserve
-a slot, and possibly `cc-globals-store-8le` to write its initialiser.
+Each scalar's declaration calls `cc-globals-alloc <bytes>` to reserve
+a slot, and possibly `cc-globals-store-8le` to write its initialiser;
+an array's calls `cc-bss-alloc`.
 A *reference* to a global from compiled code is a 10-byte `movabs rdi,
 imm64` whose imm64 starts as 0.  `cc-emit-global-ref` emits the
 placeholder and records `(patch-offset, slot)` in the parallel arrays
@@ -871,12 +1050,17 @@ At the end of compilation, Ch 32's driver calls `cc-finalize-globals`
    cc-out-pos`).
 2. Append the `cc-globals-buf` bytes to `cc-out-buf`, advancing
    `cc-out-pos` past the global data.
-3. For every recorded fixup, compute the vaddr
-   `cc-globals-base-vaddr + slot` and patch the placeholder imm64 in
-   `cc-out-buf` at the recorded `patch-offset`.
+3. If there is a bss, pad the file to an 8-byte boundary; the bss
+   starts there (`cc-bss-base-vaddr`), and its size goes to Ch 25's
+   `cc-bss-size`.
+4. For every recorded fixup, compute the vaddr (`cc-globals-base-vaddr
+   + slot` for a data slot, `cc-bss-base-vaddr + slot - cc-bss-flag`
+   for a bss one) and patch the placeholder imm64 in `cc-out-buf` at
+   the recorded `patch-offset`.
 
 After that, `cc-finalize-elf` (Ch 25 §1) patches the program header's
-`p_filesz`, and `cc-write-output` (Ch 21 §2) writes the buffer.
+`p_filesz` and `p_memsz`, and `cc-write-output` (Ch 21 §2) writes the
+buffer.
 
 Machine code and string bytes go straight into `cc-out-buf`: a string
 literal sits inline behind a `jmp`, so its address is known the moment
@@ -887,7 +1071,7 @@ responsibility pattern at codegen scale, with `cc-globals-buf` and the
 
 ## 6. The path back together
 
-`090-cc-emit.fth` is 1039 lines of compiler-side machine-code
+`090-cc-emit.fth` is 1187 lines of compiler-side machine-code
 emission, used three ways:
 
 - **Per-instruction encoders** (Ch 25 §3–§7 and §4 here) write the

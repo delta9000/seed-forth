@@ -187,8 +187,9 @@ ok "seed-forth: 1772 bytes"
 step 2 "seed-forth compiles M2-Planet -> cc-out-v1"
 # ---------------------------------------------------------------------------
 # The monolith: M2-Planet's four headers once, then each .c file with its
-# quote-includes dropped (the Forth preprocessor has no #ifndef guards) and
-# the duplicate TRUE/FALSE defines dropped.  Same bytes as the sed filter in
+# quote-includes dropped and the duplicate TRUE/FALSE defines dropped.  (It
+# was built this way before the Forth preprocessor had #ifndef; it is kept
+# because cc-out-v1's bytes, which REPRODUCIBLE.md pins, depend on it.)  Same bytes as the sed filter in
 # tests/cc/build-m2planet-monolith.sh, done in bash so no sed is trusted.
 strip_c() {
     local line re='^#include[[:space:]]*"'

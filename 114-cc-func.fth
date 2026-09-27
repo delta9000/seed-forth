@@ -40,13 +40,15 @@ create cc-main-name-bytes  s, main
 \ ===========================================================================
 
 \ cc-parse-param-list-loop ( -- )  Parse one or more parameters separated by
-\ ','.  T may be int / char / void / long / short / struct TAG / typedef-name,
-\ with '*' modifiers.  Consumes the closing ')'.
+\ ','.  T may be int / char / void / long / short / struct TAG / enum TAG /
+\ typedef-name, with '*' modifiers.  Consumes the closing ')'.
 : cc-parse-param-list-loop
   begin,
     \ Base type.  Both branches leave ( base ptr-depth-so-far ); the kw path
     \ starts ptr-depth at 0; the typedef path inherits the typedef's encoded
     \ ptr-depth (so FUNCTION = void (*)() stays a function pointer in params).
+    \ Qualifiers before the type (`const int size`) are skipped.
+    cc-skip-qualifiers
     cc-next-token-keep
     tok-kind @ tk-kw = if,
       tok-kw-id @ kw-struct = if,
@@ -58,11 +60,13 @@ create cc-main-name-bytes  s, main
         \ needs to emit byte stride / byte load for `s[i]`.  Others collapse
         \ to ty-int.
         [lit] 0 cc-pending-struct-desc !
+        tok-kw-id @ kw-enum = if, cc-skip-enum-tag then,
         tok-kw-id @ kw-char = if,
           ty-char
         else,
           ty-int
         then,
+        cc-tok-is-basic-type-kw? if, cc-more-type-kws then,
         [lit] 0
       then,
     else,
@@ -168,12 +172,14 @@ create cc-main-name-bytes  s, main
 \ ===========================================================================
 \ cc-parse-fn-return-type ( -- )
 \ Consume the function's return type, which may be:
-\   - int / char / void
+\   - int / char / void, after any storage classes and qualifiers
 \   - struct TAG       (tag ident consumed)
+\   - enum TAG         (tag ident consumed)
 \   - typedef-name     (any non-keyword ident — FILE, etc.)
 \ Followed by zero or more '*' modifiers.  Codegen treats every return as a
 \ single rax-sized value, so the type is not recorded — it's just consumed.
 : cc-parse-fn-return-type
+  cc-skip-storage-quals
   cc-next-token-keep
   tok-kind @ tk-kw = if,
     tok-kw-id @ kw-struct = if,
@@ -182,6 +188,8 @@ create cc-main-name-bytes  s, main
         [lit] 185 cc-die
       then,
     then,
+    tok-kw-id @ kw-enum = if, cc-skip-enum-tag then,
+    cc-tok-is-basic-type-kw? if, [lit] 0 cc-more-type-kws drop then,
   else,
     tok-kind @ tk-ident <> if,
       [lit] 186 cc-die

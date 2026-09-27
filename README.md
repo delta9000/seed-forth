@@ -51,6 +51,14 @@ git submodule update --init vendor/stage0-posix
 git -C vendor/stage0-posix submodule update --init bootstrap-seeds
 ```
 
+`vendor/pnut` (pnut at `abc34a5`, no nested submodules) is needed only
+by `tests/pnut/sf-pnut-check.sh`, which builds pnut with the Forth C
+compiler; the check reports SKIP without it:
+
+```sh
+git submodule update --init vendor/pnut
+```
+
 ## Bootstrap it (no GCC)
 
 From the repository root, with the submodules fetched as above:
@@ -139,12 +147,15 @@ From the repository root, with the submodules fetched as in
 ./verify.sh                    # ~6½ min, needs gcc: every GCC-reference comparison + stage0-posix checks
 ```
 
-`check-all.sh` is a wrapper that runs twelve steps
+`check-all.sh` is a wrapper that runs thirteen steps
 with per-step OK/SKIP/FAIL output (logs in `${TMPDIR:-/tmp}/check-all-*.log`); Stage-A and the small assembler
 checks are skipped (not failed) if `gcc` isn't installed.  The last
-two steps run `./bootstrap.sh` and `./handoff.sh` (its main route
-only, on bootstrap.sh's output), which need no gcc; the handoff step
-is skipped if stage0-posix's nested submodules are not checked out.  For diagnosing a failure, the
+three steps run `./bootstrap.sh`, `tests/pnut/sf-pnut-check.sh` (the
+Forth C compiler builds pnut unmodified, and that pnut agrees with an
+M2-Planet-built one) and `./handoff.sh` (its main route only, on
+bootstrap.sh's output), which need no gcc; the pnut step is skipped
+without `vendor/pnut`, the handoff step if stage0-posix's nested
+submodules are not checked out.  For diagnosing a failure, the
 individual commands are:
 
 ```sh
@@ -157,6 +168,7 @@ tools/gen-index.py --check
 tools/check-links.py           # book links + heading anchors (mdBook slug rules)
 tests/cc/stage-a-check.sh
 ./bootstrap.sh
+BOOTSTRAP_OUT=build-out/out tests/pnut/sf-pnut-check.sh   # SF_PNUT_TCC=1: on to tcc-0.9.27
 BOOTSTRAP_OUT=build-out/out ARCHES=amd64 ROUTE_B=0 ./handoff.sh
 ```
 
@@ -209,6 +221,7 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
 | `tests/cc/G*.c`, `M*.c`, headers | Small tracked cases that document the C subset. |
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |
 | `vendor/stage0-posix` | Pinned upstream containing the `hex0-seed` assembler `build.sh` uses. |
+| `vendor/pnut` | Pinned pnut (`abc34a5`), the C compiler `tests/pnut/sf-pnut-check.sh` builds with the Forth C compiler, unmodified. |
 
 Generated binaries such as `seed-forth`, `/tmp/cc-out` and `build-out/` are not source.
 

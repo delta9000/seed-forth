@@ -2,19 +2,25 @@
 
 This appendix is the reference card for *what subset of C* the
 compiler in `020-cc-arena.fth` through `120-cc-main.fth` actually
-accepts.  The compiler is *not* an ANSI / ISO C compiler.  It is
-"enough C to compile M2-Planet," which is a real but specific
-corner of the language.  Use this appendix when you want to know
-whether a construct will work without running it.
+accepts.  The compiler is *not* an ANSI / ISO C compiler.  It started
+as "enough C to compile M2-Planet" and grew to "enough C to compile
+pnut unmodified" (`tests/pnut/sf-pnut-check.sh`), which is still a
+specific corner of the language.  Use this appendix when you want to
+know whether a construct will work without running it.  Every
+statement below was checked against the compiler; the constructs the
+compiler accepts but gets wrong are listed as such, not hidden.
 
 Sources of truth, in case this appendix drifts:
 
-- Keyword set: `050-cc-lex.fth` lines 125–155 (`kw-*` constants).
+- Keyword set: `050-cc-lex.fth` lines 93–122 (`kw-*` constants).
 - Expression grammar: `100-cc-expr.fth` lines 1–22 (header
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `112-cc-stmt.fth` `cc-parse-stmt`
-  (lines 739–759).
+  (lines 739–763).
+- The gates in `tests/cc/`, run by `tests/cc/run-gates.sh`: each
+  `P*.c` file exercises one family of the features below, and each
+  `die-*` file one of the rejections (Appendix G).
 
 If you discover a construct the compiler accepts that isn't listed
 below, or rejects one that is, this appendix is wrong and the
@@ -25,30 +31,33 @@ source wins.
 The compiler models a single integer width (64 bits) plus pointers
 and one byte-addressable case for `char`.  Every value is stored
 in an 8-byte slot at runtime; the only place width matters is in
-load / store instructions (qword vs byte) and in pointer
-arithmetic stride.
+load / store instructions (qword vs byte) and in the stride of a
+subscript.
 
 | Type form | Accepted | Width / slot | Notes |
 |---|---|---|---|
-| `int`                  | yes | 8 bytes | The default integer.  Signed. |
-| `char`                 | yes | 1 byte (load/store); 8-byte slot in locals | Signed for arithmetic via `<`. |
+| `int`                  | yes | 8 bytes | The one integer.  Signed. |
+| `char`                 | yes | 1 byte (load/store); 8-byte slot in locals, fields and array elements | Loads through a `char*` zero-extend, so a `char` read from memory is 0..255 (unsigned, unlike x86 C compilers).  A `char` local is an 8-byte slot and is not truncated: `char c = 300;` keeps 300.  `(char) x` keeps the low byte. |
 | `void`                 | yes (functions and pointers) | — | `void` as a function parameter list is treated as "no parameters." |
 | `T*` (pointer)         | yes | 8 bytes | Any depth (`int**`, `char***`). |
-| `struct T`             | yes (by-pointer only) | descriptor; values not passed | See §"Structs" below. |
-| `enum T`               | yes | 8 bytes | Members are integer constants; the tag is accepted but discarded. |
-| `typedef` names        | yes | resolves to the aliased type | Registered in the symbol table. |
-| `T[N]` (array of T)    | yes (locals + globals) | `N * 8` (N slots, each 8 bytes) | Decays to `T*` in expressions. |
-| `T (*fp)(args)` (function pointer) | yes (in `cc_globals.c` and friends) | 8 bytes | Only the forms M2-Planet uses are exercised. |
-| `short`, `long`, `unsigned`, `signed` | recognised as basic-type keywords (`cc-tok-is-basic-type-kw?` in `110-cc-decl.fth:464`) | 8 bytes | The keywords let headers parse, but the resulting type is always 8-byte signed regardless of which modifier appeared. |
-| `const`, `volatile`, `restrict`, `static`, `extern`, `auto`, `register` | parsed; ignored | — | `cc-skip-storage-quals` (`110-cc-decl.fth:99`) consumes and discards.  `static` locals behave like ordinary locals. |
+| `struct T`             | yes | 8 bytes per field | See §"Structs" below. |
+| `enum T`               | yes | 8 bytes | Members are integer constants; `enum T` used as a type is `int`. |
+| `typedef` names        | yes | resolves to the aliased type | Registered in the symbol table.  Built in: `FILE`, `size_t`, `ssize_t`, `intptr_t`, `int8_t`…`uint64_t`, all `int`. |
+| `T[N]` (array of T)    | yes (locals + globals) | `N * 8` (N slots, each 8 bytes, also for `char`) | Decays to `T*` in expressions.  `N` is a constant expression. |
+| `T (*fp)(args)` (function-pointer local) | yes | 8 bytes | As a *parameter* it is rejected (code 183); use a typedef such as M2-Planet's `FUNCTION`. |
+| `short`, `long`, `unsigned`, `signed`, and combinations (`unsigned long`, `long long`) | parsed | 8 bytes | `cc-tok-is-basic-type-kw?` (`110-cc-decl.fth:490`) and `cc-more-type-kws`.  Every spelling is the one 8-byte *signed* integer (`short z = 70000;` keeps 70000); a `char` among the keywords makes `char`. |
+| `const`, `volatile`, `restrict`, `extern`, `auto`, `register` | parsed; ignored | — | Anywhere a type is read, including after a `*` (`char * const p`) and in parameters.  `cc-skip-storage-quals` (`110-cc-decl.fth:122`) and `cc-skip-qualifiers`. |
+| `static`               | yes | — | A `static` local keeps its value between calls: it gets file-scope storage (Ch 29 §4).  On a file-scope name it changes nothing. |
 | `float`, `double`, `long double` | **rejected** | — | No floating-point support at any layer. |
 | bitfields              | **rejected** | — | The parser does not accept `int x : 3;`. |
-| `union`                | **rejected** | — | Not a keyword in the table. |
-| variable-length arrays | **rejected** | — | Array sizes must be integer literals. |
+| `union`                | **rejected** | — | Not a keyword in the table (code 143). |
+| multi-dimensional arrays (`int m[3][4]`) | **rejected** | — | Code 159. |
 
 The width collapse to 8 bytes is the single biggest deviation from
-ISO C and the reason the byte-identity proof is against M2-Planet
-(also an 8-byte-slot compiler) and not against GCC.
+ISO C.  It is why the byte-identity proof is against M2-Planet's
+*output* and not against GCC's code, and why a program must not
+depend on `int` overflowing at 32 bits.  (pnut does not: its own
+code is written for such hosts.)
 
 ## Operators
 
@@ -56,8 +65,8 @@ In `cc-parse-*` precedence order, lowest to highest:
 
 | Precedence | Operators | Notes |
 |---|---|---|
-| assign (right-assoc) | `=`, `+= -= *= /= %= <<= >>= &= \|= ^=` | LHS must be an identifier, `*p`, `arr[i]`, or `obj.field` / `p->field`.  Compound assignments are supported when the LHS is a simple local variable; on a dereferenced, indexed, or field target only plain `=` is allowed. |
-| ternary (right-assoc) | `?:` | Both arms parsed via `cc-parse-assign`; standard short-circuit shape. |
+| assign (right-assoc) | `=`, `+= -= *= /= %= <<= >>= &= \|= ^=` | LHS must be an lvalue: a local, a global, `*p`, `a[i]`, `obj.field`, `p->field`, or any of those in parentheses.  All forms take every compound operator. |
+| ternary (right-assoc) | `?:` | Only the chosen arm is evaluated. |
 | logical or          | <code>&#124;&#124;</code> | Short-circuit; result is 0/1. |
 | logical and         | `&&`   | Short-circuit; result is 0/1. |
 | bitwise or          | <code>&#124;</code> | |
@@ -65,18 +74,30 @@ In `cc-parse-*` precedence order, lowest to highest:
 | bitwise and         | `&`   | Also the address-of operator at prefix position. |
 | equality            | `==`, `!=` | |
 | relational          | `<`, `<=`, `>`, `>=` | **Signed only.**  No unsigned compare. |
-| shift               | `<<`, `>>` | `>>` is arithmetic (signed) on this signed-only subset. |
-| additive            | `+`, `-` | Pointer arithmetic scaled by 8 (or 1 for `char*`). |
-| multiplicative      | `*`, `/`, `%` | Signed `IDIV` semantics. |
-| prefix unary        | `&`, `*`, `-`, `!`, `~`, `++`, `--`, `sizeof` | `sizeof` accepts types and expressions. |
-| postfix             | `()`, `[]`, `.`, `->`, `++`, `--` | `++` / `--` lvalue forms only. |
+| shift               | `<<`, `>>` | `>>` is arithmetic (signed). |
+| additive            | `+`, `-` | **Not scaled for pointers**: `p + 1` on an `int*` moves one byte.  Only a subscript scales (below). |
+| multiplicative      | `*`, `/`, `%` | Signed `IDIV` semantics: truncates toward zero. |
+| cast                | `(T) x` | Any type name: keywords, `struct T*`, `enum T`, typedefs, with `*`s and qualifiers.  Changes the type the parser tracks (so `*(char*) p` loads one byte, `((struct T*) p)->f` works); only `(char)` changes the value. |
+| prefix unary        | `&`, `*`, `-`, `!`, `~`, `++`, `--`, `sizeof` | `&` takes a plain local only (`&g` is code 116, `&a[i]` is rejected).  `++`/`--` take any lvalue and are **not scaled** on pointers.  `sizeof` takes a type keyword, `struct T`, a typedef, or a plain local's name (`sizeof(*p)` is code 109; `sizeof(unsigned long)` is code 106). |
+| postfix             | `()`, `[]`, `.`, `->`, `++`, `--` | `++`/`--` take any lvalue.  `[]` scales by 8, or by 1 for a `char*` or `char` array.  `.`/`->` need a struct type the parser knows: `mk()->v` on a call's result is code 100. |
 
-**Comma operator** (`a, b` as an expression) is **not** supported
-outside of argument lists and `for`-loop headers.
+A string literal is a `char*`, so `"abc"[1]` is `'b'`.  Adjacent
+string literals are not concatenated (`"ab" "cd"` is rejected).
 
-**Escapes** in character and string literals: `\n`, `\t`, `\r` and
-`\0` are newline, tab, carriage return and NUL; any other `\c`
-stands for `c` (so `\\`, `\'` and `\"` work).  No `\xNN`, no octal.
+**Comma operator** (`a, b` as an expression) is **not** supported,
+not even in a `for` header: `for (i = 0, j = 1; …)` is code 143.
+
+**Constant expressions** (array sizes, `case` labels, enum values,
+global initializers, `#if` lines) are computed at compile time with
+the same operators, the ternary, `&&` and `||` (Ch 28 §9).  Their
+operands are numbers, characters and enum constants; a variable is
+code 125.
+
+**Literals.**  Integers in decimal, hex (`0x1F`) and octal (`010` is
+8), with any `u`/`U`/`l`/`L` suffix ignored.  Character and string
+escapes: `\n`, `\t`, `\r`, `\a`, `\b`, `\f`, `\v`; one to three octal
+digits (`\0`, `\033`); `\x` and hex digits (`\x1b`); any other `\c`
+stands for `c` (so `\\`, `\'` and `\"` work).
 
 ## Statements
 
@@ -87,20 +108,20 @@ of the parser's codes (`100-cc-expr.fth` through `116-cc-prog.fth`; Appendix G).
 | Form | Accepted | Notes |
 |---|---|---|
 | `expr ';'`                                                | yes | The catch-all path. |
+| `';'` (empty statement)                                   | yes | Also as a loop body: `while (f());`. |
 | `'{' stmt* '}'`                                           | yes | Compound statement; introduces a scope. |
 | `if (expr) stmt`                                          | yes | |
 | `if (expr) stmt else stmt`                                | yes | |
 | `while (expr) stmt`                                       | yes | |
 | `do stmt while (expr) ';'`                                | yes | |
-| `for (init? ; cond? ; step?) stmt`                        | yes | All three clauses optional. |
-| `switch (expr) '{' (case INT ':' / default ':' / stmt)* '}'` | yes | Case labels are integer literals only — no constant expressions. |
-| `break ';'`                                               | yes | Innermost loop or switch.  No "break outside loop" detection. |
-| `continue ';'`                                            | yes | Innermost loop. |
+| `for (init? ; cond? ; step?) stmt`                        | yes | All three clauses optional.  No declaration in `init` (`for (int i …` is code 97). |
+| `switch (expr) '{' (case K ':' / default ':' / stmt)* '}'` | yes | `K` is a constant expression: `case 'x':`, `case -1:`, `case T_PLUS:`, `case N + 1:`. |
+| `break ';'`                                               | yes | Innermost loop or switch.  No "break outside loop" detection: one there compiles to a stray jump. |
+| `continue ';'`                                            | yes | Innermost loop, also from inside a `switch` in it. |
 | `goto LABEL ';'`                                          | yes | Function-local labels; max 64 labels per function; the target label must not be inside a `switch`. |
 | `LABEL ':' stmt`                                          | yes | |
 | `return ';'` / `return expr ';'`                          | yes | |
-| local declaration                                         | yes | Any C declaration form recognised at file scope, plus initialisers.  A function's parameters and locals share 32 eight-byte slots (an array takes one per element); code 162 past that. |
-| `;` (null statement)                                      | yes | |
+| local declaration                                         | yes | Base type then declarators separated by `,`, each `*`s, a name, and `[SIZE]` or `= expr`.  No initializer lists (`int a[3] = {1,2,3}` is code 159).  A function's parameters and locals share 32 eight-byte slots (an array takes one per element); code 162 past that.  A `static` local takes no slot. |
 
 ## Declarations
 
@@ -109,69 +130,77 @@ Top-level forms accepted by the top-level loop, `cc-parse-function-list`
 
 | Form | Notes |
 |---|---|
-| `T name '(' params ')' '{' body '}'` (function definition) | The main case. |
-| `T name '(' params ')' ';'` (function prototype)           | Registered as an `sk-func` with vaddr 0 so forward calls resolve; not emitted. |
-| `T name [ = init ] ';'` (global scalar / pointer)          | Initialiser must be an integer literal, possibly negated. |
-| `T name '[' INT ']' ';'`                                   | Global arrays start zeroed; no initialiser list.  Sizes are integer literals. |
-| `struct TAG '{' field-decl* '}' ';'`                       | Up to 16 fields per struct; each field is a full 8-byte slot. |
-| `enum [TAG] '{' name [= INT] (',' …)* '}' ';'`             | Tag optional. |
-| `typedef T name ';'`                                       | Stored in the symbol table with kind `sk-typedef`. |
+| `T name '(' params ')' '{' body '}'` (function definition) | The main case.  `T` may be any type: keywords, `struct T`, `enum T`, a typedef, with `*`s. |
+| `T name '(' params ')' ';'` (function prototype)           | Registered as an `sk-func` with vaddr 0 so forward calls resolve; not emitted.  Calling a function with neither a prototype nor an earlier definition is code 93. |
+| `T name [ = CONSTANT ] (',' …)* ';'` (global scalars / pointers) | The initializer is a constant expression.  No string initializers (`char* s = "hi";` is code 126). |
+| `T name '[' SIZE ']' ';'`                                  | Global arrays start zeroed (they live in the bss); no initializer list. |
+| `extern T name;` then `T name = C;`                        | One variable: the second declaration reuses the first's slot. |
+| `struct TAG '{' field-decl* '}' ';'`                       | Up to 16 fields per struct; each field is a full 8-byte slot.  No forward declaration `struct TAG;` (code 203). |
+| `enum [TAG] '{' name [= CONSTANT] (',' …)* '}' ';'`        | Tag optional. |
+| `typedef T name ';'`, `typedef T (*name)(…);`              | Stored in the symbol table with kind `sk-typedef`.  `typedef struct T {…} Name;` is rejected (code 146), and a typedef of a struct type loses the descriptor that `->` needs. |
 
 Parameter lists accept the same type forms as locals, plus `void`
-as a single sentinel meaning "no parameters."  Variadic parameter
-lists (`...`) are **rejected** — every function in this subset has
-a fixed arity.
-
-Function-pointer parameters use the `T (*name)(args)` form (see
-`cc-parse-fnptr-decl` in `110-cc-decl.fth:336`).
+as a single sentinel meaning "no parameters."  At most six parameters
+and six arguments (code 122 for a seventh argument): every argument
+travels in a register.  Variadic parameter lists (`...`) are
+**rejected** (code 182).  A function-pointer parameter must be
+spelled with a typedef; `int (*f)(int)` in a parameter list is code
+183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:368` for the local
+form).
 
 ## Preprocessor
 
-`040-cc-prep.fth` is the entire preprocessor.  It runs once in
-place over the source buffer before the lexer starts, splicing in
-`#include`d files, recording `#define`s in a table, and deleting
-every directive line.  It does *not* substitute macros: that
-happens at lex time, when `cc-lex-ident-or-kw` (`050-cc-lex.fth`)
-looks each identifier up with `cc-macro-find-int` and emits a
-number token on a match.
+`040-cc-prep.fth` is the entire preprocessor: one pass over the
+source before the lexer starts, which splices in `#include`d files,
+expands every macro, and drops the lines of false conditional groups
+(Ch 22).
 
 | Directive | Accepted | Notes |
 |---|---|---|
-| `#include "path"`  | yes | Path tried verbatim, then under `tests/cc/`.  Nested up to four deep. |
-| `#include <path>`  | elided | Accepted and dropped — the compiler's built-in shims stand in for the system headers. |
-| `#define NAME body` | yes | Object-like macros only, and the body must be an integer — a decimal literal or another integer macro.  Any other body registers nothing, silently.  No function-like macros, no general text substitution. |
-| `#define NAME` (empty) | elided | Registers nothing; `NAME` stays an ordinary identifier. |
-| `#ifdef`, `#ifndef`, `#if`, `#endif`, `#elif`, `#else` | elided | Silently dropped, so *every* branch is compiled.  The build scripts strip the include guards that depend on these. |
-| `#pragma`, `#error`, `#line`, anything else | elided | Silently dropped. |
+| `#include "path"`  | yes | Path tried verbatim, then under `tests/cc/`.  Nested up to four deep; each file up to 256 KiB. |
+| `#include <path>`  | dropped | The compiler's built-in shims, typedefs and macros stand in for the system headers. |
+| `#define NAME body` | yes | Any body, including an empty one; continued lines with `\`. |
+| `#define NAME(a, b) body` | yes | Function-like, up to 16 parameters.  Arguments are expanded before substitution and the result is rescanned; a macro is not expanded inside its own expansion.  No `#` (stringizing) or `##` (pasting), no `...`. |
+| `#undef NAME` | yes | |
+| `#if`, `#ifdef`, `#ifndef`, `#elif`, `#else`, `#endif` | yes | `#if` / `#elif` take a constant expression with `defined NAME` and `defined(NAME)`; names left after expansion are 0.  Nested up to 64 deep. |
+| `#error` | yes | Stops the compiler (code 40) unless it is in a dropped group. |
+| `#pragma`, `#line`, anything else | dropped | Silently. |
 
-The lack of `#ifndef` / `#endif` is the reason
-`build-m2planet-monolith.sh` exists: it pre-strips the
-`#include "..."` cycles that conditional compilation would
-otherwise handle.
+Built-in macros: `NULL`, `EOF`, `EXIT_SUCCESS`, `EXIT_FAILURE`,
+`stdin`, `stdout`, `stderr`, and `open(2)`'s flags `O_RDONLY`,
+`O_WRONLY`, `O_CREAT`, `O_TRUNC`.  See `cc-prep-builtins` in
+`040-cc-prep.fth`.  There is no `__FILE__`, `__LINE__` or `__STDC__`,
+and no `-D`: the compiler reads the program on stdin, so a
+configuration is `#define` lines placed in front of it.
 
-A handful of built-in macros are predefined: `NULL`, `EOF`,
-`EXIT_SUCCESS`, `EXIT_FAILURE`, `stdin`, `stdout`, and `stderr`.  See
-`cc-prep-builtins` in `040-cc-prep.fth`.
+`build-m2planet-monolith.sh` predates conditional compilation: it
+still deletes each `.c` file's `#include "…"` lines and concatenates
+the headers once, although `cc.h`'s own `#ifndef CC_H` guard now
+works.
 
 ## Structs
 
-Structs are storage and field-naming only.
+Structs are storage and field-naming.
 
 - Up to **16 fields** per struct (Ch 24 §1; descriptors are 656
   bytes each).
 - Every field occupies an **8-byte slot**, regardless of declared
   type.  `char` and `int` fields are equally 8 bytes wide inside a
-  struct.
-- Structs are passed and returned **by pointer only**.  Pass-by-
-  value of struct values is not supported (the calling convention
-  cannot express it).  Struct-typed locals and globals are fine
-  (Ch 29 §5, Ch 31 §7); only crossing a call boundary needs a
-  pointer.
-- `sizeof(struct T)` returns `8 * field-count`.
-- Nested struct *types* are allowed via tag references (`struct
-  inner *next;`); inlined nested structs are not.
-- Anonymous structs and unions: not supported.
-- Bitfields: not supported.
+  struct, and `sizeof(struct T)` is `8 * field-count`.
+- No arrays inside a struct (`int arr[4];` as a field is rejected).
+- Structs are passed and returned **by pointer only**, and assigned
+  field by field (`b = a` on two struct values is code 120).
+  Struct-typed locals and globals are fine (Ch 29 §6, Ch 31 §7).
+  **Passing a struct by value is not rejected but miscompiled**:
+  the callee reads garbage.
+- A field may point to a struct defined later, but `->` through such a
+  field has no descriptor (code 100); go through a local of the right
+  type.  A struct *value* nested inline as a field compiles, but
+  `sizeof` counts it as one 8-byte field.
+- A field holding a function pointer cannot be called directly:
+  `s->fn(4)` is rejected; copy it into a local first.
+- Anonymous structs and unions: not supported.  Bitfields: not
+  supported.
 
 ## What an ISO C programmer should expect *not* to find
 
@@ -181,36 +210,40 @@ tables above are not repeated.
 
 - **Floating point.** No `float`, `double`, FPU code generation,
   or `<math.h>` linkage.
-- **Unsigned integer arithmetic.** Comparisons are signed; there
-  is no `unsigned int` / `size_t` distinction at codegen time.
+- **Unsigned integer arithmetic.** Comparisons, `>>`, `/` and `%` are
+  signed; `unsigned` is only a spelling.
 - **64-bit literals beyond `int` range** are accepted as
   integers but not range-checked.
 - **Variadic functions.** No `...`, no `va_list`, no `va_arg`.
-  Calls to `printf` rely on M2-Planet's libc shim, which itself
-  uses fixed-arity tricks.
 - **`union`.** Not implemented; absent from `kw-table`.
-- **Compound literals**, **designated initialisers**,
-  **statement expressions** (`({ ... })`), and other C99/GNU
-  extensions.
-- **Function pointers in arbitrary positions.** Function-pointer
-  *variables* and *parameters* work; complex declarators like
-  arrays of function pointers are not exercised.
+- **Initializer lists**, **compound literals**, **designated
+  initialisers**, **statement expressions** (`({ ... })`), and other
+  C99/GNU extensions.
+- **Declarations inside `for`** (`for (int i = 0; …)`, code 97).
 - **Multiple translation units.** The compiler reads stdin once
-  and emits one ELF.  There is no linker step, so multi-file
-  builds are handled by the monolith concatenation in
-  `build-m2planet-monolith.sh`.
-- **Standard library.** The compiler emits 11 libc shims
-  (`putchar`, `exit`, `getchar`, `fputs`, `fputc`, `fopen`,
-  `fclose`, `fwrite`, `fread`, `calloc`, `free`) directly into
-  the output ELF.  Everything else must be provided by the C
-  source under compilation: a function that is called but never
-  defined stops the compile with code 206, and so does `memset`,
-  which is declared for the upstream tests but has no body.
+  and emits one ELF to `/tmp/cc-out`.  There is no linker step, so
+  multi-file builds are done by `#include "…"` or by concatenation.
+- **Standard library.** The compiler emits libc shims directly into
+  the output ELF: eleven in every program (`putchar`, `exit`,
+  `getchar`, `fputs`, `fputc`, `fopen`, `fclose`, `fwrite`, `fread`,
+  `calloc`, `free`) and eight more only when called (`malloc`,
+  `open`, `read`, `write`, `close`, `strlen`, `memcpy`, `strrchr`).
+  `FILE*` is a file descriptor and I/O is unbuffered.  `free` does
+  nothing; `calloc` and `malloc` bump through one 256 MiB mapping.
+  Everything else must be provided by the C source under
+  compilation: a function that is called but never defined stops the
+  compile with code 206, and so does `memset`, which is declared for
+  the upstream tests but has no body.
 
 ## Coverage in practice
 
-The operational definition of "supported" is Stage A.  If M2-Planet
-uses a construct and Stage A still produces byte-identical `.M1`,
-the construct works.  If you write something not in the subset, the
-likely outcome is the compiler stopping with one of the codes in
-Appendix G, after printing the source line it had reached.
+The operational definition of "supported" is two proofs and the
+gates.  Stage A: if M2-Planet uses a construct and its `.M1` output
+stays byte-identical, the construct works.  `tests/pnut/sf-pnut-check.sh`:
+if pnut uses it and the pnut this compiler builds generates the same
+bytes as an M2-Planet-built pnut, it works.  The `tests/cc/` gates
+cover the constructs neither program reaches.  If you write something
+not in the subset, the likely outcome is the compiler stopping with
+one of the codes in Appendix G, at the line it had reached; the
+exceptions, constructs it accepts and gets wrong, are called out
+above.

@@ -196,7 +196,7 @@ Reproduced on the reviewer's machine and recorded in
 ```text
 16c09d3a841fb5e62b115f225361f3006075a4998f46966d83e21d991e159e8e  000-seed.hex0
 697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e  seed-forth
-23aaa5be476e5d25194dcbd178ceba9a4ccc72ca9c7d76523c6fc6fc1a409e73  cc-out-v1
+025208db31342c4070dbcd3b72f56ddfdde7d38c582c96ea9fdc59bcc6ef7d1e  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
 
@@ -310,6 +310,16 @@ at stage0-posix's `after.kaem` hook, reading `/AMD64/bin`.  With a
 byte-identical `AMD64/bin` (or `x86/bin`, live-bootstrap's one
 supported architecture), the rest is "continue with live-bootstrap as
 usual"; the manual steps are in `REPRODUCIBLE.md`.
+
+## Past M2-Planet: pnut and TinyCC
+
+The compiler this book builds also compiles pnut, unmodified
+(Ch 32 §5).  `tests/pnut/sf-pnut-check.sh` checks that the pnut it
+builds generates, for pnut's TinyCC kit, the same `pnut-exe` as a pnut
+built by `bootstrap.sh`'s M2-Planet (sha256 `19d96d9e…`), and with
+`SF_PNUT_TCC=1` runs the kit on to tcc-0.9.27, whose `tcc-boot2` and
+`tcc-boot3` must equal pnut's published `03e96a1a…`.  `REPRODUCIBLE.md`
+("Past M2-Planet") has the configuration and the full hashes.
 
 ## What "byte-identical" means here
 

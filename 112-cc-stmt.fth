@@ -459,7 +459,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   drop ;
 
 \ cc-parse-switch ( -- )  'switch' already consumed by cc-parse-stmt.
-\ Grammar:  switch ( expr ) { (case INT : | default : | stmt)* }
+\ Grammar:  switch ( expr ) { (case CONSTANT : | default : | stmt)* }
 \ The body is a single compound statement; we parse it inline rather than
 \ via cc-parse-compound so that case/default can be intercepted.
 : cc-parse-switch
@@ -495,16 +495,15 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
     \ Stop on '}'.
     tok-kind @ tk-punct = tok-num @ [char] } = and 0=
   while,
-    \ Three sub-cases: 'case' INT ':', 'default' ':', or generic stmt.
+    \ Three sub-cases: 'case' CONSTANT ':', 'default' ':', or generic stmt.
     tok-kind @ tk-kw = tok-kw-id @ kw-case = and if,
-      \ 'case' has been consumed; read constant (int literal only
-      \ doesn't handle constant-expressions for case labels).
+      \ 'case' has been consumed; the label is a constant expression
+      \ (cc-parse-const): a number, a character, an enum constant, -1 ...
+      cc-parse-const                              ( K )
       cc-next-token-keep
-      tok-kind @ tk-num <> if,
+      [char] : cc-tok-punct? 0= if,
         [lit] 170 cc-die
       then,
-      tok-num @                                   ( K )
-      [char] : cc-expect-punct-c
       cc-here-vaddr                               ( K body-vaddr )
       cc-add-switch-case
     else,
@@ -735,11 +734,16 @@ variable cc-label-count
 \ cc-parse-stmt ( -- )  Dispatch on the leading token: one line per kind of
 \ statement, each returning with exit, once its parser has run.  Silently
 \ skip any leading storage-class / type-qualifier keywords (static,
-\ extern, const, volatile, ...).
+\ extern, const, volatile, ...).  A lone ';' is the empty statement, and
+\ `enum TAG x;` declares an int.
 : cc-parse-stmt
   cc-skip-storage-quals
   cc-next-token-keep
+  [char] ;    cc-tok-punct? if, exit, then,           \ the empty statement
   cc-tok-is-basic-type-kw? if, cc-parse-decl exit, then,
+  kw-enum     cc-tok-kw? if,
+    cc-skip-enum-tag  ty-int [lit] 0 cc-parse-decl-with-base exit,
+  then,
   \ `struct TAG ... ;` at stmt scope is always a local declaration (a struct
   \ *definition* — `struct TAG { ... };` — is only allowed at top level).
   \ The 'struct' keyword is the current token and is already consumed;
