@@ -7,37 +7,19 @@ Artifact after this chapter: +!, -!, ,4, ,8.
 Proof link: the C compiler bumps counters via +!; its ELF + code emission flow through ,4 / ,8 analogues.
 ```
 
-Four little definitions in `010-lib.fth` (lines 139–161) round out
-the memory-manipulation toolkit Part I needs before we can build
-defining words: `+!` and `-!` are the "read-modify-write on a cell"
-idiom (the Forth equivalent of C's `*addr += n`), and `,4` and `,8`
-are the little-endian multibyte writers that turn a 32-bit or
-64-bit value into a string of bytes at HERE.  Open `010-lib.fth` to
-that range and notice how `,8` punts on the missing shift primitive
-by dividing by 256 four times to walk the high half of a 64-bit
-value down to the low byte; slow, but trivially correct.
+Ch 2's `c,` writes one byte, but machine code is mostly wider than
+that.  Every `CALL` carries a 4-byte rel32 offset, and every
+`movabs` carries an 8-byte immediate.  Before the library can build
+defining words (Chs 10 and 12), it needs to write those values at
+HERE in little-endian order, and the seed has no shift instruction
+to split them into bytes.
 
-By the end you'll be able to read and write the `+!` / `-!` idiom
-fluently, emit any multi-byte value at HERE byte by byte through
-`,4` and `,8`, and predict the exact `[lit] 256 / ... / ... / ... /`
-cascade that `,8` uses for its right-shift-by-32.  The interesting
-clients of these writers, the `movabs imm64` slot inside the 19-byte
-runtime body shared by `constant`, `create`, and `variable`, are
-deferred to Chs 10 and 12, where we'll finally use `,8` to embed
-literal 64-bit values inside word bodies.
-
----
-
-Two themes weave through this chapter.  First, the **read-modify-write
-on a cell**: a counter sits in memory, code adds (or subtracts) to
-it, code writes it back.  Trivial in any imperative language, but
-worth seeing in Forth's stack idiom because the C compiler uses it
-constantly.  Second, the **multi-byte little-endian emitter**: every
-machine instruction we'll compile in Parts II and III contains
-4-byte rel32 offsets or 8-byte imm64 immediates, and each one is
-emitted byte-by-byte through `c,` (Ch 2) wrapped in `,4` or `,8`.
-The shape of those wrappers is interesting because the seed has no
-shift instruction at the Forth level, so we improvise with `/`.
+So how do you get byte 2 of `0xAABBCCDD` with no `>>`?
+`010-lib.fth` lines 155–178 answer with four words.  `+!` and `-!`
+are the read-modify-write on a cell, Forth's `*addr += n`, which the
+C compiler uses for every counter.  `,4` and `,8` are the
+little-endian writers, and §2 shows what they use in place of a
+shift.
 
 ## 1. `+!` and `-!`: idiomatic increment
 
@@ -62,9 +44,8 @@ Trace with input `( n addr -- )`:
 | `!`    | empty                  | store the new value at addr     |
 
 Six tokens consume the input pair and leave the stack empty,
-having modified one cell in memory.  This is a hot idiom — every
-counter in the C compiler (token count, symbol count, scope depth)
-is incremented via `+!`.
+having modified one cell in memory.  Every counter in the C compiler
+(token count, symbol count, scope depth) is incremented via `+!`.
 
 `-!` is the mirror image.  The only difference is that subtraction
 isn't commutative, so the argument order needs care.  We want
@@ -84,19 +65,17 @@ extra `swap` before the `-` puts the cell value on top so `-` sees
 | `!`    | empty                       |
 
 One extra `swap` is the price of non-commutativity.  Notice that
-**`+!` exists in standard Forth but `-!` does not** — most Forths
+**`+!` exists in standard Forth but `-!` does not**; most Forths
 expect you to write `negate swap +!` or just inline the steps.  The
-seed adds `-!` as a small convenience because the C compiler uses
-it dozens of times to decrement reference counts and scope depth.
+seed adds `-!` as a small convenience.  The C compiler uses it five
+times, every one a decrementing counter: four nesting depths (scope,
+`#include`, and two parenthesis-depth trackers) and one
+bytes-remaining count.
 
 ## 2. `,4` and `,8`: cell-sized emission
 
-These are the workhorses for writing multi-byte values at HERE.
-The seed needs them because x86-64 machine code is dense with
-4-byte rel32 offsets (every `CALL` and conditional branch) and
-8-byte imm64 immediates (every `movabs` of a runtime address).
-`,4` and `,8` build on `c,` from Ch 2 — they don't add a new
-primitive, just a multi-byte loop.
+`,4` and `,8` build on `c,` from Ch 2.  They add no primitive,
+just an unrolled multi-byte loop.
 
 ```forth
 : ,4
@@ -122,7 +101,7 @@ Trace on input `( v -- )` for a 32-bit value `v = 0xAABBCCDD`:
 | `[lit] 256 /` | `0x000000AA`  |                       |
 | `c,`          | empty         | `0xAA` (high byte)   |
 
-Four bytes written at HERE, in order `DD CC BB AA` — the
+Four bytes written at HERE, in order `DD CC BB AA`: the
 little-endian representation of `0xAABBCCDD`.  Each iteration emits
 the current low byte (via `c,`, which only uses the low 8 bits of
 TOS), then shifts right by 8 (via `[lit] 256 /`), and repeats.
@@ -141,30 +120,16 @@ bytes 4–7.  Eight bytes total, little-endian.
 
 ## 3. Why divide by 256?
 
-There is no `>>` operator in this seed.  The seed has only one
-arithmetic shift you can reach from Forth: division.  Dividing by
-256 is identical to shifting right by 8 (because `2^8 == 256`), and
-the seed's `/` is the x86 `DIV` instruction (a single machine-code
-operation), so the cost is one register-pair load and one `div r/m64`
-per shift.
+There is no `>>` in this seed, and the closest thing to a shift
+that Forth code can reach is division.  Dividing by 256 is
+identical to shifting right by 8 (because `2^8 == 256`), and the
+seed's `/` is the x86 `DIV` instruction.
 
-In modern CPUs `DIV` takes 20–40 cycles, far slower than a `SHR`'s
-1 cycle.  On 2026 hardware that's irrelevant — `,8` runs a few
-hundred times during a compiler build, total cost negligible.  On
-1995-era hardware it would still be irrelevant because the build
-happens once.  The trade is "save a primitive slot, pay 4x cycles
-on a cold path."  That trade is the seed's whole personality.
-
-```
-   (V) (V)
-   ( o.o )   "right shift implemented as integer divide.
-   /\/\/\     wrong instrument, right answer, smaller seed."
-```
-
-The alternative would have been to add a `>>8` or `>>32` primitive.
-Either costs a slot, a dictionary header, and 10–20 bytes of machine
-code.  At a few-hundred-byte budget, that's not worth it for a
-function called rarely on a non-hot path.
+On modern CPUs `DIV` takes 20–40 cycles against 1 for `SHR`.  That
+doesn't matter here: `,8` runs a few hundred times during a compiler
+build.  A `>>8` or `>>32` primitive would cost a slot, a dictionary
+header, and 10–20 bytes of machine code, so the trade is Ch 3's
+again: save a primitive, pay cycles on a cold path.
 
 ## 4. The shift-by-32 cascade
 
@@ -176,33 +141,33 @@ The middle line of `,8`:
 
 is ugly to read but trivially correct.  Each `/256` is `>>8`; four
 of them is `>>32`.  After the cascade, the value on TOS has been
-right-shifted by 32 bits — the original high 32 bits are now in the
+right-shifted by 32 bits: the original high 32 bits are now in the
 low 32 bits, ready for the second `,4`.  The original low 32 bits
 are gone (already written out by the first `,4`).
 
-Reading this in the source code, it helps to mentally cluster the
-four `[lit] 256 /` as one operation called "shift right by 32" and
-move on.  The chapter calls it a *cascade* to give it a name; the C
-compiler will hit one of these for every `imm64` it emits in a
-`movabs` instruction.
+When reading, treat the four `[lit] 256 /` as one operation, "shift
+right by 32".  The C compiler's `cc-emit-8le` (Ch 21) uses the same
+cascade for every `imm64` it emits in a `movabs` instruction.
 
 ## 5. Where these are used
 
-`,4` and `,8` look general but the seed authors put them here for
-two specific clients:
+`,4` and `,8` look general, but in the library they serve two
+specific clients:
 
-- **`,4` ← `comma-call` in Ch 11.**  Every 5-byte `CALL` instruction
-  is `E8` followed by a 4-byte `rel32`.  `comma-call` emits the `E8`
+- **`,4` ← `call,` in Ch 10.**  Every 5-byte `CALL` instruction
+  is `E8` followed by a 4-byte `rel32`.  `call,` emits the `E8`
   with `c,` and the offset with `,4`.
 
 - **`,8` ← `constant` in Ch 10; `create`, `variable` in Ch 12.**
   Each of these defining words emits a 19-byte runtime body that
   ends with `movabs rdi, imm64`; the `imm64` is written with `,8`.
 
-Beyond these, both writers see occasional one-off use anywhere the
-codebase needs to drop a multi-byte value into HERE.  The C
-compiler's ELF emitter, for instance, uses `,4` to lay down 32-bit
-fields in the program header (Ch 25).
+Nothing else calls them: `,4` and `,8` appear nowhere in the C
+compiler's source (`020`–`130`).  The compiler writes into its own
+output buffer, not HERE, so it carries its own copies of the same
+shape (`cc-emit-4le` and `cc-emit-8le` on top of `cc-emit-byte`,
+Ch 21), and its ELF emitter (Ch 25) lays down 32-bit
+program-header fields with those.
 
 ## Canonical source
 
@@ -217,7 +182,7 @@ fields in the program header (Ch 25).
 
 \ ===== 4-byte little-endian writer =====
 \ ,4 ( v -- )  emit low 4 bytes of v at HERE in LE order.
-\ Used by comma-call (rel32) and any Forth-level code emitter that needs
+\ Used by call, (rel32) and any Forth-level code emitter that needs
 \ compact little-endian immediates.
 : ,4
   dup c,                       \ byte 0
@@ -239,7 +204,7 @@ fields in the program header (Ch 25).
 ### The fast path: gforth
 
 The playground's `,4` and `,8` aren't the seed's (gforth's `,` is
-cell-sized and doesn't match), but `+!` and `-!` work fine — `+!` is
+cell-sized and doesn't match), but `+!` and `-!` work fine: `+!` is
 standard, and we just define `-!` locally.  Save as `/tmp/ch9.fth`:
 
 ```forth
@@ -268,23 +233,25 @@ read the bytes back:
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
-  echo 'here [lit] 72623859790382856 ,8'        \ 0x0102030405060708
-  echo 'here [lit] 8 -  c@ [lit] 48 + emit'     \ byte 0 = 0x08 -> '8'
-  echo 'here [lit] 7 -  c@ [lit] 48 + emit'     \ byte 1 = 0x07 -> '7'
+{ cat 010-lib.fth
+  echo 'here [lit] 72623859790382856 ,8'        # 0x0102030405060708
+  echo 'here [lit] 8 -  c@ [lit] 48 + emit'     # byte 0 = 0x08 -> '8'
+  echo 'here [lit] 7 -  c@ [lit] 48 + emit'     # byte 1 = 0x07 -> '7'
   echo 'here [lit] 6 -  c@ [lit] 48 + emit'
   echo 'here [lit] 5 -  c@ [lit] 48 + emit'
   echo 'here [lit] 4 -  c@ [lit] 48 + emit'
   echo 'here [lit] 3 -  c@ [lit] 48 + emit'
   echo 'here [lit] 2 -  c@ [lit] 48 + emit'
-  echo 'here [lit] 1 -  c@ [lit] 48 + emit'     \ byte 7 = 0x01 -> '1'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+  echo 'here [lit] 1 -  c@ [lit] 48 + emit'     # byte 7 = 0x01 -> '1'
+} | ./seed-forth
 ```
 
 Expected output: `87654321`.  The decimal `72623859790382856` is
 `0x0102030405060708`; `,8` emits its bytes in little-endian order
 (`08 07 06 05 04 03 02 01`); adding 48 to each byte produces ASCII
-`'8' '7' '6' '5' '4' '3' '2' '1'`.
+`'8' '7' '6' '5' '4' '3' '2' '1'`.  To reach that final `1`, the
+value was shifted right 56 bits by seven divisions, on a machine
+with no shift.
 
 ## Exercises
 
@@ -292,25 +259,35 @@ Expected output: `87654321`.  The decimal `72623859790382856` is
    Use it to write `0x457F` (the first two bytes of the four-byte ELF
    magic `7F 45 4C 46`); note the byte order in the file is `7F 45`.
 
-2. **★ Trace.** Why does `+!` use `over` rather than `dup swap`?  Both
-   alternatives leave the same final stack — count tokens.
+2. **★ Trace.** Why does `+!` use `over` rather than `>r dup r> swap`?
+   Both leave the same final stack — count tokens.
 
 3. **★★ Trace.** Trace `0x123456789ABCDEF0 ,8` byte by byte.  What sequence does
    HERE contain after the call?
 
-4. **★★ Trace.** The shift cascade `[lit] 256 / [lit] 256 / [lit] 256 / [lit] 256 /`
-   takes 12 tokens.  A hypothetical `shr32 ( v -- v>>32 )` primitive
-   would take 1.  Why didn't the seed authors add it?  (Hint: how
-   often does `,8` actually run during a compiler build?)
+4. **★★ Extend.** `,4` takes a number apart with `[lit] 256 /`.
+   Put one back together: write `4c@ ( addr -- n )` that reads four
+   little-endian bytes with `c@`, using `[lit] 256 *` where a machine
+   with shifts would shift left.  Check the round trip on the seed:
+   `here [lit] 1094861636 ,4 4c@ [lit] 1094861636 = 0= [lit] 49 + emit`
+   should print `1`.  Which byte do you have to read first, and
+   why?
 
 ## Takeaways
 
-- `+!` and `-!` are the canonical Forth idiom for incrementing a
-  cell.  Every counter in the C compiler uses them.
-- `,4` and `,8` are little-endian by definition; the seed has no
-  other endian convention.
-- Right-shift by 8 is `[lit] 256 /`.  Right-shift by 32 is the
-  same idea four times.  The codebase prefers this to adding a
-  `shr` primitive.
+- `+!` and `-!` update a cell in place, and every counter in the C
+  compiler goes through them.
+- `,4` and `,8` write values at HERE low byte first, one `c,` per
+  byte.
+- With no shift primitive, a right shift by 8 is `[lit] 256 /`, and
+  a shift by 32 is that four times.
 
-Next: Chapter 10 — Immediacy and Constants.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, comparisons, shuffles,
+**counters and 4- and 8-byte writes**.  Still missing: `constant`,
+`if,`, `variable`.
+
+Next: Chapter 10 — Immediacy and Constants.  The library can now lay
+down any byte sequence at HERE, including x86 machine code.  Ch 10
+uses that to write a word that writes words: `constant`, which
+hand-assembles 19 bytes of x86-64 for every constant you define.

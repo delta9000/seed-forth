@@ -1,54 +1,75 @@
-\ 030-cc-io.fth — Source-buffer reader, output-buffer emitter, and file I/O
-\ wrappers for the C-subset compiler.  Loaded after 010-lib.fth.
+\ 030-cc-io.fth — Input and source buffers, output-buffer emitter, file I/O
+\ wrappers, and a few helpers shared by the preprocessor, lexer and symbol
+\ table.  Loaded after 010-lib.fth and 020-cc-arena.fth.
 \
-\ Three responsibilities:
-\   A. Slurp stdin into a 1 MiB cc-src-buf and walk it via peek/next.
+\ Four responsibilities:
+\   A. Slurp stdin into the 1 MiB cc-in-buf.  The preprocessor (040) turns
+\      it into the 2 MiB cc-src-buf, which the lexer walks via peek/next.
 \   B. Accumulate the output ELF into cc-out-buf via emit-byte / 4le / 8le
 \      with patch-byte / patch-4le for back-fixups.
 \   C. Write cc-out-buf to a path via 010-lib.fth's open/write/close.
+\   D. Shared helpers: identifier classifiers, cell[], cc-name-find.
 \
 \ Depends on 010-lib.fth: constant, variable, create, allot, [lit], if,/then,/else,,
-\   begin,/while,/repeat,, +, -, /, =, >, >=, 0=, +!, !, @, c!, c@, drop, dup,
-\   over, swap, >r, r@, r>, syscall6, read, write, open, close.
+\   begin,/while,/repeat,, exit,, +, -, /, =, >, >=, 0=, 0<, +!, !, @, c!, c@,
+\   drop, dup, over, swap, >r, r@, r>, read, write, open, close, bytes-eq;
+\   020-cc-arena.fth: cc-src-pos, cc-src-line, cc-die, cc-check-cap.
 
 \ ===========================================================================
-\ A. Source buffer + reader
+\ A. Input buffer, source buffer + reader
 \ ===========================================================================
-
-\ 1 MiB source cap — comfortable for M2-Planet's monolithic concatenations.
-[lit] 1048576 constant cc-src-cap
 
 \ Skip past the VM's fixed pages (data stack 0x410000..0x411000, I/O scratch
-\ 0x412000, token buffer 0x412800, sysvars 0x413000..0x414000) so the 1 MiB
-\ cc-src-buf does not overlap runtime VM state.  At 030-cc-io.fth load time HERE
-\ is well below 0x414000, so this is a forward bump of a few KiB.
-[lit] 4276224 here-addr !                         \ 0x414000
+\ 0x412000, token buffer 0x412800, sysvars 0x413000..0x414000) so the
+\ megabyte buffers do not overlap runtime VM state.  At 030-cc-io.fth load
+\ time HERE is well below 0x410000, so this is a forward bump to 0x414000.
+skip-vm-pages                                     \ HERE = 0x414000
 
+\ cc-in-buf holds stdin exactly as read; nothing but the preprocessor reads it.
+[lit] 1048576 constant cc-in-cap                  \ 1 MiB of raw C source
+create cc-in-buf  cc-in-cap allot
+variable cc-in-len
+
+\ cc-src-buf holds the preprocessed source the lexer reads: #include'd files
+\ spliced in, directives blanked.  Twice cc-in-cap, since includes can grow
+\ it.  The reader's cursor, cc-src-pos and cc-src-line, is in the lexer's
+\ state block (020-cc-arena.fth).
+[lit] 2097152 constant cc-src-cap                 \ 2 MiB
 create cc-src-buf  cc-src-cap allot
 variable cc-src-len
-variable cc-src-pos
-variable cc-src-line                            \ 1-based, for error messages
 
-\ cc-src-init ( -- )  Reset reader state.
+\ cc-src-init ( -- )  Empty the source buffer and rewind the reader.
 : cc-src-init
   [lit] 0 cc-src-len !
   [lit] 0 cc-src-pos !
   [lit] 1 cc-src-line ! ;
 
-\ cc-load-stdin ( -- )  Read all of fd 0 into cc-src-buf.
-\ Loops until read returns 0 (EOF).  4 KiB chunks.
-\ Stack note: at begin, the stack is empty.  read leaves n on TOS; dup/>
-\ produces ( n flag ); while, pops flag leaving ( n ); +! pops n leaving ( ).
-\ When the loop exits (n<=0), stack is ( n ) which we drop.
-: cc-load-stdin
-  cc-src-init
+\ cc-read-all ( fd buf cap code -- n )  Read fd to end of file into buf and
+\ return the byte count.  Each read asks for all the room left.  A buffer
+\ that fills up dies with code: a full buffer and a longer file look the
+\ same, so the data must leave at least one byte of buf unused.
+variable cc-ra-fd
+variable cc-ra-buf
+variable cc-ra-cap
+variable cc-ra-code
+variable cc-ra-n
+: cc-read-all
+  cc-ra-code ! cc-ra-cap ! cc-ra-buf ! cc-ra-fd !
+  [lit] 0 cc-ra-n !
   begin,
-    [lit] 0 cc-src-buf cc-src-len @ + [lit] 4096 read
+    cc-ra-fd @  cc-ra-buf @ cc-ra-n @ +  cc-ra-cap @ cc-ra-n @ -  read
     dup [lit] 0 >
   while,
-    cc-src-len +!
+    cc-ra-n +!
+    cc-ra-n @ 1+ cc-ra-cap @ cc-ra-code @ cc-check-cap   \ full: die
   repeat,
-  drop ;
+  drop cc-ra-n @ ;
+
+\ cc-load-stdin ( -- )  Read all of fd 0 into cc-in-buf; die 20 if it fills.
+\ Rewinds the reader first, so an error here reports line 1.
+: cc-load-stdin
+  cc-src-init
+  [lit] 0 cc-in-buf cc-in-cap [lit] 20 cc-read-all  cc-in-len ! ;
 
 \ cc-eof? ( -- f )  -1 if pos has reached len; 0 otherwise.
 : cc-eof?  cc-src-pos @ cc-src-len @ >= ;
@@ -67,7 +88,7 @@ variable cc-src-line                            \ 1-based, for error messages
 : cc-next-char
   cc-peek-char
   [lit] 1 cc-src-pos +!
-  dup [lit] 10 = if,
+  dup nl = if,
     [lit] 1 cc-src-line +!
   then, ;
 
@@ -83,8 +104,10 @@ variable cc-out-pos
 \ cc-out-init ( -- )
 : cc-out-init  [lit] 0 cc-out-pos ! ;
 
-\ cc-emit-byte ( b -- )  Append a byte at cc-out-buf[cc-out-pos++].
+\ cc-emit-byte ( b -- )  Append a byte at cc-out-buf[cc-out-pos++]; die 21
+\ if the buffer is full.
 : cc-emit-byte
+  cc-out-pos @ 1+ cc-out-cap [lit] 21 cc-check-cap
   cc-out-buf cc-out-pos @ + c!
   [lit] 1 cc-out-pos +! ;
 
@@ -110,7 +133,7 @@ variable cc-out-pos
 : cc-out-patch-4le
   >r                                                  ( v       ; R: offset )
   dup r@                       cc-out-patch-byte      ( v       ; R: offset )
-  [lit] 256 / dup r@ [lit] 1 + cc-out-patch-byte      ( v>>8    ; R: offset )
+  [lit] 256 / dup r@ 1+ cc-out-patch-byte             ( v>>8    ; R: offset )
   [lit] 256 / dup r@ [lit] 2 + cc-out-patch-byte      ( v>>16   ; R: offset )
   [lit] 256 /     r> [lit] 3 + cc-out-patch-byte ;    ( v>>24>>8 popped )
 
@@ -118,7 +141,7 @@ variable cc-out-pos
 : cc-out-patch-8le
   >r                                                  ( v       ; R: offset )
   dup r@                       cc-out-patch-byte      ( v       ; R: offset )
-  [lit] 256 / dup r@ [lit] 1 + cc-out-patch-byte
+  [lit] 256 / dup r@ 1+ cc-out-patch-byte
   [lit] 256 / dup r@ [lit] 2 + cc-out-patch-byte
   [lit] 256 / dup r@ [lit] 3 + cc-out-patch-byte
   [lit] 256 / dup r@ [lit] 4 + cc-out-patch-byte
@@ -139,13 +162,53 @@ variable cc-out-pos
 \ cc-write-output ( path-addr -- )  path-addr must point at NUL-terminated bytes.
 \ Opens path with O_WRONLY|O_CREAT|O_TRUNC, mode 0755; writes
 \ cc-out-buf[0..cc-out-pos@] to it; closes.  On open failure (fd < 0),
-\ exits with status 1 (cannot recover — we have no place to write a diagnostic).
+\ dies with code 22.
 : cc-write-output
   [lit] 577 [lit] 493 open                        ( fd )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop
-    [lit] 1 die
+    [lit] 22 cc-die
   then,
   >r                                              ( ; R: fd )
   r@ cc-out-buf cc-out-pos @ write drop           \ write all bytes
   r> close drop ;
+
+\ ===========================================================================
+\ D. Helpers shared by the preprocessor, lexer and symbol table
+\ ===========================================================================
+
+\ ident-start? ( c -- f )  letter or '_'.
+: ident-start?
+  dup alpha?  swap [char] _ = or ;
+
+\ ident-cont? ( c -- f )  ident-start? or digit.
+: ident-cont?
+  dup ident-start?  swap digit? or ;
+
+\ cell[] ( i arr -- addr )  Address of cell i of an array of 8-byte cells —
+\ how every parallel-array table (macros, symbols, ...) is indexed.
+: cell[]  swap [lit] 8 * + ;
+
+\ cc-name-find ( a u addrs lens count -- i | -1 )  Look the name a u up in
+\ a table kept as two parallel arrays, addrs (where each name's bytes are)
+\ and lens (how many), of count entries.  Walks from the newest entry to the
+\ oldest and returns the first match, so a later entry hides an earlier one
+\ of the same name.  The loop index runs down to -1, so "not found" is
+\ simply the final index.  The needle waits in globals so the loop body can
+\ reach it without deep stack juggling.
+variable cc-nf-a
+variable cc-nf-u
+variable cc-nf-addrs
+variable cc-nf-lens
+: cc-name-find
+  >r  cc-nf-lens ! cc-nf-addrs ! cc-nf-u ! cc-nf-a !
+  r> 1-                                          ( i = count-1 )
+  begin,
+    dup 0< 0=
+  while,
+    dup cc-nf-lens @ cell[] @  cc-nf-u @ = if,   \ same length?
+      dup cc-nf-addrs @ cell[] @  cc-nf-a @  cc-nf-u @
+      bytes-eq if, exit, then,                   \ found: return i
+    then,
+    1-                                           \ i--
+  repeat, ;                                      \ not found: i = -1

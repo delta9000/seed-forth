@@ -9,7 +9,9 @@
 \   rax  — used by idiv (low quotient/remainder); also by SYS-V return
 \   rbp  — frame base; locals at [rbp - 8*(slot+1)]
 \
-\ Depends on 030-cc-io.fth (cc-emit-byte, cc-emit-4le).
+\ Depends on 020-cc-arena.fth (cc-die, cc-check-cap, cc-alloc) and
+\ 030-cc-io.fth (cc-emit-byte, cc-emit-4le, cell[]).  cc-decode-escape comes
+\ from 050-cc-lex.fth.
 
 \ ===========================================================================
 \ Immediate-load instructions (REX.W + C7 /0 + imm32)
@@ -58,15 +60,16 @@
 \ Locals live at [rbp - 8*(slot+1)].  Slots 0..15 have displacements
 \ -8..-128, which fit a signed disp8 (ModR/M mod=01); deeper slots need the
 \ disp32 form (mod=10).  cc-emit-local-ea picks the right one per slot.
-\ Note: the frame itself is fixed at 256 bytes = 32 slots by the prologue
-\ call in 110-cc-decl.fth — the encoding handles any slot; the frame does not.
+\ Note: the frame itself is fixed at 256 bytes = 32 slots (cc-frame-slots in
+\ 110-cc-decl.fth, which dies rather than hand out a 33rd) — the encoding
+\ handles any slot; the frame does not.
 \
 \ cc-disp8-from-slot ( slot -- byte )
 \   = (256 - 8*(slot+1)) AND 255 = the unsigned-byte representation of the
 \   signed displacement -8*(slot+1).  Only valid for slots 0..15.
 
 : cc-disp8-from-slot
-  [lit] 1 + [lit] 8 *                            \ 8 * (slot+1)
+  1+ [lit] 8 *                                   \ 8 * (slot+1)
   [lit] 0 swap -                                  \ negate
   [lit] 255 and ;                                 \ low byte
 
@@ -81,7 +84,7 @@
     cc-disp8-from-slot cc-emit-byte
   else,
     [lit] 64 + cc-emit-byte                       \ mod=01 -> mod=10
-    [lit] 1 + [lit] 8 *                           \ 8 * (slot+1)
+    1+ [lit] 8 *                                  \ 8 * (slot+1)
     [lit] 0 swap - cc-emit-4le                    \ negate; low 4 bytes = disp32
   then, ;
 
@@ -414,7 +417,7 @@
   swap cc-out-patch-4le ;
 
 \ NOTE: cc-emit-jmp-vaddr (which emits a backward unconditional jump to an
-\ absolute vaddr — needed for `while`/`for` loops) lives in 110-cc-decl.fth
+\ absolute vaddr — needed for `while`/`for` loops) lives in 112-cc-stmt.fth
 \ alongside the loop constructs that use it, not here with the primitive
 \ encoders.  Both cc-base-vaddr and cc-out-pos are already available when this
 \ file loads, so the split is organizational, not a load-order dependency.
@@ -430,7 +433,7 @@
   cc-emit-8le ;
 
 \ cc-emit-mov-rdi-int ( v -- )  Load an integer literal into rdi using the
-\ shortest correct encoding.  `mov rdi, imm32` (5 bytes) sign-extends its
+\ shortest correct encoding.  `mov rdi, imm32` (7 bytes) sign-extends its
 \ 32-bit field, so it only represents values in signed-32 range; a wider
 \ constant (e.g. 0x80000000 or 2^32) would be sign-extended or truncated.
 \ For those, fall back to the 10-byte `movabs rdi, imm64`.  C literals are
@@ -448,7 +451,7 @@
 \ Emits `48 BF 00 00 00 00 00 00 00 00`; returns the imm64 file-offset.
 \ Used when a forward-declared function's name is taken as an rvalue
 \ (function-pointer load) before its definition is reached.  Caller threads
-\ patch-offset onto cc-sym-extra2 of the function's prototype symbol; the
+\ patch-offset onto the prototype symbol's cc-sym-addr-fixups list; the
 \ list is walked and each 8-byte imm64 is patched to the function's real
 \ vaddr when cc-parse-function processes its definition.
 : cc-emit-movabs-rdi-imm64-placeholder
@@ -459,7 +462,7 @@
 
 \ cc-add-fixup-to-list ( fixup-offset list-var -- )  Allocate a 16-byte node
 \ and prepend it to the linked list rooted at list-var.  Defined here so
-\ 100-cc-expr.fth (loaded before 110-cc-decl.fth) can reference it from the
+\ 100-cc-expr.fth (loaded before 112-cc-stmt.fth) can reference it from the
 \ forward-function-rvalue path in cc-parse-primary.
 : cc-add-fixup-to-list                            ( off var -- )
   [lit] 16 cc-alloc                               ( off var node )
@@ -471,9 +474,9 @@
 \ ===========================================================================
 \ String-literal byte emission with C-escape decoding.
 \ ===========================================================================
-\ Walks ( src-addr src-len ) and copies bytes into cc-out-buf, decoding
-\ \n, \t, \r, \\, \', \", and \0.  Other escape characters pass through
-\ literally (matches cc-lex-char behaviour).  Appends a trailing NUL byte.
+\ Walks ( src-addr src-len ) and copies bytes into cc-out-buf, decoding each
+\ \c escape with cc-decode-escape (050), the same table character literals
+\ use.  Appends a trailing NUL byte.
 \
 \ Stack convention inside the loop: ( src len ).
 
@@ -481,30 +484,21 @@
   begin,
     dup [lit] 0 >
   while,
-    over c@ [lit] 92 = if,                        \ '\\' (backslash)
+    over c@ backslash = if,
       dup [lit] 2 >= if,
         \ Have at least one more byte for the escape.
-        over [lit] 1 + c@                         ( src len escaped )
-        dup [lit] 110 = if, drop [lit] 10 else,   \ \n
-        dup [lit] 116 = if, drop [lit]  9 else,   \ \t
-        dup [lit] 114 = if, drop [lit] 13 else,   \ \r
-        dup [lit]  92 = if, drop [lit] 92 else,   \ \\
-        dup [lit]  39 = if, drop [lit] 39 else,   \ \'
-        dup [lit]  34 = if, drop [lit] 34 else,   \ \"
-        dup [lit]  48 = if, drop [lit]  0 else,   \ \0
-          \ Default: pass the escaped char through unchanged.
-        then, then, then, then, then, then, then,
+        over 1+ c@ cc-decode-escape               ( src len byte )
         cc-emit-byte
         \ Advance src by 2, decrement len by 2.
         swap [lit] 2 + swap [lit] 2 -
       else,
         \ Trailing backslash with no follow-up char: emit literally.
         over c@ cc-emit-byte
-        swap [lit] 1 + swap [lit] 1 -
+        swap 1+ swap 1-
       then,
     else,
       over c@ cc-emit-byte
-      swap [lit] 1 + swap [lit] 1 -
+      swap 1+ swap 1-
     then,
   repeat,
   drop drop
@@ -603,7 +597,7 @@
 \ ===========================================================================
 \ Libc shims: fputs, fputc, fopen, fclose, fwrite, fread, calloc,
 \ free.  All follow SYS-V x86-64 ABI.  Symbol registration and
-\ vaddr assignment happen in cc-emit-shims (110-cc-decl.fth).
+\ vaddr assignment happen in cc-emit-shims (116-cc-prog.fth).
 \ ===========================================================================
 
 \ -- fputs(char *s, FILE *fp) -> non-negative on success.  33 bytes.
@@ -701,12 +695,12 @@
   [lit]   6 cc-emit-byte                          \ movzx eax, [rsi]
   [lit]  49 cc-emit-byte [lit] 246 cc-emit-byte   \ xor esi, esi
   [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
-  [lit] 119 cc-emit-byte                          \ cmp eax, 'w'
+  [char] w  cc-emit-byte                          \ cmp eax, 'w'
   [lit] 117 cc-emit-byte [lit]   7 cc-emit-byte   \ jne +7
   [lit] 190 cc-emit-byte [lit] 577 cc-emit-4le    \ mov esi, 0x241
   [lit] 235 cc-emit-byte [lit]  10 cc-emit-byte   \ jmp +10
   [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
-  [lit]  97 cc-emit-byte                          \ cmp eax, 'a'
+  [char] a  cc-emit-byte                          \ cmp eax, 'a'
   [lit] 117 cc-emit-byte [lit]   5 cc-emit-byte   \ jne +5
   [lit] 190 cc-emit-byte [lit] 1089 cc-emit-4le   \ mov esi, 0x441
   [lit]  95 cc-emit-byte                          \ pop rdi
@@ -966,7 +960,7 @@
 \ and records (patch-offset-in-cc-out-buf, slot) into the cc-gfixup arrays.
 \
 \ At cc-finalize-globals (called after parsing, before cc-finalize-elf):
-\   1. cc-globals-base-vaddr := cc-base-vaddr + cc-out-pos@.
+\   1. cc-globals-base-vaddr := cc-here-vaddr (080).
 \   2. Append cc-globals-buf bytes to cc-out-buf.
 \   3. For each fixup, compute vaddr = cc-globals-base-vaddr + slot, then
 \      patch the placeholder imm64 in cc-out-buf at the recorded patch-offset.
@@ -997,18 +991,16 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   [lit] 0
   begin, dup cc-globals-cap < while,
     [lit] 0 over cc-globals-buf + c!
-    [lit] 1 +
+    1+
   repeat, drop ;
 
 \ cc-globals-alloc ( bytes -- slot )  Reserve `bytes` bytes; return the offset
-\ of the first reserved byte.  Aborts if cc-globals-buf would overflow.
+\ of the first reserved byte.  Dies with 80 if cc-globals-buf would overflow.
 : cc-globals-alloc                                 ( bytes -- slot )
+  dup cc-globals-pos @ + cc-globals-cap [lit] 80 cc-check-cap
   cc-globals-pos @                                 ( bytes slot )
   swap                                              ( slot bytes )
-  cc-globals-pos +!
-  cc-globals-pos @ cc-globals-cap > if,
-    [lit] 70 die
-  then, ;
+  cc-globals-pos +! ;
 
 \ cc-globals-store-8le ( v slot -- )  Write `v` as 8-byte LE into globals-buf
 \ at the given slot offset.
@@ -1016,7 +1008,7 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   cc-globals-buf +                                 ( v addr )
   >r                                                ( v ; R: addr )
   dup r@                       c!
-  [lit] 256 / dup r@ [lit] 1 + c!
+  [lit] 256 / dup r@ 1+ c!
   [lit] 256 / dup r@ [lit] 2 + c!
   [lit] 256 / dup r@ [lit] 3 + c!
   [lit] 256 / dup r@ [lit] 4 + c!
@@ -1025,16 +1017,13 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   [lit] 256 /     r> [lit] 7 + c! ;
 
 \ cc-gfixup-add ( patch-offset slot -- )  Record a deferred global-vaddr fixup.
-\ Uses sym-slot (from 070-cc-sym.fth, signature `( id arr -- addr )`) since it's a
-\ generic helper that just computes arr + 8*id.
+\ Indexes its two parallel arrays with cell[] (030-cc-io.fth).
 : cc-gfixup-add                                    ( patch-off slot -- )
-  cc-gfixup-count @ dup cc-gfixup-cap >= if,
-    [lit] 71 die
-  then,
-  ( patch-off slot i )
+  cc-gfixup-count @ 1+ cc-gfixup-cap [lit] 81 cc-check-cap
+  cc-gfixup-count @                                 ( patch-off slot i )
   >r                                                \ park i on rstack
-  r@ cc-gfixup-slot     sym-slot !                 \ store slot
-  r@ cc-gfixup-out-pos  sym-slot !                 \ store patch-off
+  r@ cc-gfixup-slot     cell[] !                   \ store slot
+  r@ cc-gfixup-out-pos  cell[] !                   \ store patch-off
   r> drop
   [lit] 1 cc-gfixup-count +! ;
 

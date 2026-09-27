@@ -7,34 +7,17 @@ Artifact after this chapter: the full set of integer comparisons used throughout
 Proof link: the parsers (Chs 23-31) dispatch on = tests of token and keyword IDs at nearly every line.
 ```
 
-Eight definitions in `010-lib.fth` (lines 87–120), `=`, `<>`, `2^63`,
-`neg-flag`, `<`, `>`, `<=`, `>=`, give the seed every comparison
-operator it will ever need without spending a single primitive
-slot.  Equality reduces to `- 0=`; the sign bit drops out of an
-unsigned divide by `2^63`; and `<`, `>`, `<=`, `>=` are each one
-token longer than the one before.  Open `010-lib.fth` to those
-34 lines and read along; the chapter takes its time on the
-sign-bit-via-unsigned-divide move (the key trick that makes the
-chain possible) and then lets the four signed comparisons fall out
-in sequence.
+Type `[lit] 3 [lit] 5 <` into the bare seed and it prints `?`.  Most
+languages spend a primitive per comparison: `<`, `>`, `<=`, `>=`,
+`=`, `<>`, sometimes a second set for unsigned.  The seed spends
+none.  The C compiler's token checks and loop conditions will rest
+on words this chapter builds from `-`, `/`, and `0=`.
 
-By the end of the chapter you'll be able to explain why an
-unsigned divide by `2^63` extracts the sign bit, read the chain
-from `=` through `<`, `>`, `<=`, `>=` (each one extra token),
-and recognise the `0= 0=` "canonicalise to Forth boolean" idiom.
-The seed's `/` machine code (the `DIV` instruction) is Part II,
-Ch 15; signed division is not defined anywhere in this codebase
-because the C compiler doesn't need it.
-
----
-
-Comparison is where most languages spend a primitive per operator:
-`<`, `>`, `<=`, `>=`, `=`, `<>`, sometimes a separate set for signed
-vs unsigned.  Six or twelve primitives, each with its own machine
-code, each with its own dictionary entry.  The seed spends zero
-primitive slots on comparison.  Every comparison this chapter
-defines is built from `-`, `/`, and `0=`, with `2^63` as a literal
-constant.
+Equality is easy.  The hard part is `<`, which comes down to asking
+"is this number negative?" on a machine with no sign test, no shift,
+and no `and` primitive.  The eight definitions in `010-lib.fth`
+lines 97–137 answer with an instruction nobody reaches for when
+comparing numbers.  The `/` primitive's machine code is Ch 15.
 
 ## 1. `=` and `<>`: two tokens each
 
@@ -46,7 +29,7 @@ constant.
 `=` is one of the simplest derived words in the seed.  Two numbers
 are equal exactly when their difference is zero, so subtract them
 and ask "is this zero?"  `0=` is a seed primitive that takes one
-value off the stack and pushes `-1` if it was zero, `0` otherwise —
+value off the stack and pushes `-1` if it was zero, `0` otherwise:
 exactly the Forth boolean convention.  Two tokens, no further work.
 
 `<>` is the negation.  Rather than write a slightly different
@@ -54,13 +37,10 @@ derivation, the seed reuses `=` and flips the answer.  `0=` here
 plays the role of `not`: applied to a Forth boolean it produces the
 opposite Forth boolean (`-1 → 0`, `0 → -1`).
 
-This is the cheapest comparison story possible: two operators, four
-tokens total, one of them a function call to the other.  Notice that
-neither definition cares whether you are comparing addresses,
-characters, integers, or signed-vs-unsigned numbers.  Equality is
-bitwise, and `- 0=` is bitwise equality.  This is the same property
-that makes Forth's stack work uniformly across types: the operators
-don't see types, only 64-bit cells.
+Neither definition cares whether you are comparing addresses,
+characters, or signed or unsigned numbers.  Equality is bitwise, and
+`- 0=` is bitwise equality: the operators don't see types, only
+64-bit cells.
 
 ## 2. Signed comparison is trickier
 
@@ -69,25 +49,36 @@ negative."  That's correct, but it raises an awkward question: how do
 you ask "is this negative?" when the only sign-related primitive is
 unsigned division?
 
-A handful of approaches don't work:
+Three textbook answers, and how each fares here:
 
 - **`0<`** would be an obvious primitive, but the seed doesn't have
   it (it would cost a slot, and we're about to show it's derivable).
-- **Bitwise AND with `0x8000000000000000`** is the textbook
-  sign-bit test, but it needs a 64-bit immediate and an `AND`
-  primitive — and the seed has neither a bitwise `AND` primitive
-  (only `nand`) nor a way to compile a 64-bit immediate efficiently
-  inside a derived word.
 - **Sign-extend / shift right by 63** would work on a CPU with
   arithmetic shift, but the seed doesn't expose shifts at the Forth
   level.  Adding them as primitives would cost slots; deriving them
   from `*` or `/` would be expensive.
+- **Bitwise AND with `0x8000000000000000`**, the textbook sign-bit
+  test, works fine.  Ch 3 already derived `and`, and the seed's
+  unsigned number parser reads the 64-bit mask as a literal (§3).
+  `2^63 and 0= 0=` is a correct `0<`.
 
-The seed's answer is a third path: **unsigned divide by `2^63`.**
-Any 64-bit value, treated as unsigned, divided by `2^63 =
-0x8000000000000000`, yields one of exactly two answers: `1` if the
-top bit was set, `0` otherwise.  That's the sign-bit extraction we
-needed, and it costs no new primitives.
+What the library uses instead is `/`, which is unsigned: **divide by
+`2^63`.**  Any 64-bit value, treated as unsigned, divided by
+`2^63 = 0x8000000000000000`, yields one of exactly two answers: `1`
+if the top bit was set, `0` otherwise.  Division, of all things,
+reads the sign bit, and it costs no new primitive.
+
+The choice between `and` and `/` is close.  Both definitions are the
+same length, one token after `2^63`.  At run time `/` is one call to
+a primitive (a single `DIV`), while `and` is a colon word that makes
+three more calls (`nand dup nand`).  `DIV` is the slow instruction,
+so the difference washes out: swapping `/` for `and` in `0<` leaves
+the compiler's output byte-identical and its M2-Planet build time
+unchanged within run-to-run noise (about 1.4 s either way).  The
+library takes `/` because it is the same move as Ch 6's range
+tests, divide and ask whether the quotient is zero, so one idea
+covers both chapters, and `0<` then depends on a primitive rather
+than on Ch 3's derived logic.
 
 ## 3. The `2^63` trick
 
@@ -117,32 +108,23 @@ The pattern is clean: anything with bit 63 clear divides to `0`;
 anything with bit 63 set divides to `1`.  That's "is the sign bit
 set?" answered as an unsigned arithmetic operation.
 
-One subtle reason this trick is in the seed at all: the literal
+The trick depends on one property of the parser: the literal
 `9223372036854775808` is bigger than the largest signed 64-bit
 positive integer (`2^63 - 1 == 9223372036854775807`).  The seed's
 decimal-literal parser accumulates an *unsigned* 64-bit value, so it
 round-trips this number cleanly.  A signed-only parser would
-overflow on the last digit.  Ch 20 covers the parser's machine code;
-for now, take it on faith that the seed reads this literal correctly.
+overflow on the last digit.  Ch 20 covers the parser's machine code.
 
-The literal `9223372036854775808` lives in a colon definition rather
-than being inlined at every call site — that's what `: 2^63 [lit]
-9223372036854775808 ;` is for.  Named once, called by name forever
-after.
+Wrapping the literal in `: 2^63 ... ;` names it once instead of
+repeating nineteen digits at every call site.
 
-```
-       __
-   __( o)>   "you just built `<` out of unsigned division.  it is fine."
-   \___/
-```
-
-## 4. `neg-flag` and the `0= 0=` canonicalisation
+## 4. `0<` and the `0= 0=` canonicalisation
 
 ```forth
-: neg-flag  2^63 / 0= 0= ;
+: 0<  2^63 / 0= 0= ;
 ```
 
-`2^63 /` gives us `0` or `1` — but the Forth boolean convention is
+`2^63 /` gives us `0` or `1`, but the Forth boolean convention is
 `0` or `-1`.  We need to convert.
 
 `0=` flips:
@@ -167,18 +149,24 @@ Any non-zero value, double-NOT'd, becomes `-1`; zero stays `0`.  It
 shows up wherever the seed needs to turn a "0-or-something-else" raw
 value into a proper Forth flag.
 
-It might feel wasteful — three tokens to go from `1` to `-1` — but
-remember the alternative: a sign-bit-test primitive in the seed.
-Three tokens at call sites that fit on one fingertip is much cheaper
-than another primitive slot in a 2,040-byte binary.
+Two tokens to go from `1` to `-1`, written once inside `0<`, are
+much cheaper than a sign-test primitive in a 1,772-byte binary.
+`0<` ("is it less than zero?") is the standard Forth name for this
+test.
+
+The same idiom gives the library its name for true.  The decimal
+literal parser is unsigned-only, so `-1` cannot be written as a
+literal; `[lit] 0 0=` manufactures it.  The section's first
+definition names it once, `: true  [lit] 0 0= ;`, so that code
+which means "true" says `true` instead of a double negation.
 
 ## 5. The cascade
 
-Once `neg-flag` is in hand, the four signed comparisons unspool in
-one token each:
+Once `0<` is in hand, the four signed comparisons unspool in
+two tokens each:
 
 ```forth
-: <   - neg-flag ;
+: <   - 0< ;
 : >   swap < ;
 : <=  > 0= ;
 : >=  < 0= ;
@@ -186,28 +174,28 @@ one token each:
 
 - `<` subtracts, then asks "is the result negative?"
 - `>` is `<` with the operands swapped.
-- `<=` is `> 0=` — "not greater-than."
-- `>=` is `< 0=` — "not less-than."
+- `<=` is `> 0=`: "not greater-than."
+- `>=` is `< 0=`: "not less-than."
 
-Each new comparison is a one-token transformation of the previous.
-This is the same pattern Ch 3 used for the boolean operators (each
-new connective is a tiny rearrangement of `nand`).  It's also the
-shape the C compiler's expression code will use in Part III, where
-relational operators compile to one CMP and one of six SET cc forms.
+Each new comparison is a one-token transformation of the previous
+one, as each boolean connective in Ch 3 was a small rearrangement of
+`nand`.
 
-Two implementation caveats worth flagging:
+Two caveats:
 
-- **Signed overflow.**  `<` here is `(a - b) neg-flag`, which is the
-  textbook signed comparison.  It works whenever `a - b` doesn't
-  overflow — i.e., whenever the operands are in the same half of the
-  signed range.  Comparing values near `2^63` could in principle
-  trip this, but the C compiler never does that (all its numbers are
-  small token counts, addresses, indices).
+- **Signed overflow.**  `<` here is `(a - b) 0<`, which is the
+  textbook signed comparison.  It is exact whenever `a - b` fits in
+  64 signed bits: always for operands of the same sign, and whenever
+  the two are less than `2^63` apart.  Outside that domain the
+  subtraction wraps, and `MAX-INT -1 <` answers true.  The source
+  comment on `<` states the domain; the C compiler stays inside it,
+  since everything it compares is a size, count, offset, index or
+  character.
 - **Unsigned comparison isn't here.**  C has both signed and
   unsigned `<`; this seed has only signed.  The C compiler in Part
   III treats all integer comparisons as signed.  That's a real
-  semantic gap with standard C, but a deliberate one — the seed's C
-  is a strict subset; **Appendix F** is the feature-by-feature map
+  semantic gap with standard C, but a deliberate one: the seed's C
+  is a strict subset, and **Appendix F** is the feature-by-feature map
   of what is and isn't supported.
 
 ## Canonical source
@@ -216,30 +204,37 @@ Two implementation caveats worth flagging:
 \ ===== Comparison operators =====
 \ All return -1 (true) / 0 (false), Forth boolean convention.
 
+\ true ( -- -1 )  the canonical true flag, all 64 bits set.  The decimal
+\ literal parser is unsigned-only, so -1 cannot be written as [lit] -1;
+\ `0 0=` manufactures it (0 is zero, so 0= answers -1).
+: true  [lit] 0 0= ;
+
 \ = ( a b -- f )  -1 if a = b, else 0.  Equal iff (a - b) = 0.
 : =   - 0= ;
 
 \ <> ( a b -- f )  inverse of =.
 : <>  = 0= ;
 
-\ neg-flag ( n -- f )  -1 if n is signed-negative (bit 63 set), else 0.
+\ 2^63 ( -- 2^63 )  9223372036854775808 = 0x8000000000000000, the sign bit
+\ of a 64-bit signed integer.  The literal round-trips through
+\ parse_decimal_code because that parser uses an unsigned 64-bit
+\ accumulator.
+: 2^63  [lit] 9223372036854775808 ;
+
+\ 0< ( n -- f )  -1 if n is signed-negative (bit 63 set), else 0.
 \ Strategy: the seed's `/` is unsigned (DIV instruction).  A value with
 \ bit 63 set, divided by 2^63, yields exactly 1; any non-negative value
 \ yields 0.  Then `0= 0=` canonicalises (1 -> -1, 0 -> 0).
-\ The literal 9223372036854775808 = 2^63 = 0x8000000000000000 round-trips
-\ through parse_decimal_code because that parser uses an unsigned 64-bit
-\ accumulator; the value also happens to be the sign bit of a 64-bit
-\ signed integer.
-: 2^63  [lit] 9223372036854775808 ;
-
-\ neg-flag ( n -- f )  return true if n is negative (sign bit set).
-\ Dividing by 2^63 yields 0 for non-negative, 1 for negative.
-: neg-flag  2^63 / 0= 0= ;
+: 0<  2^63 / 0= 0= ;
 
 \ < ( a b -- f )  signed less-than: a < b iff (a - b) is negative.
-: <   - neg-flag ;
+\ Domain: exact only while a - b fits in 64 signed bits, i.e. when a and b
+\ are less than 2^63 apart — always so for operands of the same sign, and
+\ for every size, count, offset and character the compiler compares.
+\ Outside it the subtraction wraps: MAX-INT -1 < answers -1 (true).
+: <   - 0< ;
 
-\ > ( a b -- f )  signed greater-than: b < a.
+\ > ( a b -- f )  signed greater-than: b < a.  Same domain as <.
 : >   swap < ;
 
 \ <= ( a b -- f )  not (a > b).
@@ -255,17 +250,17 @@ Two implementation caveats worth flagging:
 ### The fast path: gforth
 
 The `2^63` trick depends on **unsigned** division, but gforth's `/`
-is signed — so transcribing `neg-flag` verbatim would produce wrong
+is signed, so transcribing `0<` verbatim would produce wrong
 answers.  The playground covers other portability gaps but not this
-one, so we shim `neg-flag` with gforth's native `0<` and let the rest
-of the cascade follow.
+one; gforth already has a native `0<` (and `true`), so we keep those
+and transcribe only the rest of the cascade.
 
 ```forth
 \ Save as /tmp/ch7.fth and run with: gforth book/playground.fth /tmp/ch7.fth
-: neg-flag   0< ;            \ shim: seed's 2^63 trick needs unsigned /
+\ gforth's native 0< stands in for the seed's 2^63 trick (needs unsigned /)
 : =          - 0= ;
 : <>         = 0= ;
-: <          - neg-flag ;
+: <          - 0< ;
 : >          swap < ;
 : <=         > 0= ;
 : >=         < 0= ;
@@ -283,20 +278,21 @@ bye
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
-  echo '[lit] 3 [lit] 5 <  0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 5 [lit] 3 <  0= [lit] 49 + emit'      \ false -> '0'
-  echo '[lit] 7 [lit] 7 =  0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 7 [lit] 8 =  0= [lit] 49 + emit'      \ false -> '0'
-  echo '[lit] 3 [lit] 3 <= 0= [lit] 49 + emit'      \ true  -> '1'
-  echo '[lit] 4 [lit] 3 <= 0= [lit] 49 + emit'      \ false -> '0'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+{ cat 010-lib.fth
+  echo '[lit] 3 [lit] 5 <  0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 5 [lit] 3 <  0= [lit] 49 + emit'      # false -> '0'
+  echo '[lit] 7 [lit] 7 =  0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 7 [lit] 8 =  0= [lit] 49 + emit'      # false -> '0'
+  echo '[lit] 3 [lit] 3 <= 0= [lit] 49 + emit'      # true  -> '1'
+  echo '[lit] 4 [lit] 3 <= 0= [lit] 49 + emit'      # false -> '0'
+} | ./seed-forth
 ```
 
-Expected output: `101010` — same true/false encoding as Ch 6.  The
-seed runs the canonical `neg-flag` definition (the one that uses
-`2^63 /`) with no shim, since its `/` is the unsigned `DIV`
-instruction.
+Expected output: `101010`, the same true/false encoding as Ch 6.  The
+seed runs the canonical `0<` definition with no shim, so the
+first `1` is `3 < 5` decided by subtracting, then dividing by a
+nineteen-digit number: a comparison with no comparison primitive
+behind it.
 
 ## Exercises
 
@@ -304,12 +300,17 @@ instruction.
    colon-call indirection)?  Count tokens; consider future readers.
 
 2. **★★★ Verify.** The `2^63` literal is `0x8000000000000000`, which equals the
-   most-negative signed 64-bit integer.  What does
-   `9223372036854775808 .` print on a built seed-forth?  On gforth?
-   Why the difference?
+   most-negative signed 64-bit integer.  The seed has no `.` and
+   only reads numbers through `[lit]`, so probe it with flags
+   instead: what do `[lit] 9223372036854775808 0<` and
+   `2^63 [lit] 1 - 0<` leave on a built seed-forth (print
+   each with the `0= [lit] 49 + emit` trick)?  What does
+   `9223372036854775808 .` print on gforth?  Why do the two views
+   of the same bit pattern differ?
 
-3. **★★ Extend.** Define `0< ( n -- f )` (true if `n < 0`) and `0> ( n -- f )` (true
-   if `n > 0`).  Compare to the standard Forth names.
+3. **★★ Extend.** Define `0> ( n -- f )` (true if `n > 0`) and `false ( -- 0 )`
+   next to `0<` and `true`.  Which of the two does the library
+   never need, and why?
 
 4. **★★★ Trace.** The `0= 0=` canonicalisation appears here for the first time.
    Find at least one other place in `010-lib.fth` where the same
@@ -318,12 +319,19 @@ instruction.
 
 ## Takeaways
 
-- One arithmetic primitive (`-`) and one logic primitive (`0=`) give
-  us all six comparisons in twelve total tokens.
-- The sign bit can be extracted with one unsigned divide by `2^63`,
-  avoiding the need for a bitwise AND with a 64-bit immediate.
-- Forth's `-1` / `0` boolean convention is what `0= 0=` produces;
-  the convention exists precisely so that `if,` and `0branch` can
-  test any value.
+- Derived subtraction, the unsigned `/` primitive, and `0=` give all
+  six comparisons in two tokens each, with no comparison primitives.
+- An unsigned divide by `2^63` extracts the sign bit as `0` or `1`,
+  standing in for a sign test, shift, or AND.
+- `0= 0=` canonicalises any zero/non-zero value to a Forth boolean
+  (`0` or `-1`).
 
-Next: Chapter 8 — Stack Shufflers.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, **every comparison**.  Still
+missing: `constant`, `if,`, `variable`.
+
+Next: Chapter 8 — Stack Shufflers.  Words like Ch 6's `space?`
+already juggle one value through `dup`, `over`, and `swap` four
+times.  Before the library writes anything longer, it names the
+shuffles it will use most, so a missing `swap` stops being a bug
+you find three words later.

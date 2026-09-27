@@ -21,6 +21,11 @@ TOS is cached in register `rdi`; the rest live at `[rbp]`, `[rbp+8]`,
 `[rbp+16]`, ...  Initial top at `0x411000`.  Ch 13 sets it up;
 Ch 14 explains the convention.
 
+**Deferred word** — a word defined by `defer NAME` whose body runs
+the xt stored in a cell after its code; `' REAL is NAME` fills the
+cell.  Lets a word call one that is defined later in the file, which
+mutually recursive parsers need.  Ch 12; used in Chs 22, 27, 30.
+
 **Dictionary** — the linked list of named definitions.  Each entry is
 `link(8) flags(1) name-len(1) name(N) body(M)` (Ch 10).  New entries
 are added by `:`, `create`, `variable`, `constant`.  Lookup is
@@ -71,9 +76,10 @@ TOS.  E.g. `swap ( a b -- b a )`.  Ch 1.
 **STATE** — sysvar at `0x413000`; 0 in interpret mode, 1 in compile
 mode.  Set to 1 by `:` and reset to 0 by `;`.  Ch 10.
 
-**Sysvar** — one of six cells on the page at `0x413000`: `STATE`,
-`LATEST`, `HERE`, `LAST_FOUND`, `NUMBER_HOOK`, `INPUT_FD`.  Ch 13
-initialises them; Ch 17 and Ch 20 use them.
+**Sysvar** — one of four consecutive cells on the page at
+`0x413000`: `STATE`, `LATEST`, `HERE`, `LAST_FOUND`.  Ch 13
+initialises them; Ch 17 and Ch 20 use them.  `010-lib.fth` finds
+`HERE`'s cell as `latest [lit] 8 +`.
 
 **TOS / 2OS** — top of stack / second-on-stack.  In the seed, TOS
 is cached in `rdi`; 2OS is at `[rbp]`.
@@ -88,15 +94,18 @@ Synonymous with 2OS.
 name; called by its xt.  May be a primitive or a colon definition
 or a `create`d data word.
 
-**xt (execution token)** — the address of a word's body.  This is
-what `'` returns and what `execute` calls.  Equivalent to a
-function pointer.
+**xt (execution token)** — the address of a word's code: the first
+byte after its name in the dictionary header, for the seed's
+primitives and for colon definitions alike.  This is what `'`
+returns, what `execute` calls and what a compiled `CALL` targets.
+Equivalent to a function pointer.
 
 ## Seed-forth specifics
 
-**The 32 primitives** — listed in Appendix A.  Their bodies live at
-fixed offsets in `000-seed.hex0` and are reached via dictionary
-headers in the `--- name @ 0xNNN ---` block.
+**The 32 primitives** — listed in Appendix A.  Each is one unit in
+`000-seed.hex0`: a dictionary header (`;; --- name @ 0xNNN`)
+directly followed by its code (`;; ----- name_code @ 0xNNN`), at a
+fixed offset.
 
 **The 19-byte runtime body** — the prologue shared by `constant`,
 `variable`, and `create`: `sub rbp, 8 ; mov [rbp+0], rdi ; movabs
@@ -105,14 +114,24 @@ rdi, V ; ret`.  Loads a constant `V` as the new TOS.  Ch 10, Ch 12.
 **`[lit]`** — the seed's only number-pushing word, immediate by
 nature.  Reads the next whitespace-delimited token, parses it as
 decimal, and either pushes the value (interpret mode) or appends
-`CALL lit_code` + 8 inline bytes (compile mode).  Ch 20.
+`CALL lit_code` + 8 inline bytes (compile mode).  A token that is
+not unsigned decimal is fatal: the seed prints it with `?` and exits
+with status 2.  Ch 18, Ch 20.
 
-**`comma-call`** — emits a 5-byte `CALL rel32` to a given xt at
-HERE.  Defined in `010-lib.fth` (Ch 11) using `,4` for the rel32.
+**`call,`** — emits a 5-byte `CALL rel32` to a given xt at
+HERE.  Defined in `010-lib.fth` (Ch 10) using `,4` for the rel32.
 
-**`bytes-eq`** — compares two byte ranges for equality.  No
-short-circuit because the seed lacks `exit`; accumulates the
-running flag in a variable.  Ch 12.
+**`[char]`** — immediate; compiles the first byte of the next token
+as a literal, the same 13 bytes `[lit] N` emits.  Characters that
+cannot be tokens (blank, tab, newline, `(`, `\`) are the constants
+`bl`, `tab`, `nl`, `lparen`, `backslash`.  Ch 10.
+
+**`exit,`** — immediate; compiles a `ret` for early return from the
+word being defined.  Legal wherever the return stack is as the word
+found it (no `>r` pending).  Ch 11.
+
+**`bytes-eq`** — compares two byte ranges for equality, returning
+with `exit,` at the first mismatch.  Ch 12.
 
 **Consumed-slot property** — `branch_code` and `0branch_code`
 return *to* their destination, not past the inline 8-byte slot.
@@ -129,10 +148,6 @@ HERE there.  Same idea generalises to `else,`, `begin,`, `while,`,
 emit incomplete bytes, remember where the missing value belongs,
 and patch that location when the value becomes known.  First named
 in Ch 11; scaled up in Chs 21, 25, 26, 30, and 31.
-
-**`NUMBER_HOOK`** — sysvar pointing at an optional xt that the REPL
-calls on a `find` miss before printing `?`.  Lets higher layers add
-auto-number-parsing.  Ch 20.
 
 **The I/O scratch byte at `0x412000`** — one byte shared by `emit`
 (write) and `key` (read).  Used because `read(2)` and `write(2)`
@@ -151,7 +166,7 @@ codebase outputs to.  First six integer/pointer args in `rdi`,
 Ch 26 walks the call-site shims.
 
 **`call rel32`** — a 5-byte instruction: `E8` + 4-byte signed
-displacement.  Target = current `rip` + 5 + rel32.  `comma-call`
+displacement.  Target = current `rip` + 5 + rel32.  `call,`
 emits this.
 
 **`DIV` / `IDIV`** — unsigned / signed 64-bit divide.  Dividend in
@@ -185,7 +200,8 @@ where `?` selects the register).  10 bytes total (REX + opcode +
 
 **`PT_LOAD`** — an ELF segment type meaning "map this into memory."
 The seed has one `PT_LOAD` covering all 16 MiB; the C compiler's
-output has two (code + data).  Ch 13, Ch 25.
+output also has exactly one, covering code and data alike
+(`080-cc-elf.fth`).  Ch 13, Ch 25.
 
 **`rax`, `rbp`, `rdi`, `rsi`, `rdx`, `r10`** — the registers most
 referenced in this book.  In seed-forth: `rdi` is TOS cache,
@@ -216,17 +232,25 @@ emitted.  Ch 21 (concept), Ch 25 (`p_filesz`), Ch 30 (forward
 jumps), Ch 31 (forward function calls).  Function frames are *not*
 back-patched — see "Fixed 256-byte function frame" in CONCEPTS.
 
+**`cc-die` / error code** — the one word every compiler failure ends
+in.  It writes `cc: line N: error C` to stderr and exits with status
+C.  N is the line the reader had reached in the preprocessed source;
+C names the failure, from a range owned by the file that detected it.
+`cc-check-cap` is the bounds check built on it.  Ch 21, Appendix G.
+
 **Codegen** — the pass that emits machine code.  In this compiler,
 codegen is the *only* output pass: there's no IR, no SSA, no
 register allocator.  Expressions produce bytes directly.
 
 **Eval stack (evaluation stack)** — the runtime stack used by
 compiled expression code to hold intermediate results.  This
-compiler uses the x86 hardware stack (`push rax` / `pop rax`)
-rather than allocating registers.  Slow but simple.
+compiler uses the x86 hardware stack (`push rdi` to save the left
+operand, `pop rdi` / `pop rcx` to recover it) rather than
+allocating registers.  Slow but simple.
 
 **Frame** — a function's stack region: saved `rbp`, locals,
-spilled parameters.  Addressed as `[rbp - 8n]` for local n.
+spilled parameters.  Addressed as `[rbp - 8n]` for local n.  Always
+256 bytes, 32 slots (`cc-frame-slots`); a 33rd dies with code 162.
 Ch 25 (encoders), Ch 31 (per-function layout).
 
 **Identifier / keyword / punctuator** — the three main token
@@ -239,10 +263,19 @@ tokens.  Skips whitespace and comments; recognises identifiers,
 keywords, numeric literals, string/char literals, punctuation.
 Ch 23.
 
+**Lexer state / mark** — everything the reader and lexer change as
+they advance (source position, line, current token, putback flag),
+kept in one 64-byte block, `cc-lex-state`.  A parser that must look
+several tokens ahead copies it away with `cc-lex-mark` and back with
+`cc-lex-reset`.  Ch 21 (block), Ch 23 (mark/reset).
+
 **Lvalue / rvalue** — an *lvalue* has an address you can take or
 write to (variable, deref, struct field); an *rvalue* has only a
 value (literal, expression result).  Assignment requires the LHS
-to be an lvalue.  Ch 28.
+to be an lvalue.  The expression parser records which one `rdi`
+holds in `cc-last-lvalue-kind`: `lv-value`, `lv-local`, or a
+pending deref (`lv-deref`, `lv-deref-byte`) that
+`cc-emit-materialize` loads only when the value is needed.  Ch 28.
 
 **M2-Planet** — the next link in the bootstrap chain after this C
 compiler.  A larger C compiler written in a subset of C; we
@@ -251,11 +284,11 @@ MesCC, and so on toward a self-hosting GCC.  Ch 32.
 
 **Parser** — the pass that consumes tokens and emits machine code
 directly (no AST in this compiler).  Two recursive-descent flavours:
-precedence climbing for expressions (Ch 27), keyword dispatch for
+a precedence cascade for expressions (Ch 27), keyword dispatch for
 statements and declarations (Chs 29–31).
 
 **One buffer per responsibility** — the Part III memory discipline:
-source bytes, preprocessor output, emitted ELF bytes, string/global
+raw input, preprocessed source, emitted ELF bytes, string/global
 storage, and fixup arrays each have a clear owner and cursor.  Ch 21
 names the pattern; later compiler chapters reuse it.
 
@@ -265,12 +298,23 @@ label table.  Capacity is fixed, lookup walks linearly, and later
 entries shadow earlier ones when that is the language rule.  Ch 17
 introduces it; Chs 22, 24, 30, and 31 reuse it.
 
-**Precedence climbing** — an expression-parsing technique that uses
-a single recursive function parameterised by minimum precedence,
-in place of one function per precedence level.  Ch 27.
+**Precedence cascade** — the expression-parsing technique this
+compiler uses: plain recursive descent with one function per
+precedence level, each parsing its operands by calling the next
+tighter level and looping over its own operators.  Which operators
+belong to which level, and the encoder each one calls, is one table
+(`cc-binops`).  Ch 27.
 
-**Preprocessor** — the pass that handles `#include`, `#define`, and
-conditional compilation before the lexer sees the source.  Ch 22.
+**Precedence climbing** — the alternative Ch 27 does *not* use: a
+single recursive function parameterised by minimum precedence,
+driven by a table, in place of one function per precedence level.
+Contrast **Precedence cascade**.
+
+**Preprocessor** — the pass that splices in `#include`d files,
+records `#define`s, and deletes every directive line before the
+lexer runs.  Other directives (`#ifdef`, `#if`, …) are silently
+dropped (there is no conditional compilation), and macro names
+are replaced by their values at lex time, not here.  Ch 22.
 
 **Prologue / epilogue** — the boilerplate at function entry / exit.
 Prologue: `push rbp ; mov rbp, rsp ; sub rsp, FRAMESIZE` plus
@@ -288,16 +332,27 @@ the seed-forth binary.  Maintained at github.com/oriansj/stage0-posix.
 **Struct descriptor** — a 16-byte header + N 40-byte field records
 describing a C struct's layout.  Ch 24.
 
+**Putback** — handing the current token back to the lexer so the next
+`cc-next-token-keep` returns it again (`cc-putback-token`).  One token
+deep.  Ch 23.
+
 **Symbol table** — parallel arrays of name / kind / type / value
-indexed by an integer symbol id.  Linear scan for lookup;
+indexed by an integer symbol id, plus two extra cells read through
+meaning-named accessors (array length, struct descriptor, call and
+address fixup lists).  Linear scan for lookup (`cc-name-find`);
 truncated on scope pop.  Ch 24.
 
 **Type encoding** — every C type fits in one 64-bit word: base
 kind in bits 16–31, pointer depth in bits 0–7.  Struct types
-carry an out-of-band descriptor pointer in the symbol's val slot.
+carry an out-of-band descriptor pointer: in the tag symbol's val and
+in a struct variable's struct-desc cell.
 Ch 24.
 
 ## Bootstrapping
+
+**`asm-out`** — the output path of the Forth assembler.
+`130-asm.fth` writes its ELF to the fixed path `/tmp/asm-out`, mode
+0755; `bootstrap.sh` renames it.  Ch 33 §12.
 
 **Bootstrappable Builds** — the umbrella project at
 bootstrappable.org tracking efforts to reduce binary-blob
@@ -310,30 +365,34 @@ Ch 32.
 
 **Entry stub** — the 26-byte prologue at vaddr `0x400078` that our
 compiled binaries begin with: argc/argv setup, `call <main>`, exit
-syscall.  Emitted by `cc-emit-entry-stub` in `110-cc-decl.fth`.
+syscall.  Emitted by `cc-emit-entry-stub` in `116-cc-prog.fth`.
 Ch 31 §8.
 
-**Full Source Bootstrap** — the Guix project's chain from ~512
-bytes of hex up to a self-hosting GCC, entirely from auditable
-source.  This book covers the segment from stage0's `hex0-seed`
+**Full Source Bootstrap** — the Guix project's chain from a
+few hundred bytes of hex (stage0-posix's `hex0-seed`: 229 bytes on
+x86-64) up to a self-hosting GCC, entirely from auditable source.  This book covers the segment from stage0's `hex0-seed`
 through M2-Planet's output.
 
 **hex0** — a minimal assembler format: each line is hex bytes plus
 optional `;`-introduced comments.  No labels, no macros.  Assembled
 by stage0-posix's `hex0-seed`.
 
-**hex2** — a slightly richer hex assembler in the stage0 family
-that supports labels and rel32 patching.  M1 output is fed to hex2
-to produce flat binaries downstream of M2-Planet.
+**hex2** — the linker format and tool of the stage0 family: hex
+bytes, `:label` declarations, and sigil references that write a
+label's address, absolute or relative, into a 1- to 4-byte field.
+M1 output is fed to hex2 to produce flat binaries downstream of
+M2-Planet.  `130-asm.fth` implements the amd64 subset.  Ch 33 §1.
 
-**M1** — the macro-assembly format that M2-Planet emits.  Each
-M2-Planet output is a sequence of mnemonic lines (`PUSH_RAX`, `ADD
-RAX,RCX`, label definitions, etc.) consumed by `M1` (a small
-assembler in mescc-tools) to produce hex2-input.
+**M1** — the macro-assembly format that M2-Planet emits: hex2 plus
+`DEFINE name value` macros (`DEFINE mov_rax, 48C7C0`), numeric
+sigils (`%60`), and strings (`"hi"` becomes `68 69 00`).  mescc-tools'
+`M1` rewrites it into hex2 text; `130-asm.fth` expands it and links
+it in one program.  Ch 33 §1, §11.
 
 **Macro table** — the preprocessor's parallel-array storage for
-`#define`s: 256 entries × name/body/length triples plus a 16 KiB
-name pool.  Ch 22 §4.
+`#define`s: 256 entries × name-address / name-length / integer
+value triples plus a 16 KiB name pool.  Only integer values are
+stored — there are no body strings.  Ch 22 §2.
 
 **mescc-tools** — the small toolchain (`M1`, `hex2`, `blood-elf`,
 `get_machine`) that turns M2-Planet's `.M1` output into a working
@@ -347,7 +406,20 @@ inlined manually before compilation.  See Ch 32 §4.
 **Reproducible build** — same inputs produce byte-identical outputs.
 Required for any link in the bootstrap chain to be auditable.
 
+**Sigil** — the first character of an M1/hex2 reference token:
+`!` `@` `~` (1, 2, 3 bytes, relative to the end of the field), `%`
+(4 bytes relative, or `%target>base`), `$` `&` (2, 4 bytes
+absolute).  Followed by a label or a number, whose value must fit
+the field (hex2's bounds for a label, M1's for a number; 4-byte
+fields are unchecked).  One handler, `asm-do-ref`, serves all six.
+Ch 33 §9.
+
 **Trusting trust** — Ken Thompson's 1984 paper "Reflections on
 Trusting Trust" — the founding articulation of why a compiler can't
 be trusted without auditing the binary that built it.  The
 bootstrap chain is the answer to this paper.
+
+**Two-pass assembly** — read the whole input twice: pass 1 only
+counts bytes, to give every label its address; pass 2 emits, with
+every forward and backward reference known.  The assembler's
+alternative to emit, remember, patch.  Ch 33 §10.

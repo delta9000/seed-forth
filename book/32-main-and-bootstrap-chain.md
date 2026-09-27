@@ -7,41 +7,19 @@ Artifact after this chapter: the Stage-A harness and byte-identical .M1 parity c
 Proof link: the proof is direct parity of emitted .M1 text, not identity of compiler ELFs.
 ```
 
-This is the synthesis chapter.  The whole compiler is 37 lines of
-glue in `120-cc-main.fth` (entire file): a pre-baked 12-byte
-`/tmp/cc-out\0` constant, a nine-word `cc-main` that composes every
-piece of machinery from Chs 21–31 (`cc-load-stdin`, `cc-preprocess`,
-`cc-out-init`, `cc-globals-init`, `cc-emit-elf-header`,
-`cc-parse-program`, `cc-finalize-globals`, `cc-finalize-elf`,
-`cc-out-path cc-write-output`, then `bye`), and a single bare call
-to `cc-main` at the bottom so loading the file *is* running the
-compiler.  Alongside it we read the shell driver
-`tests/cc/stage-a-check.sh` (which lives outside the literate
-program, not tangled), the script that feeds the twelve `.fth`
-files plus M2-Planet's source through `./seed-forth` and diffs the
-resulting M1 output against the GCC-built reference.
+Thirty-one chapters have defined words.  This one calls them.
+`120-cc-main.fth` is a 40-line file: a 12-byte `/tmp/cc-out\0` constant,
+a colon definition `cc-main` that runs nine words from Chs 21–31 in
+order and then `bye`, and a bare `cc-main` on the last line, so
+that loading the file runs the compiler.
 
-By the end you'll be able to walk `cc-main`'s nine steps from
-stdin to written ELF, run the full bootstrap chain yourself, and
-explain what byte-identical M1 parity with the GCC-built M2-Planet
-demonstrates (Stage A: our 2,040-byte seed plus the literate
-compiler emits the same machine code as a 100k-line C toolchain
-would for the same input, the fixed point that closes the
-trust-the-trusting-trust loop).  Nothing is deferred; the
-appendices follow.
-
----
-
-The previous 31 chapters built a compiler one definition at a
-time.  This one composes those definitions into a single
-running program and ties the result to the bootstrap chain.
-
-The compiler is one Forth program loaded as a chain of files.
-The seed (`000-seed.hex0`) starts the Forth.  `010-lib.fth`
-extends it.  `020-cc-arena.fth` through `110-cc-decl.fth` add
-the C compiler's machinery.  `120-cc-main.fth` runs it.
-
-The whole thing fits in 12 .fth files plus one 2,040-byte seed.
+The second half of the chapter reads `tests/cc/stage-a-check.sh`,
+a shell script outside the literate program.  It feeds the fifteen
+`.fth` files and M2-Planet's source through `./seed-forth`, then
+checks that the resulting M2-Planet binary emits the same `.M1`
+text as GCC-built M2-Planet when both compile M2-Planet's own
+sources.  That is a parity check, not a fixed point; the fixed
+point (v2 == v3) is a separate stage, covered in §5.
 
 ## 1. `cc-main`: nine words and a `bye`
 
@@ -61,7 +39,10 @@ The whole thing fits in 12 .fth files plus one 2,040-byte seed.
 \   080-cc-elf.fth     — ELF header emission
 \   090-cc-emit.fth    — x86-64 instruction encoders (codegen backend)
 \   100-cc-expr.fth    — expression parser (depends on 090-cc-emit.fth)
-\   110-cc-decl.fth    — declaration / statement parser (depends on 100-cc-expr.fth)
+\   110-cc-decl.fth    — declaration parser (depends on 100-cc-expr.fth)
+\   112-cc-stmt.fth    — statement parser
+\   114-cc-func.fth    — function definitions
+\   116-cc-prog.fth    — file-scope forms, entry stub, top-level driver
 \   120-cc-main.fth    — entry point: cc-main
 
 \ Pre-baked output path: "/tmp/cc-out\0"
@@ -85,21 +66,18 @@ create cc-out-path
 cc-main
 ```
 
-That's the whole compiler driver.  Nine words and a `bye`.
-
-The load-order comment at the top is the contract: each file
-depends on the ones above it.  `020-cc-arena.fth` must load
-before `030-cc-io.fth` because the I/O buffers use `cc-alloc`
-indirectly (struct descriptors live in the arena and are
-referenced from `cc-sym-extra`).  `040-cc-prep.fth` must load
+The load-order comment at the top says each file depends on the
+ones above it.  Some edges are stricter than the
+code needs.  The comment says `020-cc-arena.fth` must load before
+`030-cc-io.fth`, but `030` uses nothing from `020`.  The real
+consumers of `cc-alloc` come later: `090-cc-emit.fth`
+(`cc-add-fixup-to-list`), `110-cc-decl.fth` (struct
+descriptors), and `112-cc-stmt.fth` (switch cases).  `040-cc-prep.fth` must load
 before `050-cc-lex.fth` because the lexer calls
 `cc-macro-find-int`.  `080-cc-elf.fth` must load before
-`110-cc-decl.fth` because the absolute-vaddr emitters
-(`cc-emit-jmp-vaddr`, `cc-emit-call-vaddr`) reference
-`cc-base-vaddr`.  And so on.
-
-The shell driver concatenates the files in this order and pipes
-them through `./seed-forth`.
+`100-cc-expr.fth` and `112-cc-stmt.fth` because their string-literal
+and absolute-vaddr emitters (`cc-emit-jmp-vaddr`,
+`cc-emit-call-vaddr`) read `cc-here-vaddr`.  And so on.
 
 ## 2. The output-path constant
 
@@ -110,15 +88,13 @@ them through `./seed-forth`.
 47 116 109 112 47 99 99 45 111 117 116 0
 ```
 
-Each byte is laid out via `c,` (Ch 2).  This is the same
-literate-bytes technique we saw for the keyword table (Ch 23
-§2) and the libc-shim names (Ch 31 §8).
+Each byte is laid out with `c,` (Ch 2), as in the keyword table
+(Ch 23 §2) and the libc-shim names (Ch 31 §8).
 
 `cc-write-output` (Ch 21 §2) takes the buffer's address and
-opens it with `O_WRONLY|O_CREAT|O_TRUNC` mode `0755`.  Hard-
-coding the path keeps the seed simple — the compiler doesn't
-need to know how to parse command-line arguments — at the cost
-of one fixed output location per invocation.  Test drivers
+opens it with `O_WRONLY|O_CREAT|O_TRUNC` mode `0755`.  A fixed
+path means the compiler never parses command-line arguments, at
+the cost of one fixed output location.  Test drivers
 work around this by running the compiler, then `cp /tmp/cc-out`
 to wherever they need.
 
@@ -126,21 +102,22 @@ to wherever they need.
 
 Read `cc-main` as a sequence of phases:
 
-1. **`cc-load-stdin`** (Ch 21 §2) — slurp the entire C source
-   into `cc-src-buf` via chunked `read()`.  Ends when
-   `read` returns 0.
-2. **`cc-preprocess`** (Ch 22 §8) — rewrite the source in
-   place: handle `#include`s, register `#define`s in the macro
-   table, expand built-in macros (`NULL`, `EOF`, etc.).
-   Resets `cc-src-pos` so the lexer rewinds.
-3. **`cc-out-init`** (Ch 21 §2) — zero `cc-out-pos`.
-4. **`cc-globals-init`** (Ch 26 §5) — zero
+1. **`cc-load-stdin`** (Ch 21 §2): slurp the entire C source
+   into `cc-in-buf` with `cc-read-all`.  Ends when `read`
+   returns 0; a source that fills the 1 MiB buffer is error 20.
+2. **`cc-preprocess`** (Ch 22 §8): rewrite `cc-in-buf` into
+   `cc-src-buf`: splice in `#include`s, register `#define`s in
+   the macro table, prime the built-in macros (`NULL`, `EOF`,
+   etc.).  Resets `cc-src-pos` and `cc-src-line` so the lexer
+   starts at the top.
+3. **`cc-out-init`** (Ch 21 §2): zero `cc-out-pos`.
+4. **`cc-globals-init`** (Ch 26 §5): zero
    `cc-globals-pos`, `cc-gfixup-count`, and the globals
    buffer itself.
-5. **`cc-emit-elf-header`** (Ch 25 §1) — write 120 bytes of
+5. **`cc-emit-elf-header`** (Ch 25 §1): write 120 bytes of
    ELF64_Ehdr + Elf64_Phdr at offset 0.  `p_filesz` and
    `p_memsz` start as 0 and will be back-patched.
-6. **`cc-parse-program`** (Ch 31 §8) — the big one.  Six
+6. **`cc-parse-program`** (Ch 31 §8): the big one, in seven
    sub-steps:
    - Emit the 26-byte entry stub.
    - Emit the 11 libc shims and register their symbols.
@@ -148,38 +125,100 @@ Read `cc-main` as a sequence of phases:
    - Register the 11 libc typedefs (`FILE`, `uint8_t`, ...).
    - Walk every top-level declaration in the preprocessed
      source, emitting function bodies as we go.
+   - Die (206, 207) if a used function never got a body or there
+     is no `main`.
    - Patch the entry stub's `call <main>` rel32.
-7. **`cc-finalize-globals`** (Ch 31 §7) — append
+7. **`cc-finalize-globals`** (Ch 31 §7): append
    `cc-globals-buf` to `cc-out-buf`, then walk every
    recorded fixup patching `movabs rdi, imm64` placeholders
    with the now-known global vaddrs.
-8. **`cc-finalize-elf`** (Ch 25 §1) — patch the program
+8. **`cc-finalize-elf`** (Ch 25 §1): patch the program
    header's `p_filesz` (and `p_memsz` if the output is large)
    to the final `cc-out-pos`.
-9. **`cc-write-output`** (Ch 21 §2) — open `/tmp/cc-out` with
+9. **`cc-write-output`** (Ch 21 §2): open `/tmp/cc-out` with
    `O_WRONLY|O_CREAT|O_TRUNC` mode 0755, write all of
    `cc-out-buf`, close.
 
-Then `bye` (Ch 1 use; Ch 16 asm) — `exit(0)`.
+Then `bye` (used since Ch 1, defined in Ch 16) calls `exit(0)`.
 
-The trailing call to `cc-main` after the colon definition is
-the auto-execution.  Loading `120-cc-main.fth` defines `cc-main`
-and then *calls* it.  This is why the build script can simply
-concatenate all 12 files and pipe them into `./seed-forth` —
-the last file ends with `cc-main`, which means the very last
-token the seed processes is a call to the compiler driver.
+Because the last token of `120-cc-main.fth` is a call to
+`cc-main`, a build script only has to concatenate the fifteen files
+and pipe them into `./seed-forth`.  Whatever follows on stdin is
+the C source that `cc-load-stdin` reads.
+
+**tri.c, one last time.**  Chs 27–31 each disassembled one slice of
+tri.c's binary.  Here are all nine steps on the whole program:
+
+```sh
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; cat <<'C'
+#define ROWS 4
+struct tri { int rows; int stars; };
+struct tri t;
+
+void line(int pad, int n) {
+    while (pad > 0) { putchar(' '); pad = pad - 1; }
+    while (n > 0) { putchar('*'); n = n - 1; }
+    putchar('\n');
+}
+
+int main() {
+    int w[ROWS];
+    int r;
+    t.rows = ROWS;
+    for (r = 0; r < t.rows; r = r + 1) {
+        w[r] = 1 + r * 2;
+        line(t.rows - 1 - r, w[r]);
+        t.stars = t.stars + w[r];
+    }
+    if (t.stars == ROWS * ROWS) return t.stars;
+    return 1;
+}
+C
+} | ./seed-forth
+chmod +x /tmp/cc-out && /tmp/cc-out
+echo "exit: $?"                  # prints "exit: 16"
+wc -c < /tmp/cc-out              # prints: 1241
+```
+
+```
+   *
+  ***
+ *****
+*******
+exit: 16
+1241
+```
+
+Nothing is stripped on the way in.  The seed's reader skips the
+Forth comments itself (Ch 17), and once `cc-main` runs, the rest of
+stdin is read raw, so `(int pad, int n)` reaches the compiler
+intact.  Measured between
+the steps, `cc-load-stdin` read 484 bytes and `cc-preprocess` cut
+them to 470 (the `#define` line is gone, its newline kept) with
+`ROWS` as the eighth macro.  The header is 120 bytes, and
+`cc-parse-program` took the output to 1,225 bytes of code plus 16
+bytes of globals, which `cc-finalize-globals` appended.
+`cc-finalize-elf` wrote the resulting 1,241 into `p_filesz`
+(`d9 04 00 00` at offset 0x60).  Run it again and `sha256sum
+/tmp/cc-out` gives the same `d15b9d90…ca5ac8a`.
+
+tri.c is a teaching program, not evidence.  It is not part of
+Stage A or of any test script, and nothing compares its bytes with
+GCC's.  GCC, given the same source with `#include <stdio.h>` added,
+prints the same triangle and exits 16, but that is a check of
+behaviour, done by hand.  The evidence is the same pipeline with
+M2-Planet's source in place of tri.c's 22 lines.
 
 ## 4. Stage A: the parity proof
 
-`tests/cc/stage-a-check.sh` is the verification harness.  Read
-it as a five-step proof:
+`tests/cc/stage-a-check.sh` runs five steps:
 
 ```sh
 #!/usr/bin/env bash
 # (paraphrased from tests/cc/stage-a-check.sh)
 set -euo pipefail
 
-# 1. Build seed-forth (2,040 hand-coded bytes -> ELF).
+# 1. Build seed-forth (1,772 hand-coded bytes -> ELF).
 ./build.sh
 
 # 2. Build the GCC-compiled M2-Planet reference.
@@ -208,67 +247,117 @@ cmp /tmp/seed-bootstrap/self-v1-amd64.M1 \
     /tmp/seed-bootstrap/self-ref-amd64.M1
 ```
 
-The key claim is in step 5.  Our 2,040-hand-coded-byte seed,
-loaded through `000-seed.hex0`'s ELF + Forth interpreter,
-extended via `010-lib.fth`, run through the 7,000-line C
-compiler in `020-cc-arena.fth` through `120-cc-main.fth`,
-compiles a 10,000+-line real-world C program (M2-Planet) into
-byte-identical M1 output as if GCC had done it.
+The claim rests on step 5.  The 1,772-byte seed, extended by
+`010-lib.fth` and running the 6,744 lines of compiler Forth in
+`020-cc-arena.fth` through `120-cc-main.fth`, compiles a real-world C program (M2-Planet: 8,479 lines across the
+11 files of the self-compile source set) into a binary.  That
+binary, compiling M2-Planet's sources, emits the same `.M1` text
+as GCC-built M2-Planet does.
 
-```
-   ,___,
-   [o,o]   "byte-identity is on the M1 output, not the ELFs
-   (")_)    themselves.  the two compiler binaries differ by
-            design.  what matches is what they emit."
-```
+The comparison is on the emitted `.M1`, not on the two compiler
+ELFs: those differ, because GCC and this compiler generate
+different machine code for the same C.  What matches is their
+output.
 
-That equality is what makes this segment *auditable*.  Every byte
-of the seed-forth arm above the 2,040-byte seed is either quoted as
+That equality is what makes this segment auditable.  Every byte
+of the seed-forth arm above the 1,772-byte seed is either quoted as
 literate source in this book or emitted by source this book walks.
 The byte-identity check rules out silent deviation between the
 seed-forth path and the GCC reference at the `.M1` handoff.
 
 ## 5. The wider chain
 
-Stage A is one rung of a longer ladder.  The full Guix Full
-Source Bootstrap chain looks roughly like:
+Stage A is one rung of a longer ladder.  On AMD64, stage0-posix's
+`kaem` scripts (`vendor/stage0-posix/kaem.amd64` and the
+`AMD64/mescc-tools-*-kaem.kaem` files it runs) climb the first
+part, and live-bootstrap carries on from there:
 
 ```
    stage0-posix's 229-byte hex0-seed
-     ↓ (hand-decoded bytes → first hex assembler)
-   hex0  →  hex1  →  hex2  →  M1  →  M2-Planet
-     ↓
-   M2-Planet (10,000+ lines of C) compiles MesCC
-     ↓
-   MesCC (~1 MB) compiles TinyCC
-     ↓
-   TinyCC compiles GCC
-     ↓
-   GCC compiles everything else.
+     ↓ assembles hex0_AMD64.hex0
+   hex0  →  hex1  →  hex2-0  →  catm, M0
+     ↓ M0 assembles cc_amd64.M1
+   cc_amd64 (a C-subset compiler in M1 assembly)
+     ↓ compiles M2-Planet's C
+   M2  (a first M2-Planet)
+     ↓ compiles mescc-tools' C
+   blood-elf, M1, hex2, kaem  →  M2-Planet again, full build
+     ↓ (live-bootstrap from here on)
+   M2-Planet compiles GNU Mes (mes-m2)
+     ↓ Mes runs MesCC, Mes's C compiler written in Scheme
+   MesCC compiles a bootstrappable TinyCC
+     ↓ several stages: TinyCC rebuilds, then an older GCC
+   a modern GCC compiles everything else.
 ```
 
-This book covers the *seed-forth* arm of that diagram —
-alternate path from `hex0-seed` to M2-Planet via a 2,040-byte
-Forth implementation rather than via the hex-stack chain.
-Both arms produce M2-Planet-compatible compilers whose `.M1` output
-is byte-identical on the stage-A inputs, which makes the seed-forth
-chain a *drop-in alternative* for that segment of the bootstrap.
+This book covers the *seed-forth* arm of that diagram: an
+independent path from `hex0-seed` to an M2-Planet-compatible
+compiler, through a 1,772-byte Forth instead of through hex1, hex2,
+M0 and `cc_amd64`.  The two arms' first M2-Planets are different
+binaries that emit slightly different `.M1`.  `cc-out-v1` matches
+the GCC-built reference, because this compiler, like GCC, reads the
+`&&` in two of M2-Planet's codegen guards as ISO C does; M2-Planet
+compiles `&&` as a bitwise `and`, so every M2-Planet-built M2-Planet
+(stage0's, and this chain's own v2 and v3) skips the short
+`sub_rsp, imm` forms those guards select.  One generation later the
+arms meet: `tests/cc/stage0-check.sh` rebuilds M2-Planet with
+stage0's recipe from both arms and gets the same binary, byte for
+byte, even when each arm links with its own `M1`, `hex2` and
+`blood-elf` (amd64; the details, and what the two arms still share,
+are in Appendix C).
 
-The Prologue had a longer treatment of the diagram.  By now
-you've seen every component along the seed-forth path:
+The seed-forth arm can also stand in for stage0's stretch from hex1
+to M2-Planet.  `./handoff.sh` feeds `bootstrap.sh`'s M2-Planet, M1
+and hex2 to stage0-posix's own recipe in place of hex1, hex2, M0 and
+`cc_amd64`, and the recipe then builds `blood-elf`, `kaem`, M2-Planet
+and the rest byte-identical to stage0-posix's published
+`amd64.answers`.  Cross-targeting i386, it does the same for
+stage0-posix's x86 recipe and `x86.answers`, on an amd64 kernel that
+also runs 32-bit programs.  live-bootstrap takes over from those
+binaries, so past that point the chain continues as usual (Appendix C
+and `REPRODUCIBLE.md` say exactly where and how).
 
-- Ch 13–20: the 2,040-byte seed itself (`000-seed.hex0`).
-- Ch 1–12: the seed's first extension (`010-lib.fth`) —
-  ~375 lines of Forth that turn the seed's 32 primitives into
+[Where this fits](where-this-fits.md) sets the two routes side by
+side.  With Ch 33, the book walks every component along the
+seed-forth path:
+
+- Ch 13–20: the 1,772-byte seed itself (`000-seed.hex0`).
+- Ch 1–12: the seed's first extension (`010-lib.fth`),
+  ~470 lines of Forth that turn the seed's 32 primitives into
   a usable language.
-- Ch 21–32: the C-subset compiler — ~7,000 lines of Forth
+- Ch 21–32: the C-subset compiler, 6,744 lines of Forth
+  (`020-cc-arena.fth` through `120-cc-main.fth`, by `wc -l`)
   that turn a usable language into a useful tool.
+- Ch 33: the assembler (`130-asm.fth`) that turns the compiler's
+  output into running binaries without mescc-tools.
 
 `tests/cc/bootstrap-chain.sh` (the bigger sibling of
-`stage-a-check.sh`) extends the verification to stages B–G,
-covering M2-Planet's self-hosting and the subsequent
-TinyCC / MesCC links.  It takes minutes to run; `stage-a-check.sh`
-takes seconds.
+`stage-a-check.sh`) runs sub-stages A–G once per architecture
+(`x86` and `amd64` by default).  A is the parity check above.  B
+assembles v1's `.M1` with M1 + hex2 into `cc-out-v2`.  C checks
+that v1 and v2 compile a one-line `tiny.c` identically.  D has v2
+self-compile; its difference from v1's `.M1` is recorded, not
+failed.  E assembles that into `cc-out-v3`.  F is the fixed
+point: v3's self-compile must equal v2's byte for byte.  G has v3
+compile, link and run a `hello.c`.  A final stage compiles every
+program in M2-Planet's own test suite with v1 and with the GCC
+reference (x86 output): each must produce the same bytes from both,
+or be rejected by both, or the stage fails.  Nothing past
+M2-Planet (no Mes, no TinyCC) is run.  From an empty `BUILDROOT`
+it took about 70 s on a 4-core machine, `bootstrap.sh` included; `stage-a-check.sh` takes
+seconds.
+
+Stages B and E assemble with mescc-tools' `M1` and `hex2` as built
+by `bootstrap.sh`: compiled by the Forth-built M2-Planet and
+assembled by `130-asm.fth`, the Forth replacement for that pair and
+the subject of Ch 33: a 785-line M1
+macro expander and two-pass hex2 linker that loads on
+`010-lib.fth` alone, reads M1 text on stdin and writes an ELF to
+`/tmp/asm-out`.  `tests/asm/m2planet-check.sh` feeds it M2-Planet's
+libc and the `self-v1-amd64.M1` from Stage A and checks that its
+output is byte-identical to what mescc-tools produces from the same
+input; the other `tests/asm/` scripts run it on small fixtures and
+on inputs it must reject (Appendix G).
 
 ## 6. What this proves
 
@@ -276,21 +365,27 @@ Three things, in order of increasing strength.
 
 **Correctness.**  The compiler produced by seed-forth emits the same
 M2-Planet `.M1` text as the GCC-built reference compiler on the same
-stage-A input.  Any miscompilation by seed-forth's C compiler would
-produce a diff.  None do.
+stage-A input.  A miscompilation in a code path that M2-Planet's
+self-compile exercises would produce a diff.  None do.  That is
+narrower than "no miscompilations": Chs 28, 30 and 31 describe bugs
+that changed no Stage-A byte, because M2-Planet never ran the code
+they broke.  The test gates in those chapters, and the test-suite
+parity stage of `bootstrap-chain.sh`, cover what Stage A misses.
 
 **Reproducibility.**  Same input bytes in, same output bytes
 out, deterministically.  This is what makes the chain
 *auditable*: anyone with the same source can re-derive every
 byte.
 
-**Bootstrap closure.**  The 2,040 hand-coded bytes of
+**Bootstrap closure.**  The 1,772 hand-coded bytes of
 `000-seed.hex0` are the only bytes in the seed-forth arm that do not
 come from a higher-level source language.  This book explains that
 arm up to the M2-Planet-compatible compiler it produces; the
 canonical downstream chain continues in M2-Planet, mescc-tools,
-MesCC, TinyCC, and GCC.  Closure means you can keep following source
-all the way down instead of trusting an unexplained binary jump.
+MesCC, TinyCC, and GCC, and `handoff.sh` shows that the arm's output
+drives stage0-posix's recipe to exactly the binaries that chain
+starts from.  Closure means you can keep following source all the
+way down instead of trusting an unexplained binary jump.
 
 That last property is what motivates the project.  Modern
 software bootstraps are circular: GCC is compiled by GCC,
@@ -307,7 +402,7 @@ program through the full Forth compiler pipeline.
 **Layer check:** build the seed and run the cross-layer unit suite.
 
 ```sh
-./build.sh                       # 2,040-byte seed → ./seed-forth
+./build.sh                       # 1,772-byte seed → ./seed-forth
 ./test.sh                        # unit tests across all layers
 ```
 
@@ -324,35 +419,33 @@ If `stage-a-check.sh` reports
 `self-v1-amd64.M1 == self-ref-amd64.M1`, you have reproduced
 the project's central claim.
 
-To run the small check, concatenate the twelve `.fth` files
-(stripped of Forth comments) onto stdin first, then append the C
-source.  The last `.fth` file (`120-cc-main.fth`) ends by calling
+To run the small check, concatenate the fifteen `.fth` files onto
+stdin first, exactly as they are, then append the C source.  The last `.fth` file (`120-cc-main.fth`) ends by calling
 `cc-main`, which slurps whatever's left on stdin as the C input,
 compiles, writes `/tmp/cc-out`, and exits.
 
 `tests/cc/build-m2planet-monolith.sh` already does exactly this
-pipeline at full scale; it defines a `strip_forth` helper that is
-the canonical version of the comment stripper.  For the toy
-`return 42` case, the same shape distilled to one terminal:
+pipeline at full scale, with nothing between `cat` and the seed.
+For the toy `return 42` case, the same shape distilled to one
+terminal:
 
 ```sh
 ./build.sh
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | strip_forth; echo 'int main(void) { return 42; }'; } \
+{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; echo 'int main(void) { return 42; }'; } \
     | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out
 echo $?      # 42
 ```
 
 The pattern `010-lib.fth [0-9][0-9][0-9]-cc-*.fth` names the library,
-then globs the eleven `-cc-` files (`020-cc-arena.fth` through
-`120-cc-main.fth`) in numerical (load) order — twelve files without
-listing them all.  The `-cc-` infix is load-bearing: it skips
+then globs the fourteen `-cc-` files (`020-cc-arena.fth` through
+`120-cc-main.fth`) in numerical (load) order, which names all
+fifteen files without listing them.  The `-cc-` infix matters: it skips
 `130-asm.fth`, which is not part of the C-compiler vocabulary and
-would corrupt the compile if fed in.  If you find yourself editing this pipeline,
-edit `build-m2planet-monolith.sh` instead — it is the version that
-gets exercised by the test suite, and divergence between the two is
-the kind of bug nobody notices until Stage-A breaks.
+would corrupt the compile if fed in.  If you find yourself editing
+this pipeline, edit `build-m2planet-monolith.sh` instead.  It is the version the
+test suite exercises, and a divergence between the two would go
+unnoticed until Stage-A broke.
 
 ## Exercises
 
@@ -372,9 +465,14 @@ the kind of bug nobody notices until Stage-A breaks.
 
 4. **★★★ Extend.** Sketch what it would take to extend the compiler to a
    different target architecture (RISC-V, ARM64).  Which files
-   change?  Which are reusable?  Hint: only `090-cc-emit.fth`
-   and the ELF header in `080-cc-elf.fth` need rewriting;
-   everything else is target-agnostic.
+   change?  Which are reusable?  Hint: `090-cc-emit.fth` and the
+   ELF header in `080-cc-elf.fth` are the obvious rewrites, but
+   not the only ones.  `100-cc-expr.fth` emits raw x86 bytes
+   inline (assignment's `72 137 207` is `mov rdi, rcx`), and
+   `112-cc-stmt.fth` holds `cc-emit-jmp-vaddr` and friends,
+   `116-cc-prog.fth` the entry stub, and the parser files
+   (`110`–`116`) the rdi/rbx register conventions.  The
+   front end (`020`–`070`) is reusable.
 
 5. **★★★ Verify.** The full chain is *reproducible* end-to-end.  Construct a
    diff that proves you've changed the seed-forth output
@@ -383,66 +481,29 @@ the kind of bug nobody notices until Stage-A breaks.
 
 ## After this chapter
 
-The chain is closed.  `cc-main` composes every Part III layer in
-load order; `stage-a-check.sh` and `bootstrap-chain.sh` drive
-forth-cc against the M2-Planet sources and confirm the emitted
-`.M1` text is byte-identical to the GCC-built reference.  Two
-different compilers, same output on the same input.
+`cc-main` runs every Part III layer in load order.
+`stage-a-check.sh` builds M2-Planet with it and confirms that the
+result, compiling M2-Planet's sources, emits `.M1` text
+byte-identical to the GCC-built reference: two different compilers,
+the same output on the same input.  `bootstrap-chain.sh` goes on to
+assemble that output, reach the v2 == v3 fixed point, and compare
+M2-Planet's test suite.
 
-You can read `stage-a-check.sh` and `bootstrap-chain.sh`, explain
-why the proof is byte-identity of emitted `.M1` (not byte-identity
-of the compiler ELFs themselves), and audit any byte in the chain
-back to its source.
-
-Toward Stage-A: this *is* Stage-A.  Everything before this chapter
-was building the artifact; everything in this chapter is the proof
-that the artifact does what it claims.
+You can read both scripts, explain why the proof compares emitted
+`.M1` rather than the compiler ELFs, and trace any byte in the
+seed-forth arm back to its source.
 
 ## Takeaways
 
-- `cc-main` is nine words and a `bye`.  Every layer of
-  scaffolding this book covered was for *those nine words* —
-  and the byte-identical M1 output they produce.
-- Stage A parity with GCC is the proof of correctness: same
-  bytes in, same bytes out, no hidden steps.
-- The bootstrap chain is reproducible end-to-end.  This book
-  is the manual for one segment of it — the seed-forth arm
-  from `hex0-seed` to M2-Planet.
+- `cc-main` is nine words and a `bye`, and loading `120-cc-main.fth` runs it on whatever C source follows on stdin.
+- Stage A shows that the M2-Planet built by this compiler emits the same `.M1` as GCC-built M2-Planet, which covers every code path M2-Planet's self-compile exercises and leaves the rest to the test gates.
+- This book is the manual for one arm of the bootstrap chain, from 1,772 hand-coded bytes to an M2-Planet-compatible compiler.
 
-You have reached the end of the main book.
+One piece of the seed-forth arm is still unread.  Stage A compares
+`.M1` text, and text does not run: every stage after A goes through
+mescc-tools' `M1` and `hex2`, and `bootstrap.sh` builds those with
+`130-asm.fth`, a Forth assembler this chapter has only named.  Ch 33
+reads it, and with it the last source file between the seed and
+the chain's binaries.
 
-What you did: walked from 2,040 hand-encoded bytes to a C
-compiler whose stage-A `.M1` output is byte-identical to the output
-from M2-Planet built with GCC.  Every byte between the seed and the
-M1 output was earned — argued for in source you have now read.  Both
-stories the prologue promised — the Forth story (a language
-small enough to host its own compiler) and the bootstrap story
-(a chain auditable because the seed is small enough to read) —
-converge here.  They are the same story told from two ends.
-
-The appendices that follow are the reference cards a reader
-will want on a second pass:
-
-- **[A — The 32 seed primitives](A1-32-seed-primitives.md):** every
-  primitive in one table.
-- **[B — The memory map](A2-memory-map.md):** every fixed address
-  the book referenced.
-- **[C — The reproducibility chain](A3-reproducibility-chain.md):**
-  hex0 → seed → M2-Planet with commands and expected hashes.
-- **[D — Worked exercises](A4-worked-exercises.md):** three
-  exercises walked end to end.
-- **[E — Further reading](A5-further-reading.md):** Forth,
-  compilers, bootstrap, ELF/x86-64 — the older work this book
-  stands on.
-- **[F — The C subset](A6-c-subset.md):** types, operators,
-  statements, and the features that are *not* in this compiler.
-- **[G — Compiler exit codes](A7-error-codes.md):** status codes
-  mapped to failure modes for when something dies on you.
-
-```
-       __
-   __( o)>   "thirty-two chapters for a `bye`.  worth it."
-   \___/
-```
-
-Turn the page.
+Next: Chapter 33 — The Assembler: M1 and hex2 in Forth.

@@ -1,72 +1,48 @@
-# Chapter 27 — Expressions, Part 1: Precedence Climbing
+# Chapter 27 — Expressions, Part 1: The Precedence Cascade
 
 ```text
 Missing capability: the token stream cannot become expression machine code.
-New pattern: precedence climbing repeats one binary-fold codegen template at each operator level.
+New pattern: a precedence cascade repeats one binary-fold codegen template at each operator level.
 Artifact after this chapter: arithmetic, comparison, bitwise, and logical binary expression codegen.
 Proof link: Stage-A binary expressions lower through one auditable cascade.
 ```
 
-This chapter installs the first half of the expression compiler: the
-binary-operator cascade.  It opens `100-cc-expr.fth` (1447 lines
-total) and also covers the scaffolding the rest of the file needs:
-a one-token putback layer (`cc-tok-pending`, `cc-next-token-keep`,
-`cc-putback-token`) so the parser can peek past a fold boundary
-without re-lexing, plus forward-reference vecs for the mutually
-recursive parsers.  The cascade itself runs through ten precedence
-layers from
-`cc-parse-mul` to `cc-parse-log-or`, every one a textbook
-precedence-climbing loop emitting the same five-step codegen
-template (eval left, push, eval right, `pop rdi`, apply op).
+Chs 25–26 supplied the encoders; the parser now has to call them in
+the right order.  Given `a*b + c << d == e & f | g && h || i`, the
+compiler has to emit code that applies each operator in C's precedence order, and it
+has no expression tree to lean on: the lexer hands over one token at
+a time and the emitters write bytes immediately.  `100-cc-expr.fth`
+(1435 lines total) solves this with a *precedence cascade*: plain
+recursive descent with one word per precedence level.  Each word
+asks the next-tighter level for its operands, then loops over its
+own operators.  (This is not *precedence climbing*, which uses a
+single function and a table of binding powers; see Appendix E.)
 
-By the end you'll be able to read each precedence layer, follow the
-op-byte threaded through the return stack so the data stack stays
-free for recursive operand parsing, and predict the codegen for a
-mixed expression like `a*b + c << d == e & f | g && h || i` by
-walking the layers top-down.  Ch 28 picks up the right-associative
-tail (`cc-parse-ternary`, `cc-parse-assign`, `cc-parse-expr`) and
-the recursive-descent floor (`cc-parse-unary`, `cc-parse-primary`,
-plus the lvalue-tracking globals that `cc-emit-materialize` reads).
+This chapter covers the scaffolding the whole file needs, forward
+references for the mutually recursive parsers, and then the ten binary layers from
+`cc-parse-mul` to `cc-parse-log-or`.  Eight of the ten follow one
+five-step template: evaluate the left operand, push it, evaluate the
+right, pop, apply the operator.  Which operators each of the eight
+accepts, and what instruction each emits, is one table.  `&&` and
+`||` short-circuit, so they emit jumps instead.  Ch 28 covers the levels above the cascade
+(ternary, assignment, `cc-parse-expr`) and below it (unary, primary,
+and the lvalue tracking that `cc-emit-materialize` reads).
 
 ---
-
-```
-        ,_,
-   __(@___)___    "ten precedence levels, one pattern repeated.
-   ~~~~~~~~~~~~    read the pattern once.  the levels become
-                   variations on the same theme."
-```
-
-The lexer hands us tokens; the codegen hands us instruction
-encoders; this file is the bridge.  Given a token stream
-representing a C expression, it emits x86-64 machine code that
-leaves the expression's value in `rdi`.
-
-The interesting question is *how the precedence works*.  C has
-fifteen levels of operator precedence; a naive recursive-descent
-parser would need fifteen mutually recursive functions.  This
-file uses *precedence climbing*: each operator level is one
-function that calls the next-tighter level, then loops on its
-own operators.
-
-Ch 27 covers the binary cascade — ten layers from `mul` through
-`log-or` (mul, add, shift, rel, eq, bit-and, bit-xor, bit-or,
-log-and, log-or).  Ch 28 covers everything above and below: the
-top-level driver, the right-associative `=` and `?:`, the unary
-operators, and `primary` itself (where actual identifiers,
-literals, and calls live).
 
 ## 1. The root block: how the file is assembled
 
 ```forth file=100-cc-expr.fth
 <<expr-header>>
-<<expr-putback>>
 <<expr-fwd-refs>>
+<<expr-tok-tests>>
 <<expr-lvalue>>
 <<expr-struct-field>>
 <<expr-array-index>>
+<<expr-call>>
 <<expr-primary>>
 <<expr-unary>>
+<<expr-binops>>
 <<expr-mul>>
 <<expr-add>>
 <<expr-shift>>
@@ -79,12 +55,10 @@ literals, and calls live).
 <<expr-top>>
 ```
 
-That single root-block defines the assembly order: header,
-putback layer, forward references, all the parsers in source
-order, top-level driver.  Each `<<name>>` expands to a chunk
-defined either in this chapter or Ch 28.  The tangler resolves
-the references and the result is byte-identical to the
-checked-in `100-cc-expr.fth`.
+The root block fixes the assembly order: header, forward references, the parsers in source order, and the top-level
+driver.  Each `<<name>>` expands to a chunk defined in this chapter
+or in Ch 28, and the result is byte-identical to the checked-in
+`100-cc-expr.fth`.
 
 ## 2. File header and dependency comment
 
@@ -93,497 +67,499 @@ checked-in `100-cc-expr.fth`.
 \ Emits code that leaves the expression's value in rdi.  Uses 090-cc-emit.fth's
 \ instruction encoders.
 \
-\ Expression grammar:
-\   expr   := assign
-\   assign := eq ('=' assign)?            \ right-associative; LHS must be ident
-\   eq     := rel (('=='|'!=') rel)*
-\   rel    := add (('<'|'<='|'>'|'>=') add)*
-\   add    := mul (('+'|'-') mul)*
-\   mul    := unary (('*'|'/'|'%') unary)*
-\   unary  := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | primary
-\   primary:= NUMBER | IDENT | '(' expr ')'
+\ Expression grammar, loosest-binding first (one cc-parse-LEVEL word each):
+\   expr    := assign                                 \ then materialize
+\   assign  := ternary (ASSIGN-OP assign)?            \ = += -= *= /= %= <<= >>= &= |= ^=
+\   ternary := log-or ('?' assign ':' assign)?
+\   log-or  := log-and ('||' log-and)*
+\   log-and := bit-or ('&&' bit-or)*
+\   bit-or  := bit-xor ('|' bit-xor)*
+\   bit-xor := bit-and ('^' bit-and)*
+\   bit-and := eq ('&' eq)*
+\   eq      := rel (('=='|'!=') rel)*
+\   rel     := shift (('<'|'<='|'>'|'>=') shift)*
+\   shift   := add (('<<'|'>>') add)*
+\   add     := mul (('+'|'-') mul)*
+\   mul     := unary (('*'|'/'|'%') unary)*
+\   unary   := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | 'sizeof' '(' ... ')'
+\            | primary
+\   primary := (NUMBER | CHAR | STRING | IDENT | IDENT '(' args ')'
+\               | IDENT '[' expr ']' | '(' expr ')')
+\              ('.' IDENT | '->' IDENT | '[' expr ']' | '++' | '--')*
 \
-\ The lexer (050-cc-lex.fth) reads one token at a time with no built-in peek.
-\ We add a one-token putback layer on top of cc-next-token via the
-\ cc-tok-pending flag: when a parser has consumed one token too many it
-\ calls cc-putback-token; the next cc-next-token-keep returns the same
-\ tok-* state without advancing.
+\ Tokens come from the lexer's interface (050-cc-lex.fth): cc-next-token-keep
+\ reads the next one, and cc-putback-token hands the current one back when a
+\ parser has read one token too many.
 \
 \ Depends on 010-lib.fth, 030-cc-io.fth, 050-cc-lex.fth, 060-cc-types.fth, 070-cc-sym.fth,
 \ 090-cc-emit.fth.
 
 ```
 
-The grammar comment is the file's contract.  The expression
-grammar shown is the *simplified* set: the actual file extends
-it with shift, bitwise, logical, ternary, and the postfix
-operators (`[]`, `.`, `->`, `()`, `++`, `--`).  The shape is
-the same: every production parses an operand at the next-tighter
-precedence, then loops on its own operator set.
+The grammar in the comment lists every level, loosest first, and
+each level is one `cc-parse-LEVEL` word: this chapter's cascade from
+`assign` down to `mul`, and Ch 28's `unary` and `primary` with its
+postfix chain (`[]`, `.`, `->`, `++`, `--`).  Every binary
+production has the same shape: parse an operand at the
+next-tighter level, then loop over this level's operators.
 
-## 3. The one-token putback layer
+## 3. One token of putback
 
-```forth chunk=expr-putback
+A cascade always reads one operator too many.  After folding the two
+`*`s in `a * b * c + d`, `cc-parse-mul` reads the `+`, finds it isn't
+a multiplicative operator, and has to hand it back so the next-looser
+layer (`add`) can see it.
+
+The lexer's interface does that (Ch 23 §7).  The parsers read tokens
+with `cc-next-token-keep`, and `cc-putback-token` sets
+`cc-tok-pending`, so the next `cc-next-token-keep` clears the flag
+*without* advancing the lexer: `tok-kind`, `tok-num`, and `tok-str-*`
+still describe the same token.  Every binary layer ends with
+`cc-putback-token`.
+
+Most of the questions a parser asks about the token it has just read
+are "is it this punctuation?" or "is it this keyword?".  Two words
+answer them, so a dispatch can read as a list of cases:
+
+```forth chunk=expr-tok-tests
 \ ===========================================================================
-\ One-token putback wrapper
+\ Token tests.  Is the current token this punctuation, or this keyword?
 \ ===========================================================================
 
-variable cc-tok-pending                           \ -1 = a token is queued
+\ cc-tok-punct? ( code -- f )  True if the current token is punctuation code
+\ (a character such as [char] ( or a pt-* constant such as pt-arrow).
+: cc-tok-punct?  tok-kind @ tk-punct =  swap tok-num @ =  and ;
 
-\ cc-next-token-keep ( -- )  Advance to the next token unless one is pending.
-: cc-next-token-keep
-  cc-tok-pending @ if,
-    [lit] 0 cc-tok-pending !
-  else,
-    cc-next-token
-  then, ;
-
-\ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
-\ next cc-next-token-keep returns it without advancing.
-: cc-putback-token
-  [lit] 0 0= cc-tok-pending ! ;
+\ cc-tok-kw? ( id -- f )  True if the current token is the keyword id (kw-*).
+: cc-tok-kw?  tok-kind @ tk-kw =  swap tok-kw-id @ =  and ;
 
 ```
 
-The lexer (Ch 23) returns one token at a time; it has no
-built-in lookahead beyond `cc-peek-char-2` (one *byte* of
-character lookahead).  A precedence-climbing parser routinely
-reads one operator too many — at the end of `a * b * c`, after
-folding two `*` operations, the parser reads what *would* have
-been a third operator and discovers it's a `+`.  It needs to
-"un-read" that `+` so the next-looser layer (`add`) can see it.
-
-`cc-tok-pending` is a one-token putback flag.  When set,
-`cc-next-token-keep` *doesn't* advance the lexer — the existing
-`tok-kind`/`tok-num`/`tok-str-*` state is preserved.  When
-cleared, it calls `cc-next-token` as normal.
-
-`cc-putback-token` is what every binary-op fold ends with:
-"the token I just read isn't mine; the caller can have it back."
-The next call to `cc-next-token-keep` sees the same token state.
+`cc-tok-punct?` takes a punct code, which is the character itself for
+one-character operators (`[char] (` is 40) and a `pt-*` constant from
+Ch 23 for the longer ones.  `cc-tok-kw?` takes a `kw-*` id.  Both
+check the token's kind first: a number token's `tok-num` holds its
+value, and the number 40 is not a `(`.
 
 ## 4. Forward references for mutual recursion
 
 ```forth chunk=expr-fwd-refs
 \ ===========================================================================
-\ Forward reference for recursive expr (used by '(' expr ')' in primary).
+\ Forward references.  The grammar is recursive: a primary's '(' expr ')'
+\ and a call's arguments re-enter the whole grammar, and the ternary's arms
+\ parse assignments.  cc-parse-expr and cc-parse-assign are defined near the
+\ end of this file, so the words before them call these deferred words
+\ (010-lib.fth), which the last lines of the file fill in.
 \ ===========================================================================
 
-variable cc-parse-expr-vec                        \ xt of top-level expr parser
-
-: cc-parse-expr-tramp
-  cc-parse-expr-vec @ execute ;
-
-\ cc-parse-assign is defined AFTER cc-parse-ternary (mutual recursion:
-\ ternary's arms parse via cc-parse-assign for right-associativity).  Route
-\ ternary's recursive calls through this vec so the binding resolves at
-\ ternary-execution time, not at compile time.
-variable cc-parse-assign-vec                      \ xt of cc-parse-assign
-
-: cc-parse-assign-tramp
-  cc-parse-assign-vec @ execute ;
-
-\ ===========================================================================
-\ Forward reference for function-call codegen (defined in 110-cc-decl.fth so it
-\ can use cc-base-vaddr from 080-cc-elf.fth).  cc-parse-primary calls into
-\ cc-parse-call-tramp once it has spotted `IDENT (`; the callee consumes the
-\ '(' (already peeked but not consumed), parses comma-separated arg
-\ expressions, emits the SYS-V argument-passing prologue and the call.
-\ ===========================================================================
-
-variable cc-parse-call-vec                        \ xt of cc-parse-call
-
-\ cc-parse-call-tramp ( id -- )  Stack: function symbol-id; consumes it.
-: cc-parse-call-tramp
-  cc-parse-call-vec @ execute ;
+defer cc-parse-expr-fwd                           \ runs cc-parse-expr
+defer cc-parse-assign-fwd                         \ runs cc-parse-assign
 
 ```
 
-The expression grammar is *mutually recursive*: `primary` parses
-`'(' expr ')'` which recurses into the entire grammar.  Forth's
-`:` can't forward-reference a word that doesn't yet exist, so we
-declare three vec variables and three tiny trampolines that
-fetch and execute the variable's contents.
+The grammar is mutually recursive: `primary` parses `'(' expr ')'`,
+which re-enters the whole grammar, and so does each argument of a
+call.  A word can call itself, since `:` makes a word findable as
+soon as its header is built, but it cannot call a word that comes
+later in the file.  So the file declares two deferred words
+(Ch 12): `cc-parse-expr-fwd` and `cc-parse-assign-fwd` run whatever
+xt their cells hold.  The words before `cc-parse-expr` call them,
+and the last two lines of the file (Ch 28's `expr-top` chunk) fill
+the cells with `is`.
 
-`cc-parse-expr-vec` will be set to `cc-parse-expr` at the end of
-the file (Ch 28's `expr-top` chunk).
-`cc-parse-assign-vec` is set similarly.
-`cc-parse-call-vec` is set in `110-cc-decl.fth` (Ch 31), where
-the call-codegen lives — it needs `cc-base-vaddr` from
-`080-cc-elf.fth`, which is loaded *after* `100-cc-expr.fth`.
+Part III uses this pattern wherever load order and call order
+disagree: `defer NAME-fwd` before the callers, `' NAME is NAME-fwd`
+once the real word exists.  Ch 22's `#include` recursion and Ch 30's
+statement parser use it too.
 
-This trampoline pattern recurs throughout Part III.  It's the
-seed Forth's solution to load-order constraints: declare the
-variable up front, define the trampoline, and patch the variable
-once the real word exists.
+## 5. The operator table
 
-## 5. The binary-operator template: `cc-parse-mul`
+Eight of the binary levels, `mul` down to `bit-or`, do the same thing
+with different operators.  Each parses an operand at the next-tighter
+level, and while the next token is one of *its* operators, parses
+another operand and combines the two with one instruction sequence.
+What differs from level to level is only which operators it accepts
+and which encoder each one calls.  That is data, so it lives in one
+table:
+
+```forth chunk=expr-binops
+\ ===========================================================================
+\ The binary-operator table
+\ ===========================================================================
+\ Eight levels of the grammar, mul down to bit-or, have one shape: parse an
+\ operand at the next-tighter level, then, while the next token is one of
+\ this level's operators, parse another operand and combine the two.  Only
+\ the operators and the instructions that combine differ, so those live in
+\ this table, one row of four cells per operator:
+\
+\   op        the operator's punct code (tok-num)
+\   compound  the code of its compound assignment (`+` has `+=`); 0 if none
+\   level     which level parses it (level-mul .. level-bit-or)
+\   emitter   xt of the 090 word that emits rdi := rdi OP rcx
+\
+\ Each level's parser looks its operators up by op; cc-parse-assign looks
+\ `+=` and the rest up by compound, so `a + b` and `a += b` share an
+\ emitter.  A row whose op is 0 ends the table.
+
+[lit] 1 constant level-mul                        \ * / %
+[lit] 2 constant level-add                        \ + -
+[lit] 3 constant level-shift                      \ << >>
+[lit] 4 constant level-rel                        \ < > <= >=
+[lit] 5 constant level-eq                         \ == !=
+[lit] 6 constant level-bit-and                    \ &
+[lit] 7 constant level-bit-xor                    \ ^
+[lit] 8 constant level-bit-or                     \ |
+
+[lit]  0 constant bo-op                           \ byte offsets within a row
+[lit]  8 constant bo-compound
+[lit] 16 constant bo-level
+[lit] 24 constant bo-emitter
+[lit] 32 constant bo-size
+
+```
+
+A row is four cells.  `op` is the punct code the lexer gives the
+operator; `level` names the precedence level that owns it; `emitter`
+is the execution token of the Ch 25–26 encoder that computes
+`rdi := rdi OP rcx`.  `compound` is the operator's compound-assignment
+twin, which Ch 28's assignment parser looks up in the same table, so
+`a + b` and `a += b` reach the same `add rdi, rcx`.  The level
+numbers only label rows; they don't rank anything.
+
+`cc-binop,` lays down one row.  Its last field comes from the input,
+the way `char` takes its argument: `'` reads the encoder's name and
+`,` stores its xt.
+
+```forth chunk=expr-binops
+\ cc-binop, ( op compound level "emitter" -- )  Lay down one row; the
+\ emitter's name follows in the input.
+: cc-binop,  rot , swap , ,  ' , ;
+
+create cc-binops
+\ op          compound       level
+char *      pt-star-eq     level-mul      cc-binop, cc-emit-imul-rdi-rcx
+char /      pt-slash-eq    level-mul      cc-binop, cc-emit-idiv-quotient
+char %      pt-percent-eq  level-mul      cc-binop, cc-emit-idiv-remainder
+char +      pt-plus-eq     level-add      cc-binop, cc-emit-add-rdi-rcx
+char -      pt-minus-eq    level-add      cc-binop, cc-emit-sub-rdi-rcx
+pt-shl      pt-shl-eq      level-shift    cc-binop, cc-emit-shl-rdi-cl
+pt-shr      pt-shr-eq      level-shift    cc-binop, cc-emit-sar-rdi-cl   \ signed
+char <      [lit] 0        level-rel      cc-binop, cc-emit-cmp-lt
+char >      [lit] 0        level-rel      cc-binop, cc-emit-cmp-gt
+pt-le       [lit] 0        level-rel      cc-binop, cc-emit-cmp-le
+pt-ge       [lit] 0        level-rel      cc-binop, cc-emit-cmp-ge
+pt-eq-eq    [lit] 0        level-eq       cc-binop, cc-emit-cmp-eq
+pt-bang-eq  [lit] 0        level-eq       cc-binop, cc-emit-cmp-ne
+char &      pt-amp-eq      level-bit-and  cc-binop, cc-emit-and-rdi-rcx
+char ^      pt-caret-eq    level-bit-xor  cc-binop, cc-emit-xor-rdi-rcx
+char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx
+[lit] 0 ,                                         \ end of table
+
+```
+
+The table reads like the grammar's operator lists turned sideways.
+Division and remainder share one `idiv` sequence (Ch 25 §5) and
+differ in which half of the result they keep; `>>` is an arithmetic
+(sign-extending) shift, because the only integer type is signed
+`int`, so an unsigned `cc-emit-shr-rdi-cl` doesn't exist.  The
+comparisons use the `cmp-set` encoders (Ch 25 §6), which leave
+exactly 0 or 1 in `rdi`; the logical operators below rely on that,
+since `1 && 2` must produce 1, not 2.  A row whose `op` is 0 ends the
+table.
+
+Three words read it:
+
+```forth chunk=expr-binops
+\ cc-binop-row ( key field -- row | 0 )  The first row whose cell at byte
+\ offset field holds key, or 0 when no row does.
+: cc-binop-row
+  >r cc-binops                                    ( key row ; R: field )
+  begin,
+    dup bo-op + @                                 \ stop at the end row
+  while,
+    2dup r@ + @ = if,                             ( key row )
+      nip r> drop exit,                           \ found: answer the row
+    then,
+    bo-size +
+  repeat,
+  2drop r> drop [lit] 0 ;
+
+\ cc-binop? ( level -- row | 0 )  Read the next token.  If it is one of
+\ this level's operators, answer its row; otherwise 0, and the caller
+\ puts the token back.
+: cc-binop?
+  cc-next-token-keep
+  tok-kind @ tk-punct <> if,
+    drop [lit] 0 exit,                            \ not an operator at all
+  then,
+  tok-num @ bo-op cc-binop-row                    ( level row | level 0 )
+  dup 0= if,
+    nip exit,                                     \ no row: answer 0
+  then,
+  swap over bo-level + @ = if,                    ( row )
+    exit,                                         \ ours: answer the row
+  then,
+  drop [lit] 0 ;                                  \ another level's operator
+
+\ cc-binop-apply ( row -- )  The left operand is pushed and the right one
+\ is in rdi.  Materialize the right, move it to rcx, pop the left into rdi,
+\ emit the row's operation, and mark the result a plain value.
+: cc-binop-apply
+  cc-emit-materialize                             \ right must be a value
+  cc-emit-mov-rcx-rdi                             \ rcx = right
+  cc-emit-pop-rdi                                 \ rdi = left
+  bo-emitter + @ execute                          \ rdi = left OP right
+  cc-mark-not-lvalue ;
+
+```
+
+`cc-binop-row` is the table's only search: walk the rows until the
+end row, and return (with `exit,`, after `r> drop` clears the field
+offset it parked) the first one whose cell at byte offset `field`
+equals the key.  `cc-binop?` is the question a level asks after each
+operand: read a token, and answer its row if it is punctuation, in
+the table, and at this level.  Anything else answers 0, and the
+level puts the token back.  `cc-binop-apply` is the second half of
+the fold, which the next section walks through.
+
+## 6. The level template: `cc-parse-mul`
 
 ```forth chunk=expr-mul
 \ ===========================================================================
 \ cc-parse-mul: unary (('*'|'/'|'%') unary)*
 \ ===========================================================================
 
-\ cc-mul-op? ( -- f )  After cc-next-token-keep, returns -1 if the current
-\ token is one of *, /, %.
-: cc-mul-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit] 42 =
-    tok-num @ [lit] 47 = or
-    tok-num @ [lit] 37 = or
-  else,
-    [lit] 0
-  then, ;
-
-\ The op byte is kept on the data stack across the recursive call to
-\ cc-parse-primary so nested operator parsing (via parenthesised exprs)
-\ can't clobber a shared global.  cc-parse-primary preserves the data
-\ stack (0-in / 0-out), so the op survives across the call.
-
 : cc-parse-mul
-  cc-parse-unary                                  \ rdi = first operand (may be pending-deref)
+  cc-parse-unary
   begin,
-    cc-next-token-keep
-    cc-mul-op?
+    level-mul cc-binop? dup                       ( row row | 0 0 )
   while,
-    cc-emit-materialize                           \ left must be a value before push
-    tok-num @ >r                                  ( ; R: op )
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
     cc-emit-push-rdi                              \ save left
-    cc-parse-unary                                \ rdi = right (may be pending-deref)
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi                           \ rcx = right
-    cc-emit-pop-rdi                               \ rdi = left
-    r>                                            ( op )
-    dup [lit] 42 = if,
-      drop cc-emit-imul-rdi-rcx
-    else,
-      [lit] 47 = if,
-        cc-emit-idiv-quotient
-      else,
-        cc-emit-idiv-remainder
-      then,
-    then,
-    cc-mark-not-lvalue                            \ result is not an lvalue
+    cc-parse-unary                                \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
+  drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
 
 ```
 
-This is the template every binary-op layer follows.  Read it
-once carefully — every other binary parser is the same shape.
+Every level from `mul` to `bit-or` is this word with two names
+changed, so it is worth reading slowly.
 
-1. **Parse the left operand** at the next-tighter precedence
-   (`cc-parse-unary` for `mul`).  After this, `rdi` holds the
-   left value — though if it's a pending dereference, `rdi`
-   holds an *address* that needs `cc-emit-materialize` to
-   become a value.
+1. **Parse the left operand** at the next-tighter level
+   (`cc-parse-unary` for `mul`).  `rdi` now holds the left value,
+   or, for a pending dereference, an *address* that
+   `cc-emit-materialize` must load.
 2. **Loop while the next token is one of our operators.**
-   `cc-next-token-keep` reads a token; `cc-mul-op?` tests it
-   against `*`, `/`, `%`.  If it isn't, we fall out of the loop.
-3. **Inside the loop:** materialize left (so it's an actual
-   value), stash the op byte on the return stack, push `rdi` (the
-   left operand), parse the right operand, materialize that,
-   `mov rcx, rdi` (right → temp), `pop rdi` (left → result reg),
-   pop the op byte, dispatch to the right encoder.
-4. **After the loop ends** (we read a token that wasn't ours),
-   `cc-putback-token` so the calling layer sees it.
+   `level-mul cc-binop?` reads a token and answers its row for `*`,
+   `/` or `%`, or 0.  `dup` keeps a copy of the answer for `while,`
+   to test, so the loop body starts with the row on the stack.
+3. **Inside the loop:** park the row on the return stack, materialize
+   the left value, push `rdi`, and parse the right operand.  Then
+   `cc-binop-apply` finishes: materialize the right value, `mov rcx,
+   rdi` (right into the temp), `pop rdi` (left into the result
+   register), run the row's encoder, and mark the result a plain
+   value.
+4. **After the loop** the last token read isn't ours, so `drop`
+   discards `cc-binop?`'s 0 and `cc-putback-token` returns the token
+   to the caller.
 
-The opcode bytes are the lexer's punct codes from Ch 23: `*` =
-42 (ASCII), `/` = 47, `%` = 37.
+The operator codes are the lexer's punct codes from Ch 23, which
+for single characters are ASCII: `*` = 42, `/` = 47, `%` = 37.
 
-The op byte travels through the return stack rather than the
-data stack because the recursive `cc-parse-unary` call might
-itself parse a parenthesised expression containing further
-operators — and *those* operators want the data stack free for
-their own intermediate values.  Using the return stack is the
-release valve.
+The row rides on the return stack because the recursive
+`cc-parse-unary` call can parse a parenthesised expression with
+operators of its own, and those need the data stack for their own
+intermediate values.
 
-## 6. `cc-parse-add`: just like `mul`, looser
+## 7. `cc-parse-add`: just like `mul`, looser
 
 ```forth chunk=expr-add
 \ ===========================================================================
 \ cc-parse-add: mul (('+'|'-') mul)*
 \ ===========================================================================
 
-: cc-add-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit] 43 =
-    tok-num @ [lit] 45 = or
-  else,
-    [lit] 0
-  then, ;
-
 : cc-parse-add
   cc-parse-mul
   begin,
-    cc-next-token-keep
-    cc-add-op?
+    level-add cc-binop? dup                       ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-mul
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    [lit] 43 = if,
-      cc-emit-add-rdi-rcx
-    else,
-      cc-emit-sub-rdi-rcx
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-mul                                  \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 ```
 
-Identical shape to `cc-parse-mul` with three substitutions:
-the inner call goes to `cc-parse-mul`, the operator test
-matches `+` / `-`, and the dispatch goes to
-`cc-emit-add-rdi-rcx` / `cc-emit-sub-rdi-rcx`.
+The shape is identical to `cc-parse-mul` with two substitutions: the
+operand parser is `cc-parse-mul`, and the level asked about is
+`level-add`, whose rows are `+` and `-`.
 
-The precedence chain pulls itself up: `add` calls `mul`, which
-calls `unary`, which calls `primary`.  A bare number flows
-through five layers (`expr` → `assign` → ... → `bit-or` → ... →
-`add` → `mul` → `unary` → `primary`) before hitting an actual
-literal.  Each layer is a one-token-lookahead with no
-allocations and no recursion overhead beyond the call stack
-itself.
+Each layer calls the one below it, so a bare number passes through
+fifteen parser words (`expr` → `assign` → `ternary` → `log-or` →
+`log-and` → `bit-or` → `bit-xor` → `bit-and` → `eq` → `rel` →
+`shift` → `add` → `mul` → `unary` → `primary`) before reaching the
+literal.  Each layer needs one token of lookahead, allocates
+nothing, and costs one call.
 
-## 7. Shifts: between relational and additive
+## 8. Shifts: between relational and additive
 
 ```forth chunk=expr-shift
 \ ===========================================================================
-\ cc-parse-shift: add (('<<' | '>>') add)*
+\ cc-parse-shift: add (('<<'|'>>') add)*
 \ ===========================================================================
-\ C precedence: shift is BETWEEN relational and additive (binds tighter than
-\ relational, looser than additive).  Variable-count shifts use rcx (CL).
-
-: cc-shift-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ pt-shl =
-    tok-num @ pt-shr = or
-  else,
-    [lit] 0
-  then, ;
+\ C puts shift between relational and additive: `a + b << c` is
+\ `(a + b) << c`.  Variable-count shifts take the count in rcx (CL).
 
 : cc-parse-shift
   cc-parse-add
   begin,
-    cc-next-token-keep
-    cc-shift-op?
+    level-shift cc-binop? dup                     ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-add
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    \ rdi=left, rcx=right (low byte cl = count).
-    pt-shl = if,
-      cc-emit-shl-rdi-cl
-    else,
-      cc-emit-sar-rdi-cl                          \ '>>' is arithmetic (signed)
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-add                                  \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 ```
 
-C's precedence table puts shifts (`<<`, `>>`) *between*
-additive and relational — `a + b << c` parses as `(a + b) << c`,
-and `a << b < c` parses as `(a << b) < c`.  That layering is
-implicit in the call chain: `cc-parse-shift` calls
-`cc-parse-add` as its inner parser, and `cc-parse-rel` (next)
-calls `cc-parse-shift`.
+C puts shifts between additive and relational operators, so
+`a + b << c` parses as `(a + b) << c` and `a << b < c` as
+`(a << b) < c`.  The call chain encodes that: `cc-parse-shift` uses
+`cc-parse-add` for its operands, and `cc-parse-rel` (next) uses
+`cc-parse-shift`.  The shift count must be in `cl`, and
+`cc-binop-apply` has already moved the right operand into `rcx`.
 
-`>>` is arithmetic (sign-extending) right shift here, because
-the only integer type is signed `int`.  An unsigned `>>` would
-use `cc-emit-shr-rdi-cl` (logical right shift) — which doesn't
-yet exist in `090-cc-emit.fth` because nobody calls it.
-
-## 8. Relational and equality
+## 9. Relational and equality
 
 ```forth chunk=expr-rel
 \ ===========================================================================
-\ cc-parse-rel: shift (('<' | '<=' | '>' | '>=') shift)*
+\ cc-parse-rel: shift (('<'|'<='|'>'|'>=') shift)*
 \ ===========================================================================
-\ Punct codes: '<'=60, '>'=62, pt-le=258, pt-ge=259.
-
-: cc-rel-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit]  60 =
-    tok-num @ [lit]  62 = or
-    tok-num @ pt-le      = or
-    tok-num @ pt-ge      = or
-  else,
-    [lit] 0
-  then, ;
 
 : cc-parse-rel
   cc-parse-shift
   begin,
-    cc-next-token-keep
-    cc-rel-op?
+    level-rel cc-binop? dup                       ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-shift
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    \ Now rdi=left, rcx=right.  Dispatch on op code.
-    dup [lit] 60 = if,
-      drop cc-emit-cmp-lt
-    else,
-      dup [lit] 62 = if,
-        drop cc-emit-cmp-gt
-      else,
-        pt-le = if,
-          cc-emit-cmp-le
-        else,
-          cc-emit-cmp-ge
-        then,
-      then,
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-shift                                \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 ```
 
+`cc-parse-eq` is the same template one level looser, over `==` and
+`!=`:
+
 ```forth chunk=expr-eq
 \ ===========================================================================
-\ cc-parse-eq: rel (('==' | '!=') rel)*
+\ cc-parse-eq: rel (('=='|'!=') rel)*
 \ ===========================================================================
-
-: cc-eq-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ pt-eq-eq   =
-    tok-num @ pt-bang-eq = or
-  else,
-    [lit] 0
-  then, ;
 
 : cc-parse-eq
   cc-parse-rel
   begin,
-    cc-next-token-keep
-    cc-eq-op?
+    level-eq cc-binop? dup                        ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-rel
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    pt-eq-eq = if,
-      cc-emit-cmp-eq
-    else,
-      cc-emit-cmp-ne
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-rel                                  \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 ```
 
-`cc-parse-rel` and `cc-parse-eq` use Ch 25 §6's `cmp-set`
-emitters which produce a clean 0/1 result in `rdi`.  That 0/1
-invariant matters for the logical operators below: `1 && 2`
-needs to produce 1, not 2.
-
-## 9. The bitwise trio
+## 10. The bitwise trio
 
 ```forth chunk=expr-bit
 \ ===========================================================================
-\ Bitwise AND / XOR / OR — three layers, each above the next.
+\ cc-parse-bit-and: eq ('&' eq)*
 \ ===========================================================================
-\ Precedence (high to low among these):
-\   eq  >  bit-and (&)  >  bit-xor (^)  >  bit-or (|)
-\ So cc-parse-bit-and folds over cc-parse-eq; cc-parse-bit-xor over bit-and;
-\ cc-parse-bit-or over bit-xor.  Each handles a single punct char.
-\
-\ Note that '&' here is the BINARY (infix) bitwise-and.  The unary '&'
-\ (address-of) is handled in cc-parse-unary at operand position — operator
-\ position vs operand position disambiguates the two.
+\ This '&' is the binary (infix) bitwise-and.  Unary '&' (address-of) is
+\ cc-parse-unary's: operator position vs operand position tells them apart.
 
 : cc-parse-bit-and
   cc-parse-eq
   begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 38 = and
+    level-bit-and cc-binop? dup                   ( row row | 0 0 )
   while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-eq
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-and-rdi-rcx
-    cc-mark-not-lvalue
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
+    cc-emit-push-rdi                              \ save left
+    cc-parse-eq                                   \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
+
+\ ===========================================================================
+\ cc-parse-bit-xor: bit-and ('^' bit-and)*
+\ ===========================================================================
 
 : cc-parse-bit-xor
   cc-parse-bit-and
   begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 94 = and
+    level-bit-xor cc-binop? dup                   ( row row | 0 0 )
   while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-bit-and
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-xor-rdi-rcx
-    cc-mark-not-lvalue
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
+    cc-emit-push-rdi                              \ save left
+    cc-parse-bit-and                              \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
+
+\ ===========================================================================
+\ cc-parse-bit-or: bit-xor ('|' bit-xor)*
+\ ===========================================================================
 
 : cc-parse-bit-or
   cc-parse-bit-xor
   begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 124 = and
+    level-bit-or cc-binop? dup                    ( row row | 0 0 )
   while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-bit-xor
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-or-rdi-rcx
-    cc-mark-not-lvalue
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
+    cc-emit-push-rdi                              \ save left
+    cc-parse-bit-xor                              \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 ```
 
-Three layers, three operators, identical shape.  Notice that
-each is even shorter than the previous parsers because there's
-only one operator per layer — no dispatch on the op code, no
-return-stack stash.
+Three layers, one operator each, and the same template.  Before the
+table existed these three were the only levels without a dispatch
+on the operator; now no level has one.
 
-The disambiguation comment is worth a moment.  C's `&`
-overloads: at the start of an expression (where an operand is
-expected) it's the *unary* address-of operator; between two
-operands it's the *binary* bitwise-and.  This compiler resolves
-the ambiguity *structurally*: `cc-parse-unary` (Ch 28) handles
-`&` at operand position, while `cc-parse-bit-and` handles it at
-operator position.  Each is called from a different point in the
-grammar, so they can't collide.
+C's `&` is overloaded.  Where an operand is expected it is unary
+address-of; between two operands it is binary bitwise-and.  The
+grammar separates the two by position: `cc-parse-unary` (Ch 28)
+sees `&` only at operand position, and `cc-parse-bit-and` sees it
+only at operator position, so they never compete for the same
+token.
 
-## 10. Short-circuit `&&` and `||`
+## 11. Short-circuit `&&` and `||`
 
 ```forth chunk=expr-log
 \ ===========================================================================
@@ -664,69 +640,99 @@ grammar, so they can't collide.
 
 ```
 
-`&&` and `||` break the binary-op template because they're
-*short-circuit* — the right-hand side might not evaluate at all
-if the left already decides the result.
+`&&` and `||` can't use the template, because the right operand
+must not run at all when the left one already decides the result.
 
-The codegen mirrors a hand-written compiler's approach: emit
-conditional jumps to a "false" join point if the operand
-decides early, emit `mov rdi, 1` on the all-true path, an
-unconditional jump to "end", a join point, `mov rdi, 0`, and
-the "end" label.
+The code follows the sketch in the comment.  Each operand is tested
+and, if it decides the result early, jumps to a shared join point.
+The path where neither does sets `rdi` to 1 and jumps to the end.
+The join point sets `rdi` to 0, and the end label follows.
 
-Three rel32 fixups need to be tracked: the early-exit jump for
-the LHS, the early-exit jump for the RHS, and the "end" jump
-from the all-true path.  Each is pushed onto the return stack as
-it's emitted; popped and patched as we reach its target.
+That takes three rel32 fixups: the early exit after the left
+operand, the early exit after the right, and the jump to the end.
+Each is pushed to the return stack as it is emitted, using the
+emit-remember-patch pattern from Ch 11.
 
-The structure `r> r> ... r>` at the patching site reverses the
-push order: top of return stack is `f-end`, second is `f-RHS`,
-third is `f-LHS`.  Two pops give `(f-end, f-RHS)` on the data
-stack; we patch `f-RHS` (current `cc-out-pos` is the join), pop
-`f-LHS`, patch it too, emit `mov rdi, 0`, then finally patch
-`f-end`.  The Forth idiom for stack juggling is dense but
-straightforward once you decode the rotation.
+The patching code pops them in reverse.  The top of the return
+stack is `f-end`, then `f-RHS`, then `f-LHS`.  Two `r>`s put
+`( f-end f-RHS )` on the data stack.  The code patches `f-RHS` to
+the current `cc-out-pos` (the join point), pops and patches
+`f-LHS` to the same place, emits `mov rdi, 0`, and finally patches
+`f-end`.
 
-`||` is the mirror image: jump-if-non-zero past the right
-operand, emit `mov rdi, 0` on the all-false path, all-true path
-falls into `mov rdi, 1`.
+`||` is the mirror image: it jumps on non-zero, the path where
+neither operand is true produces 0, and the join point produces 1.
 
-## 11. The cascade in motion
+## 12. The cascade in motion
 
-To see all of this fit together, trace what happens for
-`a + b * c < 5`:
+Here is `a + b * c < 5` passing through the layers:
 
 1. `cc-parse-rel` is the outer call (`<` is a relational op).
 2. It calls `cc-parse-shift`, which calls `cc-parse-add`, which
    calls `cc-parse-mul`, which calls `cc-parse-unary`, which
-   bottoms out in `cc-parse-primary`'s `tk-ident` branch and
+   bottoms out in `cc-parse-primary`, whose `cc-parse-ident`
    emits `mov rdi, [rbp - 8]` (load `a`).
-3. `cc-parse-mul` reads the next token — `+`.  Not a mul-op;
+3. `cc-parse-mul` reads the next token, `+`.  Not a mul-op;
    putback, return.
 4. `cc-parse-add` reads `+`.  Match.  Materialize, stash `+`,
    push `rdi`, call `cc-parse-mul` again.
 5. The inner `cc-parse-mul` calls `cc-parse-unary` → `b` →
-   load.  Then reads `*`, matches, stashes, pushes, calls
+   load.  Then it reads `*`, matches, stashes, pushes, and calls
    `cc-parse-unary` → `c` → load.  Materialize, `mov rcx, rdi`,
-   `pop rdi`, dispatch `*` → `imul rdi, rcx`.  Reads next token
-   — `<`.  Not a mul-op; putback, return.
+   `pop rdi`, dispatch `*` → `imul rdi, rcx`.  It reads the next
+   token, `<`.  Not a mul-op; putback, return.
 6. Back in `cc-parse-add`: `mov rcx, rdi`, `pop rdi`, dispatch
    `+` → `add rdi, rcx`.  Reads `<`.  Not an add-op; putback,
    return.
 7. `cc-parse-shift` reads `<`.  Not a shift-op; putback, return.
 8. `cc-parse-rel` reads `<`.  Match.  Materialize, stash `<`,
-   push, call `cc-parse-shift` again — which bottoms out at `5`.
+   push, and call `cc-parse-shift` again, which bottoms out at `5`.
 9. `cc-parse-rel`: `mov rcx, rdi`, `pop rdi`, dispatch `<` →
    `cmp-lt`, which leaves a clean 0/1 in `rdi`.
 
-The whole expression has cost six layers of dispatch and one
-materialise per binary op.  The depth of the cascade *is* the
-precedence table.
+The operator table only says which level owns each operator; nothing
+in this trace ranks one level above another.  The order in which the
+layers call each other is the precedence table.
+
+**tri.c at this stage.**  Line 16 of tri.c computes
+`w[r] = 1 + r * 2`.  Compile tri.c with Ch 21's command, which
+leaves the binary in `/tmp/cc-out`, and disassemble the right-hand
+side:
+
+```sh
+objdump -D -b binary -m i386:x86-64 -M intel \
+    --start-address=0x365 --stop-address=0x388 /tmp/cc-out | grep '^ '
+```
+
+```
+ 365:   48 c7 c7 01 00 00 00    mov    rdi,0x1
+ 36c:   57                      push   rdi
+ 36d:   48 8b 7d d8             mov    rdi,QWORD PTR [rbp-0x28]
+ 371:   57                      push   rdi
+ 372:   48 c7 c7 02 00 00 00    mov    rdi,0x2
+ 379:   48 89 f9                mov    rcx,rdi
+ 37c:   5f                      pop    rdi
+ 37d:   48 0f af f9             imul   rdi,rcx
+ 381:   48 89 f9                mov    rcx,rdi
+ 384:   5f                      pop    rdi
+ 385:   48 01 cf                add    rdi,rcx
+```
+
+The `1` is loaded first and parked on the machine stack at 0x36c.
+Then `cc-parse-add` asks `cc-parse-mul` for its right operand, and
+all of `r * 2` (`r` is `[rbp-0x28]`) is emitted inside that call,
+ending in the `imul` at 0x37d.  Only then does the `add` run.  The
+`*` binds tighter because its code was written inside the `+`'s
+operand.
 
 ## Try it
 
 **Small check:** read one focused expression fixture and trace it
-through the precedence cascade.
+through the precedence cascade.  The fixtures under `tests/cc/` start
+at `G0.c` (return 42) and walk up through `G14*.c`.  `G1.c` exercises
+basic arithmetic precedence (`a + b * 2 - 1`); `G11.c` covers shifts,
+bitwise operators, `&&`/`||`, the ternary, postfix `++`, and compound
+assignment in a single fixture.
 
 **Layer check:** `./test.sh` exercises the expression parser through
 the focused C fixtures.
@@ -743,34 +749,27 @@ expression paths emit byte-identical `.M1` for M2-Planet.
 tests/cc/stage-a-check.sh
 ```
 
-For the small check, use the focused fixtures named below before or
-after running the scripts.
-
-The unit tests under `tests/cc/` start at `G0.c` (return 42) and
-walk up through `G14*.c`.  `G1.c` exercises basic arithmetic
-precedence (`a + b * 2 - 1`); `G11.c` is the full sweep — shifts,
-bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
-— in a single fixture.
-
 ## Exercises
 
 1. **★★ Trace.** Trace `cc-parse-add` parsing `a - b - c`.  Where does
    left-associativity come from?
 
-2. **★★ Trace.** The shift cascade `cc-parse-shift` handles `<<` and `>>` as
-   binary operators.  Their compound-assign counterparts `<<=`
-   and `>>=` already live in `cc-assign-op?` (Ch 28).  Why don't
-   the compound forms live in this file alongside the binary
-   forms?  (Hint: where does the parse tree branch into
-   right-associative territory?)
+2. **★★ Trace.** The `<<` row of the operator table also names `<<=`,
+   but no level parses `<<=`: `cc-binop?` compares `tok-num` with
+   the `op` column only.  Who reads the `compound` column, and why
+   does it have to be a different parser from `cc-parse-shift`?
+   (Hint: where does the parse tree branch into right-associative
+   territory?)
 
 3. **★★★ Modify.** The short-circuit `&&` produces `1` on success.  Modify it
-   to produce the *right operand's value* instead (the C
-   standard leaves this implementation-defined — many compilers
-   don't canonicalise to 0/1).  How many bytes does that save?
+   to produce the *right operand's value* instead.  This is no
+   longer C (the standard requires `&&` to yield exactly `0` or
+   `1`), but it is what some other languages (Lua, JavaScript)
+   do.  How many bytes does that save, and which M2-Planet idiom
+   would break?
 
-4. **★★ Trace.** The three return-stack pushes in `cc-parse-log-and` are
-   delicate — get the order wrong and the wrong fixup gets
+4. **★★ Trace.** The order of the three return-stack pushes in
+   `cc-parse-log-and` matters: get it wrong and the wrong fixup is
    patched first.  Sketch a diagram showing each `>r`/`r>` and
    verify the comment's `R:` annotations match the code.
 
@@ -781,30 +780,33 @@ bitwise, `&&`/`||`, ternary, postfix `++`, and compound assignment
 ## After this chapter
 
 The compiler can lower binary expressions: arithmetic, comparison,
-bitwise, and logical operators at every C precedence level, all
-through one repeated five-step fold template (left, push, right,
-pop, op).
+bitwise, and logical operators at every C precedence level, eight
+of them through one five-step fold template (left, push, right,
+pop, op) driven by the operator table, and two through
+short-circuit jumps.
 
-You can read `cc-parse-mul`/`add`/`rel`/`eq`/`bit`/`log`, explain
-precedence climbing, and predict what code an expression like
+You can read `cc-parse-mul`/`add`/`rel`/`eq`/`bit`/`log` and the
+operator table, explain the precedence cascade, and predict what code an expression like
 `a + b * c > d` will emit without running it.
 
-Toward Stage-A: every binary operator in M2-Planet's source lowers
-through this cascade — ten small layers, eight built from the same
-fold template and two (`&&`, `||`) short-circuiting — so a parity
-failure in any binary op localises to a single layer.
+What the cascade cannot do yet is write.  In `w[r] = 1 + r * 2`,
+everything above computed the right side; the left side needs the
+*address* of `w[r]`, and the parser does not know it wants an
+address until it reaches the `=`.  Ch 28 solves that.
 
 ## Takeaways
 
-- Every binary-op layer is one function with the same five-step
-  template: parse-left, push, parse-right, mov rcx + pop, apply
-  op.  The depth of the call chain *is* the precedence table.
-- The op byte travels through the return stack so nested
-  parenthesised expressions in operands can reuse the data
-  stack freely.
-- Short-circuit `&&`/`||` break the template because they need
-  conditional branches and rel32 fixups; the fixups travel on
-  the return stack too, in carefully tracked LIFO order.
+- Each binary precedence level is one word that parses its operands
+  at the next-tighter level, so the order of the calls is the
+  precedence table.
+- One table row per operator names its level, its compound form and
+  its encoder, so the eight folding levels share one template and
+  `+` and `+=` share one emitter.
+- The operator's row travels on the return stack, which leaves the
+  data stack free for a parenthesised expression parsed inside an
+  operand.
+- `&&` and `||` replace the fold template with conditional jumps
+  whose three rel32 fixups wait on the return stack and are patched
+  in reverse order.
 
-Next: Chapter 28 — Expressions, Part 2: Primary, Unary,
-Assignment, and the Top-Level Driver.
+Next: Chapter 28 — Expressions, Part 2: Primary, Unary, Assignment.

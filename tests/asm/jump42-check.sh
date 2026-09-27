@@ -20,12 +20,11 @@ mkdir -p "$BUILDROOT"
 [ -x seed-forth ] || ./build.sh >/dev/null
 [ -x seed-forth ] || fail "seed-forth build failed"
 
-if [ ! -x "$MESCC_DIR/bin/hex2" ]; then
-    (cd "$MESCC_DIR" && make >/dev/null 2>&1) || fail "make mescc-tools failed"
-fi
+# GCC-built mescc-tools reference, rebuilt fresh (never a stale bin/).
+tests/cc/build-gcc-refs.sh "$BUILDROOT/gcc-ref" >/dev/null || fail "gcc reference build failed"
 
 # Reference: hex2 alone (no M1 needed — fixture is already hex2 format).
-"$MESCC_DIR/bin/hex2" \
+"$BUILDROOT/gcc-ref/hex2-ref" \
     --architecture amd64 --little-endian \
     --base-address 0x00600000 \
     -f "$M2LIBC/ELF-amd64.hex2" \
@@ -34,8 +33,7 @@ fi
     || fail "reference hex2 failed"
 
 # Forth-asm: same hex2 inputs concatenated on stdin.
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth 130-asm.fth | strip_forth ;
+{ cat 010-lib.fth 130-asm.fth ;
   printf 'asm-main\n' ;
   cat "$M2LIBC/ELF-amd64.hex2" ;
   cat tests/asm/jump42.hex2 ; } > "$BUILDROOT/forth-asm-jump42-input.txt"

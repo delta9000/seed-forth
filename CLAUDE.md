@@ -4,17 +4,25 @@ Project briefing for Claude Code sessions on `seed-forth`.
 
 ## What this repo is
 
-A 2,040-byte hex0-encoded x86-64 Forth, plus a C-subset compiler
-written in Forth on top of it, plus a 32-chapter literate book
-that teaches both.  Stage-A check proves byte-identity of our
+A 1,772-byte hex0-encoded x86-64 Forth, plus a C-subset compiler
+written in Forth on top of it, plus an M1 assembler / hex2 linker
+in Forth (`130-asm.fth`), plus a 33-chapter literate book that
+teaches all three.  Stage-A check proves byte-identity of our
 compiler's M1 output against GCC-built M2-Planet.
 
 ## Where things live
 
-- `000-seed.hex0` — hand-coded Forth ELF seed (752 lines of hex).
+- `000-seed.hex0` — hand-coded Forth ELF seed (689 lines of annotated hex).
 - `010-lib.fth` — Forth library on top of the seed's 32 primitives.
 - `020-…-fth` through `120-cc-main.fth` — the C compiler, loaded
-  in numeric order.
+  in numeric order.  The parser is `100-cc-expr.fth` (expressions),
+  `110-cc-decl.fth` (declarations, Ch 29), `112-cc-stmt.fth`
+  (statements, Ch 30), `114-cc-func.fth` (function definitions) and
+  `116-cc-prog.fth` (file scope, entry stub, driver; both Ch 31).
+  Scripts load them with the `[0-9][0-9][0-9]-cc-*.fth` glob.
+- `130-asm.fth` — the M1 assembler / hex2 linker (book Ch 33).  Loads
+  on `010-lib.fth` alone; `bootstrap.sh` uses it to build `M1` and
+  `hex2` without GCC.
 - `book/` — literate-programming book.  Every fenced code block
   tagged `file=...` is the canonical source for that file.
 - `vendor/stage0-posix`, `vendor/M2-Planet`, `vendor/mescc-tools`
@@ -45,8 +53,12 @@ unless the dependency graph forbids it.
 
 - Don't bulk-rename across `Ch N` references without checking
   `book/CONCEPTS.md` — chapter numbers are load-bearing.
-- Don't edit `000-seed.hex0` casually.  Layout addresses are
-  baked into `010-lib.fth` literals.
+- Don't edit `000-seed.hex0` casually.  Every link, rel32, rel8,
+  `LATEST`'s initial value and `[lit]`'s `lit_code` address are
+  hand-computed from the layout, and the book's Part II quotes the
+  offsets.  `010-lib.fth` types in no seed address; it relies only on
+  the sysvar order STATE, LATEST, HERE (`here-addr`,
+  `skip-vm-pages`).
 - Don't bypass `tools/tangle.sh verify --strict` — it's the
   literate-program correctness check.
 - Don't commit unless asked.  Leave staged-but-uncommitted for
@@ -55,21 +67,28 @@ unless the dependency graph forbids it.
 ## Quick health check
 
 ```sh
-./check-all.sh                 # build + test + tangle --strict + book-numbers + stage-A
+./check-all.sh                 # build, tests, tangle --strict, book numbers/index/links, try-it, stage-A, bootstrap, handoff
 ```
 
-`check-all.sh` runs all five checks in sequence with per-step
+`check-all.sh` runs all twelve steps in sequence with per-step
 pass/fail logging.  Use it before committing or after editing any
 fenced code block — or any exact byte count, offset, or file line
 count in prose — in `book/`.  The individual commands are still
 useful for diagnosing a failure:
 
 ```sh
-./build.sh                     # produces 2040-byte seed-forth
+./build.sh                     # produces 1772-byte seed-forth
 ./test.sh                      # smoke tests for layers 010-070
 tools/tangle.sh verify --strict
 tools/check-numbers.py         # prose's exact numbers vs source (--dump shows the table)
+tools/check-tryit.py           # runs every Try-it block against ./seed-forth
 tests/cc/stage-a-check.sh      # byte-identical M1 vs GCC
+./bootstrap.sh                 # GCC-free build: seed -> M2-Planet, M1, hex2 (fixed point)
+./verify.sh                    # every comparison against GCC-built references
+tests/cc/stage0-check.sh       # stage0-posix route vs Forth route (needs stage0 nested submodules)
+./handoff.sh                   # Forth route reproduces stage0-posix's AMD64 and x86 bin/ (19/19 answers each)
+tools/gen-index.py --check     # book/WORD-INDEX.md is up to date
+tools/check-links.py           # every link and anchor in book/ resolves
 ```
 
 `tools/check-numbers.py` is the numeric counterpart to the tangle

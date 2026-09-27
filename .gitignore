@@ -15,3 +15,6 @@ __pycache__/
 
 # Scratch dir (local mdBook binary, throwaway experiments)
 tmp/
+
+# bootstrap.sh / verify.sh output (BUILDROOT default)
+build-out/

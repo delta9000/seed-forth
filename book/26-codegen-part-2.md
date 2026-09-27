@@ -7,44 +7,28 @@ Artifact after this chapter: calls, libc shims, string storage, global storage, 
 Proof link: Stage-A programs can use calls, file-scope data, and forward references without relocations.
 ```
 
-This chapter installs the deferred-resolution layer above Ch 25's
-raw instruction encoders.  It finishes `090-cc-emit.fth` (lines
-412–1027), where three layers sit on top of the per-instruction
-words.  *Wide-immediate fixups*:
-`cc-emit-movabs-rdi-imm64` plus `cc-add-fixup-to-list` let the
+Every encoder in Ch 25 takes operands that are known when it runs.
+The first statement of `tri.c`'s `main`, `t.rows = ROWS;`, has no
+such luck.  It must load the address of `t`, and `t` will live just
+past the last byte of code, which the compiler reaches only after
+writing the rest of `main`.  A compiler that writes machine code front
+to back keeps meeting such numbers: a call to a function defined
+further down, a file-scope global, a string literal the code must jump
+over.  The compiled program also needs a C runtime (`tri.c` calls
+`putchar`), and there is no libc to link against.
+
+This chapter finishes `090-cc-emit.fth` (lines 425–1039) and answers
+both problems.  Wide-immediate placeholders and fixup lists let
 codegen reference forward-declared functions and not-yet-placed
-globals by emitting zeros and threading the patch offset onto a
-list rooted in `cc-sym-extra2` (Ch 24).  *Libc shims*: eleven
-direct-syscall stand-ins for the C runtime, anchored by a
-`calloc` that bump-allocates over a one-shot mmap and a `free`
-that reduces to `ret`.  *File-scope globals*: a parallel buffer
-plus `cc-finalize-globals`, which places the data after the code
-and patches every `movabs rdi, imm64` reference into it.
+globals.  Eleven libc shims, emitted straight into the output as
+machine code, stand in for the C runtime.  A separate globals buffer,
+appended after the code at the end, holds file-scope data.  Every
+deferred address is handled the same way: emit a placeholder, remember
+where it is, patch it when the value is known.
 
-By the end you'll be able to read every encoder above line 411,
-trace each shim's syscall sequence, and explain how a forward-
-declared function name or a file-scope global identifier becomes a
-back-patched 10-byte instruction.  Where these encoders are
-*called* from is deferred: string literals and global rvalues belong
-to Chs 27–28; prologue/epilogue use to Ch 31's `cc-parse-function`;
-forward-call fixup-list walking to Ch 31 as well.
-
----
-
-Ch 25 covered the per-instruction encoders.  This chapter is
-about everything that sits above them — the machinery that lets
-the compiler reference things it hasn't emitted yet, the
-self-contained libc replacement that lets compiled programs run
-without dynamic linking, and the data segment that holds
-file-scope variables.
-
-The narrative thread is *deferred resolution*.  A compiler that
-emits ELF bytes linearly will repeatedly encounter symbols whose
-addresses it doesn't yet know: forward-declared functions,
-file-scope globals declared after they are first used, string
-literals whose pool location is fixed later.  Each is handled
-the same way — emit a placeholder, remember where, patch it when
-the truth arrives.
+The callers come later: string literals and global rvalues in Ch 28's
+`cc-parse-primary`, prologue/epilogue use and fixup-list walking in
+Ch 31's `cc-parse-function`.
 
 ## 1. `movabs rdi, imm64` and the forward-call fixup list
 
@@ -60,7 +44,7 @@ the truth arrives.
   cc-emit-8le ;
 
 \ cc-emit-mov-rdi-int ( v -- )  Load an integer literal into rdi using the
-\ shortest correct encoding.  `mov rdi, imm32` (5 bytes) sign-extends its
+\ shortest correct encoding.  `mov rdi, imm32` (7 bytes) sign-extends its
 \ 32-bit field, so it only represents values in signed-32 range; a wider
 \ constant (e.g. 0x80000000 or 2^32) would be sign-extended or truncated.
 \ For those, fall back to the 10-byte `movabs rdi, imm64`.  C literals are
@@ -78,7 +62,7 @@ the truth arrives.
 \ Emits `48 BF 00 00 00 00 00 00 00 00`; returns the imm64 file-offset.
 \ Used when a forward-declared function's name is taken as an rvalue
 \ (function-pointer load) before its definition is reached.  Caller threads
-\ patch-offset onto cc-sym-extra2 of the function's prototype symbol; the
+\ patch-offset onto the prototype symbol's cc-sym-addr-fixups list; the
 \ list is walked and each 8-byte imm64 is patched to the function's real
 \ vaddr when cc-parse-function processes its definition.
 : cc-emit-movabs-rdi-imm64-placeholder
@@ -87,9 +71,37 @@ the truth arrives.
   cc-out-pos @
   [lit] 0 cc-emit-8le ;
 
+```
+
+`cc-emit-movabs-rdi-imm64` is the 10-byte encoder for `movabs rdi,
+<imm64>`: `48 BF <8 bytes LE>`.  It is the only x86-64 instruction
+that loads a full 64-bit immediate into a register.  The smaller `mov
+rdi, imm32` (Ch 25 §3) sign-extends a 32-bit constant and can't reach
+vaddrs above `0x7FFFFFFF`.  Every vaddr this compiler emits sits just
+above `0x400000`, so the narrow form would reach them too; the wide
+form is a simplicity choice.  One fixed 10-byte shape takes an
+absolute vaddr as-is, needs no range check, and gives every
+placeholder the same 8-byte slot to patch: string addresses here, and
+forward function pointers and globals below.
+
+`cc-emit-mov-rdi-int` picks between the two for an *integer literal*.
+`int` is 64-bit here, but `mov rdi, imm32` sign-extends, so on its own
+it would load `0x80000000` as a negative number and truncate `2^32` to
+zero.  The helper keeps the compact 7-byte form for any value in
+signed-32 range (every constant M2-Planet uses) and falls back to the
+10-byte `movabs` only when the literal needs more than 32 bits.  C
+negatives arrive as unary minus applied to a non-negative literal, so
+a single upper-bound test suffices.
+
+`cc-emit-movabs-rdi-imm64-placeholder` is the deferred variant.  It
+writes the same 10 bytes with the imm64 zeroed and returns the offset
+of those 8 zero bytes in `cc-out-buf` so the caller can patch them
+later.
+
+```forth file=090-cc-emit.fth
 \ cc-add-fixup-to-list ( fixup-offset list-var -- )  Allocate a 16-byte node
 \ and prepend it to the linked list rooted at list-var.  Defined here so
-\ 100-cc-expr.fth (loaded before 110-cc-decl.fth) can reference it from the
+\ 100-cc-expr.fth (loaded before 112-cc-stmt.fth) can reference it from the
 \ forward-function-rvalue path in cc-parse-primary.
 : cc-add-fixup-to-list                            ( off var -- )
   [lit] 16 cc-alloc                               ( off var node )
@@ -100,57 +112,30 @@ the truth arrives.
 
 ```
 
-`cc-emit-movabs-rdi-imm64` is the 10-byte encoder for `movabs rdi,
-<imm64>`: `48 BF <8 bytes LE>`.  This is the only x86-64
-instruction that loads a full 64-bit immediate into a register;
-the smaller `mov rdi, imm32` (Ch 25 §3) sign-extends a 32-bit
-constant and can't reach vaddrs above `0x7FFFFFFF`.  Since our
-output binaries live at `0x400000` and may grow past 4 GiB of
-addressable space (heap), we need the wide form.
-
-`cc-emit-mov-rdi-int` picks between the two for an *integer
-literal*.  `int` is 64-bit here, but the literal path always
-emitted `mov rdi, imm32`, which sign-extends — so `0x80000000`
-loaded as a negative number and `2^32` truncated to zero.  The
-helper keeps the compact 5-byte form for any value in signed-32
-range (every constant M2-Planet actually uses, so the emitted
-bytes are unchanged) and falls back to the 10-byte `movabs` only
-when the literal needs more than 32 bits.  C negatives arrive as
-unary minus applied to a non-negative literal, so a single
-upper-bound test suffices.
-
-`cc-emit-movabs-rdi-imm64-placeholder` is the deferred variant.
-It writes the same 10 bytes but with the imm64 zeroed, and returns
-the byte offset of those 8 zero bytes inside `cc-out-buf` so the
-caller can patch them later.
-
 `cc-add-fixup-to-list` builds the linked list of patch sites.  It
-allocates a 16-byte node via `cc-alloc` (Ch 21), writes the new
-node's `[0]` = patch-offset and `[8]` = old-head, and updates the
-list root variable to point at the new node.  Standard intrusive
-linked-list prepend, written in nine words of Forth.
-
-This is the same emit, remember, patch pattern from Ch 11, now with
-"remember" upgraded from one stack cell to a linked list of output
-offsets.
-
-The shape of a list node is:
+allocates a 16-byte node with `cc-alloc` (Ch 21), stores the patch
+offset at `[0]` and the old head at `[8]`, and points the list root
+variable at the new node: an ordinary linked-list prepend.  Each node
+looks like this:
 
 ```
 +0:  patch-offset (into cc-out-buf)
 +8:  next pointer (0 = end)
 ```
 
-When Ch 31's `cc-parse-function` reaches the definition of a
-previously-forward-declared function, it walks `cc-sym-extra2`
-for that symbol and for each node patches `cc-out-buf[off ..
-off+7]` to the resolved 64-bit vaddr.
+This is the emit-remember-patch pattern again, with "remember" grown
+from one stack cell to a list of output offsets.  A forward-declared
+function's prototype carries two such lists (Ch 24 §3):
+`cc-sym-call-fixups` collects its `call rel32` sites, and
+`cc-sym-addr-fixups` collects `movabs` sites that take its address as
+a value.  When Ch 31's `cc-parse-function`
+reaches the definition, it walks both and patches each recorded site
+with the resolved address.  Ch 30's `break` and `continue` lists use
+the same word.
 
-The comment on `cc-add-fixup-to-list` mentions it's defined here
-specifically so Ch 27's `cc-parse-primary` can reach it from the
-forward-function-rvalue path — `100-cc-expr.fth` loads *before*
-`110-cc-decl.fth`, so anything Ch 27 needs has to come from this
-file or earlier.
+The word lives here rather than in `112-cc-stmt.fth` because Ch 28's
+`cc-parse-primary` needs it for the forward-function-rvalue path, and
+`100-cc-expr.fth` loads before `112-cc-stmt.fth`.
 
 ## 2. String-literal bytes with C-escape decoding
 
@@ -158,9 +143,9 @@ file or earlier.
 \ ===========================================================================
 \ String-literal byte emission with C-escape decoding.
 \ ===========================================================================
-\ Walks ( src-addr src-len ) and copies bytes into cc-out-buf, decoding
-\ \n, \t, \r, \\, \', \", and \0.  Other escape characters pass through
-\ literally (matches cc-lex-char behaviour).  Appends a trailing NUL byte.
+\ Walks ( src-addr src-len ) and copies bytes into cc-out-buf, decoding each
+\ \c escape with cc-decode-escape (050), the same table character literals
+\ use.  Appends a trailing NUL byte.
 \
 \ Stack convention inside the loop: ( src len ).
 
@@ -168,30 +153,21 @@ file or earlier.
   begin,
     dup [lit] 0 >
   while,
-    over c@ [lit] 92 = if,                        \ '\\' (backslash)
+    over c@ backslash = if,
       dup [lit] 2 >= if,
         \ Have at least one more byte for the escape.
-        over [lit] 1 + c@                         ( src len escaped )
-        dup [lit] 110 = if, drop [lit] 10 else,   \ \n
-        dup [lit] 116 = if, drop [lit]  9 else,   \ \t
-        dup [lit] 114 = if, drop [lit] 13 else,   \ \r
-        dup [lit]  92 = if, drop [lit] 92 else,   \ \\
-        dup [lit]  39 = if, drop [lit] 39 else,   \ \'
-        dup [lit]  34 = if, drop [lit] 34 else,   \ \"
-        dup [lit]  48 = if, drop [lit]  0 else,   \ \0
-          \ Default: pass the escaped char through unchanged.
-        then, then, then, then, then, then, then,
+        over 1+ c@ cc-decode-escape               ( src len byte )
         cc-emit-byte
         \ Advance src by 2, decrement len by 2.
         swap [lit] 2 + swap [lit] 2 -
       else,
         \ Trailing backslash with no follow-up char: emit literally.
         over c@ cc-emit-byte
-        swap [lit] 1 + swap [lit] 1 -
+        swap 1+ swap 1-
       then,
     else,
       over c@ cc-emit-byte
-      swap [lit] 1 + swap [lit] 1 -
+      swap 1+ swap 1-
     then,
   repeat,
   drop drop
@@ -199,46 +175,36 @@ file or earlier.
 
 ```
 
-The lexer (Ch 23) preserves backslash escapes as literal byte
-pairs inside string-literal slices, leaving decoding to codegen.
-This is that decoding.
+The lexer (Ch 23) keeps backslash escapes as literal byte pairs inside
+string-literal slices.  This is where they are decoded.
 
-The walk is a `begin, while, repeat,` over `(src-addr, len)`:
-read the current byte, if it's a backslash and there's at least
-one more byte available, decode the next byte; otherwise copy
-verbatim.  The seven recognised escapes are exactly those
-`cc-lex-char` decodes (Ch 23 §4) plus `\r` — the only printable C
-escape that has no `'…'` form in the M2-Planet sources.
+The walk is a `begin, while, repeat,` over `(src-addr, len)`: if the
+current byte is a backslash and at least one more byte follows,
+decode the pair with `cc-decode-escape` (Ch 23 §4), the table
+character literals use; otherwise copy the byte verbatim.  Any
+escaped character the table doesn't name passes through unchanged,
+which is more permissive than ANSI C.
 
-Any escaped character that *isn't* in the recognised set passes
-through unchanged.  This is more permissive than ANSI C requires
-but matches `cc-lex-char` — and crucially doesn't reject M2-Planet
-sources that use only the seven supported escapes.
-
-A trailing NUL byte is appended so string literals can be used
-with C's `printf` / `puts`-style functions out of the box.
+A trailing NUL is appended so string literals work with C's
+`printf` / `puts`-style functions.
 
 ## 3. The libc shims: write/read/open/close/mmap
 
-Eleven shims follow, all the same shape: load syscall number,
-marshal arguments, trap, return.  The prose afterwards picks out
-only the ones whose marshalling actually differs.
+The eleven shims in this section are the entire libc the compiled
+programs see.
+There is no `printf`, no `malloc` with `free`, no `strcmp`, no
+`errno`: just write, read, open/close, mmap-backed allocation, and
+`exit`.  Ch 31's `cc-emit-shims` emits each one into the code segment
+at startup and registers its vaddr in the symbol table, so a call to
+`putchar(c)` in user code is an ordinary `call rel32` into the shim.
 
-What varies between shims:
-
-- *The syscall number* (`mov rax, imm32`).  This is the only line
-  every shim needs to change.
-- *Register reshuffling* before the trap.  Most shims pass args
-  already in SYS-V registers and need only the syscall opcode,
-  but a few (`write`, `mmap`, `lseek`) re-arrange registers because
-  the kernel uses different conventions.
-- *Post-syscall fixup*.  `read` needs to handle the "interrupted
-  by signal" case; `mmap` adjusts the return code.  Most just
-  fall through.
-
-Everything else — prologue, epilogue, frame setup — is identical
-across all eleven.  Read one shim carefully; then skim the rest
-looking only for those three points of variation.
+All but `free` share one shape: marshal the arguments, load the
+syscall number into `rax`, `syscall`, fix up the result, `ret`.  The
+marshalling exists because the two conventions differ: Linux syscalls
+take arguments in `rdi/rsi/rdx/r10/r8/r9`, while SYS-V function calls
+use `rdi/rsi/rdx/rcx/r8/r9`.  No shim has a frame.  There is no `push
+rbp` and no prologue; a shim uses a `push` only where it needs a
+scratch byte or a saved register, then the matching `pop` and `ret`.
 
 ```forth file=090-cc-emit.fth
 \ ===========================================================================
@@ -290,6 +256,18 @@ looking only for those three points of variation.
   [lit]  15 cc-emit-byte [lit]   5 cc-emit-byte   \ syscall
   [lit] 195 cc-emit-byte ;                        \ ret
 
+```
+
+`putchar` (29 bytes) takes its byte in `rdi`, pushes it to get a
+1-byte buffer on the stack, points `rsi` at it, sets fd 1, and calls
+syscall 1 (write).  Pushing to make a buffer recurs in the shims that
+need one byte of memory, and it saves carrying a global scratch byte.
+
+`exit` (10 bytes) is the simplest: `mov rax, 60 ; syscall`.  The `ret`
+is unreachable, since the kernel never returns from `exit`, but keeps
+the shim well-formed.
+
+```forth file=090-cc-emit.fth
 \ -- getchar(void): read 1 byte from fd 0; return -1 on EOF.  48 bytes.
 \
 \   push rdi             57                          (reserve 8B scratch on stack)
@@ -331,10 +309,19 @@ looking only for those three points of variation.
   [lit]  95 cc-emit-byte                          \ pop rdi
   [lit] 195 cc-emit-byte ;                        \ ret
 
+```
+
+`getchar` (48 bytes) uses the same push-a-buffer trick with syscall 0
+(read).  `read` returns 0 at EOF, but C's `getchar` returns -1
+(`EOF`), so the shim branches on `rax == 0`.  The two short jumps
+(`75 09` and `EB 05`) skip exactly the right number of bytes; their
+displacements are counted by hand against the shim's layout.
+
+```forth file=090-cc-emit.fth
 \ ===========================================================================
 \ Libc shims: fputs, fputc, fopen, fclose, fwrite, fread, calloc,
 \ free.  All follow SYS-V x86-64 ABI.  Symbol registration and
-\ vaddr assignment happen in cc-emit-shims (110-cc-decl.fth).
+\ vaddr assignment happen in cc-emit-shims (116-cc-prog.fth).
 \ ===========================================================================
 
 \ -- fputs(char *s, FILE *fp) -> non-negative on success.  33 bytes.
@@ -403,6 +390,13 @@ looking only for those three points of variation.
   [lit]  89 cc-emit-byte                          \ pop rcx
   [lit] 195 cc-emit-byte ;                        \ ret
 
+```
+
+`fputs` counts the string's length itself before calling write.
+`fputc` pushes the character as a buffer, like `putchar`, but takes
+the fd from its second argument and returns the character.
+
+```forth file=090-cc-emit.fth
 \ -- fopen(char *path, char *mode) -> fd on success, 0 on error.  51 bytes.
 \
 \   push rdi           57
@@ -432,12 +426,12 @@ looking only for those three points of variation.
   [lit]   6 cc-emit-byte                          \ movzx eax, [rsi]
   [lit]  49 cc-emit-byte [lit] 246 cc-emit-byte   \ xor esi, esi
   [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
-  [lit] 119 cc-emit-byte                          \ cmp eax, 'w'
+  [char] w  cc-emit-byte                          \ cmp eax, 'w'
   [lit] 117 cc-emit-byte [lit]   7 cc-emit-byte   \ jne +7
   [lit] 190 cc-emit-byte [lit] 577 cc-emit-4le    \ mov esi, 0x241
   [lit] 235 cc-emit-byte [lit]  10 cc-emit-byte   \ jmp +10
   [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
-  [lit]  97 cc-emit-byte                          \ cmp eax, 'a'
+  [char] a  cc-emit-byte                          \ cmp eax, 'a'
   [lit] 117 cc-emit-byte [lit]   5 cc-emit-byte   \ jne +5
   [lit] 190 cc-emit-byte [lit] 1089 cc-emit-4le   \ mov esi, 0x441
   [lit]  95 cc-emit-byte                          \ pop rdi
@@ -464,6 +458,16 @@ looking only for those three points of variation.
   [lit]  49 cc-emit-byte [lit] 192 cc-emit-byte   \ xor eax, eax
   [lit] 195 cc-emit-byte ;                        \ ret
 
+```
+
+`fopen` (51 bytes) is the most involved of these.  It turns the mode
+string's first byte into open flags with `cmp eax, 'w'` and `cmp eax,
+'a'`: `'w'` gives `O_WRONLY|O_CREAT|O_TRUNC`, `'a'` gives
+`O_WRONLY|O_CREAT|O_APPEND`, and anything else `O_RDONLY`.  On failure
+it returns 0 (NULL) instead of a negative errno.  `fclose` is syscall 3
+followed by a zeroed return value.
+
+```forth file=090-cc-emit.fth
 \ -- fwrite(void *ptr, size_t sz, size_t n, FILE *fp) -> bytes written.  20 bytes.
 \
 \   imul rdx, rsi  48 0F AF D6   (total = n * sz;  rdx=n, rsi=sz)
@@ -521,6 +525,14 @@ looking only for those three points of variation.
   [lit] 241 cc-emit-byte                          \ div rcx
   [lit] 195 cc-emit-byte ;                        \ ret
 
+```
+
+`fwrite` and `fread` multiply `sz * n` into a byte count and move the
+fd from the fourth argument register.  `fwrite` returns the raw byte
+count from write; `fread` divides the bytes read by `sz` to return an
+element count, as C requires.
+
+```forth file=090-cc-emit.fth
 \ -- calloc(size_t n, size_t sz) -> zeroed memory or NULL.  113 bytes.
 \
 \ Bump allocator backed by a single 256 MB mmap.  heap_base and heap_pos
@@ -604,73 +616,36 @@ looking only for those three points of variation.
   [lit]   0 cc-emit-8le                           \ heap_base = 0
   [lit]   0 cc-emit-8le ;                         \ heap_pos  = 0
 
+```
+
+`calloc` (113 bytes) is the heart of the runtime.  On the first call
+it mmaps a 256 MiB anonymous private region via syscall 9 and stores
+the base in an inline data slot just past its own `ret`.  Every call
+then bumps a position pointer forward by the rounded-up size.
+Zero-fill costs nothing because Linux zero-fills anonymous mappings.
+
+The inline `heap_base` and `heap_pos` slots are reached through
+RIP-relative `mov` instructions whose displacements are counted by
+hand and baked into the source.  `heap_pos` alone is touched at three
+sites with three different displacements: the first-call setup stores
+to it (`+0x2B`), the bump reads it (`+0x16`) and stores the new
+position (`+0x09`).  None is derived from a label.  Each displacement
+is the distance from the end of its instruction to the slot, so bytes
+added at the top of the shim move the access and the data together
+and change nothing.  Bytes added *between* an access and the slots
+(anywhere in the body) shift every displacement ahead of the
+insertion.  That makes this the fragile shim of the set.
+
+```forth file=090-cc-emit.fth
 \ -- free(void *p) -> void.  1 byte.  No-op: bump allocator never frees.
 : cc-emit-free-shim
   [lit] 195 cc-emit-byte ;                        \ ret
 
 ```
 
-These eleven shims are the entire libc the compiled programs see.
-No `printf`, no `malloc` with `free`, no `strcmp`, no `errno` —
-just write, read, open/close, mmap-backed allocation, and `exit`.
-
-The shape of each shim is the same: load syscall number into
-`rax`, move/preserve SYS-V arg registers into the right syscall
-registers (which are *different* — Linux uses `rdi/rsi/rdx/r10/
-r8/r9` for syscalls, while SYS-V uses `rdi/rsi/rdx/rcx/r8/r9` for
-function calls), `syscall`, fix up the return value if needed,
-`ret`.
-
-`putchar` (29 bytes) takes its byte in `rdi`, pushes it onto the
-stack, points `rsi` at the stack to get a 1-byte buffer, sets fd
-to 1, syscall 1 (write), pops, returns.  The "push to make a
-buffer" idiom is recurring — it's how the shims that need a
-1-byte buffer in memory avoid carrying around a global scratch
-byte.
-
-`exit` (10 bytes) is the simplest: `mov rax, 60 ; syscall`.  The
-`ret` is unreachable (the kernel never returns from `exit`) but
-keeps the shim well-formed.
-
-`getchar` (48 bytes) is the most intricate of the trio: the
-`read` syscall returns 0 at EOF, but C's `getchar` returns -1
-(`EOF`).  The shim branches on `rax == 0`, returns `-1` on EOF or
-the byte read otherwise.  Two near jumps (`75 09` and `EB 05`)
-skip exactly the right number of bytes; the displacements are
-hand-calculated against the shim's internal layout.
-
-`fputs`, `fputc`, `fopen`, `fclose`, `fwrite`, `fread` follow the
-same pattern with their own argument shuffles.  `fopen` is the
-most involved (51 bytes) because it has to parse the mode-string
-character to pick between `O_RDONLY`, `O_WRONLY|O_CREAT|O_TRUNC`,
-and `O_WRONLY|O_CREAT|O_APPEND` — `cmp eax, 'w'` and `cmp eax,
-'a'` against the first byte of the mode string.
-
-`calloc` (113 bytes) is the heart of the runtime.  On first call,
-it mmaps a 256 MiB anonymous private region via syscall 9 and
-stashes the base address into an inline data slot just past its
-own `ret`.  On every call thereafter it bumps a position pointer
-forward by the rounded-up size.  Zero-fill is free because Linux
-zero-fills anonymous mmaps.
-
-The inline `heap_base` and `heap_pos` slots are accessed via
-RIP-relative `mov` instructions whose displacements are computed
-*by hand* and baked into the source.  Three call sites read
-`heap_pos` at three different RIP-relative offsets (`+0x2B`,
-`+0x16`, `+0x09`) — none of them is mechanically derived from a
-label; all three are the result of counting bytes.  This is the
-fragile shim of the bunch: any change to the prologue's
-byte count shifts every RIP-relative displacement.
-
-`free` (1 byte: just `ret`) is the punchline.  The bump allocator
-never reclaims memory.  In a 256 MiB heap with M2-Planet's small
-working set, that's fine for the duration of one compilation.
-
-These shims are *emitted into the code segment* at compile-time
-startup — Ch 31's `cc-emit-shims` calls each `cc-emit-X-shim`
-in sequence and registers the resulting vaddr in the symbol
-table.  User code calling `putchar(c)` then resolves to a normal
-`call rel32` into the emitted shim.
+`free` is 1 byte, just `ret`.  The bump allocator never reclaims
+memory, and with a 256 MiB heap and M2-Planet's small working set,
+that is fine for the duration of one compilation.
 
 ## 4. Bitwise, shifts, inc/dec, and unary `!`
 
@@ -752,33 +727,31 @@ table.  User code calling `putchar(c)` then resolves to a normal
 
 ```
 
-The variable-count shifts `shl rdi, cl` and `sar rdi, cl` use
-`cl` (the low byte of `rcx`) because x86 hard-codes `cl` as the
-shift-count register.  The binary-op pattern leaves the right
-operand in `rcx`, which is `cl`-prefix-compatible — no extra
-move is needed.
+The variable-count shifts `shl rdi, cl` and `sar rdi, cl` use `cl`
+(the low byte of `rcx`) because x86 hard-codes `cl` as the shift-count
+register.  The binary-op pattern already leaves the right operand in
+`rcx`, so no extra move is needed.
 
-`sar` is *arithmetic* right shift, which sign-extends the
-top bit.  That matches C's right-shift semantics for signed `int`
-(implementation-defined but universally arithmetic on x86); for
-unsigned shifts a `shr rdi, cl` would replace `sar`.  This
-compiler only supports signed `int`, so `sar` is sufficient.
+`sar` is *arithmetic* right shift, which copies the sign bit.  That
+matches C's right shift for signed `int` (implementation-defined, but
+arithmetic on every x86 compiler).  An unsigned shift would need
+`shr`, but this compiler only supports signed `int`.
 
-`inc qword [rbp + disp]` and `dec qword [rbp + disp]` are the
-in-place increment/decrement of local slots (disp8 or disp32 per
-slot, via Ch 25's `cc-emit-local-ea`).  They bypass `rdi`
-entirely — the binary-op pattern doesn't apply because there's no
-"right operand"; you just bump the memory and move on.  Used by
-post-increment (`i++`), which needs the *old* value of `i` and
-then the increment, but the increment doesn't perturb `rdi`'s
-current contents.
+`inc qword [rbp + disp]` and `dec qword [rbp + disp]` bump a local
+slot in place (disp8 or disp32 per slot, via Ch 25's
+`cc-emit-local-ea`).  They bypass `rdi` entirely, which is what
+post-increment (`i++`) needs: `rdi` keeps the *old* value of `i`
+while the slot is incremented.
 
-`cc-emit-not-zero-flag` is C's unary `!`: 12 bytes that compute
-`rdi := (rdi == 0) ? 1 : 0`.  The pattern is identical to the
-comparison helpers from Ch 25 §6, swapping `cmp rdi, rcx` for
-`test rdi, rdi`.
+`cc-emit-not-zero-flag` is C's unary `!`: 12 bytes that compute `rdi
+:= (rdi == 0) ? 1 : 0`, the comparison pattern from Ch 25 §6 with
+`test rdi, rdi` in place of `cmp rdi, rcx`.
 
 ## 5. File-scope globals and deferred vaddr fixups
+
+File-scope variables live immediately after the code, in the same
+PT_LOAD segment.  The code's length isn't known until parsing ends, so
+neither are the globals' addresses.
 
 ```forth file=090-cc-emit.fth
 \ ===========================================================================
@@ -795,7 +768,7 @@ comparison helpers from Ch 25 §6, swapping `cmp rdi, rcx` for
 \ and records (patch-offset-in-cc-out-buf, slot) into the cc-gfixup arrays.
 \
 \ At cc-finalize-globals (called after parsing, before cc-finalize-elf):
-\   1. cc-globals-base-vaddr := cc-base-vaddr + cc-out-pos@.
+\   1. cc-globals-base-vaddr := cc-here-vaddr (080).
 \   2. Append cc-globals-buf bytes to cc-out-buf.
 \   3. For each fixup, compute vaddr = cc-globals-base-vaddr + slot, then
 \      patch the placeholder imm64 in cc-out-buf at the recorded patch-offset.
@@ -816,6 +789,15 @@ variable cc-gfixup-count
 
 variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
 
+```
+
+`cc-globals-buf` is a 4 KiB area that accumulates global initialisers
+during parsing.  The 4096-entry fixup cap is sized for M2-Planet:
+`cc_core.c` emits about 891 references to globals, so 256 entries
+would overflow and 4096 leaves headroom.  Capacities throughout the
+compiler follow the same rule of M2-Planet plus a comfort factor.
+
+```forth file=090-cc-emit.fth
 \ cc-globals-init ( -- )  Reset globals + fixup state at the start of compile.
 : cc-globals-init
   [lit] 0 cc-globals-pos !
@@ -826,18 +808,16 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   [lit] 0
   begin, dup cc-globals-cap < while,
     [lit] 0 over cc-globals-buf + c!
-    [lit] 1 +
+    1+
   repeat, drop ;
 
 \ cc-globals-alloc ( bytes -- slot )  Reserve `bytes` bytes; return the offset
-\ of the first reserved byte.  Aborts if cc-globals-buf would overflow.
+\ of the first reserved byte.  Dies with 80 if cc-globals-buf would overflow.
 : cc-globals-alloc                                 ( bytes -- slot )
+  dup cc-globals-pos @ + cc-globals-cap [lit] 80 cc-check-cap
   cc-globals-pos @                                 ( bytes slot )
   swap                                              ( slot bytes )
-  cc-globals-pos +!
-  cc-globals-pos @ cc-globals-cap > if,
-    [lit] 70 die
-  then, ;
+  cc-globals-pos +! ;
 
 \ cc-globals-store-8le ( v slot -- )  Write `v` as 8-byte LE into globals-buf
 \ at the given slot offset.
@@ -845,7 +825,7 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   cc-globals-buf +                                 ( v addr )
   >r                                                ( v ; R: addr )
   dup r@                       c!
-  [lit] 256 / dup r@ [lit] 1 + c!
+  [lit] 256 / dup r@ 1+ c!
   [lit] 256 / dup r@ [lit] 2 + c!
   [lit] 256 / dup r@ [lit] 3 + c!
   [lit] 256 / dup r@ [lit] 4 + c!
@@ -854,16 +834,13 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   [lit] 256 /     r> [lit] 7 + c! ;
 
 \ cc-gfixup-add ( patch-offset slot -- )  Record a deferred global-vaddr fixup.
-\ Uses sym-slot (from 070-cc-sym.fth, signature `( id arr -- addr )`) since it's a
-\ generic helper that just computes arr + 8*id.
+\ Indexes its two parallel arrays with cell[] (030-cc-io.fth).
 : cc-gfixup-add                                    ( patch-off slot -- )
-  cc-gfixup-count @ dup cc-gfixup-cap >= if,
-    [lit] 71 die
-  then,
-  ( patch-off slot i )
+  cc-gfixup-count @ 1+ cc-gfixup-cap [lit] 81 cc-check-cap
+  cc-gfixup-count @                                 ( patch-off slot i )
   >r                                                \ park i on rstack
-  r@ cc-gfixup-slot     sym-slot !                 \ store slot
-  r@ cc-gfixup-out-pos  sym-slot !                 \ store patch-off
+  r@ cc-gfixup-slot     cell[] !                   \ store slot
+  r@ cc-gfixup-out-pos  cell[] !                   \ store patch-off
   r> drop
   [lit] 1 cc-gfixup-count +! ;
 
@@ -879,73 +856,52 @@ variable cc-globals-base-vaddr                   \ set by cc-finalize-globals
   swap cc-gfixup-add ;
 ```
 
-The globals machinery answers the question: *where do file-scope
-variables live in the output?*  The answer is "immediately after
-the code, in the same PT_LOAD segment."
+Each global's declaration calls `cc-globals-alloc <bytes>` to reserve
+a slot, and possibly `cc-globals-store-8le` to write its initialiser.
+A *reference* to a global from compiled code is a 10-byte `movabs rdi,
+imm64` whose imm64 starts as 0.  `cc-emit-global-ref` emits the
+placeholder and records `(patch-offset, slot)` in the parallel arrays
+`cc-gfixup-out-pos[]` and `cc-gfixup-slot[]`, indexed with Ch 21's
+`cell[]` like every other table.
 
-`cc-globals-buf` is a 4 KiB scratch area that accumulates global
-initialisers during parsing.  Each global's declaration calls
-`cc-globals-alloc <bytes>` to reserve a slot, and possibly
-`cc-globals-store-8le` to write its initialiser.
+At the end of compilation, Ch 32's driver calls `cc-finalize-globals`
+(defined in Ch 31's `116-cc-prog.fth`):
 
-A *reference* to a global from compiled code is a 10-byte `movabs
-rdi, imm64` whose imm64 is initially 0.  `cc-emit-global-ref`
-emits the placeholder and records `(patch-offset, slot)` in the
-parallel arrays `cc-gfixup-out-pos[]` and `cc-gfixup-slot[]`.
-
-At the end of compilation, Ch 32's driver calls
-`cc-finalize-globals` (defined in Ch 31's `110-cc-decl.fth`):
-
-1. Note `cc-out-pos` and set `cc-globals-base-vaddr = cc-base-vaddr +
-   cc-out-pos`.
-2. Append `cc-globals-buf` bytes to `cc-out-buf`, advancing
+1. Set `cc-globals-base-vaddr` to `cc-here-vaddr` (`cc-base-vaddr +
+   cc-out-pos`).
+2. Append the `cc-globals-buf` bytes to `cc-out-buf`, advancing
    `cc-out-pos` past the global data.
-3. For every recorded fixup, compute the actual vaddr
-   `cc-globals-base-vaddr + slot` and patch the placeholder imm64
-   in `cc-out-buf` at the recorded `patch-offset`.
+3. For every recorded fixup, compute the vaddr
+   `cc-globals-base-vaddr + slot` and patch the placeholder imm64 in
+   `cc-out-buf` at the recorded `patch-offset`.
 
-After that, `cc-finalize-elf` (Ch 25 §1) patches the program
-header's `p_filesz`, and `cc-write-output` (Ch 21 §2) writes the
-buffer.
+After that, `cc-finalize-elf` (Ch 25 §1) patches the program header's
+`p_filesz`, and `cc-write-output` (Ch 21 §2) writes the buffer.
 
-The buffer ownership is deliberate: string bytes, global bytes, and
-machine-code bytes each have a staging area until final layout makes
-their addresses stable.  This is the *one buffer per responsibility*
-pattern from Ch 21, now at codegen scale — the string pool and the
-`cc-gfixup` arrays are each a buffer that owns exactly one kind of
-deferred data.
-
-The 4096-entry fixup cap matters: M2-Planet's `cc_core.c` emits
-about 891 references to globals.  256 would overflow; 4096 leaves
-healthy headroom.  The capacity numbers throughout the compiler
-are all sized for M2-Planet plus a comfort factor.
-
-`sym-slot` (from Ch 24, `070-cc-sym.fth`) is reused here because
-it's just `arr + 8*id` — it doesn't care that this isn't the
-symbol table.  The same one-cell-per-slot discipline gives us
-`cc-gfixup-slot[i]` for free.
+Machine code and string bytes go straight into `cc-out-buf`: a string
+literal sits inline behind a `jmp`, so its address is known the moment
+it's emitted.  Global bytes wait in `cc-globals-buf` until the end of
+the code fixes their address.  This is Ch 21's one-buffer-per-
+responsibility pattern at codegen scale, with `cc-globals-buf` and the
+`cc-gfixup` arrays each owning one kind of deferred data.
 
 ## 6. The path back together
 
-`090-cc-emit.fth` is now 1027 lines of compiler-side machine-code
-emission.  The compiler uses it three ways:
+`090-cc-emit.fth` is 1039 lines of compiler-side machine-code
+emission, used three ways:
 
-- **Per-instruction encoders** (Chs 25 §3–§7) write the bytes of
-  one x86-64 instruction at a time.  Expression codegen (Ch 27)
-  composes these into right-hand sides of `=`, while statement
-  codegen (Ch 30) composes them into the bodies of `if` /
-  `while` / `for` / `return`.
-- **Prologue/epilogue + locals + param-spills** (Ch 25 §4–§5) are
-  the codegen ingredients of function definitions.  Ch 31's
-  `cc-parse-function` calls each in sequence.
-- **Shims + globals + forward-call fixups** (this chapter) are the
+- **Per-instruction encoders** (Ch 25 §3–§7 and §4 here) write the
+  bytes of one x86-64 instruction at a time.  Expression codegen
+  (Chs 27–28) composes them into operators and assignments, and
+  statement codegen (Ch 30) into the bodies of `if` / `while` / `for` /
+  `return`.
+- **Prologue/epilogue, locals and param-spills** (Ch 25 §4–§5) are the
+  ingredients of function definitions.  Ch 31's `cc-parse-function`
+  calls each in sequence.
+- **Shims, globals and forward-call fixups** (this chapter) are the
   scaffolding the compiled program needs to run.  Ch 31 emits the
-  shims at startup; Ch 27's `cc-parse-primary` walks the call /
-  global paths; Ch 32 wires the whole thing together.
-
-If you read `cc-emit-byte` as "primitive output" and follow each
-of the named encoders one rung higher, you have the full
-output-side picture of the compiler.
+  shims at startup, Ch 28's `cc-parse-primary` walks the call and
+  global paths, and Ch 32 wires the whole thing together.
 
 ## Try it
 
@@ -960,10 +916,9 @@ tests for these paths.
 wide-immediate fixups all participate in the Stage-A gate.  The
 width choice in `cc-emit-mov-rdi-int` is the exception:
 `tests/cc/F-wide-const.c` gates it with a literal above the
-signed-32 range, which the old `imm32` path sign-extended to a
-negative value.  Stage-A never compiles such a literal (the fix
-left its bytes untouched), so the gate is the only check on the
-`movabs` fallback.
+signed-32 range, which an `imm32` load would sign-extend to a
+negative value.  Stage-A never compiles such a literal, so the gate
+is the only check on the `movabs` fallback.
 
 ```sh
 ./build.sh
@@ -971,9 +926,9 @@ tests/cc/stage-a-check.sh        # full bootstrap-gate
 ```
 
 To run the small check, compile the one-line program directly.
-Seed-forth has no `-e` flag or `include` word, so we feed the twelve
-numbered `.fth` files (stripped of Forth comments) followed by the C
-source on a single stdin.  The last file
+Seed-forth has no `-e` flag or `include` word, so we feed the fifteen
+numbered `.fth` files, comments and all, followed by the C source on
+a single stdin.  The last file
 (`120-cc-main.fth`) ends by invoking `cc-main`, which reads the
 remaining stdin as the C input, compiles, writes `/tmp/cc-out`,
 and exits:
@@ -981,23 +936,81 @@ and exits:
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth | sed -e 's/\\.*$//' -e 's/([^)]*)//g'
+  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth
   cat <<'C'
 int main(void) { putchar(42); return 0; }
 C
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'
 ```
 
 `tests/cc/build-m2planet-monolith.sh` runs the same pattern at full
 scale, building M2-Planet itself with this pipe.
 
+**tri.c at this stage:** stop the compiler between parsing and
+`cc-finalize-globals` and look at the placeholder for `t`.  The probe
+loads every file except `120-cc-main.fth`, runs `cc-main`'s first
+steps, and prints in hex the fixup count and the imm64 at the first
+fixup, before and after the patch:
+
+```sh
+./build.sh
+{
+  cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01][0-9]-cc-*.fth
+  cat <<'FORTH'
+    : .h  dup [lit] 15 > if, dup [lit] 16 / .h then,
+          [lit] 15 and dup [lit] 9 > if, [lit] 39 + then, [lit] 48 + emit ;
+    : site  cc-gfixup-out-pos @ cc-out-buf + @ .h ;
+    : probe
+      cc-load-stdin cc-preprocess cc-out-init cc-globals-init
+      cc-emit-elf-header cc-parse-program
+      cc-gfixup-count @ .h [lit] 32 emit  site [lit] 32 emit
+      cc-finalize-globals  site  bye ;
+    probe
+FORTH
+  cat <<'C'
+#define ROWS 4
+struct tri { int rows; int stars; };
+struct tri t;
+
+void line(int pad, int n) {
+    while (pad > 0) { putchar(' '); pad = pad - 1; }
+    while (n > 0) { putchar('*'); n = n - 1; }
+    putchar('\n');
+}
+
+int main() {
+    int w[ROWS];
+    int r;
+    t.rows = ROWS;
+    for (r = 0; r < t.rows; r = r + 1) {
+        w[r] = 1 + r * 2;
+        line(t.rows - 1 - r, w[r]);
+        t.stars = t.stars + w[r];
+    }
+    if (t.stars == ROWS * ROWS) return t.stars;
+    return 1;
+}
+C
+} | ./seed-forth                   # prints "7 0 4004c9"
+```
+
+Seven `movabs rdi` sites refer to `t`, one for each `t.rows` or
+`t.stars` in the source.  The first, for `t.rows = ROWS;`, holds 0
+until `cc-finalize-globals` writes `0x4004c9`: `cc-base-vaddr` plus
+the 1,225 bytes of header and code that Ch 21's probe counted, so `t`
+starts on the byte after `main`'s last `ret`.  In `line`, all three
+`putchar` calls are `call 0x400092`, the 29-byte shim of §3; the ten
+shims `tri.c` never calls are emitted anyway.
 
 ## Exercises
 
 1. **★★★ Modify.** The `calloc` shim is 113 bytes and uses hand-counted RIP-
-   relative offsets.  Add a 16-byte alignment padding to the
-   prologue and confirm which displacements need to change.
+   relative offsets.  Insert four `nop`s (`90`) first at the very
+   top of the shim, then just before `.have_heap`.  For each
+   placement, which displacements (and which `jnz`) need to
+   change, and why does the first placement change none of the
+   RIP-relative ones?
 
 2. **★★★ Extend.** `free` is a 1-byte `ret`.  Construct a test program that
    relies on `free` reclaiming memory; observe how the bump
@@ -1012,39 +1025,28 @@ scale, building M2-Planet itself with this pipe.
    single generic list type for both forward-call fixups and
    global fixups?  What would the consolidation save?
 
-5. **★★★ Extend.** The string-bytes decoder handles seven escapes.  Add `\xNN`
-   (two-hex-digit escape).  Where in the codegen does the new
-   case go?
+5. **★★★ Extend.** `cc-decode-escape` names four escapes and passes the
+   rest through.  Add `\xNN` (two-hex-digit escape).  Why can't it go
+   in `cc-decode-escape` alone, and what must `cc-emit-string-bytes`
+   and `cc-lex-char` each change?
 
 ## After this chapter
 
-The compiler can emit code that talks to the rest of itself:
-function calls (with forward-fixup lists for unresolved targets),
-libc shim wrappers, inlined string-literal storage, and global-
-address placeholders that get patched once layout is known.
-
-You can read `cc-emit-call-rel32-placeholder` and `cc-add-fixup-to-list`, explain how
-a call to a function defined later in the file still gets a correct
-rel32, and trace where a `char *s = "hi"` literal ends up in the
-output buffer.
-
-Toward Stage-A: calls and global accesses are the first place real
-parity is at stake — both encode 32-bit offsets that depend on
-exact layout, so every byte here has to match the reference.
+The compiler can emit code that talks to the rest of itself: function
+calls with fixup lists for targets not yet defined, libc shims,
+inline string literals, and global-address placeholders patched once
+layout is known.  Calls and global accesses are where Stage-A parity
+first depends on exact layout, since both encode addresses and offsets
+that shift if any earlier byte changes.  What the encoders cannot do
+is choose their own order.  In `1 + r * 2` on line 16 of `tri.c`,
+the `+` arrives first, one token at a time, yet the `imul` must be
+emitted before the `add`.  Ch 27 gets that order right without an
+expression tree.
 
 ## Takeaways
 
-- Deferred resolution is the dominant pattern of the codegen.
-  Placeholders go in, fixup metadata is stashed, and a sweep
-  at the end patches everything.  Three independent fixup
-  systems (forward calls via `cc-sym-extra2`, global vaddrs
-  via `cc-gfixup-*`, ELF segment sizes via `cc-out-patch-4le`)
-  coexist without interference.
-- Libc is not a dependency; it's emitted inline.  Eleven shims
-  amounting to ~400 bytes give the compiled programs `putchar`,
-  `exit`, file I/O, and a 256 MiB bump-allocated heap.
-- Globals share the single R-W-X PT_LOAD segment with code,
-  appended after the last byte of the last function.  No
-  separate `.data` phdr, no relocation table, no dynamic linker.
+- Deferred resolution runs the codegen: placeholders go in, fixup metadata is stashed, and a final sweep patches forward function references (`cc-sym-call-fixups`/`cc-sym-addr-fixups`), global vaddrs (`cc-gfixup-*`) and ELF sizes (`cc-out-patch-4le`) independently.
+- Libc is not a dependency but emitted code: eleven shims give compiled programs `putchar`, `exit`, file I/O and a 256 MiB bump-allocated heap.
+- Globals share the single R-W-X PT_LOAD segment with the code, appended after the last function, so there is no `.data` phdr, relocation table or dynamic linker.
 
-Next: Chapter 27 — Expressions, Part 1: Precedence Climbing.
+Next: Chapter 27 — Expressions, Part 1: The Precedence Cascade.

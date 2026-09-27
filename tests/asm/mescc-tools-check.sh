@@ -5,9 +5,15 @@
 #   that M2-Planet compiles mescc-tools' M1-macro.c / hex2*.c  ->  forth-asm
 #   assembles the result into native M1 and hex2 binaries.
 #
-# Verifies byte-identity vs the same M1+hex2 pipeline run with mescc-tools'
-# GCC-built binaries, and runs each produced tool on a tiny input to confirm
-# the binaries are functionally correct.
+# A COMPARISON AGAINST GCC-BUILT REFERENCES: verifies byte-identity vs the
+# same M1+hex2 pipeline run with mescc-tools' GCC-built binaries, and runs
+# each produced tool on a tiny input to confirm the binaries are
+# functionally correct.  (bootstrap.sh builds the same M1 and hex2 with no
+# GCC reference anywhere.)
+#
+# Rebuilds everything it compares every run: m2planet-check.sh (and through
+# it stage-a-check.sh) always runs first, and the GCC M1/hex2 are rebuilt by
+# tests/cc/build-gcc-refs.sh.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -23,18 +29,12 @@ pass() { printf 'asm/mescc-tools-check: %s\n' "$1"; }
 [ -x seed-forth ] || ./build.sh >/dev/null
 [ -x seed-forth ] || fail "seed-forth build failed"
 
-# m2-via-forth-asm is produced by m2planet-check.sh.  Build it if missing.
-if [ ! -x "$M2_BIN" ]; then
-    pass "$M2_BIN missing — running m2planet-check.sh to build it..."
-    tests/asm/m2planet-check.sh >/dev/null
-fi
+# m2-via-forth-asm is produced by m2planet-check.sh; rebuild it every run.
+rm -f "$M2_BIN"
+pass "running m2planet-check.sh to (re)build $M2_BIN..."
+BUILDROOT=$BUILDROOT tests/asm/m2planet-check.sh >/dev/null || fail "m2planet-check failed"
 [ -x "$M2_BIN" ] || fail "$M2_BIN not produced"
-
-if [ ! -x "$MESCC_DIR/bin/M1" ] || [ ! -x "$MESCC_DIR/bin/hex2" ]; then
-    (cd "$MESCC_DIR" && make >/dev/null 2>&1) || fail "make mescc-tools failed"
-fi
-
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
+tests/cc/build-gcc-refs.sh "$BUILDROOT/gcc-ref" >/dev/null || fail "gcc reference build failed"
 
 # build_via_forth_asm <name> <c-source-files...>
 \
@@ -52,13 +52,13 @@ build_via_forth_asm() {
         || fail "$name: m2-via-forth-asm failed"
 
     # Step 2 (reference): mescc-tools M1 + hex2 on the same C-derived M1.
-    "$MESCC_DIR/bin/M1" --architecture amd64 --little-endian \
+    "$BUILDROOT/gcc-ref/M1-ref" --architecture amd64 --little-endian \
         -f "$M2LIBC/amd64_defs.M1" \
         -f "$M2LIBC/libc-full.M1" \
         -f "$BUILDROOT/$name.M1" \
         -o "$BUILDROOT/$name.hex2" \
         || fail "$name: reference M1 failed"
-    "$MESCC_DIR/bin/hex2" --architecture amd64 --little-endian \
+    "$BUILDROOT/gcc-ref/hex2-ref" --architecture amd64 --little-endian \
         --base-address 0x00600000 \
         -f "$M2LIBC/ELF-amd64.hex2" \
         -f "$BUILDROOT/$name.hex2" \
@@ -66,7 +66,7 @@ build_via_forth_asm() {
         || fail "$name: reference hex2 failed"
 
     # Step 3: forth-asm produces the same binary.
-    { cat 010-lib.fth 130-asm.fth | strip_forth ;
+    { cat 010-lib.fth 130-asm.fth ;
       printf 'asm-main\n' ;
       cat "$M2LIBC/amd64_defs.M1" ;
       cat "$M2LIBC/ELF-amd64.hex2" ;
@@ -96,7 +96,7 @@ build_via_forth_asm M1 M2libc/bootstrappable.c stringify.c M1-macro.c
 printf ':a\nDEFINE foo 42\nfoo\n:end\n' > "$BUILDROOT/tiny.M1"
 "$BUILDROOT/M1-via-forth-asm" --architecture amd64 -f "$BUILDROOT/tiny.M1" \
     -o "$BUILDROOT/tiny-via-our-M1.hex2"
-"$MESCC_DIR/bin/M1" --architecture amd64 -f "$BUILDROOT/tiny.M1" \
+"$BUILDROOT/gcc-ref/M1-ref" --architecture amd64 -f "$BUILDROOT/tiny.M1" \
     -o "$BUILDROOT/tiny-via-ref-M1.hex2"
 if cmp -s "$BUILDROOT/tiny-via-our-M1.hex2" "$BUILDROOT/tiny-via-ref-M1.hex2"; then
     pass "M1: behavioral match on tiny .M1 input"
@@ -112,7 +112,7 @@ printf ':a\n7F 45 4C 46\n:end\n' > "$BUILDROOT/tiny.hex2"
 "$BUILDROOT/hex2-via-forth-asm" --architecture amd64 --little-endian \
     --base-address 0 -f "$BUILDROOT/tiny.hex2" \
     -o "$BUILDROOT/tiny-via-our-hex2" --non-executable 2>/dev/null
-"$MESCC_DIR/bin/hex2" --architecture amd64 --little-endian \
+"$BUILDROOT/gcc-ref/hex2-ref" --architecture amd64 --little-endian \
     --base-address 0 -f "$BUILDROOT/tiny.hex2" \
     -o "$BUILDROOT/tiny-via-ref-hex2" --non-executable 2>/dev/null
 if cmp -s "$BUILDROOT/tiny-via-our-hex2" "$BUILDROOT/tiny-via-ref-hex2"; then

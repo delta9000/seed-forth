@@ -7,6 +7,7 @@ on:
       - "book/**"
       - "book.toml"
       - ".github/workflows/pages.yml"
+      - "tools/check-links.py"
   workflow_dispatch:
 
 permissions:
@@ -23,7 +24,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      MDBOOK_VERSION: "0.4.40"
+      MDBOOK_VERSION: "0.4.40"   # keep in step with check.yml
     steps:
       - uses: actions/checkout@v4
       - name: Install mdBook
@@ -34,6 +35,9 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build the book
         run: mdbook build
+      - name: Check links and heading anchors
+        # Same check as check.yml's book job; never deploy a broken book.
+        run: python3 tools/check-links.py --html docs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs

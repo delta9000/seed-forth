@@ -16,7 +16,7 @@ earlier ones, and the history matters because it explains the shape:
 
 ## Identity guardrails (unchanged, load-bearing)
 
-The distinctive payoff is the byte-level audit trail from a 2,040-byte
+The distinctive payoff is the byte-level audit trail from a 1,772-byte
 seed to an M2-Planet-compatible compiler whose emitted `.M1` text matches
 the GCC-built reference. Everything below serves that.
 
@@ -41,8 +41,8 @@ What already exists in the tree:
 - **Chapter contracts** — on *every* chapter except the prologue,
   including Chs 29–31 (which v2 called contrived) and all of Parts I–II
   (which no plan version proposed). Sampling them: the Part III ones read
-  well, because each opening states the `110-cc-decl.fth` source split
-  honestly. Whether the Part I/II ones and the 29–31 ones earn their keep
+  well, because each opening names the parser file (`110`–`116`) it
+  reads. Whether the Part I/II ones and the 29–31 ones earn their keep
   is a question for the acceptance test, not for a sweep in either
   direction.
 - **Motif threading** — "same emit, remember, patch from Ch 11" sentences
@@ -148,7 +148,7 @@ Either is fine; mixed stretching is not. This is a small pass over twelve
   matches the failure — a rewritten contract if the artifact was
   misnamed, a source-listing on-ramp if the reader drowned before the
   first section break, consolidation of the 29–31 contracts into one
-  shared "which third of `110-cc-decl.fth` you're in" note if the split
+  shared "which parser file (`110`–`116`) you're in" note if the split
   confused them. Never as a sweep; the sweep already happened.
 
 ## Validation (every edit session)

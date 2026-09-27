@@ -3,12 +3,14 @@
 # Reference: mescc-tools M1 + hex2 on the same inputs.  Forth-asm reads
 # the concatenated stream directly (uniform path).
 #
-# Prereqs:
-#   - tests/cc/stage-a-check.sh has run (produces self-v1-amd64.M1).
-#   - vendor/mescc-tools binaries built.
+# A COMPARISON AGAINST GCC-BUILT REFERENCES (mescc-tools M1/hex2, m2-ref).
+# Runs tests/cc/stage-a-check.sh first, every time, so self-v1-amd64.M1,
+# m2-ref and the GCC-built M1-ref/hex2-ref are all rebuilt — nothing left in
+# $BUILDROOT by an earlier run is reused.
 #
 # This is the load-bearing test: if it passes, forth-asm can drive every
-# bootstrap step above hex0 without GCC in the trust chain.
+# bootstrap step above hex0 without GCC in the trust chain (bootstrap.sh
+# is that chain, without the comparisons).
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -26,19 +28,15 @@ pass() { printf 'asm/m2planet-check: %s\n' "$1"; }
 [ -x seed-forth ] || ./build.sh >/dev/null
 [ -x seed-forth ] || fail "seed-forth build failed"
 
-if [ ! -f "$M1_FILE" ]; then
-    pass "self-v1-amd64.M1 missing, running stage-A to produce it..."
-    tests/cc/stage-a-check.sh >/dev/null
-fi
+# Fresh self-v1-amd64.M1 and m2-ref (stage A), and fresh GCC M1/hex2.
+rm -f "$M1_FILE"
+BUILDROOT=$BUILDROOT tests/cc/stage-a-check.sh >/dev/null || fail "stage-a-check failed"
 [ -f "$M1_FILE" ] || fail "$M1_FILE not produced"
-
-if [ ! -x "$MESCC_DIR/bin/M1" ] || [ ! -x "$MESCC_DIR/bin/hex2" ]; then
-    (cd "$MESCC_DIR" && make >/dev/null 2>&1) || fail "make mescc-tools failed"
-fi
+tests/cc/build-gcc-refs.sh "$BUILDROOT/gcc-ref" >/dev/null || fail "gcc reference build failed"
 
 # --- Reference: mescc-tools M1 then hex2 ---
 pass "building reference via mescc-tools M1 + hex2..."
-"$MESCC_DIR/bin/M1" \
+"$BUILDROOT/gcc-ref/M1-ref" \
     --architecture amd64 --little-endian \
     -f "$M2LIBC/amd64_defs.M1" \
     -f "$M2LIBC/libc-full.M1" \
@@ -46,7 +44,7 @@ pass "building reference via mescc-tools M1 + hex2..."
     -o "$BUILDROOT/m2-via-mescc.hex2" \
     || fail "reference M1 failed"
 
-"$MESCC_DIR/bin/hex2" \
+"$BUILDROOT/gcc-ref/hex2-ref" \
     --architecture amd64 --little-endian \
     --base-address 0x00600000 \
     -f "$M2LIBC/ELF-amd64.hex2" \
@@ -59,8 +57,7 @@ pass "reference: $ref_bytes bytes"
 
 # --- forth-asm: read amd64_defs + ELF prefix + libc + cc-code on stdin ---
 pass "running forth-asm (may take a while on this much input)..."
-strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$'; }
-{ cat 010-lib.fth 130-asm.fth | strip_forth ;
+{ cat 010-lib.fth 130-asm.fth ;
   printf 'asm-main\n' ;
   cat "$M2LIBC/amd64_defs.M1" ;        # DEFINEs (emit nothing)
   cat "$M2LIBC/ELF-amd64.hex2" ;       # ELF prefix, ends at :ELF_text
@@ -68,7 +65,7 @@ strip_forth() { sed -e 's/\\.*$//' -e 's/([^)]*)//g' | grep -v '^[[:space:]]*$';
   cat "$M1_FILE" ;                     # the cc code
 } > "$BUILDROOT/forth-asm-m2-input.txt"
 
-rm -f /tmp/asm-out
+rm -f /tmp/asm-out "$BUILDROOT/m2-via-forth-asm"
 ./seed-forth < "$BUILDROOT/forth-asm-m2-input.txt" \
     || fail "seed-forth exited non-zero"
 [ -f /tmp/asm-out ] || fail "/tmp/asm-out not produced"

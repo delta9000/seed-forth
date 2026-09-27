@@ -2,7 +2,7 @@
 
 [Seed Forth](README.md)
 [Where this fits in the bootstrap ecosystem](where-this-fits.md)
-[Prologue: Two thousand and forty bytes](00-prologue.md)
+[Prologue: Seventeen hundred and seventy-two bytes](00-prologue.md)
 
 # Part I — Forth from the lib up
 
@@ -25,10 +25,10 @@
 - [Stack primitives in machine code](14-stack-primitives.md) — `dup`, `drop`, `swap`, `over`, `>r`, `r>`, `r@`, `@`, `!`
 - [Arithmetic, logic, comparison](15-arithmetic-and-logic.md) — `+`, `nand`, `0=`, `/`, `*`
 - [I/O: `emit`, `key`, `syscall6`](16-io-emit-key-syscall6.md) — three primitives, the only Linux contact in the seed
-- [The dictionary](17-the-dictionary.md) — `find`, `'`, `execute`, header layout, linear-search lookup
+- [The dictionary](17-the-dictionary.md) — `find`, `'`, `execute`, header layout, linear-search lookup, the token reader (comments, `token?` errors)
 - [The colon compiler](18-the-colon-compiler.md) — `:`, `;`, `[lit]`, `lit_code`, subroutine threading
 - [Branches and inline cells](19-branches-and-inline-cells.md) — `branch`, `0branch`, the consumed-slot property
-- [The number parser and REPL](20-number-parser-and-repl.md) — `read_word`, decimal parse, the interpret-vs-compile loop, the bridge to Part III
+- [The number parser and REPL](20-number-parser-and-repl.md) — decimal parse, the interpret-vs-compile loop, the bridge to Part III
 
 # Part III — A C compiler in Forth
 
@@ -37,20 +37,24 @@
 - [The lexer](23-the-lexer.md) — one token at a time in the `tok-*` globals
 - [Types and symbols](24-types-and-symbols.md) — one-word types, parallel-column symbols, struct descriptors
 - [ELF emission and codegen, part 1](25-elf-and-codegen-part-1.md) — write executable bytes: ELF prologue + instruction encoders
-- [Codegen, part 2: calls and locals](26-codegen-part-2.md) — calls, libc shims, string literals, global-address fixups
-- [Expressions, part 1: precedence climbing](27-expressions-part-1.md) — binary expressions through one repeated five-step fold
-- [Expressions, part 2: assignment, postfix, struct access](28-expressions-part-2.md) — primary, unary, postfix, ternary, assignment with lvalue tracking
-- [Declarations: types, structs, locals](29-declarations-types-globals.md) — base types, pointers, arrays, structs, and local variable declarations
+- [Codegen, part 2: calls, shims, and globals](26-codegen-part-2.md) — calls, libc shims, string literals, global-address fixups
+- [Expressions, part 1: the precedence cascade](27-expressions-part-1.md) — binary expressions through one repeated five-step fold
+- [Expressions, part 2: primary, unary, assignment](28-expressions-part-2.md) — primary, unary, postfix, ternary, assignment with lvalue tracking
+- [Declarations: types, structs, locals](29-declarations-types-globals.md) — expectation helpers, scalar/pointer/array locals, struct definitions, function-pointer declarations, struct locals, and `return`
 - [Statements: if, while, for, switch, break, continue, goto](30-statements-if-while-for-return.md) — every C control structure through emit/remember/patch
 - [Functions: parameters, calls, globals, entry stub](31-functions-and-scope.md) — translation units, scopes, file-scope globals, the entry stub at `0x400078`
 - [End to end: main and the bootstrap chain](32-main-and-bootstrap-chain.md) — the Stage-A byte-identity proof closes the chain
+
+# Part IV — The assembler
+
+- [The assembler: M1 and hex2 in Forth](33-the-assembler.md) — `130-asm.fth`, the two-pass M1 expander and hex2 linker that builds `M1` and `hex2` without GCC
 
 # Appendices
 
 - [A — The 32 seed primitives](A1-32-seed-primitives.md) — one-row table per primitive (name, opcode, stack effect, source location)
 - [B — The memory map](A2-memory-map.md) — every address the seed and the compiler reach for
 - [C — Reproducibility: the full hex0 → seed → M2-Planet chain](A3-reproducibility-chain.md) — pinned commits + reproducible-build recipe
-- [D — Three worked exercises, one per Part](A4-worked-exercises.md) — extended walk-throughs that touch source
+- [D — Three worked exercises, one each from Parts I–III](A4-worked-exercises.md) — extended walk-throughs that touch source
 - [E — Further reading](A5-further-reading.md) — JONESFORTH, sectorforth, M2-Planet, Mes, stage0, plus surveys
 - [F — The C subset](A6-c-subset.md) — exactly which C features the compiler handles (and which it deliberately doesn't)
 - [G — Compiler exit codes](A7-error-codes.md) — every `die N` in the compiler, what triggers it, where to look
@@ -59,3 +63,4 @@
 
 - [Glossary](GLOSSARY.md) — quick definitions for every term in the book
 - [Concept index and dependency graph](CONCEPTS.md) — rung map, capability ladder, topic→chapter quick reference, reading orders
+- [Index](WORD-INDEX.md) — every word, primitive, label and key idea, with the section that defines it

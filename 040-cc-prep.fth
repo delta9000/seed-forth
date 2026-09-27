@@ -25,21 +25,26 @@
 \   1. Path verbatim (absolute, or relative to cwd).
 \   2. tests/cc/<path>  — tracked local test fallback.
 \
-\ Depends on 010-lib.fth (open/read/close, digit?/alpha?, bytes-eq, control-flow)
-\ and 030-cc-io.fth (cc-src-buf, cc-src-len).
+\ Input and output: the pass reads the raw source from cc-in-buf and writes
+\ its result straight into cc-src-buf, the buffer the lexer reads (030).
+\
+\ Depends on 010-lib.fth (open/close, digit?, bytes-eq, control-flow),
+\ 020-cc-arena.fth (cc-src-line, cc-die, cc-check-cap) and 030-cc-io.fth
+\ (cc-in-buf, cc-src-buf, cc-src-init, cc-read-all, ident-start?/ident-cont?,
+\ cell[], cc-name-find).
 
 \ ===========================================================================
-\ Output buffer
+\ Output: the lexer's source buffer
 \ ===========================================================================
 
-[lit] 2097152 constant cc-prep-out-cap
-create cc-prep-out-buf  cc-prep-out-cap allot
-variable cc-prep-out-pos
-
-\ cc-prep-emit-byte ( b -- )
+\ cc-prep-emit-byte ( b -- )  Append b to cc-src-buf; die 36 if it is full.
+\ Counts lines as it goes, so a failure during the pass reports the line of
+\ the output it had reached.
 : cc-prep-emit-byte
-  cc-prep-out-buf cc-prep-out-pos @ + c!
-  [lit] 1 cc-prep-out-pos +! ;
+  cc-src-len @ 1+ cc-src-cap [lit] 36 cc-check-cap
+  dup cc-src-buf cc-src-len @ + c!
+  [lit] 1 cc-src-len +!
+  nl = if, [lit] 1 cc-src-line +! then, ;
 
 \ ===========================================================================
 \ Macro table (parallel arrays).  Object-like macros, integer values only.
@@ -51,27 +56,23 @@ create cc-macro-name-len   cc-macro-cap [lit] 8 * allot
 create cc-macro-value      cc-macro-cap [lit] 8 * allot
 variable cc-macro-count
 
-\ Dedicated name pool.  When cc-macro-add is called, the source buffer it
-\ points into is about to be overwritten by cc-prep-copy-back (which copies
-\ the expanded source over cc-src-buf).  So the names are deep-copied here.
+\ Dedicated name pool.  A #define's name may sit in an include-pool slot
+\ (below), which the next #include at the same depth overwrites while the
+\ lexer still needs the macro.  So the names are deep-copied here.
 [lit] 16384 constant cc-macro-name-pool-cap
 create cc-macro-name-pool  cc-macro-name-pool-cap allot
 variable cc-macro-name-pool-pos
 
-: cc-macro-slot  swap [lit] 8 * + ;                ( i base -- addr )
-
 \ cc-macro-name-pool-copy ( src-addr src-len -- dest-addr )
 \ Copy src-len bytes into the name pool, returning their dest address.
-\ Exits status 72 if the pool overflows.
+\ Dies with code 35 if the pool overflows.
 variable cc-mn-src-a
 variable cc-mn-src-u
 variable cc-mn-dst
 : cc-macro-name-pool-copy
   cc-mn-src-u ! cc-mn-src-a !
   cc-macro-name-pool-pos @ cc-mn-src-u @ +
-  cc-macro-name-pool-cap > if,
-    [lit] 72 die
-  then,
+  cc-macro-name-pool-cap [lit] 35 cc-check-cap
   cc-macro-name-pool cc-macro-name-pool-pos @ +    ( dst )
   dup cc-mn-dst !
   begin,
@@ -88,51 +89,27 @@ variable cc-mn-dst
 
 \ cc-macro-add ( name-addr name-len value -- )
 \ Deep-copies the name into the name pool before recording the entry.
+\ Dies with code 34 if the table already holds cc-macro-cap macros.
 : cc-macro-add
+  cc-macro-count @ 1+ cc-macro-cap [lit] 34 cc-check-cap
   cc-macro-count @ >r                              ( a u v ; R: i )
-  r@ cc-macro-value cc-macro-slot !                ( a u )
+  r@ cc-macro-value cell[] !                       ( a u )
   \ Copy name into the pool; replace addr with pool addr.
   over over                                        ( a u a u )
   cc-macro-name-pool-copy                          ( a u pool-addr )
   \ Now we have ( a u pool-addr ).  We need to store pool-addr and u.
-  r@ cc-macro-name-addr cc-macro-slot !            ( a u )
-  r@ cc-macro-name-len  cc-macro-slot !            ( a )
+  r@ cc-macro-name-addr cell[] !                   ( a u )
+  r@ cc-macro-name-len  cell[] !                   ( a )
   drop                                             ( -- )
   [lit] 1 cc-macro-count +!
   r> drop ;
 
-variable cc-macro-find-flag
-variable cc-macro-find-value
-variable cc-macro-find-needle-addr
-variable cc-macro-find-needle-len
-
 \ cc-macro-find-int ( name-addr name-len -- value found? )
-\ Iterates newest→oldest so a later #define wins.
+\ Newest first (cc-name-find), so a later #define wins.
 : cc-macro-find-int
-  cc-macro-find-needle-len  !
-  cc-macro-find-needle-addr !
-  [lit] 0 cc-macro-find-flag  !
-  [lit] 0 cc-macro-find-value !
-  cc-macro-count @ [lit] 1 -                       ( i )
-  begin,
-    dup [lit] 0 >=
-  while,
-    cc-macro-find-flag @ [lit] 0 = if,             \ still searching?
-      dup cc-macro-name-len cc-macro-slot @
-      cc-macro-find-needle-len @ = if,
-        dup cc-macro-name-addr cc-macro-slot @     ( i entry-a )
-        cc-macro-find-needle-addr @ swap           ( i needle entry )
-        cc-macro-find-needle-len @
-        bytes-eq if,
-          dup cc-macro-value cc-macro-slot @ cc-macro-find-value !
-          [lit] 0 0= cc-macro-find-flag !
-        then,
-      then,
-    then,
-    [lit] 1 -
-  repeat,
-  drop
-  cc-macro-find-value @  cc-macro-find-flag @ ;
+  cc-macro-name-addr cc-macro-name-len cc-macro-count @ cc-name-find  ( i )
+  dup 0< if, drop [lit] 0 [lit] 0 exit, then,      \ not found: 0 0
+  cc-macro-value cell[] @ true ;                   ( value -1 )
 
 \ ===========================================================================
 \ Walking-region state.  Globals so recursion just saves/restores.
@@ -161,17 +138,17 @@ variable cc-prep-src-pos
 \ cc-prep-peek2 ( -- c )  The byte one past pos; 0 if that is at/after EOR.
 \ Used to recognise the two-byte comment markers /* and */.
 : cc-prep-peek2
-  cc-prep-src-pos @ [lit] 1 + cc-prep-src-len @ >= if,
+  cc-prep-src-pos @ 1+ cc-prep-src-len @ >= if,
     [lit] 0
   else,
-    cc-prep-src-addr @ cc-prep-src-pos @ + [lit] 1 + c@
+    cc-prep-src-addr @ cc-prep-src-pos @ + 1+ c@
   then, ;
 
 \ cc-prep-skip-blanks ( -- )  Skip spaces and tabs (NOT newlines).
 : cc-prep-skip-blanks
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek dup [lit] 32 = swap [lit] 9 = or  and
+    cc-prep-peek dup bl = swap tab = or  and
   while,
     cc-prep-advance
   repeat, ;
@@ -181,13 +158,13 @@ variable cc-prep-src-pos
 : cc-prep-skip-block-comment-tail
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek [lit] 42 = cc-prep-peek2 [lit] 47 = and 0=  \ not yet "*/"
+    cc-prep-peek [char] * = cc-prep-peek2 [char] / = and 0=  \ not yet "*/"
     and
   while,
     cc-prep-advance
   repeat,
-  cc-prep-peek  [lit] 42 = if, cc-prep-advance then,         \ consume '*'
-  cc-prep-peek  [lit] 47 = if, cc-prep-advance then, ;       \ consume '/'
+  cc-prep-peek  [char] * = if, cc-prep-advance then,         \ consume '*'
+  cc-prep-peek  [char] / = if, cc-prep-advance then, ;       \ consume '/'
 
 \ cc-prep-skip-to-eol ( -- )  Stop at newline (which is left unconsumed) or EOR.
 \ A directive's tokens may be followed by a /* block comment */ that runs past
@@ -197,19 +174,15 @@ variable cc-prep-src-pos
 : cc-prep-skip-to-eol
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek [lit] 10 <> and
+    cc-prep-peek nl <> and
   while,
-    cc-prep-peek [lit] 47 = cc-prep-peek2 [lit] 42 = and if,
+    cc-prep-peek [char] / = cc-prep-peek2 [char] * = and if,
       cc-prep-advance cc-prep-advance                       \ skip '/*'
       cc-prep-skip-block-comment-tail
     else,
       cc-prep-advance
     then,
   repeat, ;
-
-\ Ident classifiers (use 010-lib.fth alpha?/digit?).
-: cc-prep-is-ident-start?  dup alpha?  swap [lit] 95 = or ;
-: cc-prep-is-ident-cont?   dup cc-prep-is-ident-start?  swap digit? or ;
 
 \ ===========================================================================
 \ Include buffer pool (4 slots × 64 KiB).
@@ -233,24 +206,22 @@ variable cc-prep-inc-depth
 create cc-prep-path-buf  cc-prep-path-cap allot
 variable cc-prep-path-out
 
-create cc-prep-tests-prefix
-[lit] 116 c, [lit] 101 c, [lit] 115 c, [lit] 116 c, [lit] 115 c,  \ tests
-[lit]  47 c,                                            \ /
-[lit]  99 c, [lit]  99 c,                               \ cc
-[lit]  47 c,                                            \ /
+create cc-prep-tests-prefix  s, tests/cc/
 
 [lit] 9 constant cc-prep-tests-prefix-len
 
 \ cc-prep-append ( src-addr src-len -- )  Append bytes to cc-prep-path-buf.
+\ Dies with code 33 if they and the closing NUL would not fit.
 : cc-prep-append
+  cc-prep-path-out @ over + 1+ cc-prep-path-cap [lit] 33 cc-check-cap
   begin,
     dup [lit] 0 >
   while,
     over c@
     cc-prep-path-buf cc-prep-path-out @ + c!
     [lit] 1 cc-prep-path-out +!
-    swap [lit] 1 + swap
-    [lit] 1 -
+    swap 1+ swap
+    1-
   repeat,
   drop drop ;
 
@@ -270,60 +241,39 @@ create cc-prep-tests-prefix
 \ Linux O_RDONLY = 0.
 : cc-prep-try-open  [lit] 0 [lit] 0 open ;         ( path-addr -- fd )
 
-variable cc-prep-read-fd
-variable cc-prep-read-dst
-variable cc-prep-read-total
-
-\ cc-prep-read-all ( fd dst-addr -- total )
-: cc-prep-read-all
-  cc-prep-read-dst ! cc-prep-read-fd !
-  [lit] 0 cc-prep-read-total !
-  begin,
-    cc-prep-read-fd @
-    cc-prep-read-dst @ cc-prep-read-total @ +
-    [lit] 4096
-    read
-    dup [lit] 0 >
-  while,
-    cc-prep-read-total +!
-  repeat,
-  drop
-  cc-prep-read-total @ ;
-
 variable cc-prep-load-name-a
 variable cc-prep-load-name-u
 
 \ cc-prep-load-file ( path-a path-u -- buf-a buf-u )
 \ Opens the file (tries literal path, then tests/cc/<path>), reads it
-\ into the include-pool slot for the current depth.  Exits status 70 if
-\ neither path opens or include depth exceeds the pool.
+\ into the include-pool slot for the current depth.  Dies with code 31 if
+\ the include depth exceeds the pool, 30 if neither path opens, and 32 if
+\ the file does not fit in its slot.
 : cc-prep-load-file
   cc-prep-load-name-u ! cc-prep-load-name-a !
 
-  cc-prep-inc-depth @ cc-prep-inc-slot-count >= if,
-    [lit] 71 die
-  then,
+  cc-prep-inc-depth @ 1+ cc-prep-inc-slot-count [lit] 31 cc-check-cap
 
   \ Try literal path: prefix = "" (a=0,u=0).
   [lit] 0 [lit] 0
   cc-prep-load-name-a @ cc-prep-load-name-u @
   cc-prep-build-path
   cc-prep-path-buf cc-prep-try-open                ( fd )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop
     cc-prep-tests-prefix cc-prep-tests-prefix-len
     cc-prep-load-name-a @ cc-prep-load-name-u @
     cc-prep-build-path
     cc-prep-path-buf cc-prep-try-open
-    dup [lit] 0 < if,
+    dup 0< if,
       drop
-      [lit] 70 die
+      [lit] 30 cc-die
     then,
   then,
   \ fd is on TOS.  Load into the slot for the current depth.
   >r                                               ( ; R: fd )
   cc-prep-inc-depth @ cc-prep-inc-slot-addr        ( buf-a )
-  dup r@ swap cc-prep-read-all                     ( buf-a total )
+  r@ over cc-prep-inc-slot-cap [lit] 32 cc-read-all  ( buf-a total )
   r> close drop ;
 
 \ ===========================================================================
@@ -340,7 +290,7 @@ variable cc-prep-ident-len
   cc-prep-src-pos @                                ( start )
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek cc-prep-is-ident-cont? and
+    cc-prep-peek ident-cont? and
   while,
     cc-prep-advance
   repeat,
@@ -358,19 +308,19 @@ variable cc-prep-dec-seen
     cc-prep-peek digit? and
   while,
     cc-prep-dec-acc @ [lit] 10 *
-    cc-prep-peek [lit] 48 - +
+    cc-prep-peek [char] 0 - +
     cc-prep-dec-acc !
-    [lit] 0 0= cc-prep-dec-seen !
+    true cc-prep-dec-seen !
     cc-prep-advance
   repeat,
   cc-prep-dec-acc @ cc-prep-dec-seen @ ;
 
 \ ===========================================================================
-\ Directive dispatch.  Vector for recursion (#include -> process-region).
+\ Directive dispatch.  #include recurses into cc-prep-process-region, which
+\ is defined below, so it calls it through a deferred word (010-lib.fth).
 \ ===========================================================================
 
-variable cc-prep-process-vec
-: cc-prep-process-region-tramp  cc-prep-process-vec @ execute ;
+defer cc-prep-process-region-fwd
 
 \ State save / restore for recursive descent.
 \ Arrays indexed by cc-prep-inc-depth (parallel to the include-pool slots),
@@ -382,7 +332,7 @@ create cc-prep-save-pos   cc-prep-save-count [lit] 8 * allot
 
 \ cc-prep-save-slot ( arr -- addr )  Compute the save-slot address for the
 \ current include depth.  Arrays are indexed by cc-prep-inc-depth.
-: cc-prep-save-slot  cc-prep-inc-depth @ [lit] 8 * + ;
+: cc-prep-save-slot  cc-prep-inc-depth @ swap cell[] ;
 
 \ cc-prep-handle-include
 \ Pre: pos points just past "include".  Skip blanks, read "..." or <...>,
@@ -393,10 +343,10 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
 : cc-prep-handle-include
   cc-prep-skip-blanks
   [lit] 0 cc-prep-inc-mode !
-  cc-prep-peek [lit] 34 = if,
+  cc-prep-peek [char] " = if,
     [lit] 1 cc-prep-inc-mode !
   else,
-    cc-prep-peek [lit] 60 = if,
+    cc-prep-peek [char] < = if,
       [lit] 2 cc-prep-inc-mode !
     then,
   then,
@@ -408,13 +358,13 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
     cc-prep-src-pos @                              ( path-a start )
     begin,
       cc-prep-eor? 0=
-      cc-prep-peek [lit] 34 <> and
-      cc-prep-peek [lit] 10 <> and
+      cc-prep-peek [char] " <> and
+      cc-prep-peek nl <> and
     while,
       cc-prep-advance
     repeat,
     cc-prep-src-pos @ swap -                       ( path-a len )
-    cc-prep-peek [lit] 34 = if, cc-prep-advance then,
+    cc-prep-peek [char] " = if, cc-prep-advance then,
     \ ( path-a len ) — load file, then recurse.
     cc-prep-load-file                              ( buf-a buf-u )
     \ Save current region state at depth slot BEFORE bumping.
@@ -427,7 +377,7 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
     cc-prep-src-len !                              ( buf-a )
     cc-prep-src-addr !
     [lit] 0 cc-prep-src-pos !
-    cc-prep-process-region-tramp
+    cc-prep-process-region-fwd
     \ Restore outer region (depth has been decremented by now).
     [lit] 1 cc-prep-inc-depth -!
     cc-prep-save-addr cc-prep-save-slot @ cc-prep-src-addr !
@@ -439,12 +389,12 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
       cc-prep-advance
       begin,
         cc-prep-eor? 0=
-        cc-prep-peek [lit] 62 <> and
-        cc-prep-peek [lit] 10 <> and
+        cc-prep-peek [char] > <> and
+        cc-prep-peek nl <> and
       while,
         cc-prep-advance
       repeat,
-      cc-prep-peek [lit] 62 = if, cc-prep-advance then,
+      cc-prep-peek [char] > = if, cc-prep-advance then,
     then,
   then,
   cc-prep-skip-to-eol ;
@@ -458,7 +408,7 @@ variable cc-prep-def-state
 : cc-prep-handle-define
   [lit] 0 cc-prep-def-state !
   cc-prep-skip-blanks
-  cc-prep-peek cc-prep-is-ident-start? if,
+  cc-prep-peek ident-start? if,
     cc-prep-read-ident
     cc-prep-skip-blanks
     cc-prep-peek digit? if,
@@ -470,13 +420,13 @@ variable cc-prep-def-state
         drop
       then,
     else,
-      cc-prep-peek cc-prep-is-ident-start? if,
+      cc-prep-peek ident-start? if,
         \ ident-valued: resolve through existing table.
         cc-prep-src-addr @ cc-prep-src-pos @ +     ( val-a )
         cc-prep-src-pos @                          ( val-a start )
         begin,
           cc-prep-eor? 0=
-          cc-prep-peek cc-prep-is-ident-cont? and
+          cc-prep-peek ident-cont? and
         while,
           cc-prep-advance
         repeat,
@@ -499,41 +449,27 @@ variable cc-prep-def-state
 \ Unknown directives are elided.  Always advances to end-of-line.
 \ ===========================================================================
 
-create cc-prep-name-include
-[lit] 105 c, [lit] 110 c, [lit]  99 c, [lit] 108 c,    \ incl
-[lit] 117 c, [lit] 100 c, [lit] 101 c,                  \ ude
-
-create cc-prep-name-define
-[lit] 100 c, [lit] 101 c, [lit] 102 c, [lit] 105 c,    \ defi
-[lit] 110 c, [lit] 101 c,                               \ ne
-
-variable cc-prep-dir-matched
+create cc-prep-name-include  s, include
+create cc-prep-name-define   s, define
 
 : cc-prep-handle-directive
   cc-prep-skip-blanks                              \ leading indent before '#'
   cc-prep-advance                                  \ consume '#'
   cc-prep-skip-blanks
-  [lit] 0 cc-prep-dir-matched !
-  cc-prep-peek cc-prep-is-ident-start? if,
+  cc-prep-peek ident-start? if,
     cc-prep-read-ident
     cc-prep-ident-len @ [lit] 7 = if,
       cc-prep-ident-addr @ cc-prep-name-include [lit] 7 bytes-eq if,
-        cc-prep-handle-include
-        [lit] 0 0= cc-prep-dir-matched !
+        cc-prep-handle-include exit,
       then,
     then,
-    cc-prep-dir-matched @ [lit] 0 = if,
-      cc-prep-ident-len @ [lit] 6 = if,
-        cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
-          cc-prep-handle-define
-          [lit] 0 0= cc-prep-dir-matched !
-        then,
+    cc-prep-ident-len @ [lit] 6 = if,
+      cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
+        cc-prep-handle-define exit,
       then,
     then,
   then,
-  cc-prep-dir-matched @ [lit] 0 = if,
-    cc-prep-skip-to-eol
-  then, ;
+  cc-prep-skip-to-eol ;                            \ unknown directive: elide it
 
 \ ===========================================================================
 \ cc-prep-line-is-directive?  ( -- f )
@@ -546,30 +482,37 @@ variable cc-prep-isd-save-pos
 : cc-prep-line-is-directive?
   cc-prep-src-pos @ cc-prep-isd-save-pos !
   cc-prep-skip-blanks
-  cc-prep-peek [lit] 35 = >r                       \ '#' = 35
+  cc-prep-peek [char] # = >r
   cc-prep-isd-save-pos @ cc-prep-src-pos !
   r> ;
 
 \ ===========================================================================
 \ cc-prep-process-region  ( -- )
-\ Main walker.  Emits bytes to cc-prep-out-buf, dispatching directives at
+\ Main walker.  Emits bytes to cc-src-buf, dispatching directives at
 \ line start.  Recursion happens via cc-prep-handle-include.
 \ ===========================================================================
 
 variable cc-prep-at-line-start
 
+\ cc-prep-at-directive? ( -- f )  -1 iff pos is at a line start and the line
+\ is a directive.  Looks ahead only at a line start, so a long line of
+\ blanks is scanned once, not once per byte.
+: cc-prep-at-directive?
+  cc-prep-at-line-start @ 0= if, [lit] 0 exit, then,
+  cc-prep-line-is-directive? ;
+
 : cc-prep-process-region
-  [lit] 0 0= cc-prep-at-line-start !               \ -1 = at start
+  true cc-prep-at-line-start !                     \ -1 = at start
   begin,
     cc-prep-eor? 0=
   while,
-    cc-prep-at-line-start @  cc-prep-line-is-directive?  and if,
+    cc-prep-at-directive? if,
       cc-prep-handle-directive
-      [lit] 0 0= cc-prep-at-line-start !
+      true cc-prep-at-line-start !
     else,
       cc-prep-peek dup cc-prep-emit-byte
-      [lit] 10 = if,
-        [lit] 0 0= cc-prep-at-line-start !
+      nl = if,
+        true cc-prep-at-line-start !
       else,
         [lit] 0 cc-prep-at-line-start !
       then,
@@ -577,31 +520,7 @@ variable cc-prep-at-line-start
     then,
   repeat, ;
 
-' cc-prep-process-region cc-prep-process-vec !
-
-\ ===========================================================================
-\ cc-preprocess  ( -- )
-\ Top-level driver.  Walks cc-src-buf, writes to cc-prep-out-buf, then
-\ copies back into cc-src-buf.  Resets cc-src-pos / cc-src-line so the
-\ lexer rewinds.
-\ ===========================================================================
-
-\ cc-prep-copy-back ( -- )  Copy cc-prep-out-buf[0..pos] -> cc-src-buf[0..].
-variable cc-prep-cb-n
-variable cc-prep-cb-i
-: cc-prep-copy-back
-  cc-prep-out-pos @
-  dup cc-src-cap > if, drop cc-src-cap then,       ( n )
-  dup cc-src-len !
-  cc-prep-cb-n !
-  [lit] 0 cc-prep-cb-i !
-  begin,
-    cc-prep-cb-i @ cc-prep-cb-n @ <
-  while,
-    cc-prep-out-buf cc-prep-cb-i @ + c@            ( byte )
-    cc-src-buf cc-prep-cb-i @ + c!
-    [lit] 1 cc-prep-cb-i +!
-  repeat, ;
+' cc-prep-process-region is cc-prep-process-region-fwd
 
 \ ===========================================================================
 \ Built-in macro constants — pre-populate the macro table with the small set
@@ -610,53 +529,38 @@ variable cc-prep-cb-i
 \ cc-macro-find-int path during lexing.
 \ ===========================================================================
 
-create cc-builtin-name-NULL
-[lit]  78 c, [lit]  85 c, [lit]  76 c, [lit]  76 c,    \ NULL
-
-create cc-builtin-name-EOF
-[lit]  69 c, [lit]  79 c, [lit]  70 c,                 \ EOF
-
-create cc-builtin-name-EXIT_SUCCESS
-[lit]  69 c, [lit]  88 c, [lit]  73 c, [lit]  84 c,    \ EXIT
-[lit]  95 c, [lit]  83 c, [lit]  85 c, [lit]  67 c,    \ _SUC
-[lit]  67 c, [lit]  69 c, [lit]  83 c, [lit]  83 c,    \ CESS
-
-create cc-builtin-name-EXIT_FAILURE
-[lit]  69 c, [lit]  88 c, [lit]  73 c, [lit]  84 c,    \ EXIT
-[lit]  95 c, [lit]  70 c, [lit]  65 c, [lit]  73 c,    \ _FAI
-[lit]  76 c, [lit]  85 c, [lit]  82 c, [lit]  69 c,    \ LURE
-
-create cc-builtin-name-stdin
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 105 c,    \ stdi
-[lit] 110 c,                                            \ n
-
-create cc-builtin-name-stdout
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 111 c,    \ stdo
-[lit] 117 c, [lit] 116 c,                               \ ut
-
-create cc-builtin-name-stderr
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 101 c,    \ stde
-[lit] 114 c, [lit] 114 c,                               \ rr
+create cc-builtin-name-NULL          s, NULL
+create cc-builtin-name-EOF           s, EOF
+create cc-builtin-name-EXIT_SUCCESS  s, EXIT_SUCCESS
+create cc-builtin-name-EXIT_FAILURE  s, EXIT_FAILURE
+create cc-builtin-name-stdin         s, stdin
+create cc-builtin-name-stdout        s, stdout
+create cc-builtin-name-stderr        s, stderr
 
 : cc-prep-builtins
   cc-builtin-name-NULL          [lit]  4 [lit]  0 cc-macro-add
-  cc-builtin-name-EOF           [lit]  3 [lit]  0 0= cc-macro-add
+  cc-builtin-name-EOF           [lit]  3 true      cc-macro-add   \ EOF = -1
   cc-builtin-name-EXIT_SUCCESS  [lit] 12 [lit]  0 cc-macro-add
   cc-builtin-name-EXIT_FAILURE  [lit] 12 [lit]  1 cc-macro-add
   cc-builtin-name-stdin         [lit]  5 [lit]  0 cc-macro-add
   cc-builtin-name-stdout        [lit]  6 [lit]  1 cc-macro-add
   cc-builtin-name-stderr        [lit]  6 [lit]  2 cc-macro-add ;
 
+\ ===========================================================================
+\ cc-preprocess  ( -- )
+\ Top-level driver.  Walks cc-in-buf and writes the result into cc-src-buf,
+\ then rewinds the reader (cc-src-pos 0, cc-src-line 1) for the lexer.
+\ ===========================================================================
+
 : cc-preprocess
-  [lit] 0 cc-prep-out-pos !
+  cc-src-init
   [lit] 0 cc-macro-count !
   [lit] 0 cc-macro-name-pool-pos !
   [lit] 0 cc-prep-inc-depth !
   cc-prep-builtins
-  cc-src-buf cc-prep-src-addr !
-  cc-src-len @ cc-prep-src-len !
+  cc-in-buf cc-prep-src-addr !
+  cc-in-len @ cc-prep-src-len !
   [lit] 0 cc-prep-src-pos !
   cc-prep-process-region
-  cc-prep-copy-back
   [lit] 0 cc-src-pos !
   [lit] 1 cc-src-line ! ;

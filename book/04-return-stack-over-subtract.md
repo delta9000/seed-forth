@@ -3,38 +3,23 @@
 ```text
 Missing capability: nowhere safe to stash a temporary across nested calls.
 New pattern: a second rsp-based stack with >r, r>, r@; subtraction built from nand.
-Artifact after this chapter: temporary storage with stack discipline, plus the - primitive.
+Artifact after this chapter: temporary storage with stack discipline, plus - derived from + and nand.
 Proof link: Ch 7 builds every comparison on -; Ch 27's parser threads its operator byte through the return stack.
 ```
 
-Two definitions in `010-lib.fth` (lines 31–38), `over` and `-`,
-introduce the seed's *second* stack and show how two's complement
-turns subtraction into addition plus `nand`.  `over` borrows a
-return-stack slot as a scratch parking space for `dup`-of-the-second;
-`-` doesn't touch the return stack but earns its place alongside
-`over` by making the same trade, paying a few extra tokens at the
-call site so the seed can keep one fewer primitive.  Open
-`010-lib.fth` to those eight lines and read along; the chapter
-spends most of its time on the return-stack sidebar (`>r`, `r>`,
-`r@` and the matched-pair rule) because every later trick in the
-book reaches for it.
+Two everyday operations are still impossible.  The seed can add but
+not subtract: there is `+` and no `-`.  And it cannot copy the value
+*under* the top of the stack, because `dup` only ever sees the top.
+With `a b` on the stack, no sequence of `dup`, `drop`, and `swap`
+ever produces `a b a`.
 
-By the end of the chapter you'll be able to explain why Forth uses
-two stacks and what each is for, read and write `>r` / `r>` / `r@`
-idioms, derive subtraction from `+` and `nand` (and predict its
-bit-by-bit behaviour for negative inputs), and know exactly what
-`over` does mechanically rather than only symbolically.  The seed's
-`>r` / `r>` machine code is Part II, Ch 14; the full call/return
-story (how `:` and `;` themselves use the return stack) is Ch 18;
-and multi-step return-stack juggling, preserving a value across a
-long expression, is Ch 8's `rot` and later compiler-internal uses.
-
----
-
-Ch 1 introduced one stack — the data stack — and a handful of
-primitives that push, pop, and shuffle values on it.  This chapter
-introduces the *other* stack the seed maintains, the one most users
-never directly touch, and shows the two definitions that lean on it.
+The next definitions in `010-lib.fth` (lines 34–45) close both
+gaps without a new primitive.  `over` parks `b` somewhere else for a
+moment, and the seed has exactly one somewhere else: the return
+stack.  `-` borrows two's complement and Ch 3's `dup nand`.  Ch 1
+previewed both words; this chapter gives the reasons behind them,
+and the return-stack rules that every later chapter relies on.  The seed's `>r`/`r>` machine code is Ch 14, and how `:` and
+`;` themselves use the return stack is Ch 18.
 
 ## 1. Why two stacks at all?
 
@@ -49,13 +34,12 @@ free-form scratch area.  Every time you call a subroutine, a return
 address slides under your data; every time you return, it slides
 back out.  Reach below the top with `pick` or `swap`-of-`swap`-of-…
 and you have to know how deep the current call chain is.  Forth
-solves this by giving call/return its own stack — the **return
-stack** — and leaving the **data stack** entirely to the user.  The
+solves this by giving call/return its own stack, the **return
+stack**, and leaving the **data stack** entirely to the user.  The
 two grow independently, in separate regions of memory, with separate
 primitives.
 
-The split has a second benefit, which is the one we use in this
-chapter.  Because the return stack is right there and the primitives
+The split has a second benefit.  Because the return stack is right there and the primitives
 to access it are cheap, a colon definition can *borrow* a slot or
 two for temporary storage.  As long as every push (`>r`) is matched
 by a pop (`r>`) before the colon definition ends, the call/return
@@ -83,8 +67,8 @@ There is one rule that turns this from a footgun into a tool: **every
 `>r` must be matched by a balancing `r>` within the same colon
 definition.**  If you push to the return stack and never pop, the
 next `;` will pop your value as if it were a return address and jump
-to it — which, since your value is almost certainly not a valid
-return address, will crash the VM.  Treat `>r … r>` like a bracket:
+to it.  Your value is almost certainly not a valid return address,
+so the VM crashes.  Treat `>r … r>` like a bracket:
 they nest, and they balance.
 
 ## 3. `over` via the return stack
@@ -109,36 +93,30 @@ Trace it on `( a b -- )`:
 | `swap` | `a b a`    |              | put the new copy where it belongs  |
 
 The trick is in the first move.  Without `>r`, the value on top is
-`b`, and `dup` would copy `b` — not what we want.  Parking `b`
+`b`, and `dup` would copy `b`, which is not what we want.  Parking `b`
 exposes `a`, `dup` does its job, and `r>` reunites the original `b`
 with its copy of `a` so a final `swap` can order them.  The return
 stack is untouched at the end (`b` went on with `>r` and came off
 with `r>`), so the discipline holds.
 
-If `over` were a primitive, it would cost zero extra tokens at the
-call site.  As a derived word, every `over` is four tokens plus a
-call.  But every primitive costs a slot in the dictionary and 20–30
-bytes of machine code, and the seed is on a 2,040-byte budget.  Four
-tokens per `over` is the cheaper bill.
+The call site doesn't care which way `over` is built: either way,
+each use compiles to one 5-byte `CALL`.  The difference is paid
+elsewhere.  The derived body is four `CALL`s and a `RET` (21 bytes)
+in `010-lib.fth`, and at runtime every `over` executes four nested
+calls where a primitive would run a few instructions.  A primitive
+instead costs a slot in the dictionary and 20–30 bytes of machine
+code in the seed, and the seed is on a 1,772-byte budget.  Some
+extra cycles per `over` is the cheaper bill.
 
 ## 4. `-` from `+` and `nand`
 
-The seed also doesn't have subtraction as a primitive.  This is
-defensible because two's complement makes subtraction a thin glaze
-on top of addition.  Two's complement is the convention modern CPUs
-use to represent signed integers: the negative of a value `b` is
-defined as `~b + 1`, where `~b` is the bitwise complement.  The
-neat property is that the same `ADD` instruction works for signed
-and unsigned arithmetic — once you've produced the two's-complement
-negation, you just add.
+Now the second gap: how do you subtract with only `+`?  Add the
+negation.  Two's complement, the convention modern CPUs use for
+signed integers, defines the negative of `b` as `~b + 1`, where `~b`
+is the bitwise complement, and the same `ADD` works for signed and
+unsigned values.  So subtraction needs only a way to flip bits.
 
-```
-   (V) (V)
-   ( o.o )   "subtraction made from add and bitwise-NAND.
-   /\/\/\     a primitive slot saved by walking sideways."
-```
-
-From Ch 3 we already know that `dup nand` is the same as `~`.  So
+Ch 3 already supplied one: `dup nand` is `~`.  So
 to negate `b`, compute `b nand b` (which gives `~b`), then add 1.
 To subtract `b` from `a`, add the negated `b` to `a`.  In Forth:
 
@@ -159,7 +137,7 @@ Trace it on `( 10 3 -- )`:
 
 End state: `7`.  ✓
 
-Now trace `( 3 10 -- )` — the underflow case:
+Now trace `( 3 10 -- )`, the underflow case:
 
 | token       | stack          |
 |-------------|----------------|
@@ -173,30 +151,35 @@ Now trace `( 3 10 -- )` — the underflow case:
 End state: `-7`.  In an unsigned reading of the bytes that's `2^64 -
 7`, which is `0xFFFFFFFFFFFFFFF9`.  In a signed reading it's `-7`.
 The bit pattern is identical; how you read it depends on whether
-you care about sign.  Forth doesn't, mostly — the operators are
+you care about sign.  Forth mostly doesn't: the operators are
 agnostic, and the same `+` and `-` work for both interpretations.
 
 ## 5. Why subtraction isn't a primitive
 
-The trade is the same one Ch 3 spelled out for `nand`.  A primitive
-costs a dictionary header (around 18 bytes for a short name) and a
-machine-code body (15–30 bytes for a one-instruction primitive),
-which is 30–50 bytes total.  A derived definition costs only the
-dictionary header plus the compiled token sequence — and the tokens
-are mostly already-paid-for calls to other primitives.
+This is Ch 3's trade again, with the same arithmetic as `over` in §3.  A primitive costs a dictionary header
+(around 18 bytes for a short name) and a machine-code body (15–30
+bytes for a one-instruction primitive), which is 30–50 bytes total.
+A derived definition costs a header plus a sequence of calls to
+primitives that are already paid for.
 
-For `-`, the derived definition is five tokens: `dup`, `nand`,
-`[lit]`, `1`, `+`, `+`.  Each call site pays a few extra bytes
-relative to a hypothetical `SUB` primitive.  But there are only a
-few dozen subtractions in the whole seed.  Saving the primitive
-slot saves more bytes than the extra call-site overhead costs.
+For `-`, the derived definition is six tokens: `dup`, `nand`,
+`[lit]`, `1`, `+`, `+`.  Call sites cost nothing extra: each `-` is
+one 5-byte `CALL`, exactly what a hypothetical `SUB` primitive would
+compile to.  The price is runtime: every `-` executes five nested
+calls (one of them to `lit` for the inline `1`) instead of one `sub`
+instruction.
 
-The book will keep meeting this pattern.  Comparisons (Ch 7) are
-derived from `-` and a sign trick.  Division (Ch 7) is the only
-"big" arithmetic primitive in the seed, because it would be too
-expensive to derive.  Each choice asks the same question: would a
-primitive save more bytes than the call-site overhead it eliminates?
-If yes, primitivise; if no, derive.
+Division `/` and multiplication `*` go the other way.  They are the
+seed's only "big" arithmetic primitives, because deriving them would
+cost more than the bytes they take.  And `-` will not stay a
+convenience: Ch 7 builds every comparison on it.
+
+Two more one-liners follow `-`: `1+` and `1-`, which add and
+subtract one.  They shrink a call site from 18 bytes (`[lit] 1 +`
+is a 13-byte literal and a 5-byte CALL) to 5, but that is not why
+they exist.
+Stepping a pointer, a counter or a length by one is the commonest
+arithmetic in the C compiler, and `1+` says it in one token.
 
 ## Canonical source
 
@@ -208,6 +191,11 @@ If yes, primitivise; if no, derive.
 \ - ( a b -- a-b )  subtract via 2's complement (we have + and nand).
 \ Used by classifier helpers and the local rel32 CALL encoder below.
 : -  dup nand [lit] 1 + + ;
+
+\ 1+ ( n -- n+1 )   1- ( n -- n-1 )  Step by one: the commonest arithmetic
+\ in the C compiler (pointers, counters, lengths), so it gets a name.
+: 1+  [lit] 1 + ;
+: 1-  [lit] 1 - ;
 
 ```
 
@@ -239,43 +227,54 @@ The bracketed count `<3>` is gforth's depth indicator.
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo '[lit] 1 [lit] 2 over [lit] 48 + emit [lit] 48 + emit [lit] 48 + emit'
   echo '[lit] 10 [lit] 3 - [lit] 48 + emit'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 The first test prints `121`: `over` turns `( 1 2 )` into `( 1 2 1 )`,
 and `+ 48 emit` on each value prints its ASCII digit.  The second
-test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.
+test prints `7`: `10 - 3 == 7`, plus 48 gives ASCII `7`.  Both words
+you just ran were impossible with the seed alone; each is one line
+of Forth.
 
 ## Exercises
 
 1. **★★★ Extend.** Derive `tuck ( a b -- b a b )` two ways: once via `swap over`,
-   once via `>r dup r> swap`-style primitives.  Show that both
-   produce identical bytes when compiled (you'll need a built
-   seed-forth for the byte comparison; gforth optimises).
+   once inlining `over`'s primitives (`swap >r dup r> swap`).  Both
+   leave the same stack, but they compile to different bytes: count
+   the `CALL`s in each body, and the calls each one executes at
+   runtime.  (You'll need a built seed-forth to inspect the bytes;
+   gforth optimises.)
 
 2. **★★ Trace.** Trace `0 [lit] 1 -` on paper.  What does the data stack hold?
    What is the bit pattern (in hex)?  Why does that bit pattern
    represent `-1` in two's complement?
 
-3. **★ Trace.** Why does `-` have an extra `+` at the end (two `+`s total)?
-   Walk the stack again and identify what each `+` consumes.
+3. **★ Trace.** Trace `-` on `( 0 0 -- )` and on `( 5 5 -- )`
+   row by row, as in §4.  At which step does an addition carry out
+   of bit 63, and why is it safe for `+` to drop that carry?
 
 4. **★★ Extend.** Write `negate ( n -- -n )` using only `nand`, `[lit]`, and `+`.
    How many tokens?  Compare to `0 swap -`.
 
 ## Takeaways
 
-- The return stack is a second LIFO that exists primarily for
-  call/return.  User code may borrow it via `>r`/`r>` provided
-  every push is matched by a pop *within the same word*.
-- `over` is not a primitive in this seed; it is built from four
-  other primitives in five tokens.
-- Subtraction is not a primitive either; it is built from `+` and
-  `nand` in five tokens.  Both choices reflect the seed authors'
-  preference for fewer primitive slots at the cost of slightly
-  longer derived definitions.
+- The return stack exists for call/return, and a word may borrow it
+  with `>r`/`r>` as long as every push is matched by a pop within
+  the same word.
+- `over` is not a primitive; it parks `b` on the return stack so
+  `dup` can reach `a`, in four tokens.
+- Subtraction is `+` of the two's-complement negation `(b nand b) + 1`,
+  which saves a primitive slot at the cost of five nested calls per
+  use.
 
-Next: Chapter 5 — Talking to Linux: `syscall6` Wrappers.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+**`over` and subtraction**.  Still missing: files and exit, `<`,
+`if,`, `variable`.
+
+Next: Chapter 5 — Talking to Linux: `syscall6` Wrappers.  Everything
+so far happens inside the process, but a compiler has to read a file
+and write one.  The seed's only door to the kernel is `syscall6`, a
+primitive that takes seven arguments at once.

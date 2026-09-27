@@ -2,66 +2,43 @@
 
 ```text
 Missing capability: the parser cannot ask for C-shaped units of source.
-New pattern: one token at a time lives in tok-* globals with compact kind and punctuation IDs.
+New pattern: one token at a time lives in tok-* cells with compact kind and punctuation IDs.
 Artifact after this chapter: the cc-next-token interface over idents, numbers, strings, chars, kws, and punct.
 Proof link: every later Stage-A parser consumes this token stream instead of raw source bytes.
 ```
 
-The artifact here is the parser's only view of source: the
-`cc-next-token` interface.  `050-cc-lex.fth` (642 lines, entire file)
-turns bytes into tokens through that single entry point, populating
-five globals (`tok-kind`, `tok-num`, `tok-str-addr`, `tok-str-len`,
-`tok-kw-id`).  The seven `tk-*` kinds (`eof`, `ident`, `num`, `str`,
-`chr`, `punct`, `kw`) cover everything the parser will see; the 22
-multi-character `pt-*` punctuation IDs are numbered from 256 so they
-don't collide with the single-byte ASCII codes that the lexer reuses
-verbatim for one-char punct.  The keyword table is a flat
-`[len][bytes][len][bytes]...[0]` byte array walked by
-`cc-check-keyword`.  Lookahead is handled by `cc-peek-char-2`, used
-for `0x`, `==`, `<=`, `<<=`, `//`, and `/*`; comment skipping
-threads a "still scanning?" flag on the data stack because the seed
-has no `exit`.
+After Ch 22, `tri.c` is 470 bytes of characters, but a parser does
+not want characters.  At line 12 it should not have to see `i`, `n`,
+`t`, a space, `w`, `[`, `R`, `O`, `W`, `S`.  It wants to ask "what's
+next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
+"the number 4".  The 614-line file `050-cc-lex.fth` answers that
+question through a single word, `cc-next-token`.
 
-By the end of the chapter you'll be able to enumerate the token
-kinds and punctuation IDs, read the keyword walk, trace a single
-byte from `cc-peek-char` through whitespace and comment skipping
-into one of `cc-lex-number`, `cc-lex-ident-or-kw`, `cc-lex-string`,
-`cc-lex-char`, or `cc-lex-punct`, and explain why a non-keyword
-identifier may end the call as a `tk-num` (the `cc-macro-find-int`
-hook from Ch 22 fires here).  How the parser consumes
-`cc-next-token` is Chs 27–31; the string pool is Ch 26 (the lexer
-just records `(addr, len)` into `cc-src-buf`, with escape decoding
-deferred to codegen).
-
----
-
-The lexer turns bytes into tokens.  Every later pass — types,
-symbols, expressions, declarations, statements — sees the source
-*only* through the `tok-*` globals this file populates.  When the
-parser asks "what's the next thing?", it calls `cc-next-token`,
-reads `tok-kind`, and dispatches.
-
-That's the whole interface: one entry point, one `tok-kind`, plus
-four supporting variables.  No token list, no streaming consumer.
-The parser pulls one token at a time, drives its own grammar with
-that token, then asks for the next.
-
-```
-       __
-   __( o)>   "hand-rolled lexer.  no regex, no flex.  read it twice."
-   \___/
-```
+Every later pass (types, symbols, expressions, declarations,
+statements) sees the source only through five cells this file fills:
+`tok-kind`, `tok-num`, `tok-str-addr`, `tok-str-len` and `tok-kw-id`,
+part of the lexer-state block Ch 21 set up.  There is no token list and no streaming consumer.  The
+parser calls `cc-next-token`, reads `tok-kind`, drives its grammar
+with that one token, then asks for the next.  The lexer is hand-rolled
+(no regex, no flex), and this is also where Ch 22's macros are
+substituted: a non-keyword identifier found in the macro table leaves
+as a number.
 
 ## 1. Token kinds and punctuation IDs
+
+The file opens by naming everything a token can be:
 
 ```forth file=050-cc-lex.fth
 \ 050-cc-lex.fth — C tokenizer (one-token lookahead) for the C-subset compiler.
 \ Reads bytes from cc-src-buf via cc-peek-char/cc-next-char/cc-eof? (030-cc-io.fth).
-\ Stores the current token in 5 globals: tok-kind, tok-num, tok-str-addr,
-\ tok-str-len, tok-kw-id.  Caller drives the lexer via cc-next-token.
+\ Stores the current token in 5 cells of the lexer's state block
+\ (020-cc-arena.fth): tok-kind, tok-num, tok-str-addr, tok-str-len, tok-kw-id.
+\ The parser drives the lexer through the interface at the end of this file:
+\ cc-next-token-keep / cc-putback-token, and cc-lex-mark / cc-lex-reset.
 \
 \ Depends on 010-lib.fth (control-flow combinators, classifiers, bytes-eq, etc.),
-\ 030-cc-io.fth (cc-src-buf, cc-peek-char, cc-next-char, cc-eof?), and
+\ 020-cc-arena.fth (cc-lex-state and its cells), 030-cc-io.fth (cc-src-buf,
+\ cc-peek-char, cc-next-char, cc-eof?, ident-start?, ident-cont?), and
 \ 040-cc-prep.fth (cc-macro-find-int for macro substitution).
 
 \ ===========================================================================
@@ -101,37 +78,32 @@ that token, then asks for the next.
 [lit] 276 constant pt-shr-eq        \ >>=
 [lit] 277 constant pt-ellipsis      \ ...
 
-variable tok-kind
-variable tok-num
-variable tok-str-addr
-variable tok-str-len
-variable tok-kw-id
-
 ```
 
-Seven token kinds.  Twenty-two multi-char punctuation IDs.
-Thirty C keywords.  Everything else lives on top of these
+Seven token kinds (`eof`, `ident`, `num`, `str`, `chr`, `punct`,
+`kw`) and twenty-two multi-character punctuation IDs; the thirty C
+keywords follow in §2.  Everything else in the file builds on these
 constants.
 
-The choice to put `pt-*` codes in `[256, 277]` is the lexer's only
-clever encoding move.  Single-character punctuation (`;`, `{`, `(`,
-`[`, `,`, `?`, `:`, `~`) reuses the ASCII byte itself as the
-`tok-num`.  Multi-character punctuation needs its own namespace,
-so the codes start at 256 — outside the byte range,
-distinguishable from single-char codes with a single `>= 256` test
-if anyone ever needed it (the actual parser uses an exact-value
-compare and never needs to do this discrimination).
+Single-character punctuation (`;`, `{`, `(`, `[`, `,`, `?`, `:`, `~`)
+reuses the ASCII byte itself as `tok-num`.  Multi-character
+punctuation needs its own namespace, so the `pt-*` codes occupy
+`[256, 277]`, outside the byte range.  A single `>= 256` test could
+tell the two apart, though the parser never needs one: it compares
+against exact values.
 
-The five `tok-*` variables form the lexer's *single-token state*.
-After `cc-next-token` returns, `tok-kind` says what was read.
-`tok-num` carries numeric values (including the punctuation code
-for `tk-punct`), `tok-str-addr/len` point into `cc-src-buf` for
-identifiers and string literals, and `tok-kw-id` carries the
-keyword ID when `tok-kind = tk-kw`.  Strings *aren't* copied —
-they're a slice of the source buffer, which is fine because
-`cc-src-buf` lives for the whole compilation.
+The five `tok-*` cells of the lexer-state block (Ch 21) are the
+lexer's single-token state; each name works like a variable.
+`tok-kind` says what was read.  `tok-num` carries numeric values
+(including the punctuation code for `tk-punct`), `tok-str-addr/len`
+point into `cc-src-buf` for identifiers and string literals, and
+`tok-kw-id` carries the keyword ID when `tok-kind = tk-kw`.  Strings
+aren't copied.  They are slices of the source buffer, which lives for
+the whole compilation.
 
 ## 2. The keyword table
+
+The thirty keywords are laid down by name, then numbered:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -141,69 +113,41 @@ they're a slice of the source buffer, which is fine because
 \ length-byte of 0.  Defined here (before cc-check-keyword) so the latter can
 \ reference kw-table directly.
 
+\ kw, ( "name" -- )  lay down one entry: the length byte, then the bytes.
+: kw,  token dup c, bytes, ;
+
 create kw-table
-\ "int"
-[lit] 3 c, [lit] 105 c, [lit] 110 c, [lit] 116 c,
-\ "char"
-[lit] 4 c, [lit]  99 c, [lit] 104 c, [lit]  97 c, [lit] 114 c,
-\ "void"
-[lit] 4 c, [lit] 118 c, [lit] 111 c, [lit] 105 c, [lit] 100 c,
-\ "short"
-[lit] 5 c, [lit] 115 c, [lit] 104 c, [lit] 111 c, [lit] 114 c, [lit] 116 c,
-\ "long"
-[lit] 4 c, [lit] 108 c, [lit] 111 c, [lit] 110 c, [lit] 103 c,
-\ "unsigned"
-[lit] 8 c, [lit] 117 c, [lit] 110 c, [lit] 115 c, [lit] 105 c, [lit] 103 c, [lit] 110 c, [lit] 101 c, [lit] 100 c,
-\ "signed"
-[lit] 6 c, [lit] 115 c, [lit] 105 c, [lit] 103 c, [lit] 110 c, [lit] 101 c, [lit] 100 c,
-\ "const"
-[lit] 5 c, [lit]  99 c, [lit] 111 c, [lit] 110 c, [lit] 115 c, [lit] 116 c,
-\ "volatile"
-[lit] 8 c, [lit] 118 c, [lit] 111 c, [lit] 108 c, [lit]  97 c, [lit] 116 c, [lit] 105 c, [lit] 108 c, [lit] 101 c,
-\ "static"
-[lit] 6 c, [lit] 115 c, [lit] 116 c, [lit]  97 c, [lit] 116 c, [lit] 105 c, [lit]  99 c,
-\ "extern"
-[lit] 6 c, [lit] 101 c, [lit] 120 c, [lit] 116 c, [lit] 101 c, [lit] 114 c, [lit] 110 c,
-\ "auto"
-[lit] 4 c, [lit]  97 c, [lit] 117 c, [lit] 116 c, [lit] 111 c,
-\ "register"
-[lit] 8 c, [lit] 114 c, [lit] 101 c, [lit] 103 c, [lit] 105 c, [lit] 115 c, [lit] 116 c, [lit] 101 c, [lit] 114 c,
-\ "restrict"
-[lit] 8 c, [lit] 114 c, [lit] 101 c, [lit] 115 c, [lit] 116 c, [lit] 114 c, [lit] 105 c, [lit]  99 c, [lit] 116 c,
-\ "struct"
-[lit] 6 c, [lit] 115 c, [lit] 116 c, [lit] 114 c, [lit] 117 c, [lit]  99 c, [lit] 116 c,
-\ "enum"
-[lit] 4 c, [lit] 101 c, [lit] 110 c, [lit] 117 c, [lit] 109 c,
-\ "typedef"
-[lit] 7 c, [lit] 116 c, [lit] 121 c, [lit] 112 c, [lit] 101 c, [lit] 100 c, [lit] 101 c, [lit] 102 c,
-\ "sizeof"
-[lit] 6 c, [lit] 115 c, [lit] 105 c, [lit] 122 c, [lit] 101 c, [lit] 111 c, [lit] 102 c,
-\ "if"
-[lit] 2 c, [lit] 105 c, [lit] 102 c,
-\ "else"
-[lit] 4 c, [lit] 101 c, [lit] 108 c, [lit] 115 c, [lit] 101 c,
-\ "while"
-[lit] 5 c, [lit] 119 c, [lit] 104 c, [lit] 105 c, [lit] 108 c, [lit] 101 c,
-\ "for"
-[lit] 3 c, [lit] 102 c, [lit] 111 c, [lit] 114 c,
-\ "do"
-[lit] 2 c, [lit] 100 c, [lit] 111 c,
-\ "return"
-[lit] 6 c, [lit] 114 c, [lit] 101 c, [lit] 116 c, [lit] 117 c, [lit] 114 c, [lit] 110 c,
-\ "break"
-[lit] 5 c, [lit]  98 c, [lit] 114 c, [lit] 101 c, [lit]  97 c, [lit] 107 c,
-\ "continue"
-[lit] 8 c, [lit]  99 c, [lit] 111 c, [lit] 110 c, [lit] 116 c, [lit] 105 c, [lit] 110 c, [lit] 117 c, [lit] 101 c,
-\ "goto"
-[lit] 4 c, [lit] 103 c, [lit] 111 c, [lit] 116 c, [lit] 111 c,
-\ "switch"
-[lit] 6 c, [lit] 115 c, [lit] 119 c, [lit] 105 c, [lit] 116 c, [lit]  99 c, [lit] 104 c,
-\ "case"
-[lit] 4 c, [lit]  99 c, [lit]  97 c, [lit] 115 c, [lit] 101 c,
-\ "default"
-[lit] 7 c, [lit] 100 c, [lit] 101 c, [lit] 102 c, [lit]  97 c, [lit] 117 c, [lit] 108 c, [lit] 116 c,
-\ Terminator
-[lit] 0 c,
+kw, int
+kw, char
+kw, void
+kw, short
+kw, long
+kw, unsigned
+kw, signed
+kw, const
+kw, volatile
+kw, static
+kw, extern
+kw, auto
+kw, register
+kw, restrict
+kw, struct
+kw, enum
+kw, typedef
+kw, sizeof
+kw, if
+kw, else
+kw, while
+kw, for
+kw, do
+kw, return
+kw, break
+kw, continue
+kw, goto
+kw, switch
+kw, case
+kw, default
+[lit] 0 c,                                      \ terminator
 
 \ Keyword IDs in declaration order.
 [lit]  0 constant kw-int
@@ -237,103 +181,100 @@ create kw-table
 [lit] 28 constant kw-case
 [lit] 29 constant kw-default
 
-\ ===========================================================================
-\ Helpers: ident classifiers, 2-byte peek
-\ ===========================================================================
+```
 
-\ ident-start? ( c -- f )  letter or '_' (ASCII 95).
-: ident-start?
-  dup alpha?  swap [lit] 95 = or ;
+Each entry in `kw-table` is a length byte followed by that many name
+bytes, and a `0` length byte ends the table.  `kw,` builds one
+entry from the next token with Ch 12's `token` and `bytes,`:
+`kw, int` lays down `3 'i' 'n' 't'`.  The length sits inline, so no
+parallel `[length, pointer]` table is needed.  The `kw-*` constants follow the entry order: `kw-int = 0`
+because `"int"` is first, `kw-char = 1` because `"char"` is second,
+and so on.
 
-\ ident-cont? ( c -- f )  ident-start? or digit.
-: ident-cont?
-  dup ident-start?  swap digit? or ;
+Three small helpers come next.
+
+```forth file=050-cc-lex.fth
+\ ===========================================================================
+\ Helper: 2-byte peek
+\ ===========================================================================
 
 \ cc-peek-char-2 ( -- c1 c2 )  Returns the byte at pos and the byte at pos+1
 \ without advancing.  Returns 0 for c2 at EOF.  c1 is also 0 at EOF.
 : cc-peek-char-2
   cc-peek-char                                  ( c1 )
-  cc-src-pos @ [lit] 1 +                        ( c1 next-pos )
+  cc-src-pos @ 1+                               ( c1 next-pos )
   dup cc-src-len @ < if,
     cc-src-buf swap + c@                        ( c1 c2 )
   else,
     drop [lit] 0                                ( c1 0 )
   then, ;
 
+```
+
+The identifier classifiers `ident-start?` and `ident-cont?` are the
+shared ones from Ch 21, the same the preprocessor uses.
+`cc-peek-char-2` is the two-byte
+lookahead.  The lexer needs it only for `0x`, `//`, `/*` and the `...`
+ellipsis; operators like `==`, `<=` and `<<=` consume their first byte
+and test the next with plain `cc-peek-char`.
+
+With the table and the classifiers in place, keyword recognition is
+one walk over `kw-table`:
+
+```forth file=050-cc-lex.fth
 \ ===========================================================================
 \ cc-check-keyword
 \ ===========================================================================
-\ Walks kw-table once.  We can't bail early (no `exit`), so we accumulate the
-\ match into a variable and stop comparing once we already have a hit.
-
-\ cc-kw-found-id holds -1 while still searching, or the matched id.
-variable cc-kw-found-id
 
 \ cc-check-keyword ( -- )  After cc-lex-ident-or-kw has set tok-str-addr/len,
-\ this walks kw-table; on match sets tok-kind=tk-kw + tok-kw-id, otherwise
-\ tok-kind=tk-ident.  Loop invariant on the data stack: ( ptr id ).
+\ this walks kw-table; on a match it sets tok-kind=tk-kw + tok-kw-id and
+\ returns at once, otherwise tok-kind=tk-ident.  Loop invariant on the data
+\ stack: ( ptr id ).
 : cc-check-keyword
-  [lit] 0 0= cc-kw-found-id !                   \ -1 = "still searching"
   kw-table                                      \ ptr
   [lit] 0                                       \ id
   begin,
     over c@ [lit] 0 >                           \ entry length non-zero?
   while,
-    cc-kw-found-id @ [lit] 0 0= = if,           \ still searching?
-      over c@ tok-str-len @ = if,               \ same length?
-        \ Stack here: ( ptr id ).  bytes-eq wants ( a1 a2 u ) where
-        \ a1 = tok-str-addr, a2 = ptr+1 (skipping length byte), u = tok-str-len.
-        over [lit] 1 +  tok-str-addr @  swap  tok-str-len @  bytes-eq if,
-          dup cc-kw-found-id !                  \ store the matched id
-        then,
+    over c@ tok-str-len @ = if,                 \ same length?
+      \ Stack here: ( ptr id ).  bytes-eq wants ( a1 a2 u ) where
+      \ a1 = tok-str-addr, a2 = ptr+1 (skipping length byte), u = tok-str-len.
+      over 1+  tok-str-addr @  swap  tok-str-len @  bytes-eq if,
+        tok-kw-id !  drop                       \ matched: record the id
+        tk-kw tok-kind !  exit,
       then,
     then,
     \ Advance: ( ptr id ) -> ( ptr+len+1 id+1 )
-    swap dup c@ [lit] 1 + over + nip swap [lit] 1 +
+    swap dup c@ 1+ + swap 1+
   repeat,
-  drop drop                                     \ discard ptr and id
-  cc-kw-found-id @ [lit] 0 0= = if,             \ -1 ?
-    tk-ident tok-kind !
-  else,
-    cc-kw-found-id @ tok-kw-id !
-    tk-kw tok-kind !
-  then, ;
+  2drop                                         \ discard ptr and id
+  tk-ident tok-kind ! ;
 
 ```
 
-The keyword table is a flat byte array: a length byte, then that
-many bytes, repeated, with a `0` length byte at the end.  Looking
-at the raw `[lit] 3 c, [lit] 105 c, [lit] 110 c, [lit] 116 c,` for
-"int" makes it obvious: the lengths are kept inline so we never
-need a parallel `[length, pointer]` table.
+`cc-check-keyword` walks the table once with `( ptr id )` on the data
+stack: a pointer into the table and the current candidate ID.  An
+entry is compared only when its length byte equals the token's
+length.  On a match the word stores the ID in `tok-kw-id`, sets
+`tok-kind` to `tk-kw` and returns at once with `exit,` (Ch 11); the
+loop holds nothing on the return stack, so the early return is
+safe.  Falling off the end of the table means the token is an
+identifier.
 
-`cc-check-keyword` walks this table once with the data stack
-holding `( ptr id )` — pointer into the table, current candidate
-ID.  The id starts at 0 and increments by one per entry, which is
-why the `kw-*` constants line up with the entry order: `kw-int =
-0` because `"int"` is first, `kw-char = 1` because `"char"` is
-second, etc.
-
-The loop has the "no `exit`" idiom — Forth's `:` doesn't support
-mid-word return, so we can't bail on a successful match.  The
-workaround is `cc-kw-found-id`: a variable initialised to `-1`
-meaning "still searching."  Once a match is found, we store the
-ID and the body of subsequent iterations is gated on the variable
-still being `-1`.  The loop walks the *whole* table, but the
-comparisons are skipped after the hit.
-
-The "advance" step at the bottom is what makes the parallel-array
-discipline pay off:
+The advance step at the bottom is where the inline lengths pay off:
 
 ```
-swap dup c@ [lit] 1 + over + nip swap [lit] 1 +
+swap dup c@ 1+ + swap 1+
 ```
 
-That long incantation is `( ptr id -- ptr+len+1 id+1 )` — read the
-length byte at `ptr`, add 1 (for the length byte itself), add to
-`ptr`, increment `id`.  Two stack operations and a `c@`.
+That is `( ptr id -- ptr+len+1 id+1 )`: read the length byte at
+`ptr`, add 1 for the length byte itself, add to `ptr`, increment
+`id`.  One `c@`, and no second table to index.
 
 ## 3. Whitespace and comments
+
+Before each token, the lexer skips whatever the parser should never
+see:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -345,67 +286,47 @@ length byte at `ptr`, add 1 (for the length byte itself), add to
 : cc-skip-line-comment
   begin,
     cc-eof? 0=
-    cc-peek-char [lit] 10 <> and
+    cc-peek-char nl <> and
   while,
     cc-next-char drop
   repeat, ;
 
 \ cc-skip-block-comment ( -- )  Caller has already consumed the /*.  Skip
-\ to and including the closing */.  Maintains a "still scanning" flag on the
-\ data stack to avoid the missing `exit` primitive.
+\ to and including the closing */, or to EOF.
 : cc-skip-block-comment
-  [lit] 0 0=                                    \ scanning flag = -1 (true)
   begin,
-    dup cc-eof? 0= and                          \ keep going AND not eof
+    cc-eof? 0=
   while,
-    drop                                        \ discard old flag
-    cc-next-char                                ( c )
-    [lit] 42 = if,                              \ saw '*'
-      cc-peek-char [lit] 47 = if,               \ followed by '/'
-        cc-next-char drop                       \ consume '/'
-        [lit] 0                                 \ stop
-      else,
-        [lit] 0 0=                              \ keep going
+    cc-next-char [char] * = if,                 \ saw '*'
+      cc-peek-char [char] / = if,               \ followed by '/'
+        cc-next-char drop exit,                 \ consume '/': done
       then,
-    else,
-      [lit] 0 0=                                \ keep going
     then,
-  repeat,
-  drop ;                                        \ discard final flag
+  repeat, ;
 
 \ cc-skip-ws-and-comments ( -- )  Skip whitespace, // line-comments, and
-\ /* block comments.  Stops at the first non-whitespace, non-comment byte.
-\ Also uses a data-stack scanning flag.
+\ /* block comments.  Returns at the first non-whitespace, non-comment byte.
 : cc-skip-ws-and-comments
-  [lit] 0 0=                                    \ keep-going flag = -1
   begin,
-    dup cc-eof? 0= and
+    cc-eof? 0=
   while,
-    drop                                        \ discard old flag
     cc-peek-char dup space? if,
       drop cc-next-char drop
-      [lit] 0 0=                                \ keep going
     else,
-      [lit] 47 = if,                            \ '/' ?
-        cc-peek-char-2 nip [lit] 47 = if,       \ // ?
-          cc-next-char drop  cc-next-char drop
-          cc-skip-line-comment
-          [lit] 0 0=                            \ keep going
-        else,
-          cc-peek-char-2 nip [lit] 42 = if,     \ /* ?
-            cc-next-char drop  cc-next-char drop
-            cc-skip-block-comment
-            [lit] 0 0=                          \ keep going
-          else,
-            [lit] 0                             \ stop: bare '/'
-          then,
-        then,
+      [char] / <> if, exit, then,               \ stop: not ws or comment
+      cc-peek-char-2 nip [char] / = if,         \ // ?
+        cc-next-char drop  cc-next-char drop
+        cc-skip-line-comment
       else,
-        [lit] 0                                 \ stop: not ws or comment
+        cc-peek-char-2 nip [char] * = if,       \ /* ?
+          cc-next-char drop  cc-next-char drop
+          cc-skip-block-comment
+        else,
+          exit,                                 \ stop: bare '/'
+        then,
       then,
     then,
-  repeat,
-  drop ;
+  repeat, ;
 
 ```
 
@@ -413,27 +334,28 @@ Three helpers cooperate:
 
 - `cc-skip-line-comment` runs after the caller has consumed the
   `//`.  It eats bytes until newline or EOF, leaving the newline
-  for the outer ws-skip to eat as ordinary whitespace.
+  for the outer loop to eat as ordinary whitespace.
 - `cc-skip-block-comment` runs after the caller has consumed
   `/*`.  It eats bytes until it sees `*/`, consuming the closer.
-- `cc-skip-ws-and-comments` is the outer loop: at each iteration,
-  if the next byte is whitespace, eat it; if it's `/`, peek the
-  byte after to decide whether we're on a comment or a bare `/`;
-  otherwise stop.
+- `cc-skip-ws-and-comments` is the outer loop: if the next byte is
+  whitespace, eat it; if it's `/`, peek the byte after to decide
+  between a comment and a bare `/`; otherwise stop.
 
-The latter two carry a "still scanning" flag on the *data stack*
-rather than in a variable.  This is the same trick we used in
-`cc-check-keyword` but with the flag held on the stack instead of
-in a variable — saving a name, costing some `dup`/`drop` clutter.
-Both choices appear throughout the compiler.
+The last two stop from inside their loops with `exit,` (Ch 11): the
+block-comment skipper as soon as it has eaten `*/`, the outer loop
+at the first byte that starts neither whitespace nor a comment.
+The `while,` test only has to watch for EOF.
 
-Notice the deliberate asymmetry: `cc-skip-line-comment` doesn't
-consume the newline, but `cc-skip-block-comment` *does* consume
-the `*/`.  The difference is that the newline matters to other
-code (line counting), whereas the `*/` doesn't matter to anyone
-after the comment.
+`cc-skip-line-comment` leaves the newline, but `cc-skip-block-comment`
+consumes the `*/`.  The newline is ordinary whitespace, so leaving it
+for the outer loop costs nothing, and line counting doesn't care who
+eats it, since `cc-next-char` bumps `cc-src-line` on every newline it
+returns.  Nothing outside the comment would recognise `*/`, so the
+comment skipper has to swallow it itself.
 
 ## 4. Number, identifier, string, char
+
+Numbers come first, in decimal or hex:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -444,13 +366,13 @@ after the comment.
 \ cc-hex-digit? ( c -- f )  -1 if c is 0-9, a-f, A-F.
 : cc-hex-digit?
   dup digit? if,
-    drop [lit] 0 0=                               \ -1 = true
+    drop true
   else,
     dup alpha-lower? if,
-      [lit] 97 - [lit] 6 / 0=                     \ 'a'..'f' -> 0..5 -> /6=0
+      [char] a - [lit] 6 / 0=                     \ 'a'..'f' -> 0..5 -> /6=0
     else,
       dup alpha-upper? if,
-        [lit] 65 - [lit] 6 / 0=                   \ 'A'..'F'
+        [char] A - [lit] 6 / 0=                   \ 'A'..'F'
       else,
         drop [lit] 0
       then,
@@ -460,12 +382,12 @@ after the comment.
 \ cc-hex-digit-val ( c -- v )  Convert hex digit char to 0..15.
 : cc-hex-digit-val
   dup digit? if,
-    [lit] 48 -
+    [char] 0 -
   else,
     dup alpha-lower? if,
-      [lit] 87 -                                  \ 'a'=97 -> 10
+      [char] a - [lit] 10 +                       \ 'a' -> 10
     else,
-      [lit] 55 -                                  \ 'A'=65 -> 10
+      [char] A - [lit] 10 +                       \ 'A' -> 10
     then,
   then, ;
 
@@ -477,7 +399,7 @@ after the comment.
     cc-peek-char digit? and
   while,
     [lit] 10 *
-    cc-peek-char [lit] 48 - +
+    cc-peek-char [char] 0 - +
     cc-next-char drop
   repeat,
   tok-num !
@@ -500,8 +422,8 @@ after the comment.
 \ cc-lex-number ( -- )  Decimal, or hex (0x/0X) if the first two chars match.
 : cc-lex-number
   cc-peek-char-2                                  ( c1 c2 )
-  over [lit] 48 = if,                             \ c1 == '0' ?
-    dup [lit] 120 = swap [lit] 88 = or if,        \ c2 == 'x' or 'X' ?
+  over [char] 0 = if,                             \ c1 == '0' ?
+    dup [char] x = swap [char] X = or if,         \ c2 == 'x' or 'X' ?
       drop                                        \ pop c1
       cc-next-char drop                           \ consume '0'
       cc-next-char drop                           \ consume 'x'/'X'
@@ -515,6 +437,16 @@ after the comment.
     cc-lex-number-dec
   then, ;
 
+```
+
+`cc-lex-number` does one `cc-peek-char-2` to decide between hex
+(`0x…` / `0X…`) and decimal.  Each path accumulates digits with
+`*base + digit` on the data stack, then stores into `tok-num` and sets
+`tok-kind = tk-num`.
+
+Identifiers are where Ch 22's macros finally take effect:
+
+```forth file=050-cc-lex.fth
 \ cc-lex-ident-or-kw ( -- )  Read [a-zA-Z_][a-zA-Z0-9_]* and check the
 \ keyword table.  Sets tok-str-addr/len, then dispatches kind.
 \
@@ -530,7 +462,7 @@ after the comment.
     cc-peek-char ident-cont? and
   while,
     cc-next-char drop
-    [lit] 1 +
+    1+
   repeat,
   tok-str-len !  tok-str-addr !
   cc-check-keyword
@@ -544,6 +476,22 @@ after the comment.
     then,
   then, ;
 
+```
+
+`cc-lex-ident-or-kw` reads the identifier as a `(start, len)` slice
+of `cc-src-buf` into `tok-str-addr` / `tok-str-len`, then calls
+`cc-check-keyword`.  If the result is `tk-ident` (not a keyword), it
+also calls Ch 22's `cc-macro-find-int`.  On a hit the token becomes a
+`tk-num` whose `tok-num` is the macro's integer value.
+
+This is the other half of Ch 22: the preprocessor records macros, and
+the lexer substitutes them when it meets the name where an identifier
+would otherwise be reported.  Object-like, integer-valued macros are
+the only kind supported (Ch 22 §5), which is enough for M2-Planet.
+
+String and character literals close the section:
+
+```forth file=050-cc-lex.fth
 \ cc-lex-string ( -- )  Read "..." preserving escape sequences as literal
 \ bytes (a \" inside the body is two bytes long; the closing quote is the
 \ unescaped ").  Stores the slice as offset+len into cc-src-buf for later
@@ -554,40 +502,41 @@ after the comment.
   [lit] 0                                       ( start len )
   begin,
     cc-eof? 0=
-    cc-peek-char [lit] 34 <> and
+    cc-peek-char [char] " <> and
   while,
-    cc-peek-char [lit] 92 = if,                 \ backslash: keep both bytes
+    cc-peek-char backslash = if,                \ backslash: keep both bytes
       cc-next-char drop
-      [lit] 1 +
+      1+
       cc-eof? 0= if,
         cc-next-char drop
-        [lit] 1 +
+        1+
       then,
     else,
       cc-next-char drop
-      [lit] 1 +
+      1+
     then,
   repeat,
   cc-eof? 0= if, cc-next-char drop then,        \ consume closing "
   tok-str-len !  tok-str-addr !
   tk-str tok-kind ! ;
 
+\ cc-decode-escape ( c -- byte )  The byte the escape \c stands for: \n \t
+\ \r \0 are newline, tab, carriage return and NUL; any other c (including
+\ \\ \' \") stands for itself.  The one table for both character literals
+\ (cc-lex-char) and string literals (cc-emit-string-bytes, 090).  \xNN is
+\ not supported.
+: cc-decode-escape
+  dup [char] n = if, drop nl       exit, then,
+  dup [char] t = if, drop tab      exit, then,
+  dup [char] r = if, drop [lit] 13 exit, then,
+  dup [char] 0 = if, drop [lit] 0  exit, then, ;
+
 \ cc-lex-char ( -- )  Read 'c' or '\c'.  Stores the byte value in tok-num.
-\ Recognised escapes: \n \t \\ \' \" \0.  Others pass through literally.
-\ \xNN deferred.
 : cc-lex-char
   cc-next-char drop                             \ consume opening '
-  cc-peek-char [lit] 92 = if,                   \ escape
+  cc-peek-char backslash = if,                  \ escape
     cc-next-char drop                           \ consume backslash
-    cc-next-char                                ( c )
-    dup [lit] 110 = if, drop [lit] 10  else,    \ \n
-    dup [lit] 116 = if, drop [lit]  9  else,    \ \t
-    dup [lit]  92 = if, drop [lit] 92  else,    \ \\
-    dup [lit]  39 = if, drop [lit] 39  else,    \ \'
-    dup [lit]  34 = if, drop [lit] 34  else,    \ \"
-    dup [lit]  48 = if, drop [lit]  0  else,    \ \0
-    \ otherwise: pass the literal char through (stack already has it)
-    then, then, then, then, then, then,
+    cc-next-char cc-decode-escape               ( byte )
   else,
     cc-next-char                                \ literal char
   then,
@@ -597,40 +546,32 @@ after the comment.
 
 ```
 
-`cc-lex-number` does one `cc-peek-char-2` to decide between hex
-(`0x…` / `0X…`) and decimal.  Each path accumulates digits with
-`*base + digit` on the data stack, then stores into `tok-num` and
-sets `tok-kind = tk-num`.
+`cc-lex-string` records the quoted body as a `(start, len)` slice of
+`cc-src-buf`, keeping backslash escapes as literal byte pairs.
+Escape decoding happens in codegen (Ch 26's `cc-emit-string-bytes`),
+which walks the slice as it copies the literal's bytes into the code
+stream.  The lexer stays simple.
 
-`cc-lex-ident-or-kw` reads the identifier into a `(start, len)`
-slice of `cc-src-buf` and writes it to `tok-str-addr` /
-`tok-str-len`.  Then it calls `cc-check-keyword`.  If the keyword
-check sets `tok-kind = tk-ident` (i.e. *not* a keyword), the
-lexer also calls `cc-macro-find-int` from Ch 22.  On a hit, the
-token *transforms* from `tk-ident` to `tk-num`, with the macro's
-integer value as `tok-num`.
-
-This is the deferred half of Ch 22: the preprocessor records
-macros but doesn't substitute; *the lexer* substitutes, lazily,
-when it sees the macro's name in a context where an identifier
-would otherwise be reported.  Object-like, integer-valued macros
-are the only kind supported (Ch 22 §5).  That's enough for
-M2-Planet.
-
-`cc-lex-string` reads a quoted string into a `(start, len)` slice
-of `cc-src-buf` — *including* backslash escapes as literal byte
-pairs.  Escape decoding is deferred to codegen (Ch 26), which
-walks the slice when it builds the string pool.  This keeps the
-lexer simple and lets the codegen choose whatever escape
-semantics the ELF actually needs.
-
-`cc-lex-char` is the odd one out: it *does* decode escapes
-immediately, because the result is a single byte value going into
-`tok-num`.  The six escapes handled (`\n`, `\t`, `\\`, `\'`, `\"`,
-`\0`) are the only ones M2-Planet uses; hex escapes (`\xNN`) are
-explicitly deferred.
+`cc-lex-char` does decode escapes immediately, because its result is a
+single byte value in `tok-num`.  Both kinds of literal decode with the
+same word, `cc-decode-escape`: `\n`, `\t`, `\r` and `\0` become
+newline, tab, carriage return and NUL, and any other escaped
+character stands for itself, which covers `\\`, `\'` and `\"`.  Hex
+escapes (`\xNN`) are not supported.  One table matters: when
+character literals had their own copy it lacked `\r`, so `'\r'`
+compiled to `'r'` (114) while `"\r"` gave 13;
+`tests/cc/I-cr-escape.c` checks that both now agree.
 
 ## 5. Punctuation: a fan-out
+
+C punctuation is the messy part of the lexer.  Some tokens are one
+byte (`;`, `,`, `?`).  Some have two-byte forms with the same prefix
+(`=` / `==`).  Some have three-byte forms (`<<=`).  Some prefixes
+overlap badly (`-`, `--`, `-=`, `->`).
+
+The file answers with one `cc-punct-X` handler per ambiguous first
+character.  Each handler is entered after its first byte has been
+consumed; it peeks ahead and picks the longest match.
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -641,170 +582,186 @@ explicitly deferred.
 \ and sets tok-kind to tk-punct.
 
 : cc-punct-eq                                   \ '='  '=='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-eq-eq tok-num !
   else,
-    [lit] 61 tok-num !
+    [char] = tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-bang                                 \ '!'  '!='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-bang-eq tok-num !
   else,
-    [lit] 33 tok-num !
+    [char] ! tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-lt                                   \ '<' '<=' '<<' '<<='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-le tok-num !
   else,
-    cc-peek-char [lit] 60 = if,
+    cc-peek-char [char] < = if,
       cc-next-char drop
-      cc-peek-char [lit] 61 = if,
+      cc-peek-char [char] = = if,
         cc-next-char drop  pt-shl-eq tok-num !
       else,
         pt-shl tok-num !
       then,
     else,
-      [lit] 60 tok-num !
+      [char] < tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-gt                                   \ '>' '>=' '>>' '>>='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-ge tok-num !
   else,
-    cc-peek-char [lit] 62 = if,
+    cc-peek-char [char] > = if,
       cc-next-char drop
-      cc-peek-char [lit] 61 = if,
+      cc-peek-char [char] = = if,
         cc-next-char drop  pt-shr-eq tok-num !
       else,
         pt-shr tok-num !
       then,
     else,
-      [lit] 62 tok-num !
+      [char] > tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
+```
+
+`cc-punct-lt` shows the deepest case: `<`, `<=`, `<<` and `<<=` from
+a single prefix, with two nested peeks.  `cc-punct-gt` mirrors it.
+The remaining nine handlers follow the same shape:
+
+```forth file=050-cc-lex.fth
 : cc-punct-amp                                  \ '&' '&&' '&='
-  cc-peek-char [lit] 38 = if,
+  cc-peek-char [char] & = if,
     cc-next-char drop  pt-and-and tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-amp-eq tok-num !
     else,
-      [lit] 38 tok-num !
+      [char] & tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-pipe                                 \ '|' '||' '|='
-  cc-peek-char [lit] 124 = if,
+  cc-peek-char [char] | = if,
     cc-next-char drop  pt-or-or tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-pipe-eq tok-num !
     else,
-      [lit] 124 tok-num !
+      [char] | tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-plus                                 \ '+' '++' '+='
-  cc-peek-char [lit] 43 = if,
+  cc-peek-char [char] + = if,
     cc-next-char drop  pt-plus-plus tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-plus-eq tok-num !
     else,
-      [lit] 43 tok-num !
+      [char] + tok-num !
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-minus                                \ '-' '--' '-=' '->'
-  cc-peek-char [lit] 45 = if,
+  cc-peek-char [char] - = if,
     cc-next-char drop  pt-minus-minus tok-num !
   else,
-    cc-peek-char [lit] 61 = if,
+    cc-peek-char [char] = = if,
       cc-next-char drop  pt-minus-eq tok-num !
     else,
-      cc-peek-char [lit] 62 = if,
+      cc-peek-char [char] > = if,
         cc-next-char drop  pt-arrow tok-num !
       else,
-        [lit] 45 tok-num !
+        [char] - tok-num !
       then,
     then,
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-star                                 \ '*' '*='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-star-eq tok-num !
   else,
-    [lit] 42 tok-num !
+    [char] * tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-slash                                \ '/' '/=' (// and /* handled earlier)
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-slash-eq tok-num !
   else,
-    [lit] 47 tok-num !
+    [char] / tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-percent                              \ '%' '%='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-percent-eq tok-num !
   else,
-    [lit] 37 tok-num !
+    [char] % tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-caret                                \ '^' '^='
-  cc-peek-char [lit] 61 = if,
+  cc-peek-char [char] = = if,
     cc-next-char drop  pt-caret-eq tok-num !
   else,
-    [lit] 94 tok-num !
+    [char] ^ tok-num !
   then,
   tk-punct tok-kind ! ;
 
 : cc-punct-dot                                  \ '.' '...'
-  cc-peek-char [lit] 46 = if,
-    cc-peek-char-2 nip [lit] 46 = if,
+  cc-peek-char [char] . = if,
+    cc-peek-char-2 nip [char] . = if,
       cc-next-char drop  cc-next-char drop
       pt-ellipsis tok-num !
     else,
-      [lit] 46 tok-num !
+      [char] . tok-num !
     then,
   else,
-    [lit] 46 tok-num !
+    [char] . tok-num !
   then,
   tk-punct tok-kind ! ;
 
+```
+
+`cc-punct-minus` has four outcomes (`-`, `--`, `-=`, `->`), and `cc-punct-dot` is the one
+punctuation handler that needs `cc-peek-char-2`, because `..` alone
+is not a token: it must see two more dots before committing to `...`.
+
+A dispatcher picks the handler from the first byte:
+
+```forth file=050-cc-lex.fth
 \ cc-lex-punct ( -- )  Consume the next char and dispatch to a per-char
 \ handler.  Single-char punctuation (; { } ( ) [ ] , ? : ~) falls through
 \ to the default arm, which stores the byte itself as the punct code.
 : cc-lex-punct
   cc-next-char                                  ( first-char )
-  dup [lit]  61 = if, drop cc-punct-eq      else,
-  dup [lit]  33 = if, drop cc-punct-bang    else,
-  dup [lit]  60 = if, drop cc-punct-lt      else,
-  dup [lit]  62 = if, drop cc-punct-gt      else,
-  dup [lit]  38 = if, drop cc-punct-amp     else,
-  dup [lit] 124 = if, drop cc-punct-pipe    else,
-  dup [lit]  43 = if, drop cc-punct-plus    else,
-  dup [lit]  45 = if, drop cc-punct-minus   else,
-  dup [lit]  42 = if, drop cc-punct-star    else,
-  dup [lit]  47 = if, drop cc-punct-slash   else,
-  dup [lit]  37 = if, drop cc-punct-percent else,
-  dup [lit]  94 = if, drop cc-punct-caret   else,
-  dup [lit]  46 = if, drop cc-punct-dot     else,
+  dup [char] = = if, drop cc-punct-eq      else,
+  dup [char] ! = if, drop cc-punct-bang    else,
+  dup [char] < = if, drop cc-punct-lt      else,
+  dup [char] > = if, drop cc-punct-gt      else,
+  dup [char] & = if, drop cc-punct-amp     else,
+  dup [char] | = if, drop cc-punct-pipe    else,
+  dup [char] + = if, drop cc-punct-plus    else,
+  dup [char] - = if, drop cc-punct-minus   else,
+  dup [char] * = if, drop cc-punct-star    else,
+  dup [char] / = if, drop cc-punct-slash   else,
+  dup [char] % = if, drop cc-punct-percent else,
+  dup [char] ^ = if, drop cc-punct-caret   else,
+  dup [char] . = if, drop cc-punct-dot     else,
     \ Default: single-char punct.
     tok-num ! tk-punct tok-kind !
   then, then, then, then, then, then, then,
@@ -812,29 +769,16 @@ explicitly deferred.
 
 ```
 
-C punctuation is the messy part of the lexer.  Some are one byte
-(`;`, `,`, `?`).  Some have two-byte forms with the same prefix
-(`=` / `==`).  Some have three-byte forms (`<<=`).  Some prefixes
-overlap badly (`-`, `--`, `-=`, `->`).
-
-The structure here is one `cc-punct-X` handler per ambiguous first
-character.  Each handler is entered *after* its first byte has
-been consumed; it peeks ahead and dispatches.  `cc-punct-lt`, for
-example, handles `<`, `<=`, `<<`, and `<<=` — four possibilities
-from a single prefix.
-
-`cc-lex-punct` is the dispatcher: a long `if, … else, if, … else,`
-chain on the first byte.  Anything that doesn't have its own
-handler — `;`, `{`, `}`, `(`, `)`, `[`, `]`, `,`, `?`, `:`, `~` —
-falls through to the default arm, which uses the byte itself as
-the punctuation code.
-
-The thirteen `then,` words at the end close the thirteen `if,`s.
-Counting `then,`s against `if,`s is a useful sanity check when
-reading these — the seed lacks a `case` so this is how a 14-way
-dispatch looks.
+It is a long `if, … else,` chain.  Anything without its own handler (`;`, `{`, `}`, `(`,
+`)`, `[`, `]`, `,`, `?`, `:`, `~`) falls through to the default arm,
+which uses the byte itself as the punctuation code.  The seed has no
+`case`, so this is what a 14-way dispatch looks like: thirteen `if,`s
+closed by thirteen `then,`s, a count worth checking when you read one
+of these chains.
 
 ## 6. The top-level driver
+
+`cc-next-token` reads one token; §7 wraps it for the parser.
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -849,52 +793,132 @@ dispatch looks.
   else,
     cc-peek-char
     dup digit?       if, drop cc-lex-number          else,
-    dup [lit] 34 =   if, drop cc-lex-string          else,
-    dup [lit] 39 =   if, drop cc-lex-char            else,
+    dup [char] " =   if, drop cc-lex-string          else,
+    dup [char] ' =   if, drop cc-lex-char            else,
     dup ident-start? if, drop cc-lex-ident-or-kw     else,
       drop cc-lex-punct
     then, then, then, then,
   then, ;
+
 ```
 
-`cc-next-token` is the only thing the parser sees:
+Skip whitespace and comments.  At EOF, report `tk-eof`.  Otherwise
+classify on the first byte: digit → number; `"` (34) → string; `'`
+(39) → char; ident-start → identifier or keyword; everything else →
+punctuation.  The chosen word fills the `tok-*` cells and returns.
 
-```forth
-: cc-next-token
-  cc-skip-ws-and-comments
-  cc-eof? if,
-    tk-eof tok-kind !
+The four tests are disjoint (`ident-start?` excludes digits, so a
+leading digit can only begin a number), so their order doesn't
+matter.  What matters is that punctuation is the final `else`: any
+byte none of the four claims falls through to `cc-lex-punct`.
+
+## 7. The parser's interface: putback, mark and reset
+
+A recursive-descent parser often knows it has gone one token too far
+only after reading it: `x` followed by `(` is a call, followed by
+anything else a variable.  The file ends with the words the parser
+actually drives the lexer through:
+
+```forth file=050-cc-lex.fth
+\ ===========================================================================
+\ The parser's interface: putback, mark and reset
+\ ===========================================================================
+\ The lexer reads one token at a time with no built-in peek.  A parser that
+\ has read one token too many puts it back: cc-putback-token sets
+\ cc-tok-pending, and the next cc-next-token-keep returns the same tok-*
+\ state without advancing.
+
+\ cc-next-token-keep ( -- )  Advance to the next token unless one is pending.
+: cc-next-token-keep
+  cc-tok-pending @ if,
+    [lit] 0 cc-tok-pending !
   else,
-    cc-peek-char
-    dup digit?       if, drop cc-lex-number          else,
-    dup [lit] 34 =   if, drop cc-lex-string          else,
-    dup [lit] 39 =   if, drop cc-lex-char            else,
-    dup ident-start? if, drop cc-lex-ident-or-kw     else,
-      drop cc-lex-punct
-    then, then, then, then,
+    cc-next-token
   then, ;
+
+\ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
+\ next cc-next-token-keep returns it without advancing.
+: cc-putback-token
+  true cc-tok-pending ! ;
+
+\ To look further ahead, a parser marks the whole lexer state (reader
+\ cursor, line, current token, putback flag: the cc-lex-state block),
+\ reads as many tokens as it likes, and resets to the mark.  A mark is any
+\ cc-lex-state-size bytes of storage.
+
+\ cc-lex-copy ( src dst -- )  Copy one lexer-state block, last cell first.
+: cc-lex-copy
+  cc-lex-state-size
+  begin, dup while,
+    [lit] 8 -                                   ( src dst off )
+    >r  over r@ + @  over r@ + !  r>
+  repeat,
+  drop 2drop ;
+
+\ cc-lex-mark ( buf -- )  Save the lexer state into buf.
+: cc-lex-mark   cc-lex-state swap cc-lex-copy ;
+
+\ cc-lex-reset ( buf -- )  Restore the lexer state saved by cc-lex-mark.
+: cc-lex-reset  cc-lex-state cc-lex-copy ;
 ```
 
-That's the whole lexer interface.  Skip whitespace and comments.
-If EOF, return `tk-eof`.  Otherwise classify on the first byte:
-digit → number; `"` (34) → string; `'` (39) → char; ident-start
-→ ident-or-keyword; everything else → punctuation.  The
-dispatched function fills the `tok-*` variables and returns.
+`cc-next-token-keep` is what the parsers call instead of
+`cc-next-token`.  After `cc-putback-token` sets `cc-tok-pending`, the
+next `cc-next-token-keep` clears the flag and returns without reading,
+so the same `tok-*` values are seen twice.  One token of putback is
+enough for almost all of C.
 
-The order matters.  Numbers are tried first because a digit could
-also be an ident-cont, but only inside ident bodies.
-Identifier-start is tried after the explicit quote characters
-because `'` and `"` would otherwise be `ident-cont?` false but
-need their own handlers.  When in doubt, follow the dispatch
-order: each predicate is tested only if the preceding ones
-failed.
+The rest needs to look further: is `int (*fp)(int);` a function
+pointer, is `x :` a label, does this top-level declaration reach `{`
+before `;`?  For those the parser takes a *mark*: `cc-lex-mark` copies
+the whole 64-byte lexer-state block (reader position, line, current
+token and the putback flag) into a buffer, the parser reads as many
+tokens as it likes, and `cc-lex-reset` copies the block back.  Because
+Ch 21 put every moving part of the lexer in that one block, the copy
+cannot miss a field.  `cc-lex-copy` copies a cell at a time, walking
+the offset down from 56 to 0.  Chs 29–31 use one mark buffer,
+`cc-peek-mark`, for every such look-ahead.
 
 ## Try it
 
-**Small check:** the manual `dump-tokens` probe below emits token
-kind digits for `int x = 42;`.
+**Small check:** drive the lexer by hand on line 12 of `tri.c`,
+`int w[ROWS];`, with the `#define` it depends on.
+Seed-forth has no `-e` flag or `include` word, so we concatenate the
+five files onto stdin as they are (the seed's reader skips their
+comments), then the C source.
+A one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
+runs the lexer in a loop, and emits each token's kind as an ASCII
+digit until end-of-input:
 
-**Layer check:** `./test.sh` runs the lexer unit test.
+```sh
+./build.sh
+{
+  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
+      040-cc-prep.fth 050-cc-lex.fth
+  cat <<'FORTH'
+    : dump-tokens
+      cc-load-stdin cc-preprocess
+      begin, cc-next-token  tok-kind @ tk-eof = 0=  while,
+        tok-kind @ [lit] 48 + emit [lit] 32 emit
+      repeat, bye ;
+    dump-tokens
+FORTH
+  cat <<'C'
+#define ROWS 4
+    int w[ROWS];
+C
+} | ./seed-forth
+```
+
+The output is `6 1 5 2 5 5`: keyword, identifier, `[`, number, `]`,
+`;`.  The `2` is `ROWS`: the identifier hit the macro table and left
+the lexer as `tk-num` 4.  The whole of `tri.c` lexes to 168 tokens,
+and 4 of its 14 number tokens were spelled `ROWS` in the source.  The
+three character literals arrive as `tk-chr` with their values already
+decoded: `' '` is 32, `'*'` is 42, and `'\n'` is 10.
+
+**Layer check:** the probe shows only kinds.  For every token's text
+and numeric value, run the lexer unit test:
 
 ```sh
 ./build.sh
@@ -905,39 +929,6 @@ kind digits for `int x = 42;`.
 punctuation, the keyword table, the comment skipper, and the
 macro-substitution hook.  Read it to see what each entry point is
 supposed to produce.
-
-To run the small check, drive the lexer by hand.  Seed-forth has no
-`-e` flag or `include` word, so we concatenate the five files
-(stripped of Forth comments) onto stdin, then the C source.  A
-one-shot `dump-tokens` word slurps the C source via `cc-load-stdin`,
-runs the lexer in a loop, and emits each token's kind as an ASCII
-digit until end-of-input:
-
-```sh
-./build.sh
-{
-  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth \
-           040-cc-prep.fth 050-cc-lex.fth; do
-    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
-  done
-  cat <<'FORTH'
-    : dump-tokens
-      cc-load-stdin cc-preprocess
-      begin, cc-next-token  tok-kind @ tk-eof = 0=  while,
-        tok-kind @ [lit] 48 + emit [lit] 32 emit
-      repeat, bye ;
-    dump-tokens
-FORTH
-  cat <<'C'
-int x = 42;
-C
-} | grep -v '^[[:space:]]*$' | ./seed-forth
-```
-
-You'll see a short sequence of small digits, one per token, ending
-when the lexer hits EOF.  For a deeper inspection — every token's
-text and numeric value — `./test.sh` runs `test-050-cc-lex.fth`,
-which is a more complete harness.
 
 **Bootstrap relevance:** every Stage-A parser consumes source only
 through `cc-next-token`, so `tests/cc/stage-a-check.sh` covers this
@@ -954,8 +945,8 @@ lexer on the full M2-Planet input.
    line endings?  Construct a test case and observe.
 
 3. **★★ Trace.** `cc-lex-string` doesn't decode escapes — codegen does.  Find
-   where in `090-cc-emit.fth` (Chs 25–26) the string pool walks
-   the slice and turns `\n` into byte 10.  Trace one byte.
+   the word in `090-cc-emit.fth` (Ch 26) that walks the slice and
+   turns `\n` into byte 10.  Trace one byte.
 
 4. **★★ Extend.** The keyword table is walked linearly.  At 30 entries and a
    short average length, that's fine.  Could a hash table be
@@ -970,27 +961,19 @@ lexer on the full M2-Planet input.
 ## After this chapter
 
 The parser can ask for C-shaped units of source on demand: each
-`cc-next-token` returns one identifier, keyword, number, string,
-char, or punctuation token into the `tok-*` globals, with macro
-expansion already integrated.
-
-You can read `cc-next-token`, explain how keyword recognition is a
-linear scan over a small table, and trace how a single `int x = 42;`
-becomes the five-token sequence the parser will consume.
-
-Toward Stage-A: every later parser layer reads from `tok-*` rather
-than from raw bytes, so the lexer's exact behaviour is the input
-contract the whole rest of the proof depends on.
+`cc-next-token` puts one identifier, keyword, number, string, char or
+punctuation token into the `tok-*` cells, with macro substitution
+already applied.  Every later parser layer reads `tok-*` rather than
+raw bytes, so the lexer's exact behaviour is the input contract for
+the rest of the Stage-A proof.  `tri.c` is now 168 tokens, but when
+the parser reaches `t.rows` on line 14, nothing yet remembers that `t`
+is a struct or where `rows` sits inside it.  Ch 24 builds that memory.
 
 ## Takeaways
 
-- The lexer's interface is *one entry point, five variables*.
-  Pull `cc-next-token`, read `tok-kind`, and dispatch.
-- Multi-character punctuation lives at codes `>= 256`;
-  single-char punctuation reuses its ASCII byte.  This avoids a
-  separate punctuation enumeration for the easy cases.
-- Macro substitution is deferred to the lexer, not done by the
-  preprocessor.  A `tk-ident` lookup that hits the macro table
-  becomes a `tk-num` before the parser ever sees it.
+- The lexer's interface is one entry point and five cells: call `cc-next-token` (or `cc-next-token-keep`, which honours a put-back token), read `tok-kind`, and dispatch.
+- The lexer's whole state is one 64-byte block, so looking ahead is `cc-lex-mark`, read, `cc-lex-reset`.
+- Multi-character punctuation lives at codes `>= 256` while single-character punctuation reuses its ASCII byte, so the easy cases need no separate enumeration.
+- Macro substitution happens in the lexer, where a `tk-ident` that hits the macro table becomes a `tk-num` before the parser sees it.
 
 Next: Chapter 24 — Types and Symbols.

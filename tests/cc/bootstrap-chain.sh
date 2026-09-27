@@ -1,21 +1,37 @@
 #!/usr/bin/env bash
-# Reproduce the seed-forth -> M2-Planet bootstrap chain end-to-end.
+# Reproduce the seed-forth -> M2-Planet bootstrap chain end-to-end, per
+# architecture, and compare it against a GCC-built M2-Planet reference.
+#
+# PROVENANCE.  The binaries this script builds and runs in the chain —
+# cc-out-v1, M1, hex2, and every cc-out-v2-$ARCH / cc-out-v3-$ARCH — come
+# from ./bootstrap.sh (run first, fresh, into $BUILDROOT/bootstrap): hex0-seed
+# -> seed-forth -> Forth-compiled M2-Planet (v1) -> M1 and hex2 compiled by
+# M2-Planet and assembled by 130-asm.fth.  So no GCC is in their provenance.
+# GCC builds exactly one thing here, the reference m2-ref (rebuilt on every
+# run by tests/cc/build-gcc-refs.sh), and m2-ref is only ever compared
+# against: its output is never assembled or run as part of the chain.
 #
 # Stages run for each architecture in $ARCHES (default: x86 amd64):
 #   v1   = seed-forth-compiled M2-Planet (always 64-bit ELF; arch-of-OUTPUT
-#          is selected by --architecture).  Built once and reused.
+#          is selected by --architecture).  Built once by bootstrap.sh.
 #   v2_$ARCH = M1+hex2 from v1's self-compile at $ARCH (32- or 64-bit ELF
-#          depending on $ARCH).  No GCC in this binary's provenance.
+#          depending on $ARCH).  No GCC in this binary's provenance: v1, M1
+#          and hex2 all come from bootstrap.sh.
 #   v3_$ARCH = M1+hex2 from v2_$ARCH's self-compile.  Fixed-point check.
 #
 # Per-arch sub-stages:
 #   A. v1 self-compiles M2-Planet for $ARCH; compare to gcc-built reference.
 #   B. M1 + hex2 assemble that .M1 -> cc-out-v2-$ARCH (target-arch ELF).
 #   C. v2 sanity: tiny.c compiles to the same .M1 as v1 does for $ARCH.
-#   D. v2 self-compiles M2-Planet.  At 32-bit and at 64-bit the resulting
-#      .M1 differs slightly from v1's due to M2-Planet's own host-arch
-#      sensitivity in write_sub_immediate / Architecture & ARCH_FAMILY_X86;
-#      this is recorded but not a hard failure.
+#   D. v2 self-compiles M2-Planet.  The resulting .M1 differs from v1's,
+#      at both arches, by design: M2-Planet's cc_emit.c guards its short
+#      add/sub-immediate forms with `(Architecture & ARCH_FAMILY_X86) &&
+#      (reg == ...)`.  v1 was compiled by the Forth compiler, which (like
+#      GCC) treats && as logical, so the guard is true and v1 emits the
+#      short forms.  v2 was compiled by v1, i.e. by M2-Planet, which
+#      compiles && as bitwise `and` (8 & 1 == 0 on amd64, 4 & 1 on x86),
+#      so v2 never does.  Recorded, not a hard failure; see REPRODUCIBLE.md
+#      "Root cause" and tests/cc/stage0-check.sh stage 6.
 #   E. M1 + hex2 assemble v2's self-compile -> cc-out-v3-$ARCH.
 #   F. v3 self-compiles M2-Planet; must be byte-identical to v2's
 #      self-compile (fixed-point closure at $ARCH).
@@ -29,10 +45,12 @@
 # Env overrides:
 #   M2_PLANET     - path to M2-Planet checkout    (default vendor/M2-Planet)
 #   MESCC_TOOLS   - path to mescc-tools checkout  (default vendor/mescc-tools)
+#                   (bootstrap.sh compiles M1 and hex2 from it)
 #   BUILDROOT     - where artifacts land          (default /tmp/seed-bootstrap)
 #   ARCHES        - space-separated arches        (default "x86 amd64")
 #
-# Exit code is the failing stage number (1..) on failure, 0 on full pass.
+# Exit code is the failing stage number (1..; 99 for stage 0, the prereqs)
+# on failure, 0 on full pass.
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -52,7 +70,8 @@ MESCC_TOOLS=$(cd "$MESCC_TOOLS" && pwd)
 BUILDROOT=$(cd "$BUILDROOT" && pwd)
 
 step() { printf '\n=== STAGE %s: %s ===\n' "$1" "$2"; }
-fail() { printf 'FAIL (stage %s): %s\n' "$1" "$2" >&2; exit "$1"; }
+# Stage 0 (prereqs) exits 99: a bare `exit 0` would report failure as success.
+fail() { printf 'FAIL (stage %s): %s\n' "$1" "$2" >&2; [ "$1" = 0 ] && exit 99; exit "$1"; }
 
 # Architecture lookup tables.
 arch_libdir() {
@@ -93,48 +112,33 @@ step 0 "prereqs"
 [ -f "$M2_PLANET/cc.c" ] || fail 0 "M2_PLANET=$M2_PLANET is not initialized (run git submodule update --init --recursive)"
 [ -f "$M2_PLANET/M2libc/bootstrappable.c" ] || fail 0 "M2_PLANET/M2libc is not initialized (run git submodule update --init --recursive)"
 [ -f "$MESCC_TOOLS/M1-macro.c" ] || fail 0 "MESCC_TOOLS=$MESCC_TOOLS is not initialized (run git submodule update --init --recursive)"
-command -v gcc >/dev/null || fail 0 "gcc not on PATH (needed for reference + M1/hex2)"
+command -v gcc >/dev/null || fail 0 "gcc not on PATH (needed for the m2-ref reference)"
 
-# seed-forth
-[ -x seed-forth ] || ./build.sh >/dev/null
-[ -x seed-forth ] || fail 0 "seed-forth did not build"
+# GCC-free chain binaries: seed-forth, cc-out-v1, M1, hex2 (all rebuilt).
+BUILDROOT="$BUILDROOT/bootstrap" M2_PLANET="$M2_PLANET" MESCC_TOOLS="$MESCC_TOOLS" \
+    ./bootstrap.sh > "$BUILDROOT/bootstrap.log" 2>&1 \
+    || { tail -20 "$BUILDROOT/bootstrap.log" >&2; fail 0 "bootstrap.sh failed (log: $BUILDROOT/bootstrap.log)"; }
+BOOT=$BUILDROOT/bootstrap/out
+for f in seed-forth cc-out-v1 M1 hex2; do
+    [ -x "$BOOT/$f" ] || fail 0 "bootstrap.sh did not produce $f"
+done
 
-# gcc-built reference M2-Planet, for byte-identical comparisons
-if [ ! -x "$BUILDROOT/m2-ref" ]; then
-    (cd "$M2_PLANET" && make >/dev/null 2>&1) || fail 0 "make M2-Planet (reference) failed"
-    cp "$M2_PLANET/bin/M2-Planet" "$BUILDROOT/m2-ref"
-fi
-[ -x "$BUILDROOT/m2-ref" ] || fail 0 "$BUILDROOT/m2-ref not produced"
+# gcc-built reference M2-Planet, for byte-identical comparisons only.
+# Rebuilt on every run — never a leftover $BUILDROOT/m2-ref.
+M2_PLANET="$M2_PLANET" MESCC_TOOLS="$MESCC_TOOLS" \
+    tests/cc/build-gcc-refs.sh "$BUILDROOT/gcc-ref" >/dev/null \
+    || fail 0 "gcc reference build failed"
+cp "$BUILDROOT/gcc-ref/m2-ref" "$BUILDROOT/m2-ref"
+echo "prereqs OK: bootstrap.sh (seed-forth, cc-out-v1, M1, hex2; no GCC), m2-ref (GCC, reference only)"
 
-# M1, hex2 — needed to assemble v1's M2-Planet self-compile into an ELF.
-# Headers in $M2_PLANET resolve M1-macro.c's `#include "M2libc/..."`.
-if [ ! -x "$BUILDROOT/M1" ]; then
-    (cd "$MESCC_TOOLS" && gcc -D_GNU_SOURCE -std=c99 -fno-common \
-        -I "$M2_PLANET" \
-        M1-macro.c stringify.c "$M2_PLANET/M2libc/bootstrappable.c" \
-        -o "$BUILDROOT/M1") || fail 0 "gcc M1 build failed"
-fi
-if [ ! -x "$BUILDROOT/hex2" ]; then
-    (cd "$MESCC_TOOLS" && gcc -D_GNU_SOURCE -std=c99 -fno-common \
-        -I "$M2_PLANET" \
-        hex2.c hex2_linker.c hex2_word.c "$M2_PLANET/M2libc/bootstrappable.c" \
-        -o "$BUILDROOT/hex2") || fail 0 "gcc hex2 build failed"
-fi
-[ -x "$BUILDROOT/M1"   ] || fail 0 "M1 not built"
-[ -x "$BUILDROOT/hex2" ] || fail 0 "hex2 not built"
-echo "prereqs OK: seed-forth, m2-ref, M1, hex2"
-
-M1=$BUILDROOT/M1
-HEX2=$BUILDROOT/hex2
+M1=$BOOT/M1
+HEX2=$BOOT/hex2
 M2REF=$BUILDROOT/m2-ref
 
 # ---------------------------------------------------------------------------
-step 1 "build cc-out-v1 (seed-forth compiles M2-Planet monolith)"
+step 1 "cc-out-v1 (seed-forth-compiled M2-Planet, from bootstrap.sh)"
 # ---------------------------------------------------------------------------
-rm -f /tmp/cc-out
-./tests/cc/build-m2planet-monolith.sh >/dev/null || fail 1 "monolith build failed"
-[ -x /tmp/cc-out ] || fail 1 "/tmp/cc-out not produced"
-cp /tmp/cc-out "$BUILDROOT/cc-out-v1"
+cp "$BOOT/cc-out-v1" "$BUILDROOT/cc-out-v1"
 v1_size=$(wc -c < "$BUILDROOT/cc-out-v1")
 echo "cc-out-v1: $v1_size bytes, $(file -b "$BUILDROOT/cc-out-v1")"
 
@@ -195,7 +199,7 @@ run_arch_chain() {
         || fail $((SID+3)) "tiny.c output mismatch at $ARCH"
     echo "C: tiny.c v1==v2 ($(wc -c < "$BUILDROOT/tiny-v1-$ARCH.M1") bytes)"
 
-    # --- D: v2 self-compile (host-arch nudge expected) -------------------
+    # --- D: v2 self-compile (differs from v1: && is bitwise in M2-Planet) -
     (cd "$M2_PLANET" && "$BUILDROOT/cc-out-v2-$ARCH" --architecture "$ARCH" --expand-includes \
         "${m2_args[@]}" -o "$BUILDROOT/self-v2-$ARCH.M1") \
         || fail $((SID+4)) "v2 self-compile ($ARCH) failed"
@@ -203,11 +207,11 @@ run_arch_chain() {
     s1=$(wc -c < "$BUILDROOT/self-v1-$ARCH.M1")
     s2=$(wc -c < "$BUILDROOT/self-v2-$ARCH.M1")
     if cmp -s "$BUILDROOT/self-v1-$ARCH.M1" "$BUILDROOT/self-v2-$ARCH.M1"; then
-        echo "D: self-v1-$ARCH == self-v2-$ARCH ($s2 bytes) — no host-arch nudge"
+        echo "D: self-v1-$ARCH == self-v2-$ARCH ($s2 bytes) — the && difference is gone (unexpected; see REPRODUCIBLE.md)"
     else
         local delta
         delta=$(diff "$BUILDROOT/self-v1-$ARCH.M1" "$BUILDROOT/self-v2-$ARCH.M1" | wc -l || true)
-        echo "D: self-v1-$ARCH != self-v2-$ARCH ($s1 vs $s2 bytes, diff lines: $delta) — M2-Planet host-arch nudge"
+        echo "D: self-v1-$ARCH != self-v2-$ARCH ($s1 vs $s2 bytes, diff lines: $delta) — expected: v1 compiled M2-Planet's && as C does, v2 as M2-Planet does"
     fi
 
     # --- E: assemble v2 self-compile -> cc-out-v3-$ARCH -------------------
@@ -273,6 +277,11 @@ for arch in $ARCHES; do
     run_arch_chain "$arch" "$sid"
     sid=$((sid+100))
 done
+case " $ARCHES " in *" amd64 "*)
+    cmp "$BUILDROOT/cc-out-v2-amd64" "$BOOT/cc-out-v2" && cmp "$BUILDROOT/cc-out-v3-amd64" "$BOOT/cc-out-v3" \
+        || fail 2 "amd64 v2/v3 differ from bootstrap.sh's"
+    echo "amd64: cc-out-v2/v3 byte-identical to bootstrap.sh's cc-out-v2/v3" ;;
+esac
 
 # ---------------------------------------------------------------------------
 step 3 "M2-Planet test suite parity (x86, byte-identical to reference)"

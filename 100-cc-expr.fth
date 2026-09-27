@@ -2,217 +2,179 @@
 \ Emits code that leaves the expression's value in rdi.  Uses 090-cc-emit.fth's
 \ instruction encoders.
 \
-\ Expression grammar:
-\   expr   := assign
-\   assign := eq ('=' assign)?            \ right-associative; LHS must be ident
-\   eq     := rel (('=='|'!=') rel)*
-\   rel    := add (('<'|'<='|'>'|'>=') add)*
-\   add    := mul (('+'|'-') mul)*
-\   mul    := unary (('*'|'/'|'%') unary)*
-\   unary  := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | primary
-\   primary:= NUMBER | IDENT | '(' expr ')'
+\ Expression grammar, loosest-binding first (one cc-parse-LEVEL word each):
+\   expr    := assign                                 \ then materialize
+\   assign  := ternary (ASSIGN-OP assign)?            \ = += -= *= /= %= <<= >>= &= |= ^=
+\   ternary := log-or ('?' assign ':' assign)?
+\   log-or  := log-and ('||' log-and)*
+\   log-and := bit-or ('&&' bit-or)*
+\   bit-or  := bit-xor ('|' bit-xor)*
+\   bit-xor := bit-and ('^' bit-and)*
+\   bit-and := eq ('&' eq)*
+\   eq      := rel (('=='|'!=') rel)*
+\   rel     := shift (('<'|'<='|'>'|'>=') shift)*
+\   shift   := add (('<<'|'>>') add)*
+\   add     := mul (('+'|'-') mul)*
+\   mul     := unary (('*'|'/'|'%') unary)*
+\   unary   := ('*'|'&'|'-'|'!'|'~'|'++'|'--') unary | 'sizeof' '(' ... ')'
+\            | primary
+\   primary := (NUMBER | CHAR | STRING | IDENT | IDENT '(' args ')'
+\               | IDENT '[' expr ']' | '(' expr ')')
+\              ('.' IDENT | '->' IDENT | '[' expr ']' | '++' | '--')*
 \
-\ The lexer (050-cc-lex.fth) reads one token at a time with no built-in peek.
-\ We add a one-token putback layer on top of cc-next-token via the
-\ cc-tok-pending flag: when a parser has consumed one token too many it
-\ calls cc-putback-token; the next cc-next-token-keep returns the same
-\ tok-* state without advancing.
+\ Tokens come from the lexer's interface (050-cc-lex.fth): cc-next-token-keep
+\ reads the next one, and cc-putback-token hands the current one back when a
+\ parser has read one token too many.
 \
 \ Depends on 010-lib.fth, 030-cc-io.fth, 050-cc-lex.fth, 060-cc-types.fth, 070-cc-sym.fth,
 \ 090-cc-emit.fth.
 
 \ ===========================================================================
-\ One-token putback wrapper
+\ Forward references.  The grammar is recursive: a primary's '(' expr ')'
+\ and a call's arguments re-enter the whole grammar, and the ternary's arms
+\ parse assignments.  cc-parse-expr and cc-parse-assign are defined near the
+\ end of this file, so the words before them call these deferred words
+\ (010-lib.fth), which the last lines of the file fill in.
 \ ===========================================================================
 
-variable cc-tok-pending                           \ -1 = a token is queued
-
-\ cc-next-token-keep ( -- )  Advance to the next token unless one is pending.
-: cc-next-token-keep
-  cc-tok-pending @ if,
-    [lit] 0 cc-tok-pending !
-  else,
-    cc-next-token
-  then, ;
-
-\ cc-putback-token ( -- )  Mark the current tok-* as still-pending so the
-\ next cc-next-token-keep returns it without advancing.
-: cc-putback-token
-  [lit] 0 0= cc-tok-pending ! ;
+defer cc-parse-expr-fwd                           \ runs cc-parse-expr
+defer cc-parse-assign-fwd                         \ runs cc-parse-assign
 
 \ ===========================================================================
-\ Forward reference for recursive expr (used by '(' expr ')' in primary).
+\ Token tests.  Is the current token this punctuation, or this keyword?
 \ ===========================================================================
 
-variable cc-parse-expr-vec                        \ xt of top-level expr parser
+\ cc-tok-punct? ( code -- f )  True if the current token is punctuation code
+\ (a character such as [char] ( or a pt-* constant such as pt-arrow).
+: cc-tok-punct?  tok-kind @ tk-punct =  swap tok-num @ =  and ;
 
-: cc-parse-expr-tramp
-  cc-parse-expr-vec @ execute ;
-
-\ cc-parse-assign is defined AFTER cc-parse-ternary (mutual recursion:
-\ ternary's arms parse via cc-parse-assign for right-associativity).  Route
-\ ternary's recursive calls through this vec so the binding resolves at
-\ ternary-execution time, not at compile time.
-variable cc-parse-assign-vec                      \ xt of cc-parse-assign
-
-: cc-parse-assign-tramp
-  cc-parse-assign-vec @ execute ;
-
-\ ===========================================================================
-\ Forward reference for function-call codegen (defined in 110-cc-decl.fth so it
-\ can use cc-base-vaddr from 080-cc-elf.fth).  cc-parse-primary calls into
-\ cc-parse-call-tramp once it has spotted `IDENT (`; the callee consumes the
-\ '(' (already peeked but not consumed), parses comma-separated arg
-\ expressions, emits the SYS-V argument-passing prologue and the call.
-\ ===========================================================================
-
-variable cc-parse-call-vec                        \ xt of cc-parse-call
-
-\ cc-parse-call-tramp ( id -- )  Stack: function symbol-id; consumes it.
-: cc-parse-call-tramp
-  cc-parse-call-vec @ execute ;
+\ cc-tok-kw? ( id -- f )  True if the current token is the keyword id (kw-*).
+: cc-tok-kw?  tok-kind @ tk-kw =  swap tok-kw-id @ =  and ;
 
 \ ===========================================================================
 \ Lvalue tracking for assignment, address-of, and dereference.
 \ ===========================================================================
-\ Two pieces of state:
+\ Every parse function leaves a value in rdi and four facts about it here.
+\ The cc-mark words below write the kind and slot and clear the struct
+\ descriptor and the type, which the parser sets afterwards when it knows
+\ them; cc-emit-materialize is the only other writer of the kind.
 \
-\   cc-last-lvalue-kind  : 0 = not an lvalue
-\                          1 = local variable     (slot in cc-last-ident-slot)
-\                          2 = pending dereference (rdi holds an ADDRESS that
-\                              has not yet been loaded; consumer must
-\                              materialize it via cc-emit-materialize before
-\                              using the value, or use it directly to store
-\                              into [rdi] for assignment).
-\   cc-last-ident-slot   : slot index of a kind=1 local (irrelevant for other
-\                          kinds, kept for the assignment helper).
+\   cc-last-lvalue-kind  what rdi holds — one of the lv-* constants:
+\       lv-value      a value; not assignable
+\       lv-local      a local's value, already loaded; the local is
+\                     cc-last-ident-slot, so `x = ...` stores back there
+\       lv-deref      the ADDRESS of a qword that has not been loaded yet
+\       lv-deref-byte the ADDRESS of a single byte (a char) not loaded yet
+\     A consumer that wants the value calls cc-emit-materialize, which loads
+\     through a pending address; assignment instead stores through it.
+\   cc-last-ident-slot   slot index of an lv-local (-1 otherwise).
+\   cc-last-struct-desc  struct descriptor of a struct or struct-pointer
+\                        value (0 if none), for a following '.' / '->'.
+\   cc-last-expr-type    encoded C type (ty-base + ptr-depth) of the value,
+\                        0 if unknown.  A following '[' or unary '*' reads it
+\                        to pick byte or qword stride and width.
 \
-\ cc-parse-primary clears these (kind=0, slot=-1) by default and writes them
-\ when it parses a simple local IDENT.  cc-parse-unary may write kind=2 when
-\ parsing `*expr`.  Any binary-op fold that fires (cc-parse-mul/add/rel/eq)
-\ materializes operands first and then sets kind back to 0 (the result of
-\ a binary op is not an lvalue).  cc-parse-assign reads BOTH globals AT MOST
-\ ONCE — right after parsing the LHS — and snapshots them on the data stack
-\ before recursing into the RHS (which would otherwise overwrite them).
+\ A binary operator's result is a plain value: it marks lv-value, which
+\ clears all four.  cc-parse-assign reads kind and slot once, right after
+\ parsing the left side, and keeps them on the data stack while the right
+\ side's parse overwrites them.
 
+[lit] 0 constant lv-value
+[lit] 1 constant lv-local
+[lit] 2 constant lv-deref
+[lit] 3 constant lv-deref-byte
+
+variable cc-last-lvalue-kind                       \ lv-value .. lv-deref-byte
 variable cc-last-ident-slot
-variable cc-last-lvalue-kind                       \ 0 / 1 / 2
-
-\ cc-last-struct-desc holds the struct descriptor pointer of the most
-\ recently loaded struct lvalue or struct-pointer rvalue.  Consumed by the
-\ '.' / '->' postfix handler in cc-parse-primary; cleared by every other
-\ lvalue-mark word so it never leaks across unrelated expressions.
 variable cc-last-struct-desc
-
-\ cc-last-deref-is-byte: -1 iff the current kind=2 deref-lvalue addresses a
-\ single byte (e.g. `s[i]` where s is char*), 0 otherwise.  Read by
-\ cc-emit-materialize and the kind=2 assignment path so they emit byte-width
-\ load/store instead of qword.  Cleared by every other mark-* word.
-variable cc-last-deref-is-byte
-
-\ cc-last-expr-type: encoded C type (ty-base + ptr-depth) of the value most
-\ recently produced by cc-parse-primary plus its postfix chain.  Used by the
-\ postfix '[' handler so `obj->charstar[i]` knows to apply byte stride and
-\ byte deref instead of qword.  0 means "type unknown" — postfix '[' falls
-\ back to the legacy qword path in that case.  Reset to 0 by every cc-mark-*
-\ word so it never leaks across unrelated expressions.
 variable cc-last-expr-type
 
-: cc-mark-not-lvalue
-  [lit] 0 0= cc-last-ident-slot !                  \ slot := -1
-  [lit] 0    cc-last-lvalue-kind !                 \ kind := 0
-  [lit] 0    cc-last-struct-desc !
-  [lit] 0    cc-last-deref-is-byte !
-  [lit] 0    cc-last-expr-type ! ;
-
-\ cc-mark-local-lvalue ( slot -- )  Record kind=1 with the given slot.
-: cc-mark-local-lvalue
+\ cc-mark ( slot kind -- )  Record kind and slot; clear desc and type.
+: cc-mark
+  cc-last-lvalue-kind !
   cc-last-ident-slot !
-  [lit] 1 cc-last-lvalue-kind !
   [lit] 0 cc-last-struct-desc !
-  [lit] 0 cc-last-deref-is-byte !
   [lit] 0 cc-last-expr-type ! ;
 
-\ cc-mark-deref-lvalue ( -- )  Record kind=2 (rdi holds a pending-deref addr).
-: cc-mark-deref-lvalue
-  [lit] 0 0= cc-last-ident-slot !
-  [lit] 2    cc-last-lvalue-kind !
-  [lit] 0    cc-last-struct-desc !
-  [lit] 0    cc-last-deref-is-byte !
-  [lit] 0    cc-last-expr-type ! ;
+\ cc-mark-not-lvalue ( -- )  rdi holds a plain value.
+: cc-mark-not-lvalue     true lv-value cc-mark ;
 
-\ cc-mark-deref-byte-lvalue ( -- )  Same as cc-mark-deref-lvalue but flags the
-\ deref as byte-width.  Used for `s[i]` on char* (and char[N]).
-: cc-mark-deref-byte-lvalue
-  cc-mark-deref-lvalue
-  [lit] 0 0= cc-last-deref-is-byte ! ;
+\ cc-mark-local-lvalue ( slot -- )  rdi holds the loaded value of local slot.
+: cc-mark-local-lvalue   lv-local cc-mark ;
 
-\ cc-emit-materialize ( -- )  If kind==2, load [rdi] into rdi and clear state.
-\ A no-op for kind 0 or 1 (their rdi already holds a value).
+\ cc-mark-deref ( byte? -- )  rdi holds an address not yet loaded; byte? is
+\ true when it addresses a single byte (`s[i]` or `*s` with s a char*).
+: cc-mark-deref
+  if, lv-deref-byte else, lv-deref then,
+  true swap cc-mark ;
+
+\ cc-deref-pending? ( -- f )  True if rdi holds an address not yet loaded.
+: cc-deref-pending?
+  cc-last-lvalue-kind @ lv-deref =
+  cc-last-lvalue-kind @ lv-deref-byte = or ;
+
+\ cc-char-ptr? ( ty -- f )  True iff ty is char* (a subscript or '*' on it
+\ reaches a single byte).
+: cc-char-ptr?
+  dup ty-base ty-char = swap ty-ptr [lit] 1 = and ;
+
+\ cc-emit-materialize ( -- )  If rdi holds an address not yet loaded, load
+\ through it (one byte or eight) so rdi holds the value, and mark it a plain
+\ value.  The struct descriptor and type describe the value either way, so
+\ they are kept.  A no-op for lv-value and lv-local.
 : cc-emit-materialize
-  cc-last-lvalue-kind @ [lit] 2 = if,
-    cc-last-deref-is-byte @ if,
+  cc-deref-pending? if,
+    cc-last-lvalue-kind @ lv-deref-byte = if,
       cc-emit-load-byte-via-rdi
     else,
       cc-emit-load-via-rdi
     then,
-    cc-mark-not-lvalue
+    true cc-last-ident-slot !
+    lv-value cc-last-lvalue-kind !
   then, ;
 
 \ ===========================================================================
 \ Struct-field name lookup.
 \ ===========================================================================
-\ Walks the descriptor's field array; returns the matched field's byte offset.
-\ Aborts with status 92 if no field matches (compile-time error: field not
-\ found).  Uses globals to stash the needle so the loop body has predictable
-\ stack effect.
+\ Walks the descriptor's field array and returns the first matching field's
+\ byte offset, leaving its pointee desc and encoded type in cc-ff-result-desc
+\ and cc-ff-result-type for the caller.  Dies with code 90 if no field
+\ matches (compile-time error: field not found).  Uses globals to stash the
+\ needle so the loop body has predictable stack effect.
 
 variable cc-ff-needle-addr
 variable cc-ff-needle-len
 variable cc-ff-desc
-variable cc-ff-result                                \ -1 = not-yet-found, else offset
 variable cc-ff-result-desc                           \ matched field's pointee desc (0 if not a struct ptr)
 variable cc-ff-result-type                           \ matched field's encoded type (ty-base + ptr-depth)
-variable cc-ff-found                                 \ flag: -1 if found
 
 \ cc-find-field ( name-addr name-len desc -- offset )
 : cc-find-field
   cc-ff-desc           !
   cc-ff-needle-len     !
   cc-ff-needle-addr    !
-  [lit] 0 cc-ff-found  !                            \ found? = 0
-  [lit] 0 cc-ff-result !
-  [lit] 0 cc-ff-result-desc !
-  [lit] 0 cc-ff-result-type !
   \ Loop i = 0..field-count-1.
   cc-ff-desc @ cc-sd-field-count                    ( count )
   [lit] 0                                            ( count i )
   begin,
     over over >                                      ( count i count>i? )
   while,
-    cc-ff-found @ 0= if,
-      \ Compare names at field i.
-      cc-ff-desc @ over cc-sd-field-rec              ( count i rec )
-      dup cc-sf-name-len cc-ff-needle-len @ = if,
-        dup cc-sf-name-addr                         ( count i rec entry-addr )
-        cc-ff-needle-addr @ swap                    ( count i rec needle entry )
-        cc-ff-needle-len  @                         ( count i rec needle entry u )
-        bytes-eq if,
-          dup cc-sf-offset cc-ff-result !
-          dup cc-sf-desc cc-ff-result-desc !
-          dup cc-sf-type cc-ff-result-type !
-          [lit] 0 0= cc-ff-found !
-        then,
+    \ Compare names at field i.
+    cc-ff-desc @ over cc-sd-field-rec                ( count i rec )
+    dup cc-sf-name-len cc-ff-needle-len @ = if,
+      dup cc-sf-name-addr                           ( count i rec entry-addr )
+      cc-ff-needle-addr @ swap                      ( count i rec needle entry )
+      cc-ff-needle-len  @                           ( count i rec needle entry u )
+      bytes-eq if,                                  ( count i rec )
+        dup cc-sf-desc cc-ff-result-desc !
+        dup cc-sf-type cc-ff-result-type !
+        cc-sf-offset nip nip exit,                  ( offset )
       then,
-      drop                                          ( count i )
     then,
-    [lit] 1 +                                       ( count i+1 )
+    drop                                            ( count i )
+    1+                                              ( count i+1 )
   repeat,
-  drop drop                                          ( -- )
-  cc-ff-found @ 0= if,
-    [lit] 92 die
-  then,
-  cc-ff-result @ ;
+  [lit] 90 cc-die ;
 
 \ ===========================================================================
 \ cc-parse-array-index — handle `arr[expr]`.
@@ -224,10 +186,10 @@ variable cc-ff-found                                 \ flag: -1 if found
 \ cc-next-token-keep will advance past it).
 \
 \ The base is loaded into rdi by one of four paths:
-\   inline local array  (sk-local,  extra>0)  lea  rdi, [rbp+disp]      \ &arr[0]
-\   local pointer       (sk-local,  extra=0)  mov  rdi, [rbp+disp]      \ value of p
-\   inline global array (sk-global, extra>0)  movabs rdi, &globals[off]
-\   global pointer      (sk-global, extra=0)  movabs rdi, &globals[off]; mov rdi, [rdi]
+\   inline local array  (sk-local,  len>0)  lea  rdi, [rbp+disp]      \ &arr[0]
+\   local pointer       (sk-local,  len=0)  mov  rdi, [rbp+disp]      \ value of p
+\   inline global array (sk-global, len>0)  movabs rdi, &globals[off]
+\   global pointer      (sk-global, len=0)  movabs rdi, &globals[off]; mov rdi, [rdi]
 \
 \ Then `arr[i]` becomes:
 \     push rdi
@@ -243,25 +205,25 @@ variable cc-ff-found                                 \ flag: -1 if found
 \   inline array of T:  step=1 iff base==ty-char AND ptr-depth==0
 \   pointer-to-T:       step=1 iff base==ty-char AND ptr-depth==1
 \
-\ After this the caller marks lvalue-kind=2 (pending deref) so the consumer
+\ This word then marks the result a pending deref (lv-deref) so the consumer
 \ either does the load (rvalue use, via cc-emit-materialize) or treats rdi
-\ as the destination address (lvalue use in assignment, kind=2 path).
+\ as the destination address (lvalue use in assignment, the deref path).
 : cc-parse-array-index                            ( id -- )
   \ Accept sk-local or sk-global.
   dup cc-sym-kind-of sk-local =
   over cc-sym-kind-of sk-global = or 0= if,
     drop
-    [lit] 80 die
+    [lit] 91 cc-die
   then,
 
   \ Emit base address into rdi.
   dup cc-sym-kind-of sk-global = if,
     dup cc-sym-val-of cc-emit-global-ref          \ rdi = &globals[off]
-    dup cc-sym-extra-of [lit] 0 = if,
+    dup cc-sym-array-len-of [lit] 0 = if,
       cc-emit-load-via-rdi                        \ pointer global: load slot value
     then,
   else,
-    dup cc-sym-extra-of [lit] 0 > if,
+    dup cc-sym-array-len-of [lit] 0 > if,
       dup cc-sym-val-of cc-emit-lea-rdi-local     \ inline array: address of slot
     else,
       dup cc-sym-val-of cc-emit-load-local        \ pointer local: load slot value
@@ -269,16 +231,16 @@ variable cc-ff-found                                 \ flag: -1 if found
   then,
 
   \ Element type of arr[i] plus a byte-step flag, both stashed on the rstack
-  \ so they survive the index-expression parse.  An inline array (extra>0)
+  \ so they survive the index-expression parse.  An inline array (len>0)
   \ keeps the symbol's type — the subscript consumes the array dimension, not
-  \ a pointer level; a pointer (extra==0) drops one pointer level.  The step
+  \ a pointer level; a pointer (len==0) drops one pointer level.  The step
   \ is one byte iff the element is a plain char, so a chained `[j]` (e.g.
   \ char* v[]; v[i][j]) reads cc-last-expr-type and picks byte stride/deref.
-  dup cc-sym-extra-of [lit] 0 > if,
+  dup cc-sym-array-len-of [lit] 0 > if,
     cc-sym-type-of                                ( elem-ty )         \ array: keep type
   else,
     cc-sym-type-of                                ( ty )
-    dup ty-base swap ty-ptr [lit] 1 - ty-make     ( elem-ty )         \ ptr: depth-1
+    dup ty-base swap ty-ptr 1- ty-make            ( elem-ty )         \ ptr: depth-1
   then,
   dup >r                                          ( elem-ty ; R: elem-ty )
   dup ty-base ty-char = swap ty-ptr [lit] 0 = and ( char-step? ; R: elem-ty )
@@ -286,9 +248,9 @@ variable cc-ff-found                                 \ flag: -1 if found
 
   cc-emit-push-rdi
 
-  \ Parse the index expression.  cc-parse-expr-tramp ends with a materialize
+  \ Parse the index expression.  cc-parse-expr-fwd ends with a materialize
   \ so rdi holds an actual integer.
-  cc-parse-expr-tramp
+  cc-parse-expr-fwd
 
   r@ 0= if,
     cc-emit-shl-rdi-3                             \ rdi *= 8 (non-char step)
@@ -300,347 +262,450 @@ variable cc-ff-found                                 \ flag: -1 if found
 
   \ Expect ']'.
   cc-next-token-keep
-  tok-kind @ tk-punct <> tok-num @ [lit] 93 <> or if,
-    [lit] 82 die
+  tok-kind @ tk-punct <> tok-num @ [char] ] <> or if,
+    [lit] 92 cc-die
   then,
 
-  \ rdi now holds the element address; mark as pending-deref lvalue so the
-  \ consumer either loads or stores depending on context.  char-step element
-  \ accesses (flag still on rstack) mark byte-width so the eventual load/store
-  \ is 1 byte, not 8.  The mark zeroes cc-last-expr-type, so republish the
-  \ element type afterwards for any chained postfix `[j]`.
-  r> if,
-    cc-mark-deref-byte-lvalue
-  else,
-    cc-mark-deref-lvalue
-  then,
+  \ rdi now holds the element address; mark it a pending deref so the
+  \ consumer either loads or stores depending on context.  A char-step
+  \ element (flag still on rstack) is a byte-wide deref, so the eventual
+  \ load/store is 1 byte, not 8.  The mark zeroes cc-last-expr-type, so
+  \ republish the element type afterwards for any chained postfix `[j]`.
+  r> cc-mark-deref
   r> cc-last-expr-type ! ;
 
 \ ===========================================================================
-\ cc-parse-primary
+\ Function calls: `NAME ( args )`.  cc-parse-primary calls cc-parse-call
+\ once it has seen an identifier followed by '('.
 \ ===========================================================================
 
-\ Abort helper — exits with status 30+code (so we can tell parse errors apart
-\ from runtime exits and the existing cc-decl error codes 2..6).
-\ Inlined where used because we have no `exit` primitive.
+\ cc-emit-call-vaddr ( target-vaddr -- )  Emit `call <abs-target>` (5 bytes).
+\ rel32 = target_vaddr - (callsite_after_E8 + 4) = target - (callsite_vaddr+5)
+\ where callsite_vaddr = cc-here-vaddr at the moment of E8.
+: cc-emit-call-vaddr
+  [lit] 232 cc-emit-byte                          \ E8 opcode
+  \ At this point cc-out-pos@ points at the rel32 slot's first byte.
+  \ rel32 = target - (cc-here-vaddr + 4)
+  cc-here-vaddr [lit] 4 + -                       ( rel32 )
+  cc-emit-4le ;
 
-: cc-parse-primary
-  cc-mark-not-lvalue                              \ default: not an lvalue
+\ cc-emit-pop-by-arg-index ( arg-index -- )  Emit a pop into the SYS-V arg
+\ register corresponding to arg-index (0=rdi, 1=rsi, 2=rdx, 3=rcx, 4=r8, 5=r9).
+\ Caller is responsible for not asking past 5.
+: cc-emit-pop-by-arg-index
+  dup [lit] 0 = if, drop cc-emit-pop-rdi else,
+  dup [lit] 1 = if, drop cc-emit-pop-rsi else,
+  dup [lit] 2 = if, drop cc-emit-pop-rdx else,
+  dup [lit] 3 = if, drop cc-emit-pop-rcx else,
+  dup [lit] 4 = if, drop cc-emit-pop-r8  else,
+                    drop cc-emit-pop-r9
+  then, then, then, then, then, ;
+
+\ cc-emit-pops-for-args ( n -- )  Pop n values off the stack into the first n
+\ SYS-V arg registers, in REVERSE order (so the last-pushed value lands in the
+\ n-th argument register).  After this, args 1..n live in rdi/rsi/rdx/rcx/r8/r9.
+\
+\ Walks i = n-1 down to 0, emitting pop-into-reg(i) at each step.  Loop drives
+\ a counter on the data stack.
+: cc-emit-pops-for-args                           ( n -- )
+  1-                                              ( i = n-1 )
+  begin,
+    dup [lit] 0 >=
+  while,
+    dup cc-emit-pop-by-arg-index
+    1-
+  repeat,
+  drop ;
+
+\ cc-parse-call ( id -- )  Parse a comma-separated argument list — the leading
+\ '(' has ALREADY been consumed by cc-parse-primary (it was the lookahead
+\ token that triggered dispatch here).  Evaluate each arg left-to-right
+\ (each result pushed onto the stack), then emit the SYS-V argument-register
+\ loads, the call, and post-call rdi <- rax move so the caller sees the
+\ return value in rdi.
+\
+\ Stack at entry: ( id ).  The id is the symbol-table id of the callee.
+\ Stack at exit:  ( ).
+: cc-parse-call
+  \ Parse the argument list.  Stack underneath: ( id ).  We thread an
+  \ argument count below the id.  Initial state: ( id 0 ).
+  [lit] 0                                         ( id arg-count )
+
+  \ Empty arg list?
   cc-next-token-keep
-  tok-kind @ tk-num = if,
-    tok-num @ cc-emit-mov-rdi-int                 \ widen to imm64 if out of imm32 range
+  tok-kind @ tk-punct = tok-num @ [char] ) = and if,
+    \ ')' — empty arg list, leave count = 0.
   else,
-    tok-kind @ tk-chr = if,
-      \ Character literal — value is in tok-num just like a number.
-      tok-num @ cc-emit-mov-rdi-imm32
-    else,
-    tok-kind @ tk-str = if,
-      \ String literal.  We emit the bytes inline in the code stream and
-      \ jump over them, then load their absolute vaddr into rdi:
-      \     jmp +N            E9 <rel32>          (5 bytes; rel32 patched)
-      \     <decoded string bytes + NUL>
-      \   skip:
-      \     movabs rdi, vaddr 48 BF <imm64>       (10 bytes)
-      cc-emit-jmp-rel32-placeholder               ( fixup-off )
-      \ Capture the vaddr where the string bytes will start (= current emit
-      \ position, NOT the rel32 fixup, so we keep it on the stack under the
-      \ fixup).
-      cc-base-vaddr cc-out-pos @ +                ( fixup-off str-vaddr )
-      swap                                        ( str-vaddr fixup-off )
-      \ Copy decoded string bytes (with NUL terminator).
-      tok-str-addr @ tok-str-len @ cc-emit-string-bytes
-      \ Patch the jmp's rel32 to land here (right after the string bytes).
-      cc-patch-rel32-to-here                      ( str-vaddr )
-      \ Emit the movabs rdi, str-vaddr.
-      cc-emit-movabs-rdi-imm64
-    else,
-      tok-kind @ tk-ident = if,
-      \ Identifier reference.  Could be a local variable, or a function call
-      \ if the next token is '('.  Look up the name first.
-      tok-str-addr @ tok-str-len @ cc-sym-find
-      \ -1 means "not found" (cc-sym-find result encoding: -1 == [lit] 0 0=).
-      dup [lit] 0 < if,
-        drop
-        [lit] 30 die
-      then,
-      \ Enum constants resolve to their integer value (mov rdi, imm32).
-      \ Handle this BEFORE the suffix peek so RED, GREEN etc. work in any
-      \ expression context — they're never callable / indexable / assignable.
-      dup cc-sym-kind-of sk-enum = if,
-        cc-sym-val-of cc-emit-mov-rdi-imm32
-        cc-mark-not-lvalue
-      else,
-      \ Peek the next token without consuming it.  Possible suffixes:
-      \   '(' -> function call
-      \   '[' -> array index
-      \ Otherwise it's a plain variable reference (with array decay for
-      \ array-typed locals).
+    cc-putback-token
+    \ Loop: parse one arg, push, increment count; continue while next is ','.
+    begin,                                        ( id arg-count )
+      cc-parse-expr-fwd                           \ rdi := arg value
+      cc-emit-push-rdi
+      1+                                          \ count++
       cc-next-token-keep
-      tok-kind @ tk-punct = tok-num @ [lit] 40 = and if,
-        \ Function call.  The id (still on TOS) must refer either to an
-        \ sk-func (direct call) or to an sk-local function pointer
-        \ (indirect call).
-        dup cc-sym-kind-of sk-func = if,
-          \ direct call — accepted
-        else,
-          \ Indirect call?  Must be sk-local with ty-base==ty-func.
-          dup cc-sym-kind-of sk-local =
-          over cc-sym-type-of ty-base ty-func = and 0= if,
-            drop
-            [lit] 34 die
-          then,
-        then,
-        \ Hand the id off to cc-parse-call (in 110-cc-decl.fth via trampoline).
-        \ It will consume the '(' (already peeked), parse args, emit the
-        \ call, and leave the return value in rdi.  The result is not an
-        \ lvalue.
-        cc-parse-call-tramp
-        cc-mark-not-lvalue
-      else,
-        tok-kind @ tk-punct = tok-num @ [lit] 91 = and if,
-          \ Array index.  '[' has been read into tok-*; cc-parse-array-
-          \ index consumes through ']'.  The id is on TOS.
-          cc-parse-array-index
-        else,
-          \ Variable reference.  Put back the peeked token.
-          cc-putback-token
-          \ Function name as rvalue — `op = square;`.  Load the function's
-          \ absolute vaddr into rdi via movabs.  Result is not an lvalue.
-          \ When val == 0 the function is still a forward prototype; emit a
-          \ 10-byte movabs placeholder and thread the imm64 patch-offset onto
-          \ cc-sym-extra2 so cc-parse-function can patch it once the real
-          \ vaddr is known.  Without this, M2-Planet code like
-          \ `common_recursion(expression)` (where `expression` is forward-
-          \ declared) loads 0 into rdi and crashes at the indirect call.
-          dup cc-sym-kind-of sk-func = if,
-            dup cc-sym-val-of [lit] 0 = if,
-              cc-emit-movabs-rdi-imm64-placeholder    ( id patch-off )
-              swap cc-sym-extra2 sym-slot             ( patch-off extra2-cell )
-              cc-add-fixup-to-list
-            else,
-              cc-sym-val-of cc-emit-movabs-rdi-imm64
-            then,
-            cc-mark-not-lvalue
-          else,
-          \ File-scope global.  Emit movabs rdi, <vaddr-placeholder>
-          \ with a deferred fixup.  Scalar globals are deref-pending lvalues
-          \ (kind=2); array globals decay to their address (kind=0).
-          \
-          \ cc-sym-extra's meaning depends on the type:
-          \   ty-struct base -> struct descriptor pointer (NOT an array length).
-          \   any other      -> array element count (>0 for arrays, 0 otherwise).
-          dup cc-sym-kind-of sk-global = if,
-            dup cc-sym-type-of ty-base ty-struct = if,
-              \ Struct or struct-pointer global.  Treat like a scalar (deref-
-              \ pending lvalue) so assignment works; the descriptor is recorded
-              \ below for any postfix '.' / '->'.
-              dup cc-sym-val-of cc-emit-global-ref
-              cc-mark-deref-lvalue
-              cc-sym-extra-of cc-last-struct-desc !
-            else,
-              dup cc-sym-extra-of [lit] 0 > if,
-                \ Global array: rdi := &globals[slot]; not an lvalue.
-                cc-sym-val-of cc-emit-global-ref
-                cc-mark-not-lvalue
-              else,
-                \ Global scalar: rdi := &globals[slot]; mark deref-pending so
-                \ consumer either loads (rvalue) or stores via that address
-                \ (assignment kind=2 path).  Record the scalar's type (across
-                \ the mark, which clears it) so a following unary '*' knows
-                \ whether this is a char* (1-byte deref) or a wider pointer.
-                dup cc-sym-type-of >r
-                cc-sym-val-of cc-emit-global-ref
-                cc-mark-deref-lvalue
-                r> cc-last-expr-type !
-              then,
-            then,
-          else,
-          dup cc-sym-kind-of sk-local <> if,
-            drop
-            [lit] 31 die
-          then,
-          \ Dispatch on the local's type — struct vs struct-pointer vs
-          \ array vs scalar.
-          dup cc-sym-type-of ty-base ty-struct = if,
-            \ Struct-typed local.
-            dup cc-sym-type-of ty-ptr [lit] 0 = if,
-              \ struct T x;  Emit lea on the first-element slot so rdi holds
-              \ the address of the struct.  Then record the descriptor for any
-              \ following '.field'.  This is NOT a normal lvalue (you can't
-              \ assign to a whole struct); '.field' will mark deref-lvalue.
-              dup cc-sym-extra-of                    \ descriptor pointer
-              swap cc-sym-val-of                     \ slot of field 0 (deepest)
-              cc-emit-lea-rdi-local
-              cc-mark-not-lvalue
-              cc-last-struct-desc !
-            else,
-              \ struct T* p;  Load the pointer value; treat as an lvalue local
-              \ (kind=1) so plain `p = q;` still works, AND record descriptor
-              \ for '->field'.
-              dup cc-sym-extra-of                    \ descriptor pointer
-              swap cc-sym-val-of                     \ slot index
-              dup cc-mark-local-lvalue
-              cc-emit-load-local
-              cc-last-struct-desc !
-            then,
-          else,
-            \ If this local is an array, decay to &arr[0] — emit lea, not
-            \ load.  The result is a pointer value (not an lvalue).
-            dup cc-sym-extra-of [lit] 0 > if,
-              cc-sym-val-of                           \ slot of arr[0]
-              cc-emit-lea-rdi-local
-              cc-mark-not-lvalue
-            else,
-              \ Plain scalar local.  Save its type across the mark (which
-              \ clears cc-last-expr-type) so a following unary '*' can tell a
-              \ char* (1-byte deref) from a wider pointer.
-              dup cc-sym-type-of >r
-              cc-sym-val-of                           \ slot index
-              dup cc-mark-local-lvalue                \ kind=1, remember slot
-              cc-emit-load-local
-              r> cc-last-expr-type !
-            then,
-          then,
-          then,                                       \ end of sk-global if/else
-          then,                                       \ end of sk-func-name-rvalue if/else
-        then,
-      then,
-      then,                                           \ end of sk-enum if/else
-    else,
-      tok-kind @ tk-punct = tok-num @ [lit] 40 = and if,
-        \ '(' expr ')' — the parenthesised expr is not an lvalue (cc-parse-
-        \ primary inside the recursive call will set/clear cc-last-ident-slot;
-        \ we re-clear it here so e.g. `(x) = 1` doesn't get treated as lvalue).
-        cc-parse-expr-tramp
-        cc-mark-not-lvalue
-        cc-next-token-keep
-        tok-kind @ tk-punct <> tok-num @ [lit] 41 <> or if,
-          [lit] 32 die
-        then,
-      else,
-        [lit] 33 die
-      then,
-    then,
-    then,
+      tok-kind @ tk-punct = tok-num @ [char] , = and 0=
+    until,                                        \ until the next is not ','
+    cc-putback-token
+    \ The token AFTER the last arg should be ')'.  Consume it.
+    cc-next-token-keep
+    tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
+      [lit] 121 cc-die
     then,
   then,
-  \ Handle zero or more postfix '.field' / '->field' applied to whatever
-  \ value cc-parse-primary just produced.  Both '.' / '->' ops require
-  \ cc-last-struct-desc to be non-zero (set by the variable-reference branch
-  \ for struct locals or struct-pointer locals).  Also handles postfix '++' / '--'
-  \ to the same loop — they apply to simple local lvalues (kind=1 in
-  \ cc-last-ident-slot) and bump the slot in place while leaving the OLD value
-  \ in rdi.
+
+  ( id arg-count )
+
+  \ The SYS-V register path supports up to 6 args.  Reject excess.
+  dup [lit] 6 > if,
+    [lit] 122 cc-die
+  then,
+
+  \ NOTE on alignment: argument values are pushed while parsing, then popped
+  \ into registers before the call.  The pops restore rsp to its pre-argument
+  \ value, which our prologue keeps 16-aligned.  Nested calls happen during
+  \ expression parsing before these argument pushes are popped, so they have
+  \ their own balanced call sequence.
+
+  \ Pop arg-count values off the stack into the arg registers.
+  dup cc-emit-pops-for-args                       ( id arg-count )
+  drop                                            ( id )
+
+  \ Dispatch on symbol kind.
+  \   sk-func, val != 0 -> direct call: E8 <rel32> to absolute vaddr.
+  \   sk-func, val == 0 -> forward call: emit placeholder, register fixup
+  \                        on this prototype's call-fixups list.  When the
+  \                        function is later defined, cc-parse-function walks
+  \                        the list and patches each rel32.
+  \   sk-local + ty-func -> indirect call: load fp slot into rax, call rax.
+  \                        rdi/rsi/... already hold args; rax is free.
+  dup cc-sym-kind-of sk-func = if,
+    dup cc-sym-val-of [lit] 0 = if,
+      \ Forward call.  Emit E8 + 4-byte placeholder; thread the slot offset
+      \ onto the prototype's call-fixups list.
+      cc-emit-call-rel32-placeholder              ( id patch-off )
+      swap cc-sym-call-fixups                     ( patch-off list-cell )
+      cc-add-fixup-to-list
+    else,
+      cc-sym-val-of                               ( target-vaddr )
+      cc-emit-call-vaddr
+    then,
+  else,
+    dup cc-sym-kind-of sk-local =
+    over cc-sym-type-of ty-base ty-func = and if,
+      cc-sym-val-of                               ( slot )
+      cc-emit-load-local-into-rax                 \ rax := fp value
+      cc-emit-call-rax
+    else,
+      drop
+      [lit] 123 cc-die
+    then,
+  then,
+
+  \ Move return value into rdi (so the caller's expression machinery picks it up).
+  cc-emit-mov-rdi-rax ;
+
+\ ===========================================================================
+\ cc-parse-primary: the operand, then its postfix operators
+\ ===========================================================================
+\ A primary is an operand (a literal, a name, or a parenthesised expression)
+\ followed by any number of postfix operators ('.' '->' '[' '++' '--').
+\ Each word below handles one form and returns with exit, as soon as it has
+\ compiled it.  Each failure dies through cc-die (020-cc-arena.fth) with its
+\ own code; Appendix G of the book lists them.
+
+\ cc-parse-string-literal ( -- )  The current token is a string literal.
+\ We emit the bytes inline in the code stream and jump over them, then load
+\ their absolute vaddr into rdi:
+\     jmp +N            E9 <rel32>          (5 bytes; rel32 patched)
+\     <decoded string bytes + NUL>
+\   skip:
+\     movabs rdi, vaddr 48 BF <imm64>       (10 bytes)
+: cc-parse-string-literal
+  cc-emit-jmp-rel32-placeholder                   ( fixup-off )
+  \ Capture the vaddr where the string bytes will start (= current emit
+  \ position, NOT the rel32 fixup, so we keep it on the stack under the
+  \ fixup).
+  cc-here-vaddr                                   ( fixup-off str-vaddr )
+  swap                                            ( str-vaddr fixup-off )
+  \ Copy decoded string bytes (with NUL terminator).
+  tok-str-addr @ tok-str-len @ cc-emit-string-bytes
+  \ Patch the jmp's rel32 to land here (right after the string bytes).
+  cc-patch-rel32-to-here                          ( str-vaddr )
+  \ Emit the movabs rdi, str-vaddr.
+  cc-emit-movabs-rdi-imm64 ;
+
+\ cc-parse-func-ref ( id -- )  A function name as a value — `op = square;`.
+\ Load the function's absolute vaddr into rdi via movabs.  Result is not an
+\ lvalue.  When val == 0 the function is still a forward prototype; emit a
+\ 10-byte movabs placeholder and thread the imm64 patch-offset onto its
+\ cc-sym-addr-fixups list so cc-parse-function can patch it once the real
+\ vaddr is known.  Without this, M2-Planet code like
+\ `common_recursion(expression)` (where `expression` is forward-declared)
+\ loads 0 into rdi and crashes at the indirect call.
+: cc-parse-func-ref
+  dup cc-sym-val-of [lit] 0 = if,
+    cc-emit-movabs-rdi-imm64-placeholder          ( id patch-off )
+    swap cc-sym-addr-fixups                       ( patch-off list-cell )
+    cc-add-fixup-to-list
+  else,
+    cc-sym-val-of cc-emit-movabs-rdi-imm64
+  then,
+  cc-mark-not-lvalue ;
+
+\ cc-parse-global-ref ( id -- )  A file-scope global.  Emit movabs rdi,
+\ <vaddr-placeholder> with a deferred fixup.  Scalar globals are
+\ deref-pending lvalues (lv-deref); array globals decay to their address
+\ (lv-value).
+\
+\ The type decides which extra fact the symbol carries (070):
+\   ty-struct base -> cc-sym-struct-desc-of (NOT an array length).
+\   any other      -> cc-sym-array-len-of (>0 for arrays, 0 otherwise).
+: cc-parse-global-ref
+  dup cc-sym-type-of ty-base ty-struct = if,
+    \ Struct or struct-pointer global.  Treat like a scalar (deref-pending
+    \ lvalue) so assignment works; record the descriptor for any postfix
+    \ '.' / '->'.
+    dup cc-sym-val-of cc-emit-global-ref
+    [lit] 0 cc-mark-deref
+    cc-sym-struct-desc-of cc-last-struct-desc ! exit,
+  then,
+  dup cc-sym-array-len-of [lit] 0 > if,
+    \ Global array: rdi := &globals[slot]; not an lvalue.
+    cc-sym-val-of cc-emit-global-ref
+    cc-mark-not-lvalue exit,
+  then,
+  \ Global scalar: rdi := &globals[slot]; mark deref-pending so the consumer
+  \ either loads (rvalue) or stores via that address (assignment's deref
+  \ path).  Record the scalar's type (across the mark, which clears it) so a
+  \ following unary '*' knows whether this is a char* (1-byte deref) or a
+  \ wider pointer.
+  dup cc-sym-type-of >r
+  cc-sym-val-of cc-emit-global-ref
+  [lit] 0 cc-mark-deref
+  r> cc-last-expr-type ! ;
+
+\ cc-parse-local-ref ( id -- )  A local: struct, struct pointer, array or
+\ scalar, told apart by its type.
+: cc-parse-local-ref
+  dup cc-sym-type-of ty-base ty-struct =
+  over cc-sym-type-of ty-ptr [lit] 0 = and if,
+    \ struct T x;  Emit lea on the first-element slot so rdi holds the
+    \ address of the struct.  Then record the descriptor for any following
+    \ '.field'.  This is NOT a normal lvalue (you can't assign to a whole
+    \ struct); '.field' will mark a deref.
+    dup cc-sym-struct-desc-of                     \ descriptor pointer
+    swap cc-sym-val-of                            \ slot of field 0 (deepest)
+    cc-emit-lea-rdi-local
+    cc-mark-not-lvalue
+    cc-last-struct-desc ! exit,
+  then,
+  dup cc-sym-type-of ty-base ty-struct = if,
+    \ struct T* p;  Load the pointer value; treat as an lvalue local
+    \ (lv-local) so plain `p = q;` still works, AND record the descriptor
+    \ for '->field'.
+    dup cc-sym-struct-desc-of                     \ descriptor pointer
+    swap cc-sym-val-of                            \ slot index
+    dup cc-mark-local-lvalue
+    cc-emit-load-local
+    cc-last-struct-desc ! exit,
+  then,
+  dup cc-sym-array-len-of [lit] 0 > if,
+    \ An array decays to &arr[0] — emit lea, not load.  The result is a
+    \ pointer value (not an lvalue).
+    cc-sym-val-of                                 \ slot of arr[0]
+    cc-emit-lea-rdi-local
+    cc-mark-not-lvalue exit,
+  then,
+  \ Plain scalar local.  Save its type across the mark (which clears
+  \ cc-last-expr-type) so a following unary '*' can tell a char* (1-byte
+  \ deref) from a wider pointer.
+  dup cc-sym-type-of >r
+  cc-sym-val-of                                   \ slot index
+  dup cc-mark-local-lvalue                        \ lv-local, remember slot
+  cc-emit-load-local
+  r> cc-last-expr-type ! ;
+
+\ cc-parse-ident ( -- )  The current token is an identifier.  Look it up,
+\ then peek one token to tell a call, a subscript and a plain reference
+\ apart.
+: cc-parse-ident
+  tok-str-addr @ tok-str-len @ cc-sym-find        ( id | -1 )
+  dup 0< if,
+    drop
+    [lit] 93 cc-die
+  then,
+  \ Enum constants resolve to their integer value (mov rdi, imm32).
+  \ Handle this BEFORE the suffix peek so RED, GREEN etc. work in any
+  \ expression context — they're never callable / indexable / assignable.
+  dup cc-sym-kind-of sk-enum = if,
+    cc-sym-val-of cc-emit-mov-rdi-imm32
+    cc-mark-not-lvalue exit,
+  then,
+  cc-next-token-keep                              \ peek the suffix
+  lparen cc-tok-punct? if,
+    \ Function call.  The id must refer either to an sk-func (direct call)
+    \ or to an sk-local function pointer (indirect call).
+    dup cc-sym-kind-of sk-func <> if,
+      dup cc-sym-kind-of sk-local =
+      over cc-sym-type-of ty-base ty-func = and 0= if,
+        drop
+        [lit] 94 cc-die
+      then,
+    then,
+    \ cc-parse-call (above) consumes the '(' (already peeked), parses the
+    \ args, emits the call, and leaves the return value in rdi.
+    cc-parse-call
+    cc-mark-not-lvalue exit,
+  then,
+  [char] [ cc-tok-punct? if,
+    \ Array index.  '[' has been read into tok-*; cc-parse-array-index
+    \ consumes through ']'.
+    cc-parse-array-index exit,
+  then,
+  \ A plain reference.  Put back the peeked token.
+  cc-putback-token
+  dup cc-sym-kind-of sk-func   = if, cc-parse-func-ref   exit, then,
+  dup cc-sym-kind-of sk-global = if, cc-parse-global-ref exit, then,
+  dup cc-sym-kind-of sk-local  = if, cc-parse-local-ref  exit, then,
+  drop
+  [lit] 95 cc-die ;
+
+\ cc-parse-paren ( -- )  '(' expr ')'.  The parenthesised expr is not an
+\ lvalue (cc-parse-primary inside the recursive call will set/clear
+\ cc-last-ident-slot; we re-clear it here so e.g. `(x) = 1` doesn't get
+\ treated as lvalue).
+: cc-parse-paren
+  cc-parse-expr-fwd
+  cc-mark-not-lvalue
+  cc-next-token-keep
+  [char] ) cc-tok-punct? 0= if,
+    [lit] 96 cc-die
+  then, ;
+
+\ cc-parse-operand ( -- )  Read one token and compile the operand it starts.
+: cc-parse-operand
+  cc-next-token-keep
+  tok-kind @ tk-num = if,
+    tok-num @ cc-emit-mov-rdi-int exit,           \ widen to imm64 if out of imm32 range
+  then,
+  tok-kind @ tk-chr = if,
+    \ Character literal — value is in tok-num just like a number.
+    tok-num @ cc-emit-mov-rdi-imm32 exit,
+  then,
+  tok-kind @ tk-str   = if, cc-parse-string-literal exit, then,
+  tok-kind @ tk-ident = if, cc-parse-ident          exit, then,
+  lparen cc-tok-punct? if, cc-parse-paren exit, then,
+  [lit] 97 cc-die ;
+
+\ cc-parse-postfix-inc-dec ( op -- )  Postfix '++' / '--' on a simple local.
+\ The operand parse already loaded the old value into rdi and recorded the
+\ slot in cc-last-ident-slot (lv-local).  Bump the slot in place; rdi keeps
+\ the old value.  Result is not an lvalue.
+: cc-parse-postfix-inc-dec
+  cc-last-lvalue-kind @ lv-local <> if,
+    drop
+    [lit] 98 cc-die
+  then,
+  pt-plus-plus = if,
+    cc-last-ident-slot @ cc-emit-inc-mem-local
+  else,
+    cc-last-ident-slot @ cc-emit-dec-mem-local
+  then,
+  cc-mark-not-lvalue ;
+
+\ cc-parse-postfix-index ( -- )  Postfix '[' INDEX ']' applied to whatever
+\ value the primary has produced so far (typically after a chain of '.' /
+\ '->').  Materialize so rdi holds the actual pointer value (not a
+\ deref-pending address), push it, parse the index, scale, add, mark deref.
+\ Stride is 1 (byte) iff the subscripted value is a char pointer (e.g.
+\ `head->s[i]` where s is char*) — M2-Planet's tokenizer compares
+\ `global_token->s[0]` against digit/letter sets, which only works when each
+\ byte is loaded individually.  Everything else (int*, struct*, untyped)
+\ uses qword stride and qword deref.
+: cc-parse-postfix-index
+  \ Keep the subscripted value's type on the rstack: the index parse
+  \ overwrites cc-last-expr-type.
+  cc-emit-materialize
+  cc-last-expr-type @ >r                          \ R: pre-subscript ty
+  cc-emit-push-rdi
+  cc-parse-expr-fwd
+  r@ cc-char-ptr? 0= if,
+    cc-emit-shl-rdi-3                             \ char*: byte offset, no shift
+  then,
+  cc-emit-pop-rcx
+  cc-emit-add-rdi-rcx
+  cc-next-token-keep
+  [char] ] cc-tok-punct? 0= if,
+    [lit] 99 cc-die
+  then,
+  \ Mark deref: byte-width iff we just subscripted a char*.  The post-step
+  \ expression type drops one level of indirection — record it so chained
+  \ `[i][j]` (char**) and following postfix ops can see the right type.
+  r@ cc-char-ptr? cc-mark-deref
+  r@ ty-ptr [lit] 0 > if,
+    r@ ty-base r@ ty-ptr 1- ty-make cc-last-expr-type !
+  then,
+  r> drop ;
+
+\ cc-parse-postfix-field ( op -- )  '.' or '->' followed by a field name.
+: cc-parse-postfix-field
+  cc-last-struct-desc @ [lit] 0 = if,
+    [lit] 100 cc-die
+  then,
+  \ '->': rdi must hold the pointer's value.  A struct-pointer local is
+  \ already loaded (lv-local, materialize is a no-op); a struct-pointer
+  \ global or field is still an address (lv-deref), so load it.
+  \ '.': rdi holds the struct's base address (lv-value); no load.
+  \ Materialize keeps cc-last-struct-desc, which the lookup reads.
+  pt-arrow = if,
+    cc-emit-materialize
+  then,
+  cc-next-token-keep
+  tok-kind @ tk-ident <> if,
+    [lit] 101 cc-die
+  then,
+  tok-str-addr @ tok-str-len @ cc-last-struct-desc @
+  cc-find-field                                   ( offset )
+  cc-emit-add-rdi-imm32
+  [lit] 0 cc-mark-deref
+  \ Propagate the field's pointee descriptor so chained '->' / '.' (e.g.
+  \ `head->next->prev`) can resolve subsequent field lookups.  Stays 0
+  \ when the field isn't a struct pointer.
+  cc-ff-result-desc @ cc-last-struct-desc !
+  \ Record the field's type so a following postfix '[' can detect
+  \ char-pointer subscripts (e.g. `head->s[0]`) and emit byte stride/load
+  \ instead of qword.  cc-mark-deref cleared this slot above, so set it
+  \ after the mark.
+  cc-ff-result-type @ cc-last-expr-type ! ;
+
+\ cc-postfix-op? ( -- f )  True if the current token is a postfix operator.
+: cc-postfix-op?
+  [char] . cc-tok-punct?
+  pt-arrow cc-tok-punct? or
+  pt-plus-plus cc-tok-punct? or
+  pt-minus-minus cc-tok-punct? or
+  [char] [ cc-tok-punct? or ;
+
+\ cc-parse-primary ( -- )  An operand, then zero or more postfix operators.
+: cc-parse-primary
+  cc-mark-not-lvalue                              \ default: not an lvalue
+  cc-parse-operand
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = if,
-      tok-num @ [lit] 46 =
-      tok-num @ pt-arrow         = or
-      tok-num @ pt-plus-plus     = or
-      tok-num @ pt-minus-minus   = or
-      tok-num @ [lit] 91 =       or            \ '[' postfix subscript
-    else,
-      [lit] 0
-    then,
+    cc-postfix-op?
   while,
-    tok-num @                                       ( op-code )
+    tok-num @                                     ( op )
     dup pt-plus-plus = over pt-minus-minus = or if,
-      \ Postfix '++' / '--' on a simple local.  cc-parse-primary already
-      \ loaded the old value into rdi and recorded the slot in
-      \ cc-last-ident-slot (kind=1).  Bump the slot in place; rdi keeps the
-      \ old value.  Result is not an lvalue.
-      cc-last-lvalue-kind @ [lit] 1 = 0= if,
-        drop
-        [lit] 53 die
-      then,
-      pt-plus-plus = if,
-        cc-last-ident-slot @ cc-emit-inc-mem-local
-      else,
-        cc-last-ident-slot @ cc-emit-dec-mem-local
-      then,
-      cc-mark-not-lvalue
+      cc-parse-postfix-inc-dec
     else,
-    dup [lit] 91 = if,
-      \ Postfix '[' INDEX ']' applied to whatever value cc-parse-primary just
-      \ produced (typically after a chain of '.' / '->').  Materialize so rdi
-      \ holds the actual pointer value (not a deref-pending address), push it,
-      \ parse the index, scale, add, mark deref.  Stride is 1 (byte) iff the
-      \ subscripted value is a char pointer (e.g. `head->s[i]` where s is
-      \ char*) — M2-Planet's tokenizer compares `global_token->s[0]` against
-      \ digit/letter sets, which only works when each byte is loaded
-      \ individually.  Everything else (int*, struct*, untyped) uses qword
-      \ stride and qword deref.
-      drop                                           ( -- )
-      \ Snapshot the just-finished expression's type before materialize zeros
-      \ it out, then dispatch.
-      cc-last-expr-type @ >r                         \ R: pre-subscript ty
-      cc-emit-materialize
-      cc-emit-push-rdi
-      cc-parse-expr-tramp
-      r@ ty-base ty-char =
-      r@ ty-ptr [lit] 1 = and if,
-        \ char* subscript: rdi already holds the byte offset (no shift).
+      dup [char] [ = if,
+        drop cc-parse-postfix-index
       else,
-        cc-emit-shl-rdi-3
+        cc-parse-postfix-field
       then,
-      cc-emit-pop-rcx
-      cc-emit-add-rdi-rcx
-      cc-next-token-keep
-      tok-kind @ tk-punct <> tok-num @ [lit] 93 <> or if,
-        [lit] 82 die
-      then,
-      \ Mark deref: byte-width iff we just subscripted a char*.  The
-      \ post-step expression type drops one level of indirection — record
-      \ it so chained `[i][j]` (char**) and following postfix ops can see
-      \ the right type.
-      r@ ty-base ty-char =
-      r@ ty-ptr [lit] 1 = and if,
-        cc-mark-deref-byte-lvalue
-      else,
-        cc-mark-deref-lvalue
-      then,
-      r@ ty-ptr [lit] 0 > if,
-        r@ ty-base r@ ty-ptr [lit] 1 - ty-make cc-last-expr-type !
-      then,
-      r> drop
-    else,
-      cc-last-struct-desc @ [lit] 0 = if,
-        [lit] 90 die
-      then,
-      \ Save the struct descriptor across cc-emit-materialize — materialize
-      \ ends in cc-mark-not-lvalue which clears cc-last-struct-desc.  For
-      \ kind=1 (local) materialize is a no-op so the clear didn't matter; for
-      \ kind=2 (struct-ptr global / deref) it does.  Restore right after.
-      cc-last-struct-desc @ >r                      \ R: desc
-      \ If '->' the pointer value should already be in rdi (kind=1 after load).
-      \ Materialize anyway (no-op for kind=1) — defensive; clears kind to 0.
-      \ For '.' rdi holds the struct base address (kind=0); no materialize.
-      dup pt-arrow = if,
-        cc-emit-materialize
-      then,
-      drop                                          ( -- )
-      r> cc-last-struct-desc !                      \ restore desc
-      cc-next-token-keep
-      tok-kind @ tk-ident <> if,
-        [lit] 91 die
-      then,
-      tok-str-addr @ tok-str-len @ cc-last-struct-desc @
-      cc-find-field                                 ( offset )
-      cc-emit-add-rdi-imm32
-      cc-mark-deref-lvalue
-      \ Propagate the field's pointee descriptor so chained '->' / '.' (e.g.
-      \ `head->next->prev`) can resolve subsequent field lookups.  Stays 0
-      \ when the field isn't a struct pointer.
-      cc-ff-result-desc @ cc-last-struct-desc !
-      \ Record the field's type so a following postfix '[' can detect
-      \ char-pointer subscripts (e.g. `head->s[0]`) and emit byte stride/load
-      \ instead of qword.  cc-mark-deref-lvalue cleared this slot above, so
-      \ set it after the mark.
-      cc-ff-result-type @ cc-last-expr-type !
-    then,
     then,
   repeat,
-  cc-putback-token ;
+  cc-putback-token ;                              \ not a postfix operator
 
 \ ===========================================================================
 \ cc-parse-unary: ('&' unary | '*' unary | primary)
@@ -655,12 +720,7 @@ variable cc-ff-found                                 \ flag: -1 if found
 \ For dereference, the operand is parsed as a (recursive) unary expression so
 \ `**p` works.  We materialize the operand (turning any pending deref into a
 \ loaded value) so rdi holds the *address* that the outer '*' should target,
-\ then mark cc-last-lvalue-kind=2 — leaving the load for the consumer.
-
-variable cc-parse-unary-vec                       \ xt of cc-parse-unary
-
-: cc-parse-unary-tramp
-  cc-parse-unary-vec @ execute ;
+\ then mark it lv-deref — leaving the load for the consumer.
 
 \ cc-parse-sizeof — `sizeof '(' (type-spec | EXPR) ')'`.
 \ Called with the `sizeof` keyword token already consumed.
@@ -691,7 +751,7 @@ variable cc-sizeof-bytes
 : cc-sizeof-count-stars-add
   begin,
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 42 = and
+    tok-kind @ tk-punct = tok-num @ [char] * = and
   while,
     [lit] 8 cc-sizeof-bytes !
   repeat, ;
@@ -700,8 +760,8 @@ variable cc-sizeof-bytes
   \ Expect '('.  We inline the check because cc-expect-punct-c lives in
   \ 110-cc-decl.fth (loaded AFTER 100-cc-expr.fth) and isn't visible yet.
   cc-next-token-keep
-  tok-kind @ tk-punct <> tok-num @ [lit] 40 <> or if,
-    [lit] 76 die
+  tok-kind @ tk-punct <> tok-num @ lparen <> or if,
+    [lit] 102 cc-die
   then,
   cc-next-token-keep
   tok-kind @ tk-kw = if,
@@ -709,14 +769,14 @@ variable cc-sizeof-bytes
       \ struct TAG — look up descriptor.
       cc-next-token-keep
       tok-kind @ tk-ident <> if,
-        [lit] 77 die
+        [lit] 103 cc-die
       then,
       tok-str-addr @ tok-str-len @ cc-sym-find
-      dup [lit] 0 < if,
-        [lit] 78 die
+      dup 0< if,
+        [lit] 104 cc-die
       then,
       dup cc-sym-kind-of sk-struct <> if,
-        [lit] 79 die
+        [lit] 105 cc-die
       then,
       cc-sym-val-of cc-sd-total-size cc-sizeof-bytes !
       cc-sizeof-count-stars-add
@@ -730,7 +790,7 @@ variable cc-sizeof-bytes
           tok-kw-id @ kw-void = if,
             [lit] 0 cc-sizeof-bytes !
           else,
-            [lit] 74 die
+            [lit] 106 cc-die
           then,
         then,
       then,
@@ -739,8 +799,8 @@ variable cc-sizeof-bytes
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
-      dup [lit] 0 < if,
-        [lit] 73 die
+      dup 0< if,
+        [lit] 107 cc-die
       then,
       dup cc-sym-kind-of sk-typedef = if,
         \ Typedef name -> compute base size, then any extra stars override to 8.
@@ -752,15 +812,15 @@ variable cc-sizeof-bytes
           dup cc-sym-type-of ty-base ty-struct = if,
             dup cc-sym-type-of ty-ptr [lit] 0 = if,
               \ struct T x; — total-size of the descriptor.
-              cc-sym-extra-of cc-sd-total-size cc-sizeof-bytes !
+              cc-sym-struct-desc-of cc-sd-total-size cc-sizeof-bytes !
             else,
               \ struct T* p; — 8 bytes.
               drop [lit] 8 cc-sizeof-bytes !
             then,
           else,
-            dup cc-sym-extra-of [lit] 0 > if,
+            dup cc-sym-array-len-of [lit] 0 > if,
               \ Array — N * 8 (this subset assumes int elements here).
-              cc-sym-extra-of [lit] 8 * cc-sizeof-bytes !
+              cc-sym-array-len-of [lit] 8 * cc-sizeof-bytes !
             else,
               \ Scalar.
               cc-sym-type-of ty-size cc-sizeof-bytes !
@@ -769,16 +829,16 @@ variable cc-sizeof-bytes
           cc-next-token-keep                       \ should land on ')'
         else,
           drop
-          [lit] 73 die
+          [lit] 108 cc-die
         then,
       then,
     else,
-      [lit] 73 die
+      [lit] 109 cc-die
     then,
   then,
   \ Current token must be ')'.
-  tok-kind @ tk-punct <> tok-num @ [lit] 41 <> or if,
-    [lit] 75 die
+  tok-kind @ tk-punct <> tok-num @ [char] ) <> or if,
+    [lit] 110 cc-die
   then,
   cc-sizeof-bytes @ cc-emit-mov-rdi-imm32
   cc-mark-not-lvalue ;
@@ -793,16 +853,16 @@ variable cc-sizeof-bytes
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
     drop
-    [lit] 50 die
+    [lit] 111 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-sym-find
-  dup [lit] 0 < if,
+  dup 0< if,
     drop drop
-    [lit] 51 die
+    [lit] 112 cc-die
   then,
   dup cc-sym-kind-of sk-local <> if,
     drop drop
-    [lit] 52 die
+    [lit] 113 cc-die
   then,
   cc-sym-val-of                                   ( delta slot )
   swap                                            ( slot delta )
@@ -816,358 +876,314 @@ variable cc-sizeof-bytes
 
 : cc-parse-unary
   cc-next-token-keep
-  tok-kind @ tk-kw = tok-kw-id @ kw-sizeof = and if,
+  kw-sizeof cc-tok-kw? if,
     \ sizeof(TYPE).  The `sizeof` keyword is the current token; we just
     \ leave it as "consumed" (no putback) and dispatch into cc-parse-sizeof.
-    cc-parse-sizeof
-  else,
-    tok-kind @ tk-punct = tok-num @ [lit] 38 = and if,
+    cc-parse-sizeof exit,
+  then,
+  [char] & cc-tok-punct? if,
     \ '&' = address-of.  Operand must be a simple local IDENT.
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 70 die
+      [lit] 114 cc-die
     then,
     tok-str-addr @ tok-str-len @ cc-sym-find
-    dup [lit] 0 < if,
+    dup 0< if,
       drop
-      [lit] 71 die
+      [lit] 115 cc-die
     then,
     dup cc-sym-kind-of sk-local <> if,
       drop
-      [lit] 72 die
+      [lit] 116 cc-die
     then,
     cc-sym-val-of                                 \ slot
     cc-emit-lea-rdi-local
-    cc-mark-not-lvalue                            \ &x is a value, not an lvalue
-  else,
-    tok-kind @ tk-punct = tok-num @ [lit] 42 = and if,
-      \ '*' = dereference.  A char* operand (ty-char, ptr-depth 1) derefs to a
-      \ single byte; int*, T**, etc. deref to a qword.  The operand's type sits
-      \ in cc-last-expr-type when it came from a scalar variable (recorded in
-      \ cc-parse-primary); snapshot it before cc-emit-materialize clears it, so
-      \ `*p = c` on a char* emits a 1-byte store instead of clobbering 8 bytes.
-      cc-parse-unary-tramp
-      cc-last-expr-type @ >r                       \ R: operand type (0 if untracked)
-      cc-emit-materialize                          \ operand is now a value (an address)
-      r@ ty-base ty-char = r@ ty-ptr [lit] 1 = and if,
-        cc-mark-deref-byte-lvalue                  \ *char-ptr -> 1-byte deref
-      else,
-        cc-mark-deref-lvalue                       \ rdi holds an addr; defer the load
-      then,
-      r> dup ty-ptr [lit] 0 > if,                  \ record pointee type for chained ops
-        dup ty-base swap ty-ptr [lit] 1 - ty-make cc-last-expr-type !
-      else,
-        drop
-      then,
-    else,
-      tok-kind @ tk-punct = tok-num @ pt-plus-plus = and if,
-        \ Prefix '++'.  Bump operand in place, leave new value in rdi.
-        [lit] 1 cc-parse-prefix-inc-dec
-      else,
-        tok-kind @ tk-punct = tok-num @ pt-minus-minus = and if,
-          \ Prefix '--'.  Pass any value other than 1; cc-parse-prefix-
-          \ inc-dec branches to the dec encoder for non-1.
-          [lit] 0 cc-parse-prefix-inc-dec
-        else,
-          tok-kind @ tk-punct = tok-num @ [lit] 45 = and if,
-            \ Unary '-'.
-            cc-parse-unary-tramp
-            cc-emit-materialize
-            cc-emit-neg-rdi
-            cc-mark-not-lvalue
-          else,
-            tok-kind @ tk-punct = tok-num @ [lit] 33 = and if,
-              \ Unary '!'.  rdi := (rdi == 0).
-              cc-parse-unary-tramp
-              cc-emit-materialize
-              cc-emit-not-zero-flag
-              cc-mark-not-lvalue
-            else,
-              tok-kind @ tk-punct = tok-num @ [lit] 126 = and if,
-                \ Unary '~'.
-                cc-parse-unary-tramp
-                cc-emit-materialize
-                cc-emit-not-rdi
-                cc-mark-not-lvalue
-              else,
-                \ Not a unary operator — putback so primary sees the same token.
-                cc-putback-token
-                cc-parse-primary
-              then,
-            then,
-          then,
-        then,
-      then,
-    then,
+    cc-mark-not-lvalue exit,                      \ &x is a value, not an lvalue
   then,
-  then, ;
+  [char] * cc-tok-punct? if,
+    \ '*' = dereference.  A char* operand (ty-char, ptr-depth 1) derefs to a
+    \ single byte; int*, T**, etc. deref to a qword.  The operand's type sits
+    \ in cc-last-expr-type when it came from a scalar variable (recorded in
+    \ cc-parse-primary), so `*p = c` on a char* emits a 1-byte store instead
+    \ of clobbering 8 bytes.  The mark clears the type; keep it on the stack.
+    cc-parse-unary
+    cc-emit-materialize                           \ operand is now a value (an address)
+    cc-last-expr-type @                           ( ty ; 0 if untracked )
+    dup cc-char-ptr? cc-mark-deref                \ defer the load; *char* is 1 byte
+    dup ty-ptr [lit] 0 > if,                      \ record pointee type for chained ops
+      dup ty-base swap ty-ptr 1- ty-make cc-last-expr-type !
+    else,
+      drop
+    then,
+    exit,
+  then,
+  \ Prefix '++' / '--'.  Bump the operand in place, leave the new value in
+  \ rdi.  cc-parse-prefix-inc-dec takes 1 for ++, anything else for --.
+  pt-plus-plus   cc-tok-punct? if, [lit] 1 cc-parse-prefix-inc-dec exit, then,
+  pt-minus-minus cc-tok-punct? if, [lit] 0 cc-parse-prefix-inc-dec exit, then,
+  \ '-', '!' and '~' parse their operand, materialize it, and emit one
+  \ operation on rdi ('!' gives rdi := (rdi == 0)).
+  [char] - cc-tok-punct? if,
+    cc-parse-unary cc-emit-materialize
+    cc-emit-neg-rdi cc-mark-not-lvalue exit,
+  then,
+  [char] ! cc-tok-punct? if,
+    cc-parse-unary cc-emit-materialize
+    cc-emit-not-zero-flag cc-mark-not-lvalue exit,
+  then,
+  [char] ~ cc-tok-punct? if,
+    cc-parse-unary cc-emit-materialize
+    cc-emit-not-rdi cc-mark-not-lvalue exit,
+  then,
+  \ Not a unary operator — putback so primary sees the same token.
+  cc-putback-token
+  cc-parse-primary ;
 
-' cc-parse-unary cc-parse-unary-vec !
+\ ===========================================================================
+\ The binary-operator table
+\ ===========================================================================
+\ Eight levels of the grammar, mul down to bit-or, have one shape: parse an
+\ operand at the next-tighter level, then, while the next token is one of
+\ this level's operators, parse another operand and combine the two.  Only
+\ the operators and the instructions that combine differ, so those live in
+\ this table, one row of four cells per operator:
+\
+\   op        the operator's punct code (tok-num)
+\   compound  the code of its compound assignment (`+` has `+=`); 0 if none
+\   level     which level parses it (level-mul .. level-bit-or)
+\   emitter   xt of the 090 word that emits rdi := rdi OP rcx
+\
+\ Each level's parser looks its operators up by op; cc-parse-assign looks
+\ `+=` and the rest up by compound, so `a + b` and `a += b` share an
+\ emitter.  A row whose op is 0 ends the table.
+
+[lit] 1 constant level-mul                        \ * / %
+[lit] 2 constant level-add                        \ + -
+[lit] 3 constant level-shift                      \ << >>
+[lit] 4 constant level-rel                        \ < > <= >=
+[lit] 5 constant level-eq                         \ == !=
+[lit] 6 constant level-bit-and                    \ &
+[lit] 7 constant level-bit-xor                    \ ^
+[lit] 8 constant level-bit-or                     \ |
+
+[lit]  0 constant bo-op                           \ byte offsets within a row
+[lit]  8 constant bo-compound
+[lit] 16 constant bo-level
+[lit] 24 constant bo-emitter
+[lit] 32 constant bo-size
+
+\ cc-binop, ( op compound level "emitter" -- )  Lay down one row; the
+\ emitter's name follows in the input.
+: cc-binop,  rot , swap , ,  ' , ;
+
+create cc-binops
+\ op          compound       level
+char *      pt-star-eq     level-mul      cc-binop, cc-emit-imul-rdi-rcx
+char /      pt-slash-eq    level-mul      cc-binop, cc-emit-idiv-quotient
+char %      pt-percent-eq  level-mul      cc-binop, cc-emit-idiv-remainder
+char +      pt-plus-eq     level-add      cc-binop, cc-emit-add-rdi-rcx
+char -      pt-minus-eq    level-add      cc-binop, cc-emit-sub-rdi-rcx
+pt-shl      pt-shl-eq      level-shift    cc-binop, cc-emit-shl-rdi-cl
+pt-shr      pt-shr-eq      level-shift    cc-binop, cc-emit-sar-rdi-cl   \ signed
+char <      [lit] 0        level-rel      cc-binop, cc-emit-cmp-lt
+char >      [lit] 0        level-rel      cc-binop, cc-emit-cmp-gt
+pt-le       [lit] 0        level-rel      cc-binop, cc-emit-cmp-le
+pt-ge       [lit] 0        level-rel      cc-binop, cc-emit-cmp-ge
+pt-eq-eq    [lit] 0        level-eq       cc-binop, cc-emit-cmp-eq
+pt-bang-eq  [lit] 0        level-eq       cc-binop, cc-emit-cmp-ne
+char &      pt-amp-eq      level-bit-and  cc-binop, cc-emit-and-rdi-rcx
+char ^      pt-caret-eq    level-bit-xor  cc-binop, cc-emit-xor-rdi-rcx
+char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx
+[lit] 0 ,                                         \ end of table
+
+\ cc-binop-row ( key field -- row | 0 )  The first row whose cell at byte
+\ offset field holds key, or 0 when no row does.
+: cc-binop-row
+  >r cc-binops                                    ( key row ; R: field )
+  begin,
+    dup bo-op + @                                 \ stop at the end row
+  while,
+    2dup r@ + @ = if,                             ( key row )
+      nip r> drop exit,                           \ found: answer the row
+    then,
+    bo-size +
+  repeat,
+  2drop r> drop [lit] 0 ;
+
+\ cc-binop? ( level -- row | 0 )  Read the next token.  If it is one of
+\ this level's operators, answer its row; otherwise 0, and the caller
+\ puts the token back.
+: cc-binop?
+  cc-next-token-keep
+  tok-kind @ tk-punct <> if,
+    drop [lit] 0 exit,                            \ not an operator at all
+  then,
+  tok-num @ bo-op cc-binop-row                    ( level row | level 0 )
+  dup 0= if,
+    nip exit,                                     \ no row: answer 0
+  then,
+  swap over bo-level + @ = if,                    ( row )
+    exit,                                         \ ours: answer the row
+  then,
+  drop [lit] 0 ;                                  \ another level's operator
+
+\ cc-binop-apply ( row -- )  The left operand is pushed and the right one
+\ is in rdi.  Materialize the right, move it to rcx, pop the left into rdi,
+\ emit the row's operation, and mark the result a plain value.
+: cc-binop-apply
+  cc-emit-materialize                             \ right must be a value
+  cc-emit-mov-rcx-rdi                             \ rcx = right
+  cc-emit-pop-rdi                                 \ rdi = left
+  bo-emitter + @ execute                          \ rdi = left OP right
+  cc-mark-not-lvalue ;
 
 \ ===========================================================================
 \ cc-parse-mul: unary (('*'|'/'|'%') unary)*
 \ ===========================================================================
 
-\ cc-mul-op? ( -- f )  After cc-next-token-keep, returns -1 if the current
-\ token is one of *, /, %.
-: cc-mul-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit] 42 =
-    tok-num @ [lit] 47 = or
-    tok-num @ [lit] 37 = or
-  else,
-    [lit] 0
-  then, ;
-
-\ The op byte is kept on the data stack across the recursive call to
-\ cc-parse-primary so nested operator parsing (via parenthesised exprs)
-\ can't clobber a shared global.  cc-parse-primary preserves the data
-\ stack (0-in / 0-out), so the op survives across the call.
-
 : cc-parse-mul
-  cc-parse-unary                                  \ rdi = first operand (may be pending-deref)
+  cc-parse-unary
   begin,
-    cc-next-token-keep
-    cc-mul-op?
+    level-mul cc-binop? dup                       ( row row | 0 0 )
   while,
-    cc-emit-materialize                           \ left must be a value before push
-    tok-num @ >r                                  ( ; R: op )
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
     cc-emit-push-rdi                              \ save left
-    cc-parse-unary                                \ rdi = right (may be pending-deref)
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi                           \ rcx = right
-    cc-emit-pop-rdi                               \ rdi = left
-    r>                                            ( op )
-    dup [lit] 42 = if,
-      drop cc-emit-imul-rdi-rcx
-    else,
-      [lit] 47 = if,
-        cc-emit-idiv-quotient
-      else,
-        cc-emit-idiv-remainder
-      then,
-    then,
-    cc-mark-not-lvalue                            \ result is not an lvalue
+    cc-parse-unary                                \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
+  drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
 
 \ ===========================================================================
 \ cc-parse-add: mul (('+'|'-') mul)*
 \ ===========================================================================
 
-: cc-add-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit] 43 =
-    tok-num @ [lit] 45 = or
-  else,
-    [lit] 0
-  then, ;
-
 : cc-parse-add
   cc-parse-mul
   begin,
-    cc-next-token-keep
-    cc-add-op?
+    level-add cc-binop? dup                       ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-mul
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    [lit] 43 = if,
-      cc-emit-add-rdi-rcx
-    else,
-      cc-emit-sub-rdi-rcx
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-mul                                  \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 \ ===========================================================================
-\ cc-parse-shift: add (('<<' | '>>') add)*
+\ cc-parse-shift: add (('<<'|'>>') add)*
 \ ===========================================================================
-\ C precedence: shift is BETWEEN relational and additive (binds tighter than
-\ relational, looser than additive).  Variable-count shifts use rcx (CL).
-
-: cc-shift-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ pt-shl =
-    tok-num @ pt-shr = or
-  else,
-    [lit] 0
-  then, ;
+\ C puts shift between relational and additive: `a + b << c` is
+\ `(a + b) << c`.  Variable-count shifts take the count in rcx (CL).
 
 : cc-parse-shift
   cc-parse-add
   begin,
-    cc-next-token-keep
-    cc-shift-op?
+    level-shift cc-binop? dup                     ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-add
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    \ rdi=left, rcx=right (low byte cl = count).
-    pt-shl = if,
-      cc-emit-shl-rdi-cl
-    else,
-      cc-emit-sar-rdi-cl                          \ '>>' is arithmetic (signed)
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-add                                  \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 \ ===========================================================================
-\ cc-parse-rel: shift (('<' | '<=' | '>' | '>=') shift)*
+\ cc-parse-rel: shift (('<'|'<='|'>'|'>=') shift)*
 \ ===========================================================================
-\ Punct codes: '<'=60, '>'=62, pt-le=258, pt-ge=259.
-
-: cc-rel-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ [lit]  60 =
-    tok-num @ [lit]  62 = or
-    tok-num @ pt-le      = or
-    tok-num @ pt-ge      = or
-  else,
-    [lit] 0
-  then, ;
 
 : cc-parse-rel
   cc-parse-shift
   begin,
-    cc-next-token-keep
-    cc-rel-op?
+    level-rel cc-binop? dup                       ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-shift
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    \ Now rdi=left, rcx=right.  Dispatch on op code.
-    dup [lit] 60 = if,
-      drop cc-emit-cmp-lt
-    else,
-      dup [lit] 62 = if,
-        drop cc-emit-cmp-gt
-      else,
-        pt-le = if,
-          cc-emit-cmp-le
-        else,
-          cc-emit-cmp-ge
-        then,
-      then,
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-shift                                \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 \ ===========================================================================
-\ cc-parse-eq: rel (('==' | '!=') rel)*
+\ cc-parse-eq: rel (('=='|'!=') rel)*
 \ ===========================================================================
-
-: cc-eq-op?
-  tok-kind @ tk-punct = if,
-    tok-num @ pt-eq-eq   =
-    tok-num @ pt-bang-eq = or
-  else,
-    [lit] 0
-  then, ;
 
 : cc-parse-eq
   cc-parse-rel
   begin,
-    cc-next-token-keep
-    cc-eq-op?
+    level-eq cc-binop? dup                        ( row row | 0 0 )
   while,
+    >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
-    tok-num @ >r                                  ( ; R: op )
-    cc-emit-push-rdi
-    cc-parse-rel
-    cc-emit-materialize                           \ right must be a value
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    r>                                            ( op )
-    pt-eq-eq = if,
-      cc-emit-cmp-eq
-    else,
-      cc-emit-cmp-ne
-    then,
-    cc-mark-not-lvalue
+    cc-emit-push-rdi                              \ save left
+    cc-parse-rel                                  \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 \ ===========================================================================
-\ Bitwise AND / XOR / OR — three layers, each above the next.
+\ cc-parse-bit-and: eq ('&' eq)*
 \ ===========================================================================
-\ Precedence (high to low among these):
-\   eq  >  bit-and (&)  >  bit-xor (^)  >  bit-or (|)
-\ So cc-parse-bit-and folds over cc-parse-eq; cc-parse-bit-xor over bit-and;
-\ cc-parse-bit-or over bit-xor.  Each handles a single punct char.
-\
-\ Note that '&' here is the BINARY (infix) bitwise-and.  The unary '&'
-\ (address-of) is handled in cc-parse-unary at operand position — operator
-\ position vs operand position disambiguates the two.
+\ This '&' is the binary (infix) bitwise-and.  Unary '&' (address-of) is
+\ cc-parse-unary's: operator position vs operand position tells them apart.
 
 : cc-parse-bit-and
   cc-parse-eq
   begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 38 = and
+    level-bit-and cc-binop? dup                   ( row row | 0 0 )
   while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-eq
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-and-rdi-rcx
-    cc-mark-not-lvalue
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
+    cc-emit-push-rdi                              \ save left
+    cc-parse-eq                                   \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
+
+\ ===========================================================================
+\ cc-parse-bit-xor: bit-and ('^' bit-and)*
+\ ===========================================================================
 
 : cc-parse-bit-xor
   cc-parse-bit-and
   begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 94 = and
+    level-bit-xor cc-binop? dup                   ( row row | 0 0 )
   while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-bit-and
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-xor-rdi-rcx
-    cc-mark-not-lvalue
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
+    cc-emit-push-rdi                              \ save left
+    cc-parse-bit-and                              \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
+
+\ ===========================================================================
+\ cc-parse-bit-or: bit-xor ('|' bit-xor)*
+\ ===========================================================================
 
 : cc-parse-bit-or
   cc-parse-bit-xor
   begin,
-    cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 124 = and
+    level-bit-or cc-binop? dup                    ( row row | 0 0 )
   while,
-    cc-emit-materialize
-    cc-emit-push-rdi
-    cc-parse-bit-xor
-    cc-emit-materialize
-    cc-emit-mov-rcx-rdi
-    cc-emit-pop-rdi
-    cc-emit-or-rdi-rcx
-    cc-mark-not-lvalue
+    >r                                            ( ; R: row )
+    cc-emit-materialize                           \ left must be a value
+    cc-emit-push-rdi                              \ save left
+    cc-parse-bit-xor                              \ rdi = right
+    r> cc-binop-apply                             \ rdi = left OP right
   repeat,
-  cc-putback-token ;
+  drop                                            \ cc-binop?'s 0
+  cc-putback-token ;                              \ we read one too many
 
 \ ===========================================================================
 \ Short-circuit logical && and || — produce 1 or 0 (not the operand).
@@ -1265,23 +1281,23 @@ variable cc-sizeof-bytes
 : cc-parse-ternary
   cc-parse-log-or
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 63 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ? = and if,
     \ '?' — consume and emit branch.
     cc-emit-materialize
     cc-emit-test-rdi
     cc-emit-jz-rel32-placeholder >r               \ R: f-else
-    cc-parse-assign-tramp                         \ then-arm (right-assoc)
+    cc-parse-assign-fwd                         \ then-arm (right-assoc)
     cc-emit-materialize
     cc-emit-jmp-rel32-placeholder >r              \ R: f-else f-end
     \ Expect ':' — inline check (cc-expect-punct-c lives in 110-cc-decl.fth).
     cc-next-token-keep
-    tok-kind @ tk-punct <> tok-num @ [lit] 58 <> or if,
-      [lit] 35 die
+    tok-kind @ tk-punct <> tok-num @ [char] : <> or if,
+      [lit] 117 cc-die
     then,
     \ Pop fixups: top of rstack is f-end, second is f-else.
     r> r>                                         ( f-end f-else )
     cc-patch-rel32-to-here                        \ patch f-else
-    cc-parse-assign-tramp                         \ else-arm
+    cc-parse-assign-fwd                         \ else-arm
     cc-emit-materialize
     cc-patch-rel32-to-here                        \ patch f-end
     cc-mark-not-lvalue
@@ -1290,9 +1306,9 @@ variable cc-sizeof-bytes
   then, ;
 
 \ ===========================================================================
-\ cc-parse-assign: eq ('=' assign)?
+\ cc-parse-assign: ternary (ASSIGN-OP assign)?
 \ ===========================================================================
-\ Right-recursive.  After parsing the LHS via cc-parse-eq, snapshot
+\ Right-recursive.  After parsing the LHS via cc-parse-ternary, snapshot
 \ cc-last-ident-slot on the data stack BEFORE recursing into the RHS (which
 \ would otherwise overwrite it).
 \
@@ -1304,71 +1320,25 @@ variable cc-sizeof-bytes
 \ cc-parse-assign (not cc-parse-eq) — chained `a = b = 1` works.
 
 \ cc-assign-op? ( -- f )  After cc-next-token-keep, returns -1 if the
-\ current token is any of: '=' '+=' '-=' '*=' '/=' '%=' '<<=' '>>=' '&='
-\ '|=' '^='.
+\ current token is '=' or the compound form of an operator in the table
+\ ('+=' '-=' '*=' '/=' '%=' '<<=' '>>=' '&=' '|=' '^=').
 : cc-assign-op?
   tok-kind @ tk-punct = if,
-    tok-num @ [lit] 61      =
-    tok-num @ pt-plus-eq    = or
-    tok-num @ pt-minus-eq   = or
-    tok-num @ pt-star-eq    = or
-    tok-num @ pt-slash-eq   = or
-    tok-num @ pt-percent-eq = or
-    tok-num @ pt-shl-eq     = or
-    tok-num @ pt-shr-eq     = or
-    tok-num @ pt-amp-eq     = or
-    tok-num @ pt-pipe-eq    = or
-    tok-num @ pt-caret-eq   = or
+    tok-num @ [char] = =
+    tok-num @ bo-compound cc-binop-row 0= 0= or
   else,
     [lit] 0
   then, ;
 
 \ cc-apply-compound-op ( op -- )  After rdi=LHS-value, rcx=RHS-value: apply
-\ the compound-assign op to rdi.  Consumes op.  Plain '=' must be filtered
-\ by the caller before invoking this.
+\ the compound-assign op to rdi with the emitter of its row in the operator
+\ table.  Consumes op.  Plain '=' must be filtered by the caller.
 : cc-apply-compound-op
-  dup pt-plus-eq = if,
-    drop cc-emit-add-rdi-rcx
-  else,
-    dup pt-minus-eq = if,
-      drop cc-emit-sub-rdi-rcx
-    else,
-      dup pt-star-eq = if,
-        drop cc-emit-imul-rdi-rcx
-      else,
-        dup pt-slash-eq = if,
-          drop cc-emit-idiv-quotient
-        else,
-          dup pt-percent-eq = if,
-            drop cc-emit-idiv-remainder
-          else,
-            dup pt-shl-eq = if,
-              drop cc-emit-shl-rdi-cl
-            else,
-              dup pt-shr-eq = if,
-                drop cc-emit-sar-rdi-cl
-              else,
-                dup pt-amp-eq = if,
-                  drop cc-emit-and-rdi-rcx
-                else,
-                  dup pt-pipe-eq = if,
-                    drop cc-emit-or-rdi-rcx
-                  else,
-                    pt-caret-eq = if,
-                      cc-emit-xor-rdi-rcx
-                    else,
-                      \ Unknown compound op — abort.
-                      [lit] 43 die
-                    then,
-                  then,
-                then,
-              then,
-            then,
-          then,
-        then,
-      then,
-    then,
-  then, ;
+  bo-compound cc-binop-row                        ( row | 0 )
+  dup 0= if,
+    [lit] 118 cc-die                              \ not a compound operator
+  then,
+  bo-emitter + @ execute ;
 
 : cc-parse-assign
   cc-parse-ternary
@@ -1378,17 +1348,18 @@ variable cc-sizeof-bytes
   cc-next-token-keep
   cc-assign-op? if,
     \ Some assignment operator confirmed.  Dispatch on lvalue kind.
-    \ Stack layout: ( kind slot ).  kind=1 -> local; kind=2 -> deref;
-    \ kind=0 (or other) -> not an lvalue (error).
-    over [lit] 1 = if,
-      \ ---- Local lvalue (kind=1) -----------------------------------------
+    \ Stack layout: ( kind slot ).  lv-local -> store to the slot;
+    \ lv-deref / lv-deref-byte -> store through the address in rdi;
+    \ lv-value -> not an lvalue (error).
+    over lv-local = if,
+      \ ---- Local lvalue (lv-local) ---------------------------------------
       \ The LHS load was already emitted by cc-parse-primary; we'll just
       \ overwrite the local slot with the RHS / RHS-folded value.
       nip                                         ( slot )
       tok-num @                                   ( slot op )
       swap >r                                     \ stash slot ( op ; R: slot )
       \ For compound assignment, save current LHS value before parsing RHS.
-      dup [lit] 61 = 0= if,
+      dup [char] = = 0= if,
         cc-emit-push-rdi
       then,
       >r                                          \ stash op ( ; R: slot op )
@@ -1396,7 +1367,7 @@ variable cc-sizeof-bytes
       cc-emit-materialize                         \ ensure rdi holds a value
       r> r>                                       ( op slot )
       swap                                        ( slot op )
-      dup [lit] 61 = if,
+      dup [char] = = if,
         drop                                      ( slot )
       else,
         cc-emit-mov-rcx-rdi                       \ rcx = RHS
@@ -1406,17 +1377,16 @@ variable cc-sizeof-bytes
       cc-emit-store-local                         \ [rbp - 8*(slot+1)] := rdi
       cc-mark-not-lvalue
     else,
-      over [lit] 2 = if,
-        \ ---- Dereference lvalue (kind=2) ---------------------------------
+      over dup lv-deref = swap lv-deref-byte = or if,
+        \ ---- Dereference lvalue (lv-deref / lv-deref-byte) ---------------
         \ rdi already holds the destination address (no load was emitted by
         \ cc-parse-unary).  Plain `=` is supported on derefs; compound
         \ +=/-= would require load-modify-store and is deferred.
-        2drop                                     \ discard saved kind/slot
-        tok-num @ [lit] 61 <> if,
-          [lit] 42 die
+        drop                                      ( kind )
+        tok-num @ [char] = <> if,
+          [lit] 119 cc-die
         then,
-        \ Snapshot the byte-width flag BEFORE cc-parse-assign clobbers it.
-        cc-last-deref-is-byte @ >r                \ R: byte?
+        >r                                        \ R: kind
         cc-emit-push-rdi                          \ save dest address
         cc-parse-assign
         cc-emit-materialize                       \ rdi holds RHS value
@@ -1431,7 +1401,7 @@ variable cc-sizeof-bytes
         [lit] 137 cc-emit-byte
         [lit] 207 cc-emit-byte
         cc-emit-pop-rcx                           \ rcx := address
-        r> if,
+        r> lv-deref-byte = if,
           cc-emit-store-byte-via-rcx              \ [rcx] := dil  (1 byte)
         else,
           cc-emit-store-via-rcx                   \ [rcx] := rdi  (8 bytes)
@@ -1440,7 +1410,7 @@ variable cc-sizeof-bytes
       else,
         \ Not an lvalue at all.
         2drop
-        [lit] 41 die
+        [lit] 120 cc-die
       then,
     then,
   else,
@@ -1460,19 +1430,6 @@ variable cc-sizeof-bytes
   cc-parse-assign
   cc-emit-materialize ;
 
-\ cc-parse-expr-balanced ( -- )
-\ Parse an expression while preserving the caller's Forth data stack item.
-\ The generated target value still lives in machine rdi; this only fences the
-\ seed-Forth parser stack so statement/control-flow fixups remain on top.
-: cc-parse-expr-balanced
-  >r [lit] 0 cc-parse-expr drop r> ;
-
-\ cc-parse-expr-balanced-2 ( a b -- a b )
-\ Variant for callers that thread two parser-stack values under an expression,
-\ currently function-call parsing's (callee-id arg-count).
-: cc-parse-expr-balanced-2
-  >r >r [lit] 0 cc-parse-expr drop r> r> ;
-
-\ Wire the trampolines.
-' cc-parse-expr   cc-parse-expr-vec   !
-' cc-parse-assign cc-parse-assign-vec !
+\ Fill in the forward references declared at the top of the file.
+' cc-parse-expr   is cc-parse-expr-fwd
+' cc-parse-assign is cc-parse-assign-fwd

@@ -7,40 +7,19 @@ Artifact after this chapter: the everyday stack-shuffling vocabulary.
 Proof link: the lexer (Ch 23) and the parsers (Chs 27-31) shuffle operands with these between emits.
 ```
 
-Four short shuffles in `010-lib.fth` (lines 123–137), `nip`, `rot`,
-`2dup`, and `2drop`, round out the classical Forth shuffle
-vocabulary on top of the five primitives Ch 1 introduced and the
-derived `over` Ch 4 added.
-None of them invents a new idea (`nip` is `swap drop`; `rot`
-generalises Ch 4's return-stack trick one slot deeper; `2dup` is
-`over over`; `2drop` is `drop drop`), but having them named by
-reflex is what makes Forth feel like dancing on the stack instead
-of fighting it.  Open `010-lib.fth` to those 16 lines and read
-along; the prose walks the two derivations that aren't obvious and
-justifies why the seed names some of these and inlines others.
+With `dup`, `drop`, `swap`, `>r`, `r>`, and Ch 4's `over`, you can
+already write any shuffle.  What you can't yet do is write one
+without counting.  `swap drop` and `drop drop` are easy to misread
+in the middle of a parser, and a missed `swap` is a bug that only
+shows up three words later.
 
-By the end of the chapter you'll be able to read and write all the
-classical Forth shuffle words by name, derive arbitrary shuffles
-using only the seed's five stack-manipulation primitives (`dup`,
-`drop`, `swap`, `>r`, `r>`), and explain why deep-stack operators
-like `pick` and `roll` aren't worth defining in this seed (and
-what their cost would be).  `pick` and `roll` themselves get only
-brief discussion; the C compiler's heavy use of `>r r@ r>` for
-register-spill-like patterns is Part III, Ch 26.
-
----
-
-Ch 1 introduced five stack primitives and Ch 4 derived a sixth
-shuffle, `over`, from them.  Six shuffles are not quite enough
-vocabulary to write ergonomic Forth, so this chapter adds four more
-that fill out the standard shuffle library — each just two or four
-primitives glued together.
+`010-lib.fth` (lines 139–153) names four more: `nip`, `rot`, `2dup`,
+and `2drop`.  Ch 1 previewed all four, and nothing new happens
+inside them.  The interesting question is the one standard Forth
+answers differently: why this seed has no `pick`, and why the C
+compiler never misses it.
 
 ## 1. The four shuffles
-
-The chapter intro already gave the definitions away, because there is
-nothing hidden in them — each is two or four primitives you already
-know from Chs 1 and 4:
 
 ```forth
 : nip   swap drop ;        \ ( a b -- b )        drop second-from-top
@@ -56,7 +35,7 @@ back, and a final `swap` lands the result `( a b c -- b c a )`.
 
 `2dup` is the one worth a second look, because it shows why the seed
 stops here.  `over` doesn't know or care that `a` and `b` are "a
-pair" — each call just copies the second-from-top, so two calls happen
+pair": each call just copies the second-from-top, so two calls happen
 to duplicate the pair.  You get `2dup` free from a pair of
 single-copies.  But the trick does *not* extend: three `over`s do
 **not** give you `3dup` (copying a triple needs more than three
@@ -64,12 +43,11 @@ single-copies).  That asymmetry is why `2dup` earns a name and deeper
 pair-shuffles are left to be inlined at the rare call site that wants
 them.
 
-Why name a two-token word at all?  Speed (one CALL instead of two) and
-self-documentation.  Part III's lexer reaches for `nip` dozens of
-times, and the compiler uses `2drop` on every error path that discards
-a half-parsed pair — and reading `2drop` signals "I am dropping a
-logical pair," which `drop drop`, which you have to stop and count,
-does not.
+Why name a two-token word at all?  Size (one CALL at each call site
+instead of two) and self-documentation.  Part III's lexer reaches for `nip` four times,
+and the compiler uses `2drop` where it discards a half-parsed
+pair.  `2drop` says "I am dropping a logical pair"; `drop drop`
+makes you stop and count.
 
 ## 2. What's missing and why
 
@@ -80,22 +58,19 @@ the stack indexed by `n`.  Neither is in this seed.
 The reason is mechanical.  `pick` and `roll` need to read the stack
 at a *runtime-computed* offset.  The seed's stack pointer is
 `rbp`-relative and accessed only via the primitives `dup`, `drop`,
-`swap`, `>r`, `r>` — none of which take a depth parameter.
+`swap`, `>r`, `r>`, none of which take a depth parameter.
 Implementing `pick(n)` from those primitives requires generating an
 unrolled chain proportional to `n`: e.g. `pick(3)` could be expressed
 as `>r >r >r dup r> swap r> swap r> swap` or similar.  But you'd
 need a different definition for every `n`, or a runtime loop, and
 neither approach fits in the byte budget.
 
-The deeper reason is that the seed's intended use — bootstrapping a
-C compiler — doesn't need `pick` or `roll`.  The C compiler keeps
-its data-stack depth shallow at every dispatch point (typically
-three or four cells) and uses the return stack as scratch when it
-needs more breathing room.  Code that wants deep-stack access in
-this style of Forth is generally a sign of a missing abstraction —
-the standard advice is "use a variable or a local instead."  The C
-compiler follows that advice; the seed does not include `pick` or
-`roll`; and the byte budget stays in shape.
+The deeper reason is that bootstrapping a C compiler doesn't need
+`pick` or `roll`.  The C compiler keeps its data stack three or four
+cells deep at every dispatch point and uses the return stack as
+scratch when it needs more.  Deep-stack access in Forth usually
+signals a missing abstraction, and the standard advice, "use a
+variable instead," is what the compiler follows.
 
 If you ported a Forth program that *did* need `pick`, the cheapest
 fix in this seed would be to define `variable`-backed slot
@@ -146,18 +121,18 @@ bye
 
 Reading the `rot` line: `1 2 3 rot` leaves `2 3 1` on the stack (the
 old third-from-top is now on top).  Printing top-down with three
-`.`s gives `1 3 2` — top first.
+`.`s gives `1 3 2`, top first.
 
 ### The full path: build the seed
 
 ```sh
 ./build.sh
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo '[lit] 65 [lit] 66 nip emit'
   echo '[lit] 65 [lit] 66 [lit] 67 rot emit emit emit'
   echo '[lit] 88 [lit] 89 2dup emit emit emit emit'
   echo '[lit] 65 [lit] 66 [lit] 67 [lit] 68 2drop emit emit'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 Expected output: `BACBYXYXBA`.  Trace each line:
@@ -169,6 +144,9 @@ Expected output: `BACBYXYXBA`.  Trace each line:
   `emit`s print `Y X Y X`.
 - `65 66 67 68 2drop emit emit` → `2drop` leaves `65 66`; two
   `emit`s print `B A`.
+
+Ten letters, and each one landed where the stack-effect comment
+said it would.
 
 ## Exercises
 
@@ -186,21 +164,31 @@ Expected output: `BACBYXYXBA`.  Trace each line:
 4. **★★ Extend.** Define `2swap ( a b c d -- c d a b )`.  Hint: `rot >r rot r>`
    is one route.
 
-5. **★★★ Trace.** Why is `pick` ( ... n -- ... x_n ) hard to define here?  Trace
-   what it would have to do for `n=3` using only `dup`, `swap`,
-   `drop`, `>r`, `r>`.  Show that the token count grows linearly
-   with `n`, not constant-time.
+5. **★★★ Extend.** §2 unrolls `pick` for one depth; do the same for
+   `roll`.  Define `4roll ( a b c d -- b c d a )` from `>r`, `r>`,
+   `swap` and `rot` in four tokens, then `5roll` in terms of
+   `4roll`.  On the seed,
+   `[lit] 65 [lit] 66 [lit] 67 [lit] 68 4roll emit emit emit emit`
+   should print `ADCB`.  How many primitive steps does `nroll`
+   execute as a function of `n`, and why can't one definition serve
+   every `n` here?
 
 ## Takeaways
 
-- Every shuffle is either a primitive or a short composition of
-  primitives.  The shuffle vocabulary is finite — about a dozen
-  classical names, all derivable.
-- The return stack is used as a temporary parking spot for values
-  that need to skip past `dup` / `over` operations.  The discipline
-  is: `>r` and `r>` come in pairs *within the same word*.
-- Deeper-than-third-of-stack access is not provided by this seed.
-  Code that wants it must restructure or use the return stack
-  explicitly.
+- `nip`, `rot`, `2dup`, and `2drop` are short compositions of the
+  seed's primitives and `over`, named so call sites read clearly.
+- `rot` reuses Ch 4's return-stack parking trick one slot deeper,
+  with `>r` and `r>` paired inside the word.
+- The seed provides no access deeper than the third cell (no `pick`
+  or `roll`), so code that needs it keeps the stack shallow or uses
+  variables.
 
-Next: Chapter 9 — Memory Updates and Cell Writers.
+**Part I tally.**  Built so far: byte emission, Boolean logic,
+subtraction, file I/O, character tests, comparisons, **named
+shuffles**.  Still missing: multi-byte writes, `constant`, `if,`,
+`variable`.
+
+Next: Chapter 9 — Memory Updates and Cell Writers.  `c,` writes one
+byte, but every x86 `CALL` the library will assemble carries a
+4-byte offset, and the seed has no shift instruction to split a
+number into bytes.

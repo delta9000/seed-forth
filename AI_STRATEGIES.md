@@ -98,6 +98,17 @@ This was tooling, not magic. LLMs forget. Putting intent in a file the next agen
 
 The swarm/tournament/MoA stack took real effort to build and run. Looking back, it's not clear how much the chain actually needed it. The frontier-model work on Claude Opus was where the hard semantic problems got solved — ELF layout, fixup chains, byte-identical divergence — and the swarms handled bulk that was already well-specified, which turned out to be a smaller fraction of the work than expected.
 
+## Later: a review-and-redesign pass
+
+After the chain closed, one long Claude Code session on the web (a cloud container, with parallel sub-agents) reviewed and reworked the repo. It ran as a sequence of passes, each committed on its own branch and gated by `./check-all.sh`:
+
+1. **Review.** Five reviewers each read a slice of the book against the source and ran the Try-it blocks. About 75 verified problems came back; the worst were overclaims about what Stage A proves, Try-it commands that redirected into stray files, and an error-code appendix that was mostly wrong. Prose drifts where no oracle checks it; the code blocks, which tangle verifies, were all correct.
+2. **Book passes.** Fix facts; strip AI-writing tells (mascots, templated openings, hype words); smooth the seams left by splitting long listings; then make it compelling: a demo on the first page, chapters that open on a problem, and a running C example (`tri.c`) followed through every compiler stage with observed output.
+3. **Design review for grokability,** then four code phases (seed, library, compiler front half, back half). The seed shrank from 2,040 to 1,772 bytes, lost its JMP stubs, skips comments itself (so `sed` left the trust chain) and fails loudly. The compiler gained bounds checks, one code per error, line numbers, and table-driven dispatch. Every phase after the seed kept `cc-out-v1` byte-identical.
+4. **Bootstrapper usability.** `bootstrap.sh` (GCC-free build), `verify.sh`, `tests/cc/stage0-check.sh` (diverse double-compiling against stage0-posix, which also found that the documented cause of `STAGE0_COMPAT` was wrong), and `handoff.sh`, which reproduces stage0-posix's AMD64 and x86 binaries (19/19 answers each).
+
+What made this pass work is the same thing that made the original work: every claim got an oracle. Prose numbers went into `tools/check-numbers.py`, Try-its into `tools/check-tryit.py`, links into `tools/check-links.py`, provenance claims into scripts. Where a sub-agent's report said something surprising, the coordinating session re-ran the check before believing it. The failures it caught were mostly the same kind the original gates caught: plausible text that nothing had checked.
+
 ## What it comes down to
 
 Frontier model capability set the ceiling on what was possible. Gate tests and byte-identical fixed-point set the floor on what shipped.

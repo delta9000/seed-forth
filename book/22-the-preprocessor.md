@@ -2,76 +2,39 @@
 
 ```text
 Missing capability: C source still arrives as include-laden, macro-bearing text.
-New pattern: rewrite source through cc-prep-out-buf while recording integer macros newest-first.
+New pattern: rewrite cc-in-buf into cc-src-buf while recording integer macros newest-first.
 Artifact after this chapter: a flattened C stream plus an integer macro table.
 Proof link: Stage-A sees the same project headers and integer constants as the reference path.
 ```
 
-The artifact here is a source rewriter: a pass that turns project
-includes and integer defines into the flat stream the lexer will see.
-`040-cc-prep.fth` (662 lines, entire file) is the smallest
-preprocessor that suffices for M2-Planet's source.  It handles
-`#include "…"` recursively, accepts integer-valued `#define`, and
-deliberately elides other directive lines.  The pass reads from
-`cc-src-buf`, emits into `cc-prep-out-buf`, then copies the result
-back so the lexer sees one post-processed stream.  Macros live in
-parallel arrays plus a name pool, and `cc-prep-process-vec` is a
-trampoline that lets `#include` recurse without forward-declaring
-its own `:`-definitions.
+`tri.c` opens with `#define ROWS 4`, a line no C parser accepts, and
+then uses `ROWS` four times.  Before the parser sees the program,
+something has to delete that line and make each `ROWS` mean 4.  The
+preprocessor does only the first half.  The 566-line file
+`040-cc-prep.fth` is the smallest preprocessor that suffices for
+M2-Planet.  It supports two active transformations: `#include "…"` for project
+headers, spliced in recursively, and `#define NAME N` for integer
+constants, recorded in a macro table.  Every other directive line is
+elided.
 
-By the end of the chapter you'll be able to enumerate the supported
-directives, walk the macro lookup via `bytes-eq` (Ch 12), trace an
-`#include "M2libc/..."` path through the literal-then-`tests/cc/`
-search and the recursive descent into the pool, and explain why
-macro expansion is not the preprocessor's job at all (Ch 23's lexer
-calls `cc-macro-find-int` after reading each identifier).  Why
-`tests/cc/` is the only fallback prefix is Ch 32 (the bootstrap
-driver scripts).
+The bootstrap monolith leans on even less than that.  The script that
+assembles it deletes every column-0 `#include "…"` line from the `.c`
+files, and the `TRUE`/`FALSE` defines with them, so only the headers'
+own `#include "cc_globals.h"` and `#include "cc.h"` reach this pass,
+both resolved through the `tests/cc/` fallback.  No integer `#define`
+survives: the one left, `#define CC_H`, has no value and is dropped.
+The integer path is exercised by the gate fixtures instead (see Try
+it).  Angle-bracket includes, include guards and similar scaffolding
+still appear, but this compiler does not need their semantics.
 
----
+Macro *substitution* is not the preprocessor's job at all.  The pass
+only records `ROWS → 4`; Ch 23's lexer calls `cc-macro-find-int`
+after reading each identifier.
 
-C source code is rarely self-contained.  Real translation units
-pull in headers, define constants, and rely on a tiny preprocessor
-to glue everything together before the compiler sees a single
-token.  This file is that preprocessor.
+## 1. Input, output and the line count
 
-It is also, deliberately, the *smallest* preprocessor that suffices
-for the job.  The bootstrap monolith needs exactly two active
-transformations: `#include "…"` for project headers (M2libc paths)
-and `#define NAME N` for integer constants.  Other directive lines
-can still appear after the monolith is assembled — angle-bracket
-includes, include guards, and similar scaffolding — but this compiler
-does not need their semantics.  The preprocessor's job is to handle
-the two active transformations faithfully and to silently elide the
-rest.
-
-## 1. The output buffer and the two-megabyte detour
-
-What follows is the entire 662-line file in one slab — the longest
-single listing in the book.  Read it once for shape, not detail:
-note the region map above and let your eye register where each phase
-lives.  Sections 2–8 walk the paths that matter; you do not need to
-absorb every helper on first pass.
-
-The file is in eight regions in source order.  Knowing where they
-are before you start scrolling helps:
-
-| Region | Code lines | Walked by |
-|---|---:|---|
-| Output buffer + forward decls | ~1–43 | §1 |
-| Macro storage (parallel arrays + name pool) | ~43–135 | §2 |
-| Walker state + peek/advance/skip helpers | ~136–214 | §3 |
-| Include pool, path building, file loading | ~215–329 | §4 |
-| Ident and decimal readers | ~330–368 | §3, §5 |
-| Directive dispatch (including `#include`, `#define`, fallthrough) | ~369–560 | §4, §5, §6 |
-| Process-region and copy-back driver | ~561–606 | §8 |
-| Built-in macros and `cc-preprocess` driver | ~607–end | §7, §8 |
-
-The chapter sections walk the file by *topic*, not strictly in
-source order: e.g. `cc-prep-handle-include` (§4) and
-`cc-prep-handle-define` (§5) both live inside the directive-
-dispatch region.  Use the table to find a region; use §§2–8 to
-read what it does.
+The file's header comment states the whole contract, including the
+lex-time substitution rule and the include search order.
 
 ```forth file=040-cc-prep.fth
 \ 040-cc-prep.fth — preprocessor for the C-subset compiler.
@@ -101,22 +64,56 @@ read what it does.
 \   1. Path verbatim (absolute, or relative to cwd).
 \   2. tests/cc/<path>  — tracked local test fallback.
 \
-\ Depends on 010-lib.fth (open/read/close, digit?/alpha?, bytes-eq, control-flow)
-\ and 030-cc-io.fth (cc-src-buf, cc-src-len).
+\ Input and output: the pass reads the raw source from cc-in-buf and writes
+\ its result straight into cc-src-buf, the buffer the lexer reads (030).
+\
+\ Depends on 010-lib.fth (open/close, digit?, bytes-eq, control-flow),
+\ 020-cc-arena.fth (cc-src-line, cc-die, cc-check-cap) and 030-cc-io.fth
+\ (cc-in-buf, cc-src-buf, cc-src-init, cc-read-all, ident-start?/ident-cont?,
+\ cell[], cc-name-find).
 
+```
+
+The preprocessor reads the raw source from `cc-in-buf` and writes the
+rewritten text straight into `cc-src-buf`, the buffer the lexer reads
+(Ch 21).
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
-\ Output buffer
+\ Output: the lexer's source buffer
 \ ===========================================================================
 
-[lit] 2097152 constant cc-prep-out-cap
-create cc-prep-out-buf  cc-prep-out-cap allot
-variable cc-prep-out-pos
-
-\ cc-prep-emit-byte ( b -- )
+\ cc-prep-emit-byte ( b -- )  Append b to cc-src-buf; die 36 if it is full.
+\ Counts lines as it goes, so a failure during the pass reports the line of
+\ the output it had reached.
 : cc-prep-emit-byte
-  cc-prep-out-buf cc-prep-out-pos @ + c!
-  [lit] 1 cc-prep-out-pos +! ;
+  cc-src-len @ 1+ cc-src-cap [lit] 36 cc-check-cap
+  dup cc-src-buf cc-src-len @ + c!
+  [lit] 1 cc-src-len +!
+  nl = if, [lit] 1 cc-src-line +! then, ;
 
+```
+
+Reading one buffer and writing another keeps the writer from
+trampling bytes the reader has not yet visited, since an `#include`
+makes the output longer than the input; that is why `cc-src-buf` is
+twice the size of `cc-in-buf`.  `cc-prep-emit-byte` appends at
+`cc-src-len`, and if the source buffer is full the compiler dies with
+code 36, this file's range being 30–39.
+
+It also counts newlines into `cc-src-line`.  If the pass fails, say on
+an `#include` whose file cannot be opened, `cc-die` then reports the
+line the output had reached, which is the line number the lexer would
+have seen.  Because included files are spliced in, that is a line of
+the flattened program, not of the file that holds the directive.
+
+## 2. Macro storage: parallel arrays plus a name pool
+
+The macro table is three `256 × 8`-byte arrays (`name-addr`,
+`name-len`, `value`) and a counter, the same parallel-array layout Ch
+24 uses for the symbol table, indexed with `cell[]` (Ch 21).
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ Macro table (parallel arrays).  Object-like macros, integer values only.
 \ ===========================================================================
@@ -127,27 +124,23 @@ create cc-macro-name-len   cc-macro-cap [lit] 8 * allot
 create cc-macro-value      cc-macro-cap [lit] 8 * allot
 variable cc-macro-count
 
-\ Dedicated name pool.  When cc-macro-add is called, the source buffer it
-\ points into is about to be overwritten by cc-prep-copy-back (which copies
-\ the expanded source over cc-src-buf).  So the names are deep-copied here.
+\ Dedicated name pool.  A #define's name may sit in an include-pool slot
+\ (below), which the next #include at the same depth overwrites while the
+\ lexer still needs the macro.  So the names are deep-copied here.
 [lit] 16384 constant cc-macro-name-pool-cap
 create cc-macro-name-pool  cc-macro-name-pool-cap allot
 variable cc-macro-name-pool-pos
 
-: cc-macro-slot  swap [lit] 8 * + ;                ( i base -- addr )
-
 \ cc-macro-name-pool-copy ( src-addr src-len -- dest-addr )
 \ Copy src-len bytes into the name pool, returning their dest address.
-\ Exits status 72 if the pool overflows.
+\ Dies with code 35 if the pool overflows.
 variable cc-mn-src-a
 variable cc-mn-src-u
 variable cc-mn-dst
 : cc-macro-name-pool-copy
   cc-mn-src-u ! cc-mn-src-a !
   cc-macro-name-pool-pos @ cc-mn-src-u @ +
-  cc-macro-name-pool-cap > if,
-    [lit] 72 die
-  then,
+  cc-macro-name-pool-cap [lit] 35 cc-check-cap
   cc-macro-name-pool cc-macro-name-pool-pos @ +    ( dst )
   dup cc-mn-dst !
   begin,
@@ -164,52 +157,58 @@ variable cc-mn-dst
 
 \ cc-macro-add ( name-addr name-len value -- )
 \ Deep-copies the name into the name pool before recording the entry.
+\ Dies with code 34 if the table already holds cc-macro-cap macros.
 : cc-macro-add
+  cc-macro-count @ 1+ cc-macro-cap [lit] 34 cc-check-cap
   cc-macro-count @ >r                              ( a u v ; R: i )
-  r@ cc-macro-value cc-macro-slot !                ( a u )
+  r@ cc-macro-value cell[] !                       ( a u )
   \ Copy name into the pool; replace addr with pool addr.
   over over                                        ( a u a u )
   cc-macro-name-pool-copy                          ( a u pool-addr )
   \ Now we have ( a u pool-addr ).  We need to store pool-addr and u.
-  r@ cc-macro-name-addr cc-macro-slot !            ( a u )
-  r@ cc-macro-name-len  cc-macro-slot !            ( a )
+  r@ cc-macro-name-addr cell[] !                   ( a u )
+  r@ cc-macro-name-len  cell[] !                   ( a )
   drop                                             ( -- )
   [lit] 1 cc-macro-count +!
   r> drop ;
 
-variable cc-macro-find-flag
-variable cc-macro-find-value
-variable cc-macro-find-needle-addr
-variable cc-macro-find-needle-len
+```
 
+The **name pool** is a separate 16 KiB buffer.  It exists because a
+`#define` inside an included file is read out of that file's
+include-pool slot (§4), and the next `#include` at the same depth
+reads a new file into the same slot.  Any `cc-macro-name-addr` that
+pointed into the slot would then point at rewritten bytes: garbage at
+best, a different macro's name at worst.  `cc-macro-add` therefore
+passes every name through `cc-macro-name-pool-copy`, which deep-copies
+it and dies with code 35 if the pool is full.  After that the stored
+address never moves.  A 257th macro is code 34.
+
+Lookup is Ch 21's `cc-name-find` over the two name arrays:
+
+```forth file=040-cc-prep.fth
 \ cc-macro-find-int ( name-addr name-len -- value found? )
-\ Iterates newest→oldest so a later #define wins.
+\ Newest first (cc-name-find), so a later #define wins.
 : cc-macro-find-int
-  cc-macro-find-needle-len  !
-  cc-macro-find-needle-addr !
-  [lit] 0 cc-macro-find-flag  !
-  [lit] 0 cc-macro-find-value !
-  cc-macro-count @ [lit] 1 -                       ( i )
-  begin,
-    dup [lit] 0 >=
-  while,
-    cc-macro-find-flag @ [lit] 0 = if,             \ still searching?
-      dup cc-macro-name-len cc-macro-slot @
-      cc-macro-find-needle-len @ = if,
-        dup cc-macro-name-addr cc-macro-slot @     ( i entry-a )
-        cc-macro-find-needle-addr @ swap           ( i needle entry )
-        cc-macro-find-needle-len @
-        bytes-eq if,
-          dup cc-macro-value cc-macro-slot @ cc-macro-find-value !
-          [lit] 0 0= cc-macro-find-flag !
-        then,
-      then,
-    then,
-    [lit] 1 -
-  repeat,
-  drop
-  cc-macro-find-value @  cc-macro-find-flag @ ;
+  cc-macro-name-addr cc-macro-name-len cc-macro-count @ cc-name-find  ( i )
+  dup 0< if, drop [lit] 0 [lit] 0 exit, then,      \ not found: 0 0
+  cc-macro-value cell[] @ true ;                   ( value -1 )
 
+```
+
+`cc-name-find` compares with `bytes-eq` (Ch 12) and walks
+newest-first, so a later `#define` of the same name shadows the
+earlier one, as in C.  It answers an index, or -1; the index fetches
+the value, and a true flag says it was found.  This is the
+small-table, newest-wins lookup of Ch 17's dictionary at macro scale.
+
+## 3. The walker: peek, advance, classify
+
+The preprocessor walks one *region* at a time: a buffer base address,
+a length and a current position, held in `cc-prep-src-addr`,
+`cc-prep-src-len` and `cc-prep-src-pos`.
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ Walking-region state.  Globals so recursion just saves/restores.
 \ ===========================================================================
@@ -237,17 +236,17 @@ variable cc-prep-src-pos
 \ cc-prep-peek2 ( -- c )  The byte one past pos; 0 if that is at/after EOR.
 \ Used to recognise the two-byte comment markers /* and */.
 : cc-prep-peek2
-  cc-prep-src-pos @ [lit] 1 + cc-prep-src-len @ >= if,
+  cc-prep-src-pos @ 1+ cc-prep-src-len @ >= if,
     [lit] 0
   else,
-    cc-prep-src-addr @ cc-prep-src-pos @ + [lit] 1 + c@
+    cc-prep-src-addr @ cc-prep-src-pos @ + 1+ c@
   then, ;
 
 \ cc-prep-skip-blanks ( -- )  Skip spaces and tabs (NOT newlines).
 : cc-prep-skip-blanks
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek dup [lit] 32 = swap [lit] 9 = or  and
+    cc-prep-peek dup bl = swap tab = or  and
   while,
     cc-prep-advance
   repeat, ;
@@ -257,13 +256,13 @@ variable cc-prep-src-pos
 : cc-prep-skip-block-comment-tail
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek [lit] 42 = cc-prep-peek2 [lit] 47 = and 0=  \ not yet "*/"
+    cc-prep-peek [char] * = cc-prep-peek2 [char] / = and 0=  \ not yet "*/"
     and
   while,
     cc-prep-advance
   repeat,
-  cc-prep-peek  [lit] 42 = if, cc-prep-advance then,         \ consume '*'
-  cc-prep-peek  [lit] 47 = if, cc-prep-advance then, ;       \ consume '/'
+  cc-prep-peek  [char] * = if, cc-prep-advance then,         \ consume '*'
+  cc-prep-peek  [char] / = if, cc-prep-advance then, ;       \ consume '/'
 
 \ cc-prep-skip-to-eol ( -- )  Stop at newline (which is left unconsumed) or EOR.
 \ A directive's tokens may be followed by a /* block comment */ that runs past
@@ -273,9 +272,9 @@ variable cc-prep-src-pos
 : cc-prep-skip-to-eol
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek [lit] 10 <> and
+    cc-prep-peek nl <> and
   while,
-    cc-prep-peek [lit] 47 = cc-prep-peek2 [lit] 42 = and if,
+    cc-prep-peek [char] / = cc-prep-peek2 [char] * = and if,
       cc-prep-advance cc-prep-advance                       \ skip '/*'
       cc-prep-skip-block-comment-tail
     else,
@@ -283,10 +282,44 @@ variable cc-prep-src-pos
     then,
   repeat, ;
 
-\ Ident classifiers (use 010-lib.fth alpha?/digit?).
-: cc-prep-is-ident-start?  dup alpha?  swap [lit] 95 = or ;
-: cc-prep-is-ident-cont?   dup cc-prep-is-ident-start?  swap digit? or ;
+```
 
+Every read goes through `cc-prep-peek` and `cc-prep-advance`, the same
+shape as Ch 21's `cc-peek-char` / `cc-next-char` but pointed at
+whichever buffer is current.  The same code walks `cc-in-buf` for the
+top-level pass and a 64 KiB include slot when `#include` recurses.
+(Ch 21's reader cannot be reused: it walks only `cc-src-buf`, and its
+cursor is the lexer's.)
+
+`cc-prep-skip-blanks` skips spaces and tabs but not newlines, because
+the newline is structural.  `cc-prep-skip-to-eol` walks to the next
+newline or the end of the region, leaving the newline unconsumed.
+Together they make a lexer-free directive parser: skip blanks, read an
+identifier, skip blanks, and so on.
+
+`cc-prep-skip-to-eol` has one wrinkle.  It is used only to *elide the
+tail of a directive line*: the bytes after a handled `#include` or
+`#define`, or a whole unknown directive.  A directive's tokens may be
+followed by a `/* … */` comment that runs past the newline.  If
+skip-to-eol stopped blindly at the first newline, it would swallow the
+comment's opener (on the elided line) and leave the closer on the next
+line, where the lexer would meet stray `*` `/` tokens.  So it watches
+for `/*`, using the two-byte lookahead `cc-prep-peek2`, and hands off
+to `cc-prep-skip-block-comment-tail`, which consumes through the
+matching `*/` across newlines.  Comments are otherwise the lexer's
+department (Ch 23); the preprocessor must understand them here only
+because it elides text before the lexer can see it.
+
+To recognise names the walker uses Ch 21's shared `ident-start?` and
+`ident-cont?`, which fold C's identifier rules (letter or underscore,
+then letters or digits) onto Ch 6's `alpha?` and `digit?`.
+
+## 4. `#include` and the four-slot include pool
+
+An included file needs somewhere to live while it is walked.  The
+pool has four 64 KiB slots, one per nesting depth.
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ Include buffer pool (4 slots × 64 KiB).
 \ ===========================================================================
@@ -301,6 +334,12 @@ variable cc-prep-inc-depth
 : cc-prep-inc-slot-addr
   cc-prep-inc-slot-cap *  cc-prep-inc-pool + ;
 
+```
+
+A header is looked up under two names, so the file needs a small
+path builder.
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ Path building.  Concat prefix + name + NUL into cc-prep-path-buf.
 \ ===========================================================================
@@ -309,24 +348,22 @@ variable cc-prep-inc-depth
 create cc-prep-path-buf  cc-prep-path-cap allot
 variable cc-prep-path-out
 
-create cc-prep-tests-prefix
-[lit] 116 c, [lit] 101 c, [lit] 115 c, [lit] 116 c, [lit] 115 c,  \ tests
-[lit]  47 c,                                            \ /
-[lit]  99 c, [lit]  99 c,                               \ cc
-[lit]  47 c,                                            \ /
+create cc-prep-tests-prefix  s, tests/cc/
 
 [lit] 9 constant cc-prep-tests-prefix-len
 
 \ cc-prep-append ( src-addr src-len -- )  Append bytes to cc-prep-path-buf.
+\ Dies with code 33 if they and the closing NUL would not fit.
 : cc-prep-append
+  cc-prep-path-out @ over + 1+ cc-prep-path-cap [lit] 33 cc-check-cap
   begin,
     dup [lit] 0 >
   while,
     over c@
     cc-prep-path-buf cc-prep-path-out @ + c!
     [lit] 1 cc-prep-path-out +!
-    swap [lit] 1 + swap
-    [lit] 1 -
+    swap 1+ swap
+    1-
   repeat,
   drop drop ;
 
@@ -340,68 +377,72 @@ create cc-prep-tests-prefix
   cc-prep-append                                   \ append name
   [lit] 0 cc-prep-path-buf cc-prep-path-out @ + c! ;  \ NUL
 
+```
+
+`cc-prep-build-path` concatenates a prefix, the name and a NUL into
+`cc-prep-path-buf`; a path that would not fit its 1,024 bytes is code
+33.  The only prefixes ever used are the empty one and
+`tests/cc/`, and the loader tries them in that order:
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ File loading.  Reads a file into the current include-pool slot.
 \ ===========================================================================
 \ Linux O_RDONLY = 0.
 : cc-prep-try-open  [lit] 0 [lit] 0 open ;         ( path-addr -- fd )
 
-variable cc-prep-read-fd
-variable cc-prep-read-dst
-variable cc-prep-read-total
-
-\ cc-prep-read-all ( fd dst-addr -- total )
-: cc-prep-read-all
-  cc-prep-read-dst ! cc-prep-read-fd !
-  [lit] 0 cc-prep-read-total !
-  begin,
-    cc-prep-read-fd @
-    cc-prep-read-dst @ cc-prep-read-total @ +
-    [lit] 4096
-    read
-    dup [lit] 0 >
-  while,
-    cc-prep-read-total +!
-  repeat,
-  drop
-  cc-prep-read-total @ ;
-
 variable cc-prep-load-name-a
 variable cc-prep-load-name-u
 
 \ cc-prep-load-file ( path-a path-u -- buf-a buf-u )
 \ Opens the file (tries literal path, then tests/cc/<path>), reads it
-\ into the include-pool slot for the current depth.  Exits status 70 if
-\ neither path opens or include depth exceeds the pool.
+\ into the include-pool slot for the current depth.  Dies with code 31 if
+\ the include depth exceeds the pool, 30 if neither path opens, and 32 if
+\ the file does not fit in its slot.
 : cc-prep-load-file
   cc-prep-load-name-u ! cc-prep-load-name-a !
 
-  cc-prep-inc-depth @ cc-prep-inc-slot-count >= if,
-    [lit] 71 die
-  then,
+  cc-prep-inc-depth @ 1+ cc-prep-inc-slot-count [lit] 31 cc-check-cap
 
   \ Try literal path: prefix = "" (a=0,u=0).
   [lit] 0 [lit] 0
   cc-prep-load-name-a @ cc-prep-load-name-u @
   cc-prep-build-path
   cc-prep-path-buf cc-prep-try-open                ( fd )
-  dup [lit] 0 < if,
+  dup 0< if,
     drop
     cc-prep-tests-prefix cc-prep-tests-prefix-len
     cc-prep-load-name-a @ cc-prep-load-name-u @
     cc-prep-build-path
     cc-prep-path-buf cc-prep-try-open
-    dup [lit] 0 < if,
+    dup 0< if,
       drop
-      [lit] 70 die
+      [lit] 30 cc-die
     then,
   then,
   \ fd is on TOS.  Load into the slot for the current depth.
   >r                                               ( ; R: fd )
   cc-prep-inc-depth @ cc-prep-inc-slot-addr        ( buf-a )
-  dup r@ swap cc-prep-read-all                     ( buf-a total )
+  r@ over cc-prep-inc-slot-cap [lit] 32 cc-read-all  ( buf-a total )
   r> close drop ;
 
+```
+
+`cc-prep-load-file` tries the literal path first (which catches
+absolute paths and anything relative to the current directory), then
+`tests/cc/<path>`, where the test inputs live.  If the depth already
+fills all four slots it dies with code 31; if neither path opens, 30.
+The hard-coded `tests/cc/` prefix is the only coupling
+between production code and test layout in the compiler, a deliberate
+shortcut: the bootstrap chain runs the compiler from the repo root and
+only asks for headers that live there.  The file is read with Ch 21's
+`cc-read-all`, aimed at the slot for the current `cc-prep-inc-depth`;
+a file that fills its 64 KiB slot is code 32.
+
+The directive handlers need to read a name and a number from the
+current region.
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ Ident / decimal readers (operate on cc-prep-src region).
 \ ===========================================================================
@@ -416,7 +457,7 @@ variable cc-prep-ident-len
   cc-prep-src-pos @                                ( start )
   begin,
     cc-prep-eor? 0=
-    cc-prep-peek cc-prep-is-ident-cont? and
+    cc-prep-peek ident-cont? and
   while,
     cc-prep-advance
   repeat,
@@ -434,19 +475,31 @@ variable cc-prep-dec-seen
     cc-prep-peek digit? and
   while,
     cc-prep-dec-acc @ [lit] 10 *
-    cc-prep-peek [lit] 48 - +
+    cc-prep-peek [char] 0 - +
     cc-prep-dec-acc !
-    [lit] 0 0= cc-prep-dec-seen !
+    true cc-prep-dec-seen !
     cc-prep-advance
   repeat,
   cc-prep-dec-acc @ cc-prep-dec-seen @ ;
 
+```
+
+`cc-prep-read-ident` records where the identifier starts and how long
+it is; `cc-prep-read-decimal` accumulates digits and reports whether it
+saw any.
+
+Now the recursion.  `#include "…"` has to run the region walker,
+`cc-prep-process-region` (§6), on the loaded header.  But the walker
+calls `cc-prep-handle-include`, which is defined first, and Forth's `:`
+cannot refer to a word that doesn't exist yet.
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
-\ Directive dispatch.  Vector for recursion (#include -> process-region).
+\ Directive dispatch.  #include recurses into cc-prep-process-region, which
+\ is defined below, so it calls it through a deferred word (010-lib.fth).
 \ ===========================================================================
 
-variable cc-prep-process-vec
-: cc-prep-process-region-tramp  cc-prep-process-vec @ execute ;
+defer cc-prep-process-region-fwd
 
 \ State save / restore for recursive descent.
 \ Arrays indexed by cc-prep-inc-depth (parallel to the include-pool slots),
@@ -458,7 +511,7 @@ create cc-prep-save-pos   cc-prep-save-count [lit] 8 * allot
 
 \ cc-prep-save-slot ( arr -- addr )  Compute the save-slot address for the
 \ current include depth.  Arrays are indexed by cc-prep-inc-depth.
-: cc-prep-save-slot  cc-prep-inc-depth @ [lit] 8 * + ;
+: cc-prep-save-slot  cc-prep-inc-depth @ swap cell[] ;
 
 \ cc-prep-handle-include
 \ Pre: pos points just past "include".  Skip blanks, read "..." or <...>,
@@ -466,13 +519,24 @@ create cc-prep-save-pos   cc-prep-save-count [lit] 8 * allot
 \ At exit pos is at end-of-line (or EOR); newline is NOT consumed.
 variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
 
+```
+
+The fix is a deferred word (Ch 12): `defer cc-prep-process-region-fwd`
+names the walker now, the handler calls that name, and
+`' cc-prep-process-region is cc-prep-process-region-fwd` fills it in
+once the walker exists (§6).  The
+save arrays are length 4, matching the pool, so four nested includes
+is the hard ceiling.  M2-Planet uses at most two.  With the deferred word
+and the save arrays in place, the handler can recurse:
+
+```forth file=040-cc-prep.fth
 : cc-prep-handle-include
   cc-prep-skip-blanks
   [lit] 0 cc-prep-inc-mode !
-  cc-prep-peek [lit] 34 = if,
+  cc-prep-peek [char] " = if,
     [lit] 1 cc-prep-inc-mode !
   else,
-    cc-prep-peek [lit] 60 = if,
+    cc-prep-peek [char] < = if,
       [lit] 2 cc-prep-inc-mode !
     then,
   then,
@@ -484,13 +548,13 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
     cc-prep-src-pos @                              ( path-a start )
     begin,
       cc-prep-eor? 0=
-      cc-prep-peek [lit] 34 <> and
-      cc-prep-peek [lit] 10 <> and
+      cc-prep-peek [char] " <> and
+      cc-prep-peek nl <> and
     while,
       cc-prep-advance
     repeat,
     cc-prep-src-pos @ swap -                       ( path-a len )
-    cc-prep-peek [lit] 34 = if, cc-prep-advance then,
+    cc-prep-peek [char] " = if, cc-prep-advance then,
     \ ( path-a len ) — load file, then recurse.
     cc-prep-load-file                              ( buf-a buf-u )
     \ Save current region state at depth slot BEFORE bumping.
@@ -503,7 +567,7 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
     cc-prep-src-len !                              ( buf-a )
     cc-prep-src-addr !
     [lit] 0 cc-prep-src-pos !
-    cc-prep-process-region-tramp
+    cc-prep-process-region-fwd
     \ Restore outer region (depth has been decremented by now).
     [lit] 1 cc-prep-inc-depth -!
     cc-prep-save-addr cc-prep-save-slot @ cc-prep-src-addr !
@@ -515,16 +579,43 @@ variable cc-prep-inc-mode                          \ 1=quote, 2=angle, 0=other
       cc-prep-advance
       begin,
         cc-prep-eor? 0=
-        cc-prep-peek [lit] 62 <> and
-        cc-prep-peek [lit] 10 <> and
+        cc-prep-peek [char] > <> and
+        cc-prep-peek nl <> and
       while,
         cc-prep-advance
       repeat,
-      cc-prep-peek [lit] 62 = if, cc-prep-advance then,
+      cc-prep-peek [char] > = if, cc-prep-advance then,
     then,
   then,
   cc-prep-skip-to-eol ;
 
+```
+
+For a quoted path, the handler measures the name up to the closing
+`"`, loads the file, and stashes the current region triple in
+`cc-prep-save-{addr,len,pos}` at the *outer* depth.  It then bumps
+the depth, points the region globals at the loaded buffer, walks it
+through the deferred word, decrements the depth and reads the triple
+back.
+
+Angle-bracket includes (`#include <stdio.h>`) take the other branch.
+There are no system headers in the bootstrap environment, so the
+handler skips to the closing `>` and emits nothing.  The few names
+M2-Planet needs from those headers (`NULL`, `EOF`, `stdin` and so on)
+come from the built-in macros in §7.
+
+## 5. `#define` and the integer-only macro grammar
+
+The grammar this preprocessor supports is, in full:
+
+```
+#define NAME DECIMAL_LITERAL
+#define NAME ANOTHER_MACRO_NAME
+```
+
+`cc-prep-handle-define` parses both forms:
+
+```forth file=040-cc-prep.fth
 \ cc-prep-handle-define
 \ Pre: pos is just past "define".  Parses NAME VALUE.  VALUE may be a decimal
 \ literal or an ident resolving to a defined macro.  Registers in cc-macro
@@ -534,7 +625,7 @@ variable cc-prep-def-state
 : cc-prep-handle-define
   [lit] 0 cc-prep-def-state !
   cc-prep-skip-blanks
-  cc-prep-peek cc-prep-is-ident-start? if,
+  cc-prep-peek ident-start? if,
     cc-prep-read-ident
     cc-prep-skip-blanks
     cc-prep-peek digit? if,
@@ -546,13 +637,13 @@ variable cc-prep-def-state
         drop
       then,
     else,
-      cc-prep-peek cc-prep-is-ident-start? if,
+      cc-prep-peek ident-start? if,
         \ ident-valued: resolve through existing table.
         cc-prep-src-addr @ cc-prep-src-pos @ +     ( val-a )
         cc-prep-src-pos @                          ( val-a start )
         begin,
           cc-prep-eor? 0=
-          cc-prep-peek cc-prep-is-ident-cont? and
+          cc-prep-peek ident-cont? and
         while,
           cc-prep-advance
         repeat,
@@ -569,48 +660,64 @@ variable cc-prep-def-state
   then,
   cc-prep-skip-to-eol ;
 
+```
+
+The first form parses the value with `cc-prep-read-decimal` and
+registers the integer.  The second reads an identifier, runs it
+through `cc-macro-find-int`, and registers the resolved value.
+Anything else (string literals, expressions, function-like macros,
+multi-line continuations) falls through the conditionals and is
+dropped; the directive is elided either way.  The macros that matter
+to code generation in the bootstrap input are integer constants, so
+this is enough.
+
+## 6. Directive dispatch at line start
+
+A directive is a line whose first non-blank byte is `#`.  The
+dispatcher compares the directive name against two byte arrays.
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ cc-prep-handle-directive  ( -- )
 \ Pre: pos is at '#'.  Consume '#', read the directive name, dispatch.
 \ Unknown directives are elided.  Always advances to end-of-line.
 \ ===========================================================================
 
-create cc-prep-name-include
-[lit] 105 c, [lit] 110 c, [lit]  99 c, [lit] 108 c,    \ incl
-[lit] 117 c, [lit] 100 c, [lit] 101 c,                  \ ude
-
-create cc-prep-name-define
-[lit] 100 c, [lit] 101 c, [lit] 102 c, [lit] 105 c,    \ defi
-[lit] 110 c, [lit] 101 c,                               \ ne
-
-variable cc-prep-dir-matched
+create cc-prep-name-include  s, include
+create cc-prep-name-define   s, define
 
 : cc-prep-handle-directive
   cc-prep-skip-blanks                              \ leading indent before '#'
   cc-prep-advance                                  \ consume '#'
   cc-prep-skip-blanks
-  [lit] 0 cc-prep-dir-matched !
-  cc-prep-peek cc-prep-is-ident-start? if,
+  cc-prep-peek ident-start? if,
     cc-prep-read-ident
     cc-prep-ident-len @ [lit] 7 = if,
       cc-prep-ident-addr @ cc-prep-name-include [lit] 7 bytes-eq if,
-        cc-prep-handle-include
-        [lit] 0 0= cc-prep-dir-matched !
+        cc-prep-handle-include exit,
       then,
     then,
-    cc-prep-dir-matched @ [lit] 0 = if,
-      cc-prep-ident-len @ [lit] 6 = if,
-        cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
-          cc-prep-handle-define
-          [lit] 0 0= cc-prep-dir-matched !
-        then,
+    cc-prep-ident-len @ [lit] 6 = if,
+      cc-prep-ident-addr @ cc-prep-name-define [lit] 6 bytes-eq if,
+        cc-prep-handle-define exit,
       then,
     then,
   then,
-  cc-prep-dir-matched @ [lit] 0 = if,
-    cc-prep-skip-to-eol
-  then, ;
+  cc-prep-skip-to-eol ;                            \ unknown directive: elide it
 
+```
+
+`cc-prep-handle-directive` reads the name, matches it with `bytes-eq`
+against `cc-prep-name-include` or `cc-prep-name-define`, and calls the
+handler, returning with `exit,` once the handler is done.  An
+unknown directive matches neither and falls through to
+`cc-prep-skip-to-eol`, so the `#` already consumed is never
+emitted.
+
+Two words remain: the test for whether a line is a directive, and the
+walker that asks it.
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ cc-prep-line-is-directive?  ( -- f )
 \ Looks ahead from current pos: -1 iff the first non-blank byte on the
@@ -622,30 +729,37 @@ variable cc-prep-isd-save-pos
 : cc-prep-line-is-directive?
   cc-prep-src-pos @ cc-prep-isd-save-pos !
   cc-prep-skip-blanks
-  cc-prep-peek [lit] 35 = >r                       \ '#' = 35
+  cc-prep-peek [char] # = >r
   cc-prep-isd-save-pos @ cc-prep-src-pos !
   r> ;
 
 \ ===========================================================================
 \ cc-prep-process-region  ( -- )
-\ Main walker.  Emits bytes to cc-prep-out-buf, dispatching directives at
+\ Main walker.  Emits bytes to cc-src-buf, dispatching directives at
 \ line start.  Recursion happens via cc-prep-handle-include.
 \ ===========================================================================
 
 variable cc-prep-at-line-start
 
+\ cc-prep-at-directive? ( -- f )  -1 iff pos is at a line start and the line
+\ is a directive.  Looks ahead only at a line start, so a long line of
+\ blanks is scanned once, not once per byte.
+: cc-prep-at-directive?
+  cc-prep-at-line-start @ 0= if, [lit] 0 exit, then,
+  cc-prep-line-is-directive? ;
+
 : cc-prep-process-region
-  [lit] 0 0= cc-prep-at-line-start !               \ -1 = at start
+  true cc-prep-at-line-start !                     \ -1 = at start
   begin,
     cc-prep-eor? 0=
   while,
-    cc-prep-at-line-start @  cc-prep-line-is-directive?  and if,
+    cc-prep-at-directive? if,
       cc-prep-handle-directive
-      [lit] 0 0= cc-prep-at-line-start !
+      true cc-prep-at-line-start !
     else,
       cc-prep-peek dup cc-prep-emit-byte
-      [lit] 10 = if,
-        [lit] 0 0= cc-prep-at-line-start !
+      nl = if,
+        true cc-prep-at-line-start !
       else,
         [lit] 0 cc-prep-at-line-start !
       then,
@@ -653,32 +767,36 @@ variable cc-prep-at-line-start
     then,
   repeat, ;
 
-' cc-prep-process-region cc-prep-process-vec !
+' cc-prep-process-region is cc-prep-process-region-fwd
 
-\ ===========================================================================
-\ cc-preprocess  ( -- )
-\ Top-level driver.  Walks cc-src-buf, writes to cc-prep-out-buf, then
-\ copies back into cc-src-buf.  Resets cc-src-pos / cc-src-line so the
-\ lexer rewinds.
-\ ===========================================================================
+```
 
-\ cc-prep-copy-back ( -- )  Copy cc-prep-out-buf[0..pos] -> cc-src-buf[0..].
-variable cc-prep-cb-n
-variable cc-prep-cb-i
-: cc-prep-copy-back
-  cc-prep-out-pos @
-  dup cc-src-cap > if, drop cc-src-cap then,       ( n )
-  dup cc-src-len !
-  cc-prep-cb-n !
-  [lit] 0 cc-prep-cb-i !
-  begin,
-    cc-prep-cb-i @ cc-prep-cb-n @ <
-  while,
-    cc-prep-out-buf cc-prep-cb-i @ + c@            ( byte )
-    cc-src-buf cc-prep-cb-i @ + c!
-    [lit] 1 cc-prep-cb-i +!
-  repeat, ;
+The walker `cc-prep-process-region` tracks whether it is at the start
+of a line (`cc-prep-at-line-start`, initially `-1`).  At line start,
+if the first non-blank byte is `#`, it dispatches the directive.
+`cc-prep-at-directive?` asks that question only at a line start: the
+look-ahead scans the line's leading blanks, and asking at every byte
+would rescan them once per byte of the line.
+Otherwise it emits the current byte, advances, and sets the flag
+according to whether that byte was a newline.  The last line of the
+listing fills in the deferred word from §4.
 
+`cc-prep-line-is-directive?` saves `cc-prep-src-pos`, skips blanks,
+checks for `#` and restores the position.  Because it restores, the
+handler starts at the line's leading whitespace, not at the `#`, so
+`cc-prep-handle-directive` skips blanks again before consuming `#`.
+C allows whitespace before the `#`, and `   #define X 42` must register
+`X`.  Without that first `cc-prep-skip-blanks` the handler would
+consume a space, find `#` where it expected an identifier, match
+nothing, and silently elide the line.  For a column-0 directive the
+extra skip does nothing.
+
+## 7. The built-in macros
+
+Before the walk starts, the macro table is seeded with the few names
+the elided system headers would have supplied:
+
+```forth file=040-cc-prep.fth
 \ ===========================================================================
 \ Built-in macro constants — pre-populate the macro table with the small set
 \ of stdio.h / stdlib.h identifiers used by M2-Planet sources.  Source code
@@ -686,292 +804,87 @@ variable cc-prep-cb-i
 \ cc-macro-find-int path during lexing.
 \ ===========================================================================
 
-create cc-builtin-name-NULL
-[lit]  78 c, [lit]  85 c, [lit]  76 c, [lit]  76 c,    \ NULL
-
-create cc-builtin-name-EOF
-[lit]  69 c, [lit]  79 c, [lit]  70 c,                 \ EOF
-
-create cc-builtin-name-EXIT_SUCCESS
-[lit]  69 c, [lit]  88 c, [lit]  73 c, [lit]  84 c,    \ EXIT
-[lit]  95 c, [lit]  83 c, [lit]  85 c, [lit]  67 c,    \ _SUC
-[lit]  67 c, [lit]  69 c, [lit]  83 c, [lit]  83 c,    \ CESS
-
-create cc-builtin-name-EXIT_FAILURE
-[lit]  69 c, [lit]  88 c, [lit]  73 c, [lit]  84 c,    \ EXIT
-[lit]  95 c, [lit]  70 c, [lit]  65 c, [lit]  73 c,    \ _FAI
-[lit]  76 c, [lit]  85 c, [lit]  82 c, [lit]  69 c,    \ LURE
-
-create cc-builtin-name-stdin
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 105 c,    \ stdi
-[lit] 110 c,                                            \ n
-
-create cc-builtin-name-stdout
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 111 c,    \ stdo
-[lit] 117 c, [lit] 116 c,                               \ ut
-
-create cc-builtin-name-stderr
-[lit] 115 c, [lit] 116 c, [lit] 100 c, [lit] 101 c,    \ stde
-[lit] 114 c, [lit] 114 c,                               \ rr
+create cc-builtin-name-NULL          s, NULL
+create cc-builtin-name-EOF           s, EOF
+create cc-builtin-name-EXIT_SUCCESS  s, EXIT_SUCCESS
+create cc-builtin-name-EXIT_FAILURE  s, EXIT_FAILURE
+create cc-builtin-name-stdin         s, stdin
+create cc-builtin-name-stdout        s, stdout
+create cc-builtin-name-stderr        s, stderr
 
 : cc-prep-builtins
   cc-builtin-name-NULL          [lit]  4 [lit]  0 cc-macro-add
-  cc-builtin-name-EOF           [lit]  3 [lit]  0 0= cc-macro-add
+  cc-builtin-name-EOF           [lit]  3 true      cc-macro-add   \ EOF = -1
   cc-builtin-name-EXIT_SUCCESS  [lit] 12 [lit]  0 cc-macro-add
   cc-builtin-name-EXIT_FAILURE  [lit] 12 [lit]  1 cc-macro-add
   cc-builtin-name-stdin         [lit]  5 [lit]  0 cc-macro-add
   cc-builtin-name-stdout        [lit]  6 [lit]  1 cc-macro-add
   cc-builtin-name-stderr        [lit]  6 [lit]  2 cc-macro-add ;
 
+```
+
+`cc-prep-builtins` pre-loads seven names: `NULL = 0`, `EOF = -1`
+(encoded as `true`, since `-1` would fail `parse_decimal_code`;
+Ch 20 explains why), `EXIT_SUCCESS = 0`, `EXIT_FAILURE = 1`, and the
+standard-fd shims `stdin = 0`, `stdout = 1`, `stderr = 2`.  These are
+the only `stdio.h` / `stdlib.h` artefacts this bootstrap path needs
+from the elided angle-bracket headers.  Installing them as macros
+sidesteps host header files while project headers still supply their
+own declarations.
+
+## 8. The pass driver
+
+`cc-preprocess` is the only word the rest of the compiler calls.
+
+```forth file=040-cc-prep.fth
+\ ===========================================================================
+\ cc-preprocess  ( -- )
+\ Top-level driver.  Walks cc-in-buf and writes the result into cc-src-buf,
+\ then rewinds the reader (cc-src-pos 0, cc-src-line 1) for the lexer.
+\ ===========================================================================
+
 : cc-preprocess
-  [lit] 0 cc-prep-out-pos !
+  cc-src-init
   [lit] 0 cc-macro-count !
   [lit] 0 cc-macro-name-pool-pos !
   [lit] 0 cc-prep-inc-depth !
   cc-prep-builtins
-  cc-src-buf cc-prep-src-addr !
-  cc-src-len @ cc-prep-src-len !
+  cc-in-buf cc-prep-src-addr !
+  cc-in-len @ cc-prep-src-len !
   [lit] 0 cc-prep-src-pos !
   cc-prep-process-region
-  cc-prep-copy-back
   [lit] 0 cc-src-pos !
   [lit] 1 cc-src-line ! ;
 ```
 
-That listing is the entire chapter's payload.  The rest of this
-chapter is annotation.
+It empties `cc-src-buf` (`cc-src-init`), resets every counter, primes
+the built-in macros, points the region globals at `cc-in-buf`, and
+runs `cc-prep-process-region`, which fills `cc-src-buf`.  Resetting
+`cc-src-pos` to 0 and `cc-src-line` to 1 afterwards means the lexer
+starts at the top: as far as it is concerned, the source it reads is
+the program.
 
-The preprocessor declares its *own* 2 MiB output buffer — separate
-from `cc-out-buf` (Ch 21), which is for ELF bytes.  Why two buffers?
-The preprocessor reads from `cc-src-buf` and writes the rewritten
-text into `cc-prep-out-buf`, then `cc-prep-copy-back` copies the
-result back into `cc-src-buf`, overwriting it.  This dance is the
-simplest way to avoid having the writer trample bytes the reader
-has not yet visited.
-
-`cc-prep-emit-byte` is a clone of `cc-emit-byte` from Ch 21,
-parameterised over the preprocessor's own cursor.  Forth lets you
-write a generalisation, but for two call sites it's cheaper to
-duplicate.
-
-## 2. Macro storage: parallel arrays plus a name pool
-
-The macro table is three `256 × 8`-byte arrays (`name-addr`,
-`name-len`, `value`) and a counter.  This is the same parallel-
-array technique you'll see again in Ch 24 for the symbol table —
-locality beats records-of-pointers when every walk is "iterate the
-column."
-
-The non-obvious piece is the **name pool**, a separate 16 KiB
-buffer.  Why?  Because `cc-prep-copy-back` is going to overwrite
-`cc-src-buf` once the preprocessing pass finishes.  Any
-`cc-macro-name-addr` that pointed into `cc-src-buf` would suddenly
-point at *rewritten* bytes — at best garbage, at worst, a different
-macro's name.
-
-`cc-macro-name-pool-copy` solves it by deep-copying the name into
-the pool when the macro is registered.  After that, the pool is
-immutable for the rest of compilation.  Lookups against
-`cc-macro-find-int` use the pool addresses, which survive
-`copy-back`.
-
-Lookup itself is a straight linear scan, newest-first, with
-`bytes-eq` (Ch 12) as the inner comparator.  Newest-first means a
-later `#define` with the same name shadows the earlier one — the
-standard C semantics.  We stop at the first hit by gating the body
-on `cc-macro-find-flag`.
-
-This is the same small-table pattern as Ch 17's dictionary lookup,
-now at macro scale: bounded capacity, linear search, and "newest
-wins" shadowing instead of a more general map.
-
-## 3. The walker: peek, advance, classify
-
-The preprocessor walks one *region* at a time.  A region is a
-triple — buffer base address, length, current position — held in
-`cc-prep-src-addr`, `cc-prep-src-len`, `cc-prep-src-pos`.  Every
-read goes through `cc-prep-peek` and `cc-prep-advance`.
-
-This is the same shape as Ch 21's `cc-peek-char` / `cc-next-char`,
-but pointed at *whatever buffer we currently care about*.  The
-abstraction lets the same code walk `cc-src-buf` for the top-level
-pass and the various 64 KiB include slots when `#include` recurses.
-
-`cc-prep-skip-blanks` skips spaces and tabs but *not* newlines —
-the newline is structural; we never want to lose it.
-`cc-prep-skip-to-eol` walks until it sees newline or hits the end of
-the region, leaving the newline unconsumed.  Together they
-implement the lexer-free directive parser: "skip whitespace, read
-ident, skip whitespace, …".
-
-`cc-prep-skip-to-eol` has one wrinkle.  It is only ever used to
-*elide the tail of a directive line* — the bytes after a handled
-`#include`/`#define`, or a whole unknown directive.  But a
-directive's tokens may be followed by a `/* … */` comment, and a
-block comment can run past the newline.  If skip-to-eol stopped
-blindly at the first newline it would swallow the comment's
-opener (it's on the directive line, which is elided) yet leave the
-closer on the *next* line, where the lexer would meet it as stray
-`*` `/` tokens.  So skip-to-eol watches for `/*` — using the
-two-byte lookahead `cc-prep-peek2` — and hands off to
-`cc-prep-skip-block-comment-tail`, which consumes through the
-matching `*/` even across newlines.  Comments are normally the
-lexer's department (Ch 23); this is the one spot where the
-preprocessor must understand them, precisely because it elides
-text before the lexer can see it.  For a directive line with no
-trailing comment, the extra check changes nothing.
-
-The `cc-prep-is-ident-start?` and `cc-prep-is-ident-cont?` helpers
-fold the C identifier rules (letter or underscore, then letters or
-digits) onto Ch 6's `alpha?` and `digit?`.  Underscore is byte 95;
-we just OR it in.
-
-## 4. `#include` and the four-slot include pool
-
-`cc-prep-load-file` opens a header, reads it into one of four 64 KiB
-slots from `cc-prep-inc-pool`, and returns its buffer address and
-length.  The depth counter `cc-prep-inc-depth` picks the slot, so
-nested includes don't collide.
-
-Two paths are tried before giving up: the literal path (which
-catches absolute paths and anything relative to the current
-directory) and then `tests/cc/<path>` (which is where the test
-inputs live).  The hard-coded `tests/cc/` prefix is the only
-production-vs-test coupling in the compiler — a deliberate
-shortcut, since the bootstrap chain runs the compiler from the
-repo root and only ever asks for headers that live in `tests/cc/`.
-
-Recursion uses a trampoline.  `cc-prep-process-region` is the
-walker we'll meet in §6; `#include` needs to call it to process
-the loaded header.  But the walker calls `cc-prep-handle-include`,
-which is *defined before* the walker — a forward reference Forth's
-`:` cannot satisfy.  The fix is the indirection through
-`cc-prep-process-vec`: declare the variable up front, define the
-trampoline that calls through it, then patch the variable to point
-at `cc-prep-process-region` once the walker is defined.
-
-The save/restore around the recursive call is straightforward.
-Before bumping `cc-prep-inc-depth`, we stash the current region
-triple in `cc-prep-save-{addr,len,pos}` indexed by the *outer*
-depth; after the recursive walk we decrement the depth and read
-back.  The arrays are length 4, matching the include-pool slot
-count — four nested includes is the hard ceiling.  M2-Planet uses
-at most two.
-
-Angle-bracket includes (`#include <stdio.h>`) take a different
-branch.  Rather than trying to find a system header that doesn't
-exist in the bootstrap environment, the preprocessor *elides* the
-directive — skips it entirely.  The shims for `NULL`, `EOF`,
-`stdin`, etc. come from the built-in macros in §7, not from real
-header files.
-
-## 5. `#define` and the integer-only macro grammar
-
-The grammar this preprocessor supports is, in full:
-
-```
-#define NAME DECIMAL_LITERAL
-#define NAME ANOTHER_MACRO_NAME
-```
-
-The first form parses the value with `cc-prep-read-decimal` and
-registers the integer.  The second form reads an identifier, runs
-it through `cc-macro-find-int`, and registers the resolved value.
-Anything else — string literals, expressions, function-like macros,
-multi-line continuations — falls off the end of the conditionals
-and is silently dropped (the directive is elided either way).
-
-This is enough for the bootstrap input because the macros that matter
-to code generation are integer constants.  Anything more would have
-to land here as code, not as a documentation TODO.
-
-## 6. Directive dispatch at line start
-
-The walker `cc-prep-process-region` is the heart of the file.  Its
-logic is:
-
-1. Track whether we are at the start of a line (`cc-prep-at-line-
-   start`, initialised to `-1` for "yes, line just began").
-2. Loop until end-of-region.
-3. If we're at line start AND the first non-blank byte is `#`,
-   dispatch to `cc-prep-handle-directive` (and reset
-   `cc-prep-at-line-start` for the next iteration).
-4. Otherwise, emit the current byte and advance.  Update
-   `cc-prep-at-line-start` based on whether the emitted byte was
-   newline.
-
-`cc-prep-line-is-directive?` peeks ahead without losing position
-— it saves `cc-prep-src-pos`, skips blanks, checks for `#`,
-restores `cc-prep-src-pos`.  The classic "save and restore"
-pattern.  Forth's data-stack discipline makes it almost too easy.
-Because it *restores* the position, the handler runs with `pos`
-still at the line's leading whitespace, not at the `#` — so
-`cc-prep-handle-directive` skips blanks again before consuming
-`#`.  C allows whitespace before the `#`, and `   #define X 42`
-must register `X`; without that first `cc-prep-skip-blanks` the
-handler would consume a space, find `#` where it expected an
-identifier, match nothing, and silently elide the whole line.
-For a column-0 directive the extra skip does nothing, so the
-emitted stream is unchanged.
-
-`cc-prep-handle-directive` reads the directive name, compares it
-against `cc-prep-name-include` and `cc-prep-name-define` (the
-literal byte arrays just below it), and dispatches.  Unknown
-directives are elided — the `cc-prep-dir-matched @ [lit] 0 = if,
-cc-prep-skip-to-eol then,` path makes sure we don't fall back to
-emitting the `#` we already consumed.
-
-## 7. Built-in macros
-
-`cc-prep-builtins` runs at the start of `cc-preprocess` and
-pre-loads seven names into the macro table.  `NULL = 0`,
-`EOF = -1` (encoded as `[lit] 0 0=`, since `-1` would fail
-`parse_decimal_code`; Ch 20 explains why), `EXIT_SUCCESS = 0`,
-`EXIT_FAILURE = 1`, and the three standard-fd shims `stdin = 0`,
-`stdout = 1`, `stderr = 2`.
-
-These are the only `stdio.h` / `stdlib.h` artefacts this bootstrap
-path needs from the elided angle-bracket headers.  By installing them
-as macros at preproc time we sidestep host header files while letting
-project headers provide their own declarations and definitions.
-
-## 8. The pass driver
-
-`cc-preprocess` is the only function the outside world calls.  It
-resets every cursor and counter, primes the built-in macros, points
-the walking-region globals at `cc-src-buf`, runs
-`cc-prep-process-region`, and then `cc-prep-copy-back` overwrites
-the source buffer with the expanded text and clamps the length.
-
-After the copy-back, `cc-src-pos` is reset to 0 and `cc-src-line`
-to 1 so the lexer sees a fresh source.  As far as the lexer is
-concerned, the preprocessor never happened — there's just text in
-`cc-src-buf` and `cc-src-len` tells it how much.
-
-The remaining wrinkle is that macros that *evaluate* (not just
-parse) at substitution time are still in the table.  When the lexer
-reads `NULL` it calls `cc-macro-find-int` and emits a numeric token
-with value 0; same for `EOF`, `EXIT_FAILURE`, and any user-defined
-`#define` that survived this pass.  That's why §4's docstring at the
-top of `040-cc-prep.fth` says "macro substitution happens at LEX
-time."
+The macro table outlives the pass.  When the lexer reads `NULL` it
+calls `cc-macro-find-int` and produces a numeric token with value 0;
+the same goes for `EOF`, `EXIT_FAILURE`, and any `#define` recorded
+here.  That is what the file header means by "macro substitution
+happens at LEX time."
 
 ## Try it
 
-**Small check:** run the preprocessor directly on a tiny input and
-print the rewritten buffer.  Seed-forth has no file-`include` or
+**Small check:** run the preprocessor on the four lines of `tri.c`
+that mention `ROWS` and print the rewritten buffer.  Seed-forth has no file-`include` or
 `-e` flag, so we concatenate the four Forth files it needs onto
 stdin, strip Forth comments, and then append the C source.  The
 driver defines a one-shot word `dump-prep` that calls
 `cc-load-stdin` (which slurps whatever remains on stdin), runs
-`cc-preprocess`, and walks the rewritten buffer byte by byte:
+`cc-preprocess`, walks the rewritten buffer byte by byte, then
+prints the macro count as a digit:
 
 ```sh
 ./build.sh
 {
-  for f in 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth; do
-    sed -e 's/\\.*$//' -e 's/([^)]*)//g' "$f"
-  done
+  cat 010-lib.fth 020-cc-arena.fth 030-cc-io.fth 040-cc-prep.fth
   cat <<'FORTH'
     : dump-prep
       cc-load-stdin cc-preprocess
@@ -980,42 +893,61 @@ driver defines a one-shot word `dump-prep` that calls
         dup cc-src-buf + c@ emit
         [lit] 1 +
       repeat, drop
+      cc-macro-count @ [lit] 48 + emit
       bye ;
     dump-prep
 FORTH
   cat <<'C'
-#define ANSWER 42
-int x = ANSWER;
+#define ROWS 4
+    int w[ROWS];
+    t.rows = ROWS;
+    if (t.stars == ROWS * ROWS) return t.stars;
 C
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 ```
 
 After the REPL executes the final `dump-prep` token, `cc-load-stdin`
 reads the rest of stdin (the C source) into `cc-src-buf`,
-`cc-preprocess` runs, and the loop prints the rewritten buffer.
-Expected output ends with `int x = ANSWER;` — note that `ANSWER`
-itself is *not* substituted in the buffer.  The preprocessor only
-records `ANSWER → 42` in the macro table and strips the `#define`
-directive from the source; the actual substitution happens at lex
-time (Ch 23), when `cc-next-token` consults `cc-macro-find-int`
-and emits a numeric token in place of the identifier.  This
-two-stage design — register at prep, substitute at lex — is what
-makes object-like macros virtually free.
+`cc-preprocess` runs, and the loop prints this (the first line is
+empty):
+
+```text
+
+    int w[ROWS];
+    t.rows = ROWS;
+    if (t.stars == ROWS * ROWS) return t.stars;
+8
+```
+
+The directive is gone but its newline stayed, so every later line
+keeps its number.  All four `ROWS` are still there.  The preprocessor
+only recorded `ROWS → 4` as the eighth macro, after the seven
+built-ins of §7, which is the `8` on the last line.  Substitution
+happens at lex time (Ch 23), when `cc-next-token` consults
+`cc-macro-find-int` and emits a numeric token in place of the
+identifier.  Registering at prep time and substituting at lex time
+makes object-like macros almost free.
 
 **Layer check:** there is no root-level `test-040-cc-prep.fth`.
-`tests/cc/G6a.c` and `G6b.c` are the focused smoke tests for
-preprocessor behavior.
+The preprocessor's fixtures are gates: `tests/cc/G14a.c` (integer
+`#define`), `G14b.c` (`#include "…"` through the `tests/cc/`
+fallback) and `G5.c` (an elided `#include <stdio.h>` plus the
+built-in macros).  Two more cover paths M2-Planet's source never
+walks, so Stage-A parity alone could not catch a regression there.
+`tests/cc/G-indented-define.c` holds an indented `#define`, which
+registers only because the directive handler skips blanks before the
+`#` (§6).  `tests/cc/H-comment-directive.c` ends a macro definition
+with a block comment spanning a newline, which `cc-prep-skip-to-eol`
+must consume whole (§3).  `tests/cc/run-gates.sh` runs both
+alongside the other 31 gates.  Its die gates `tests/cc/die-30-*`
+through `die-36-*` check that each preprocessor limit fails with its
+code and line.
 
-**Bootstrap relevance:** Stage-A exercises the preprocessor end to
-end, including the include path and integer macro table.  Two gates
-pin defects parity alone would never catch — each fix left the
-Stage-A bytes unchanged, which means M2-Planet's source never walks
-the broken path.  `tests/cc/G-indented-define.c` holds an indented
-`#define` that the directive handler once consumed off by one byte
-and silently dropped; `tests/cc/H-comment-directive.c` ends a macro
-definition with a block comment spanning a newline, which once left
-a stray `*/` for the lexer.  `tests/cc/run-gates.sh` runs both with
-the other six gates.
+**Bootstrap relevance:** Stage-A exercises the include path (the
+two quote-includes left in the monolith's headers) and the
+built-in macros such as `NULL` and `stdout`.  No integer `#define`
+reaches the preprocessor there, so the gates above are the only
+check on that path.
 
 ```sh
 ./build.sh
@@ -1029,8 +961,8 @@ tests/cc/stage-a-check.sh
    you find.  Compare against §5's grammar — anything not covered?
 
 2. **★★★ Verify.** The macro table is 256 entries × 8 bytes per column, plus a 16
-   KiB name pool.  Could you shrink either without breaking the
-   bootstrap?  Instrument `cc-macro-count` and
+   KiB name pool; overflowing them is error 34 or 35.  Could you
+   shrink either without breaking the bootstrap?  Instrument `cc-macro-count` and
    `cc-macro-name-pool-pos` at the end of `cc-preprocess` to find
    out.
 
@@ -1039,9 +971,10 @@ tests/cc/stage-a-check.sh
    feature and observe how the compiler handles it.  Where would
    the smallest possible patch go?
 
-4. **★★ Modify.** `#include` cycles would loop forever.  Read §4 and find the
-   (deliberately missing) cycle check.  Sketch the smallest patch
-   that would detect a cycle without parsing.
+4. **★★ Modify.** There is no `#include` cycle check.  Read §4: what stops
+   a file that includes itself, at what depth, and with which error
+   code?  (`tests/cc/die-31-include-deep.c` is such a file.)  Sketch
+   the smallest patch that would report a cycle as a cycle instead.
 
 5. **★★ Extend.** `#undef NAME` and `#ifdef NAME` are absent.  Estimate the
    complexity cost of adding each.  Which would touch more code?
@@ -1049,28 +982,18 @@ tests/cc/stage-a-check.sh
 ## After this chapter
 
 The compiler can flatten C source: project includes splice in
-recursively, integer macros expand inline, and the lexer downstream
-sees one continuous stream with the original position reset to zero.
-
-You can read `cc-preprocess` and the macro table layout, and
-explain why the integer-only macro restriction was the right
-trade-off for a self-contained preprocessor and why
-`cc-prep-out-buf` has to be copied back instead of swapped.
-
-Toward Stage-A: every M2-Planet header reaches the parser as the
-same expanded text the GCC reference path sees, so any divergence
-later isn't preprocessor drift.
+recursively, integer macros are recorded for the lexer, and the lexer
+sees one continuous stream with its position reset to zero.  Every
+M2-Planet header reaches the parser as the same text the GCC reference
+path sees.  For `tri.c` that stream is 470 bytes, still characters,
+still spelling `ROWS` four times.  Ch 23 turns it into tokens, and
+that is where `ROWS` finally becomes 4.
 
 ## Takeaways
 
-- The preprocessor is a separate pass that rewrites
-  `cc-src-buf` in place via a 2 MiB scratch buffer.  After it
-  runs, the lexer sees expanded text and a reset position.
-- Macro storage is parallel arrays plus a dedicated name pool —
-  the pool exists *because* `cc-src-buf` is about to be
-  overwritten by `cc-prep-copy-back`.
-- `#include "…"` recurses through a 4-slot × 64 KiB pool with
-  per-depth save/restore; `#include <…>` is elided in favour of
-  built-in macros for `NULL`, `EOF`, and the standard fds.
+- The preprocessor is a separate pass that reads the raw input in `cc-in-buf` and writes the flattened source into `cc-src-buf`, then rewinds the reader, so the lexer sees expanded text from position 0.
+- Macro names are deep-copied into a dedicated pool because an include-pool slot they were read from is reused by the next `#include`.
+- Every limit is checked: include depth, path length, include size, macro count, name pool and output size each die with their own code (30–36), and the line `cc-die` reports is a line of the flattened source.
+- `#include "…"` recurses through a 4-slot × 64 KiB pool with per-depth save/restore, while `#include <…>` is elided in favour of built-in macros for `NULL`, `EOF` and the standard fds.
 
 Next: Chapter 23 — The Lexer.

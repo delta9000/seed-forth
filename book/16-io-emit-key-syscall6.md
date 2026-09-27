@@ -3,122 +3,129 @@
 ```text
 Missing capability: emit, key, and syscall6 were black boxes.
 New pattern: syscall6 loads rax, rdi, rsi, rdx, r10, r8, r9 from the data stack and traps.
-Artifact after this chapter: the three primitives that connect the seed to Linux, in machine code.
+Artifact after this chapter: the four primitives that connect the seed to Linux, in machine code.
 Proof link: every byte the seed reads or writes goes through these; Ch 5's wrappers sit directly on top.
 ```
 
-I/O at the seed layer is one byte at a time, and that restriction
-shrinks the four primitives in this chapter to a handful of bytes
-apiece.  `bye_code`, `emit_code`, and `key_code` live at lines 65–96
-of `000-seed.hex0`; `syscall6_code` and its dictionary entry are at
-lines 627–648.  `emit` and `key` share a single global byte of
-scratch buffer at `0x412000` (`emit` writes one byte there before
-calling `write(1, scratch, 1)`, `key` reads one byte into it via
-`read(0, scratch, 1)`), and `syscall6` is the general-purpose hatch
-every Forth-level wrapper from Ch 5 (`open`, `read`, `write`, `close`,
-`die`) ultimately calls.  Open `000-seed.hex0` to those two ranges
-with Ch 14's data-stack convention in mind.
+The seed contains six `syscall` instructions (`0F 05`).  That is
+its entire interface to Linux, and it is small enough to audit in
+one sitting.  Four of them are in this chapter's four primitives;
+the other two belong to the token reader's error path, which writes
+an unknown or malformed token back out and, if it is fatal, exits
+(Ch 17).  Everything the seed ever reads arrives one byte per system
+call: feeding it the library and the C compiler, 291,489 bytes of
+Forth (`010-lib.fth` through `120-cc-main.fth`, comments and all),
+costs one `read` call per byte, plus one that returns EOF
+(`strace -c` will count them for
+you).
 
-By the end you'll be able to read `emit_code` and `key_code` byte
-for byte (including their `write(2)` and `read(2)` syscalls and the
-EOF-on-`read`-returning-0 sentinel that `key` propagates to the
-REPL), read `syscall6_code` and explain how it marshals seven
-data-stack cells into the x86-64 syscall ABI (`rax` = syscall number;
-arguments in `rdi`, `rsi`, `rdx`, `r10`, `r8`, `r9`), and explain
-why the seed gets away with one shared byte at `0x412000` instead of
-per-call allocation.  The token reader `read_word`, which calls `key`
-in a loop and is the primary client of all this machinery, is
-deferred to Ch 17.
-
----
-
-Higher layers (`010-lib.fth`, `030-cc-io.fth`) build buffered I/O on
-top, but the seed itself reads a byte and writes a byte and nothing
-else.  That restriction shrinks `emit` and `key` to roughly 45 bytes
-each.
+The four primitives are lines 251–318 of `000-seed.hex0`: `bye`,
+`emit`, `key` and `syscall6`, each a header followed by its code.
+`emit` and `key` move one byte each through a shared scratch byte at
+`0x412000`, which keeps them under 50 bytes and leaves buffering to
+the Forth layers above.  `syscall6` is the general hatch that Ch 5 wrapped `open`,
+`read`, `write`, `close` and `die` around: it loads a syscall number
+and six arguments from the data stack into the registers the kernel
+expects.  The token reader `read_word`, which calls `key` in a
+loop, is Ch 17.
 
 ## 1. `bye_code` in 12 bytes
 
-`bye_code` is the smallest, simplest syscall in the seed: `exit(0)`.
+`bye_code` is the simplest syscall in the seed: `exit(0)`.
+
+```hex0 chunk=bye
+;; --- bye @ 0x22D --- header
+12 02 40 00 00 00 00 00                   ; link  = 0x400212 (*)
+00                                        ; flags = 0
+03                                        ; nlen  = 3
+62 79 65                                  ; name  = "bye"
+;; ----- bye_code @ 0x23A  ( -- ) exit(0); never returns -----
+B8 3C 00 00 00                            ; mov eax, 60        ; SYS_exit
+BF 00 00 00 00                            ; mov edi, 0         ; status 0
+0F 05                                     ; syscall
 
 ```
-B8 3C 00 00 00          mov eax, 60        ; syscall number for exit
-BF 00 00 00 00          mov edi, 0         ; exit code 0
-0F 05                   syscall            ; never returns
-```
 
-Three instructions.  No `ret`, because the kernel terminates the
-process and never returns to userspace.  The body lives at `0x0D2`
-and is referenced from the REPL's EOF path: when `read_word` returns
-length zero, the REPL emits `jmp bye_code` and the kernel takes over.
-
-(The chunk body itself was defined in Ch 14 as `<<bye-code>>` so the
-source from `<<jmp-to-repl>>` flows continuously into `<<bye-code>>`
-without a gap.  The bytes are listed in the master root block in
-the order shown above.)
+Three instructions: syscall number 60 in `eax`, exit status 0 in
+`edi`, `syscall`.  No `ret`, because the kernel terminates the
+process and never returns to userspace.  The body lives at `0x23A`
+and is also the REPL's EOF path: when `read_word` returns length
+zero, the REPL executes `jz bye_code` and the kernel takes over.
 
 ## 2. `emit_code` in 46 bytes
 
 `emit` takes a byte off the data stack and writes it to fd 1
 (stdout) via `write(2)`.
 
+```hex0 chunk=emit
+;; --- emit @ 0x246 --- header
+2D 02 40 00 00 00 00 00                   ; link  = 0x40022D (bye)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+65 6D 69 74                               ; name  = "emit"
+;; ----- emit_code @ 0x254  ( c -- ) write one byte to stdout -----
+48 C7 C0 00 20 41 00                      ; mov rax, 0x412000  ; scratch byte
+40 88 38                                  ; mov [rax], dil     ; store TOS's low byte there
+B8 01 00 00 00                            ; mov eax, 1         ; SYS_write
+BF 01 00 00 00                            ; mov edi, 1         ; fd 1 (stdout)
+48 BE 00 20 41 00 00 00 00 00             ; mov rsi, 0x412000  ; buf (movabs)
+BA 01 00 00 00                            ; mov edx, 1         ; count 1
+0F 05                                     ; syscall            ; clobbers rcx, r11
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
+
 ```
-;; @0x0DE
-48 C7 C0 00 20 41 00    mov rax, 0x412000  ; scratch-byte address
-40 88 38                mov [rax], dil     ; store TOS's low byte there
-B8 01 00 00 00          mov eax, 1         ; syscall number for write
-BF 01 00 00 00          mov edi, 1         ; fd = 1 (stdout)
-48 BE 00 20 41 00 00 00 00 00
-                        mov rsi, 0x412000  ; buffer address
-BA 01 00 00 00          mov edx, 1         ; count = 1
-0F 05                   syscall            ; rcx, r11 clobbered
-48 8B 7D 00             mov rdi, [rbp]     ; pop new TOS from data stack
-48 83 C5 08             add rbp, 8
-C3                      ret
-```
 
-The control flow is: store-then-syscall-then-pop.  The byte to emit
-is in `rdi` (TOS) at entry; we copy its low 8 bits (`dil`) into the
-scratch byte at `0x412000`; we load the `write(1, 0x412000, 1)`
-arguments into the right registers; we trap to the kernel; we pop
-the data stack to make the *next* cell the new TOS.
+The body stores, calls, then pops: the low 8 bits of TOS (`dil`) go
+into the scratch byte, `write(1, 0x412000, 1)` traps to the kernel,
+and the next cell becomes TOS.
 
-Two details are worth flagging.
+Two details stand out.
 
-**The scratch byte is global.**  Every call to `emit` writes to the
-same address.  That's fine because the seed is single-threaded and
-the syscall returns before the next `emit` can run.  In a threaded
-world this would be a race; in this codebase it is one of the moves
-that lets the seed fit in 2,040 bytes.
+**The scratch byte is global.**  Every `emit` writes to the same
+address, which is safe only because the seed is single-threaded;
+it saves the bytes a per-call buffer would cost.
 
-**`mov eax, 1` not `mov rax, 1`.**  The 32-bit form is one byte
-shorter and zero-extends to 64 bits, which is exactly what we want
+**`mov eax, 1` not `mov rax, 1`.**  The 32-bit form (`B8 imm32`,
+5 bytes) is two bytes shorter than `mov rax, 1` (`48 C7 C0 imm32`,
+7 bytes) and zero-extends to 64 bits, which is exactly what we want
 when the value fits in 32 bits.  Most of the constants in this
-primitive are loaded with 32-bit moves; only the buffer address
-(which doesn't fit in 32 bits unless you sign-extend, and we don't
-want to) uses the 10-byte `movabs` form.
+primitive are loaded with 32-bit moves.  The buffer address is the
+odd one out: it uses the 10-byte `movabs` form, even though
+`0x412000` fits comfortably in 32 bits (the first instruction loads
+the same address into `rax` with a 7-byte move, and `key` below does
+the same for `rsi`).  That `movabs` is three bytes the seed could
+have saved, not a requirement.
 
 ## 3. `key_code` in 47 bytes
 
 `key` reads one byte from fd 0 (stdin) and pushes its value, or
 pushes `0` on EOF.
 
-```
-;; @0x10C
-48 83 ED 08             sub rbp, 8         ; make data-stack room
-48 89 7D 00             mov [rbp], rdi     ; spill old TOS
-B8 00 00 00 00          mov eax, 0         ; syscall number for read
-BF 00 00 00 00          mov edi, 0         ; fd = 0 (stdin)
-48 C7 C6 00 20 41 00    mov rsi, 0x412000  ; buffer address
-BA 01 00 00 00          mov edx, 1         ; count = 1
-0F 05                   syscall
-48 85 C0                test rax, rax      ; did read return 0?
-74 06                   jz .eof
-48 0F B6 3E             movzx rdi, byte [rsi]  ; rdi = the byte
-EB 03                   jmp .done
-48 31 FF                xor rdi, rdi       ; .eof: rdi = 0
-                        ; .done:
-C3                      ret
+```hex0 chunk=key
+;; --- key @ 0x282 --- header
+46 02 40 00 00 00 00 00                   ; link  = 0x400246 (emit)
+00                                        ; flags = 0
+03                                        ; nlen  = 3
+6B 65 79                                  ; name  = "key"
+;; ----- key_code @ 0x28F  ( -- c ) read one byte from stdin; 0 at EOF -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+B8 00 00 00 00                            ; mov eax, 0         ; SYS_read
+BF 00 00 00 00                            ; mov edi, 0         ; fd 0 (stdin)
+48 C7 C6 00 20 41 00                      ; mov rsi, 0x412000  ; buf = scratch byte
+BA 01 00 00 00                            ; mov edx, 1         ; count 1
+0F 05                                     ; syscall
+48 85 C0                                  ; test rax, rax      ; 0 bytes read = EOF
+74 06                                     ; jz .eof  (rel8 = 0x2BA - 0x2B4)
+48 0F B6 3E                               ; movzx rdi, byte [rsi] ; TOS = the byte
+EB 03                                     ; jmp .done  (rel8 = 0x2BD - 0x2BA)
+;; .eof:
+48 31 FF                                  ; xor rdi, rdi       ; TOS = 0
+;; .done:
+C3                                        ; ret
+
 ```
 
 The push happens *first*: `sub rbp, 8; mov [rbp], rdi` spills the
@@ -126,33 +133,38 @@ old TOS to make room.  Then we read.  Then `rdi` becomes either
 the byte we read (zero-extended to a cell) or `0` if `read` returned
 zero (which on a pipe or redirected file means EOF).
 
-The EOF sentinel is important.  Higher up, `read_word` (Ch 17) uses
-`key` in a loop; it propagates the `0` outward as "no token,
-exiting." The REPL (Ch 20) translates that into `jmp bye_code`.  The
-entire shutdown path of the seed pivots on this one `xor rdi, rdi`.
+The EOF sentinel matters.  `read_word` (Ch 17) calls `key` in a
+loop and passes the `0` outward as "no token," and the REPL (Ch 20)
+answers that with the `jz bye_code` from §1.  The seed's entire shutdown path
+starts at this one `xor rdi, rdi`.
 
 `mov rsi, 0x412000` here uses the *32-bit-immediate* form (`48 C7
-C6 ...`), not the 10-byte `movabs` form.  That works because
-`0x412000` fits in 32 bits and the assembler sign-extends — but the
-sign bit is clear, so sign-extension is identical to zero-extension.
+C6 ...`), not the 10-byte `movabs` form.  The CPU sign-extends
+that immediate to 64 bits, and since the sign bit of `0x412000` is
+clear, sign-extension gives the same result as zero-extension.
 
 ## 4. `syscall6_code` in 37 bytes
 
-```hex0 chunk=syscall6-code
-;; ----- syscall6_code @ 0x6D4 ( a b c d e f n -- rax ) -----
-;; Linux x86-64: rax=n, rdi=a, rsi=b, rdx=c, r10=d, r8=e, r9=f
-;; Pops 6 args; new TOS = syscall return.
-48 89 F8                                  ; mov rax, rdi
+```hex0 chunk=syscall6
+;; --- syscall6 @ 0x2BE --- header
+82 02 40 00 00 00 00 00                   ; link  = 0x400282 (key)
+00                                        ; flags = 0
+08                                        ; nlen  = 8
+73 79 73 63 61 6C 6C 36                   ; name  = "syscall6"
+;; ----- syscall6_code @ 0x2D0  ( a b c d e f n -- rax ) -----
+;; Linux x86-64: rax=n, rdi=a, rsi=b, rdx=c, r10=d, r8=e, r9=f.
+;; Pops the six arguments; the new TOS is the syscall's return value.
+48 89 F8                                  ; mov rax, rdi       ; rax = n (syscall number)
 4C 8B 4D 00                               ; mov r9, [rbp]      ; f
 4C 8B 45 08                               ; mov r8, [rbp+8]    ; e
 4C 8B 55 10                               ; mov r10, [rbp+16]  ; d
 48 8B 55 18                               ; mov rdx, [rbp+24]  ; c
 48 8B 75 20                               ; mov rsi, [rbp+32]  ; b
 48 8B 7D 28                               ; mov rdi, [rbp+40]  ; a
-0F 05                                     ; syscall  (rcx,r11 clobbered; unused)
-48 83 C5 30                               ; add rbp, 48        ; pop 6 args
-48 89 C7                                  ; mov rdi, rax       ; new TOS = result
-C3
+0F 05                                     ; syscall            ; clobbers rcx, r11 (unused)
+48 83 C5 30                               ; add rbp, 48        ; pop the 6 argument cells
+48 89 C7                                  ; mov rdi, rax       ; TOS = result
+C3                                        ; ret
 
 ```
 
@@ -171,28 +183,13 @@ mov rax, rdi    ; rax = syscall number; rdi will hold arg `a`
 ```
 
 Then we read each argument from its slot into its register, in
-order from shallowest (`f → r9`) to deepest (`a → rdi`).  The
-order doesn't really matter as long as we don't overwrite a slot
-before reading it — and we don't, because each read targets a
-different register.
+order from shallowest (`f → r9`) to deepest (`a → rdi`).  Any order
+would work, because each read targets a different register and no
+slot is overwritten before it is read.
 
 After `syscall`, the return value is in `rax`.  We free the six
 argument slots in one `add rbp, 48` (six cells × 8 bytes) and
 move `rax` to `rdi` to become the new TOS.
-
-```hex0 chunk=syscall6-dict
-;; --- syscall6 @ 0x6F9 (xt = 0x70B) ---
-C0 06 40 00 00 00 00 00                     ; link = 0x4006C0 ([lit])
-00
-08                                        ; nlen = 8
-73 79 73 63 61 6C 6C 36                   ; "syscall6"
-E9 C4 FF FF FF                              ; jmp syscall6_code (rel = 0x6D4 - 0x710 = -60)
-
-```
-
-The dictionary entry is the usual `link / flags / nlen / name /
-jmp` shape.  Its link chains back to `[lit]`'s entry — the previous
-word defined in the seed at that point in source.
 
 ## 5. Why six args and not seven?
 
@@ -201,31 +198,21 @@ data stack (popped first, in `rax`) is the syscall *number*.
 There's no need for a seven-argument variant because the kernel
 doesn't have one.
 
-If a future syscall needed more than six arguments — none do — you
-would have to spill them through a memory buffer.  Shorter wrappers
-don't: `key_code` doesn't use `syscall6`; it loads its three
-registers directly.  But the common pattern is "wrap a kernel call
-with N arguments where N ≤ 6," which `syscall6` covers exactly.
+A call with fewer arguments pushes zeros for the unused ones, so one
+primitive covers every syscall the Forth code makes.
 
 ## 6. The Ch 5 wrappers, revisited
 
 In Ch 5 we built `open`, `read`, `write`, `close`, and `die` as
-five-line Forth definitions, each ending in a call to `syscall6`.
-Now you can see what those compile to.  `: write  ... [lit] 1
-syscall6 ;` — at the seed's compile-mode emitter — turns into a
-sequence of `CALL` instructions that ends with `CALL syscall6` (a
-`E8 xx xx xx xx` instruction).  At runtime, `syscall6_code` pulls
-its registers from the stack, hits `0F 05`, and the kernel does the
-work.
+short Forth definitions, each ending in a call to `syscall6`.  The
+compile-mode REPL turns `: write  ... [lit] 1 syscall6 ;` into a
+sequence of `CALL` instructions ending in `CALL syscall6`
+(`E8 xx xx xx xx`).  At runtime `syscall6_code` pulls its registers
+from the stack, executes `0F 05`, and the kernel does the work.
 
-The seed-level `emit_code` and `key_code` don't *use* `syscall6` —
-they emit the `0F 05` directly because they pre-date the
-syscall6-as-Forth-primitive design.  You'll notice this when you
-read the bytes: `emit_code` loads `rax = 1` directly with `B8 01
-00 00 00`, while a Forth-level write wrapper would do `[lit] 1
-syscall6`.  Two paths, same syscall — the seed picks the cheaper
-one for the two byte-at-a-time primitives it always needs, and
-defers to `syscall6` for everything else.
+`emit_code` and `key_code` skip `syscall6` and issue `0F 05`
+themselves; `B8 01 00 00 00` in `emit_code` is what a Forth wrapper
+would spell `[lit] 1 syscall6`.
 
 ## Try it
 
@@ -237,7 +224,7 @@ echo "[lit] 72 emit [lit] 105 emit bye" | ./seed-forth
 # Read a byte and echo it back.  seed-forth has no -e flag; we put
 # both the program and its input on stdin.  Defining the work in a
 # colon definition ensures the REPL has finished parsing tokens
-# before `key` reads — so the byte `key` consumes is the 'A' that
+# before `key` reads, so the byte `key` consumes is the 'A' that
 # follows the program, not part of the program itself:
 { echo ': read-one key emit bye ;'; echo 'read-one'; printf 'A'; } | ./seed-forth
 # prints "A".
@@ -250,9 +237,9 @@ printf '' | ./seed-forth
 # buffer must be a real address; we get one by writing 'A' (65) into
 # scratch space at the current HERE, capturing that address first.
 # The library's `c,` writes the byte and advances HERE by 1.
-{ sed -e 's/\\.*$//' -e 's/([^)]*)//g' 010-lib.fth
+{ cat 010-lib.fth
   echo 'here [lit] 65 c, [lit] 1 swap [lit] 1 [lit] 0 [lit] 0 [lit] 0 [lit] 1 syscall6 drop bye'
-} | grep -v '^[[:space:]]*$' | ./seed-forth
+} | ./seed-forth
 # Stack going into syscall6: ( 1 buf 1 0 0 0 1 )
 #                              ^ ^   ^ ^ ^ ^ ^---- syscall number (write)
 #                              | |   | d e f
@@ -262,6 +249,11 @@ printf '' | ./seed-forth
 # Prints "A".
 ```
 
+That last command made a Linux system call by pushing seven numbers
+and naming one word.  Part III's C compiler reads its C source and
+writes its executable through exactly this path, in 4 KiB reads and
+one `write` of the whole output rather than a byte at a time.
+
 ## Exercises
 
 1. **★★ Extend.** `emit` writes to fd `1` (stdout) hard-coded.  Sketch the changes
@@ -270,8 +262,8 @@ printf '' | ./seed-forth
 
 2. **★ Trace.** The scratch byte at `0x412000` is shared between `emit` and `key`.
    In what scenario could this corrupt something?  (Hint: signal
-   handlers running during a syscall — not possible in this seed,
-   but worth thinking about.)
+   handlers running during a syscall.  The seed has none, but the
+   question is still worth answering.)
 
 3. **★★ Trace.** `key`'s push-shape is `sub rbp, 8; mov [rbp], rdi; ...; mov rdi,
    X`.  Why doesn't it use the Ch 14 "push" pattern of `48 83 ED
@@ -289,13 +281,22 @@ printf '' | ./seed-forth
 
 ## Takeaways
 
-- I/O at the seed level is one byte at a time, via a single shared
-  scratch byte at `0x412000`.  Higher layers buffer.
-- `bye_code`, `emit_code`, and `key_code` emit their `syscall`
-  instruction directly — they don't go through `syscall6_code`.
-  Inlining the three syscalls used at boot is cheaper than the
-  argument-marshalling cost.
-- `syscall6_code` is the universal kernel-call bridge for everything
-  else.  Every wrapper in Ch 5 ends in a call to it.
+- The seed does I/O one byte at a time through a single shared
+  scratch byte at `0x412000`, and higher layers add buffering.
+- `bye_code`, `emit_code` and `key_code` issue `syscall` directly,
+  which for three fixed calls is cheaper than marshalling arguments
+  through `syscall6_code`.
+- `syscall6_code` is the kernel bridge for everything else, and
+  every Ch 5 wrapper ends in a call to it.
+
+**Running count: 757 of 1,772 bytes read (43%).**  This chapter
+added 200: 142 bytes of code (`bye` 12, `emit` 46, `key` 47,
+`syscall6` 37) and 58 of headers.
+
+The seed can now compute and talk to the kernel, but every piece
+so far is known only by its address.  Somehow the three characters
+`dup` arriving on stdin have to become a call to `0x4000C7`.
+Ch 17 shows how, and what the reader does with the tokens it cannot
+use.
 
 Next: Chapter 17 — The Dictionary.

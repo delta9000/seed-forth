@@ -17,28 +17,61 @@ book's claims against it:
       - multi-number  "`+` and `nand` are 9 and 12"
   * code-body offsets
       - prose         "`foo_code` ... offset `0xADDR`", "`x` (`@ 0xADDR`)"
-      - table rows    "| `bye` | ( -- ) | `0x0D2` | ..."   (Appendix A1)
+      - table rows    "| `dup` | ( n -- n n ) | `0x0C7` | ..."   (Appendix A1)
   * source line spans / ranges  (all file-absolute — one basis book-wide)
-      - seed label    "`zbranch_code` (`@ 0x431`, lines 374-385)" vs the
+      - seed label    "`zbranch_code` (`@ 0x628`, lines 618-631)" vs the
                       label's comment line .. last non-blank body line
       - .fth symbol   "`cc-parse-struct-def` (lines 196-279)" vs the `:`..`;`
                       definition span (comment-aware terminator detection)
       - file coverage "lines A-B [of] `file`" — in-bounds sanity (1<=A<=B<=wc-l)
   * exact source-file line counts
       - "K-line file", "...file at K lines", "(entire file)" vs wc -l
+      - sentence-scoped: a source file name (backticks optional) followed in
+        the same sentence by "K lines" / "K-line file" ("`090-cc-emit.fth` is
+        the bigger of the pair: 1050 lines", "`100-cc-expr.fth` (1478 lines
+        total)"); comma-formatted K ("7,198") is accepted
+      - file ranges: "`020-cc-arena.fth` through `120-cc-main.fth`" with
+        "K lines" before ("K lines of Forth (`A` through `B`)") or after
+        ("... through `B`: the final K lines") vs the summed wc -l of every
+        NNN- file in that numeric range
+  * exact source-file byte sizes (vs the file's size on disk, i.e. wc -c)
+      - "`file` is K bytes", "`file` (K bytes ...", and a next-sentence
+        "Its [source form|size] is K bytes" after a sentence ending in `file`
+  * Part II running byte counts
+      - "Running count: N of TOTAL bytes read" (Chs 13-20) and Ch 20's
+        per-chapter table, vs the machine bytes in the `hex0 chunk=` fences
+        each chapter defines (cumulative) and the built seed's size
+  * counts over the Forth Part III loads (010-lib.fth + NNN-cc-*.fth, read
+    as the seed's read_word reads it, so outside comments; corpus_pass)
+      - "`dup` appears N times in the library and the C compiler", "`if,`
+        and `while,` are used N times ..." vs the word's uses (not its own
+        `: name`, not a token `char`/`[char]` consumes)
+      - "N colon definitions" (sentence must name the library) vs the `:`
+        tokens that start a definition
+      - "N bytes of Forth (`A` through `B`" vs the range's summed wc -c
   * single-line `file.fth:line` citations  (A6/A7, file-absolute)
-      - A7 die-site  "| 30 | `100-cc-expr.fth:364` |" vs the `[lit] 30 die`
+      - A7 die-site  "| 30 | `040-cc-prep.fth:270` |" vs the `[lit] 30 cc-die`
                      line(s) for that error code in the cited file
       - symbol ref   "`cc-skip-storage-quals` (`110-cc-decl.fth:98`)" vs the
                      word's `:` definition line
 
 Body sizes come from the `@ 0xADDR` comments in 000-seed.hex0: a label's size
-is the distance to the next labelled offset (bodies and dictionary entries are
-interleaved, so "next label" is the right boundary).  The last label's end is
+is the distance to the next labelled offset (each primitive is a header label
+`;; --- name @ 0xADDR` followed directly by its code label
+`;; ----- name_code @ 0xADDR`, so "next label" is the right boundary for both).  The last label's end is
 the built seed's byte size.
 
 Still NOT checked, and why: file *span* claims like "851 lines: file header"
-or "these 24 lines" (a portion, not the file size); the *exact* endpoints of
+or "these 24 lines" (a portion, not the file size) — a sentence-scoped "K
+lines" is skipped when a portion word precedes it (last/first/final/next/
+these/adds/spans/...; "final" is allowed for a range total), when it reads
+"K lines of/in `file`" without a range or "(entire file)" (portion or total
+is unknowable), when another subject intervenes (an unclosed "(" between the
+file name and K, or more than 80 characters), and inside code fences; "K-line"
+counts only before file/source/module ("a 12-line helper" is a portion);
+byte claims only in the three whole-file phrasings above ("a 9-byte routine
+in `000-seed.hex0`" is a body size, checked elsewhere); files outside book/
+(REPRODUCIBLE.md's size table); the *exact* endpoints of
 editorial multi-definition coverage spans (the book's hand-written endpoints
 aren't uniform — some include the trailing blank line, some don't — so only
 their in-bounds-ness is checked).  Claims the script cannot confidently
@@ -61,7 +94,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SEED = os.path.join(ROOT, "000-seed.hex0")
 SEED_BIN = os.path.join(ROOT, "seed-forth")
 BOOK = os.path.join(ROOT, "book")
-SEED_SIZE = os.path.getsize(SEED_BIN) if os.path.exists(SEED_BIN) else 0x800
+if not os.path.exists(SEED_BIN):
+    sys.exit("check-numbers: seed-forth not found; run ./build.sh first "
+             "(the seed's size is derived from the built binary)")
+SEED_SIZE = os.path.getsize(SEED_BIN)
 
 # Word / dictionary name -> the `_code` body label whose size & body-offset the
 # book quotes.  A bare word like `+` also has a *dictionary entry* at its own
@@ -92,7 +128,7 @@ HDR_SIZE_RE = re.compile(r"`([^`]+)`\s+in\s+(\d+)\s+bytes\b")          # heading
 PROSE_SIZE_IS = re.compile(r"`([^`]+)`\s+(?:is|in)\s+(~?)(\d+)\s+bytes\b(?!\s+total)")
 PROSE_SIZE_PAREN = re.compile(r"`([^`]+)`\s+\((~?)(\d+)\s+bytes")
 BARE_SIZE_RE = re.compile(r"\b([a-z][a-z0-9_]*_code)\s+(?:is|in)\s+(~?)(\d+)\s+bytes\b(?!\s+total)")
-OFF_SIZE_RE = re.compile(r"(\d+)-byte\b[^.]{0,80}?\boffset\s+`0x([0-9A-Fa-f]+)`")
+OFF_SIZE_RE = re.compile(r"(\d+)(?:-byte\b| bytes of machine code)[^.]{0,80}?\boffset\s+`0x([0-9A-Fa-f]+)`")
 
 # offset claims
 PROSE_OFFSET_RE = re.compile(r"`([^`]+)`[^.|\n]{0,40}?`@?\s*0x([0-9A-Fa-f]+)`")
@@ -104,7 +140,7 @@ TOTAL_LINE_B = re.compile(r"\bat\s+(\d[\d,]*)\s+lines\b")      # "the longest fi
 
 # multi-number prose: "`+` and `nand` are 9 and 12"
 MULTI_RE = re.compile(r"`([^`]+)`\s+and\s+`([^`]+)`\s+(?:are|is)\s+(\d+)\s+and\s+(\d+)\b")
-# single-label source span: "`branch_code` (`@ 0x42B`, lines 368-372)"
+# single-label source span: "`branch_code` (`@ 0x611`, lines 607-611)"
 LABEL_RANGE_RE = re.compile(
     r"`([a-z0-9_]+_code)`\s*\(\s*`@\s*0x[0-9A-Fa-f]+`,\s*lines\s+(\d+)[–-](\d+)\)")
 # any "lines A-B" (for the in-bounds sanity check against a named file)
@@ -119,7 +155,12 @@ FTH_DEF_RE = re.compile(r"^\s*:\s+(\S+)")
 FTH_SEMI_RE = re.compile(r"(^|\s);(\s|$)")
 
 # single-line `file.fth:line` citations (A6/A7)
-DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+die\b")
+# A die site is any word that exits with a literal code: `[lit] N die` (the
+# assembler, 010-lib), `[lit] N cc-die`, the compiler's two checks that die
+# with the code they are given, `cc-check-cap` and `cc-read-all`, and the
+# assembler's four, `asm-check-cap`, `asm-tok-err`, `asm-do-ref` and
+# `asm-fit`.
+DIE_RE = re.compile(r"\[lit\]\s+(\d+)\s+(?:die|cc-die|cc-check-cap|cc-read-all|asm-check-cap|asm-tok-err|asm-do-ref|asm-fit)(?=\s|$)")
 CITE_RE = re.compile(r"([0-9]\d\d-[a-z0-9-]+\.fth):(\d+(?:,\d+)*)")
 ROW_CODE_RE = re.compile(r"^\s*\|\s*(\d+)\s*\|")
 NAME_TOKEN_RE = re.compile(r"`([a-z][a-z0-9?*<>=!+./-]+)`")
@@ -210,7 +251,7 @@ def build_fth_spans():
 
 
 def build_die_sites():
-    """Return {file: {code:int -> [lines]}} for every `[lit] N die` site."""
+    """Return {file: {code:int -> [lines]}} for every die site (DIE_RE)."""
     out = {}
     for path in sorted(glob.glob(os.path.join(ROOT, "*.fth"))):
         d = {}
@@ -289,9 +330,9 @@ def check():
             emit("MISMATCH", md, lineno, f"`{entity}` claimed {claimed} bytes; {lab} is {true}", key)
 
     def check_offset(md, lineno, entity, addr_hex, table):
-        # A word can be referenced by its body (`'` -> tick_code) or by its
-        # dictionary entry (`'` -> the entry at 0x7E8, e.g. as LATEST), so
-        # accept either.
+        # A word can be referenced by its code (`'` -> tick_code) or by its
+        # dictionary header (`0branch` -> the header at 0x617, e.g. as
+        # LATEST), so accept either.
         cands, lab = {}, None
         if entity in ALIAS and table.get(ALIAS[entity], (None,))[0] is not None:
             lab = ALIAS[entity]; cands[table[lab][0]] = lab
@@ -339,15 +380,18 @@ def check():
             # (seed/.fth source spans are handled by span_pass, which also
             # supports --fix; see below)
 
-            # --- offset-anchored size: "9-byte ... at offset `0x1A1`" ---
+            # --- offset-anchored size: "9-byte ... at offset `0x1B7`" ---
             for k, addr in OFF_SIZE_RE.findall(window):
                 size, name = (table[off2name[int(addr, 16)]][1], off2name[int(addr, 16)]) \
                     if int(addr, 16) in off2name else (None, None)
-                if size is None:
-                    continue
                 claimed = int(k)
-                ln = report_line(k + "-byte")
+                ln = report_line(k)
                 key = (md, "offsize", addr.lower(), claimed)
+                if size is None:
+                    if int(addr, 16) < SEED_SIZE:   # inside the seed, but no label starts there
+                        emit("MISMATCH", md, ln,
+                             f"{claimed}-byte @ 0x{addr.upper()}: no labelled routine starts there", key)
+                    continue
                 if claimed == size:
                     emit("OK", md, ln, f"{claimed}-byte @ 0x{addr.upper()} ({name})", key)
                 else:
@@ -397,6 +441,298 @@ def check():
                         emit("MISMATCH", md, report_line(m.group(1)),
                              f"{fname} lines {a}-{b} out of range (file is {actual} lines)", key)
 
+    sentence_pass(files, emit)
+    return findings
+
+
+# --- sentence-scoped whole-file size claims ---------------------------------
+#
+# The per-line checks above only fire on a few fixed phrasings ("K-line file",
+# "at K lines", "(entire file)").  Real drift hid in ordinary sentences:
+# "`090-cc-emit.fth` is the bigger of the pair: 1027 lines ...", "opens
+# `100-cc-expr.fth` (1447 lines total)", "7,198 lines of Forth (`020-...`
+# through `120-...`)", "`000-seed.hex0` ... 27,067 bytes".  So we split the
+# prose (outside code fences) into sentences and attribute each "N lines" /
+# "N-line file" / "N bytes" to a source file only when the attribution is
+# unambiguous (see attribute()).
+
+SENT_NUM_LINES = re.compile(r"(?<![\w.,-])(~?)(\d[\d,]*)(?:\s+lines\b|-line\s+(?:file|source|module)\b)")
+SENT_NUM_BYTES = re.compile(r"(?<![\w.,-])(~?)(\d[\d,]*)\s+bytes\b")
+# words that make "N lines" a *portion* of the file, not its size
+PORTION = re.compile(r"\b(last|first|final|next|these|those|top|bottom|remaining|other|"
+                     r"another|extra|additional|further|about|some|only|just|add|adds|added|"
+                     r"remove|removes|removed|cut|saves|saved|spans?|covers?|takes)\s+(?:~?\S+\s+)?$",
+                     re.I)
+RANGE_SEP = re.compile(r"^\s*(?:through|to|–|—|-)\s*$")
+SENT_SPLIT = re.compile(r"(?<=[.!?])[)*_]*\s+(?=[A-Z`(*\[~0-9])")
+# whole-file byte phrasings (the file is the subject, the number its size)
+BYTES_IS = re.compile(r"^\s*(?:is|was|weighs in at|comes to|totals?)\s+(~?)(\d[\d,]*)\s+bytes\b")
+BYTES_PAREN = re.compile(r"^\s*\(\s*(~?)(\d[\d,]*)\s+bytes\b")
+BYTES_ITS = re.compile(r"^\s*(?:Its|The file's)\s+(?:source(?:\s+form)?\s+|size\s+|annotated\s+source\s+)?"
+                       r"is\s+(~?)(\d[\d,]*)\s+bytes\b")
+
+
+def prose_sentences(md):
+    """Yield (sentence, [(offset, lineno)]) for prose outside code fences.
+
+    Paragraphs are split at blank lines, headings, table rows (each row is its
+    own unit) and list items, so a number never borrows a file name from an
+    unrelated bullet or cell.
+    """
+    lines = open(md, encoding="utf-8").read().split("\n")
+    paras, cur, fence = [], [], None
+    for i, ln in enumerate(lines, 1):
+        s = ln.strip()
+        m = re.match(r"(```+|~~~+)", s)
+        if fence:
+            if m and s.startswith(fence):
+                fence = None
+            continue
+        if m:
+            fence = m.group(1)
+            if cur:
+                paras.append(cur); cur = []
+            continue
+        if not s or s.startswith(("#", "|")) or re.match(r"([-*+]|\d+\.)\s", s) or s == "---":
+            if cur:
+                paras.append(cur); cur = []
+            if s.startswith(("#", "|")):
+                paras.append([(i, s)])
+                continue
+            if not s or s == "---":
+                continue
+        cur.append((i, s))
+    if cur:
+        paras.append(cur)
+    for p in paras:
+        text, marks = "", []
+        for lineno, s in p:
+            marks.append((len(text), lineno))
+            text += s + " "
+        start = 0
+        for m in list(SENT_SPLIT.finditer(text)) + [None]:
+            end = m.start() if m else len(text)
+            yield text[start:end], start, marks
+            if m:
+                start = m.end()
+
+
+def _lineno(marks, off):
+    ln = marks[0][1]
+    for o, l in marks:
+        if o <= off:
+            ln = l
+    return ln
+
+
+def sentence_pass(files, emit):
+    names = sorted(files, key=len, reverse=True)
+    # backticks optional ("000-seed.hex0 is 27,067 bytes"), but never part of a path
+    fre = re.compile(r"(?<![\w/.-])`?(" + "|".join(re.escape(n) for n in names) + r")`?(?![\w/-])")
+    numbered = sorted(n for n in files if re.match(r"\d{3}-", n))
+
+    def range_total(a, b):
+        lo, hi = int(a[:3]), int(b[:3])
+        if lo > hi:
+            return None, None
+        members = [n for n in numbered if lo <= int(n[:3]) <= hi]
+        return sum(line_count(files[n]) for n in members), len(members)
+
+    def verdict(md, ln, label, claimed, actual, approx, unit, key):
+        if claimed == actual:
+            emit("OK", md, ln, f"{label} = {actual} {unit}", key)
+        elif approx:
+            if abs(claimed - actual) > max(5, actual * 0.05):
+                emit("WARN", md, ln, f"{label} ~{claimed} {unit}; actual {actual} "
+                     f"(off by {abs(claimed - actual)})", key)
+        else:
+            emit("MISMATCH", md, ln, f"{label} claimed {claimed} {unit}; actual {actual}", key)
+
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        prev_last_file = None
+        for sent, base, marks in prose_sentences(md):
+            fms = list(fre.finditer(sent))
+            # "`A` through `B`" ranges in this sentence: {index of B: (A, B)}
+            ranges = {}
+            for k in range(len(fms) - 1):
+                if RANGE_SEP.match(sent[fms[k].end():fms[k + 1].start()]):
+                    ranges[k + 1] = (fms[k].group(1), fms[k + 1].group(1))
+                    ranges[k] = ranges[k + 1]
+
+            # ---- line counts ----
+            for m in SENT_NUM_LINES.finditer(sent):
+                claimed, approx = num(m.group(2)), bool(m.group(1))
+                approx = approx or bool(APPROX.search(sent[max(0, m.start() - 12):m.start()]))
+                ln = _lineno(marks, base + m.start())
+                before = [k for k, f in enumerate(fms) if f.end() <= m.start()]
+                after = [k for k, f in enumerate(fms) if f.start() >= m.end()]
+                target = None
+                # forward: "N lines of Forth (`A` through `B`)" / "N lines of/in `f`"
+                if after:
+                    k = after[0]
+                    gap = sent[m.end():fms[k].start()]
+                    if len(gap) <= 40 and re.search(r"\b(of|in)\b|\(", gap):
+                        if k in ranges:
+                            target = ("range", ranges[k])
+                        else:
+                            continue   # "the last 80 lines of `f`" — portion or unknowable
+                if target is None and before:
+                    k = before[-1]
+                    gap = sent[fms[k].end():m.start()]
+                    # a new subject in between ("`B`, compiles ... (M2-Planet:
+                    # 8,479 lines") or a long gap breaks the attribution
+                    if len(gap) > 80 or gap.lstrip().count("(") > gap.lstrip()[:1].count("(") \
+                            + gap.count(")"):
+                        continue
+                    if PORTION.search(sent[:m.start()]):
+                        # "final" is legitimate for a range total ("the final N lines")
+                        if not (k in ranges and re.search(r"\bfinal\s+~?\S*$", sent[:m.start()])):
+                            continue
+                    target = ("range", ranges[k]) if k in ranges else ("file", fms[k].group(1))
+                if target is None:
+                    continue
+                kind, what = target
+                if kind == "range":
+                    a, b = what
+                    actual, count = range_total(a, b)
+                    if actual is None:
+                        continue
+                    verdict(md, ln, f"{a} through {b} ({count} files)", claimed, actual,
+                            approx, "lines", (md, "lines-range", (a, b), claimed))
+                else:
+                    verdict(md, ln, what, claimed, line_count(files[what]), approx,
+                            "lines", (md, "lines", what, claimed))
+
+            # ---- byte sizes of the source files themselves ----
+            cands = []
+            for k, f in enumerate(fms):
+                tail = sent[f.end():]
+                if k + 1 < len(fms):
+                    tail = tail[:fms[k + 1].start() - f.end()]
+                off = f.end()
+                if tail.startswith("'s "):
+                    tail, off = tail[2:], off + 2
+                for rx in (BYTES_IS, BYTES_PAREN):
+                    bm = rx.match(tail)
+                    if bm:
+                        cands.append((f.group(1), bm, off))
+            # "There is a file ... `000-seed.hex0`.  Its source form is N bytes long"
+            if not fms and prev_last_file:
+                bm = BYTES_ITS.match(sent)
+                if bm:
+                    cands.append((prev_last_file, bm, 0))
+            for fname, bm, off in cands:
+                claimed, approx = num(bm.group(2)), bool(bm.group(1))
+                ln = _lineno(marks, base + off + bm.start(2))
+                verdict(md, ln, fname, claimed, os.path.getsize(files[fname]), approx,
+                        "bytes", (md, "bytes", fname, claimed))
+            prev_last_file = fms[-1].group(1) if fms and \
+                not sent[fms[-1].end():].strip(" .") else None
+
+
+# ---------------------------------------------------------------------------
+# Corpus counts: Part II's claims about the Forth that Part III loads
+# ---------------------------------------------------------------------------
+# The corpus is what `cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth` feeds the seed:
+# the library and the C compiler (130-asm.fth is a separate program).  It is
+# tokenised the way the seed's read_word reads it: tokens split at space, tab,
+# LF and CR; a token that is exactly `\` skips to the end of the line, one that
+# is exactly `(` skips past the next `)`.  So every count is "outside
+# comments".  Then:
+#   * a *use* of word w is a token equal to w, except the name right after
+#     `:` (w's own definition) and a token that `char` / `[char]` consumes;
+#   * a *colon definition* is a `:` token that `char` / `[char]` does not
+#     consume.
+# Claims (sentence-scoped; the sentence must name the corpus, as "the
+# library" or `010-lib.fth`, so a count of some other set never matches):
+#   "`w` appears N times in the library and the C compiler"
+#   "`a` and `b` are used N times in the library and the C compiler"
+#   "N colon definitions"
+#   "N bytes of Forth (`A` through `B`" -> summed wc -c of that file range
+# "N lines of Forth (`A` through `B`)" is sentence_pass's file-range rule.
+
+USES_RE = re.compile(r"`([^`\s]+)`(?:\s+and\s+`([^`\s]+)`)?\s+(?:appears|is used|are used)\s+"
+                     r"(\d[\d,]*)\s+times\s+in the library and the (?:C )?compiler\b")
+COLON_DEFS_RE = re.compile(r"(?<![\w.,-])(\d[\d,]*)\s+colon definitions\b")
+CORPUS_BYTES_RE = re.compile(r"(?<![\w.,-])(\d[\d,]*)\s+bytes of Forth\s+\(`(\d{3}-[^`]+)`\s+"
+                             r"(?:through|to)\s+`(\d{3}-[^`]+)`")
+NAMES_CORPUS_RE = re.compile(r"\blibrary\b|`010-lib\.fth`")
+
+
+def corpus_files():
+    return [os.path.join(ROOT, "010-lib.fth")] + \
+        sorted(glob.glob(os.path.join(ROOT, "[0-9][0-9][0-9]-cc-*.fth")))
+
+
+def seed_tokens(data):
+    """The seed's read_word over bytes `data`, comments skipped."""
+    ws, i, n, out = b" \t\n\r", 0, len(data), []
+    while True:
+        while i < n and data[i] in ws:
+            i += 1
+        if i >= n:
+            return out
+        j = i
+        while j < n and data[j] not in ws:
+            j += 1
+        tok, end, i = data[i:j], (data[j] if j < n else 0), j + 1
+        if tok == b"\\":
+            if end != 10:
+                k = data.find(b"\n", i)
+                i = n if k < 0 else k + 1
+            continue
+        if tok == b"(":
+            k = data.find(b")", i)
+            i = n if k < 0 else k + 1
+            continue
+        out.append(tok.decode("latin-1"))
+
+
+def corpus_stats():
+    toks = seed_tokens(b"".join(open(f, "rb").read() for f in corpus_files()))
+    uses, colons = {}, 0
+    for k, t in enumerate(toks):
+        prev = toks[k - 1] if k else ""
+        if prev in ("char", "[char]"):
+            continue
+        if t == ":":
+            colons += 1
+        if prev != ":":
+            uses[t] = uses.get(t, 0) + 1
+    return uses, colons
+
+
+def corpus_pass():
+    findings = []
+    uses, colons = corpus_stats()
+    numbered = {os.path.basename(p): p for p in glob.glob(os.path.join(ROOT, "[0-9][0-9][0-9]-*"))
+                if p.endswith((".fth", ".hex0"))}
+    rel = lambda md: os.path.relpath(md, ROOT)
+
+    def verdict(md, ln, label, claimed, actual):
+        if claimed == actual:
+            findings.append(("OK", rel(md), ln, f"{label} = {actual}"))
+        else:
+            findings.append(("MISMATCH", rel(md), ln, f"{label} claimed {claimed}; actual {actual}"))
+
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        for sent, base, marks in prose_sentences(md):
+            if not NAMES_CORPUS_RE.search(sent):
+                continue
+            for m in USES_RE.finditer(sent):
+                words = [w for w in m.group(1, 2) if w]
+                verdict(md, _lineno(marks, base + m.start(3)),
+                        "uses of " + " + ".join(words) + " (010 + NNN-cc, outside comments)",
+                        num(m.group(3)), sum(uses.get(w, 0) for w in words))
+            for m in COLON_DEFS_RE.finditer(sent):
+                verdict(md, _lineno(marks, base + m.start(1)),
+                        "colon definitions (010 + NNN-cc)", num(m.group(1)), colons)
+            for m in CORPUS_BYTES_RE.finditer(sent):
+                a, b = m.group(2), m.group(3)
+                lo, hi = int(a[:3]), int(b[:3])
+                members = [p for n, p in numbered.items() if lo <= int(n[:3]) <= hi]
+                verdict(md, _lineno(marks, base + m.start(1)), f"bytes of {a} through {b}",
+                        num(m.group(1)), sum(os.path.getsize(p) for p in members))
     return findings
 
 
@@ -419,7 +755,7 @@ def line_at(text, pos):
 def span_pass(fix):
     """Check (and with fix=True, rewrite) source line-span claims:
 
-      seed:  "`zbranch_code` (`@ 0x431`, lines 374-385)"  -> 000-seed.hex0 span
+      seed:  "`zbranch_code` (`@ 0x628`, lines 618-631)"  -> 000-seed.hex0 span
       .fth:  "`cc-parse-struct-def` (lines 196-279)"      -> the `:`..`;` def span
 
     Both have a single mechanical, file-absolute truth, so --fix substitutes
@@ -529,6 +865,82 @@ def citation_pass(fix):
     return findings, total_edits
 
 
+# --- Part II running byte counts ---------------------------------------------
+#
+# Each Part II chapter (13-20) owns the `hex0 chunk=` fences it defines, and the
+# tangle check proves those fences are the seed's source.  Counting the machine
+# bytes inside them (hex pairs outside `;` comments) therefore gives each
+# chapter's true share of the seed, which is what its closing
+# "Running count: N of TOTAL bytes read" line and Ch 20's per-chapter table
+# claim.  TOTAL must be the built seed's size, N the cumulative share through
+# that chapter, and each table row's Bytes / Running total the same numbers.
+
+RUNNING_RE = re.compile(r"Running count:\s*([\d,]+)\s+of\s+([\d,]+)\s+bytes")
+CHUNK_FENCE_RE = re.compile(r"^```hex0\s+chunk=(\S+)\s*$")
+TABLE_ROW_RE = re.compile(r"^\|\s*(1[3-9]|20)\s*\|[^|]*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|\s*$")
+
+
+def chunk_bytes(lines):
+    n = 0
+    for ln in lines:
+        code = ln.split(";", 1)[0].split("#", 1)[0]
+        n += len(re.findall(r"[0-9A-Fa-f]{2}", code))
+    return n
+
+
+def running_pass():
+    findings = []
+    per_ch = {}
+    mds = {}
+    for md in sorted(glob.glob(os.path.join(BOOK, "*.md"))):
+        m = re.match(r"(\d\d)-", os.path.basename(md))
+        if not m or not 13 <= int(m.group(1)) <= 20:
+            continue
+        ch = int(m.group(1))
+        lines = open(md, encoding="utf-8").read().splitlines()
+        mds[ch] = (md, lines)
+        total, i = 0, 0
+        while i < len(lines):
+            if CHUNK_FENCE_RE.match(lines[i]):
+                j = i + 1
+                while j < len(lines) and not lines[j].startswith("```"):
+                    j += 1
+                total += chunk_bytes(lines[i + 1:j])
+                i = j
+            i += 1
+        per_ch[ch] = total
+    if not per_ch or not SEED_SIZE:
+        return findings
+    cum, cumul = 0, {}
+    for ch in sorted(per_ch):
+        cum += per_ch[ch]
+        cumul[ch] = cum
+    rel = lambda md: os.path.relpath(md, ROOT)
+    if cum != SEED_SIZE:
+        findings.append(("MISMATCH", "book", 0,
+                         f"Part II chunks hold {cum} machine bytes; seed-forth is {SEED_SIZE}"))
+    for ch, (md, lines) in sorted(mds.items()):
+        for k, ln in enumerate(lines, 1):
+            for m in RUNNING_RE.finditer(ln):
+                got, tot = num(m.group(1)), num(m.group(2))
+                if (got, tot) == (cumul[ch], SEED_SIZE):
+                    findings.append(("OK", rel(md), k, f"running count {got} of {tot}"))
+                else:
+                    findings.append(("MISMATCH", rel(md), k,
+                                     f"running count claimed {got} of {tot}; chunks give "
+                                     f"{cumul[ch]} of {SEED_SIZE}"))
+            m = TABLE_ROW_RE.match(ln)
+            if m and ch == 20:
+                row, b, r = int(m.group(1)), num(m.group(2)), num(m.group(3))
+                if row in per_ch and (b, r) == (per_ch[row], cumul[row]):
+                    findings.append(("OK", rel(md), k, f"Ch {row}: {b} bytes, total {r}"))
+                elif row in per_ch:
+                    findings.append(("MISMATCH", rel(md), k,
+                                     f"Ch {row} row claims {b} / {r}; chunks give "
+                                     f"{per_ch[row]} / {cumul[row]}"))
+    return findings
+
+
 def main():
     if "--dump" in sys.argv:
         dump()
@@ -537,7 +949,7 @@ def main():
     findings = check()
     span_findings, sedits = span_pass(fix)
     cite_findings, cedits = citation_pass(fix)
-    findings += span_findings + cite_findings
+    findings += span_findings + cite_findings + running_pass() + corpus_pass()
     edits = sedits + cedits
     if fix:
         # after rewriting, the mismatches that were fixed are gone

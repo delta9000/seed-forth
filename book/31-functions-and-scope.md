@@ -7,55 +7,47 @@ Artifact after this chapter: a complete C-subset translation-unit compiler.
 Proof link: Stage-A can compile whole M2-Planet inputs into a runnable /tmp/cc-out.
 ```
 
-This chapter assembles the final translation-unit machinery: calls,
-function bodies, globals, top-level parsing, and the entry stub.  It
-is the final third of `110-cc-decl.fth` (lines 1498–2827) and the
-busiest chapter in Part III.  Four anchors do the heavy lifting:
-`cc-parse-call` dispatches direct, forward, and indirect calls;
-`cc-parse-function` ties the prologue, body, epilogue, and scope
-cleanup together; `cc-parse-program` loops over file-scope
-declarations; and the 26-byte entry stub at `0x400078` sets up
-`argc` / `argv`, calls `main`, and exits.
+Every earlier Part III chapter compiles a piece of a C function: an
+expression, a declaration, a statement.  Nothing yet reads a whole
+file.  This chapter covers the last two parser files, which turn
+those pieces into a translation-unit compiler: `114-cc-func.fth`
+(302 lines; function definitions) and `116-cc-prog.fth` (781 lines;
+everything else at file scope, the entry stub, and the driver).  It
+also reads the call parser, which lives in `100-cc-expr.fth` because
+a call is an expression.  It has
+four main words.  `cc-parse-call` compiles direct, forward, and
+indirect calls.  `cc-parse-function` wraps a body in a
+prologue, epilogue, and scope.  `cc-parse-function-list` loops over
+file-scope declarations until end of file.  The 26-byte entry stub
+at `0x400078` passes `argc` / `argv` to `main` and exits with its
+return value.
 
-By the end you'll be able to read each call path, walk a function
-from name through epilogue, explain why a `static int x = 3;` at
-file scope contributes data but no code, and identify which named
-word in `cc-parse-program` does each phase.  The Ch 32 bootstrap-
-chain shell drivers (`stage-a-check.sh`, `bootstrap-chain.sh`) and
-the byte-identical M1 parity claim against the GCC-built M2-Planet
-are deferred to Ch 32.
-
----
-
-```
-        ,_,
-   __(@___)___    "the longest chapter.  every piece
-   ~~~~~~~~~~~~    of Part III converges here.  the payoff is the
-                   next chapter; this one is the work."
-```
-
-**How this chapter is organized.**  The chapter walks the final
-1,314 lines of `110-cc-decl.fth` in eight sections.  §1 introduces
-the chapter's bookkeeping helpers.  Sections §§2–4 are the
-*function machinery*: call codegen, parameter parsing with
-register-spill, and function definitions with the prologue/epilogue
-glue that wires Ch 26's calling convention into the body.  §§5–7
-are the *top-level declarators*: enums and typedefs, top-level
-forms that elide to nothing, and file-scope globals with deferred
-vaddr fixups.  §8 is the *program glue*: the entry stub at
-`0x400078` plus the top-level driver `cc-parse-program` that loops
-over file-scope declarations until EOF.  Each section shows the
-relevant code first, then walks it.
+It is the longest chapter in Part III, and mostly code.  §1 sets up
+per-function state.  §§2–4 are the function machinery: calls,
+parameters and their register spill, and function definitions
+(§§1 and 3–4 are all of `114-cc-func.fth`).  §§5–7 handle everything
+else that can appear at file scope: enums, typedefs, prototypes, and
+globals.  §8 is the entry stub and the top-level driver
+`cc-parse-program`.  §§5–8 are `116-cc-prog.fth`, whose header
+carries the entry stub's layout.  The shell scripts that run
+the result, and the byte-identity comparison against GCC-built
+M2-Planet, are Ch 32's.
 
 ## 1. Setup
 
-A handful of file-scope globals carry per-function state across
-the parameter and body parses, and one short helper recognises the
-name `main` so the entry stub can find it later.  Nothing here
-does code generation yet; this is just the bookkeeping the rest of
-the chapter reaches for.
+`114-cc-func.fth` opens with its header.  After it, a few globals
+carry per-function state across the parameter and body parses, and `cc-is-main?` recognises the name `main` so the
+entry stub can find it later.  Nothing here generates code.
 
-```forth file=110-cc-decl.fth
+```forth file=114-cc-func.fth
+\ 114-cc-func.fth — function definitions for the C-subset compiler.
+\
+\ Parses a parameter list, spills the register arguments into the frame, and
+\ compiles one `T NAME(params) { body }` between a prologue and an epilogue.
+\
+\ Depends on 112-cc-stmt.fth (the body's statements) and everything it
+\ depends on.
+
 \ ===========================================================================
 \ Function parsing: multiple functions, params, SYS-V calling convention
 \ ===========================================================================
@@ -68,8 +60,7 @@ variable cc-fn-prior-sym-id                       \ prior sk-func id for fwd-fix
 
 \ Pre-baked literal "main" for cc-is-main? — laid out as 4 raw bytes (no length
 \ prefix here, because cc-is-main? only consumes 4 bytes).
-create cc-main-name-bytes
-[lit] 109 c, [lit]  97 c, [lit] 105 c, [lit] 110 c,    \ "main"
+create cc-main-name-bytes  s, main
 
 \ cc-is-main? ( name-addr name-len -- f )  -1 if (addr, len) names "main".
 : cc-is-main?                                     ( addr len -- f )
@@ -84,25 +75,38 @@ create cc-main-name-bytes
 \ token is '}'.  Helper used by the function body loop.
 : cc-block-end?
   tok-kind @ tk-punct =
-  tok-num @ [lit] 125 = and ;
+  tok-num @ [char] } = and ;
 
 ```
 
 ## 2. The call codegen
 
-```forth file=110-cc-decl.fth
+Ch 28's `cc-parse-primary` calls `cc-parse-call` once it has seen
+`IDENT (`.  A call is an expression, so this code lives in
+`100-cc-expr.fth`, just above `cc-parse-primary` (the `expr-call`
+chunk in Ch 27's root block); it is taught here, next to the
+function definitions it calls.  Its arguments are expressions,
+parsed through Ch 27's `cc-parse-expr-fwd`.  Three helpers come
+first.  `cc-emit-call-vaddr` emits `E8 <rel32>` to an absolute
+target.  `cc-emit-pops-for-args` pops `n` pushed argument values into
+the System V argument registers, walking `i = n-1 .. 0` so the
+last-pushed value lands in the `n`-th register; for each index it
+calls `cc-emit-pop-by-arg-index` to pick the register.
+
+```forth chunk=expr-call
 \ ===========================================================================
-\ Function-call codegen (the body of cc-parse-call, wired to cc-parse-call-vec)
+\ Function calls: `NAME ( args )`.  cc-parse-primary calls cc-parse-call
+\ once it has seen an identifier followed by '('.
 \ ===========================================================================
 
 \ cc-emit-call-vaddr ( target-vaddr -- )  Emit `call <abs-target>` (5 bytes).
 \ rel32 = target_vaddr - (callsite_after_E8 + 4) = target - (callsite_vaddr+5)
-\ where callsite_vaddr = cc-base-vaddr + cc-out-pos@ at the moment of E8.
+\ where callsite_vaddr = cc-here-vaddr at the moment of E8.
 : cc-emit-call-vaddr
   [lit] 232 cc-emit-byte                          \ E8 opcode
   \ At this point cc-out-pos@ points at the rel32 slot's first byte.
-  \ rel32 = target - (cc-base-vaddr + cc-out-pos@ + 4)
-  cc-base-vaddr cc-out-pos @ + [lit] 4 + -        ( rel32 )
+  \ rel32 = target - (cc-here-vaddr + 4)
+  cc-here-vaddr [lit] 4 + -                       ( rel32 )
   cc-emit-4le ;
 
 \ cc-emit-pop-by-arg-index ( arg-index -- )  Emit a pop into the SYS-V arg
@@ -124,15 +128,40 @@ create cc-main-name-bytes
 \ Walks i = n-1 down to 0, emitting pop-into-reg(i) at each step.  Loop drives
 \ a counter on the data stack.
 : cc-emit-pops-for-args                           ( n -- )
-  [lit] 1 -                                       ( i = n-1 )
+  1-                                              ( i = n-1 )
   begin,
     dup [lit] 0 >=
   while,
     dup cc-emit-pop-by-arg-index
-    [lit] 1 -
+    1-
   repeat,
   drop ;
 
+```
+
+`cc-parse-call` itself works in four steps:
+
+1. Parse the comma-separated arguments, pushing each value with
+   `cc-emit-push-rdi` and counting them.  The count sits under the
+   symbol id on the data stack.
+2. After `)`, reject more than six arguments (code 122), then pop
+   the values into registers.
+3. Dispatch on the callee's symbol:
+   - `sk-func` with a non-zero `val` → `call <abs-vaddr>` via
+     `cc-emit-call-vaddr`;
+   - `sk-func` with `val = 0` (a prototype not yet defined) →
+     `cc-emit-call-rel32-placeholder`, with the patch offset
+     threaded onto the symbol's `cc-sym-call-fixups` list;
+   - `sk-local` whose base type is `ty-func` (a function-pointer
+     local) → `cc-emit-load-local-into-rax` then `cc-emit-call-rax`.
+4. Copy the return value from `rax` into `rdi`, the register this
+   compiler threads every expression result through.
+
+Six is the System V register limit; beyond it arguments go on the
+stack, which this compiler doesn't implement.  M2-Planet has no
+function with more than six parameters.
+
+```forth chunk=expr-call
 \ cc-parse-call ( id -- )  Parse a comma-separated argument list — the leading
 \ '(' has ALREADY been consumed by cc-parse-primary (it was the lookahead
 \ token that triggered dispatch here).  Evaluate each arg left-to-right
@@ -149,32 +178,23 @@ create cc-main-name-bytes
 
   \ Empty arg list?
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 41 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ) = and if,
     \ ')' — empty arg list, leave count = 0.
   else,
     cc-putback-token
     \ Loop: parse one arg, push, increment count; continue while next is ','.
-    [lit] 0 0=                                    \ keep-going flag = -1
-    begin,
-      dup
-    while,
-      drop                                        ( id arg-count )
-      cc-parse-expr-balanced-2                    \ rdi := arg value
+    begin,                                        ( id arg-count )
+      cc-parse-expr-fwd                           \ rdi := arg value
       cc-emit-push-rdi
-      [lit] 1 +                                   \ count++
+      1+                                          \ count++
       cc-next-token-keep
-      tok-kind @ tk-punct = tok-num @ [lit] 44 = and if,
-        [lit] 0 0=                                \ continue
-      else,
-        cc-putback-token
-        [lit] 0                                   \ stop
-      then,
-    repeat,
-    drop                                          \ discard final flag
+      tok-kind @ tk-punct = tok-num @ [char] , = and 0=
+    until,                                        \ until the next is not ','
+    cc-putback-token
     \ The token AFTER the last arg should be ')'.  Consume it.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 41 = and 0= if,
-      [lit] 36 die
+    tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
+      [lit] 121 cc-die
     then,
   then,
 
@@ -182,7 +202,7 @@ create cc-main-name-bytes
 
   \ The SYS-V register path supports up to 6 args.  Reject excess.
   dup [lit] 6 > if,
-    [lit] 37 die
+    [lit] 122 cc-die
   then,
 
   \ NOTE on alignment: argument values are pushed while parsing, then popped
@@ -198,7 +218,7 @@ create cc-main-name-bytes
   \ Dispatch on symbol kind.
   \   sk-func, val != 0 -> direct call: E8 <rel32> to absolute vaddr.
   \   sk-func, val == 0 -> forward call: emit placeholder, register fixup
-  \                        on this prototype's cc-sym-extra slot.  When the
+  \                        on this prototype's call-fixups list.  When the
   \                        function is later defined, cc-parse-function walks
   \                        the list and patches each rel32.
   \   sk-local + ty-func -> indirect call: load fp slot into rax, call rax.
@@ -206,9 +226,9 @@ create cc-main-name-bytes
   dup cc-sym-kind-of sk-func = if,
     dup cc-sym-val-of [lit] 0 = if,
       \ Forward call.  Emit E8 + 4-byte placeholder; thread the slot offset
-      \ onto the prototype's fixup list (cc-sym-extra at id).
+      \ onto the prototype's call-fixups list.
       cc-emit-call-rel32-placeholder              ( id patch-off )
-      swap cc-sym-extra sym-slot                  ( patch-off extra-cell-addr )
+      swap cc-sym-call-fixups                     ( patch-off list-cell )
       cc-add-fixup-to-list
     else,
       cc-sym-val-of                               ( target-vaddr )
@@ -222,56 +242,26 @@ create cc-main-name-bytes
       cc-emit-call-rax
     else,
       drop
-      [lit] 38 die
+      [lit] 123 cc-die
     then,
   then,
 
   \ Move return value into rdi (so the caller's expression machinery picks it up).
   cc-emit-mov-rdi-rax ;
 
-\ Wire the trampoline so cc-parse-primary (in 100-cc-expr.fth) can dispatch here.
-' cc-parse-call cc-parse-call-vec !
-
 ```
-
-
-`cc-parse-call` is the only entry point for the call-codegen path.
-Ch 27's `cc-parse-primary` calls it via `cc-parse-call-vec` once it
-has spotted `IDENT (`.
-
-The flow:
-
-1. Parse a comma-separated argument list, pushing each arg's
-   value with `cc-emit-push-rdi` and counting them.  The arg
-   count threads under the symbol id on the data stack.
-2. After `)`, pop the args off the machine stack and into SYS-V
-   registers in *reverse* push order (so the last-pushed value
-   lands in the n-th register).  This is what
-   `cc-emit-pops-for-args` does, walking `i = n-1 .. 0` and
-   emitting the right pop per index.
-3. Dispatch on symbol kind:
-   - `sk-func` with non-zero val → emit `call <abs-vaddr>` via
-     `cc-emit-call-vaddr`.
-   - `sk-func` with val=0 (forward proto) → emit
-     `cc-emit-call-rel32-placeholder` and thread the patch
-     offset onto `cc-sym-extra`'s fixup list.
-   - `sk-local` with `ty-base = ty-func` (function-pointer
-     local) → `cc-emit-load-local-into-rax`, then
-     `cc-emit-call-rax` for an indirect call.
-4. After the call, `cc-emit-mov-rdi-rax` moves the return value
-   into the caller's *evaluation register* — `rdi`, the register
-   this compiler threads every expression result through (the
-   System V return-value register `rax` is the callee's slot, and
-   the caller copies out to `rdi` so the next expression step
-   finds it where the rest of `100-cc-expr.fth` expects it).
-
-The cap of 6 args (status 37 on overflow) is the SYS-V limit
-before args spill onto the stack.  M2-Planet doesn't have any
-9-arg functions, so this restriction never bites.
 
 ## 3. Parameter lists and the spill
 
-```forth file=110-cc-decl.fth
+Each parameter becomes an `sk-local` symbol in slots
+`0 .. cc-fn-param-count-1`.  `cc-parse-param-list-loop` reads
+`T name` pairs separated by commas.  A keyword type gives a base
+type with pointer depth 0 (keeping `char` distinct so `s[i]` on a
+`char*` parameter uses byte loads); a typedef name contributes its
+encoded base and pointer depth, so a function-pointer typedef stays
+a function pointer.
+
+```forth file=114-cc-func.fth
 \ ===========================================================================
 \ Parameter-list parsing + spill
 \ ===========================================================================
@@ -280,11 +270,7 @@ before args spill onto the stack.  M2-Planet doesn't have any
 \ ','.  T may be int / char / void / long / short / struct TAG / typedef-name,
 \ with '*' modifiers.  Consumes the closing ')'.
 : cc-parse-param-list-loop
-  [lit] 0 0=                                      \ keep-going flag = -1
   begin,
-    dup
-  while,
-    drop
     \ Base type.  Both branches leave ( base ptr-depth-so-far ); the kw path
     \ starts ptr-depth at 0; the typedef path inherits the typedef's encoded
     \ ptr-depth (so FUNCTION = void (*)() stays a function pointer in params).
@@ -311,17 +297,17 @@ before args spill onto the stack.  M2-Planet doesn't have any
         \ Typedef-name (e.g. FILE, FUNCTION).  Look up and unpack its encoded
         \ base+ptr-depth so function-pointer typedefs survive into param type.
         tok-str-addr @ tok-str-len @ cc-sym-find   ( id )
-        dup [lit] 0 < if,
-          [lit] 38 die
+        dup 0< if,
+          [lit] 180 cc-die
         then,
         dup cc-sym-kind-of sk-typedef <> if,
-          [lit] 38 die
+          [lit] 181 cc-die
         then,
         [lit] 0 cc-pending-struct-desc !
         cc-sym-val-of                              ( ty )
         dup ty-base swap ty-ptr                    ( base ptr-depth )
       else,
-        [lit] 38 die
+        [lit] 182 cc-die
         ty-int [lit] 0                            \ unreachable
       then,
     then,
@@ -332,7 +318,7 @@ before args spill onto the stack.  M2-Planet doesn't have any
     \ Expect IDENT.
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 38 die
+      [lit] 183 cc-die
     then,
     \ Add as a local: name in tok-str-addr/len, kind=sk-local, type=ty,
     \ val=current local count (= slot).  Stack on entry: ( ty ).
@@ -341,71 +327,43 @@ before args spill onto the stack.  M2-Planet doesn't have any
     sk-local swap                                  ( a u sk-local ty )
     cc-fn-local-count @                            ( a u kind ty slot )
     cc-sym-add                                    ( id )
-    cc-pending-struct-desc @ swap cc-sym-set-extra
-    [lit] 1 cc-fn-local-count +!
+    cc-pending-struct-desc @ swap cc-sym-set-struct-desc
+    [lit] 1 cc-fn-add-slots
     [lit] 1 cc-fn-param-count +!
     \ Continue if next is ','.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 44 = and if,
-      [lit] 0 0=                                  \ continue
-    else,
-      cc-putback-token
-      [lit] 0                                     \ stop
-    then,
-  repeat,
-  drop                                            \ discard flag
+    tok-kind @ tk-punct = tok-num @ [char] , = and 0=
+  until,
+  cc-putback-token
   \ Now consume the closing ')'.
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 41 = and 0= if,
-    [lit] 39 die
+  tok-kind @ tk-punct = tok-num @ [char] ) = and 0= if,
+    [lit] 184 cc-die
   then, ;
 
-\ Shared lexer/token lookahead save/restore.  Top-level peeking uses this,
-\ and parameter parsing uses it for the `(void)` special case.
-variable cc-top-save-pos
-variable cc-top-save-line
-variable cc-top-save-pending
-variable cc-top-save-tok-kind
-variable cc-top-save-tok-num
-variable cc-top-save-tok-addr
-variable cc-top-save-tok-len
-variable cc-top-save-tok-kw
+```
 
-: cc-top-lookahead-save
-  cc-src-pos     @ cc-top-save-pos      !
-  cc-src-line    @ cc-top-save-line     !
-  cc-tok-pending @ cc-top-save-pending  !
-  tok-kind       @ cc-top-save-tok-kind !
-  tok-num        @ cc-top-save-tok-num  !
-  tok-str-addr   @ cc-top-save-tok-addr !
-  tok-str-len    @ cc-top-save-tok-len  !
-  tok-kw-id      @ cc-top-save-tok-kw   ! ;
+`cc-parse-param-list` handles the two special cases before calling
+the loop: `()` and `(void)`.  Spotting `(void)` needs two tokens of
+lookahead, so it marks the lexer state in `cc-peek-mark` and resets
+to it (Ch 23 §7).  §6's top-level peeks use the same pair.
 
-: cc-top-lookahead-restore
-  cc-top-save-pos      @ cc-src-pos     !
-  cc-top-save-line     @ cc-src-line    !
-  cc-top-save-pending  @ cc-tok-pending !
-  cc-top-save-tok-kind @ tok-kind       !
-  cc-top-save-tok-num  @ tok-num        !
-  cc-top-save-tok-addr @ tok-str-addr   !
-  cc-top-save-tok-len  @ tok-str-len    !
-  cc-top-save-tok-kw   @ tok-kw-id      ! ;
-
+```forth file=114-cc-func.fth
 \ cc-parse-param-list ( -- )  Parse a possibly-empty comma-separated list of
 \ parameters.  Caller has NOT yet consumed any tokens.  When this returns the
 \ closing ')' has been consumed.  Each parameter becomes an sk-local symbol.
 : cc-parse-param-list
   [lit] 0 cc-fn-param-count !
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 41 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] ) = and if,
     \ ')' — empty list, done.
   else,
     \ Special case: `(void)` = no params.  Peek for kw-void followed by ')'.
     tok-kind @ tk-kw = tok-kw-id @ kw-void = and if,
-      cc-top-lookahead-save
+      cc-peek-mark cc-lex-mark
       cc-next-token                               \ advance past void; tok-* := next
-      tok-kind @ tk-punct = tok-num @ [lit] 41 = and >r
-      cc-top-lookahead-restore
+      tok-kind @ tk-punct = tok-num @ [char] ) = and >r
+      cc-peek-mark cc-lex-reset
       r> if,
         \ It IS '(void)'.  void is already consumed; now consume ')'.
         cc-next-token
@@ -419,6 +377,39 @@ variable cc-top-save-tok-kw
     then,
   then, ;
 
+```
+
+`cc-emit-spill-params` stores the argument registers into their
+slots: `[rbp - 8] := rdi`, `[rbp - 16] := rsi`, and so on, one rung
+per parameter actually present.  The encoders are Ch 25 §4's
+`cc-emit-store-local` family.  After the spill, parameters are
+ordinary locals and the rest of the compiler can't tell them apart.
+
+The slots live in the frame the prologue reserves: `cc-frame-slots`
+(32) eight-byte slots, 256 bytes, for parameters plus body locals,
+where an array takes one slot per element and a slot is never
+reused by a later block.  Every slot, a local's (Ch 29) or a
+parameter's (above), is claimed through `cc-fn-add-slots` (Ch 29
+§1), which checks the limit with `cc-check-cap`.  Without
+the check a 33rd slot would sit below `rsp`, where the next call's
+return address, saved `rbp` and locals land: an `int a[40]` in
+`main` would read back a callee's local through `a[5]`.  Instead the
+compile dies with code 162 at the declaration that doesn't fit
+(`tests/cc/die-162-frame-full.c`).  M2-Planet never needs more than
+32 slots.
+
+The frame could instead be sized per function, by emitting the
+prologue's `sub rsp` with a placeholder and patching it once the
+body's slot count is known.  The compiler keeps the fixed frame:
+every prologue is the same 11 bytes, and a reader can recognise a
+function's entry in any disassembly in this book without knowing
+how many locals it has.
+
+`cc-parse-fn-return-type` consumes the return type and discards it.
+Every return value is one `rax`-sized word, so codegen doesn't need
+it.
+
+```forth file=114-cc-func.fth
 \ cc-emit-spill-params ( -- )  In the function prologue, spill the SYS-V
 \ argument registers (rdi/rsi/rdx/rcx/r8/r9) into the local slots reserved
 \ for them by cc-parse-param-list (slots 0..cc-fn-param-count-1).
@@ -456,57 +447,54 @@ variable cc-top-save-tok-kw
     tok-kw-id @ kw-struct = if,
       cc-next-token-keep
       tok-kind @ tk-ident <> if,
-        [lit] 42 die
+        [lit] 185 cc-die
       then,
     then,
   else,
     tok-kind @ tk-ident <> if,
-      [lit] 43 die
+      [lit] 186 cc-die
     then,
   then,
   cc-count-stars drop ;
 
 ```
 
-
-`cc-parse-param-list` and its inner loop handle:
-- `()` — empty list (consume `)` and done).
-- `(void)` — special-cased via a 2-token peek (lookahead for
-  `void` then `)`).
-- `T name, T name, ...` — the normal case.
-
-Each parameter becomes an `sk-local` symbol in slots
-`0 .. cc-fn-param-count-1`.  These slots are *reserved* by the
-prologue's `sub rsp, FRAMESIZE` — `cc-emit-prologue 256` gives
-32 slots' worth of space, which is comfortably more than 6
-params plus any body locals.
-
-```
-   ,___,
-   [o,o]   "every function gets 256 bytes whether it needs them
-   (")_)    or not.  more than 32 locals overflows silently into
-            the caller's frame.  M2-Planet never does that.
-            other code might."
-```
-
-`cc-emit-spill-params` then emits the actual stores:
-`[rbp - 8] := rdi`, `[rbp - 16] := rsi`, etc.  Each ladder rung
-is gated on `cc-fn-param-count` so we only emit the spills we
-need.  The encoders themselves are the ones from Ch 25 §4
-(`cc-emit-store-local`, `cc-emit-store-local-from-rsi`, ...).
-
-After spill, the parameters look identical to ordinary locals.
-The rest of the compiler doesn't know the difference.
-
 ## 4. Function definitions
 
-```forth file=110-cc-decl.fth
+`cc-parse-function` compiles one `T NAME(params) { body }`.  The
+source comment lists its eleven steps; three of them matter most.
+
+The function is added to the symbol table *before* its parameters
+and body are parsed, and before `cc-scope-push`.  Adding it first
+lets the body call the function recursively; adding it outside the
+function's scope keeps the entry alive after `cc-scope-pop`, so
+later functions can call it.
+
+Just before that, `cc-sym-find` fetches any earlier `sk-func` entry
+for the same name, which is a prototype registered by §6's
+`cc-register-fn-proto`.  Its two fixup lists are then patched to
+the new vaddr: `cc-sym-call-fixups` holds forward `call` sites (the
+`E8 00 00 00 00` placeholders from Ch 26 §1), and `cc-sym-addr-fixups`
+holds forward `movabs rdi, imm64` sites that took the function's
+address as a value (Ch 28 §4).  Both heads are then zeroed so a
+repeated definition doesn't patch twice.  This is the
+emit-remember-patch pattern from Ch 11, with the remembered offsets
+parked in symbol-table fields until the definition supplies the
+address.
+
+Finally, if the name is `main`, its vaddr goes into
+`cc-main-vaddr` for the entry stub.  The body loop ends with an
+unconditional `xor rax, rax` and epilogue, which is dead code when
+the body already ended in `return` and the default return value
+when it didn't.
+
+```forth file=114-cc-func.fth
 \ cc-parse-function — one user-defined `T NAME(params) { body }`.  T may be
 \ int / char / void / struct TAG / typedef-name, optionally followed by '*'s.
 \ ===========================================================================
 \ Layout:
 \   1. Consume return type, NAME, '('.
-\   2. Capture the function's start vaddr (cc-base-vaddr + cc-out-pos@) and
+\   2. Capture the function's start vaddr (cc-here-vaddr) and
 \      register it in the symbol table BEFORE parsing params/body — this lets
 \      the body call this function recursively, and is also needed before any
 \      forward-call patch.
@@ -514,7 +502,8 @@ The rest of the compiler doesn't know the difference.
 \   4. Push a fresh scope.  Reset local counter.
 \   5. Parse the parameter list — each param becomes a local in slots 0..N-1.
 \   6. Consume `{`.
-\   7. Emit prologue (256-byte frame, room for 32 locals incl. params).
+\   7. Emit prologue (cc-frame-slots * 8 = 256-byte frame, room for 32
+\      locals incl. params).
 \   8. Spill arg registers into their slots.
 \   9. Loop: parse statements until `}`.
 \  10. Emit implicit return (xor rax,rax + epilogue) — wasted bytes if the
@@ -525,12 +514,12 @@ The rest of the compiler doesn't know the difference.
   \ Function name.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 41 die
+    [lit] 187 cc-die
   then,
   tok-str-addr @ cc-fn-name-addr !
   tok-str-len  @ cc-fn-name-len  !
 
-  [lit]  40 cc-expect-punct-c                     \ '('
+  lparen cc-expect-punct-c
 
   \ Capture any prior sk-func entry for this name BEFORE adding our own,
   \ so we can walk its forward-call fixup list and patch each call site.
@@ -547,30 +536,30 @@ The rest of the compiler doesn't know the difference.
   cc-fn-name-addr @ cc-fn-name-len @
   sk-func
   ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +                    ( a u kind ty vaddr )
+  cc-here-vaddr                                   ( a u kind ty vaddr )
   cc-sym-add drop
 
   \ Patch any forward-call fixups registered against the prior prototype.
-  \ The fixup list head lives in that entry's cc-sym-extra cell.  After
+  \ The fixup list head lives in that entry's call-fixups cell.  After
   \ patching we zero the head so a repeat definition doesn't double-patch.
-  \ cc-sym-extra2 holds a parallel list for `movabs rdi, imm64` rvalue sites
-  \ (function-pointer references that appear before the definition).
+  \ Its addr-fixups cell holds a parallel list for `movabs rdi, imm64` rvalue
+  \ sites (function-pointer references that appear before the definition).
   cc-fn-prior-sym-id @ [lit] 0 >= if,
     cc-fn-prior-sym-id @ cc-sym-kind-of sk-func = if,
-      cc-fn-prior-sym-id @ cc-sym-extra-of
-      cc-base-vaddr cc-out-pos @ +
+      cc-fn-prior-sym-id @ cc-sym-call-fixups @
+      cc-here-vaddr
       cc-walk-and-patch-to-vaddr
-      [lit] 0 cc-fn-prior-sym-id @ cc-sym-set-extra
-      cc-fn-prior-sym-id @ cc-sym-extra2-of
-      cc-base-vaddr cc-out-pos @ +
+      [lit] 0 cc-fn-prior-sym-id @ cc-sym-call-fixups !
+      cc-fn-prior-sym-id @ cc-sym-addr-fixups @
+      cc-here-vaddr
       cc-walk-and-patch-imm64-to-vaddr
-      [lit] 0 cc-fn-prior-sym-id @ cc-sym-set-extra2
+      [lit] 0 cc-fn-prior-sym-id @ cc-sym-addr-fixups !
     then,
   then,
 
   \ If this is main, also record the vaddr for the entry-stub patch.
   cc-fn-name-addr @ cc-fn-name-len @ cc-is-main? if,
-    cc-base-vaddr cc-out-pos @ + cc-main-vaddr !
+    cc-here-vaddr cc-main-vaddr !
   then,
 
   \ Reset locals; push scope (so params + body locals are popped together).
@@ -586,10 +575,10 @@ The rest of the compiler doesn't know the difference.
   \ Parameter list (consumes through ')').
   cc-parse-param-list
 
-  [lit] 123 cc-expect-punct-c                     \ '{'
+  [char] { cc-expect-punct-c
 
   \ Prologue.
-  [lit] 256 cc-emit-prologue
+  cc-frame-slots [lit] 8 * cc-emit-prologue
 
   \ Spill SYS-V argument registers into local slots 0..N-1.
   cc-emit-spill-params
@@ -600,7 +589,7 @@ The rest of the compiler doesn't know the difference.
     cc-block-end? 0=
   while,
     cc-putback-token
-    cc-parse-stmt-tramp
+    cc-parse-stmt
   repeat,
   \ '}' was consumed by the loop test.
 
@@ -611,50 +600,38 @@ The rest of the compiler doesn't know the difference.
   cc-emit-epilogue
 
   cc-scope-pop ;
-
 ```
-
-
-`cc-parse-function` is the chapter's centrepiece.  The eleven-step
-layout in the source comment is the complete flow:
-
-1. Consume return type, NAME, `(`.
-2. Capture the function's start vaddr and `cc-sym-add` it
-   *before* parsing params/body.  This is what lets the body
-   recursively call this function (recursion!).
-3. Walk any prior prototype's fixup lists — both the
-   call-site rel32 list (`cc-sym-extra-of`) and the forward-
-   rvalue imm64 list (`cc-sym-extra2-of`) — and patch every
-   site to the now-known vaddr.  Zero the heads so a repeated
-   definition doesn't double-patch.
-4. If the name is "main", record `cc-main-vaddr` for the
-   entry stub.
-5. Reset `cc-fn-local-count`, `cc-label-count`, and the
-   break/continue heads.  `cc-scope-push` so locals declared
-   in this function don't leak.
-6. Parse the parameter list.
-7. Consume `{`.
-8. Emit the prologue with a 256-byte frame.
-9. Spill the SYS-V argument registers into the parameter slots.
-10. Loop: parse statements until `}`.
-11. Emit the implicit return — `xor rax, rax ; epilogue` — in case
-    the body fell off the end without a `return`, then
-    `cc-scope-pop` to discard the function-body scope.
-
-Step 3 is the deferred-resolution payoff.  Every forward call
-that emitted a placeholder `E8 00 00 00 00` (Ch 26 §1) now
-gets its rel32 filled in.  Every forward `movabs rdi, imm64 = 0`
-that took a function's address as an rvalue (Ch 28 §4) gets
-its imm64 filled in.  All before the prologue's first byte is
-emitted.
-
-This is the same emit, remember, patch pattern from Ch 11, now at
-function-symbol scale.  The remembered offsets live in symbol-table
-extra fields until the definition supplies the vaddr.
 
 ## 5. Enums and typedefs
 
-```forth file=110-cc-decl.fth
+This section opens `116-cc-prog.fth`.  Its header lays out the
+26-byte entry stub that §8 emits, instruction by instruction.
+Enums and typedefs generate no code; they only add names to the
+symbol table.  Each enumerator becomes an `sk-enum` entry whose
+`val` is its integer value.  `cc-enum-next-val` counts up from 0,
+restarting after `= N`, and a trailing comma before `}` is allowed.
+
+```forth file=116-cc-prog.fth
+\ 116-cc-prog.fth — file-scope forms and the top-level driver for the C-subset
+\ compiler.
+\
+\ Parses enums, typedefs, prototypes, and global variables, skips the forms
+\ it has no code for, and compiles a whole translation unit (cc-parse-program).
+\
+\ The compiled output begins with a 26-byte entry stub at vaddr 0x400078:
+\     mov rdi, [rsp]   ; 48 8B 3C 24             (4 bytes, argc)
+\     lea rsi, [rsp+8] ; 48 8D 74 24 08          (5 bytes, argv)
+\     call <main>      ; E8 <rel32>             (5 bytes)
+\     mov rdi, rax     ; 48 89 C7                (3 bytes)
+\     mov rax, 60      ; 48 C7 C0 3C 00 00 00    (7 bytes)
+\     syscall          ; 0F 05                    (2 bytes)
+\
+\ Then come the shims, declarations, and function bodies.  main returns its
+\ value in rax (SYS-V); the stub moves it to rdi and exits.  The call's rel32
+\ is patched after main's vaddr is known.
+\
+\ Depends on 114-cc-func.fth and everything it depends on.
+
 \ ===========================================================================
 \ Enum and typedef definitions (file-scope only).
 \ ===========================================================================
@@ -679,28 +656,24 @@ variable cc-enum-next-val
     cc-putback-token
   then,
 
-  [lit] 123 cc-expect-punct-c                     \ '{'
+  [char] { cc-expect-punct-c
 
   [lit] 0 cc-enum-next-val !
 
-  \ Enumerator loop.
-  [lit] 0 0=                                       \ keep-going flag = -1
+  \ Enumerator loop.  Each pass ends with a continue (-1) / stop (0) flag.
   begin,
-    dup
-  while,
-    drop
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 100 die
+      [lit] 190 cc-die
     then,
     tok-str-addr @ tok-str-len @                  ( a u )
 
     \ Optional `= INT_LITERAL`.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] = = and if,
       cc-next-token-keep
       tok-kind @ tk-num <> if,
-        [lit] 102 die
+        [lit] 191 cc-die
       then,
       tok-num @ cc-enum-next-val !
     else,
@@ -718,30 +691,41 @@ variable cc-enum-next-val
     \ Separator: ',' continues, '}' terminates.  A trailing ',' before '}'
     \ is allowed: peek the next token; if it's '}', stop.
     cc-next-token-keep
-    tok-kind @ tk-punct = tok-num @ [lit] 44 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] , = and if,
       \ Peek to allow trailing comma.
       cc-next-token-keep
-      tok-kind @ tk-punct = tok-num @ [lit] 125 = and if,
+      tok-kind @ tk-punct = tok-num @ [char] } = and if,
         cc-putback-token                           \ leave '}' for the close
         [lit] 0                                    \ stop
       else,
         cc-putback-token                           \ not '}', let next iter read
-        [lit] 0 0=                                 \ continue
+        true                                       \ continue
       then,
     else,
-      tok-kind @ tk-punct = tok-num @ [lit] 125 = and if,
+      tok-kind @ tk-punct = tok-num @ [char] } = and if,
         cc-putback-token                           \ leave '}' for the close
         [lit] 0                                    \ stop
       else,
-        [lit] 101 die
+        [lit] 192 cc-die
       then,
     then,
-  repeat,
-  drop                                             \ discard final flag
+    0=
+  until,
 
-  [lit] 125 cc-expect-punct-c                     \ '}'
-  [lit]  59 cc-expect-punct-c ;                   \ ';'
+  [char] } cc-expect-punct-c
+  [char] ; cc-expect-punct-c ;
 
+```
+
+A typedef name becomes an `sk-typedef` entry whose `val` is an
+encoded type word.  `cc-parse-typedef` accepts plain aliases
+(`typedef int int_ptr;`) and the function-pointer form
+(`typedef void (*FUNCTION)(void);`) that M2-Planet's `gcc_req.h`
+uses.  For the latter it skips the parameter list with a paren
+counter and records the name as a pointer to function, without
+checking the signature.
+
+```forth file=116-cc-prog.fth
 \ cc-parse-typedef ( -- )  'typedef' has been consumed by the dispatcher.
 \ Grammar: typedef BASE '*'* NAME ';'
 \ Supported bases: int / char / void / struct TAG / another typedef.
@@ -764,20 +748,20 @@ variable cc-td-ty
       cc-lookup-struct-tag drop
       ty-struct [lit] 0 ty-make cc-td-ty !
     else,
-      [lit] 110 die
+      [lit] 193 cc-die
     then, then, then, then,
   else,
     tok-kind @ tk-ident = if,
       tok-str-addr @ tok-str-len @ cc-sym-find
-      dup [lit] 0 < if,
-        [lit] 111 die
+      dup 0< if,
+        [lit] 194 cc-die
       then,
       dup cc-sym-kind-of sk-typedef <> if,
-        [lit] 112 die
+        [lit] 195 cc-die
       then,
       cc-sym-val-of cc-td-ty !
     else,
-      [lit] 113 die
+      [lit] 196 cc-die
     then,
   then,
 
@@ -795,17 +779,17 @@ variable cc-td-ty
   \ encodes inline `int (*op)(int)` locals — sufficient for parse-through
   \ without enabling actual indirect call via a typedef'd name yet.
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 40 = and if,
+  tok-kind @ tk-punct = tok-num @ lparen = and if,
     \ '(' — function-pointer typedef.  Consume one or more '*'s, then IDENT,
     \ then ')'.  Then consume the parameter list parens (balanced).
     cc-count-stars drop                            \ at least one star expected
     cc-next-token-keep
     tok-kind @ tk-ident <> if,
-      [lit] 116 die
+      [lit] 197 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
-    [lit] 41 cc-expect-punct-c                     \ ')'
-    [lit] 40 cc-expect-punct-c                     \ '(' of param list
+    [char] ) cc-expect-punct-c
+    lparen cc-expect-punct-c                       \ '(' of param list
     \ Skip tokens paren-balanced until matching ')'.  Depth starts at 1.
     [lit] 1
     begin,
@@ -813,8 +797,8 @@ variable cc-td-ty
     while,
       cc-next-token-keep
       tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 1 + else,
-        tok-num @ [lit] 41 = if, [lit] 1 - else,
+        tok-num @ lparen = if, 1+ else,
+        tok-num @ [char] ) = if, 1- else,
         then, then,
       then,
     repeat,
@@ -825,35 +809,33 @@ variable cc-td-ty
   else,
     \ Plain IDENT (the new typedef name) — putback first since we just peeked.
     tok-kind @ tk-ident <> if,
-      [lit] 114 die
+      [lit] 198 cc-die
     then,
     tok-str-addr @ tok-str-len @                   ( a u )
     sk-typedef [lit] 0 cc-td-ty @                  ( a u kind type val )
     cc-sym-add drop
   then,
 
-  [lit] 59 cc-expect-punct-c ;                    \ ';'
+  [char] ; cc-expect-punct-c ;
 
 ```
 
-
-`cc-parse-enum-def` and `cc-parse-typedef` register names in the
-symbol table:
-- Enumerators become `sk-enum` with `val` = the integer value.
-- Typedef names become `sk-typedef` with `val` = the encoded
-  type word.
-
-The enum parser handles the auto-incrementing value (`cc-enum-
-next-val`, restarting after `= N`) and a trailing comma before
-`}`.  The typedef parser handles both plain aliases
-(`typedef int int_ptr;`) and function-pointer typedefs
-(`typedef void (*FUNCTION)(void);`).  Function-pointer typedefs
-parse the return type and parameter parens but don't validate
-signatures.
-
 ## 6. Top-level elision
 
-```forth file=110-cc-decl.fth
+Real C files contain far more top-level forms than function
+definitions: prototypes with every kind of return type, `extern`
+declarations, file-scope variables.  Each one has to parse, and
+most generate nothing.  The trouble is that `int f(void);`,
+`int f(void) { ... }`, and `int f;` all start the same way.
+
+The comment block explains the strategy: scan ahead through
+balanced parentheses to the first `;` or `{` at depth 0.
+`cc-top-classify` does that scan once and answers with one of three
+classes: `top-fndef` if `{` comes first, `top-proto` if a `(` came
+before the `;`, `top-var` otherwise.  Like the other peeks, it
+restores the lexer state before returning, so it consumes nothing.
+
+```forth file=116-cc-prog.fth
 \ ---------------------------------------------------------------------------
 \ Top-level forward-decl / file-scope-var elision.
 \ ---------------------------------------------------------------------------
@@ -874,114 +856,92 @@ signatures.
 \
 \ Strategy: at top level, when we see a type-introducing keyword (int / char /
 \ void / struct / typedef-name) that isn't a struct/enum/typedef DEFINITION,
-\ peek ahead through balanced parens for the next ';' vs '{':
-\   - ';' first → forward decl or file-scope var → elide everything up to and
-\     including that ';'.
-\   - '{' first → function definition.  Rewind and dispatch to cc-parse-function
-\     which expects 'int' return type (so 'void f() { ... }' will still fail).
-\
-\ The peek uses a save/restore of the lexer state (cc-src-pos / cc-src-line /
-\ cc-tok-pending plus tok-* globals), separate from cc-fnptr-* slots so it
-\ won't conflict with nested function-body parsing.
+\ cc-top-classify peeks ahead, paren-balanced, to the first ';' or '{' at
+\ depth 0 and sorts the declaration into one of three classes:
+\   - '{' first               → top-fndef: a function definition.
+\   - ';' first, a '(' before → top-proto: a prototype; register the name.
+\   - ';' first, no '('       → top-var: a file-scope variable.
+\ The peek marks the lexer state in cc-peek-mark and resets to it, so the
+\ parser that handles the class starts from the declaration's first token.
 
-\ cc-top-peek-is-fn-def? ( -- f )
-\ Scan tokens forward (paren-balanced) until we hit ';' or '{' at depth 0,
-\ or EOF.  Return -1 iff '{' is hit first.  ALWAYS restores lexer state.
-\ Loop convention: begin, COND while, repeat, runs while COND is non-zero.
-\ So we push -1 (continue) for "keep scanning" and 0 (stop) to exit.
-variable cc-top-peek-result
-variable cc-top-peek-depth
-variable cc-top-peek-go                            \ -1 keep scanning, 0 stop
+[lit] 0 constant top-var
+[lit] 1 constant top-proto
+[lit] 2 constant top-fndef
 
-: cc-top-peek-is-fn-def?
-  cc-top-lookahead-save
-  [lit] 0 cc-top-peek-depth !
-  [lit] 0 cc-top-peek-result !                  \ default: not a fn def
-  [lit] 0 0= cc-top-peek-go !                   \ -1 = keep scanning
+variable cc-top-depth                             \ paren depth while scanning
+
+\ cc-top-classify ( -- class )  Scan forward to the first ';' or '{' at paren
+\ depth 0 (or EOF), noting whether a '(' came first.  Always restores the
+\ lexer state; each of the three exits resets it, then returns the class.
+: cc-top-classify
+  cc-peek-mark cc-lex-mark
+  [lit] 0 cc-top-depth !
+  top-var                                         ( class )
   begin,
-    cc-top-peek-go @
-  while,
     cc-next-token-keep
     tok-kind @ tk-eof = if,
-      [lit] 0 cc-top-peek-go !
-    else,
-      tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 1 cc-top-peek-depth +! then,
-        tok-num @ [lit] 41 = if, [lit] 1 cc-top-peek-depth -! then,
-        tok-num @ [lit] 59 = if,                  \ ';'
-          cc-top-peek-depth @ [lit] 0 = if,
-            [lit] 0 cc-top-peek-result !
-            [lit] 0 cc-top-peek-go !
-          then,
+      cc-peek-mark cc-lex-reset exit,             \ EOF: no body
+    then,
+    tok-kind @ tk-punct = if,
+      tok-num @ lparen = if,
+        drop top-proto                            \ a '(' before the end
+        [lit] 1 cc-top-depth +!
+      then,
+      tok-num @ [char] ) = if, [lit] 1 cc-top-depth -! then,
+      cc-top-depth @ [lit] 0 = if,
+        tok-num @ [char] ; = if,
+          cc-peek-mark cc-lex-reset exit,         \ ';' first: a declaration
         then,
-        tok-num @ [lit] 123 = if,                 \ '{'
-          cc-top-peek-depth @ [lit] 0 = if,
-            [lit] 0 0= cc-top-peek-result !
-            [lit] 0 cc-top-peek-go !
-          then,
+        tok-num @ [char] { = if,
+          drop top-fndef
+          cc-peek-mark cc-lex-reset exit,         \ '{' first: a definition
         then,
       then,
     then,
-  repeat,
-  cc-top-lookahead-restore
-  cc-top-peek-result @ ;
+  again, ;
 
-\ cc-top-peek-has-paren? ( -- f )
-\ Walks tokens forward (paren-balanced) until ';' or '{' or EOF.  Returns -1
-\ iff at least one '(' was encountered before the terminator.  Always restores
-\ lexer state.  Used to distinguish function prototypes from global decls when
-\ cc-top-peek-is-fn-def? has already returned 0.
-variable cc-top-paren-flag
-variable cc-top-paren-go
-: cc-top-peek-has-paren?
-  cc-top-lookahead-save
-  [lit] 0 cc-top-paren-flag !
-  [lit] 0 0= cc-top-paren-go !
-  begin,
-    cc-top-paren-go @
-  while,
-    cc-next-token-keep
-    tok-kind @ tk-eof = if,
-      [lit] 0 cc-top-paren-go !
-    else,
-      tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 0 0= cc-top-paren-flag ! then,
-        tok-num @ [lit] 59 = if, [lit] 0 cc-top-paren-go ! then,
-        tok-num @ [lit] 123 = if, [lit] 0 cc-top-paren-go ! then,
-      then,
-    then,
-  repeat,
-  cc-top-lookahead-restore
-  cc-top-paren-flag @ ;
+```
 
+A prototype's parser has to get past the declaration without
+generating anything: `cc-top-skip-to-semi` consumes tokens through
+the next depth-0 `;`, reusing the same depth counter.
+
+```forth file=116-cc-prog.fth
 \ cc-top-skip-to-semi ( -- )
 \ Consume tokens through and including the next top-level ';'.  Paren-balanced
 \ so commas / parens inside parameter lists don't fool us.  If we run into
 \ EOF first, we exit cleanly so the outer loop also exits.
-variable cc-top-skip-depth
-variable cc-top-skip-go
 : cc-top-skip-to-semi
-  [lit] 0 cc-top-skip-depth !
-  [lit] 0 0= cc-top-skip-go !
+  [lit] 0 cc-top-depth !
   begin,
-    cc-top-skip-go @
-  while,
     cc-next-token-keep
-    tok-kind @ tk-eof = if,
-      [lit] 0 cc-top-skip-go !
-    else,
-      tok-kind @ tk-punct = if,
-        tok-num @ [lit] 40 = if, [lit] 1 cc-top-skip-depth +! then,
-        tok-num @ [lit] 41 = if, [lit] 1 cc-top-skip-depth -! then,
-        tok-num @ [lit] 59 = if,
-          cc-top-skip-depth @ [lit] 0 = if,
-            [lit] 0 cc-top-skip-go !
-          then,
-        then,
-      then,
+    tok-kind @ tk-eof = if, exit, then,
+    tok-kind @ tk-punct = if,
+      tok-num @ lparen = if, [lit] 1 cc-top-depth +! then,
+      tok-num @ [char] ) = if, [lit] 1 cc-top-depth -! then,
+      tok-num @ [char] ; =  cc-top-depth @ [lit] 0 =  and if, exit, then,
     then,
-  repeat, ;
+  again, ;
 
+```
+
+`cc-register-fn-proto` adds a prototype as an `sk-func` with
+`val = 0`, which is what makes forward calls in §2 possible.  The
+symbol table's newest-first lookup (the same rule as the dictionary
+in Ch 17 and the symbol table in Ch 24) settles which entry a call
+finds.  A later definition appends a newer row, so later calls go
+straight to the body, while earlier forward calls stay on the
+prototype's fixup list until §4 patches them.
+
+That rule also causes a trap, and the comment above the word
+describes it.  M2-Planet declares some prototypes in two files,
+with the definition between them in the concatenated monolith.  The
+second prototype would add a newer `val = 0` row that shadows the
+definition and whose fixups nothing patches.  So
+`cc-register-fn-proto` skips the add when the name is already an
+`sk-func`.
+
+```forth file=116-cc-prog.fth
 \ cc-register-fn-proto ( -- )  Parse `T '*'* NAME (...);` and register NAME
 \ as sk-func with vaddr=0 so call sites resolve.  When the actual definition
 \ is later parsed, cc-parse-function adds a newer sk-func entry; cc-sym-find
@@ -1001,7 +961,7 @@ variable cc-top-skip-go
   cc-parse-fn-return-type
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 44 die
+    [lit] 199 cc-die
   then,
   tok-str-addr @ tok-str-len @                    ( a u )
   2dup cc-sym-find                                ( a u id-or-neg1 )
@@ -1024,56 +984,23 @@ variable cc-top-skip-go
 
 ```
 
-
-The big comment block above explains the elision
-problem: real C source has many top-level forms — forward
-prototypes, file-scope vars, struct-pointer return types,
-extern declarations — that aren't function definitions.  Each
-must parse without crashing.
-
-The three peek-functions are how:
-- `cc-top-peek-is-fn-def?` scans forward through balanced parens
-  until `;` or `{` at depth 0.  `{` first → function def.
-- `cc-top-peek-has-paren?` returns -1 if at least one `(` was
-  seen before the terminator.  Used to distinguish prototypes
-  from globals.
-- `cc-top-skip-to-semi` consumes everything through the next
-  top-level `;`.
-
-All three save and restore lexer state, so they're pure
-predicates.
-
-`cc-register-fn-proto` registers a function name with vaddr=0
-(forward) so call sites can resolve.  The idempotency comment
-explains why: real-world headers re-declare the same prototype
-across translation units; concatenated into our monolith we
-have to skip the re-add or call sites will resolve to a stale
-`val=0` entry whose fixups are never patched.
-
-The symbol table's newest-first rule is doing real work here — the
-same newest-wins lookup the dictionary used in Ch 17 and the symbol
-table in Ch 24, now deciding prototype-versus-definition.  A
-function definition appends a newer `sk-func` row so later calls
-resolve to the body, while earlier forward-call fixups remain
-attached to the prototype row until the definition patches them.
-
-`cc-parse-function-list` is the master loop.  For every
-top-level construct it:
-
-1. Skips storage qualifiers.
-2. On `kw-struct`: peek 2 tokens — if `{` follows the tag, parse
-   the definition; otherwise dispatch via the peek-functions to
-   function def, proto, or global decl.
-3. On `kw-enum` → `cc-parse-enum-def`.
-4. On `kw-typedef` → `cc-parse-typedef`.
-5. On other type keywords (int/char/void/long/short/etc.) →
-   peek for fn def / proto / global.
-6. On `tk-ident` (typedef-name used as a type) → same peek
-   triad.
-
 ## 7. File-scope globals
 
-```forth file=110-cc-decl.fth
+`cc-parse-global-decl` accepts three forms, all stored in
+`cc-globals-buf`:
+
+- `T name;` allocates one slot;
+- `T name = N;` allocates one slot and writes the (possibly
+  negative) integer literal into it with `cc-globals-store-8le`, so
+  the value is in the image before the program runs;
+- `T name[N];` allocates `N*8` zeroed bytes.
+
+A slot is normally 8 bytes.  `cc-gdecl-scalar-bytes` makes one
+exception: a struct *value* gets its full descriptor size, rounded
+up to a multiple of 8, so a store past its first field cannot
+overwrite the next global.
+
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ File-scope global variable declaration.
 \ ===========================================================================
@@ -1096,8 +1023,7 @@ top-level construct it:
 \ Arrays start zero-initialized.  Function-pointer, aggregate, and struct
 \ initializers are not implemented.
 \
-\ Errors abort with status 16x so they're distinguishable
-\ from older codes).
+\ Errors die through cc-die with codes 200..205 (Appendix G).
 
 variable cc-gdecl-base
 variable cc-gdecl-name-a
@@ -1113,15 +1039,15 @@ variable cc-gdecl-ptr-depth
 \ leading '-' for negative literals.  Anything else aborts.
 : cc-parse-global-int-literal                     ( -- v )
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [lit] 45 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] - = and if,
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 163 die
+      [lit] 200 cc-die
     then,
     [lit] 0 tok-num @ -
   else,
     tok-kind @ tk-num <> if,
-      [lit] 163 die
+      [lit] 201 cc-die
     then,
     tok-num @
   then, ;
@@ -1141,6 +1067,18 @@ variable cc-gdecl-ptr-depth
     [lit] 8
   then, ;
 
+```
+
+The parser records the base type with `char` kept distinct from the
+other keywords, so the array-index path in Ch 28 §3 uses byte
+loads and stores for a `char*` global.  For a `struct TAG` base it
+uses the soft lookup `cc-lookup-struct-tag-soft`, because
+M2-Planet's `cc_globals.c` declares pointers to structs that are
+never defined in scope.  The registered symbol's extra field holds
+the element count for an array (so Ch 28 can tell array decay from
+a scalar load) or the struct descriptor otherwise.
+
+```forth file=116-cc-prog.fth
 \ cc-parse-global-decl ( -- )  Caller has already done cc-skip-storage-quals;
 \ the next token is the base-type keyword OR a typedef-name IDENT.  Consumes
 \ through ';'.
@@ -1170,9 +1108,9 @@ variable cc-gdecl-ptr-depth
   else,
     \ Typedef-name IDENT (FILE, uint8_t, ...).  We don't need to verify it
     \ actually resolves to a known typedef — the caller already determined
-    \ this is a declaration via cc-top-peek-* lookahead.
+    \ this is a declaration via cc-top-classify.
     tok-kind @ tk-ident <> if,
-      [lit] 160 die
+      [lit] 202 cc-die
     then,
   then,
 
@@ -1182,7 +1120,7 @@ variable cc-gdecl-ptr-depth
   \ Name IDENT.
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
-    [lit] 161 die
+    [lit] 203 cc-die
   then,
   tok-str-addr @ cc-gdecl-name-a !
   tok-str-len  @ cc-gdecl-name-u !
@@ -1192,31 +1130,31 @@ variable cc-gdecl-ptr-depth
   [lit] 0 cc-gdecl-is-array !
   [lit] 1 cc-gdecl-n !
 
-  tok-kind @ tk-punct = tok-num @ [lit] 91 = and if,
+  tok-kind @ tk-punct = tok-num @ [char] [ = and if,
     \ Array form: 'T name [ N ]'.
     cc-next-token-keep
     tok-kind @ tk-num <> if,
-      [lit] 162 die
+      [lit] 204 cc-die
     then,
     tok-num @ cc-gdecl-n !
-    [lit] 0 0= cc-gdecl-is-array !
-    [lit] 93 cc-expect-punct-c                      \ ']'
-    [lit] 59 cc-expect-punct-c                      \ ';'
+    true cc-gdecl-is-array !
+    [char] ] cc-expect-punct-c
+    [char] ; cc-expect-punct-c
   else,
-    tok-kind @ tk-punct = tok-num @ [lit] 61 = and if,
+    tok-kind @ tk-punct = tok-num @ [char] = = and if,
       \ Scalar with initializer.  Allocate slot first so we can write the
       \ initializer bytes; then add the symbol.
       cc-gdecl-scalar-bytes cc-globals-alloc
       cc-gdecl-slot !
       cc-parse-global-int-literal
       cc-gdecl-slot @ cc-globals-store-8le
-      [lit] 59 cc-expect-punct-c                    \ ';'
+      [char] ; cc-expect-punct-c
     else,
-      tok-kind @ tk-punct = tok-num @ [lit] 59 = and if,
+      tok-kind @ tk-punct = tok-num @ [char] ; = and if,
         \ Bare uninitialized scalar.  Allocate the slot.
         cc-gdecl-scalar-bytes cc-globals-alloc cc-gdecl-slot !
       else,
-        [lit] 164 die
+        [lit] 205 cc-die
       then,
     then,
   then,
@@ -1233,15 +1171,27 @@ variable cc-gdecl-ptr-depth
   cc-gdecl-slot @                                    ( a u kind type val )
   cc-sym-add                                         ( id )
 
-  \ Arrays: record element count in the extra field so the codegen path can
+  \ Arrays: record element count as the symbol's array length so codegen can
   \ tell array decay from scalar deref.
   cc-gdecl-is-array @ if,
-    cc-gdecl-n @ swap cc-sym-set-extra
+    cc-gdecl-n @ swap cc-sym-set-array-len
   else,
     \ Not an array — record the struct descriptor if any.
-    cc-gdecl-desc @ swap cc-sym-set-extra
+    cc-gdecl-desc @ swap cc-sym-set-struct-desc
   then, ;
 
+```
+
+Global data can't go into `cc-out-buf` as it is parsed, because the
+code after it isn't written yet and the data's address depends on
+where the code ends.  It is one more case of Ch 21's one buffer per
+responsibility.  Each reference to a global emits a `movabs rdi,
+imm64` placeholder and records a fixup.  `cc-finalize-globals`,
+called by the Ch 32 driver after all code is emitted, appends
+`cc-globals-buf` to `cc-out-buf`, sets `cc-globals-base-vaddr`, and
+patches every recorded placeholder with base plus slot.
+
+```forth file=116-cc-prog.fth
 \ cc-finalize-globals ( -- )  After the entire program has been parsed and
 \ all functions emitted, append cc-globals-buf to cc-out-buf and patch every
 \ recorded fixup to point at the now-known global vaddrs.
@@ -1250,22 +1200,72 @@ variable cc-gdecl-ptr-depth
 \ globals are appended).  Once that's known, each fixup's imm64 placeholder
 \ is overwritten with (cc-globals-base-vaddr + slot).
 : cc-finalize-globals
-  cc-base-vaddr cc-out-pos @ + cc-globals-base-vaddr !
+  cc-here-vaddr cc-globals-base-vaddr !
   \ Append cc-globals-pos bytes from cc-globals-buf to cc-out-buf.
   [lit] 0
   begin, dup cc-globals-pos @ < while,
     dup cc-globals-buf + c@ cc-emit-byte
-    [lit] 1 +
+    1+
   repeat, drop
   \ Patch each fixup.  i walks 0..cc-gfixup-count-1.
   [lit] 0
   begin, dup cc-gfixup-count @ < while,
-    dup cc-gfixup-slot     sym-slot @              \ slot
+    dup cc-gfixup-slot     cell[] @                \ slot
     cc-globals-base-vaddr @ +                       \ vaddr = base + slot
-    over cc-gfixup-out-pos sym-slot @              \ patch-offset
+    over cc-gfixup-out-pos cell[] @                \ patch-offset
     cc-out-patch-8le
-    [lit] 1 +
+    1+
   repeat, drop ;
+
+```
+
+Every file-scope form now has a parser, and `cc-parse-top-decl`
+picks one for the item starting at the current token:
+
+1. on `struct`, `cc-struct-def-ahead?` peeks two tokens: `struct
+   TAG {` is a struct definition; anything else is classified like
+   the other types;
+2. on `enum`, calls `cc-parse-enum-def`;
+3. on `typedef`, calls `cc-parse-typedef`;
+4. otherwise, a type keyword, `struct TAG` used as a type, or an
+   identifier used as a typedef name, puts the token back and asks
+   `cc-top-classify`: a function definition goes to
+   `cc-parse-function`, a prototype to `cc-register-fn-proto`, and
+   a variable to `cc-parse-global-decl`.
+
+`cc-parse-function-list` is the loop around it: skip storage
+qualifiers, stop at end of input, otherwise parse one item.
+
+```forth file=116-cc-prog.fth
+\ cc-struct-def-ahead? ( -- f )  The current token is `struct`.  True iff
+\ the next two are TAG '{' — a struct definition, not a declaration that
+\ uses the type.  Restores the lexer state.
+: cc-struct-def-ahead?
+  cc-peek-mark cc-lex-mark
+  cc-next-token                                   \ the tag IDENT
+  cc-next-token                                   \ what follows it
+  tok-kind @ tk-punct = tok-num @ [char] { = and
+  cc-peek-mark cc-lex-reset ;
+
+\ cc-parse-top-decl ( -- )  The current token starts a top-level item.
+\ Definitions of a struct, enum or typedef have their own parsers; anything
+\ else is a function definition, a prototype or a file-scope variable, and
+\ cc-top-classify says which.  A `struct TAG` that isn't followed by '{'
+\ (`struct TAG* f(...)`, `struct TAG* g;`) is one of those three.
+: cc-parse-top-decl
+  tok-kind @ tk-kw = if,
+    tok-kw-id @ kw-enum    = if, cc-parse-enum-def exit, then,
+    tok-kw-id @ kw-typedef = if, cc-parse-typedef  exit, then,
+    tok-kw-id @ kw-struct  = if,
+      cc-struct-def-ahead? if, cc-parse-struct-def exit, then,
+    then,
+  then,
+  \ int/char/void/struct T/typedef-name: put the type back for the parser.
+  cc-putback-token
+  cc-top-classify
+  dup top-fndef = if, drop cc-parse-function     exit, then,
+      top-proto = if,      cc-register-fn-proto  exit, then,
+  cc-parse-global-decl ;
 
 \ cc-parse-function-list ( -- )  Loop over top-level declarations until EOF.
 \ See the long comment above for the elision rules.
@@ -1275,103 +1275,23 @@ variable cc-gdecl-ptr-depth
     cc-next-token-keep
     tok-kind @ tk-eof = 0=
   while,
-    tok-kind @ tk-kw = if,
-      tok-kw-id @ kw-struct = if,
-        \ Four forms to distinguish:
-        \   `struct TAG { ... };`         → struct definition
-        \   `struct TAG* foo(...) { ... }` → function definition (struct-ptr return)
-        \   `struct TAG* foo(...);`        → fn proto → register with vaddr=0
-        \   `struct TAG* g;`               → file-scope var → cc-parse-global-decl
-        cc-top-lookahead-save
-        cc-next-token                              \ consume tag IDENT (lookahead)
-        cc-next-token                              \ peek next token
-        tok-kind @ tk-punct = tok-num @ [lit] 123 = and >r
-        cc-top-lookahead-restore
-        r> if,
-          cc-parse-struct-def
-        else,
-          cc-putback-token
-          cc-top-peek-is-fn-def? if,
-            cc-parse-function
-          else,
-            cc-top-peek-has-paren? if,
-              cc-register-fn-proto
-            else,
-              cc-parse-global-decl
-            then,
-          then,
-        then,
-      else,
-        tok-kw-id @ kw-enum = if,
-          cc-parse-enum-def
-        else,
-          tok-kw-id @ kw-typedef = if,
-            cc-parse-typedef
-          else,
-            \ int/char/void/long/short/etc. — could be fn def or fwd decl/var.
-            cc-putback-token
-            cc-top-peek-is-fn-def? if,
-              cc-parse-function
-            else,
-              cc-top-peek-has-paren? if,
-                \ Function prototype `T name(...);` — register as sk-func.
-                cc-register-fn-proto
-              else,
-                \ File-scope global variable.
-                cc-parse-global-decl
-              then,
-            then,
-          then,
-        then,
-      then,
-    else,
-      \ Top-level starting with an ident — typedef-name used as a type
-      \ (e.g. `FILE* p;`, `FILE* foo();`, `FILE* foo(){...}`).
-      cc-putback-token
-      cc-top-peek-is-fn-def? if,
-        cc-parse-function
-      else,
-        cc-top-peek-has-paren? if,
-          cc-register-fn-proto
-        else,
-          cc-parse-global-decl
-        then,
-      then,
-    then,
+    cc-parse-top-decl
   repeat, ;
 
 ```
 
-
-`cc-parse-global-decl` handles three forms:
-- `T name;` — uninitialised scalar.  Allocate
-  `cc-gdecl-scalar-bytes` bytes in `cc-globals-buf` — 8 for
-  every scalar except a struct *value*, which gets its full
-  descriptor size (rounded up to a multiple of 8) so stores past
-  the first field can't clobber the next global — then register
-  the symbol.
-- `T name = N;` — scalar with integer initialiser.  Same
-  allocation plus `cc-globals-store-8le` of the value (negative
-  literals supported via the leading-`-` test).
-- `T name[N];` — array.  Allocate `N*8` bytes.  Element count
-  goes into `cc-sym-extra` for the array-decay path in Ch 28.
-
-The base type is recorded with a distinguished `ty-char` for
-`char` so the array-index path in Ch 28 §3 emits byte-stride
-loads/stores for `char*`.
-
-`cc-globals-buf` is one more instance of the *one buffer per
-responsibility* pattern from Ch 21: file-scope data accumulates in
-its own staging area, separate from `cc-out-buf`, until layout is
-known.  `cc-finalize-globals` (called by the bootstrap driver in
-Ch 32) appends `cc-globals-buf` to `cc-out-buf`, computes
-`cc-globals-base-vaddr = cc-base-vaddr + cc-out-pos`, then walks
-the `cc-gfixup-*` arrays patching every recorded `movabs rdi,
-imm64` placeholder to its actual global vaddr.
-
 ## 8. The entry stub and the top-level driver
 
-```forth file=110-cc-decl.fth
+The kernel starts a process at `0x400078`, the first byte after
+the ELF and program headers, with `argc` at `[rsp]` and the `argv`
+array just above it.  `cc-emit-entry-stub` emits 26 bytes there:
+load `argc` into `rdi` and `&argv[0]` into `rsi`, `call main`, move
+the result into `rdi`, and `exit`.  The `call` is emitted before
+`main` exists, so its rel32 is a placeholder whose offset goes into
+`cc-call-main-patch`.  `cc-patch-call-main` fills it in after the
+whole file is parsed, the last emit-remember-patch in the compiler.
+
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ Entry-stub emission and rel32 patching.
 \ ===========================================================================
@@ -1425,6 +1345,14 @@ imm64` placeholder to its actual global vaddr.
   cc-call-main-patch @
   cc-out-patch-4le ;
 
+```
+
+The libc shims from Ch 26 come straight after the stub.
+`cc-emit-shims` emits each of the eleven and registers it as an
+`sk-func` at its vaddr, so a user call to `putchar(c)` compiles to
+an ordinary `call <vaddr>`.
+
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ Top-level driver
 \ ===========================================================================
@@ -1439,35 +1367,18 @@ imm64` placeholder to its actual global vaddr.
 
 \ Pre-baked name strings (raw bytes, no length prefix; the length is supplied
 \ explicitly to cc-sym-add).
-create cc-name-putchar
-[lit] 112 c, [lit] 117 c, [lit] 116 c, [lit]  99 c,
-[lit] 104 c, [lit]  97 c, [lit] 114 c,            \ "putchar"
-
-create cc-name-exit
-[lit] 101 c, [lit] 120 c, [lit] 105 c, [lit] 116 c,    \ "exit"
-
-create cc-name-getchar
-[lit] 103 c, [lit] 101 c, [lit] 116 c, [lit]  99 c,
-[lit] 104 c, [lit]  97 c, [lit] 114 c,            \ "getchar"
-
-create cc-name-fputs
-[lit] 102 c, [lit] 112 c, [lit] 117 c, [lit] 116 c, [lit] 115 c,
-create cc-name-fopen
-[lit] 102 c, [lit] 111 c, [lit] 112 c, [lit] 101 c, [lit] 110 c,
-create cc-name-fclose
-[lit] 102 c, [lit]  99 c, [lit] 108 c, [lit] 111 c, [lit] 115 c, [lit] 101 c,
-create cc-name-fputc
-[lit] 102 c, [lit] 112 c, [lit] 117 c, [lit] 116 c, [lit]  99 c,
-create cc-name-fread
-[lit] 102 c, [lit] 114 c, [lit] 101 c, [lit]  97 c, [lit] 100 c,
-create cc-name-fwrite
-[lit] 102 c, [lit] 119 c, [lit] 114 c, [lit] 105 c, [lit] 116 c, [lit] 101 c,
-create cc-name-calloc
-[lit]  99 c, [lit]  97 c, [lit] 108 c, [lit] 108 c, [lit] 111 c, [lit]  99 c,
-create cc-name-memset
-[lit] 109 c, [lit] 101 c, [lit] 109 c, [lit] 115 c, [lit] 101 c, [lit] 116 c,
-create cc-name-free
-[lit] 102 c, [lit] 114 c, [lit] 101 c, [lit] 101 c,
+create cc-name-putchar  s, putchar
+create cc-name-exit     s, exit
+create cc-name-getchar  s, getchar
+create cc-name-fputs    s, fputs
+create cc-name-fopen    s, fopen
+create cc-name-fclose   s, fclose
+create cc-name-fputc    s, fputc
+create cc-name-fread    s, fread
+create cc-name-fwrite   s, fwrite
+create cc-name-calloc   s, calloc
+create cc-name-memset   s, memset
+create cc-name-free     s, free
 
 \ cc-emit-shims ( -- )  Emit each shim's body and register it in the symbol
 \ table as sk-func with val = its absolute vaddr.
@@ -1476,7 +1387,7 @@ create cc-name-free
   cc-name-putchar [lit] 7
   sk-func
   ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +                    ( a u kind ty vaddr )
+  cc-here-vaddr                                   ( a u kind ty vaddr )
   cc-sym-add drop
   cc-emit-putchar-shim
 
@@ -1484,7 +1395,7 @@ create cc-name-free
   cc-name-exit [lit] 4
   sk-func
   ty-void [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-exit-shim
 
@@ -1492,66 +1403,91 @@ create cc-name-free
   cc-name-getchar [lit] 7
   sk-func
   ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-getchar-shim
 
   \ fputs
   cc-name-fputs [lit] 5
   sk-func ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-fputs-shim
 
   \ fputc
   cc-name-fputc [lit] 5
   sk-func ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-fputc-shim
 
   \ fopen
   cc-name-fopen [lit] 5
   sk-func ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-fopen-shim
 
   \ fclose
   cc-name-fclose [lit] 6
   sk-func ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-fclose-shim
 
   \ fwrite
   cc-name-fwrite [lit] 6
   sk-func ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-fwrite-shim
 
   \ fread
   cc-name-fread [lit] 5
   sk-func ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-fread-shim
 
   \ calloc
   cc-name-calloc [lit] 6
   sk-func ty-int [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-calloc-shim
 
   \ free (no-op bump allocator)
   cc-name-free [lit] 4
   sk-func ty-void [lit] 0 ty-make
-  cc-base-vaddr cc-out-pos @ +
+  cc-here-vaddr
   cc-sym-add drop
   cc-emit-free-shim ;
 
+```
+
+`cc-emit-external-protos` registers `memset` as an undefined
+prototype for the upstream tests that declare it, and
+`cc-emit-libc-typedefs` registers `FILE`, `size_t`, and the fixed-
+width integer names as `sk-typedef`s of `ty-int`.
+
+Once the top-level loop reaches the end of the input, every call and
+every function-as-value load should have been patched.
+`cc-check-fns-defined` walks the symbol table to make sure: an
+`sk-func` whose call or address fixup list is still non-empty was
+used but never defined, and its placeholders would run a rel32 of 0
+(falling through into whatever follows the `call`) or load address 0.
+That dies with code 206.  `memset` is the one prototype registered
+with no body on purpose, so a program that calls it dies here too:
+there is no `memset` to call.  A program with no `main` dies with 207
+before the stub's `call` is patched to nowhere.
+
+`cc-parse-program` then runs the whole compile in seven calls: entry
+stub, shims, external prototype, typedefs, the top-level loop, the
+check, and the `call main` patch.  Ch 32 shows how `120-cc-main.fth` wraps it
+with `cc-finalize-globals`, `cc-finalize-elf`, and
+`cc-write-output`.
+
+```forth file=116-cc-prog.fth
 \ ===========================================================================
 \ M2 test-suite external prototype.  The M2 monolith itself does not call
 \ memset, but the published parity script compares selected upstream tests
@@ -1564,31 +1500,20 @@ create cc-name-free
 \ Built-in typedefs for opaque libc/stdint names.  All map to ty-int so the
 \ parser will accept `FILE* p;`, `uint8_t x;`, etc. — codegen still treats
 \ them as 8-byte slots regardless of the C-visible width.
-create cc-name-FILE
-[lit]  70 c, [lit]  73 c, [lit]  76 c, [lit]  69 c,
-create cc-name-int8_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  56 c, [lit]  95 c, [lit] 116 c,
-create cc-name-int16_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  49 c, [lit]  54 c, [lit]  95 c, [lit] 116 c,
-create cc-name-int32_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  51 c, [lit]  50 c, [lit]  95 c, [lit] 116 c,
-create cc-name-int64_t
-[lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  54 c, [lit]  52 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint8_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  56 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint16_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  49 c, [lit]  54 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint32_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  51 c, [lit]  50 c, [lit]  95 c, [lit] 116 c,
-create cc-name-uint64_t
-[lit] 117 c, [lit] 105 c, [lit] 110 c, [lit] 116 c, [lit]  54 c, [lit]  52 c, [lit]  95 c, [lit] 116 c,
-create cc-name-size_t
-[lit] 115 c, [lit] 105 c, [lit] 122 c, [lit] 101 c, [lit]  95 c, [lit] 116 c,
-create cc-name-ssize_t
-[lit] 115 c, [lit] 115 c, [lit] 105 c, [lit] 122 c, [lit] 101 c, [lit]  95 c, [lit] 116 c,
+create cc-name-FILE      s, FILE
+create cc-name-int8_t    s, int8_t
+create cc-name-int16_t   s, int16_t
+create cc-name-int32_t   s, int32_t
+create cc-name-int64_t   s, int64_t
+create cc-name-uint8_t   s, uint8_t
+create cc-name-uint16_t  s, uint16_t
+create cc-name-uint32_t  s, uint32_t
+create cc-name-uint64_t  s, uint64_t
+create cc-name-size_t    s, size_t
+create cc-name-ssize_t   s, ssize_t
 
 \ cc-emit-libc-typedefs ( -- )  Register the typedef names above so headers
-\ that say `FILE* fp;` or `uint8_t b;` parse without rc 30.  All map to ty-int
+\ that say `FILE* fp;` or `uint8_t b;` parse as types.  All map to ty-int
 \ encoded as the sk-typedef's val field (matching cc-parse-typedef's layout).
 : cc-emit-libc-typedefs
   cc-name-FILE     [lit] 4  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop
@@ -1603,61 +1528,78 @@ create cc-name-ssize_t
   cc-name-size_t   [lit] 6  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop
   cc-name-ssize_t  [lit] 7  sk-typedef [lit] 0  ty-int [lit] 0 ty-make  cc-sym-add drop ;
 
+\ cc-check-fns-defined ( -- )  After the whole program: a function that was
+\ called or used as a value but never defined still has pending call or
+\ address fixups — each would run a rel32 of 0 (falling through to the next
+\ instruction) or load address 0.  Die 206 instead.  Then die 207 if there
+\ is no main for the entry stub to call.  memset is registered above with
+\ no body, so a program that uses it dies here too: this compiler has no
+\ memset to link.
+: cc-check-fns-defined
+  [lit] 0                                         ( id )
+  begin, dup cc-sym-count @ < while,
+    dup cc-sym-kind-of sk-func = if,
+      dup cc-sym-call-fixups @  over cc-sym-addr-fixups @  or if,
+        [lit] 206 cc-die
+      then,
+    then,
+    1+
+  repeat, drop
+  cc-main-vaddr @ 0= if, [lit] 207 cc-die then, ;
+
 \ cc-parse-program ( -- )  Emit entry stub, emit libc shims, register the
-\ one external prototype and built-in typedefs, parse all functions, patch
-\ entry stub.
+\ one external prototype and built-in typedefs, parse all functions, check
+\ every used function got a body, patch entry stub.
 : cc-parse-program
   cc-emit-entry-stub
   cc-emit-shims
   cc-emit-external-protos
   cc-emit-libc-typedefs
   cc-parse-function-list
+  cc-check-fns-defined
   cc-patch-call-main ;
 ```
 
+**tri.c at this stage.**  tri.c's `main` calls `line`, `line`
+receives two arguments, and the kernel has to reach `main`.  With
+tri.c compiled to `/tmp/cc-out` (Ch 21), disassemble the entry
+stub, `line`'s prologue and spill, and the call site on line 17:
 
-`cc-emit-entry-stub` emits 26 bytes at vaddr `0x400078` (right
-after the ELF header + program header):
+```sh
+for r in 0x78:0x92 0x20a:0x21d 0x3d9:0x3e3; do
+  objdump -D -b binary -m i386:x86-64 -M intel \
+      --start-address=${r%:*} --stop-address=${r#*:} /tmp/cc-out | grep '^ '
+done
+```
 
 ```
-mov rdi, [rsp]       ; 4 bytes — argc, kernel-supplied
-lea rsi, [rsp+8]     ; 5 bytes — argv
-call <main>          ; 5 bytes — rel32 placeholder
-mov rdi, rax         ; 3 bytes — main's return → exit code
-mov rax, 60          ; 7 bytes — exit syscall
-syscall              ; 2 bytes
+  78:   48 8b 3c 24             mov    rdi,QWORD PTR [rsp]
+  7c:   48 8d 74 24 08          lea    rsi,[rsp+0x8]
+  81:   e8 5c 02 00 00          call   0x2e2
+  86:   48 89 c7                mov    rdi,rax
+  89:   48 c7 c0 3c 00 00 00    mov    rax,0x3c
+  90:   0f 05                   syscall
+ 20a:   55                      push   rbp
+ 20b:   48 89 e5                mov    rbp,rsp
+ 20e:   48 81 ec 00 01 00 00    sub    rsp,0x100
+ 215:   48 89 7d f8             mov    QWORD PTR [rbp-0x8],rdi
+ 219:   48 89 75 f0             mov    QWORD PTR [rbp-0x10],rsi
+ 3d9:   5e                      pop    rsi
+ 3da:   5f                      pop    rdi
+ 3db:   e8 2a fe ff ff          call   0x20a
+ 3e0:   48 89 c7                mov    rdi,rax
 ```
 
-The `call <main>` placeholder is patched by `cc-patch-call-main`
-once `cc-main-vaddr` is known (after the function-list parse).
-
-This is the final emit, remember, patch recurrence inside the
-compiler proper: the entry stub exists before `main`, but its call
-site is completed only after the whole top-level parse.
-
-`cc-emit-shims` walks the eleven libc shim emitters from Ch 26
-and registers each in the symbol table with its emitted vaddr.
-After this, user code calling `putchar(c)` resolves to a normal
-`call <vaddr>` to the shim.
-
-`cc-emit-libc-typedefs` registers `FILE`, `uint8_t`, etc., as
-`sk-typedef` entries so headers using them parse cleanly.
-
-`cc-parse-program` is the orchestrator.  Six steps:
-
-1. `cc-emit-entry-stub` — 26 bytes at the entry vaddr.
-2. `cc-emit-shims` — emit the 11 libc shims and register them.
-3. `cc-emit-external-protos` — register one external proto
-   (`memset`) for tests.
-4. `cc-emit-libc-typedefs` — register `FILE`, `uint8_t`, etc.
-5. `cc-parse-function-list` — walk every top-level
-   declaration in the input, generating code as it goes.
-6. `cc-patch-call-main` — patch the entry stub's `call`
-   placeholder to point at `main`.
-
-Ch 32 will show how a host script wires `cc-parse-program`,
-`cc-finalize-globals`, `cc-finalize-elf`, and `cc-write-output`
-together.
+The stub's `call` at 0x81 was a placeholder until
+`cc-patch-call-main` wrote `5c 02 00 00`, which lands on `main` at
+0x2e2.  At the call site, the two arguments were pushed left to
+right, so they pop in reverse: `w[r]` into `rsi`, then
+`t.rows - 1 - r` into `rdi`.  `line` was already defined, so the
+`call` got its real rel32 at once, with no fixup.  `line`'s spill
+at 0x215 and 0x219 copies `rdi` and `rsi` into slots 0 and 1, where
+`pad` and `n` live from then on.  The stub closes the loop: `main`'s
+`rax` becomes `rdi` for `exit` (syscall 60), which is how tri.c's
+star count reaches the shell as its exit status.
 
 ## Try it
 
@@ -1665,17 +1607,20 @@ together.
 calls, globals, or parameter slots through the chapter.
 
 **Layer check:** there is no standalone root-level test for
-`110-cc-decl.fth`; the focused `tests/cc/G*.c` programs are this
+`114-cc-func.fth` or `116-cc-prog.fth`; the focused `tests/cc/G*.c` programs are this
 chapter's layer checks.
 
 **Bootstrap relevance:** function calls, scopes, globals, and the
-entry stub converge in the Stage-A gate.  One sizing path the gate
+entry stub converge in the Stage-A gate.  One sizing path Stage-A
 never reaches: `tests/cc/C-struct-global.c` declares a file-scope
-`struct` *value*, which `cc-gdecl-scalar-bytes` once sized at a
-flat 8 bytes regardless of its descriptor, so writing its second
-field clobbered the next global.  Stage-A never declares a global
-struct by value — the fix changed no parity byte — making the gate
-this path's only coverage.
+`struct` *value* and writes its second field.  If
+`cc-gdecl-scalar-bytes` gave it a flat 8 bytes, that write would
+clobber the next global.  M2-Planet never declares a global struct
+by value, so this fixture (run by `tests/cc/run-gates.sh`) is the
+path's only automated coverage.  tri.c's `struct tri t;` takes the
+same path:
+`od -A x -t x1 -j 0x4c9 /tmp/cc-out` shows its 16 zero bytes, the
+last 16 of the file.
 
 ```sh
 ./build.sh
@@ -1687,23 +1632,19 @@ For the small check, pick one of these focused fixtures:
 `tests/cc/G3.c` exercises function definitions with multiple
 params (`square`, `sum`); `G12.c` exercises function pointers;
 `G14d.c` exercises globals accessed from a function (`bump()`
-reading and writing `g_counter`).  The big M2-Planet monolith
-exercises every path at once: the `stage-a-check.sh` driver
-compiles M2-Planet via seed-forth plus all the `cc-*.fth` files
-and diffs the resulting .M1 output against the GCC-built
-reference.
-
+reading and writing `g_counter`).  The M2-Planet monolith in
+`stage-a-check.sh` exercises every path at once.
 
 ## Exercises
 
-1. **★★ Trace.** The forward-fixup walk in `cc-parse-function` step 3 handles
-   both `cc-sym-extra` (rel32 calls) and `cc-sym-extra2`
+1. **★★ Trace.** The forward-fixup walk in `cc-parse-function` handles
+   both `cc-sym-call-fixups` (rel32 calls) and `cc-sym-addr-fixups`
    (imm64 movabs).  Trace how both lists get populated and
    which path each fixup type originates from.
 
-2. **★★ Verify.** The 256-byte frame caps locals at 32.  Find the largest
-   M2-Planet function (most locals) and confirm it fits.
-   What changes if you bump the cap?
+2. **★★ Verify.** The 256-byte frame caps locals at 32, and code 162
+   says so.  Find the largest M2-Planet function (most locals) and
+   confirm it fits.  What changes if you raise `cc-frame-slots`?
 
 3. **★★★ Extend.** Parameter spill is hard-coded for 6 args.  Add a 7th param
    path that reads from `[rbp + 16]` (caller-allocated stack
@@ -1714,40 +1655,35 @@ reference.
    "register symbol" phases?  What does the new ordering buy
    you?
 
-5. **★★ Trace.** `cc-top-peek-is-fn-def?` walks all tokens to the next `{`
-   or `;` at depth 0.  Could it stop after seeing a single
-   `(` (since a function definition must have one)?  Construct
-   a counterexample.
+5. **★★ Trace.** `cc-top-classify` walks all tokens to the next `{`
+   or `;` at depth 0.  Could it answer `top-fndef` after seeing a
+   single `(` (since a function definition must have one)?
+   Construct a counterexample.  And `int x = (3);` has a `(` before
+   its `;`: which class does it get, and what happens next?
 
 ## After this chapter
 
 The compiler can assemble whole translation units: functions with
-parameters (spilled from SysV registers into locals), scoped
+parameters (spilled from System V registers into locals), scoped
 declarations, file-scope globals, forward-call resolution, and the
 26-byte entry stub at `0x400078` that sets up `argc`/`argv`, calls
-`main`, and exits.  The output file is now a runnable ELF.
+`main`, and exits.  Once Ch 32's driver adds the globals and ELF
+header, the output file is a runnable ELF.
 
 You can read `cc-parse-function` from name through epilogue,
 explain why every function reserves the same 256-byte frame, and
-walk how `cc-parse-program` loops file-scope decls until EOF.
+walk how `cc-parse-function-list` loops over file-scope
+declarations until EOF.
 
-Toward Stage-A: `/tmp/cc-out` is now a complete executable that can
-itself be invoked.  The next chapter wires the Stage-A driver
-around it to compare its `.M1` output against the reference.
+Every line of tri.c now has a word that compiles it.  Two
+questions are left: what runs those words in order, and whether
+the same words, fed M2-Planet instead of tri.c, produce a compiler
+that agrees with GCC's byte for byte.  Ch 32 answers both.
 
 ## Takeaways
 
-- Function parsing is where everything converges: declarations
-  from Ch 29, statements from Ch 30, expressions from Chs 27–28,
-  codegen from Chs 25–26.  Every concept earned in those
-  chapters gets used here.
-- The forward-fixup pattern that started in Ch 11's `if,` is
-  now applied to *function vaddrs*: at the moment a function
-  is defined, every call to it that emitted a placeholder gets
-  its rel32 patched in one walk.  Emit, remember, patch has scaled
-  from one inline branch slot to whole-program symbol resolution.
-- The top-level driver is small — six lines — because every
-  piece it orchestrates is already complete.  This is what
-  literate construction looks like at the apex.
+- Every earlier Part III layer (codegen, expressions, declarations, statements) meets in `cc-parse-function`, which wraps a statement loop in a scope, a prologue, and an epilogue.
+- A forward call emits a placeholder that waits on its prototype's symbol-table fixup list until the definition patches it, which is Ch 11's emit-remember-patch at whole-program scale.
+- Most top-level forms generate no code, so the top-level loop peeks ahead to the first `;` or `{` to decide between a definition, a prototype, and a global.
 
 Next: Chapter 32 — End to End: Main and the Bootstrap Chain.

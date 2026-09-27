@@ -2,55 +2,36 @@
 
 ```text
 Missing capability: dup, drop, swap, over, @, !, and return-stack ops were black boxes.
-New pattern: each primitive is two to seven bytes of x86-64; rdi holds TOS, rbp is the data-stack pointer.
+New pattern: each primitive is two to six x86-64 instructions; rdi holds TOS, rbp is the data-stack pointer.
 Artifact after this chapter: the stack and memory primitives' machine code, fully readable.
 Proof link: the compiler's codegen reuses the same rdi/rbp convention; these bytes prime you for Ch 25.
 ```
 
-Ten primitive bodies in `000-seed.hex0` carry the data-stack and
-memory operations Part I leaned on without explanation: `dup_code` at
-`0x13B` through `cstore_code` at `0x18E` (lines 97–152), plus
-`r_at_code` at `0x732` (lines 666–675).  They share one convention,
-introduced at the entry point in Ch 13 and now visible in every body:
-`rbp` is the data-stack pointer (cells are 8 bytes, stack grows
-down), and `rdi` is a register cache for TOS, so `sub rbp,8` opens a
-new top slot and `mov [rbp], rdi` spills the old TOS before a fresh
-value is loaded.  Open `000-seed.hex0` to lines 97–152 (and jump to
-666–675 for `r@`) and read along.
+Outside comments, `dup` appears 218 times in the library and the C
+compiler, the Forth that Part III loads.  It duplicates the top of
+the stack, so it has to read the top of the stack.  Look for that
+read in its body and you won't
+find one: `dup_code` is two instructions and a `ret`, and neither
+instruction loads anything from the stack.  The top of the Forth
+stack is not in memory.  It is in a register.
 
-By the end you'll be able to read the x86-64 encoding of `dup`,
-`drop`, `swap`, `>r`, `r>`, `@`, `!`, `c@`, `c!`, and `r@` byte for
-byte, explain the "TOS in `rdi`, data stack in `rbp`" convention and
-trace what each primitive does to both registers, and predict the
-exact memory image left behind by any sequence of these primitives.
-Arithmetic and logic primitives wait for Ch 15; the I/O primitives
-that thread `rsi` through `write(2)` and `read(2)` are Ch 16
-(`bye_code`, `emit_code`, and `key_code` are emitted as source-contiguous
-chunks here, but the prose lives in Ch 16).
+Every body in the seed follows that convention.  `rdi` *is* the top
+of stack (TOS), and `rbp` points at the cell just below it.  "TOS
+is 42" means `rdi == 42`; "the cell below TOS is 100" means
+`[rbp] == 100`.  Cells are 8 bytes and the stack grows down.  A
+textbook stack machine keeps every value in memory; caching the top
+in a register saves a load and a store in most primitives, at the
+cost of *spilling* `rdi` to memory whenever a new value is pushed.
 
----
-
-The data stack is two registers and a 17-page region.  `rbp` points
-at the cell just below the top of the stack; `rdi` *is* the top.
-When we say "TOS is 42," we mean `rdi == 42`; when we say "the cell
-below TOS is 100," we mean `[rbp] == 100`.
-
-This is unusual.  A textbook stack machine keeps every value in
-memory and dereferences a pointer to manipulate the top.  The seed
-caches the top in a register, which avoids one load and one store
-per primitive — at the cost of needing to *spill* `rdi` to memory
-every time we want to push a new value.
-
-The rule is consistent: every primitive in this chapter and the
-next leaves `rdi` holding the new TOS, and uses `rbp` to read or
-write deeper slots.  Reads from `[rbp]` get the cell *below* the
-current TOS; writes to `[rbp]` overwrite that cell.
+This chapter reads ten primitives, `dup` at `0x0BA` through `c!`
+at `0x18D`: lines 76–189 of `000-seed.hex0`, the stretch of the file
+that follows the boot code.
 
 ## 1. The push and pop shapes
 
-There are exactly two ways to grow the data stack and exactly two
-ways to shrink it.  Read these four sequences once and the rest of
-the chapter becomes pattern-matching.
+Nearly every primitive in this chapter is built from two shapes:
+a push and a pop.  Learn them and the rest of the chapter is
+pattern-matching.
 
 **Push (we have a new TOS in `rax`; the old one is in `rdi`):**
 ```
@@ -65,24 +46,40 @@ the chapter becomes pattern-matching.
 48 83 C5 08     add rbp, 8       ; release the slot
 ```
 
-That is the whole calling convention.  `48` is the REX.W prefix
+That is the whole data-stack convention.  `48` is the REX.W prefix
 ("operate on 64-bit operands"); the rest of the bytes encode the
-operation and the addressing mode.  You won't memorise them on the
-first read, but after eight primitives the patterns will pop out.
+operation and the addressing mode.  After a few primitives the
+patterns become familiar.
+
+One more shape appears before every body.  In `000-seed.hex0` each
+primitive's code is preceded by its **dictionary header**: an 8-byte
+link to the previous header, a flags byte, a name-length byte and
+the name itself, `10 + N` bytes in all.  The code starts at the
+first byte after the name, and that address is the word's
+*execution token*, the address a compiled call to the word targets.
+Ch 17 explains the header and the lookup that walks it; until then,
+read the four lines under each `;; --- name @ ... --- header` label
+as the word's name tag, and the `;; ----- name_code @ ...` label
+below them as the start of its code.
 
 ## 2. `dup` in 9 bytes
 
-```hex0 chunk=dup-code
-;; ----- dup_code @ 0x13B -----
-48 83 ED 08
-48 89 7D 00
-C3
+```hex0 chunk=dup
+;; --- dup @ 0x0BA --- header
+00 00 00 00 00 00 00 00                   ; link  = 0 (end of chain)
+00                                        ; flags = 0
+03                                        ; nlen  = 3
+64 75 70                                  ; name  = "dup"
+;; ----- dup_code @ 0x0C7  ( a -- a a ) -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+C3                                        ; ret
 
 ```
 
-That is *half* a push.  We don't need to load a new TOS into `rdi`
-— `rdi` already holds the value we want to duplicate.  All we have
-to do is spill it to a fresh slot:
+That is *half* a push.  `rdi` already holds the value we want to
+duplicate, so there is no new TOS to load.  We only spill it to a
+fresh slot:
 
 ```
 sub rbp, 8       ; make a new slot
@@ -90,16 +87,21 @@ mov [rbp], rdi   ; spill rdi into it; rdi still holds TOS
 ret
 ```
 
-After this, `rdi == old TOS` and `[rbp] == old TOS` — two copies of
+After this, `rdi == old TOS` and `[rbp] == old TOS`: two copies of
 the same value, one in the register cache and one in memory.
 
 ## 3. `drop` in 9 bytes
 
-```hex0 chunk=drop-code
-;; ----- drop_code @ 0x144 -----
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=drop
+;; --- drop @ 0x0D0 --- header
+BA 00 40 00 00 00 00 00                   ; link  = 0x4000BA (dup)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+64 72 6F 70                               ; name  = "drop"
+;; ----- drop_code @ 0x0DE  ( a -- ) -----
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -116,12 +118,17 @@ the under-TOS.
 
 ## 4. `swap` in 12 bytes
 
-```hex0 chunk=swap-code
-;; ----- swap_code @ 0x14D -----
-48 8B 45 00
-48 89 7D 00
-48 89 C7
-C3
+```hex0 chunk=swap
+;; --- swap @ 0x0E7 --- header
+D0 00 40 00 00 00 00 00                   ; link  = 0x4000D0 (drop)
+00                                        ; flags = 0
+04                                        ; nlen  = 4
+73 77 61 70                               ; name  = "swap"
+;; ----- swap_code @ 0x0F5  ( a b -- b a ) -----
+48 8B 45 00                               ; mov rax, [rbp]
+48 89 7D 00                               ; mov [rbp], rdi
+48 89 C7                                  ; mov rdi, rax
+C3                                        ; ret
 
 ```
 
@@ -135,17 +142,16 @@ in `rdi`:
 C3               ret
 ```
 
-No `sub rbp` or `add rbp` — the stack doesn't grow or shrink, only
-its contents rotate.  `rax` is the scratch register for the swap.
-Any caller-saved register would do; `rax` is the conventional choice.
+There is no `sub rbp` or `add rbp`: the stack doesn't grow or
+shrink, only its contents rotate, with `rax` as scratch.
 
 ## 5. `>r`, `r>`, and `r@`: bridging the two stacks
 
 The data stack is `rbp`-and-`rdi`.  The **return stack** is the
 ordinary x86 call stack accessed by `push` / `pop` / `call` / `ret`,
 with `rsp` as the pointer.  When a Forth-level word calls one of
-these primitives via `CALL`, the return address is sitting at
-`[rsp]` — the *top* of the return stack from x86's perspective.
+these primitives via `CALL`, the return address sits at `[rsp]`,
+the *top* of the return stack from x86's point of view.
 
 To move a value between the two stacks, the primitives have to
 shuffle that return address out of the way, do their work, and put
@@ -153,14 +159,19 @@ it back.
 
 ### `>r` ( n -- ; R: -- n )
 
-```hex0 chunk=to-r-code
-;; ----- to_r_code @ 0x159 -----
-58
-57
-50
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=to-r
+;; --- >r @ 0x101 --- header
+E7 00 40 00 00 00 00 00                   ; link  = 0x4000E7 (swap)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+3E 72                                     ; name  = ">r"
+;; ----- to_r_code @ 0x10D  ( n -- ; R: -- n ) -----
+58                                        ; pop rax            ; our own return address
+57                                        ; push rdi           ; n onto the return stack
+50                                        ; push rax           ; return address back on top
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -175,21 +186,29 @@ Three single-byte instructions, then a pop:
 C3               ret
 ```
 
-After this, the value that was on top of the data stack is now sitting
-one cell *below* the return address on the return stack.  When the
-caller continues, the next x86 `ret`/`pop` it does will skip past our
-return address, but a Forth `r>` or `r@` knows to look one cell deeper.
+Inside `>r`, the value sits one cell *below* `>r`'s own return
+address.  Once `>r`'s `ret` pops that address, the value is on top
+of the caller's return stack — directly above the caller's *own*
+return address.  If the caller now hit its `ret`, the CPU would pop
+the value and jump to it as if it were an address.  That is why
+`>r` and `r>` must balance within one definition: `r>` (or `r@`,
+which peeks) has to take the value back before the caller returns.
 
 ### `r>` ( -- n ; R: n -- )
 
-```hex0 chunk=r-from-code
-;; ----- r_from_code @ 0x165 -----
-48 83 ED 08
-48 89 7D 00
-58
-5F
-50
-C3
+```hex0 chunk=r-from
+;; --- r> @ 0x119 --- header
+01 01 40 00 00 00 00 00                   ; link  = 0x400101 (>r)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+72 3E                                     ; name  = "r>"
+;; ----- r_from_code @ 0x125  ( -- n ; R: n -- ) -----
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+58                                        ; pop rax            ; our own return address
+5F                                        ; pop rdi            ; n from the return stack is the new TOS
+50                                        ; push rax           ; return address back on top
+C3                                        ; ret
 
 ```
 
@@ -209,38 +228,44 @@ Net effect: the cell that `>r` parked on the return stack lands in
 
 ### `r@` ( -- n ; R: n -- n )
 
-`r@` (in Forth tradition: "peek" the top of the return stack) was
-added later in the seed's history and lives at a different offset
-(`0x732`).  Its trick is even tighter: don't pop the return address,
-just look past it.
+`r@` peeks at the top of the return stack.  It avoids the pop/push
+dance entirely by looking past the return address.
 
-```hex0 chunk=r-at-code
-;; ----- r_at_code @ 0x732 ( -- v ) peek caller's top-of-rstack -----
-;; r@ is CALL'd, so [rsp+0] = our own ret addr; caller's saved value is at [rsp+8].
-;; Existing precedent: to_r_code and r_from_code
-;; both pop their own ret addr to manipulate rstack across the CALL boundary.
+```hex0 chunk=r-at
+;; --- r@ @ 0x131 --- header
+19 01 40 00 00 00 00 00                   ; link  = 0x400119 (r>)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+72 40                                     ; name  = "r@"
+;; ----- r_at_code @ 0x13D  ( -- n ; R: n -- n ) -----
+;; r@ is CALLed, so [rsp] is our own return address and the caller's
+;; top of return stack is one cell further, at [rsp+8].
 48 8B 44 24 08                            ; mov rax, [rsp+8]   ; skip our ret addr; rax = caller's TOR
-48 83 ED 08                               ; sub rbp, 8         ; make data-stack room
-48 89 7D 00                               ; mov [rbp], rdi     ; spill old TOS to rbp
-48 89 C7                                  ; mov rdi, rax       ; new TOS = TOR
+48 83 ED 08                               ; sub rbp, 8
+48 89 7D 00                               ; mov [rbp], rdi
+48 89 C7                                  ; mov rdi, rax
 C3                                        ; ret
 
 ```
 
 `mov rax, [rsp+8]` reads the cell *one slot past* the return
-address.  No `pop`/`push` needed — we leave the return stack
-untouched, just borrow a value off the top.  This is the kind of
-move that becomes obvious once you've seen `>r`/`r>`: if you know
-where the cell lives, you can read it without unstacking.
+address.  The return stack is left untouched.  Once you know where
+the cell lives, as `>r` and `r>` show, you can read it without
+unstacking anything.
 
-## 6. `@` and `!` — cell load and store
+## 6. `@` and `!`: cell load and store
 
 ### `@` ( addr -- value )
 
-```hex0 chunk=fetch-code
-;; ----- fetch_code @ 0x171 -----
-48 8B 3F
-C3
+```hex0 chunk=fetch
+;; --- @ @ 0x14E --- header
+31 01 40 00 00 00 00 00                   ; link  = 0x400131 (r@)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+40                                        ; name  = "@"
+;; ----- fetch_code @ 0x159  ( addr -- v ) -----
+48 8B 3F                                  ; mov rdi, [rdi]
+C3                                        ; ret
 
 ```
 
@@ -252,22 +277,29 @@ C3               ret
 ```
 
 TOS is an address; load 8 bytes from that address; store them back
-into `rdi`.  No data-stack motion at all.  This is the seed's
-smallest primitive — at four bytes total, `dup` and `drop` are more
-than twice its size.
+into `rdi`.  No data-stack motion at all.  At four bytes this is the
+seed's smallest primitive; `dup` and `drop` are more than twice its
+size.
 
 ### `!` ( value addr -- )
 
-```hex0 chunk=store-code
-;; ----- store_code @ 0x175 -----
-48 8B 45 00
-48 89 07
-48 83 C5 08
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=store
+;; --- ! @ 0x15D --- header
+4E 01 40 00 00 00 00 00                   ; link  = 0x40014E (@)
+00                                        ; flags = 0
+01                                        ; nlen  = 1
+21                                        ; name  = "!"
+;; ----- store_code @ 0x168  ( v addr -- ) -----
+48 8B 45 00                               ; mov rax, [rbp]     ; rax = v
+48 89 07                                  ; mov [rdi], rax     ; *addr = v
+48 83 C5 08                               ; add rbp, 8
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
+
+Decoded:
 
 ```
 48 8B 45 00      mov rax, [rbp]   ; rax = value (under-TOS)
@@ -278,18 +310,23 @@ C3
 C3               ret
 ```
 
-`!` consumes both arguments — the address (in `rdi`) and the value
+`!` consumes both arguments: the address (in `rdi`) and the value
 (at `[rbp]`).  After the store, both stack slots are released and
 `rdi` holds whatever sat below them.
 
-## 7. `c@` and `c!` — byte load and store
+## 7. `c@` and `c!`: byte load and store
 
 ### `c@` ( addr -- byte )
 
-```hex0 chunk=cfetch-code
-;; ----- cfetch_code @ 0x189 -----
-48 0F B6 3F
-C3
+```hex0 chunk=cfetch
+;; --- c@ @ 0x17C --- header
+5D 01 40 00 00 00 00 00                   ; link  = 0x40015D (!)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+63 40                                     ; name  = "c@"
+;; ----- cfetch_code @ 0x188  ( addr -- b ) -----
+48 0F B6 3F                               ; movzx rdi, byte [rdi]
+C3                                        ; ret
 
 ```
 
@@ -299,14 +336,19 @@ high 56 bits of `rdi` get cleared; the low 8 bits hold the byte at
 
 ### `c!` ( byte addr -- )
 
-```hex0 chunk=cstore-code
-;; ----- cstore_code @ 0x18E -----
-48 8B 45 00
-88 07
-48 83 C5 08
-48 8B 7D 00
-48 83 C5 08
-C3
+```hex0 chunk=cstore
+;; --- c! @ 0x18D --- header
+7C 01 40 00 00 00 00 00                   ; link  = 0x40017C (c@)
+00                                        ; flags = 0
+02                                        ; nlen  = 2
+63 21                                     ; name  = "c!"
+;; ----- cstore_code @ 0x199  ( b addr -- ) -----
+48 8B 45 00                               ; mov rax, [rbp]     ; rax = b
+88 07                                     ; mov [rdi], al      ; store the low byte only
+48 83 C5 08                               ; add rbp, 8
+48 8B 7D 00                               ; mov rdi, [rbp]
+48 83 C5 08                               ; add rbp, 8
+C3                                        ; ret
 
 ```
 
@@ -328,91 +370,48 @@ memory; the rest is lost.
 ## 8. The arithmetic of bytes saved
 
 Ten stack primitives, 119 bytes of code in total: `dup` 9, `drop` 9,
-`swap` 12, `>r` 12, `r>` 12, `@` 4, `!` 20, `c@` 5, `c!` 19, `r@` 17.
-Compare that to the Forth-level definitions in `010-lib.fth` of
-`over`, `nip`, `rot`, etc., which average around 5–10 tokens each and
-compile (at runtime, via `:`) to roughly the same total byte count
-once the `CALL` instructions are emitted.
-
-The trade is: keep the *most-used* stack-shuffling primitives in
-hex so they're called once per use, and *derive* the less-used ones
-in Forth so they pay a token-count cost only when they appear.  By
-the end of Part I we already saw the derived side — `over`, `nip`,
-`rot`, `2dup`, `2drop` are all Forth-level.  Now you see why the
-primitives have to be 9 bytes apiece: the seed budget is 2,040
-bytes, and every primitive paid is a primitive not budgeted for
-something else.
+`swap` 12, `>r` 12, `r>` 12, `r@` 17, `@` 4, `!` 20, `c@` 5, `c!` 19.
+Their ten headers add another 123 bytes, 10 plus the name length
+each, so a primitive's name tag often costs more than its code.
+Everything else Part I used, `over`, `nip`, `rot`, `2dup` and
+`2drop`, is Forth-level, compiled at load time from these.  The trade
+is to keep the most-used shufflers in hex and derive the rest, which
+then cost the seed nothing: no code, and no header.  With a
+1,772-byte seed, every byte spent on one primitive is a byte
+unavailable to another.
 
 ## Canonical source
 
-This chapter defines the bodies for the stack-primitive chunks
-referenced by the master root block in Ch 13.  The chunks for
-`bye_code`, `emit_code`, and `key_code` are written here too, so
-that the lines 65–96 region of the source has a body — but the
-*prose* explaining them belongs to Ch 16, so we ship the chunks
-without commentary and tag them with the same `;; -----` banners
-that the original file used.
-
-```hex0 chunk=bye-code
-;; ----- bye_code @ 0x0D2 -----
-B8 3C 00 00 00
-BF 00 00 00 00
-0F 05
-
-```
-
-```hex0 chunk=emit-code
-;; ----- emit_code @ 0x0DE -----
-48 C7 C0 00 20 41 00
-40 88 38
-B8 01 00 00 00
-BF 01 00 00 00
-48 BE 00 20 41 00 00 00 00 00
-BA 01 00 00 00
-0F 05
-48 8B 7D 00
-48 83 C5 08
-C3
-
-```
-
-```hex0 chunk=key-code
-;; ----- key_code @ 0x10C -----
-48 83 ED 08
-48 89 7D 00
-B8 00 00 00 00
-BF 00 00 00 00
-48 C7 C6 00 20 41 00
-BA 01 00 00 00
-0F 05
-48 85 C0
-74 06
-48 0F B6 3E
-EB 03
-48 31 FF
-C3
-
-```
-
-(The eight stack-primitive chunks `<<dup-code>>` through
-`<<cstore-code>>`, plus `<<r-at-code>>`, are defined inline in the
-prose above.)
+This chapter's ten chunks, `<<dup>>` through `<<cstore>>`, are
+defined inline in the prose above, each a primitive's header and
+code, in the order the master root block in Ch 13 lists them.
 
 ## Try it
 
 ```sh
 ./build.sh
 echo "[lit] 65 [lit] 66 swap emit emit bye" | ./seed-forth
-# prints "AB" — after swap TOS is 65 ('A'), so it emits first, then 66 ('B')
+# prints "AB": after swap TOS is 65 ('A'), so it emits first, then 66 ('B')
 echo "[lit] 67 dup emit emit bye"           | ./seed-forth
 # prints "CC"
 echo "[lit] 68 [lit] 69 drop emit bye"      | ./seed-forth
 # prints "D"  (69='E' was on top, drop discarded it, then 68='D' emits)
+echo "[lit] 65 >r [lit] 66 emit r> emit bye" | ./seed-forth
+# prints "BA"
+echo "[lit] 305419896 [lit] 4325376 c! [lit] 4325376 c@ emit bye" | ./seed-forth
+# prints "x"
 ```
 
-For each of `>r`, `r>`, `@`, `!`, `c@`, `c!`, write a one-line shell
-test before running it.  Predict the byte sequence on the stack at
-each step from the table in §1.
+The last two are §5 and §7 happening on real hardware.  `>r`
+parked the 65 on the x86 call stack, under the return address it
+popped and pushed back, and `r>` fetched it after the 66 had gone
+out.  (This works at the top level because the REPL is a loop that
+never executes `ret`, so nothing pops the parked value by mistake.)
+Then `c!` was handed 305419896, hex 12345678, and stored only its
+low byte: `c@` read back hex 78, the letter `x`.
+
+Before running the other primitives, predict the stack at each step
+using the push and pop shapes from §1.
 
 ## Exercises
 
@@ -420,11 +419,14 @@ each step from the table in §1.
    `2dup_code` (duplicate the top *two* cells, leaving 4 on the
    stack).  Count the bytes.  Compare to `: 2dup over over ;` which
    compiles to two `CALL` instructions of 5 bytes each plus the
-   header overhead — which wins on size?
+   header overhead.  Which wins on size?
 
 2. **★★ Trace.** `c!` writes only the low byte of TOS, then reloads `rdi` from
-   `[rbp]`.  Trace what happens after `[lit] 0x12345678 [lit]
-   0x420000 c!`.  What's in memory at `0x420000`?  What's in `rdi`?
+   `[rbp]`.  Trace what happens after `[lit] 305419896 [lit]
+   4325376 c!` — that is, `0x12345678` stored to `0x420000`
+   (`[lit]` reads decimal only).  What's in memory at `0x420000`?
+   What's in `rdi`?  Check the first answer with
+   `[lit] 4325376 c@ emit`.
 
 3. **★★ Trace.** `>r` cannot simply do `push rdi` first: the return address is in
    the way.  Walk through the alternative encoding `push rdi ; ...`
@@ -441,14 +443,22 @@ each step from the table in §1.
 
 ## Takeaways
 
-- The data-stack-in-register-cache convention costs ~9 bytes per
-  push/pop primitive — half a cache line for the smallest.
-- Every primitive ends in `C3` (`ret`).  Inter-primitive calls go
-  through `CALL rel32`, so callee addresses must be known at
+- With TOS cached in `rdi`, a push or pop costs 8 bytes (`sub` or
+  `add rbp` plus the spill or reload), which is why `dup` and `drop`
+  are 9 bytes with their `ret`.
+- Almost every primitive ends in `C3` (`ret`), and calls between
+  primitives use `CALL rel32`, so every callee address is fixed at
   hex-assembly time.
-- `>r`, `r>`, and `r@` bridge the data and return stacks by
-  threading values around the x86 `CALL` return address; `r@` is
-  the simplest semantically (a peek that leaves both stacks
-  otherwise unchanged), even though it isn't the smallest in bytes.
+- `>r`, `r>` and `r@` move values between the data and return
+  stacks by working around the x86 `CALL` return address that sits
+  on top of the return stack.
+
+**Running count: 428 of 1,772 bytes read (24%).**  Ch 13's 186 plus
+this chapter's 242: 119 bytes of code and 123 of headers.
+
+Every body so far moves or copies cells; not one computes anything.
+Part I built all of Boolean logic on `nand` and every signed
+comparison on `/`.  Ch 15 opens both, and the one logic operation
+the seed pays for turns out to be the one x86 lacks.
 
 Next: Chapter 15 — Arithmetic, Logic, Comparison.

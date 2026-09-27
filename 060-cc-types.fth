@@ -2,21 +2,24 @@
 \
 \ A type is one machine word:
 \   bits[ 0.. 7] = pointer depth (0 = scalar T, 1 = T*, 2 = T**, ...)
-\   bits[ 8..15] = flags (reserved; e.g., signed/unsigned variants)
+\   bits[ 8..15] = always 0
 \   bits[16..31] = base kind (one of ty-* below)
 \
-\ Struct and function types use base = ty-struct / ty-func.  A struct's
-\ descriptor pointer is stored in the symbol-table entry's val field
-\ (resolved by the caller before any size-of/field-offset query).
+\ Struct and function types use base = ty-struct / ty-func.  The type word
+\ does not say which struct: the descriptor pointer lives in the symbol
+\ table — the tag's sk-struct entry keeps it in val, and a struct-typed
+\ variable keeps it in its struct-desc cell (070-cc-sym.fth) — and in a
+\ field record's pointee slot (below).  The caller resolves it before any
+\ size-of/field-offset query.
 \
 \ Depends on 010-lib.fth: constant, [lit], if,/then,/else,, +, -, *, /, =, dup,
-\   swap, drop, and, >.
+\   swap, drop, and, >, 1+; 020-cc-arena.fth: cc-check-cap.
 
 [lit] 0 constant ty-void
 [lit] 1 constant ty-char
 [lit] 2 constant ty-int                       \ signed 64-bit
-[lit] 4 constant ty-struct
-[lit] 5 constant ty-func
+[lit] 3 constant ty-struct
+[lit] 4 constant ty-func
 
 \ ty-make ( base ptrdepth -- ty )  Pack base and ptr-depth into one word.
 : ty-make
@@ -61,9 +64,12 @@
 \     + 32:  pointee struct descriptor (0 unless the field is a struct pointer)
 \
 \ The header is 16 bytes; each field record is 40 bytes.  Capped at 16 fields
-\ per struct (descriptor size = 16 + 40*16 = 656 bytes).  The pointee field
-\ enables chained '->' / '.' postfix on fields that are themselves struct
-\ pointers (e.g. `head->next->prev` resolves both arrows).
+\ per struct (descriptor size cc-sd-bytes = 16 + 40*16 = 656 bytes).  The
+\ pointee field enables chained '->' / '.' postfix on fields that are
+\ themselves struct pointers (e.g. `head->next->prev` resolves both arrows).
+
+[lit] 16 constant cc-sd-max-fields
+cc-sd-max-fields [lit] 40 * [lit] 16 + constant cc-sd-bytes      \ 656
 
 : cc-sd-total-size      @ ;                            \ ( desc -- size )
 : cc-sd-field-count     [lit] 8 + @ ;                  \ ( desc -- n )
@@ -71,7 +77,10 @@
 : cc-sd-set-field-count [lit] 8 + ! ;                  \ ( v desc -- )
 
 \ cc-sd-field-rec ( desc i -- rec-addr )  Address of field i's record.
+\ Dies with code 50 for i past the last record: a struct with more than
+\ cc-sd-max-fields fields.
 : cc-sd-field-rec
+  dup 1+ cc-sd-max-fields [lit] 50 cc-check-cap
   [lit] 40 * [lit] 16 + + ;
 
 \ Field-record accessors / mutators.  Each takes rec-addr on TOS.
