@@ -56,6 +56,42 @@
 #                        emulation; SKIP without it or without
 #                        vendor/stage0-posix/x86).
 #
+# And one long GCC-free run that check-all.sh does only in part:
+#   8. pnut              tests/pnut/sf-pnut-check.sh with SF_PNUT_TCC=1: the
+#                        Forth C compiler builds pnut (vendor/pnut)
+#                        unmodified; that pnut and an M2-Planet-built one
+#                        (step 3's cc-out-v3/M1/hex2) build the same
+#                        pnut-exe, and pnut's own TCC kit carries it on to
+#                        tcc-0.9.27 with pnut's published tcc-boot2 =
+#                        tcc-boot3 hash (~2 min; SKIP without vendor/pnut).
+#
+# And one more REFERENCE COMPARISON against gcc, on the amd64 route:
+#   9. pnut-amd64        tests/pnut/sf-pnut-amd64-check.sh with
+#                        SF_PNUT64_GCC_ORACLE=1: the GCC-free amd64 chain
+#                        (seed-forth -> SF-built pnut -> tcc-0.9.27 x86_64,
+#                        tcc-boot2 = tcc-boot3, every hash pinned; the same
+#                        run as check-all.sh's 06b), then the reference: a
+#                        gcc-built pnut builds the same pnut64-g2 and
+#                        pnut-exe, and a gcc-built tcc-0.9.27 (same patched
+#                        sources and -D flags as tcc-pnut) seeds the same
+#                        tcc-boot2 and boot2 crt1.o/libc.a/libtcc1.a
+#                        (~16 s; SKIP without vendor/pnut).
+#
+# And one very long GCC-free run, opt-in (VERIFY_GCC64=1; otherwise SKIP):
+#  10. gcc64             gcc64/run-gcc64.sh, from step 9's tcc-boot2
+#                        (GCC64_STAGE0, checked against step 9's pins) on to
+#                        musl-1.1.24 + tcc (fixed point), binutils,
+#                        gcc-4.0.4 (gcc-B = gcc-C), gcc-4.7.4, gcc-10.5.0 and
+#                        gcc-15.2.0's own 3-stage bootstrap (stage2 = stage3),
+#                        with no host compiler, assembler or linker; then
+#                        every gcc is tested (~1.5 h on 4 cores; see
+#                        gcc64/README.md).  Sources come from the cache
+#                        (GCC64_CACHE, default build-out/gcc64-cache) or are
+#                        fetched, every sha256 checked against gcc64/SOURCES;
+#                        SKIP when one is neither cached nor fetchable.
+#                        VERIFY_GCC64_STAGES="stage0 stage1 ..." runs only
+#                        those stages.
+#
 # Output: one OK/FAIL line per step, logs in $BUILDROOT/logs.
 # Env: BUILDROOT (default ./build-out/verify; wiped at start),
 #      PRIVATE_TMP=auto|0 — by default the whole run gets a private /tmp via
@@ -70,7 +106,7 @@ PRIVATE_TMP=${PRIVATE_TMP:-auto}
 if [ -z "${VERIFY_IN_PRIVATE_TMP:-}" ]; then
     mkdir -p "$BUILDROOT"
     BUILDROOT=$(cd "$BUILDROOT" && pwd)
-    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light,stage0,handoff}
+    rm -rf "$BUILDROOT"/{logs,tmp,stage-a,chain,asm,asm-light,stage0,handoff,pnut,pnut-amd64}
     mkdir -p "$BUILDROOT/tmp"
     case "$ROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac   # we'd hide our own tree
     case "$BUILDROOT/" in /tmp/*) PRIVATE_TMP=0 ;; esac
@@ -113,9 +149,19 @@ run 4-mescc-tools    env BUILDROOT="$BUILDROOT/asm"     tests/asm/mescc-tools-ch
 run 5-monolith       cmp "$BUILDROOT/stage-a/cc-out-v1" "$BUILDROOT/chain/bootstrap/out/cc-out-v1"
 run 6-stage0         env BUILDROOT="$BUILDROOT/stage0" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" tests/cc/stage0-check.sh
 run 7-handoff        env BUILDROOT="$BUILDROOT/handoff" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" ./handoff.sh
+run 8-pnut           env BUILDROOT="$BUILDROOT/pnut" BOOTSTRAP_OUT="$BUILDROOT/chain/bootstrap/out" SF_PNUT_TCC=1 tests/pnut/sf-pnut-check.sh
+run 9-pnut-amd64     env BUILDROOT="$BUILDROOT/pnut-amd64" SF_PNUT64_GCC_ORACLE=1 tests/pnut/sf-pnut-amd64-check.sh
+if [ "${VERIFY_GCC64:-0}" = 1 ]; then
+    s0=""; [ -x "$BUILDROOT/pnut-amd64/kit/build/tcc-boot2" ] && s0=$BUILDROOT/pnut-amd64
+    rm -rf "$BUILDROOT/gcc64"
+    # shellcheck disable=SC2086
+    run 10-gcc64     env GCC64_STAGE0="$s0" gcc64/run-gcc64.sh --new "$BUILDROOT/gcc64" ${VERIFY_GCC64_STAGES:-}
+else
+    run 10-gcc64     bash -c 'echo "gcc64: SKIP: not requested (VERIFY_GCC64=1 runs it, ~1.5 h)"; exit 77'
+fi
 
 echo
-grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC\|match [a-z0-9]*\.answers\|^handoff: PASS\|^stage0-check: PASS' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
+grep -h 'stage-a-check: self\|^A: \|^F: \|^M2-Planet tests:\|byte-identical\|DDC\|match [a-z0-9]*\.answers\|^handoff: PASS\|^stage0-check: PASS\|^sf-pnut-check: stage\|^sf-pnut-amd64-check: .*tcc-boot2 = tcc-boot3\|^sf-pnut-amd64-check: reference\|fixed point: musl\|gcc-B = gcc-C: bin/gcc\|gcc-15.2.0 bootstrap\|^\[run-gcc64 .*pins:' "$LOGS"/*.log | grep -v '^===' | sed 's/^/  /' || true
 echo
 if [ "$FAIL" = 0 ] && [ "$SKIP" = 0 ]; then
     echo "verify: all $PASS steps PASS in $((SECONDS - T0))s"

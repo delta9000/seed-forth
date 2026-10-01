@@ -44,7 +44,7 @@ shows what the artifact can *do* at each step.
 | Ch | After this chapter, the compiler can ... |
 |---:|---|
 | 21 | accept stdin into `cc-in-buf`, emit and back-patch into `cc-out-buf`, allocate variable scratch from the arena, and fail with a line number and a code |
-| 22 | flatten C source: project includes splice in, integer macros expand newest-first |
+| 22 | flatten C source: project includes splice in, macros (object-like and function-like) expand, `#if` groups are kept or dropped |
 | 23 | produce one C token at a time into the `tok-*` cells on demand, put one back, or mark and reset to look further ahead |
 | 24 | look up names and C types, push/pop scopes, lay out struct descriptors |
 | 25 | emit a valid 120-byte ELF prologue and the core x86-64 instruction encoders |
@@ -95,7 +95,8 @@ and given in source order within each area.
 
 - *Lexer-state block, `cc-die` and error codes, bump arena, input/source/output buffers, back-patching* — Ch 21
 - *Shared helpers: `ident-start?`, `cell[]`, `cc-name-find`* — Ch 21
-- *Preprocessor: `#include "…"`, `#define NAME N`* — Ch 22
+- *Preprocessor: `#include "…"`, object-like and function-like
+  `#define`, `#undef`, conditional compilation* — Ch 22
 - *Tokenizer, keyword table, punctuation IDs, putback, mark/reset* — Ch 23
 - *Type encoding, symbol table, struct descriptors* — Ch 24
 - *ELF header emission for compiled output* — Ch 25
@@ -103,8 +104,11 @@ and given in source order within each area.
 - *Forward calls, fixup lists* — Ch 26
 - *C-escape decoding (`cc-decode-escape`)* — Ch 23; *string literal storage* — Ch 26
 - *Libc shims (eleven: putchar, exit, getchar, fputs, fputc, fopen,
-  fclose, fwrite, fread, calloc, free)* — Ch 26
-- *File-scope globals with deferred vaddrs* — Chs 26, 31
+  fclose, fwrite, fread, calloc, free; eight more emitted only when
+  called: malloc, open, read, write, close, strlen, memcpy,
+  strrchr)* — Chs 26, 31
+- *File-scope globals with deferred vaddrs; global arrays in a bss* — Chs 26, 31
+- *Constant expressions (compile-time evaluation)* — Chs 27, 28
 - *`movabs rdi, imm64` and wide-immediate fixups* — Ch 26
 
 ### C grammar

@@ -2,9 +2,10 @@
 # Build an M2-Planet monolith and compile it with our cc.
 #
 # Concatenates the 4 headers + 8 .c files in dependency order, stripping
-# each .c file's quote-includes (since our preprocessor has no #ifndef/#endif
-# support, every #include "cc.h" would re-expand the header and duplicate
-# struct/typedef declarations).  Headers are emitted once at the top.
+# each .c file's quote-includes and the duplicate TRUE/FALSE defines.
+# Headers are emitted once at the top.  (This predates the preprocessor's
+# #ifndef support, when every #include "cc.h" re-expanded the header; it
+# is kept so the monolith, and so cc-out-v1, stay the same bytes.)
 #
 # Output: /tmp/cc-out is the seed-forth-built M2-Planet-compatible compiler
 # used by the Stage-A parity and bootstrap-chain checks (the monolith itself

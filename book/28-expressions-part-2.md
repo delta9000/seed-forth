@@ -393,7 +393,8 @@ goes back to the caller.  `cc-parse-operand` picks the operand's
 form from the token kind:
 
 ```forth chunk=expr-primary-operand
-\ cc-parse-operand ( -- )  Read one token and compile the operand it starts.
+\ cc-parse-operand ( -- )  Read one token and compile the operand it starts:
+\ a literal, a name, a cast or a parenthesised expression.
 : cc-parse-operand
   cc-next-token-keep
   tok-kind @ tk-num = if,
@@ -403,9 +404,16 @@ form from the token kind:
     \ Character literal — value is in tok-num just like a number.
     tok-num @ cc-emit-mov-rdi-imm32 exit,
   then,
-  tok-kind @ tk-str   = if, cc-parse-string-literal exit, then,
+  tok-kind @ tk-str   = if,
+    \ A string literal is a char*: "abc"[1] is one byte.
+    cc-parse-string-literal
+    ty-char [lit] 1 ty-make cc-last-expr-type ! exit,
+  then,
   tok-kind @ tk-ident = if, cc-parse-ident          exit, then,
-  lparen cc-tok-punct? if, cc-parse-paren exit, then,
+  lparen cc-tok-punct? if,
+    cc-try-cast-fwd if, exit, then,              \ '(' TYPE ')' operand
+    cc-parse-paren exit,
+  then,
   [lit] 97 cc-die ;
 
 ```
@@ -456,7 +464,10 @@ at all is code 97.
 A string literal is emitted *inline in the code segment*: a `jmp`
 over the bytes, the bytes and their NUL, then a `movabs` of their
 address into `rdi`.  There is no separate string pool, at the cost
-of 5 bytes of `jmp` per literal.
+of 5 bytes of `jmp` per literal.  Its type is `char*` (set in
+`cc-parse-operand` below), so `"abc"[1]` subscripts bytes and loads
+one: 98, which `tests/cc/N-string-index.c` checks.  Without the type
+it loaded the eight bytes starting at `b`.
 
 ### Identifiers, calls, and subscripts
 
@@ -659,13 +670,11 @@ A local dispatches on its type:
 ### Parentheses
 
 ```forth chunk=expr-primary-paren
-\ cc-parse-paren ( -- )  '(' expr ')'.  The parenthesised expr is not an
-\ lvalue (cc-parse-primary inside the recursive call will set/clear
-\ cc-last-ident-slot; we re-clear it here so e.g. `(x) = 1` doesn't get
-\ treated as lvalue).
+\ cc-parse-paren ( -- )  '(' expr ')'.  Parentheses only group: the inner
+\ expression's lvalue kind, slot, type and struct descriptor are left as
+\ its parse set them, so `(*p)++`, `(x) = 1` and `(p)->f` work.
 : cc-parse-paren
-  cc-parse-expr-fwd
-  cc-mark-not-lvalue
+  cc-parse-assign-fwd
   cc-next-token-keep
   [char] ) cc-tok-punct? 0= if,
     [lit] 96 cc-die
@@ -673,34 +682,62 @@ A local dispatches on its type:
 
 ```
 
-`( expr )` recurses through `cc-parse-expr-fwd` (Ch 27 §4) and then
-clears the lvalue state, so `(x) = 1` is rejected.  A missing `)` is
-code 96.
+`( expr )` recurses through `cc-parse-assign-fwd` (Ch 27 §4) and
+leaves the four facts of §1 as the inner expression set them, without
+materializing: parentheses only group.  So `(*p)++` bumps the pointer
+target, `(x) = 1` assigns, and `((struct pt*) raw)->y` still knows its
+struct.  Whoever consumes the value materializes it, the same
+instructions at the same point as before.  A missing `)` is code 96.
+The `(` could also start a cast, `(char*) p`; `cc-parse-operand` asks
+Ch 29's `cc-try-cast` (through `cc-try-cast-fwd`) before it treats
+the `(` as grouping.
 
 ### The postfix operators
 
 ```forth chunk=expr-primary-postfix-incdec
-\ cc-parse-postfix-inc-dec ( op -- )  Postfix '++' / '--' on a simple local.
-\ The operand parse already loaded the old value into rdi and recorded the
-\ slot in cc-last-ident-slot (lv-local).  Bump the slot in place; rdi keeps
-\ the old value.  Result is not an lvalue.
+\ cc-parse-postfix-inc-dec ( op -- )  Postfix '++' / '--' on an lvalue.
+\ For a local, the operand parse already loaded the old value into rdi and
+\ recorded the slot (lv-local): bump the slot in place.  For a pointer
+\ target, element or field, rdi holds its address (lv-deref /
+\ lv-deref-byte): load the old value through it and bump the memory in
+\ place.  Either way rdi keeps the old value, which is not an lvalue but
+\ keeps the operand's type, so `*s++` on a char* loads one byte.
 : cc-parse-postfix-inc-dec
-  cc-last-lvalue-kind @ lv-local <> if,
-    drop
-    [lit] 98 cc-die
-  then,
-  pt-plus-plus = if,
-    cc-last-ident-slot @ cc-emit-inc-mem-local
+  cc-last-expr-type @ >r                          ( op ; R: ty )
+  cc-last-lvalue-kind @ lv-local = if,
+    pt-plus-plus = if,
+      cc-last-ident-slot @ cc-emit-inc-mem-local
+    else,
+      cc-last-ident-slot @ cc-emit-dec-mem-local
+    then,
   else,
-    cc-last-ident-slot @ cc-emit-dec-mem-local
+    cc-deref-pending? 0= if,
+      drop
+      [lit] 98 cc-die
+    then,
+    cc-last-lvalue-kind @ lv-deref-byte =         ( op byte? )
+    cc-emit-mov-rcx-rdi                           \ rcx := address
+    dup cc-emit-load-via-rcx                      \ rdi := old value
+    swap pt-plus-plus = if,
+      cc-emit-inc-via-rcx
+    else,
+      cc-emit-dec-via-rcx
+    then,
   then,
-  cc-mark-not-lvalue ;
+  cc-mark-not-lvalue
+  r> cc-last-expr-type ! ;
 
 ```
 
-Postfix `++` and `--` accept only an `lv-local` (anything else is
-code 98).  They bump the slot in memory with `inc`/`dec` and leave
-the old value, already loaded, in `rdi`.  A subscript:
+Postfix `++` and `--` accept any lvalue (anything else is code 98).
+On an `lv-local` they bump the slot in memory with `inc`/`dec` and
+leave the old value, already loaded, in `rdi`.  On a pending
+dereference (a global, an element, a field, `*p`) the address is in
+`rdi`: it moves to `rcx`, the old value is loaded through it, and the
+memory is bumped through it, a byte for a `char`.  The result keeps
+the operand's type, so `*s++` on a `char*` loads one byte; before it
+did, the `*` saw no type and loaded eight
+(`tests/cc/L-starpp-char.c`).  A subscript:
 
 ```forth chunk=expr-primary-postfix-index
 \ cc-parse-postfix-index ( -- )  Postfix '[' INDEX ']' applied to whatever
@@ -947,6 +984,15 @@ keyword, `struct TAG`, a typedef name, or a local variable.
   cc-sizeof-bytes @ cc-emit-mov-rdi-imm32
   cc-mark-not-lvalue ;
 
+\ cc-name-alone? ( -- f )  The current token is a name; true unless a
+\ postfix operator or a call follows it (`--b->n` bumps the field, not b).
+\ Restores the lexer state.
+: cc-name-alone?
+  cc-peek-mark cc-lex-mark
+  cc-next-token
+  cc-postfix-op? lparen cc-tok-punct? or 0=
+  cc-peek-mark cc-lex-reset ;
+
 ```
 
 `cc-parse-sizeof` stores the answer in `cc-sizeof-bytes` rather
@@ -957,41 +1003,63 @@ Every path ends in `mov rdi, imm32`.
 
 ```forth chunk=expr-unary
 \ cc-parse-prefix-inc-dec ( delta -- )  delta = 1 (for ++) else dec.
-\ Called with the '++' / '--' punct ALREADY consumed.  Operand must be a
-\ simple IDENT referring to a local (other lvalue forms — pointer deref,
-\ struct member, array element — are not implemented).  Emits:
+\ Called with the '++' / '--' punct ALREADY consumed.  A plain local (a
+\ name with no postfix operator after it) is bumped in its slot:
 \   inc/dec qword [rbp+disp]    ; bump slot in-place
 \   mov rdi, [rbp+disp]         ; load new value
+\ Any other operand is parsed as a unary expression, which must leave the
+\ address of a pointer target, element or field (else die 113); that is
+\ bumped through rcx and the new value loaded.  The result is not an
+\ lvalue; it keeps the operand's type.
 : cc-parse-prefix-inc-dec                         ( delta -- )
   cc-next-token-keep
-  tok-kind @ tk-ident <> if,
+  tok-kind @ tk-ident = if,
+    tok-str-addr @ tok-str-len @ cc-sym-find      ( delta id )
+    dup 0< 0= if, dup cc-sym-kind-of sk-local = else, [lit] 0 then,
+    cc-name-alone? and if,
+      dup cc-sym-type-of >r
+      cc-sym-val-of                               ( delta slot ; R: ty )
+      swap                                        ( slot delta )
+      [lit] 1 = if,
+        dup cc-emit-inc-mem-local
+      else,
+        dup cc-emit-dec-mem-local
+      then,
+      cc-emit-load-local                          \ rdi := updated value
+      cc-mark-not-lvalue
+      r> cc-last-expr-type ! exit,
+    then,
     drop
-    [lit] 111 cc-die
   then,
-  tok-str-addr @ tok-str-len @ cc-sym-find
-  dup 0< if,
-    drop drop
-    [lit] 112 cc-die
-  then,
-  dup cc-sym-kind-of sk-local <> if,
-    drop drop
+  cc-putback-token
+  cc-parse-unary-fwd
+  cc-deref-pending? 0= if,
     [lit] 113 cc-die
   then,
-  cc-sym-val-of                                   ( delta slot )
-  swap                                            ( slot delta )
+  cc-last-expr-type @ >r                          ( delta ; R: ty )
+  cc-last-lvalue-kind @ lv-deref-byte =  swap     ( byte? delta )
+  cc-emit-mov-rcx-rdi                             \ rcx := address
   [lit] 1 = if,
-    dup cc-emit-inc-mem-local
+    dup cc-emit-inc-via-rcx
   else,
-    dup cc-emit-dec-mem-local
+    dup cc-emit-dec-via-rcx
   then,
-  cc-emit-load-local                              \ rdi := updated value
-  cc-mark-not-lvalue ;
+  cc-emit-load-via-rcx                            \ rdi := updated value
+  cc-mark-not-lvalue
+  r> cc-last-expr-type ! ;
 
 ```
 
-Prefix `++` and `--` accept only a local identifier (codes 111, 112
-and 113).  They bump the slot in memory, then load the new value into
-`rdi`.
+Prefix `++` and `--` on a plain local bump the slot in memory, then
+load the new value into `rdi`, as before.  "Plain" needs a look past
+the name: in `--b->n` the name `b` is a local, but the operand is the
+field, so `cc-name-alone?` takes a lexer mark, reads the next token and
+resets.  Any other operand is parsed as a unary expression (through
+`cc-parse-unary-fwd`, since `cc-parse-unary` is defined below); it must
+leave a pending dereference (else code 113), whose address is bumped
+through `rcx` and read back.  `tests/cc/P5-lvalue-ops.c` applies `++`,
+`--` and the compound assignments of §7 to a global, an element, a
+field, a `char` and a pointer target.
 
 ```forth chunk=expr-unary
 : cc-parse-unary
@@ -1175,6 +1243,11 @@ so Stage A never notices.
     [lit] 0
   then, ;
 
+\ cc-emit-load-via-rdi-or-byte ( byte? -- )  rdi := the byte or the qword
+\ at the address in rdi.
+: cc-emit-load-via-rdi-or-byte
+  if, cc-emit-load-byte-via-rdi else, cc-emit-load-via-rdi then, ;
+
 ```
 
 `cc-assign-op?` recognises plain `=` and the ten compound forms.  It
@@ -1243,11 +1316,28 @@ ruled out.
       over dup lv-deref = swap lv-deref-byte = or if,
         \ ---- Dereference lvalue (lv-deref / lv-deref-byte) ---------------
         \ rdi already holds the destination address (no load was emitted by
-        \ cc-parse-unary).  Plain `=` is supported on derefs; compound
-        \ +=/-= would require load-modify-store and is deferred.
+        \ cc-parse-unary).
         drop                                      ( kind )
         tok-num @ [char] = <> if,
-          [lit] 119 cc-die
+          \ Compound: load the old value through the address, combine,
+          \ store back through the same address.
+          tok-num @ swap                          ( op kind )
+          cc-emit-push-rdi                        \ save dest address
+          dup lv-deref-byte = cc-emit-load-via-rdi-or-byte
+          cc-emit-push-rdi                        \ save old value
+          >r >r                                   ( ; R: kind op )
+          cc-parse-assign
+          cc-emit-materialize
+          cc-emit-mov-rcx-rdi                     \ rcx := RHS
+          cc-emit-pop-rdi                         \ rdi := old value
+          r> cc-apply-compound-op                 \ rdi := old OP RHS
+          cc-emit-pop-rcx                         \ rcx := dest address
+          r> lv-deref-byte = if,
+            cc-emit-store-byte-via-rcx
+          else,
+            cc-emit-store-via-rcx
+          then,
+          cc-mark-not-lvalue exit,
         then,
         >r                                        \ R: kind
         cc-emit-push-rdi                          \ save dest address
@@ -1299,8 +1389,11 @@ ruled out.
    address.  The code keeps the kind on the return stack, pushes the
    address, parses the right side, swaps the registers so `rdi` holds
    the value and `rcx` the address, and emits a byte store for
-   `lv-deref-byte`, a qword store otherwise.  Only plain `=` is
-   accepted (code 119 otherwise).
+   `lv-deref-byte`, a qword store otherwise.  A compound operator
+   (`g += 5`, `a[i] <<= 2`, `p->n |= 1`) must read before it writes:
+   it pushes the address, loads the old value through it (a byte for
+   `lv-deref-byte`) and pushes that too, parses the right side, folds
+   with `cc-apply-compound-op`, pops the address into `rcx` and stores.
 6. `lv-value` is not an lvalue, as in `1 = 2`, and dies with code 120.
 
 **tri.c at this stage.**  tri.c writes `t.rows` on line 14 and reads
@@ -1356,25 +1449,176 @@ for `t.rows` both times and decided afterward what it was for.
   cc-parse-assign
   cc-emit-materialize ;
 
-\ Fill in the forward references declared at the top of the file.
-' cc-parse-expr   is cc-parse-expr-fwd
-' cc-parse-assign is cc-parse-assign-fwd
 ```
 
 `cc-parse-expr` is the only entry point the rest of the compiler
-uses.  It calls `cc-parse-assign` and then materializes, so every
-consumer sees a value in `rdi`, never a pending dereference.
+uses for code.  It calls `cc-parse-assign` and then materializes, so
+every consumer sees a value in `rdi`, never a pending dereference.
 
 It leaves the caller's data stack as it found it, so a statement
 can keep its fixups there, or a call its `( callee-id arg-count )`,
 across the parse: every parse word above consumes exactly what it
 pushes.
 
-The last two lines fill in the deferred words declared in Ch 27 §4,
-so `cc-parse-expr-fwd` and `cc-parse-assign-fwd` reach the real
-words.
+## 9. Constant expressions
 
-## 9. Putting the cascade together: full expression flow
+Some expressions are needed as numbers while compiling: `int
+table[N * M];`, `case K_B:`, `enum { A = 1 << 3 };`, `int g = -1;`,
+and every `#if` line (Ch 22).  They get a second, much smaller parser
+over the same grammar that computes instead of emitting:
+
+```forth chunk=expr-top
+\ ===========================================================================
+\ Constant expressions
+\ ===========================================================================
+\ An array size, a case label, an enum value, a global's initializer and an
+\ #if line need a value while compiling, not code.  cc-parse-const reads
+\ the grammar of cc-parse-ternary and computes it with the operator
+\ table's evaluator column instead of emitting instructions.  An operand
+\ is a number, a character, an enum constant or a parenthesised constant
+\ expression.  On an #if line (cc-cx-pp true) any identifier the
+\ preprocessor left is 0, as C says.  Errors: 125 for a name that isn't
+\ an enum constant, 126 for a token that can't start an operand, 127 for
+\ a missing ')', 128 for a '?' without its ':'.
+
+variable cc-cx-pp
+
+defer cc-parse-const-fwd
+
+\ cc-cx-operand ( -- v )
+: cc-cx-operand
+  cc-next-token-keep
+  tok-kind @ tk-num =  tok-kind @ tk-chr = or if, tok-num @ exit, then,
+  tok-kind @ tk-ident = if,
+    cc-cx-pp @ if, [lit] 0 exit, then,
+    tok-str-addr @ tok-str-len @ cc-sym-find                ( id )
+    dup 0< 0= if, dup cc-sym-kind-of sk-enum = else, [lit] 0 then,
+    0= if, [lit] 125 cc-die then,
+    cc-sym-val-of exit,
+  then,
+  lparen cc-tok-punct? if,
+    cc-parse-const-fwd
+    cc-next-token-keep
+    [char] ) cc-tok-punct? 0= if, [lit] 127 cc-die then,
+    exit,
+  then,
+  [lit] 126 cc-die ;
+
+\ cc-cx-unary ( -- v )  '-' '+' '!' '~' then an operand.
+: cc-cx-unary
+  cc-next-token-keep
+  [char] - cc-tok-punct? if, cc-cx-unary cc-negate       exit, then,
+  [char] + cc-tok-punct? if, cc-cx-unary                 exit, then,
+  [char] ! cc-tok-punct? if, cc-cx-unary 0= cc-flag      exit, then,
+  [char] ~ cc-tok-punct? if, cc-cx-unary cc-invert       exit, then,
+  cc-putback-token
+  cc-cx-operand ;
+
+\ cc-cx-binary ( level -- v )  One level of the operator table: operands
+\ from the level below, combined by this level's evaluators.  Level 0 is
+\ the unary operators.
+: cc-cx-binary
+  dup 0= if, drop cc-cx-unary exit, then,
+  dup 1- cc-cx-binary                               ( level v )
+  begin,
+    over cc-binop? dup                              ( level v row row | .. 0 0 )
+  while,
+    >r  over 1- cc-cx-binary                        ( level v w ; R: row )
+    r> bo-eval + @ execute                          ( level v' )
+  repeat,
+  drop cc-putback-token nip ;
+
+\ cc-cx-and ( -- v )   cc-cx-or ( -- v )   && and ||, answering 1 or 0.
+: cc-cx-and
+  level-bit-or cc-cx-binary
+  begin,
+    cc-next-token-keep pt-and-and cc-tok-punct?
+  while,
+    level-bit-or cc-cx-binary  0= 0= swap 0= 0= and cc-flag
+  repeat,
+  cc-putback-token ;
+
+: cc-cx-or
+  cc-cx-and
+  begin,
+    cc-next-token-keep pt-or-or cc-tok-punct?
+  while,
+    cc-cx-and  0= 0= swap 0= 0= or cc-flag
+  repeat,
+  cc-putback-token ;
+
+\ cc-parse-const ( -- v )  cond ? a : b, or just cond.
+: cc-parse-const
+  cc-cx-or
+  cc-next-token-keep
+  [char] ? cc-tok-punct? if,
+    cc-parse-const >r                               ( c ; R: a )
+    cc-next-token-keep
+    [char] : cc-tok-punct? 0= if, [lit] 128 cc-die then,
+    cc-parse-const                                  ( c b ; R: a )
+    swap if, drop r> else, r> drop then,
+  else,
+    cc-putback-token
+  then, ;
+
+' cc-parse-const is cc-parse-const-fwd
+
+```
+
+`cc-cx-binary` is the whole of the binary grammar in one word: the
+level template of Ch 27 §6, made recursive on the level number and
+reading the operator table's evaluator column instead of its emitter,
+so `1 + 2 * 3` is 7 and `(0-7) / 2` is -3 exactly as the emitted code
+would compute.  `&&` and `||` answer 1 or 0 but, unlike the run-time
+ones, evaluate both sides; a constant has no side effects to skip.
+An operand is a number, a character, an enum constant (`case K_B:`) or
+a parenthesised expression.  A variable is not a constant: code 125.
+A token that cannot start one is 126, a missing `)` 127 and a `?`
+without its `:` 128 (`tests/cc/die-125-const-not-enum.c` through
+`die-128-const-colon.c`).
+
+`#if` reaches the same evaluator through Ch 22's deferred
+`cc-pp-eval`.  Its text is not in the source buffer: it is the `#if`
+line after macro expansion, in the preprocessor's scratch area.  The
+lexer reads through `cc-src-buf + cc-src-pos`, so pointing
+`cc-src-pos` and `cc-src-len` at the text's offset from `cc-src-buf`
+makes it lex that text, and a lexer mark (Ch 23) puts everything back.
+Text left over after the expression, as in `#if 1 2`, is code 129:
+
+```forth chunk=expr-top
+\ cc-pp-eval-text ( a u -- n )  #if's evaluator (cc-pp-eval, 040): lex
+\ the expanded line a u, which lies above cc-src-buf, by pointing the
+\ reader at it, and evaluate it.  The lexer's state and cc-src-len are
+\ put back afterwards; anything left after the expression dies with 129.
+create cc-cx-save  cc-lex-state-size allot
+
+: cc-pp-eval-text
+  cc-cx-save cc-lex-mark
+  cc-src-len @ >r
+  over + cc-src-buf - cc-src-len !                  ( a )
+  cc-src-buf - cc-src-pos !
+  [lit] 0 cc-tok-pending !
+  true cc-cx-pp !
+  cc-parse-const
+  cc-next-token-keep  tok-kind @ tk-eof <> if, [lit] 129 cc-die then,
+  [lit] 0 cc-cx-pp !
+  r> cc-src-len !
+  cc-cx-save cc-lex-reset ;
+
+' cc-pp-eval-text is cc-pp-eval
+
+\ Fill in the forward references declared at the top of the file.
+' cc-parse-expr   is cc-parse-expr-fwd
+' cc-parse-assign is cc-parse-assign-fwd
+' cc-parse-unary  is cc-parse-unary-fwd
+```
+
+With `cc-cx-pp` set, a name the preprocessor left is 0, as C
+requires of `#if`.  The last three lines fill in the deferred words
+declared in Ch 27 §4, so `cc-parse-expr-fwd`, `cc-parse-assign-fwd`
+and `cc-parse-unary-fwd` reach the real words.
+
+## 10. Putting the cascade together: full expression flow
 
 A condition like `if (x->next != NULL && x->next->val > 0)` uses
 everything in Chs 27–28:

@@ -739,11 +739,12 @@ echo "exit: $?"                     # prints "exit: 16"
   cc-arena-ptr @ cc-arena-base - .d  bye ;
 steps
 FORTH
-  tri; } | ./seed-forth             # prints "484 470 120 1225 1241 656"
+  tri; } | ./seed-forth             # prints "484 466 120 1225 1241 656"
 ```
 
 `cc-load-stdin` puts all 484 bytes of `tri.c` in `cc-in-buf`; the
-preprocessor (Ch 22) writes 470 into `cc-src-buf`.  `cc-out-buf` holds the 120-byte ELF
+preprocessor (Ch 22) writes 466 into `cc-src-buf`, the `#define` line
+gone and each `ROWS` now ` 4 `.  `cc-out-buf` holds the 120-byte ELF
 header (Ch 25) before a single token is parsed, 1,225 bytes once both
 functions are compiled, and 1,241 once the 16 bytes of the global `t`
 are appended (Ch 26).  The last number is the arena: 656 bytes, one

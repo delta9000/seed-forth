@@ -1,0 +1,16 @@
+# Provenance: ours (seed-forth gcc64), not in live-bootstrap.
+# gcc64: tcc links against a static libc only; libtcc1.a (va_list.c) calls
+# abort(), which a single left-to-right scan of libc.a misses.
+--- a/tccelf.c
++++ b/tccelf.c
+@@ -1208,6 +1208,10 @@
+         }
+ #endif
+         tcc_add_support(s1, TCC_LIBTCC1);
++        /* gcc64: libtcc1.a (va_list.c) calls abort(); with a static libc
++           scan libc.a once more so such references resolve. */
++        if (s1->static_link)
++            tcc_add_library_err(s1, "c");
+         /* add crt end if not memory output */
+         if (s1->output_type != TCC_OUTPUT_MEMORY)
+             tcc_add_crt(s1, "crtn.o");

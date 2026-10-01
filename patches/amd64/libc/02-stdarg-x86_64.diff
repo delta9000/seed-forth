@@ -1,0 +1,53 @@
+# portable_libc: tcc's x86_64 va_list in stdarg.h.
+#
+# Applies to: libc64/include/stdarg.h.
+#
+# Why: portable_libc's va_list is a char pointer walking the stack, which is
+# right for pnut (it passes every argument on the stack) but not for tcc on
+# x86_64, which follows the SysV ABI and passes the first variadic
+# arguments in registers.  When __TINYC__ && __x86_64__, this is
+# tcc-0.9.27's own include/stdarg.h; its __va_start and __va_arg live in
+# tcc-0.9.27/lib/va_list.c, which the chain compiles unmodified into
+# libtcc1.a.  pnut still sees the char-pointer version.
+--- a/include/stdarg.h
++++ b/include/stdarg.h
+@@ -1,6 +1,34 @@
+ #ifndef _STDARG_H
+ #define _STDARG_H
+ 
++#if defined(__TINYC__) && defined(__x86_64__)
++
++/* tcc on x86_64 passes variadic arguments in registers (SysV ABI); this is
++   tcc-0.9.27's include/stdarg.h.  __va_start and __va_arg are in
++   tcc-0.9.27/lib/va_list.c, which goes into libtcc1.a. */
++typedef struct {
++    unsigned int gp_offset;
++    unsigned int fp_offset;
++    union {
++        unsigned int overflow_offset;
++        char *overflow_arg_area;
++    };
++    char *reg_save_area;
++} __va_list_struct;
++
++typedef __va_list_struct va_list[1];
++
++void __va_start(__va_list_struct *ap, void *fp);
++void *__va_arg(__va_list_struct *ap, int arg_type, int size, int align);
++
++#define va_start(ap, last) __va_start(ap, __builtin_frame_address(0))
++#define va_arg(ap, type)                                                \
++    (*(type *)(__va_arg(ap, __builtin_va_arg_types(type), sizeof(type), __alignof__(type))))
++#define va_copy(dest, src) (*(dest) = *(src))
++#define va_end(ap)
++
++#else
++
+ typedef char *va_list;
+ 
+ #define va_ptr_size      (sizeof(void *))
+@@ -12,3 +40,4 @@
+ #define va_copy(d,s) ((d) = (s))
+ 
+ #endif
++#endif

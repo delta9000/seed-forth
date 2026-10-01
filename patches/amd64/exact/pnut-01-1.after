@@ -1,0 +1,7 @@
+#ifdef SMALL_HEAP
+#define HEAP_SIZE 131072 // 128 KB
+#else
+#define HEAP_SIZE 1048576 // 1 M words: x86_64 tcc needs 790991
+#endif
+intptr_t heap[HEAP_SIZE];
+int heap_alloc = HASH_PRIME;

@@ -7,8 +7,7 @@
 \
 \ Depends on 010-lib.fth (control-flow combinators, classifiers, bytes-eq, etc.),
 \ 020-cc-arena.fth (cc-lex-state and its cells), 030-cc-io.fth (cc-src-buf,
-\ cc-peek-char, cc-next-char, cc-eof?, ident-start?, ident-cont?), and
-\ 040-cc-prep.fth (cc-macro-find-int for macro substitution).
+\ cc-peek-char, cc-next-char, cc-eof?, ident-start?, ident-cont?).
 
 \ ===========================================================================
 \ Token kinds and punctuation IDs
@@ -237,6 +236,9 @@ kw, default
     then,
   then, ;
 
+\ cc-octal-digit? ( c -- f )  True for '0'..'7'.
+: cc-octal-digit?  [char] 0 - [lit] 8 / 0= ;
+
 \ cc-hex-digit-val ( c -- v )  Convert hex digit char to 0..15.
 : cc-hex-digit-val
   dup digit? if,
@@ -277,31 +279,55 @@ kw, default
   tok-num !
   tk-num tok-kind ! ;
 
-\ cc-lex-number ( -- )  Decimal, or hex (0x/0X) if the first two chars match.
+\ cc-lex-number-oct ( -- )  A leading '0' already consumed; read octal
+\ digits into tok-num (C's 010 is eight).
+: cc-lex-number-oct
+  [lit] 0
+  begin,
+    cc-eof? 0=
+    cc-peek-char cc-octal-digit? and
+  while,
+    [lit] 8 *
+    cc-peek-char [char] 0 - +
+    cc-next-char drop
+  repeat,
+  tok-num !
+  tk-num tok-kind ! ;
+
+\ cc-lex-number ( -- )  Hex if it starts 0x or 0X, octal if it starts with
+\ 0 and another digit, else decimal.  A u/U/l/L suffix is skipped: every
+\ integer is 64 bits here.
 : cc-lex-number
   cc-peek-char-2                                  ( c1 c2 )
   over [char] 0 = if,                             \ c1 == '0' ?
-    dup [char] x = swap [char] X = or if,         \ c2 == 'x' or 'X' ?
-      drop                                        \ pop c1
+    dup [char] x = over [char] X = or if,         \ c2 == 'x' or 'X' ?
+      2drop
       cc-next-char drop                           \ consume '0'
       cc-next-char drop                           \ consume 'x'/'X'
       cc-lex-number-hex
     else,
-      drop                                        \ pop c1
-      cc-lex-number-dec
+      digit? if,                                  \ c2 a digit: octal
+        drop
+        cc-next-char drop                         \ consume '0'
+        cc-lex-number-oct
+      else,
+        drop cc-lex-number-dec
+      then,
     then,
   else,
     2drop
     cc-lex-number-dec
-  then, ;
+  then,
+  begin,
+    cc-peek-char dup [char] u = over [char] U = or
+    over [char] l = or  swap [char] L = or
+  while,
+    cc-next-char drop
+  repeat, ;
 
 \ cc-lex-ident-or-kw ( -- )  Read [a-zA-Z_][a-zA-Z0-9_]* and check the
-\ keyword table.  Sets tok-str-addr/len, then dispatches kind.
-\
-\ After the keyword check, if the ident did NOT match a keyword, consult the
-\ preprocessor's macro table (cc-macro-find-int).  On match,
-\ replace the token: tk-num with tok-num = the macro's integer value.
-\ Object-like, integer-valued macros only.
+\ keyword table.  Sets tok-str-addr/len, then dispatches kind.  Macros are
+\ already expanded (040-cc-prep.fth), so an identifier is just a name.
 : cc-lex-ident-or-kw
   cc-src-buf cc-src-pos @ +                     \ start address
   [lit] 0                                       ( start len )
@@ -313,16 +339,7 @@ kw, default
     1+
   repeat,
   tok-str-len !  tok-str-addr !
-  cc-check-keyword
-  tok-kind @ tk-ident = if,
-    tok-str-addr @ tok-str-len @ cc-macro-find-int  ( v found? )
-    if,
-      tok-num !
-      tk-num tok-kind !
-    else,
-      drop
-    then,
-  then, ;
+  cc-check-keyword ;
 
 \ cc-lex-string ( -- )  Read "..." preserving escape sequences as literal
 \ bytes (a \" inside the body is two bytes long; the closing quote is the
@@ -352,23 +369,56 @@ kw, default
   tok-str-len !  tok-str-addr !
   tk-str tok-kind ! ;
 
-\ cc-decode-escape ( c -- byte )  The byte the escape \c stands for: \n \t
-\ \r \0 are newline, tab, carriage return and NUL; any other c (including
-\ \\ \' \") stands for itself.  The one table for both character literals
-\ (cc-lex-char) and string literals (cc-emit-string-bytes, 090).  \xNN is
-\ not supported.
+\ cc-decode-escape ( a -- byte n )  a is the address of what follows a
+\ backslash; answer the byte the escape stands for and how many bytes the
+\ escape takes after the backslash.  \n \t \r \a \b \f \v are the usual
+\ control characters; \ooo (one to three octal digits, so \0 too) and
+\ \xhh... (hex digits) give a byte by value; any other \c (including \\
+\ \' \") stands for c itself.  The one table for both character literals
+\ (cc-lex-char) and string literals (cc-emit-string-bytes, 090).
+variable cc-esc-a
+variable cc-esc-v
+variable cc-esc-n
 : cc-decode-escape
-  dup [char] n = if, drop nl       exit, then,
-  dup [char] t = if, drop tab      exit, then,
-  dup [char] r = if, drop [lit] 13 exit, then,
-  dup [char] 0 = if, drop [lit] 0  exit, then, ;
+  dup cc-esc-a !  c@
+  dup [char] x = if,
+    drop  [lit] 0 cc-esc-v !  [lit] 1 cc-esc-n !
+    begin,
+      cc-esc-a @ cc-esc-n @ + c@  dup cc-hex-digit?
+    while,
+      cc-hex-digit-val  cc-esc-v @ [lit] 16 * +  cc-esc-v !
+      [lit] 1 cc-esc-n +!
+    repeat,
+    drop  cc-esc-v @ [lit] 255 and  cc-esc-n @ exit,
+  then,
+  dup cc-octal-digit? if,
+    drop  [lit] 0 cc-esc-v !  [lit] 0 cc-esc-n !
+    begin,
+      cc-esc-a @ cc-esc-n @ + c@
+      dup cc-octal-digit?  cc-esc-n @ [lit] 3 < and
+    while,
+      [char] 0 -  cc-esc-v @ [lit] 8 * +  cc-esc-v !
+      [lit] 1 cc-esc-n +!
+    repeat,
+    drop  cc-esc-v @ [lit] 255 and  cc-esc-n @ exit,
+  then,
+  dup [char] n = if, drop nl       [lit] 1 exit, then,
+  dup [char] t = if, drop tab      [lit] 1 exit, then,
+  dup [char] r = if, drop [lit] 13 [lit] 1 exit, then,
+  dup [char] a = if, drop [lit]  7 [lit] 1 exit, then,
+  dup [char] b = if, drop [lit]  8 [lit] 1 exit, then,
+  dup [char] f = if, drop [lit] 12 [lit] 1 exit, then,
+  dup [char] v = if, drop [lit] 11 [lit] 1 exit, then,
+  [lit] 1 ;
 
 \ cc-lex-char ( -- )  Read 'c' or '\c'.  Stores the byte value in tok-num.
 : cc-lex-char
   cc-next-char drop                             \ consume opening '
   cc-peek-char backslash = if,                  \ escape
     cc-next-char drop                           \ consume backslash
-    cc-next-char cc-decode-escape               ( byte )
+    cc-src-buf cc-src-pos @ + cc-decode-escape  ( byte n )
+    begin, dup while, cc-next-char drop 1- repeat,
+    drop
   else,
     cc-next-char                                \ literal char
   then,
@@ -612,3 +662,8 @@ kw, default
 
 \ cc-lex-reset ( buf -- )  Restore the lexer state saved by cc-lex-mark.
 : cc-lex-reset  cc-lex-state cc-lex-copy ;
+
+\ cc-peek-mark is the one mark every lookahead in the parser uses.  Between
+\ marking and resetting, each of them only reads tokens, so no lookahead
+\ can start while another is in progress and one buffer serves them all.
+create cc-peek-mark  cc-lex-state-size allot

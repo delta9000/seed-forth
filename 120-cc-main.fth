@@ -6,8 +6,8 @@
 \   010-lib.fth        — primitives, syscalls, control-flow, defining words
 \   020-cc-arena.fth   — bump allocator (must load before 030-cc-io.fth)
 \   030-cc-io.fth      — source buffer, output buffer, file I/O
-\   040-cc-prep.fth    — preprocessor (#include, #define)
-\   050-cc-lex.fth     — tokenizer (depends on 040-cc-prep.fth for macro lookup)
+\   040-cc-prep.fth    — preprocessor (#include, #define, #if; expands macros)
+\   050-cc-lex.fth     — tokenizer (reads what 040-cc-prep.fth wrote)
 \   060-cc-types.fth   — type encoding (int, char, pointer, struct)
 \   070-cc-sym.fth     — symbol table (parallel arrays, scope stack)
 \   080-cc-elf.fth     — ELF header emission

@@ -1,0 +1,155 @@
+# portable_libc: an x86_64 Linux branch in crt1.c.
+#
+# Applies to: a copy of vendor/pnut/portable_libc (-> libc64), src/crt1.c.
+#
+# Why: portable_libc's crt1.c has system-call wrappers only for i386
+# (`int $0x80`) and stops with "#error Unsupported architecture" anywhere
+# else.  tcc compiles crt1.c without PNUT_CC, so it needs real x86_64 code:
+# _start (argc at (%rsp), argv at 8(%rsp); aligns the stack to 16 bytes for
+# the SysV ABI, then exit(main(argc, argv))) in top-level asm, and
+# `syscall` wrappers for exit, read, write, open, close, lseek, unlink,
+# mkdir, chmod, access and getcwd, with the x86_64 syscall numbers.
+# `syscall` is spelled .byte 0x0f,0x05 as the i386 branch spells int $0x80.
+--- a/src/crt1.c
++++ b/src/crt1.c
+@@ -141,6 +141,140 @@
+   return result;
+ }
+ 
++#elif defined(__x86_64__)
++
++/* x86_64 Linux: syscall number in rax, args in rdi, rsi, rdx; rcx and r11 clobbered. */
++
++void exit(int status) {
++  __asm__ __volatile__ (
++    "mov   $60, %%eax\n"  /* 60 = SYS_EXIT */
++    ".byte 0x0f,0x05\n"   /* syscall */
++    : : "D" (status)
++  );
++  while (1) ; /* avoid noreturn warning */
++}
++
++/* At process entry (%rsp) = argc, 8(%rsp) = argv[0].  _start is entered by a
++   jump, not a call, so it is written in top-level asm: it aligns the stack to
++   16 bytes (the SysV ABI requires it at the call to main) and calls
++   exit(main(argc, argv)). */
++__asm__ (
++  ".global _start\n"
++  "_start:\n"
++  "  xor   %ebp, %ebp\n"
++  "  mov   (%rsp), %rdi\n"     /* argc */
++  "  lea   8(%rsp), %rsi\n"    /* argv */
++  "  and   $-16, %rsp\n"
++  "  call  main\n"
++  "  mov   %eax, %edi\n"
++  "  call  exit\n"
++);
++
++ssize_t read(int fd, void *buf, size_t count) {
++  ssize_t result;
++  __asm__ __volatile__ (
++    "mov   $0, %%eax\n"   /* 0 = SYS_READ */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (fd), "S" (buf), "d" (count) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++ssize_t write(int fd, void *buf, size_t count) {
++  ssize_t result;
++  __asm__ __volatile__ (
++    "mov   $1, %%eax\n"   /* 1 = SYS_WRITE */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (fd), "S" (buf), "d" (count) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++int open(const char *pathname, int flags, ...) {
++  va_list ap;
++  va_start(ap, flags);
++  int mode = va_arg(ap, int);
++  va_end(ap);
++
++  long result;
++  __asm__ __volatile__ (
++    "mov   $2, %%eax\n"   /* 2 = SYS_OPEN */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (pathname), "S" (flags), "d" (mode) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++int close(int fd) {
++  long result;
++  __asm__ __volatile__ (
++    "mov   $3, %%eax\n"   /* 3 = SYS_CLOSE */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (fd) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++off_t lseek(int fd, off_t offset, int whence) {
++  off_t result;
++  __asm__ __volatile__ (
++    "mov   $8, %%eax\n"   /* 8 = SYS_LSEEK */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (fd), "S" (offset), "d" (whence) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++int unlink(const char *pathname) {
++  long result;
++  __asm__ __volatile__ (
++    "mov   $87, %%eax\n"  /* 87 = SYS_UNLINK */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (pathname) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++int mkdir(const char *pathname, mode_t mode) {
++  long result;
++  __asm__ __volatile__ (
++    "mov   $83, %%eax\n"  /* 83 = SYS_MKDIR */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (pathname), "S" (mode) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++int chmod(const char *pathname, mode_t mode) {
++  long result;
++  __asm__ __volatile__ (
++    "mov   $90, %%eax\n"  /* 90 = SYS_CHMOD */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (pathname), "S" (mode) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++int access(const char *pathname, int amode) {
++  long result;
++  __asm__ __volatile__ (
++    "mov   $21, %%eax\n"  /* 21 = SYS_ACCESS */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (pathname), "S" (amode) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
++char *_getcwd(char *buf, size_t size) {
++  char *result;
++  __asm__ __volatile__ (
++    "mov   $79, %%eax\n"  /* 79 = SYS_GETCWD */
++    ".byte 0x0f,0x05\n"
++    : "=a" (result) : "D" (buf), "S" (size) : "rcx", "r11", "memory"
++  );
++  return result;
++}
++
+ #else
+ 
+ #error Unsupported architecture

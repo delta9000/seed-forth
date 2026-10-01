@@ -1,0 +1,24 @@
+# Provenance: ours (seed-forth gcc64), not in live-bootstrap.
+# gcc-4.0.4: collect2 unlinks its output file (-o) whenever the link fails,
+# without checking what it is.  musl's configure (tryldflag: -shared ... -o
+# /dev/null) probes linker flags; a failing probe made collect2 unlink /dev/null, which as
+# root replaces the device with a regular file (found by strace: unlink("/dev/null")
+# from collect2 during stage 7).  gcc-4.7.4 uses libiberty's unlink_if_ordinary(); do
+# the same by hand (4.0.4's libiberty lacks it).
+--- a/gcc/collect2.c	2026-09-27 18:28:13.186452381 +0000
++++ b/gcc/collect2.c	2026-09-27 18:28:13.209949376 +0000
+@@ -1622,6 +1622,14 @@
+ static void
+ maybe_unlink (const char *file)
+ {
++  struct stat st;
++
++  /* gcc64: only unlink regular files and symlinks (what later gccs do with
++     libiberty's unlink_if_ordinary).  Autoconf links to -o /dev/null; when
++     that link fails, collect2 used to unlink /dev/null, which as root
++     replaces the device node with a regular file.  */
++  if (lstat (file, &st) == 0 && !S_ISREG (st.st_mode) && !S_ISLNK (st.st_mode))
++    return;
+   if (!debug)
+     unlink (file);
+   else

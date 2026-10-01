@@ -25,8 +25,26 @@ compiler's M1 output against GCC-built M2-Planet.
   `hex2` without GCC.
 - `book/` — literate-programming book.  Every fenced code block
   tagged `file=...` is the canonical source for that file.
-- `vendor/stage0-posix`, `vendor/M2-Planet`, `vendor/mescc-tools`
-  — pinned submodules.
+- `vendor/stage0-posix`, `vendor/M2-Planet`, `vendor/mescc-tools`,
+  `vendor/pnut` — pinned submodules.
+- `tests/pnut/sf-pnut-check.sh` (i386 route to TinyCC, pnut's kit
+  unchanged) and `tests/pnut/sf-pnut-amd64-check.sh` (amd64 route:
+  seed-forth → SF-built pnut → tcc-0.9.27 x86_64, every stage hash
+  pinned; test programs in `tests/pnut/amd64/`).
+- `patches/amd64/` — our patches for the amd64 route (pnut heap size,
+  4 tcc-0.9.27, 6 portable_libc), unified diffs with explanatory
+  headers, applied to scratch copies with exact manifests; never edit `vendor/pnut`.
+  `tools/amd64-start.fth` builds the recipe runner directly from the seed;
+  `tools/amd64.recipe` contains explicit operations and artifact pins. See
+  `HOST-TOOLS.md` for the shell-free boundary and focused checks.  After
+  changing one, re-pin with `SF_PNUT64_REPIN=1` (see its README).
+- `gcc64/run-gcc64.sh` — the amd64 chain on from `tcc-boot2` to GCC 15.2
+  via musl (stage 0 = `sf-pnut-amd64-check.sh`; ~1.5 h, so only in
+  `verify.sh` with `VERIFY_GCC64=1`).  Sources pinned in `gcc64/SOURCES`
+  (fetched into gitignored `build-out/gcc64-cache`, never committed),
+  artifact pins in `gcc64/HASHES` (`root`-scoped ones embed the build
+  path), patches in `patches/gcc64/` (provenance header on each), tests in
+  `tests/gcc64/`.  See `gcc64/README.md`.
 - `tests/cc/stage-a-check.sh` — the byte-identity proof.
 - `REPRODUCIBLE.md` — full fixed-point chain (deeper than book
   Appendix C, which is the reader-facing summary).
@@ -67,10 +85,10 @@ unless the dependency graph forbids it.
 ## Quick health check
 
 ```sh
-./check-all.sh                 # build, tests, tangle --strict, book numbers/index/links, try-it, stage-A, bootstrap, handoff
+./check-all.sh                 # build, tests, tangle --strict, book numbers/index/links, try-it, stage-A, bootstrap, pnut (i386, amd64), handoff
 ```
 
-`check-all.sh` runs all twelve steps in sequence with per-step
+`check-all.sh` runs all fourteen steps in sequence with per-step
 pass/fail logging.  Use it before committing or after editing any
 fenced code block — or any exact byte count, offset, or file line
 count in prose — in `book/`.  The individual commands are still
@@ -86,7 +104,10 @@ tests/cc/stage-a-check.sh      # byte-identical M1 vs GCC
 ./bootstrap.sh                 # GCC-free build: seed -> M2-Planet, M1, hex2 (fixed point)
 ./verify.sh                    # every comparison against GCC-built references
 tests/cc/stage0-check.sh       # stage0-posix route vs Forth route (needs stage0 nested submodules)
+tests/pnut/sf-pnut-check.sh    # our compiler builds unmodified pnut; SF_PNUT_TCC=1 goes on to tcc-0.9.27
+tests/pnut/sf-pnut-amd64-check.sh  # amd64 route to tcc-0.9.27 (~10 s, no gcc); SF_PNUT64_GCC_ORACLE=1 adds the gcc reference
 ./handoff.sh                   # Forth route reproduces stage0-posix's AMD64 and x86 bin/ (19/19 answers each)
+gcc64/run-gcc64.sh             # amd64 tcc-boot2 -> musl -> gcc-4.0.4/4.7.4/10.5.0 -> GCC 15.2 (~1.5 h; not in check-all)
 tools/gen-index.py --check     # book/WORD-INDEX.md is up to date
 tools/check-links.py           # every link and anchor in book/ resolves
 ```

@@ -152,7 +152,9 @@ SPAN_SEED_RE = re.compile(
 # per-word .fth citation: "`cc-parse-struct-def` (lines 196-279)" (tight: paren required)
 SPAN_FTH_RE = re.compile(r"`([a-z][a-z0-9-]+)`\s*\(lines\s+(\d+)([–-])(\d+)\)")
 FTH_DEF_RE = re.compile(r"^\s*:\s+(\S+)")
-FTH_SEMI_RE = re.compile(r"(^|\s);(\s|$)")
+# A `;` token ends a definition, unless it is the argument of `char` or
+# `[char]` (`[char] ; cc-tok-punct?` tests for a semicolon token).
+FTH_SEMI_RE = re.compile(r"(^|\s)(?<!char\s)(?<!\[char\]\s);(\s|$)")
 
 # single-line `file.fth:line` citations (A6/A7)
 # A die site is any word that exits with a literal code: `[lit] N die` (the

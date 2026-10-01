@@ -25,8 +25,9 @@ which way a region fills.
 0x1400000 +-----------------------------------------+ end of the 16 MiB PT_LOAD
           | unused tail                             |
           |                                         |
-          | ^ compiler tables: macros, symbols,     |
-          |   types, scopes, globals (grow up)      |
+          | ^ compiler tables: macros, macro        |
+          |   scratch, includes, symbols, scopes,   |
+          |   globals, fixups (grow up; ~3.7 MiB)   |
 0x814000  +-----------------------------------------+
           | output buffer                 1 MiB     |
 0x714000  +-----------------------------------------+
@@ -92,7 +93,7 @@ detail.
 | `0x414000` — `0x513FFF` | 1 MiB | C compiler's **input buffer** `cc-in-buf` (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
 | `0x514000` — `0x713FFF` | 2 MiB | C compiler's **source buffer** `cc-src-buf` (preprocessed source, read by the lexer) | `cc-preprocess` | Chs 21, 22 |
 | `0x714000` — `0x813FFF` | 1 MiB | C compiler's **output buffer** `cc-out-buf` (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
-| `0x814000` — *(grows up)* | ~1 MiB | macro table + 16 KiB name pool, include pool, symbol/type/scope parallel arrays, globals buffer — all `create … allot`'d in load order across `040`–`110` | `cc-*` | Chs 22, 24, 26, 31 |
+| `0x814000` — *(grows up)* | ~3.7 MiB | macro table + 64 KiB macro pool, 2 MiB macro scratch, 1 MiB include pool (4 × 256 KiB), symbol/type/scope parallel arrays, 64 KiB globals data area, 16,384-entry fixup table — all `create … allot`'d in load order across `040`–`116`, ending near `0xBD1500` | `cc-*` | Chs 22, 24, 26, 31 |
 | *(end of buffers)* — `0x13FFFFF` | remainder | genuinely unused tail of the 16 MiB `PT_LOAD` | — | Ch 13 |
 
 The numbers come from `020-cc-arena.fth` and `030-cc-io.fth`: the
@@ -105,7 +106,11 @@ the jump the input buffer (1 MiB) is created at `0x414000`, the
 source buffer (2 MiB) at `0x514000` and the output buffer (1 MiB) at
 `0x714000`.  Every later compiler buffer (the macro, symbol, type,
 string, and globals tables) continues upward from `0x814000` in load
-order.  None of these are separately
+order.  The largest are the preprocessor's: 2 MiB of scratch for
+macro arguments and replacements, and 1 MiB for included files.
+A compiled program's global *arrays* take no room here at all: they
+are only a size until the output ELF's `p_memsz` asks the kernel for
+them (Ch 26 §5).  None of these are separately
 mmapped; they are `create … allot`'d inside the existing `PT_LOAD`
 segment.
 

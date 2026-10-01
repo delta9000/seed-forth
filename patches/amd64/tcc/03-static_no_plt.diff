@@ -1,0 +1,37 @@
+# tcc-0.9.27 bug (x86_64, -static): calls go through a PLT that is never filled.
+#
+# Applies to: tcc-0.9.27/tccelf.c (build_got_entries).
+#
+# Why: on x86_64, tcc routes R_X86_64_PLT32/PC32 relocations to a default-
+# visibility global symbol through the PLT, also in a -static link.  But
+# relocate_plt only runs when the output has a .dynamic section, which a
+# -static executable does not, so every such call jumps into an unfilled
+# PLT slot and the program crashes.  Under BOOTSTRAP (set by every build in
+# this chain) a static link resolves those relocations directly to the
+# defined symbol, as it already does for local and hidden symbols.
+#
+# This is tcc's bug, not pnut's: a gcc-built tcc-0.9.27 from the same
+# sources and flags, without this patch and 04-static_fill_got.diff, builds
+# a static hello-world that segfaults, byte-identical (sha256 e3c6d1b2...)
+# to what the pnut-built tcc makes of it.  Each of the two patches alone
+# still leaves a crashing binary; both together make it run.  i386 is not
+# affected: it emits plain PC32 relocations for calls and uses no GOT for
+# data in this configuration.
+--- a/tccelf.c
++++ b/tccelf.c
+@@ -1081,7 +1081,14 @@
+ #ifdef TCC_TARGET_X86_64
+             if ((type == R_X86_64_PLT32 || type == R_X86_64_PC32) &&
+                 (ELFW(ST_VISIBILITY)(sym->st_other) != STV_DEFAULT ||
+-		 ELFW(ST_BIND)(sym->st_info) == STB_LOCAL)) {
++		 ELFW(ST_BIND)(sym->st_info) == STB_LOCAL
++#ifdef BOOTSTRAP
++                 /* tcc-0.9.27 never relocates the PLT of a -static exe
++                    (relocate_plt is only called when there is a .dynamic
++                    section), so a static exe must not call through it. */
++                 || (s1->static_link && sym->st_shndx != SHN_UNDEF)
++#endif
++                 )) {
+                 rel->r_info = ELFW(R_INFO)(sym_index, R_X86_64_PC32);
+                 continue;
+             }

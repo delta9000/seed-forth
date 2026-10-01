@@ -34,11 +34,14 @@
 \ and a call's arguments re-enter the whole grammar, and the ternary's arms
 \ parse assignments.  cc-parse-expr and cc-parse-assign are defined near the
 \ end of this file, so the words before them call these deferred words
-\ (010-lib.fth), which the last lines of the file fill in.
+\ (010-lib.fth), which the last lines of the file fill in.  A cast needs
+\ the type parser of 110-cc-decl.fth, which fills in cc-try-cast-fwd.
 \ ===========================================================================
 
 defer cc-parse-expr-fwd                           \ runs cc-parse-expr
 defer cc-parse-assign-fwd                         \ runs cc-parse-assign
+defer cc-try-cast-fwd                             \ runs cc-try-cast (110)
+defer cc-parse-unary-fwd                          \ runs cc-parse-unary
 
 \ ===========================================================================
 \ Token tests.  Is the current token this punctuation, or this keyword?
@@ -570,19 +573,18 @@ variable cc-ff-result-type                           \ matched field's encoded t
   drop
   [lit] 95 cc-die ;
 
-\ cc-parse-paren ( -- )  '(' expr ')'.  The parenthesised expr is not an
-\ lvalue (cc-parse-primary inside the recursive call will set/clear
-\ cc-last-ident-slot; we re-clear it here so e.g. `(x) = 1` doesn't get
-\ treated as lvalue).
+\ cc-parse-paren ( -- )  '(' expr ')'.  Parentheses only group: the inner
+\ expression's lvalue kind, slot, type and struct descriptor are left as
+\ its parse set them, so `(*p)++`, `(x) = 1` and `(p)->f` work.
 : cc-parse-paren
-  cc-parse-expr-fwd
-  cc-mark-not-lvalue
+  cc-parse-assign-fwd
   cc-next-token-keep
   [char] ) cc-tok-punct? 0= if,
     [lit] 96 cc-die
   then, ;
 
-\ cc-parse-operand ( -- )  Read one token and compile the operand it starts.
+\ cc-parse-operand ( -- )  Read one token and compile the operand it starts:
+\ a literal, a name, a cast or a parenthesised expression.
 : cc-parse-operand
   cc-next-token-keep
   tok-kind @ tk-num = if,
@@ -592,26 +594,49 @@ variable cc-ff-result-type                           \ matched field's encoded t
     \ Character literal — value is in tok-num just like a number.
     tok-num @ cc-emit-mov-rdi-imm32 exit,
   then,
-  tok-kind @ tk-str   = if, cc-parse-string-literal exit, then,
+  tok-kind @ tk-str   = if,
+    \ A string literal is a char*: "abc"[1] is one byte.
+    cc-parse-string-literal
+    ty-char [lit] 1 ty-make cc-last-expr-type ! exit,
+  then,
   tok-kind @ tk-ident = if, cc-parse-ident          exit, then,
-  lparen cc-tok-punct? if, cc-parse-paren exit, then,
+  lparen cc-tok-punct? if,
+    cc-try-cast-fwd if, exit, then,              \ '(' TYPE ')' operand
+    cc-parse-paren exit,
+  then,
   [lit] 97 cc-die ;
 
-\ cc-parse-postfix-inc-dec ( op -- )  Postfix '++' / '--' on a simple local.
-\ The operand parse already loaded the old value into rdi and recorded the
-\ slot in cc-last-ident-slot (lv-local).  Bump the slot in place; rdi keeps
-\ the old value.  Result is not an lvalue.
+\ cc-parse-postfix-inc-dec ( op -- )  Postfix '++' / '--' on an lvalue.
+\ For a local, the operand parse already loaded the old value into rdi and
+\ recorded the slot (lv-local): bump the slot in place.  For a pointer
+\ target, element or field, rdi holds its address (lv-deref /
+\ lv-deref-byte): load the old value through it and bump the memory in
+\ place.  Either way rdi keeps the old value, which is not an lvalue but
+\ keeps the operand's type, so `*s++` on a char* loads one byte.
 : cc-parse-postfix-inc-dec
-  cc-last-lvalue-kind @ lv-local <> if,
-    drop
-    [lit] 98 cc-die
-  then,
-  pt-plus-plus = if,
-    cc-last-ident-slot @ cc-emit-inc-mem-local
+  cc-last-expr-type @ >r                          ( op ; R: ty )
+  cc-last-lvalue-kind @ lv-local = if,
+    pt-plus-plus = if,
+      cc-last-ident-slot @ cc-emit-inc-mem-local
+    else,
+      cc-last-ident-slot @ cc-emit-dec-mem-local
+    then,
   else,
-    cc-last-ident-slot @ cc-emit-dec-mem-local
+    cc-deref-pending? 0= if,
+      drop
+      [lit] 98 cc-die
+    then,
+    cc-last-lvalue-kind @ lv-deref-byte =         ( op byte? )
+    cc-emit-mov-rcx-rdi                           \ rcx := address
+    dup cc-emit-load-via-rcx                      \ rdi := old value
+    swap pt-plus-plus = if,
+      cc-emit-inc-via-rcx
+    else,
+      cc-emit-dec-via-rcx
+    then,
   then,
-  cc-mark-not-lvalue ;
+  cc-mark-not-lvalue
+  r> cc-last-expr-type ! ;
 
 \ cc-parse-postfix-index ( -- )  Postfix '[' INDEX ']' applied to whatever
 \ value the primary has produced so far (typically after a chain of '.' /
@@ -843,36 +868,60 @@ variable cc-sizeof-bytes
   cc-sizeof-bytes @ cc-emit-mov-rdi-imm32
   cc-mark-not-lvalue ;
 
+\ cc-name-alone? ( -- f )  The current token is a name; true unless a
+\ postfix operator or a call follows it (`--b->n` bumps the field, not b).
+\ Restores the lexer state.
+: cc-name-alone?
+  cc-peek-mark cc-lex-mark
+  cc-next-token
+  cc-postfix-op? lparen cc-tok-punct? or 0=
+  cc-peek-mark cc-lex-reset ;
+
 \ cc-parse-prefix-inc-dec ( delta -- )  delta = 1 (for ++) else dec.
-\ Called with the '++' / '--' punct ALREADY consumed.  Operand must be a
-\ simple IDENT referring to a local (other lvalue forms — pointer deref,
-\ struct member, array element — are not implemented).  Emits:
+\ Called with the '++' / '--' punct ALREADY consumed.  A plain local (a
+\ name with no postfix operator after it) is bumped in its slot:
 \   inc/dec qword [rbp+disp]    ; bump slot in-place
 \   mov rdi, [rbp+disp]         ; load new value
+\ Any other operand is parsed as a unary expression, which must leave the
+\ address of a pointer target, element or field (else die 113); that is
+\ bumped through rcx and the new value loaded.  The result is not an
+\ lvalue; it keeps the operand's type.
 : cc-parse-prefix-inc-dec                         ( delta -- )
   cc-next-token-keep
-  tok-kind @ tk-ident <> if,
+  tok-kind @ tk-ident = if,
+    tok-str-addr @ tok-str-len @ cc-sym-find      ( delta id )
+    dup 0< 0= if, dup cc-sym-kind-of sk-local = else, [lit] 0 then,
+    cc-name-alone? and if,
+      dup cc-sym-type-of >r
+      cc-sym-val-of                               ( delta slot ; R: ty )
+      swap                                        ( slot delta )
+      [lit] 1 = if,
+        dup cc-emit-inc-mem-local
+      else,
+        dup cc-emit-dec-mem-local
+      then,
+      cc-emit-load-local                          \ rdi := updated value
+      cc-mark-not-lvalue
+      r> cc-last-expr-type ! exit,
+    then,
     drop
-    [lit] 111 cc-die
   then,
-  tok-str-addr @ tok-str-len @ cc-sym-find
-  dup 0< if,
-    drop drop
-    [lit] 112 cc-die
-  then,
-  dup cc-sym-kind-of sk-local <> if,
-    drop drop
+  cc-putback-token
+  cc-parse-unary-fwd
+  cc-deref-pending? 0= if,
     [lit] 113 cc-die
   then,
-  cc-sym-val-of                                   ( delta slot )
-  swap                                            ( slot delta )
+  cc-last-expr-type @ >r                          ( delta ; R: ty )
+  cc-last-lvalue-kind @ lv-deref-byte =  swap     ( byte? delta )
+  cc-emit-mov-rcx-rdi                             \ rcx := address
   [lit] 1 = if,
-    dup cc-emit-inc-mem-local
+    dup cc-emit-inc-via-rcx
   else,
-    dup cc-emit-dec-mem-local
+    dup cc-emit-dec-via-rcx
   then,
-  cc-emit-load-local                              \ rdi := updated value
-  cc-mark-not-lvalue ;
+  cc-emit-load-via-rcx                            \ rdi := updated value
+  cc-mark-not-lvalue
+  r> cc-last-expr-type ! ;
 
 : cc-parse-unary
   cc-next-token-keep
@@ -940,18 +989,68 @@ variable cc-sizeof-bytes
   cc-parse-primary ;
 
 \ ===========================================================================
+\ Arithmetic at compile time
+\ ===========================================================================
+\ A constant expression (an array size, a case label, an #if line) is
+\ computed while compiling, so each operator also needs a Forth word that
+\ does what its instructions do at run time, on two 64-bit values.  The
+\ seed's / is unsigned and it has no shift or xor, so the signed
+\ versions are built here.
+
+: cc-negate  [lit] 0 swap - ;                     ( n -- -n )
+: cc-invert  dup nand ;                           ( n -- ~n )
+: cc-xor     2dup or >r and cc-invert r> and ;     ( a b -- a^b )
+: cc-flag    0= 1+ ;                              \ ( f -- 1|0 ): C truth
+: cc-abs     dup 0< if, cc-negate then, ;         ( n -- |n| )
+
+\ cc-divisor ( b -- b )  Die with 124 if a constant divisor is 0.
+: cc-divisor  dup 0= if, [lit] 124 cc-die then, ;
+
+\ cc-div ( a b -- q )  Signed division, truncating toward zero like idiv.
+\ cc-mod ( a b -- r )  Its remainder, which takes the sign of a.
+: cc-div
+  cc-divisor
+  2dup cc-xor 0< >r  cc-abs swap cc-abs swap /  r> if, cc-negate then, ;
+: cc-mod
+  cc-divisor
+  over 0< >r  cc-abs swap cc-abs swap  2dup / * -  r> if, cc-negate then, ;
+
+\ cc-pow2 ( n -- 2^n )
+: cc-pow2
+  [lit] 1 swap
+  begin, dup while, swap dup + swap 1- repeat,
+  drop ;
+\ cc-shl ( a n -- a<<n )   cc-sar ( a n -- a>>n ), the sign bit copied in.
+: cc-shl  cc-pow2 * ;
+: cc-sar
+  over 0< if,
+    swap cc-invert swap cc-pow2 / cc-invert
+  else,
+    cc-pow2 /
+  then, ;
+
+\ The comparisons answer C's 1 or 0.
+: cc-lt  <  cc-flag ;
+: cc-gt  >  cc-flag ;
+: cc-le  <= cc-flag ;
+: cc-ge  >= cc-flag ;
+: cc-eq  =  cc-flag ;
+: cc-ne  <> cc-flag ;
+
+\ ===========================================================================
 \ The binary-operator table
 \ ===========================================================================
 \ Eight levels of the grammar, mul down to bit-or, have one shape: parse an
 \ operand at the next-tighter level, then, while the next token is one of
 \ this level's operators, parse another operand and combine the two.  Only
 \ the operators and the instructions that combine differ, so those live in
-\ this table, one row of four cells per operator:
+\ this table, one row of five cells per operator:
 \
 \   op        the operator's punct code (tok-num)
 \   compound  the code of its compound assignment (`+` has `+=`); 0 if none
 \   level     which level parses it (level-mul .. level-bit-or)
 \   emitter   xt of the 090 word that emits rdi := rdi OP rcx
+\   evaluator xt of the word above that computes a OP b now
 \
 \ Each level's parser looks its operators up by op; cc-parse-assign looks
 \ `+=` and the rest up by compound, so `a + b` and `a += b` share an
@@ -970,30 +1069,31 @@ variable cc-sizeof-bytes
 [lit]  8 constant bo-compound
 [lit] 16 constant bo-level
 [lit] 24 constant bo-emitter
-[lit] 32 constant bo-size
+[lit] 32 constant bo-eval
+[lit] 40 constant bo-size
 
-\ cc-binop, ( op compound level "emitter" -- )  Lay down one row; the
-\ emitter's name follows in the input.
-: cc-binop,  rot , swap , ,  ' , ;
+\ cc-binop, ( op compound level "emitter" "evaluator" -- )  Lay down one
+\ row; the emitter's and the evaluator's names follow in the input.
+: cc-binop,  rot , swap , ,  ' ,  ' , ;
 
 create cc-binops
-\ op          compound       level
-char *      pt-star-eq     level-mul      cc-binop, cc-emit-imul-rdi-rcx
-char /      pt-slash-eq    level-mul      cc-binop, cc-emit-idiv-quotient
-char %      pt-percent-eq  level-mul      cc-binop, cc-emit-idiv-remainder
-char +      pt-plus-eq     level-add      cc-binop, cc-emit-add-rdi-rcx
-char -      pt-minus-eq    level-add      cc-binop, cc-emit-sub-rdi-rcx
-pt-shl      pt-shl-eq      level-shift    cc-binop, cc-emit-shl-rdi-cl
-pt-shr      pt-shr-eq      level-shift    cc-binop, cc-emit-sar-rdi-cl   \ signed
-char <      [lit] 0        level-rel      cc-binop, cc-emit-cmp-lt
-char >      [lit] 0        level-rel      cc-binop, cc-emit-cmp-gt
-pt-le       [lit] 0        level-rel      cc-binop, cc-emit-cmp-le
-pt-ge       [lit] 0        level-rel      cc-binop, cc-emit-cmp-ge
-pt-eq-eq    [lit] 0        level-eq       cc-binop, cc-emit-cmp-eq
-pt-bang-eq  [lit] 0        level-eq       cc-binop, cc-emit-cmp-ne
-char &      pt-amp-eq      level-bit-and  cc-binop, cc-emit-and-rdi-rcx
-char ^      pt-caret-eq    level-bit-xor  cc-binop, cc-emit-xor-rdi-rcx
-char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx
+\ op          compound       level                  emitter                evaluator
+char *      pt-star-eq     level-mul      cc-binop, cc-emit-imul-rdi-rcx   *
+char /      pt-slash-eq    level-mul      cc-binop, cc-emit-idiv-quotient  cc-div
+char %      pt-percent-eq  level-mul      cc-binop, cc-emit-idiv-remainder cc-mod
+char +      pt-plus-eq     level-add      cc-binop, cc-emit-add-rdi-rcx    +
+char -      pt-minus-eq    level-add      cc-binop, cc-emit-sub-rdi-rcx    -
+pt-shl      pt-shl-eq      level-shift    cc-binop, cc-emit-shl-rdi-cl     cc-shl
+pt-shr      pt-shr-eq      level-shift    cc-binop, cc-emit-sar-rdi-cl     cc-sar   \ signed
+char <      [lit] 0        level-rel      cc-binop, cc-emit-cmp-lt         cc-lt
+char >      [lit] 0        level-rel      cc-binop, cc-emit-cmp-gt         cc-gt
+pt-le       [lit] 0        level-rel      cc-binop, cc-emit-cmp-le         cc-le
+pt-ge       [lit] 0        level-rel      cc-binop, cc-emit-cmp-ge         cc-ge
+pt-eq-eq    [lit] 0        level-eq       cc-binop, cc-emit-cmp-eq         cc-eq
+pt-bang-eq  [lit] 0        level-eq       cc-binop, cc-emit-cmp-ne         cc-ne
+char &      pt-amp-eq      level-bit-and  cc-binop, cc-emit-and-rdi-rcx    and
+char ^      pt-caret-eq    level-bit-xor  cc-binop, cc-emit-xor-rdi-rcx    cc-xor
+char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx     or
 [lit] 0 ,                                         \ end of table
 
 \ cc-binop-row ( key field -- row | 0 )  The first row whose cell at byte
@@ -1330,6 +1430,11 @@ char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx
     [lit] 0
   then, ;
 
+\ cc-emit-load-via-rdi-or-byte ( byte? -- )  rdi := the byte or the qword
+\ at the address in rdi.
+: cc-emit-load-via-rdi-or-byte
+  if, cc-emit-load-byte-via-rdi else, cc-emit-load-via-rdi then, ;
+
 \ cc-apply-compound-op ( op -- )  After rdi=LHS-value, rcx=RHS-value: apply
 \ the compound-assign op to rdi with the emitter of its row in the operator
 \ table.  Consumes op.  Plain '=' must be filtered by the caller.
@@ -1380,11 +1485,28 @@ char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx
       over dup lv-deref = swap lv-deref-byte = or if,
         \ ---- Dereference lvalue (lv-deref / lv-deref-byte) ---------------
         \ rdi already holds the destination address (no load was emitted by
-        \ cc-parse-unary).  Plain `=` is supported on derefs; compound
-        \ +=/-= would require load-modify-store and is deferred.
+        \ cc-parse-unary).
         drop                                      ( kind )
         tok-num @ [char] = <> if,
-          [lit] 119 cc-die
+          \ Compound: load the old value through the address, combine,
+          \ store back through the same address.
+          tok-num @ swap                          ( op kind )
+          cc-emit-push-rdi                        \ save dest address
+          dup lv-deref-byte = cc-emit-load-via-rdi-or-byte
+          cc-emit-push-rdi                        \ save old value
+          >r >r                                   ( ; R: kind op )
+          cc-parse-assign
+          cc-emit-materialize
+          cc-emit-mov-rcx-rdi                     \ rcx := RHS
+          cc-emit-pop-rdi                         \ rdi := old value
+          r> cc-apply-compound-op                 \ rdi := old OP RHS
+          cc-emit-pop-rcx                         \ rcx := dest address
+          r> lv-deref-byte = if,
+            cc-emit-store-byte-via-rcx
+          else,
+            cc-emit-store-via-rcx
+          then,
+          cc-mark-not-lvalue exit,
         then,
         >r                                        \ R: kind
         cc-emit-push-rdi                          \ save dest address
@@ -1430,6 +1552,123 @@ char |      pt-pipe-eq     level-bit-or   cc-binop, cc-emit-or-rdi-rcx
   cc-parse-assign
   cc-emit-materialize ;
 
+\ ===========================================================================
+\ Constant expressions
+\ ===========================================================================
+\ An array size, a case label, an enum value, a global's initializer and an
+\ #if line need a value while compiling, not code.  cc-parse-const reads
+\ the grammar of cc-parse-ternary and computes it with the operator
+\ table's evaluator column instead of emitting instructions.  An operand
+\ is a number, a character, an enum constant or a parenthesised constant
+\ expression.  On an #if line (cc-cx-pp true) any identifier the
+\ preprocessor left is 0, as C says.  Errors: 125 for a name that isn't
+\ an enum constant, 126 for a token that can't start an operand, 127 for
+\ a missing ')', 128 for a '?' without its ':'.
+
+variable cc-cx-pp
+
+defer cc-parse-const-fwd
+
+\ cc-cx-operand ( -- v )
+: cc-cx-operand
+  cc-next-token-keep
+  tok-kind @ tk-num =  tok-kind @ tk-chr = or if, tok-num @ exit, then,
+  tok-kind @ tk-ident = if,
+    cc-cx-pp @ if, [lit] 0 exit, then,
+    tok-str-addr @ tok-str-len @ cc-sym-find                ( id )
+    dup 0< 0= if, dup cc-sym-kind-of sk-enum = else, [lit] 0 then,
+    0= if, [lit] 125 cc-die then,
+    cc-sym-val-of exit,
+  then,
+  lparen cc-tok-punct? if,
+    cc-parse-const-fwd
+    cc-next-token-keep
+    [char] ) cc-tok-punct? 0= if, [lit] 127 cc-die then,
+    exit,
+  then,
+  [lit] 126 cc-die ;
+
+\ cc-cx-unary ( -- v )  '-' '+' '!' '~' then an operand.
+: cc-cx-unary
+  cc-next-token-keep
+  [char] - cc-tok-punct? if, cc-cx-unary cc-negate       exit, then,
+  [char] + cc-tok-punct? if, cc-cx-unary                 exit, then,
+  [char] ! cc-tok-punct? if, cc-cx-unary 0= cc-flag      exit, then,
+  [char] ~ cc-tok-punct? if, cc-cx-unary cc-invert       exit, then,
+  cc-putback-token
+  cc-cx-operand ;
+
+\ cc-cx-binary ( level -- v )  One level of the operator table: operands
+\ from the level below, combined by this level's evaluators.  Level 0 is
+\ the unary operators.
+: cc-cx-binary
+  dup 0= if, drop cc-cx-unary exit, then,
+  dup 1- cc-cx-binary                               ( level v )
+  begin,
+    over cc-binop? dup                              ( level v row row | .. 0 0 )
+  while,
+    >r  over 1- cc-cx-binary                        ( level v w ; R: row )
+    r> bo-eval + @ execute                          ( level v' )
+  repeat,
+  drop cc-putback-token nip ;
+
+\ cc-cx-and ( -- v )   cc-cx-or ( -- v )   && and ||, answering 1 or 0.
+: cc-cx-and
+  level-bit-or cc-cx-binary
+  begin,
+    cc-next-token-keep pt-and-and cc-tok-punct?
+  while,
+    level-bit-or cc-cx-binary  0= 0= swap 0= 0= and cc-flag
+  repeat,
+  cc-putback-token ;
+
+: cc-cx-or
+  cc-cx-and
+  begin,
+    cc-next-token-keep pt-or-or cc-tok-punct?
+  while,
+    cc-cx-and  0= 0= swap 0= 0= or cc-flag
+  repeat,
+  cc-putback-token ;
+
+\ cc-parse-const ( -- v )  cond ? a : b, or just cond.
+: cc-parse-const
+  cc-cx-or
+  cc-next-token-keep
+  [char] ? cc-tok-punct? if,
+    cc-parse-const >r                               ( c ; R: a )
+    cc-next-token-keep
+    [char] : cc-tok-punct? 0= if, [lit] 128 cc-die then,
+    cc-parse-const                                  ( c b ; R: a )
+    swap if, drop r> else, r> drop then,
+  else,
+    cc-putback-token
+  then, ;
+
+' cc-parse-const is cc-parse-const-fwd
+
+\ cc-pp-eval-text ( a u -- n )  #if's evaluator (cc-pp-eval, 040): lex
+\ the expanded line a u, which lies above cc-src-buf, by pointing the
+\ reader at it, and evaluate it.  The lexer's state and cc-src-len are
+\ put back afterwards; anything left after the expression dies with 129.
+create cc-cx-save  cc-lex-state-size allot
+
+: cc-pp-eval-text
+  cc-cx-save cc-lex-mark
+  cc-src-len @ >r
+  over + cc-src-buf - cc-src-len !                  ( a )
+  cc-src-buf - cc-src-pos !
+  [lit] 0 cc-tok-pending !
+  true cc-cx-pp !
+  cc-parse-const
+  cc-next-token-keep  tok-kind @ tk-eof <> if, [lit] 129 cc-die then,
+  [lit] 0 cc-cx-pp !
+  r> cc-src-len !
+  cc-cx-save cc-lex-reset ;
+
+' cc-pp-eval-text is cc-pp-eval
+
 \ Fill in the forward references declared at the top of the file.
 ' cc-parse-expr   is cc-parse-expr-fwd
 ' cc-parse-assign is cc-parse-assign-fwd
+' cc-parse-unary  is cc-parse-unary-fwd

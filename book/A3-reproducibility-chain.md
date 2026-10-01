@@ -196,7 +196,7 @@ Reproduced on the reviewer's machine and recorded in
 ```text
 16c09d3a841fb5e62b115f225361f3006075a4998f46966d83e21d991e159e8e  000-seed.hex0
 697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e  seed-forth
-23aaa5be476e5d25194dcbd178ceba9a4ccc72ca9c7d76523c6fc6fc1a409e73  cc-out-v1
+025208db31342c4070dbcd3b72f56ddfdde7d38c582c96ea9fdc59bcc6ef7d1e  cc-out-v1
 22465aa1b4943b830263928f79bb150bbfcbbc1642cfc287b0ed3d873a583d37  self-v1-amd64.M1
 ```
 
@@ -311,6 +311,93 @@ byte-identical `AMD64/bin` (or `x86/bin`, live-bootstrap's one
 supported architecture), the rest is "continue with live-bootstrap as
 usual"; the manual steps are in `REPRODUCIBLE.md`.
 
+## Past M2-Planet: pnut and TinyCC
+
+The compiler this book builds also compiles pnut, unmodified
+(Ch 32 §5).  `tests/pnut/sf-pnut-check.sh` checks that the pnut it
+builds generates, for pnut's TinyCC kit, the same `pnut-exe` as a pnut
+built by `bootstrap.sh`'s M2-Planet (sha256 `19d96d9e…`), and with
+`SF_PNUT_TCC=1` runs the kit on to tcc-0.9.27, whose `tcc-boot2` and
+`tcc-boot3` must equal pnut's published `03e96a1a…`.  `REPRODUCIBLE.md`
+("Past M2-Planet") has the configuration and the full hashes.
+
+That kit targets i386, so its tcc stages need a kernel that runs 32-bit
+programs.  `tests/pnut/sf-pnut-amd64-check.sh` takes a second route in
+which every program is x86-64:
+
+```
+seed-forth -> sf-pnut64 (pnut.c, target_x86_64_linux) -> pnut-exe
+  -> pnut-exe-for-tcc -> tcc-pnut (tcc-0.9.27, x86_64)
+  -> tcc-boot0 -> tcc-boot1 -> tcc-boot2 = tcc-boot3
+```
+
+It takes about 10 seconds and runs no gcc.  The sha256 of every stage is
+pinned in the script, from the SF-built pnut to `tcc-boot2`
+(`514bc4d3…`) and its `crt1.o`, `libc.a` and `libtcc1.a`.  The tcc
+source is the tarball vendored in pnut, and the script checks its hash
+before unpacking it.  The route needs eleven small patches, which live
+in `patches/amd64/` (see its README):
+
+- one line of pnut: a larger heap, only for the pnut that compiles tcc;
+- two tcc changes for what pnut cannot parse;
+- two fixes for tcc-0.9.27's own x86_64 `-static` linking.  A gcc-built
+  tcc makes the same crashing binary without them.
+- six changes to pnut's portable libc: x86_64 start-up, system calls
+  and `va_list`, `assert.h`, `abort`, `printf`'s `l`/`ll`, and `puts`.
+
+After `tcc-boot2` is built, the script uses it to compile and run 64-bit
+arithmetic, `printf` and hello-world tests and portable_libc's own test
+suite.  It also builds a pnut that reproduces the SF-built pnut's
+self-compile byte for byte.  `./verify.sh` then compares against gcc as a
+reference, outside the chain: a gcc-built pnut builds the same
+`pnut-exe`, and a gcc-built tcc, seeded the same way, reaches the same
+`tcc-boot2`.  `REPRODUCIBLE.md` ("Past M2-Planet on amd64 alone") has
+the pins and every hash.
+
+## Past TinyCC: on to GCC 15.2 (amd64)
+
+`gcc64/run-gcc64.sh` starts where the amd64 route stops, at
+`tcc-boot2`, and climbs to GCC 15.2.0 by way of musl, the way
+live-bootstrap climbs on i386:
+
+```
+tcc-boot2 -> tcc + musl-1.1.24        rebuilt until musl-2 = musl-3, tcc-2 = tcc-3
+  -> binutils-2.30, flex              built by tcc
+  -> gcc-4.0.4 (C)                    built by tcc; rebuilds itself, gcc-B = gcc-C
+  -> musl, gmp, mpfr, mpc             built by gcc-4.0.4
+  -> gcc-4.7.4 (C, C++)               built by gcc-4.0.4
+  -> binutils-2.41, gcc-10.5.0        built by gcc-4.7.4
+  -> gcc-15.2.0                       seeded by gcc-10.5.0; its 3-stage
+                                      bootstrap ends stage2 = stage3
+```
+
+Each compiler, assembler and linker is built by the one before it.  A
+guard refuses every host compiler, assembler and linker, whether it is
+reached through `PATH` or by absolute path.  Configure scripts probe
+for them, and those probes are refused and logged.  Every GCC then
+compiles and runs C tests (64-bit arithmetic, floating point, a libc
+exercise), and C++ tests from 4.7.4 on.  gcc-15's sysroot, `as` and
+`ld` must be the chain's own.  The whole run takes about 1.5 hours on
+4 cores, so `check-all.sh` leaves it out and `./verify.sh` runs it
+only with `VERIFY_GCC64=1`.
+
+What the leg still trusts from the host is *build glue*: bash, make,
+sed, coreutils, tar, xz, patch, and python3 for one text substitution.
+It also trusts two code generators, bison and m4, which make
+gcc-4.0.4's parser and lexer, and the source tarballs' pregenerated
+`configure` scripts.  live-bootstrap builds or regenerates all of
+these from source, and replacing them is the next step.  Sources are
+pinned by sha256 in `gcc64/SOURCES`; most are byte-identical to
+live-bootstrap's.  Patches are in `patches/gcc64/`, each with a header
+saying where it comes from.
+
+The fixed points hold wherever you build.  The artifact hashes in
+`gcc64/HASHES` mostly embed the build directory, which appears in
+install prefixes, the sysroot and source paths, so they reproduce bit
+for bit only at the same path.  `gcc64/README.md` and
+`REPRODUCIBLE.md` ("Past TinyCC on amd64: GCC 15.2 via musl") have
+the details.
+
 ## What "byte-identical" means here
 
 The `.M1` files compared in Stage A are *textual* M1 assembly
@@ -346,7 +433,9 @@ route and stage0-posix's reach the same M2-Planet binary one
 generation later, also when each route links with its own tools, and
 that the Forth route can drive stage0-posix's own recipes to their
 published `amd64.answers` and `x86.answers` (the x86 one on an amd64
-kernel with IA-32 emulation).
+kernel with IA-32 emulation).  On amd64, `gcc64/run-gcc64.sh` goes on from the pnut-built TinyCC
+to GCC 15.2 with no host compiler, assembler or linker in the chain,
+though with host build glue.
 
 It does *not* prove: that the resulting compiler is bug-free, that
 M2-Planet is bug-free, that the kernel running this is not
