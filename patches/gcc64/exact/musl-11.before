@@ -1,0 +1,7 @@
+fetestexcept:
+	and $0x3f,%edi
+	push %rax
+	stmxcsr (%rsp)
+	pop %rsi
+	fnstsw %ax
+	or %esi,%eax

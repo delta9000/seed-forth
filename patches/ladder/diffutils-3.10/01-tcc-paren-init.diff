@@ -1,0 +1,22 @@
+# tcc-0.9.27 rejects a parenthesized string-literal initializer,
+# = ("..." "...");  drop the parentheses (same string).
+--- a/src/diff.c
++++ b/src/diff.c
+@@ -390,7 +390,7 @@
+           specify_style (OUTPUT_IFDEF);
+           {
+ 	    static char const C_ifdef_group_formats[]
+-	      = (/* UNCHANGED */
++	      = /* UNCHANGED */
+ 		 "%="
+ 		 "\0"
+ 
+@@ -411,7 +411,7 @@
+ 		 "%<"
+ 		 "#else /* @ */\n"
+ 		 "%>"
+-		 "#endif /* @ */\n");
++		 "#endif /* @ */\n";
+ 
+ 	    size_t alloc = strlen (optarg);
+ 	    if (INT_MULTIPLY_WRAPV (alloc, 7, &alloc)

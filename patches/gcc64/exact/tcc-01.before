@@ -1,0 +1,8 @@
+	int saved_nocode_wanted = nocode_wanted;
+        /* array definition */
+        next();
+        if (tok == TOK_RESTRICT1)
+            next();
+        n = -1;
+        t1 = 0;
+        if (tok != ']') {

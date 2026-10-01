@@ -4,6 +4,8 @@ artifact ${ROOT}/build-out/amd64-runner 363bbcd4654c41354fd952e57afc861d6b11bca7
 set K ${W}/kit
 set TESTS ${ROOT}/tests/pnut/amd64
 stage tools/amd64-inputs.sha256 vendor/pnut ${W}/pnut
+stage tools/amd64-inputs.sha256 vendor/pnut ${K}
+stage tools/amd64-libc.sha256 vendor/pnut/portable_libc ${K}/libc64
 cd ${W}/pnut
 text ${W}/defines.c "#define target_x86_64_linux 1\n#define ONE_PASS_GENERATOR 1\n"
 cat ${W}/sf-input.fth ${ROOT}/010-lib.fth ${ROOT}/020-cc-arena.fth ${ROOT}/030-cc-io.fth ${ROOT}/040-cc-prep.fth ${ROOT}/050-cc-lex.fth ${ROOT}/060-cc-types.fth ${ROOT}/070-cc-sym.fth ${ROOT}/080-cc-elf.fth ${ROOT}/090-cc-emit.fth ${ROOT}/100-cc-expr.fth ${ROOT}/110-cc-decl.fth ${ROOT}/112-cc-stmt.fth ${ROOT}/114-cc-func.fth ${ROOT}/116-cc-prog.fth ${ROOT}/120-cc-main.fth ${W}/defines.c pnut.c
@@ -21,7 +23,6 @@ artifact ${W}/pnut64-g2 5bee065d3332230129036b1e7b154ef2ed8bc2fee643135f227e1c39
 say "amd64: stage 2: pnut self-host fixed point"
 run 0 - ${W}/flatten-build.log ${W}/flatten-build.err ${W}/sf-pnut64 ${ROOT}/tools/flatten-includes.c -Dtarget_x86_64_linux -DONE_PASS_GENERATOR -o ${W}/flatten-includes
 artifact ${W}/flatten-includes e08be4cd5fd6e8c6ddc7fa034c8f1722844262b7b5cfc2149052672a0700d651
-tree ${W}/pnut ${K}
 cd ${K}
 run 0 - bintools.c ${W}/flatten.err ${W}/flatten-includes kit/bintools/bintools-base.c
 artifact bintools.c d7dbb22dfb0ab6b689c33a55b23b2f9baabd7eb3df653627fd5b3c89276e4102
@@ -58,7 +59,6 @@ copy kit/config.h tcc-0.9.27/config.h
 pin tcc-0.9.27/lib/va_list.c 3204e28b30bc7cbd4ea9520377e69a6feef11e110081bd05d1136fdcbf50c6f1
 patches ${ROOT}/patches/amd64/exact/kit.manifest ${ROOT}/patches/amd64/exact
 patches ${ROOT}/patches/amd64/exact/tcc.manifest ${ROOT}/patches/amd64/exact
-tree portable_libc libc64
 patches ${ROOT}/patches/amd64/exact/libc.manifest ${ROOT}/patches/amd64/exact
 patches ${ROOT}/patches/amd64/exact/pnut.manifest ${ROOT}/patches/amd64/exact
 say "amd64: stage 4: all 8 kit and 11 local diffs applied exactly"

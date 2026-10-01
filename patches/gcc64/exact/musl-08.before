@@ -1,0 +1,7 @@
+fegetenv:
+	xor %eax,%eax
+	fnstenv (%rdi)
+	stmxcsr 28(%rdi)
+	ret
+
+.global fesetenv

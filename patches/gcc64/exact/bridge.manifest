@@ -1,0 +1,3 @@
+replace libc64/src/math.c libc64/src/math.c bridge-01.before bridge-01.after 245a8a08594a46c4eec23a93021ac6110afc02e58882a23de9a4275679e01d56 aa2a513c71b1d7209ee916e6498e786d92d8ca5709f062efff9c1bcef8844209
+replace libc64/src/stdlib.c libc64/src/stdlib.c bridge-02.before bridge-02.after f9049417d97a324de4d41a241b9fef01a7a47fa5781d50dda3179679c2b48e56 edeb685a6840ed2300a8fc2fdc374cf80b2a7827bc635892fbe7dce18487b082
+replace libc64/src/stdlib.c libc64/src/stdlib.c bridge-03.before bridge-03.after edeb685a6840ed2300a8fc2fdc374cf80b2a7827bc635892fbe7dce18487b082 aa71eacbc3018f7d6af180907513091159177027828f27ec58f30688fdee75c7

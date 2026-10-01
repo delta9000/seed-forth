@@ -1,0 +1,18 @@
+# fix-libmath_h edits libmath.h with ed, which the ladder does not build.
+# The same edits with sed: quote each line, open the initializer on line 1,
+# drop the last line, and close the initializer on the new last line.
+--- a/bc/fix-libmath_h	2026-09-30 22:30:51.896463843 -0400
++++ b/bc/fix-libmath_h	2026-09-30 22:30:51.896549756 -0400
+@@ -1,9 +1,3 @@
+-ed libmath.h <<EOS-EOS
+-1,1s/^/{"/
+-1,\$s/\$/",/
+-2,\$s/^/"/
+-\$,\$d
+-\$,\$s/,\$/,0}/
+-w
+-q
+-EOS-EOS
++sed -e '1s/^/{"/' -e 's/$/",/' -e '2,$s/^/"/' libmath.h | sed -e '$d' |
++  sed -e '$s/,$/,0}/' > libmath.h.tmp
++mv libmath.h.tmp libmath.h

@@ -1,0 +1,447 @@
+# The ladder past TinyCC: run after tools/amd64.recipe, from the repository
+# root, as  build-out/amd64-runner --recipe tools/ladder.recipe
+# Each stage is explicit runner commands: no shell, make, sed or patch.
+set W ${ROOT}/build-out/pnut-amd64
+set K ${W}/kit
+set TESTS ${ROOT}/tests/pnut/amd64
+cd ${K}
+# ---- stage 8: musl-1.1.24 and tcc to a fixed point (gcc64 stages 1-2) ----
+# gcc64/run-gcc64.sh runs configure and make; here every command is explicit
+# (tools/musl.recipe, tools/mktcc.recipe) and patches are exact fixtures.
+set G ${W}/gcc64
+set D ${ROOT}/build-out/distfiles
+mkdir ${G}
+mkdir ${G}/tools
+mkdir ${G}/logs
+run 0 - ${G}/logs/tools.out ${G}/logs/tools.err build/tcc-boot2 -static -I libc64/include ${ROOT}/tools/musl-gen.c -o ${G}/tools/musl-gen
+run 0 - ${G}/logs/tools.out ${G}/logs/tools.err build/tcc-boot2 -static -I libc64/include ${ROOT}/tools/runargs.c -o ${G}/tools/runargs
+copy ${ROOT}/tools/musl-libc-objs.txt ${G}/tools/musl-libc-objs.txt
+patches ${ROOT}/patches/gcc64/exact/tcc.manifest ${ROOT}/patches/gcc64/exact
+patches ${ROOT}/patches/gcc64/exact/bridge.manifest ${ROOT}/patches/gcc64/exact
+mkdir ${G}/p0
+mkdir ${G}/p0/bin
+mkdir ${G}/p0/lib
+mkdir ${G}/p0/lib/tcc
+copy build/boot2-lib/crt1.o ${G}/p0/lib/crt1.o
+copy build/boot2-lib/crti.o ${G}/p0/lib/crti.o
+copy build/boot2-lib/crtn.o ${G}/p0/lib/crtn.o
+copy build/boot2-lib/tcc/libtcc1.a ${G}/p0/lib/tcc/libtcc1.a
+run 0 - ${G}/logs/p0.out ${G}/logs/p0.err build/tcc-boot2 -c -D ADD_LIBC_STUB -I libc64/include -o ${G}/p0/lib/libc.o libc64/libc.c
+run 0 - ${G}/logs/p0.out ${G}/logs/p0.err build/tcc-boot2 -ar cr ${G}/p0/lib/libc.a ${G}/p0/lib/libc.o
+unlink ${G}/p0/lib/libc.o
+run 0 - ${G}/logs/p0.out ${G}/logs/p0.err build/tcc-boot2 -static -o ${G}/p0/bin/tcc -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"${G}/p0/lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"${G}/p0/lib\"" -D "CONFIG_TCC_LIBPATHS=\"${G}/p0/lib:${G}/p0/lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"${G}/p0/include\"" -D "TCC_LIBGCC=\"${G}/p0/lib/libc.a\"" -D 'TCC_LIBTCC1="libtcc1.a"' -D 'CONFIG_TCC_ELFINTERP="/mes/loader"' -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D 'TCC_VERSION="0.9.27"' -D ONE_SOURCE=1 -L ${G}/p0/lib tcc-0.9.27/tcc.c
+pin ${D}/musl-1.1.24.tar.gz 1370c9a812b2cf2a7d92802510cca0058cc37e66a7bedd70051f0a34015022a3
+run 0 - ${G}/logs/ungz.out ${G}/logs/ungz.err ./bintools ungz --file ${D}/musl-1.1.24.tar.gz --output ${G}/musl.tar
+mkdir ${G}/musl-1
+cd ${G}/musl-1
+run 0 - ${G}/logs/untar.out ${G}/logs/untar.err ${K}/bintools untar ${G}/musl.tar
+cd ${G}/musl-1/musl-1.1.24
+copy ${K}/simple-patch simple-patch
+chmod simple-patch
+patches ${ROOT}/patches/gcc64/exact/musl.manifest ${ROOT}/patches/gcc64/exact
+text ${G}/musl-1.head "set CC ${G}/p0/bin/tcc\nset P ${G}/t1\nset T ${G}/tools\nset L ${G}/logs\n"
+cat ${G}/musl-1.recipe ${G}/musl-1.head ${ROOT}/tools/musl.recipe
+run 0 - ${G}/logs/musl-1.out ${G}/logs/musl-1.err ${ROOT}/build-out/amd64-runner --recipe ${G}/musl-1.recipe
+text ${G}/tcc-1.head "set CC ${G}/p0/bin/tcc\nset ML ${G}/t1\nset P ${G}/t1\nset S ${K}/tcc-0.9.27\nset L ${G}/logs\n"
+cat ${G}/tcc-1.recipe ${G}/tcc-1.head ${ROOT}/tools/mktcc.recipe
+run 0 - ${G}/logs/tcc-1.out ${G}/logs/tcc-1.err ${ROOT}/build-out/amd64-runner --recipe ${G}/tcc-1.recipe
+cd ${K}
+artifact ${G}/t1/lib/libc.a 4cccfbd5e2eb803abcbbd6b4bc118e9028127220cdc6d78f6b91b39a6afe8ac6
+mkdir ${G}/musl-2
+cd ${G}/musl-2
+run 0 - ${G}/logs/untar.out ${G}/logs/untar.err ${K}/bintools untar ${G}/musl.tar
+cd ${G}/musl-2/musl-1.1.24
+copy ${K}/simple-patch simple-patch
+chmod simple-patch
+patches ${ROOT}/patches/gcc64/exact/musl.manifest ${ROOT}/patches/gcc64/exact
+text ${G}/musl-2.head "set CC ${G}/t1/bin/tcc\nset P ${G}/tc\nset T ${G}/tools\nset L ${G}/logs\n"
+cat ${G}/musl-2.recipe ${G}/musl-2.head ${ROOT}/tools/musl.recipe
+run 0 - ${G}/logs/musl-2.out ${G}/logs/musl-2.err ${ROOT}/build-out/amd64-runner --recipe ${G}/musl-2.recipe
+text ${G}/tcc-2.head "set CC ${G}/t1/bin/tcc\nset ML ${G}/tc\nset P ${G}/tc\nset S ${K}/tcc-0.9.27\nset L ${G}/logs\n"
+cat ${G}/tcc-2.recipe ${G}/tcc-2.head ${ROOT}/tools/mktcc.recipe
+run 0 - ${G}/logs/tcc-2.out ${G}/logs/tcc-2.err ${ROOT}/build-out/amd64-runner --recipe ${G}/tcc-2.recipe
+cd ${K}
+artifact ${G}/tc/lib/libc.a 57d4b5e9f78026c4ea9f05ed32b3cc27f955c9f56e167727c69aa4343e5c74ac
+copy ${G}/tc/lib/libc.a ${G}/libc-2.a
+copy ${G}/tc/bin/tcc ${G}/tcc-2
+chmod ${G}/tcc-2
+mkdir ${G}/musl-3
+cd ${G}/musl-3
+run 0 - ${G}/logs/untar.out ${G}/logs/untar.err ${K}/bintools untar ${G}/musl.tar
+cd ${G}/musl-3/musl-1.1.24
+copy ${K}/simple-patch simple-patch
+chmod simple-patch
+patches ${ROOT}/patches/gcc64/exact/musl.manifest ${ROOT}/patches/gcc64/exact
+text ${G}/musl-3.head "set CC ${G}/tcc-2\nset P ${G}/tc\nset T ${G}/tools\nset L ${G}/logs\n"
+cat ${G}/musl-3.recipe ${G}/musl-3.head ${ROOT}/tools/musl.recipe
+run 0 - ${G}/logs/musl-3.out ${G}/logs/musl-3.err ${ROOT}/build-out/amd64-runner --recipe ${G}/musl-3.recipe
+text ${G}/tcc-3.head "set CC ${G}/tcc-2\nset ML ${G}/tc\nset P ${G}/tc\nset S ${K}/tcc-0.9.27\nset L ${G}/logs\n"
+cat ${G}/tcc-3.recipe ${G}/tcc-3.head ${ROOT}/tools/mktcc.recipe
+run 0 - ${G}/logs/tcc-3.out ${G}/logs/tcc-3.err ${ROOT}/build-out/amd64-runner --recipe ${G}/tcc-3.recipe
+cd ${K}
+same ${G}/libc-2.a ${G}/tc/lib/libc.a
+same ${G}/tcc-2 ${G}/tc/bin/tcc
+run 0 - ${G}/logs/printf.out ${G}/logs/printf.err ${G}/tc/bin/tcc ${TESTS}/printf.c -o ${G}/printf-musl
+run 0 - ${G}/printf-musl.stdout ${G}/printf-musl.err ${G}/printf-musl
+same ${TESTS}/printf.out ${G}/printf-musl.stdout
+say "amd64: stage 8: musl-1.1.24 and tcc-musl at a fixed point (gcc64's pinned libc.a)"
+# ---- stage 9: the first tools, each replayed from a host capture ----
+# ladder/NAME/recipe was written by tools/capture-build.py; its fixtures are
+# the files the host's configure and shell wrote that the build reads.
+set TC ${G}/tc/bin/tcc
+set U ${W}/usr
+mkdir ${U}
+mkdir ${U}/bin
+mkdir ${W}/src
+# make-3.82
+pin ${D}/make-3.82.tar.gz 3d991b33e604187c5881a0abc2e102d5b9776da5569640e73778f85d617242e7
+mkdir ${W}/src/make-3.82
+cd ${W}/src/make-3.82
+run 0 - ${W}/src/make-3.82.out ${W}/src/make-3.82.err ${K}/bintools ungz --file ${D}/make-3.82.tar.gz --output ${W}/src/make-3.82.tar
+run 0 - ${W}/src/make-3.82.out ${W}/src/make-3.82.err ${K}/bintools untar ${W}/src/make-3.82.tar
+unlink ${W}/src/make-3.82.tar
+cd ${W}/src/make-3.82/make-3.82
+text ${W}/src/make-3.82.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/make-3.82\nset B ${W}/src/make-3.82/make-3.82\n"
+cat ${W}/src/make-3.82.recipe ${W}/src/make-3.82.head ${ROOT}/ladder/make-3.82/recipe
+run 0 - ${W}/src/make-3.82.log ${W}/src/make-3.82.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/make-3.82.recipe
+chmod ${U}/bin/make
+artifact ${U}/bin/make f8b0662b41cfa7721b0b4df769949bb7f69909fdf70e46d520f91a5aec2389ea
+say "ladder: make-3.82"
+# gzip-1.13
+pin ${D}/gzip-1.13.tar.gz 20fc818aeebae87cdbf209d35141ad9d3cf312b35a5e6be61bfcfbf9eddd212a
+mkdir ${W}/src/gzip-1.13
+cd ${W}/src/gzip-1.13
+run 0 - ${W}/src/gzip-1.13.out ${W}/src/gzip-1.13.err ${K}/bintools ungz --file ${D}/gzip-1.13.tar.gz --output ${W}/src/gzip-1.13.tar
+run 0 - ${W}/src/gzip-1.13.out ${W}/src/gzip-1.13.err ${K}/bintools untar ${W}/src/gzip-1.13.tar
+unlink ${W}/src/gzip-1.13.tar
+cd ${W}/src/gzip-1.13/gzip-1.13
+text ${W}/src/gzip-1.13.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/gzip-1.13\nset B ${W}/src/gzip-1.13/gzip-1.13\n"
+cat ${W}/src/gzip-1.13.recipe ${W}/src/gzip-1.13.head ${ROOT}/ladder/gzip-1.13/recipe
+run 0 - ${W}/src/gzip-1.13.log ${W}/src/gzip-1.13.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/gzip-1.13.recipe
+chmod ${U}/bin/gzip
+artifact ${U}/bin/gzip dca371652b2352083903410065de04956930129b16641ec8c6f7c0f7f355cc05
+say "ladder: gzip-1.13"
+# bash-5.2.37
+pin ${D}/bash-5.2.37.tar.gz 9599b22ecd1d5787ad7d3b7bf0c59f312b3396d1e281175dd1f8a4014da621ff
+mkdir ${W}/src/bash-5.2.37
+cd ${W}/src/bash-5.2.37
+run 0 - ${W}/src/bash-5.2.37.tar ${W}/src/bash-5.2.37.err ${U}/bin/gzip -dc ${D}/bash-5.2.37.tar.gz
+run 0 - ${W}/src/bash-5.2.37.out ${W}/src/bash-5.2.37.err ${K}/bintools untar ${W}/src/bash-5.2.37.tar
+unlink ${W}/src/bash-5.2.37.tar
+cd ${W}/src/bash-5.2.37/bash-5.2.37
+text ${W}/src/bash-5.2.37.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/bash-5.2.37\nset B ${W}/src/bash-5.2.37/bash-5.2.37\n"
+cat ${W}/src/bash-5.2.37.recipe ${W}/src/bash-5.2.37.head ${ROOT}/ladder/bash-5.2.37/recipe
+run 0 - ${W}/src/bash-5.2.37.log ${W}/src/bash-5.2.37.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/bash-5.2.37.recipe
+chmod ${U}/bin/bash
+artifact ${U}/bin/bash 03d2789723c5528c4b9a412ad44bb456ff724e702969225372745f00f78b01e8
+say "ladder: bash-5.2.37"
+# tar-1.35
+pin ${D}/tar-1.35.tar.gz 14d55e32063ea9526e057fbf35fcabd53378e769787eff7919c3755b02d2b57e
+mkdir ${W}/src/tar-1.35
+cd ${W}/src/tar-1.35
+run 0 - ${W}/src/tar-1.35.tar ${W}/src/tar-1.35.err ${U}/bin/gzip -dc ${D}/tar-1.35.tar.gz
+run 0 - ${W}/src/tar-1.35.out ${W}/src/tar-1.35.err ${K}/bintools untar ${W}/src/tar-1.35.tar
+unlink ${W}/src/tar-1.35.tar
+cd ${W}/src/tar-1.35/tar-1.35
+text ${W}/src/tar-1.35.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/tar-1.35\nset B ${W}/src/tar-1.35/tar-1.35\n"
+cat ${W}/src/tar-1.35.recipe ${W}/src/tar-1.35.head ${ROOT}/ladder/tar-1.35/recipe
+run 0 - ${W}/src/tar-1.35.log ${W}/src/tar-1.35.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/tar-1.35.recipe
+chmod ${U}/bin/tar
+artifact ${U}/bin/tar fc0b031291c6b71a7a0e2692b101642229b15450cbc431a5decd0bbee24b81d6
+say "ladder: tar-1.35"
+# sed-4.9
+pin ${D}/sed-4.9.tar.gz d1478a18f033a73ac16822901f6533d30b6be561bcbce46ffd7abce93602282e
+mkdir ${W}/src/sed-4.9
+cd ${W}/src/sed-4.9
+run 0 - ${W}/src/sed-4.9.tar ${W}/src/sed-4.9.err ${U}/bin/gzip -dc ${D}/sed-4.9.tar.gz
+run 0 - ${W}/src/sed-4.9.out ${W}/src/sed-4.9.err ${K}/bintools untar ${W}/src/sed-4.9.tar
+unlink ${W}/src/sed-4.9.tar
+cd ${W}/src/sed-4.9/sed-4.9
+text ${W}/src/sed-4.9.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/sed-4.9\nset B ${W}/src/sed-4.9/sed-4.9\n"
+cat ${W}/src/sed-4.9.recipe ${W}/src/sed-4.9.head ${ROOT}/ladder/sed-4.9/recipe
+run 0 - ${W}/src/sed-4.9.log ${W}/src/sed-4.9.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/sed-4.9.recipe
+chmod ${U}/bin/sed
+artifact ${U}/bin/sed 44b316ae6bbcde15d28099caa35a5123c2889634ba63faf8f8c046ba4b04b5c6
+say "ladder: sed-4.9"
+# grep-3.11
+pin ${D}/grep-3.11.tar.gz 1f31014953e71c3cddcedb97692ad7620cb9d6d04fbdc19e0d8dd836f87622bb
+mkdir ${W}/src/grep-3.11
+cd ${W}/src/grep-3.11
+run 0 - ${W}/src/grep-3.11.tar ${W}/src/grep-3.11.err ${U}/bin/gzip -dc ${D}/grep-3.11.tar.gz
+run 0 - ${W}/src/grep-3.11.out ${W}/src/grep-3.11.err ${K}/bintools untar ${W}/src/grep-3.11.tar
+unlink ${W}/src/grep-3.11.tar
+cd ${W}/src/grep-3.11/grep-3.11
+text ${W}/src/grep-3.11.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/grep-3.11\nset B ${W}/src/grep-3.11/grep-3.11\n"
+cat ${W}/src/grep-3.11.recipe ${W}/src/grep-3.11.head ${ROOT}/ladder/grep-3.11/recipe
+run 0 - ${W}/src/grep-3.11.log ${W}/src/grep-3.11.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/grep-3.11.recipe
+chmod ${U}/bin/grep
+artifact ${U}/bin/grep 7200cc92c10e437755a2cfcd312f8d5f9bea838c9e27d7f1bd4d1bcf4f2e743e
+say "ladder: grep-3.11"
+# gawk-5.3.1
+pin ${D}/gawk-5.3.1.tar.gz fa41b3a85413af87fb5e3a7d9c8fa8d4a20728c67651185bb49c38a7f9382b1e
+mkdir ${W}/src/gawk-5.3.1
+cd ${W}/src/gawk-5.3.1
+run 0 - ${W}/src/gawk-5.3.1.tar ${W}/src/gawk-5.3.1.err ${U}/bin/gzip -dc ${D}/gawk-5.3.1.tar.gz
+run 0 - ${W}/src/gawk-5.3.1.out ${W}/src/gawk-5.3.1.err ${K}/bintools untar ${W}/src/gawk-5.3.1.tar
+unlink ${W}/src/gawk-5.3.1.tar
+cd ${W}/src/gawk-5.3.1/gawk-5.3.1
+text ${W}/src/gawk-5.3.1.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/gawk-5.3.1\nset B ${W}/src/gawk-5.3.1/gawk-5.3.1\n"
+cat ${W}/src/gawk-5.3.1.recipe ${W}/src/gawk-5.3.1.head ${ROOT}/ladder/gawk-5.3.1/recipe
+run 0 - ${W}/src/gawk-5.3.1.log ${W}/src/gawk-5.3.1.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/gawk-5.3.1.recipe
+chmod ${U}/bin/gawk
+artifact ${U}/bin/gawk e9e68672cad2c74f315282db1cb090212a2b41398613392aa9f1a43e22f75a4d
+say "ladder: gawk-5.3.1"
+# coreutils-9.5
+pin ${D}/coreutils-9.5.tar.gz 767ae6a22950ec42f3ba5f7c1de79dd27800ee8e9b8642da5dedb5974a1741e5
+mkdir ${W}/src/coreutils-9.5
+cd ${W}/src/coreutils-9.5
+run 0 - ${W}/src/coreutils-9.5.tar ${W}/src/coreutils-9.5.err ${U}/bin/gzip -dc ${D}/coreutils-9.5.tar.gz
+run 0 - ${W}/src/coreutils-9.5.out ${W}/src/coreutils-9.5.err ${K}/bintools untar ${W}/src/coreutils-9.5.tar
+unlink ${W}/src/coreutils-9.5.tar
+cd ${W}/src/coreutils-9.5/coreutils-9.5
+text ${W}/src/coreutils-9.5.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/coreutils-9.5\nset B ${W}/src/coreutils-9.5/coreutils-9.5\n"
+cat ${W}/src/coreutils-9.5.recipe ${W}/src/coreutils-9.5.head ${ROOT}/ladder/coreutils-9.5/recipe
+run 0 - ${W}/src/coreutils-9.5.log ${W}/src/coreutils-9.5.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/coreutils-9.5.recipe
+chmod ${U}/bin/[
+artifact ${U}/bin/[ 237dcdaa4f72977d48f80acd2f76152349033b0bb68e904dfa555bea5a3c866c
+chmod ${U}/bin/b2sum
+artifact ${U}/bin/b2sum 80678f326221aeb150a799f62edece5e558a02fb1b6e9fd7bdd958c0cebc67a0
+chmod ${U}/bin/base32
+artifact ${U}/bin/base32 129a95894c704b748a5220166bd80544958902e8a2ec4188d95d470a6f4dffad
+chmod ${U}/bin/base64
+artifact ${U}/bin/base64 9f707f6e1119921423ffa89bbf421782c3702dcd32dc1234f40e328efcbe2564
+chmod ${U}/bin/basename
+artifact ${U}/bin/basename 0a05f6dbac9170aaefd0dfa75c14488a27d0e753c36e14f1f12baf1aa3021563
+chmod ${U}/bin/basenc
+artifact ${U}/bin/basenc 45c03ea52745aefa75eaf78c8f399de664e8c031ec809cb115345b87d46ae9c5
+chmod ${U}/bin/cat
+artifact ${U}/bin/cat dce7ef52dae02b179225eb0eba813b5cf8ce0d331d85fa0cf7c0d0d92c22ff07
+chmod ${U}/bin/chcon
+artifact ${U}/bin/chcon a7195a90de83c26ae640f27d029971decb708c2d74547531033e4383a9b42192
+chmod ${U}/bin/chgrp
+artifact ${U}/bin/chgrp d4cce85c53de7db1b4e6664c9c116ff96d7441d9c373abd99605a58b76ed5526
+chmod ${U}/bin/chmod
+artifact ${U}/bin/chmod 646ee80ed278bb538180e38a4f194d820cd3e415640010e0eadeaa132af28aa9
+chmod ${U}/bin/chown
+artifact ${U}/bin/chown 9505f42edf9bd346a576450a1a177ac1fbc9df8a1eb16beb5bc415b4462a9970
+chmod ${U}/bin/chroot
+artifact ${U}/bin/chroot 285267b51e4226e03e92c36c976e51f253322555187b568fb85274f5ce24a087
+chmod ${U}/bin/cksum
+artifact ${U}/bin/cksum 473d739e249fadab41eb473e0124dbee8a6857f51b4f0c145ce643b70e6f64af
+chmod ${U}/bin/comm
+artifact ${U}/bin/comm 3ef426580fe5aab41668c8eb90f5be4f40004a17fcda95e54f4eac9ad82d5d17
+chmod ${U}/bin/cp
+artifact ${U}/bin/cp 69335bd3927437507f32df0535a9aa7a132206eb35a0c8bcfd0709cb09122bdb
+chmod ${U}/bin/csplit
+artifact ${U}/bin/csplit bd1eee008bae165c80640ededa1ffce4767243d8d8afc38ee18a614794aac499
+chmod ${U}/bin/cut
+artifact ${U}/bin/cut ca35ecc4b35995d52d59a263764f6d84ac387b9dc3fbb2f1d422da721e8532c5
+chmod ${U}/bin/date
+artifact ${U}/bin/date 8f32aaaeb67dfbff0755bffb58ec424a0835bcb5370fb38d2c29655ed7a61ed9
+chmod ${U}/bin/dd
+artifact ${U}/bin/dd 24d5e84cf6d5be4c8fbb695d5ab9d68401882a36bf2251000c00457ad78a0c8b
+chmod ${U}/bin/df
+artifact ${U}/bin/df 33c9e5cadda5c7a46498c46cf775a04915935345c356e922611dde35b83dd7b9
+chmod ${U}/bin/dir
+artifact ${U}/bin/dir 5bd3bb71dcf81631ad34cb45afdff9038c23279d4c6059d1ae1b94d52f02c049
+chmod ${U}/bin/dircolors
+artifact ${U}/bin/dircolors fc51e3e4af57144e0848d2ea141dc3e80047803b4f6c659675cb62cc25af1804
+chmod ${U}/bin/dirname
+artifact ${U}/bin/dirname 50a813f2fa45cd841e3d083bd477145eba3f4ccaa63900c147e4a7a08435a20e
+chmod ${U}/bin/du
+artifact ${U}/bin/du bbf8393910e0780dc11f3aec9cb1994bc5b483e0c03b766d9c687e5c80a3feb4
+chmod ${U}/bin/echo
+artifact ${U}/bin/echo f4c459186849d4e843497ba9777a4ac7399fe8144812cdb90e93ce5ea2f330cc
+chmod ${U}/bin/env
+artifact ${U}/bin/env 7e5956f0c9cccb1e75dcea1f1ae37e7a7ecbec4022423aa90b9445292ed00dac
+chmod ${U}/bin/expand
+artifact ${U}/bin/expand 7932dc03de2bb80594798034ffadb9627ab27fab75c2a5b5db3a1fbf3eb813a2
+chmod ${U}/bin/expr
+artifact ${U}/bin/expr 2bcfc0122341e254de712461da638cddd9796ae242b46b68ca9cd229994a2931
+chmod ${U}/bin/factor
+artifact ${U}/bin/factor bdc00fd4c33fcfd5bc77b16d8a58b6b5d863bf2a507587ef200dbca8b9f03c37
+chmod ${U}/bin/false
+artifact ${U}/bin/false 68e07cae828aaecd1931ea95af74c6109c45b374a656dd529c6497fe63b4843b
+chmod ${U}/bin/fmt
+artifact ${U}/bin/fmt 87d7649569a941b2343e6d86523b1318cb884e73aaa376d2c9b0308dd466da41
+chmod ${U}/bin/fold
+artifact ${U}/bin/fold 995db12d17d8adde219e9210f0e59c5c461cbd0294e1fcb5362f066b347a5db3
+chmod ${U}/bin/getlimits
+artifact ${U}/bin/getlimits 8899abf17d405aef3e95666c3dbcc1b16c8119139517567f0394fb9e28644b43
+chmod ${U}/bin/ginstall
+artifact ${U}/bin/ginstall aaaea52f88804721951765f47e098cc50fc5d61d2b83e7374d447b05b2de86d1
+chmod ${U}/bin/groups
+artifact ${U}/bin/groups 0656eff6c0ef2ea3dcbd6840b6e9baa302db6adeb198614f4573f678e191f5de
+chmod ${U}/bin/head
+artifact ${U}/bin/head e5ac1306252580efcfd0ba7f7142c21ea486c9fff26dc3ddc0f79c71918dcd79
+chmod ${U}/bin/hostid
+artifact ${U}/bin/hostid d40ad90ecf49bbce5875d93bb2d0b8247a31da1153f452422a0d9b053003555c
+chmod ${U}/bin/id
+artifact ${U}/bin/id e9e07a547039a0af3d448d26bb201c0b38851b68036d7df999e92af5be47315e
+chmod ${U}/bin/join
+artifact ${U}/bin/join eec2142194cee01c7a2d9901cdcb6d01825514c66f394649836d27813455ac7d
+chmod ${U}/bin/kill
+artifact ${U}/bin/kill 3791fd219885bd0e5bb395c542295e2f6997e398b12b115843b9acf0efec4d5d
+chmod ${U}/bin/link
+artifact ${U}/bin/link f92bc61567802f90abbd284a7f4e81fe95bb5cd21126f469b8f787a294bc2cb6
+chmod ${U}/bin/ln
+artifact ${U}/bin/ln 47e228426b32aaf536a22de6864d3d81d6569c6ccae578fc6ece74a18a49ef66
+chmod ${U}/bin/logname
+artifact ${U}/bin/logname 154eb72b24061e8c2634c2550633a99e401b42ea713b8d5cea4e62519c5d2338
+chmod ${U}/bin/ls
+artifact ${U}/bin/ls 6a825c12a4bc15e40273bea641cb1d43b0808ae4476d33a822376d9f2f794819
+chmod ${U}/bin/make-prime-list
+artifact ${U}/bin/make-prime-list b98ce60172aa9fbb71788aba6a5a7815afd8d3d2d97e240dccd5ed781359ce41
+chmod ${U}/bin/md5sum
+artifact ${U}/bin/md5sum ee25ade61583d69e17c97b45e24ffaa4458fca01a09fd5f7588a365d0b87f1dc
+chmod ${U}/bin/mkdir
+artifact ${U}/bin/mkdir b3a2ecefa04da2d0894b815ced76c8944f01fb4762212079b21715043f777df0
+chmod ${U}/bin/mkfifo
+artifact ${U}/bin/mkfifo 9851acb2d50ffc6ae695dfaf0837f90c754ef765248d0e6225ec948b0856a1ce
+chmod ${U}/bin/mknod
+artifact ${U}/bin/mknod 5b0a0bf1db73e0aed5cf50c4d7a7dc670b9866347038ee256aeaf4cad0b9a257
+chmod ${U}/bin/mktemp
+artifact ${U}/bin/mktemp fee35062426f69a1204e371ba144e306196f1a894d201afd55111c89982de3d0
+chmod ${U}/bin/mv
+artifact ${U}/bin/mv 36527c3434d138404c22a9b452267fad5415a2b7794284153b31f7eb5eb66e6a
+chmod ${U}/bin/nice
+artifact ${U}/bin/nice 65a3241506cc57ebbbdfaadef276327fd4d4aaf21187e29a98f2ba0879c7868a
+chmod ${U}/bin/nl
+artifact ${U}/bin/nl e7cd872c627713aeed2cd0ebc214f84b3d9c1ee86326dbcd8e636d2317de262b
+chmod ${U}/bin/nohup
+artifact ${U}/bin/nohup 597b6317db1e54755580f48ca0bc043bba35c949dad7308a28cf4926c92bbc3b
+chmod ${U}/bin/nproc
+artifact ${U}/bin/nproc ee41660d50e3016218036715f42c4cfa2226184e1a2ee786aa612b4b0a7e5ce7
+chmod ${U}/bin/numfmt
+artifact ${U}/bin/numfmt 6d8aedaa295adc4dc5f32f5a2cb7d0c444744a972a1138c0c3024ae8342e093b
+chmod ${U}/bin/od
+artifact ${U}/bin/od 7e5e7b649d534031c0bd7d397e778be75482d87b4505a8fd441986e9d62b3ed9
+chmod ${U}/bin/paste
+artifact ${U}/bin/paste f330fabe5747a5362317aaef6f7fdd34373d0e609bcc24239dd23cfc66a9dd99
+chmod ${U}/bin/pathchk
+artifact ${U}/bin/pathchk bc4177d3654f39f6978d7513e29eae588f90bf323e061fabf33d1cc6e8419906
+chmod ${U}/bin/pinky
+artifact ${U}/bin/pinky a89f5dd044144e75e4e6ec7e53b0629815758ec1a00bc1aa894b0c1aad312f1a
+chmod ${U}/bin/pr
+artifact ${U}/bin/pr 867294a1ad25cbc64747812c9f057c7d8a6ff2a31a77cddabaaed02439a4a0da
+chmod ${U}/bin/printenv
+artifact ${U}/bin/printenv f6d5d656c7125300d35d29fab012b232ab49fd2f14b0166af05bf043affef719
+chmod ${U}/bin/printf
+artifact ${U}/bin/printf d1672d23c1e1ab1bb1dfcbbf986eb509643264d11c18b4fcaf68e0d7d357313e
+chmod ${U}/bin/ptx
+artifact ${U}/bin/ptx 2be98cea76dac7100bc578dd9bebe2be8be570b435d96f8b85b7883602f63bb3
+chmod ${U}/bin/pwd
+artifact ${U}/bin/pwd dd19c278b0bf6159d1d0e8e3ada7b70632e9fe9cd7ec578afa09298ccfad75ca
+chmod ${U}/bin/readlink
+artifact ${U}/bin/readlink 8e1e9d00f940875b2370f6c2e8fd1087f4cd49d609333c0f30397eb82dd8ac23
+chmod ${U}/bin/realpath
+artifact ${U}/bin/realpath 45bd2f7faf92c9bafedc6bac940c2d41c3da0895a588718a3db6fd684c1b3252
+chmod ${U}/bin/rm
+artifact ${U}/bin/rm 00cd7d1d013e9973eeff992c40693b75f6f5b77324c9a1364d143a6929eda1b7
+chmod ${U}/bin/rmdir
+artifact ${U}/bin/rmdir ce142a69a030bf6872f39fca2ed321604b18f2331e39b261d737097dfa58ba54
+chmod ${U}/bin/runcon
+artifact ${U}/bin/runcon df9957a6cff189d5b2d0bc7ba5b216529f0aa3d44cfe45027c3a660f529dfe65
+chmod ${U}/bin/seq
+artifact ${U}/bin/seq 036747e3cb6d4f6325e6e943f6854272207189cad1cbf7e73a9211df56e63bfa
+chmod ${U}/bin/sha1sum
+artifact ${U}/bin/sha1sum 23bb6d056ce5a3fc3a345d345d90266fb8c29163ed713839932c263fdf658665
+chmod ${U}/bin/sha224sum
+artifact ${U}/bin/sha224sum 0aa70079d39879ffd9ba424196aad123ee94b7bb7a8eab4df56ef8687bfe1c2d
+chmod ${U}/bin/sha256sum
+artifact ${U}/bin/sha256sum 971a3b56ce40889cd7077a21f716f89c3ed8f3438133d6bfb2f95695eb78314f
+chmod ${U}/bin/sha384sum
+artifact ${U}/bin/sha384sum 45fab8bb96a628ea1367e95be7a8725e86ee47da11803874d75ab633d718951d
+chmod ${U}/bin/sha512sum
+artifact ${U}/bin/sha512sum 2d41b11a1b6074febd9e2c4aefc8a4497bb022e2eee9f74e2ad5017eb1e02226
+chmod ${U}/bin/shred
+artifact ${U}/bin/shred ca93bef8c14d343aa3d2457f24b692dfbda4fdb0e9c3dd992999a6f6931d9d4f
+chmod ${U}/bin/shuf
+artifact ${U}/bin/shuf e53c9f05e568c06afb9a58b691c5434a1d5a0cc820a6b2ceccea21b152c451a2
+chmod ${U}/bin/sleep
+artifact ${U}/bin/sleep af5e432f76a3062b71c9bebaa06baf09e0af5760e0708df59114913203ce34ff
+chmod ${U}/bin/sort
+artifact ${U}/bin/sort 02941ca7dd2beb11a8e27d8fdeff9122edbf8ad48d146b7da85a57a8b89a28f1
+chmod ${U}/bin/split
+artifact ${U}/bin/split fd2b47d77495e68e1793e193faae96e2f729f29f50b66bb6fb49ea29e02325de
+chmod ${U}/bin/stat
+artifact ${U}/bin/stat a52867b9d0e60a4e3559209135f04bcd6a6b4e8d7c7e267a286ba138a89fc4aa
+chmod ${U}/bin/stty
+artifact ${U}/bin/stty be2ef67cae266fde8b5724595cc2c37db3c7a1d14ca1fab62232e98c41f78163
+chmod ${U}/bin/sum
+artifact ${U}/bin/sum 88654e2ed6742602d7abd0219cc50c4058d26495a152008b8d8e38adb2441bb2
+chmod ${U}/bin/sync
+artifact ${U}/bin/sync cfed9ff1712aac46da7705f6d7a8b94758693168bd3d4e5dfb4623faf750b56f
+chmod ${U}/bin/tac
+artifact ${U}/bin/tac 14425ca48d440395758e44ddf93a7272785b80dc67415de6973871e8a6f0f6c7
+chmod ${U}/bin/tail
+artifact ${U}/bin/tail 236618332be6abda2b6d892193286746b74da38ef2236bc5dde25e1625819eb0
+chmod ${U}/bin/tee
+artifact ${U}/bin/tee 23571f5f4fe8f3b706cb437ca3166ce553c115c2fbe81276d25f2ef41b32821e
+chmod ${U}/bin/test
+artifact ${U}/bin/test 3eaa8d8af0f092b34ff27599dde39ee53c184376f0eed9d3847c2a3ddcb3b799
+chmod ${U}/bin/timeout
+artifact ${U}/bin/timeout 74bbae03da8bd034c53fe0b109b6659a87f97a298ffe4b36569a39028956cbc1
+chmod ${U}/bin/touch
+artifact ${U}/bin/touch 69f33e9dc17e1f5342bc865c96185b8f7f7eed39929888b0bbc3f961bd1f7f45
+chmod ${U}/bin/tr
+artifact ${U}/bin/tr 3147fef8e75e8a17874e6f945e9ac9f43185c972d3664deb484cb74c58ffe995
+chmod ${U}/bin/true
+artifact ${U}/bin/true f516038b7f9c91e7f0bf365a0196ea5afcfe7645eaddb5a3804410e7faca8379
+chmod ${U}/bin/truncate
+artifact ${U}/bin/truncate 9b8dea6ea56f4ca75fd83144917f82e9862006534318abe695515ed56a8365f7
+chmod ${U}/bin/tsort
+artifact ${U}/bin/tsort 4f56947b695a877a1e6d56cfb8b840ffc1530363d1ad53bab24930e481431830
+chmod ${U}/bin/tty
+artifact ${U}/bin/tty 080bdc69a36ff22a5d369cf86b11753548978eb144b452fe6d2282e17f7609a7
+chmod ${U}/bin/uname
+artifact ${U}/bin/uname cec39e5a50e5ae1c07d70eedfe373347d809791f469afdb5147f3b967d74e739
+chmod ${U}/bin/unexpand
+artifact ${U}/bin/unexpand faa4fe6eb10d2fe3f49cbec94bef63cf8f63128facb7efe3e58e08e592482fe2
+chmod ${U}/bin/uniq
+artifact ${U}/bin/uniq 2dfb7c2a85a34897fc3867f42c5658d8badb82d785862256cda7f6b667425bd2
+chmod ${U}/bin/unlink
+artifact ${U}/bin/unlink 776d286d552c7e8e2d5de3ead88fb2bed0e4796119b7dffec6b499b3e7f80a00
+chmod ${U}/bin/uptime
+artifact ${U}/bin/uptime 0fef7f8ffcd278db4d0a0cf0fc24a88bb4e9b20e3c614a45dd589778b70bc915
+chmod ${U}/bin/users
+artifact ${U}/bin/users da041a0b29ed330b834c14270d091e95252fb273de7b90dbce1c4533cc8d60f8
+chmod ${U}/bin/vdir
+artifact ${U}/bin/vdir 594880717666049f460734da504558dbde6fe984c6e77a276604f1f148721946
+chmod ${U}/bin/wc
+artifact ${U}/bin/wc 2ae4c192394a964dfaf6c3f7d2d3e88c79870415e49955c9fe76e428233a550c
+chmod ${U}/bin/who
+artifact ${U}/bin/who 6d2bd90d23aa55b586a825918cbc9d389cb023a66c330f3538014e70f4afebfc
+chmod ${U}/bin/whoami
+artifact ${U}/bin/whoami e6416d44123decad1d697c50dd06fceff28f8958626c3be13f7566bcc8e985f3
+chmod ${U}/bin/yes
+artifact ${U}/bin/yes fd6c280255976df850629e36d91f5aec9a8b7ca2db6874d983233737df152c39
+say "ladder: coreutils-9.5"
+# patch-2.7.6
+pin ${D}/patch-2.7.6.tar.gz 8cf86e00ad3aaa6d26aca30640e86b0e3e1f395ed99f189b06d4c9f74bc58a4e
+mkdir ${W}/src/patch-2.7.6
+cd ${W}/src/patch-2.7.6
+run 0 - ${W}/src/patch-2.7.6.tar ${W}/src/patch-2.7.6.err ${U}/bin/gzip -dc ${D}/patch-2.7.6.tar.gz
+run 0 - ${W}/src/patch-2.7.6.out ${W}/src/patch-2.7.6.err ${K}/bintools untar ${W}/src/patch-2.7.6.tar
+unlink ${W}/src/patch-2.7.6.tar
+cd ${W}/src/patch-2.7.6/patch-2.7.6
+text ${W}/src/patch-2.7.6.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/patch-2.7.6\nset B ${W}/src/patch-2.7.6/patch-2.7.6\n"
+cat ${W}/src/patch-2.7.6.recipe ${W}/src/patch-2.7.6.head ${ROOT}/ladder/patch-2.7.6/recipe
+run 0 - ${W}/src/patch-2.7.6.log ${W}/src/patch-2.7.6.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/patch-2.7.6.recipe
+chmod ${U}/bin/patch
+artifact ${U}/bin/patch 284d3e2bbe41de6150bb80a1293dc80a2edabaec571d7fdb89b9cbc6cca313a2
+say "ladder: patch-2.7.6"
+# xz-5.6.3
+pin ${D}/xz-5.6.3.tar.gz b1d45295d3f71f25a4c9101bd7c8d16cb56348bbef3bbc738da0351e17c73317
+mkdir ${W}/src/xz-5.6.3
+cd ${W}/src/xz-5.6.3
+run 0 - ${W}/src/xz-5.6.3.tar ${W}/src/xz-5.6.3.err ${U}/bin/gzip -dc ${D}/xz-5.6.3.tar.gz
+run 0 - ${W}/src/xz-5.6.3.out ${W}/src/xz-5.6.3.err ${K}/bintools untar ${W}/src/xz-5.6.3.tar
+unlink ${W}/src/xz-5.6.3.tar
+cd ${W}/src/xz-5.6.3/xz-5.6.3
+text ${W}/src/xz-5.6.3.head "set CC ${TC}\nset T ${G}/tools\nset P ${U}\nset L ${W}/src\nset SRC ${ROOT}/ladder/xz-5.6.3\nset B ${W}/src/xz-5.6.3/xz-5.6.3\n"
+cat ${W}/src/xz-5.6.3.recipe ${W}/src/xz-5.6.3.head ${ROOT}/ladder/xz-5.6.3/recipe
+run 0 - ${W}/src/xz-5.6.3.log ${W}/src/xz-5.6.3.err ${ROOT}/build-out/amd64-runner --recipe ${W}/src/xz-5.6.3.recipe
+chmod ${U}/bin/xz
+artifact ${U}/bin/xz 40409e0a28c59d64270748c0ccf0be85d633fa4cb6c1ba7c76c5f4f34c12fa00
+say "ladder: xz-5.6.3"

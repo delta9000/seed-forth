@@ -1,0 +1,14 @@
+# The first tools, in build order, each replayed from tools/capture-build.py's
+# capture in ladder/NAME.  Columns: name, tarball in build-out/distfiles, its
+# sha256, and how to unpack it: "bintools" (the kit's ungz/untar, for small
+# .tar.gz) or "gzip" (the chain's gzip -dc, then the kit's untar).
+make-3.82    make-3.82.tar.gz    3d991b33e604187c5881a0abc2e102d5b9776da5569640e73778f85d617242e7  bintools
+gzip-1.13    gzip-1.13.tar.gz    20fc818aeebae87cdbf209d35141ad9d3cf312b35a5e6be61bfcfbf9eddd212a  bintools
+bash-5.2.37  bash-5.2.37.tar.gz  9599b22ecd1d5787ad7d3b7bf0c59f312b3396d1e281175dd1f8a4014da621ff  gzip
+tar-1.35       tar-1.35.tar.gz        14d55e32063ea9526e057fbf35fcabd53378e769787eff7919c3755b02d2b57e  gzip
+sed-4.9        sed-4.9.tar.gz         d1478a18f033a73ac16822901f6533d30b6be561bcbce46ffd7abce93602282e  gzip
+grep-3.11      grep-3.11.tar.gz       1f31014953e71c3cddcedb97692ad7620cb9d6d04fbdc19e0d8dd836f87622bb  gzip
+gawk-5.3.1     gawk-5.3.1.tar.gz      fa41b3a85413af87fb5e3a7d9c8fa8d4a20728c67651185bb49c38a7f9382b1e  gzip
+coreutils-9.5  coreutils-9.5.tar.gz   767ae6a22950ec42f3ba5f7c1de79dd27800ee8e9b8642da5dedb5974a1741e5  gzip
+patch-2.7.6    patch-2.7.6.tar.gz     8cf86e00ad3aaa6d26aca30640e86b0e3e1f395ed99f189b06d4c9f74bc58a4e  gzip
+xz-5.6.3       xz-5.6.3.tar.gz        b1d45295d3f71f25a4c9101bd7c8d16cb56348bbef3bbc738da0351e17c73317  gzip

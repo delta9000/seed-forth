@@ -1,0 +1,10 @@
+        mode = 0666;
+    else
+        mode = 0777;
+    /* gcc64: configure scripts link to "-o /dev/null"; unlinking that as
+       root replaces the device with a regular file.  Never unlink /dev/... */
+    if (strncmp(filename, "/dev/", 5) != 0)
+        unlink(filename);
+    fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, mode);
+    if (fd < 0) {
+        tcc_error_noabort("could not write '%s'", filename);

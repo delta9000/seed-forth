@@ -1,0 +1,16 @@
+# do { ... continue; ... break; } while (cond): when the body ends in an
+# unconditional jump, tcc-0.9.27 keeps code generation off for the
+# condition, so 'continue' falls out of the loop instead of testing it.
+# Turn code generation back on when a 'continue' targets the condition,
+# as later tinycc does.  Found in GNU tar 1.35 (read_and lists one member).
+--- a/tccgen.c
++++ b/tccgen.c
+@@ -6105,6 +6105,8 @@
+         skip(TOK_WHILE);
+         skip('(');
+         gsym(b);
++	if (b)
++	    nocode_wanted = saved_nocode_wanted;
+ 	gexpr();
+ 	c = gvtst(0, 0);
+ 	gsym_addr(c, d);

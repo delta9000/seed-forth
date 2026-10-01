@@ -1,0 +1,9 @@
+replace tcc-0.9.27/tccgen.c tcc-0.9.27/tccgen.c tcc-01.before tcc-01.after 075ed4fb92509dc861cc9321c4f77f0f9e46bc587b80edcb042535b538755deb 15eb3e3964948f6adb224a301b97913f72f4dc6580cbb135070fcf51837f54dc
+replace tcc-0.9.27/tcctools.c tcc-0.9.27/tcctools.c tcc-02.before tcc-02.after 2d80c78a473a64505aa1556a5ccae1d7d924e8d4e579409f2796db9e68e45b9b c1bf882bbd1d57f9513259417254afb5617173c4218a81202d23db94f7e1156f
+replace tcc-0.9.27/libtcc.c tcc-0.9.27/libtcc.c tcc-03.before tcc-03.after c2156ae646b42d725840cfcff59a72a4b41029562f9e1cdcd4789849ef845d2c 087d33671e153e9d599e5babe38dd4e3517d73261ee6ab691ab73baf4d4be618
+replace tcc-0.9.27/tccelf.c tcc-0.9.27/tccelf.c tcc-04.before tcc-04.after 9c97c6cf882d3fe08980e2bf4396a820893995cac23335429adde6ee5e47546d 8aabf1204dcfbcbc8a8bbf3d5b11ee0c5476df9439e0ba748ea3f68097886058
+replace tcc-0.9.27/tccelf.c tcc-0.9.27/tccelf.c tcc-05.before tcc-05.after 8aabf1204dcfbcbc8a8bbf3d5b11ee0c5476df9439e0ba748ea3f68097886058 07a551d53e97fd90f21c382ae69d2dede048d1a9449d64bca83c3593e34f7264
+replace tcc-0.9.27/tcctools.c tcc-0.9.27/tcctools.c tcc-06.before tcc-06.after c1bf882bbd1d57f9513259417254afb5617173c4218a81202d23db94f7e1156f cd7f20534f36e16d00177147953cba4eb52d6a3d29d4bdfd007b55bcce24b568
+replace tcc-0.9.27/tcctools.c tcc-0.9.27/tcctools.c tcc-07.before tcc-07.after cd7f20534f36e16d00177147953cba4eb52d6a3d29d4bdfd007b55bcce24b568 e359a7737efffa054dc3e00d4a20ebbd251e40e52ecad07f8c1ed98ee28e0455
+replace tcc-0.9.27/tccelf.c tcc-0.9.27/tccelf.c tcc-08.before tcc-08.after 07a551d53e97fd90f21c382ae69d2dede048d1a9449d64bca83c3593e34f7264 34449fca6667cdcb4c9472c93d78550eb2e9be309f7e0d8bc0612056ecee23d4
+replace tcc-0.9.27/tccgen.c tcc-0.9.27/tccgen.c tcc-09.before tcc-09.after 15eb3e3964948f6adb224a301b97913f72f4dc6580cbb135070fcf51837f54dc e9bbc9d31387a3c569e39917597585c1e47446fec94df96b0acae19df72933f7

@@ -1,0 +1,7 @@
+	inc %rdi
+	jz 1f
+	fldenv -1(%rdi)
+	.byte 0x0f,0xae,0x57,0x1b	# ldmxcsr 27(%rdi) (tcc 0.9.27 has no SSE control insns)
+	ret
+1:	push %rax
+	push %rax

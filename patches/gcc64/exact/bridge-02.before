@@ -1,0 +1,7 @@
+#include <stdio.h>
+#include <string.h>
+
+#define HEAP_SIZE 26214400 // 25 MB heap size
+
+// TCC defines malloc, free and realloc as macros in libtcc.c which conflicts
+// with our definitions here. This wouldn't be a problem if the libc was

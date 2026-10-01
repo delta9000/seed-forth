@@ -1,0 +1,7 @@
+	inc %rdi
+	jz 1f
+	fldenv -1(%rdi)
+	ldmxcsr 27(%rdi)
+	ret
+1:	push %rax
+	push %rax
