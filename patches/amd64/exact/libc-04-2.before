@@ -1,0 +1,3 @@
+    qsort (base + p * size, count - p, size, compare);
+  }
+}

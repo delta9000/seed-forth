@@ -1,0 +1,6 @@
+  return result;
+}
+
+#else
+
+#error Unsupported architecture

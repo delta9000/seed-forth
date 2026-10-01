@@ -12,8 +12,11 @@ pnut's own TinyCC kit (`vendor/pnut/kit/`) targets i386 only.  These
 patches are everything this route adds to it.  They are not sent upstream:
 upstream sources are pinned by hash (see below) and the patches live here.
 Every patch is a unified diff with a comment header that says what it
-fixes and why.  The script applies them with GNU `patch -p1 -F0` (no fuzz)
-to scratch copies.  Nothing under `vendor/` is ever modified.
+fixes and why. The bootstrap applies committed `exact/` before/after
+fixtures through a stage-3 pnut-built `tools/simple-patch.c`, with unique
+nonempty matches and per-operation source/output SHA-256 checks. GNU
+`patch` is not run by this route. Nothing under `vendor/` is modified.
+See [HOST-TOOLS.md](../../HOST-TOOLS.md) for the tool contracts and launch boundary.
 
 | Directory | Applies to | Applied in |
 |---|---|---|
@@ -70,15 +73,19 @@ them, and `tests/pnut/amd64/printf.out` is the expected output.
 | `tcc-0.9.27/lib/va_list.c` | inside that tarball | sha256 `3204e28b30bc7cbd4ea9520377e69a6feef11e110081bd05d1136fdcbf50c6f1` |
 | kit's 8 tcc patches, `kit/config.h`, `kit/libtcc1.c`, `kit/bintools/`, `portable_libc/` | vendor/pnut at the commit above | (covered by the commit) |
 
-The script refuses to run on a different pnut commit.  It also checks the
+The runner checks all 544 tracked pnut files against a manifest derived
+from that commit, and stages only those files. It also checks the
 tarball's hash before bintools unpacks it, and it checks `va_list.c` after
 unpacking.  A mismatch is a hard FAIL, not a skip.
 
 ## Changing a patch
 
-Edit the `.diff` so that it still applies with `-F0`.  Then run
+Edit the `.diff` so that it still applies with `-F0`. Regenerate and
+review the committed exact fixtures with
+`tools/prepare-amd64-exact-patches.py` (an offline authoring tool, not a
+bootstrap dependency); `--check` verifies them without writing. Then run
 `SF_PNUT64_REPIN=1 tests/pnut/sf-pnut-amd64-check.sh`, which prints every
 stage's new sha256 instead of failing on it.  Copy the values into the pins
-at the top of the script and into REPRODUCIBLE.md ("Past M2-Planet on amd64
+in `tools/amd64.recipe` and into REPRODUCIBLE.md ("Past M2-Planet on amd64
 alone").  After that, `./verify.sh` step 9 should still show the gcc-seeded
 tcc reaching the same `tcc-boot2`.

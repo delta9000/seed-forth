@@ -1,0 +1,23 @@
+#define SIZEOF_NUM_BUF 100
+char _num_buf[SIZEOF_NUM_BUF];
+
+char *_int_to_str(int n, int base, int width, int force_0, int force_plus, int left_justify) {
+
+  char *out = _num_buf + SIZEOF_NUM_BUF;
+  int neg = n < 0;
+  int has_sign = neg || force_plus;
+  char *digits = "0123456789abcdef";
+
+  if (!neg) n = -n;
+
+  *--out = 0;
+
+  while (n <= -base) {
+    *--out = digits[-(n % base)];
+    n /= base;
+  }
+
+  *--out = digits[-(n % base)];
+
+  if (width >= SIZEOF_NUM_BUF) width = SIZEOF_NUM_BUF-1;
+

@@ -1,0 +1,6 @@
+  int force_0;
+  int force_sign;
+  int left_justify;
+
+  while ((c = *format++)) {
+    if (c == '%' && (c = *format++) != '%') {

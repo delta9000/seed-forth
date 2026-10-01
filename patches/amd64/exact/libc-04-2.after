@@ -1,0 +1,7 @@
+    qsort (base + p * size, count - p, size, compare);
+  }
+}
+
+void abort(void) {
+  pnut_abort("abort\n");
+}

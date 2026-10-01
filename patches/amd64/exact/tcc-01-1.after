@@ -1,0 +1,15 @@
+ST_FUNC int classify_x86_64_va_arg(CType *ty)
+{
+    /* This definition must be synced with stdarg.h */
+#ifdef PNUT_CC
+#define __va_gen_reg 0
+#define __va_float_reg 1
+#define __va_stack 2
+#else
+    enum __va_arg_type {
+        __va_gen_reg, __va_float_reg, __va_stack
+    };
+#endif
+    int size, align, reg_count;
+    X86_64_Mode mode = classify_x86_64_arg(ty, NULL, &size, &align, &reg_count);
+    switch (mode) {

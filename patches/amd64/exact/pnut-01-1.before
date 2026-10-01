@@ -1,0 +1,7 @@
+#ifdef SMALL_HEAP
+#define HEAP_SIZE 131072 // 128 KB
+#else
+#define HEAP_SIZE 786432 // 768 KB
+#endif
+intptr_t heap[HEAP_SIZE];
+int heap_alloc = HASH_PRIME;

@@ -159,9 +159,24 @@ SF_PNUT_TCC=1 tests/pnut/sf-pnut-check.sh   # i386 route (needs IA-32 emulation)
   `TCC_TARGET_X86_64` up to `tcc-boot2 = tcc-boot3`.  `tcc-boot2` then
   builds and runs 64-bit arithmetic, printf and hello-world tests and
   portable_libc's own test suite.  It also builds a pnut that rebuilds
-  pnut64-g2 byte for byte.  Every stage's sha256 is pinned in the script.
+  pnut64-g2 byte for byte. Every stage's sha256 is pinned in
+  `tools/amd64.recipe`.
   `./verify.sh` adds a reference comparison: a gcc-built tcc, seeded the
   same way, reaches the same `tcc-boot2`.
+
+The amd64 route can also be launched without the convenience shell script:
+
+```sh
+./seed-forth < tools/amd64-start.fth
+```
+
+After initial seed/source/descriptor setup, it needs no host Bash, grep,
+cat/copy/move/hash utility, Git/archive tool or patch program. The seed
+builds its own narrow runner, pnut builds the include flattener and patch
+helper, and bintools extracts the source archive. This passes in a fresh
+root with only the seed executable and no `/bin` or `/usr`. Linux remains
+a prerequisite. [HOST-TOOLS.md](HOST-TOOLS.md) defines and tests the exact
+boundary; the optional GCC15 continuation has a larger boundary.
 
 pnut's kit supports only i386, so the amd64 route carries its own changes
 in [`patches/amd64/`](patches/amd64/README.md).  Upstream sources are
