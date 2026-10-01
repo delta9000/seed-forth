@@ -65,6 +65,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/check-all"
           TMPDIR="$RUNNER_TEMP/check-all" ./check-all.sh
 
+      - name: Seed-only amd64 tooling and isolated root
+        run: tests/pnut/host-tools-check.sh
+
       - name: verify.sh
         run: ./verify.sh
 

@@ -1,0 +1,14 @@
+#ifdef TCC_TARGET_X86_64
+            if ((type == R_X86_64_PLT32 || type == R_X86_64_PC32) &&
+                (ELFW(ST_VISIBILITY)(sym->st_other) != STV_DEFAULT ||
+		 ELFW(ST_BIND)(sym->st_info) == STB_LOCAL
+#ifdef BOOTSTRAP
+                 /* tcc-0.9.27 never relocates the PLT of a -static exe
+                    (relocate_plt is only called when there is a .dynamic
+                    section), so a static exe must not call through it. */
+                 || (s1->static_link && sym->st_shndx != SHN_UNDEF)
+#endif
+                 )) {
+                rel->r_info = ELFW(R_INFO)(sym_index, R_X86_64_PC32);
+                continue;
+            }

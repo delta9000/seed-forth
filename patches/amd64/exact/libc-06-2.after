@@ -1,0 +1,9 @@
+  int force_0;
+  int force_sign;
+  int left_justify;
+  int length;           // number of 'l's: 0 int, 1 long, 2 long long
+  long long n;
+  unsigned long long u;
+
+  while ((c = *format++)) {
+    if (c == '%' && (c = *format++) != '%') {

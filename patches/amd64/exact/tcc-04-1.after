@@ -1,0 +1,23 @@
+        ret = final_sections_reloc(s1);
+        if (ret)
+            goto the_end;
+#ifdef BOOTSTRAP
+        /* tcc-0.9.27 fills the GOT of a -static exe after
+           tidy_section_headers has moved the unnamed .rela sections past
+           nb_sections, so fill_got never sees them and the GOT stays zero.
+           Fill it first. */
+        if (file_type == TCC_OUTPUT_EXE && s1->static_link)
+            fill_got(s1);
+#endif
+	tidy_section_headers(s1, sec_order);
+
+        /* Perform relocation to GOT or PLT entries */
+        if (file_type == TCC_OUTPUT_EXE && s1->static_link)
+#ifndef BOOTSTRAP
+            fill_got(s1);
+#else
+            ;
+#endif
+        else if (s1->got)
+            fill_local_got_entries(s1);
+    }

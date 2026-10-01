@@ -1,0 +1,12 @@
+#ifndef _ASSERT_H
+#define _ASSERT_H
+
+#include <pnut_lib.h>
+
+#ifdef NDEBUG
+#define assert(x) do { } while (0)
+#else
+#define assert(x) do { if (!(x)) pnut_abort("assertion failed: " #x "\n"); } while (0)
+#endif
+
+#endif

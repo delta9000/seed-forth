@@ -630,15 +630,15 @@ tests/pnut/sf-pnut-amd64-check.sh                          # ~10 s; check-all.sh
 SF_PNUT64_GCC_ORACLE=1 tests/pnut/sf-pnut-amd64-check.sh   # + gcc reference, ~16 s; verify.sh step 9
 ```
 
-Output goes to `./build-out/pnut-amd64` (`BUILDROOT=`), which is wiped at
-the start of each run.  When `unshare -rm` works, the script runs with a
+Output goes to `./build-out/pnut-amd64` (`BUILDROOT=`), which is reset at
+the start of each run. An external `BUILDROOT` must be a new directory.  When `unshare -rm` works, the script runs with a
 private `/tmp`.
 
 ### Pins
 
 | Input | Pin |
 |---|---|
-| pnut (`vendor/pnut`) | commit `abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d` (the script fails on any other `HEAD`) |
+| pnut (`vendor/pnut`) | commit `abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d` (all 544 tracked files checked against `tools/amd64-inputs.sha256`) |
 | tcc-0.9.27 source | `vendor/pnut/kit/tcc-0.9.27.tar.gz`, sha256 `db0a0bf390c746621b2dc9b8ddf9ff4eeda0c7e3e65e292de5bd8be902eb230d` (added to pnut by commit `920cb3f`; the tcc 0.9.27 release tree of 2017-12-17; checked before bintools unpacks it) |
 | `tcc-0.9.27/lib/va_list.c` (goes into `libtcc1.a` unmodified) | sha256 `3204e28b30bc7cbd4ea9520377e69a6feef11e110081bd05d1136fdcbf50c6f1` (checked after unpacking) |
 | the kit's 8 tcc patches, `kit/config.h`, `kit/libtcc1.c`, `kit/bintools/`, `portable_libc/` | pnut commit above |
@@ -678,8 +678,9 @@ the gcc reference.
 
 Stage 5 drops ONE_PASS_GENERATOR because that mode caps output at
 1,000,000 bytes, and `tcc-pnut` is 1.12 MB.  With `SF_PNUT64_REPIN=1`
-the script prints the stage hashes instead of failing on them.  Use it
-after a deliberate patch change.
+the runner prints artifact hashes instead of enforcing their old pins,
+while source and patch hashes remain strict. Use it after a deliberate
+patch change; compare independently before updating `tools/amd64.recipe`.
 
 ### Patches (`patches/amd64/`, README there)
 
@@ -733,9 +734,20 @@ This runs after the GCC-free chain and takes no part in it:
   boot2 `crt1.o`, `libc.a` and `libtcc1.a`, are byte-identical to the
   pnut-seeded ones.
 
-This route trusts two things beyond the i386 route: the patches in
-`patches/amd64/`, and GNU `patch`, which applies them.  The tcc tarball is
-the same one the i386 route's stage 3 unpacks.  Here its hash is checked.
+The authoritative route can run directly as
+`./seed-forth < tools/amd64-start.fth`, with no host build executable after
+launch. The seed assembles and builds a narrow C runner before pnut;
+that runner performs source staging, file assembly, SHA-256, process
+control and exact manifest promotion. Stage-1 pnut builds the include
+flattener, and stage-3 pnut builds the checked patch helper. Bintools
+unpacks the TinyCC archive. A source-only isolated root containing no
+host executable except the seed passes the full route.
+
+The Linux kernel, initial seed construction, source acquisition and
+launch/fd setup remain prerequisites. The Bash convenience wrapper and
+`sf-pnut-amd64-oracle.sh` are launch/verification tooling, not part of
+that executable closure. See [HOST-TOOLS.md](HOST-TOOLS.md) for the
+construction order, precise boundary, focused tests and isolated proof.
 
 ## Past TinyCC on amd64: GCC 15.2 via musl
 

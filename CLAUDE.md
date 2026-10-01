@@ -33,7 +33,10 @@ compiler's M1 output against GCC-built M2-Planet.
   pinned; test programs in `tests/pnut/amd64/`).
 - `patches/amd64/` — our patches for the amd64 route (pnut heap size,
   4 tcc-0.9.27, 6 portable_libc), unified diffs with explanatory
-  headers, applied to scratch copies; never edit `vendor/pnut`.  After
+  headers, applied to scratch copies with exact manifests; never edit `vendor/pnut`.
+  `tools/amd64-start.fth` builds the recipe runner directly from the seed;
+  `tools/amd64.recipe` contains explicit operations and artifact pins. See
+  `HOST-TOOLS.md` for the shell-free boundary and focused checks.  After
   changing one, re-pin with `SF_PNUT64_REPIN=1` (see its README).
 - `gcc64/run-gcc64.sh` — the amd64 chain on from `tcc-boot2` to GCC 15.2
   via musl (stage 0 = `sf-pnut-amd64-check.sh`; ~1.5 h, so only in
