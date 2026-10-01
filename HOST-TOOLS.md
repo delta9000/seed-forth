@@ -39,8 +39,10 @@ static amd64 ELF; no host dynamic loader or shared libc is used.
    explicit arguments, quoting and named variables, file operations, hashes,
    comparisons and checked process execution. It has no shell, PATH lookup,
    command substitutions, glob expansion, or general Bash compatibility
-3. The runner checks all 544 files listed in `tools/amd64-inputs.sha256` and
-   stages only those files. The manifest is generated offline from pnut
+3. The runner checks the 56 files listed in `tools/amd64-inputs.sha256` and
+   stages only those files: the pnut sources the route reads (its native
+   x86_64 backend, kit's bintools, libtcc1 and tcc tarball, and the
+   portable libc). The manifest is generated offline from pnut
    `abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d`; Git metadata and untracked
    files never become compiler inputs
 4. The runner assembles the stage-1 Forth/C input, then the seed builds

@@ -638,7 +638,7 @@ private `/tmp`.
 
 | Input | Pin |
 |---|---|
-| pnut (`vendor/pnut`) | commit `abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d` (all 544 tracked files checked against `tools/amd64-inputs.sha256`) |
+| pnut (`vendor/pnut`) | commit `abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d` (the 56 files the route reads, checked against `tools/amd64-inputs.sha256`) |
 | tcc-0.9.27 source | `vendor/pnut/kit/tcc-0.9.27.tar.gz`, sha256 `db0a0bf390c746621b2dc9b8ddf9ff4eeda0c7e3e65e292de5bd8be902eb230d` (added to pnut by commit `920cb3f`; the tcc 0.9.27 release tree of 2017-12-17; checked before bintools unpacks it) |
 | `tcc-0.9.27/lib/va_list.c` (goes into `libtcc1.a` unmodified) | sha256 `3204e28b30bc7cbd4ea9520377e69a6feef11e110081bd05d1136fdcbf50c6f1` (checked after unpacking) |
 | the kit's 8 tcc patches, `kit/config.h`, `kit/libtcc1.c`, `kit/bintools/`, `portable_libc/` | pnut commit above |

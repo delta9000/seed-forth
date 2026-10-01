@@ -16,7 +16,7 @@ if dest.exists():
     shutil.rmtree(dest)
 dest.mkdir(parents=True)
 files = list(root.glob('[0-9][0-9][0-9]-*.fth'))
-files += [root / 'tools' / name for name in ('amd64-start.fth', 'amd64-syscalls.fth', 'amd64-runner.c', 'amd64.recipe', 'amd64-inputs.sha256', 'flatten-includes.c', 'simple-patch.c')]
+files += [root / 'tools' / name for name in ('amd64-start.fth', 'amd64-syscalls.fth', 'amd64-runner.c', 'amd64.recipe', 'amd64-inputs.sha256', 'amd64-libc.sha256', 'flatten-includes.c', 'simple-patch.c')]
 for directory in ('patches/amd64/exact', 'tests/pnut/amd64'):
     files += [p for p in (root / directory).rglob('*') if p.is_file()]
 files += [root / line.split()[1] for line in (root / 'tools/amd64-inputs.sha256').read_text().splitlines()]
