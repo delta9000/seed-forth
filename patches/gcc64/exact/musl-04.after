@@ -1,0 +1,14 @@
+	test %eax,%ecx
+	jz 1f
+	fnclex
+1:	.byte 0x0f,0xae,0x5c,0x24,0xf8	# stmxcsr -8(%rsp) (tcc 0.9.27 has no SSE control insns)
+	and $0x3f,%eax
+	or %eax,-8(%rsp)
+	test %ecx,-8(%rsp)
+	jz 1f
+	not %ecx
+	and %ecx,-8(%rsp)
+	.byte 0x0f,0xae,0x54,0x24,0xf8	# ldmxcsr -8(%rsp) (tcc 0.9.27 has no SSE control insns)
+1:	xor %eax,%eax
+	ret
+

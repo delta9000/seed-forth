@@ -1,0 +1,11 @@
+	andb $0xf3,1(%rsp)
+	or %ch,1(%rsp)
+	fldcw (%rsp)
+	.byte 0x0f,0xae,0x1c,0x24	# stmxcsr (%rsp) (tcc 0.9.27 has no SSE control insns)
+	shl $3,%ch
+	andb $0x9f,1(%rsp)
+	or %ch,1(%rsp)
+	.byte 0x0f,0xae,0x14,0x24	# ldmxcsr (%rsp) (tcc 0.9.27 has no SSE control insns)
+	pop %rcx
+	ret
+

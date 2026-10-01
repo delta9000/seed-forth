@@ -1,0 +1,41 @@
+	return ret;
+}
+
+#ifdef __TINYC__
+/* tcc 0.9.27 ignores register-variable asm bindings such as
+   register long r10 __asm__("r10"), so the syscall's 4th-6th arguments
+   would land in the wrong registers.  Pass them through memory, via %rbx,
+   and load r10/r8/r9 inside the asm itself. */
+static __inline long __syscall4(long n, long a1, long a2, long a3, long a4)
+{
+	unsigned long ret;
+	long x[1];
+	x[0] = a4;
+	__asm__ __volatile__ ("mov (%%rbx),%%r10\n\tsyscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2),
+						  "d"(a3), "b"(x) : "rcx", "r11", "r10", "memory");
+	return ret;
+}
+
+static __inline long __syscall5(long n, long a1, long a2, long a3, long a4, long a5)
+{
+	unsigned long ret;
+	long x[2];
+	x[0] = a4; x[1] = a5;
+	__asm__ __volatile__ ("mov (%%rbx),%%r10\n\tmov 8(%%rbx),%%r8\n\tsyscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2),
+						  "d"(a3), "b"(x) : "rcx", "r11", "r10", "r8", "memory");
+	return ret;
+}
+
+static __inline long __syscall6(long n, long a1, long a2, long a3, long a4, long a5, long a6)
+{
+	unsigned long ret;
+	long x[3];
+	x[0] = a4; x[1] = a5; x[2] = a6;
+	__asm__ __volatile__ ("mov (%%rbx),%%r10\n\tmov 8(%%rbx),%%r8\n\tmov 16(%%rbx),%%r9\n\tsyscall" : "=a"(ret) : "a"(n), "D"(a1), "S"(a2),
+						  "d"(a3), "b"(x) : "rcx", "r11", "r10", "r8", "r9", "memory");
+	return ret;
+}
+#else
+static __inline long __syscall4(long n, long a1, long a2, long a3, long a4)
+{
+	unsigned long ret;

@@ -1,0 +1,39 @@
+
+#ifdef ADD_LIBC_STUB
+
+/* gcc64 bridge: an exact ldexp (IEEE binary64 bit manipulation, round to
+   nearest even on underflow).  tcc's parser needs it for hex float literals. */
+double ldexp(double x, int exp) {
+  unsigned long long u = *(unsigned long long *)&x;
+  unsigned long long sign = u & 0x8000000000000000ULL;
+  unsigned long long m = u & 0x000FFFFFFFFFFFFFULL;
+  int e = (int)((u >> 52) & 0x7FF);
+  if (e == 0x7FF) return x;                     /* inf or nan */
+  if (e == 0) {                                 /* zero or subnormal */
+    if (m == 0) return x;
+    while (!(m & 0x0010000000000000ULL)) { m <<= 1; e--; }
+    e++;
+  } else {
+    m |= 0x0010000000000000ULL;
+  }
+  /* now value = m * 2^(e - 1075), m has 53 bits */
+  if (exp > 5000) exp = 5000;
+  if (exp < -5000) exp = -5000;
+  e += exp;
+  if (e >= 0x7FF) { u = sign | 0x7FF0000000000000ULL; return *(double *)&u; }
+  if (e <= 0) {                                 /* subnormal result */
+    int sh = 1 - e;
+    unsigned long long half, rem;
+    if (sh > 54) { u = sign; return *(double *)&u; }
+    rem = m & ((1ULL << sh) - 1);
+    half = 1ULL << (sh - 1);
+    m >>= sh;
+    if (rem > half || (rem == half && (m & 1))) m++;
+    u = sign | m;                               /* may carry into exponent 1: still right */
+    return *(double *)&u;
+  }
+  u = sign | ((unsigned long long)e << 52) | (m & 0x000FFFFFFFFFFFFFULL);
+  return *(double *)&u;
+}
+
+#endif

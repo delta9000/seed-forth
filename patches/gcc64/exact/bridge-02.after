@@ -1,0 +1,7 @@
+#include <stdio.h>
+#include <string.h>
+
+#define HEAP_SIZE 1073741824 // gcc64 bridge: 1 GiB (BSS), for "tcc -ar" over all of musl
+
+// TCC defines malloc, free and realloc as macros in libtcc.c which conflicts
+// with our definitions here. This wouldn't be a problem if the libc was

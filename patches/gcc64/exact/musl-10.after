@@ -1,0 +1,7 @@
+	pushq $0x37f
+	fldenv (%rsp)
+	pushq $0x1f80
+	.byte 0x0f,0xae,0x14,0x24	# ldmxcsr (%rsp) (tcc 0.9.27 has no SSE control insns)
+	add $40,%rsp
+	ret
+

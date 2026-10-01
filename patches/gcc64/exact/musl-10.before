@@ -1,0 +1,7 @@
+	pushq $0x37f
+	fldenv (%rsp)
+	pushq $0x1f80
+	ldmxcsr (%rsp)
+	add $40,%rsp
+	ret
+

@@ -1,0 +1,7 @@
+fegetenv:
+	xor %eax,%eax
+	fnstenv (%rdi)
+	.byte 0x0f,0xae,0x5f,0x1c	# stmxcsr 28(%rdi) (tcc 0.9.27 has no SSE control insns)
+	ret
+
+.global fesetenv

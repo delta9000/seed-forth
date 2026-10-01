@@ -1,0 +1,6 @@
+        skip(TOK_WHILE);
+        skip('(');
+        gsym(b);
+	gexpr();
+	c = gvtst(0, 0);
+	gsym_addr(c, d);

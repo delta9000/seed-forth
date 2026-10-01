@@ -1,0 +1,54 @@
+// mes libc sources compiled during the bootstrap. The IEEE bit patterns are
+// assembled with integer operations and reinterpreted as a double, to work
+// around the lact of support for float literals and int-to-float casts.
+/* gcc64 bridge: a general decimal strtod, replacing the four-literal
+   table above.  Accurate to a few ulp, not correctly rounded: it only has to
+   carry tcc through the first musl build, whose own strtod (floatscan.c)
+   replaces it from the next tcc on.  No float literals are used here. */
+double strtod(const char *str, char **endptr) {
+  const char *p = str;
+  int neg = 0, e10 = 0, digits = 0, esign = 1, ev = 0, any = 0;
+  unsigned long long mant = 0;
+  double r, ten = (double)10;
+  while (*p == ' ' || *p == '\t' || *p == '\n') p++;
+  if (*p == '-') { neg = 1; p++; } else if (*p == '+') p++;
+  while (*p >= '0' && *p <= '9') {
+    any = 1;
+    if (digits < 18) { mant = mant * 10 + (*p - '0'); if (mant) digits++; }
+    else e10++;
+    p++;
+  }
+  if (*p == '.') {
+    p++;
+    while (*p >= '0' && *p <= '9') {
+      any = 1;
+      if (digits < 18) { mant = mant * 10 + (*p - '0'); if (mant) digits++; e10--; }
+      p++;
+    }
+  }
+  if (!any) { if (endptr) *endptr = (char *)str; return (double)0; }
+  if (*p == 'e' || *p == 'E') {
+    const char *q = p + 1;
+    if (*q == '-') { esign = -1; q++; } else if (*q == '+') q++;
+    if (*q >= '0' && *q <= '9') {
+      while (*q >= '0' && *q <= '9') { if (ev < 100000) ev = ev * 10 + (*q - '0'); q++; }
+      p = q;
+      e10 += esign * ev;
+    }
+  }
+  if (endptr) *endptr = (char *)p;
+  r = (double)(long long)mant;   /* < 10^18: fits a signed long long */
+  if (mant == 0) return neg ? -r : r;
+  /* scale by 10^e10 with exact powers of ten up to 1e22 where possible */
+  if (e10 > 400) e10 = 400;
+  if (e10 < -400) e10 = -400;
+  while (e10 != 0) {
+    int k = e10 > 0 ? (e10 > 22 ? 22 : e10) : (e10 < -22 ? 22 : -e10);
+    double pw = (double)1; int i;
+    for (i = 0; i < k; i++) pw = pw * ten;      /* exact for k <= 22 */
+    if (e10 > 0) { r = r * pw; e10 -= k; } else { r = r / pw; e10 += k; }
+  }
+  return neg ? -r : r;
+}
+
+float strtof(const char *str, char **endptr) {

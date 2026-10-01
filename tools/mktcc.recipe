@@ -1,0 +1,15 @@
+# tcc-0.9.27 linked against musl: gcc64/mktcc.sh as runner commands.
+# Needs CC (a tcc that runs now), ML (the musl prefix), P (where the new tcc
+# goes; it also looks for musl there), S (the patched tcc source) and L.
+mkdir ${P}
+mkdir ${P}/bin
+mkdir ${P}/lib
+mkdir ${P}/lib/tcc
+mkdir ${P}/obj
+run 0 - ${L}/mktcc.out ${L}/mktcc.err ${CC} -nostdinc -I ${ML}/include -c -o ${P}/obj/libtcc1.o ${S}/lib/libtcc1.c
+run 0 - ${L}/mktcc.out ${L}/mktcc.err ${CC} -nostdinc -I ${ML}/include -c -o ${P}/obj/va_list.o ${S}/lib/va_list.c
+run 0 - ${L}/mktcc.out ${L}/mktcc.err ${CC} -c -o ${P}/obj/alloca86_64.o ${S}/lib/alloca86_64.S
+run 0 - ${L}/mktcc.out ${L}/mktcc.err ${CC} -ar cr ${P}/obj/libtcc1.a ${P}/obj/libtcc1.o ${P}/obj/va_list.o ${P}/obj/alloca86_64.o
+run 0 - ${L}/mktcc.out ${L}/mktcc.err ${CC} -nostdinc -I ${ML}/include -c -o ${P}/obj/tcc.o -D BOOTSTRAP=1 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -D TCC_TARGET_X86_64=1 -D ONE_SOURCE=1 -D 'TCC_VERSION="0.9.27"' -D "CONFIG_TCCDIR=\"${P}/lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"${P}/lib\"" -D "CONFIG_TCC_LIBPATHS=\"${P}/lib:${P}/lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"${P}/include\"" -D "TCC_LIBGCC=\"${P}/lib/libc.a\"" -D 'TCC_LIBTCC1="libtcc1.a"' -D 'CONFIG_TCC_ELFINTERP="/lib/ld-musl-x86_64.so.1"' -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 ${S}/tcc.c
+run 0 - ${L}/mktcc.out ${L}/mktcc.err ${CC} -static -nostdlib -o ${P}/bin/tcc ${ML}/lib/crt1.o ${ML}/lib/crti.o ${P}/obj/tcc.o ${ML}/lib/libc.a ${P}/obj/libtcc1.a ${ML}/lib/crtn.o
+copy ${P}/obj/libtcc1.a ${P}/lib/tcc/libtcc1.a
