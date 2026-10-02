@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Verification-only tooling tests. Build the normal route first.
+# Verification-only pnut-control tests. Build that control first; after
+# check-all.sh, pass BUILDROOT=build-out/pnut-amd64-control-check explicitly.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 W=${BUILDROOT:-$PWD/build-out/pnut-amd64}

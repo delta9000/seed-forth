@@ -72,8 +72,9 @@ jobs:
           python3 tests/ladder/capture-copies-check.py
           python3 tests/ladder/fixture-closure-check.py
 
-      - name: Seed-only amd64 tooling and isolated root
-        run: tests/pnut/host-tools-check.sh
+      - name: Pnut control tooling and isolated root
+        # check-all keeps this control separate from the default direct route.
+        run: BUILDROOT="$PWD/build-out/pnut-amd64-control-check" tests/pnut/host-tools-check.sh
 
       - name: verify.sh
         run: ./verify.sh
