@@ -4,10 +4,10 @@ A compiler binary can carry a backdoor that no reading of its
 source will find; Ken Thompson showed how in 1984.  The defence is
 a first program small enough to check by hand.  Here that program
 is 1,772 bytes of hand-encoded x86-64: a Forth that, given its
-library and 8,123 lines of compiler source (`020-cc-arena.fth`
+library and 10,349 lines of compiler source (`020-cc-arena.fth`
 through `120-cc-main.fth`, by `wc -l`), becomes a C compiler whose `.M1` output is byte-identical to
-GCC-built M2-Planet's.  This book walks every one of those bytes and
-lines, and backs each of its central claims with a command you can run.
+GCC-built M2-Planet's, and whose opt-in LP64 extension compiles
+TinyCC directly. This book walks every one of those bytes and lines, and backs each of its central claims with a command you can run.
 
 The sidebar is the table of contents.  If you're new, start with
 **Where this fits in the bootstrap ecosystem** (for context) and
@@ -33,7 +33,7 @@ these as it needs them, in the order it needs them.
   `130-asm.fth` and explain what it
   does, why it's shaped that way, and what would break if it
   weren't.
-- Run `./check-all.sh` and explain what each of its nine steps
+- Run `./check-all.sh` and explain what each of its sixteen steps
   proves about the artifact.
 - Audit the Stage-A parity claim yourself: rebuild the chain from
   the 229-byte hex0 trust root through the 1,772-byte seed, the
@@ -73,8 +73,10 @@ What you'll want installed:
   `./bootstrap.sh` builds the whole chain without it.
 
 Disk budget: ~30 MiB for the repo plus vendored stage0-posix /
-M2-Planet / mescc-tools.  Memory: a few MiB at runtime; the C
-compiler reserves a 256 MiB heap but only touches what it uses.
+M2-Planet / mescc-tools. Memory: the seed maps 16 MiB; legacy
+generated programs reserve a 256 MiB heap but only touch what they use. The direct compiler adds an 8 MiB scratch mapping; its
+generated TinyCC seed uses portable libc's static heap. Appendix B
+separates these allocations.
 
 Smoke check from a fresh clone:
 
@@ -83,29 +85,36 @@ git submodule update --init --recursive
 ./check-all.sh                  # build, tests, asm, C gates, tangle, numbers, Stage-A, bootstrap
 ```
 
-`check-all.sh` runs eleven steps and prints one OK/SKIP/FAIL line
+`check-all.sh` runs sixteen steps and prints one OK/SKIP/FAIL line
 for each: `01-build` (the 1,772-byte seed), `02-test` (the layer
-smoke tests), `02a-asm` (three small assembler checks),
-`02b-gates` (the registered C-compiler gates), `03-tangle-strict`
+smoke tests), `02a-asm` (four small assembler checks),
+`02b-gates` (the registered C-compiler gates), `02c-native`
+(the opt-in LP64/bootstrap compiler regressions), `03-tangle-strict`
 (book and source byte-identical), `04-book-numbers` (the prose's
 exact numbers against source), `04a-tryit` (every runnable
 Try-it block, run against the built seed), `04b-index` (the committed
 [Index](WORD-INDEX.md) matches what `tools/gen-index.py` generates),
+`04c-links` (book links and anchors resolve),
 `05-stage-a` (the byte-identical
 `.M1`), `06-bootstrap` (`./bootstrap.sh`, the GCC-free build up to
-M2-Planet's self-hosting fixed point; Appendix C), and `07-handoff`
+M2-Planet's self-hosting fixed point; Appendix C), `06a-pnut`
+(the i386 pnut control), `06b-pnut-amd64` (the amd64 pnut/TinyCC
+control), `06c-direct-tcc` (the actual direct kernel/ladder host entry),
+and `07-handoff`
 (stage0-posix's own recipe fed by the Forth route; SKIP without its
 nested submodules).  `02a-asm` and
 `05-stage-a` need gcc, only to build the references they compare
-against, and report SKIP without it; `04-book-numbers`, `04a-tryit`
-and `04b-index` need python3.  If it ends
-with `check-all: all 11 steps PASS`, the codebase is reproducing the
+against, and report SKIP without it; `04-book-numbers`, `04a-tryit`,
+`04b-index`, `04c-links`, `02c-native`, and `06c-direct-tcc` need
+python3. Guest boot/handoff checks under QEMU are separate from this
+host entry check.  If it ends
+with `check-all: all 16 steps PASS`, the codebase is reproducing the
 canonical artifacts.  See
 **Troubleshooting** below if anything fails.
 
 ## How the book is organized
 
-Four parts plus a prologue and seven appendices.  Within each
+Five parts plus a prologue and seven appendices.  Within each
 part, chapters follow **source order**: each one picks up the file
 where the previous chapter stopped.
 
@@ -119,6 +128,13 @@ where the previous chapter stopped.
 - **Part IV (Ch 33)** walks `130-asm.fth`, the Forth M1 assembler
   and hex2 linker that `./bootstrap.sh` uses to build mescc-tools'
   `M1` and `hex2` without GCC.
+- **Part V (Ch 34)** extends the compiler to compile the pinned TinyCC
+  and portable-libc sources directly. It separates the restricted seed
+  profile from the rebuilt full compiler, and records the fixed-point
+  and runtime checks. See [the direct route](https://github.com/delta9000/seed-forth/blob/master/tests/tcc/README.md) for
+  its focused and independent fixed-point checks. The native regression
+  gate and actual host entry are included in `check-all.sh`; QEMU guest
+  checks remain separate.
 - **Appendices A–G** are reference cards: primitives, memory
   map, reproducibility chain, worked exercises, further reading,
   C subset, and compiler exit codes.

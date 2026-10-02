@@ -5,7 +5,11 @@ compiler in `020-cc-arena.fth` through `120-cc-main.fth` actually
 accepts.  The compiler is *not* an ANSI / ISO C compiler.  It started
 as "enough C to compile M2-Planet" and grew to "enough C to compile
 pnut unmodified" (`tests/pnut/sf-pnut-check.sh`), which is still a
-specific corner of the language.  Use this appendix when you want to
+specific corner of the language. Its opt-in LP64 extension now compiles
+the patched TinyCC/portable-libc bootstrap profile directly (Ch 34).
+The tables through “Coverage in practice” describe the unchanged
+**legacy default**; the final section records the **native profile**.
+Use this appendix when you want to
 know whether a construct will work without running it.  Every
 statement below was checked against the compiler; the constructs the
 compiler accepts but gets wrong are listed as such, not hidden.
@@ -17,7 +21,7 @@ Sources of truth, in case this appendix drifts:
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `112-cc-stmt.fth` `cc-parse-stmt`
-  (lines 739–763).
+  (lines 784–823).
 - The gates in `tests/cc/`, run by `tests/cc/run-gates.sh`: each
   `P*.c` file exercises one family of the features below, and each
   `die-*` file one of the rejections (Appendix G).
@@ -48,9 +52,9 @@ subscript.
 | `short`, `long`, `unsigned`, `signed`, and combinations (`unsigned long`, `long long`) | parsed | 8 bytes | `cc-tok-is-basic-type-kw?` (`110-cc-decl.fth:490`) and `cc-more-type-kws`.  Every spelling is the one 8-byte *signed* integer (`short z = 70000;` keeps 70000); a `char` among the keywords makes `char`. |
 | `const`, `volatile`, `restrict`, `extern`, `auto`, `register` | parsed; ignored | — | Anywhere a type is read, including after a `*` (`char * const p`) and in parameters.  `cc-skip-storage-quals` (`110-cc-decl.fth:122`) and `cc-skip-qualifiers`. |
 | `static`               | yes | — | A `static` local keeps its value between calls: it gets file-scope storage (Ch 29 §4).  On a file-scope name it changes nothing. |
-| `float`, `double`, `long double` | **rejected** | — | No floating-point support at any layer. |
+| `float`, `double`, `long double` | **rejected** | — | No general floating-point arithmetic in the Forth compiler. |
 | bitfields              | **rejected** | — | The parser does not accept `int x : 3;`. |
-| `union`                | **rejected** | — | Not a keyword in the table (code 143). |
+| `union`                | **rejected** | — | The legacy type parser does not handle it (code 143). |
 | multi-dimensional arrays (`int m[3][4]`) | **rejected** | — | Code 159. |
 
 The width collapse to 8 bytes is the single biggest deviation from
@@ -101,7 +105,7 @@ stands for `c` (so `\\`, `\'` and `\"` work).
 
 ## Statements
 
-`cc-parse-stmt` in `112-cc-stmt.fth:739` dispatches the following
+`cc-parse-stmt` in `112-cc-stmt.fth:784` dispatches the following
 forms.  Anything not listed here is rejected by the parser with one
 of the parser's codes (`100-cc-expr.fth` through `116-cc-prog.fth`; Appendix G).
 
@@ -145,7 +149,7 @@ and six arguments (code 122 for a seventh argument): every argument
 travels in a register.  Variadic parameter lists (`...`) are
 **rejected** (code 182).  A function-pointer parameter must be
 spelled with a typedef; `int (*f)(int)` in a parameter list is code
-183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:368` for the local
+183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:384` for the local
 form).
 
 ## Preprocessor
@@ -215,7 +219,7 @@ tables above are not repeated.
 - **64-bit literals beyond `int` range** are accepted as
   integers but not range-checked.
 - **Variadic functions.** No `...`, no `va_list`, no `va_arg`.
-- **`union`.** Not implemented; absent from `kw-table`.
+- **`union`.** Not implemented by the legacy type parser.
 - **Initializer lists**, **compound literals**, **designated
   initialisers**, **statement expressions** (`({ ... })`), and other
   C99/GNU extensions.
@@ -247,3 +251,47 @@ not in the subset, the likely outcome is the compiler stopping with
 one of the codes in Appendix G, at the line it had reached; the
 exceptions, constructs it accepts and gets wrong, are called out
 above.
+
+## Opt-in native profile for TinyCC
+
+[Chapter 34](34-direct-tinycc.md) owns the native declaration, program,
+initializer, and runtime code. `tests/tcc/compile-native.sh` enables
+`cc-target-lp64` and `cc-prep-direct`; the normal compiler driver does
+not. The shared expression and statement code dispatches on that mode.
+
+| Area | Native contract |
+|---|---|
+| Integer storage | `char`/`unsigned char` 1 byte, `short`/`unsigned short` 2, `int`/`unsigned int` 4, `long`/`long long` and unsigned variants 8, pointers 8; typed loads, stores, casts, and signed/unsigned operations |
+| Calls | Private all-stack ABI, every argument in an eight-byte slot, scalar return in `rax`; direct calls, function pointers, and portable-libc stack varargs; aggregate-by-value parameters, returns and arguments rejected with 212 |
+| Local storage | Frame size calculated from declarations and patched after each function body, aligned to sixteen bytes |
+| Aggregates | Structs/unions with aligned offsets, nested aggregates, forward tags in a separate namespace, typedef descriptors, anonymous member promotion, array members, value copy/assignment |
+| Arrays | Element-sized storage and strides; two-dimensional objects; array parameters decay to pointers; general pointer-to-array declarators and nested array fields remain outside the profile |
+| Initializers | Bounded brace lists, zero fill, adjacent/escaped character strings, inferred outer bounds, local aggregate copies, and constant-category static initializers including address fixups |
+| Expressions | Width-aware integer semantics, pointer arithmetic, native comma expressions, broader lvalue address/`sizeof` support, adjacent string literals, direct and indirect calls |
+| Statements | Declaration-form `for`, labels with statements, and label/`case` handling including targets inside switches |
+| Preprocessor | Real quoted/angle includes, source-relative search for quoted names, configured include directories, repeatable inclusion, stringizing, token pasting, macro rescanning, and explicit missing-header failures |
+| Runtime | Thirteen direct Linux syscall primitives; portable C libc supplies heap, strings, FILE operations and formatting; no host libc/object linkage |
+
+The profile remains bounded: normal-mode floating types fail with error
+214, including in signatures and casts; there is no general IEEE floating
+arithmetic, C
+bitfield parser, variable-length array implementation, designated
+initializers, compound literals, or arbitrary external-object linker.
+The target's existing bootstrap compatibility conditionals avoid those
+forms where needed. Native integer/aggregate support does not imply
+acceptance of every ISO C declarator or ABI form.
+
+`SF_NATIVE_FLOATBITS=1` selects an additional **seed-only** restriction:
+float, double and long-double data use eight-byte integer bit transport.
+Only this mode provides fail-closed `localtime`, `ldexp`, and `longjmp`
+bodies, each diagnosing its exact name and exiting 125. With the flag
+unset they remain undefined and ordinary references are error 206; the
+normal `ldexp` declaration fails earlier with 214 because it uses floating
+types. This is not a
+floating-point implementation, nor silent emulation of missing libc.
+
+The rebuilt TinyCC is a different compiler: its own target backend and
+standard call ABI support the real-floating, bitfield, VLA, and local-enum
+programs tested after the direct bootstrap. The executable/object fixed
+points and all 136 libc checks are reported separately from the focused
+Forth compiler gates in [`tests/tcc/README.md`](https://github.com/delta9000/seed-forth/blob/master/tests/tcc/README.md).

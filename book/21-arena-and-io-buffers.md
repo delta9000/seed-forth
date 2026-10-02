@@ -56,7 +56,7 @@ to land, and the 1,241 need somewhere to accumulate before they reach
 disk.  Part III uses the seed's Forth to host a compiler for a small
 subset of C: enough to rebuild M2-Planet, whose binary is the next
 link in the Guix Full Source Bootstrap chain.  The compiler is split
-across fourteen files (`020-cc-arena.fth` through `120-cc-main.fth`),
+across eighteen files (`020-cc-arena.fth` through `120-cc-main.fth`),
 loaded in numerical order on top of `010-lib.fth`.  This chapter
 covers the first two: the compiler's ground floor (the lexer's state
 block, failure reporting and a bump allocator), and the source reader
@@ -111,7 +111,7 @@ before the parser runs, with the size fields left at zero, and
 
 ## 1. The ground floor: `020-cc-arena.fth`
 
-The 97-line file `020-cc-arena.fth` holds the three things every later
+The 107-line file `020-cc-arena.fth` holds the three things every later
 compiler file leans on: one block of memory holding the lexer's
 state, the word every failure ends in, and an allocator for data with
 no fixed size.
@@ -257,6 +257,16 @@ create cc-arena-base  cc-arena-cap allot
 variable cc-arena-ptr
 \ Initialize the bump pointer to the base of the buffer.
 cc-arena-base cc-arena-ptr !
+variable cc-arena-start
+variable cc-arena-limit
+cc-arena-base cc-arena-start !
+cc-arena-cap cc-arena-limit !
+\ Opt-in workspace for larger translation units; the seed itself is unchanged.
+: cc-arena-map ( bytes -- )
+  dup cc-arena-limit !
+  [lit] 0 swap [lit] 3 [lit] 34 true [lit] 0 [lit] 9 syscall6
+  dup 0< if, [lit] 10 cc-die then,
+  dup cc-arena-start ! cc-arena-ptr ! ;
 
 \ ----- cc-alloc -----
 \ cc-alloc ( n -- addr )  Bump n bytes (rounded up to an 8-byte boundary)
@@ -274,7 +284,7 @@ cc-arena-base cc-arena-ptr !
 : cc-alloc                                       ( n -- addr )
   [lit] 7 + [lit] 8 / [lit] 8 *                  \ align up to 8 bytes
   cc-arena-ptr @ swap over +                     ( old-top new-top )
-  dup cc-arena-base -  cc-arena-cap [lit] 10 cc-check-cap
+  dup cc-arena-start @ -  cc-arena-limit @ [lit] 10 cc-check-cap
   cc-arena-ptr ! ;                               ( -- old-top )
 ```
 
@@ -285,7 +295,17 @@ and `allot` extends its data area by 32 768 bytes.  Forth's own
 defining words serve as the compiler's `malloc`.  `cc-arena-ptr` is
 the bump pointer.
 
-The line `cc-arena-base cc-arena-ptr !` runs at load time, so the
+The line `cc-arena-base cc-arena-ptr !
+variable cc-arena-start
+variable cc-arena-limit
+cc-arena-base cc-arena-start !
+cc-arena-cap cc-arena-limit !
+\ Opt-in workspace for larger translation units; the seed itself is unchanged.
+: cc-arena-map ( bytes -- )
+  dup cc-arena-limit !
+  [lit] 0 swap [lit] 3 [lit] 34 true [lit] 0 [lit] 9 syscall6
+  dup 0< if, [lit] 10 cc-die then,
+  dup cc-arena-start ! cc-arena-ptr ! ;` runs at load time, so the
 pointer starts at the buffer's first byte.
 
 `cc-alloc` rounds the request up to a multiple of 8 (`(n+7)/8*8`
@@ -739,7 +759,7 @@ echo "exit: $?"                     # prints "exit: 16"
   cc-arena-ptr @ cc-arena-base - .d  bye ;
 steps
 FORTH
-  tri; } | ./seed-forth             # prints "484 466 120 1225 1241 656"
+  tri; } | ./seed-forth             # prints "484 466 120 1225 1241 720"
 ```
 
 `cc-load-stdin` puts all 484 bytes of `tri.c` in `cc-in-buf`; the
@@ -747,9 +767,9 @@ preprocessor (Ch 22) writes 466 into `cc-src-buf`, the `#define` line
 gone and each `ROWS` now ` 4 `.  `cc-out-buf` holds the 120-byte ELF
 header (Ch 25) before a single token is parsed, 1,225 bytes once both
 functions are compiled, and 1,241 once the 16 bytes of the global `t`
-are appended (Ch 26).  The last number is the arena: 656 bytes, one
-struct descriptor for `struct tri` (Ch 24), and the only allocation
-this program makes.  `cc-finalize-elf` and `cc-write-output` then
+are appended (Ch 26).  The last number is the arena: 720 bytes, a
+656-byte descriptor for `struct tri` (Ch 24) and a 64-byte lexer mark
+for the `for` loop's step expression (Ch 30).  `cc-finalize-elf` and `cc-write-output` then
 send those 1,241 bytes to `/tmp/cc-out` in one `write`.
 
 ## Exercises

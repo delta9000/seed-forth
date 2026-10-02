@@ -10,7 +10,9 @@
 #       (skipped if gcc is missing — these tests compare against GCC-built
 #        mescc-tools, rebuilt fresh by tests/cc/build-gcc-refs.sh)
 #   2b. tests/cc/run-gates.sh all registered C gates pass
-#   3.  tools/tangle.sh verify --strict reports 13/13 byte-identical
+#   2c. tests/tcc/native-check.sh covers the opt-in LP64/bootstrap compiler
+#       (needs python3 for executable-byte and preprocessor checks).
+#   3.  tools/tangle.sh verify --strict reports all numbered sources byte-identical
 #   4.  tools/check-numbers.py finds no drifted numeric claim in book/
 #       (the prose's exact byte counts / offsets / file line counts,
 #        verified against 000-seed.hex0 and the source; skipped if
@@ -44,6 +46,10 @@
 #       is pinned, and tcc-boot2's programs are run.  SKIP (exit 77) when
 #       vendor/pnut or its tcc-0.9.27 tarball is missing.  ./verify.sh adds
 #       the gcc reference comparison (SF_PNUT64_GCC_ORACLE=1).
+#   6c. tests/tcc/kernel-route-check.sh runs the actual direct ladder entry:
+#       Forth-built helpers unpack/patch raw inputs, Forth builds TinyCC,
+#       and all generation pins, executable/object fixed points and runtime
+#       checks pass. Python verifies raw/result bytes, never preprocesses C.
 #   7.  ./handoff.sh route A on step 6's output (ARCHES=amd64 ROUTE_B=0,
 #       ~20 s): stage0-posix's own recipe from Phase 6 on, fed by the Forth
 #       route in place of hex1/hex2/M0/cc_amd64, reproduces all 19
@@ -104,6 +110,11 @@ else
 fi
 
 run "02b-gates"         tests/cc/run-gates.sh
+if command -v python3 >/dev/null 2>&1; then
+    run "02c-native"    tests/tcc/native-check.sh
+else
+    skip "02c-native" "missing: python3"
+fi
 run "03-tangle-strict"  tools/tangle.sh verify --strict
 
 if command -v python3 >/dev/null 2>&1; then
@@ -156,7 +167,7 @@ fi
 # tcc-0.9.27 tarball is missing.
 printf '%-40s' "06b-pnut-amd64 ..."
 rc=0
-tests/pnut/sf-pnut-amd64-check.sh > "$LOGDIR/check-all-06b-pnut-amd64.log" 2>&1 || rc=$?
+BUILDROOT="$PWD/build-out/pnut-amd64-control-check" tests/pnut/sf-pnut-amd64-check.sh > "$LOGDIR/check-all-06b-pnut-amd64.log" 2>&1 || rc=$?
 if [ $rc -eq 0 ]; then
     echo " OK"; PASS=$((PASS + 1))
 elif [ $rc -eq 77 ]; then
@@ -165,6 +176,12 @@ elif [ $rc -eq 77 ]; then
 else
     echo " FAIL (see $LOGDIR/check-all-06b-pnut-amd64.log)"; FAIL=$((FAIL + 1))
     tail -20 "$LOGDIR/check-all-06b-pnut-amd64.log" | sed 's/^/    | /'
+fi
+
+if command -v python3 >/dev/null 2>&1 && [ -f vendor/pnut/kit/tcc-0.9.27.tar.gz ]; then
+    run "06c-direct-tcc" tests/tcc/kernel-route-check.sh
+else
+    skip "06c-direct-tcc" "missing: python3 or pinned TinyCC source archive"
 fi
 
 # 07: handoff.sh exits 77 when stage0-posix's nested submodules are missing.

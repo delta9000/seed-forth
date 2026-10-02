@@ -5,7 +5,7 @@
 # musl and the first tools, ladder/stage10.sh carries on with bash, stage11.sh
 # builds binutils and GCC (gcc64 stages 4-10), stage12.sh builds Linux.
 #
-# The host only prepares the root (copies sources, hard-links distfiles) and
+# The host copies raw pinned archives/libc/tool sources, hard-links distfiles, and
 # enters it through a user + mount namespace with /dev/null and /proc bound in
 # (musl's fchmodat uses /proc/self/fd).  The
 # host kernel is the substrate.  Run from the repository root:
@@ -23,14 +23,12 @@ if [ "${1:-}" != --resume ]; then
     rm -rf build-out/chain-root
     python3 - "$R" "$HEX0" <<'PY'
 import pathlib, shutil, sys, os
+sys.path.insert(0, "tools")
+from tcc_inputs import source_tree
 root = pathlib.Path('.').resolve()
 dest, hex0 = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 dest.mkdir(parents=True)
-files = [root / '000-seed.hex0'] + list(root.glob('[0-9][0-9][0-9]-*.fth'))
-for d in ('tools', 'ladder', 'patches/amd64/exact', 'patches/gcc64', 'patches/ladder', 'tests/pnut/amd64',
-          'tests/gcc64', 'gcc64'):
-    files += [p for p in (root / d).rglob('*') if p.is_file()]
-files += [root / l.split()[1] for l in (root / 'tools/amd64-inputs.sha256').read_text().splitlines()]
+files = source_tree().values()
 for src in files:
     t = dest / src.relative_to(root)
     t.parent.mkdir(parents=True, exist_ok=True)
@@ -65,7 +63,7 @@ unshare -rm sh -c '
     mount --rbind /proc "$1/proc"
     cd "$1"
     if [ "$2" != --resume ]; then
-        chroot "$1" /seed-forth < "$1/tools/amd64-start.fth" | tail -1
+        chroot "$1" /seed-forth < "$1/tools/tcc-ladder-start.fth"
         chroot "$1" /build-out/amd64-runner --recipe /tools/ladder.recipe
     fi
     chroot "$1" /build-out/pnut-amd64/usr/bin/bash /ladder/stage10.sh

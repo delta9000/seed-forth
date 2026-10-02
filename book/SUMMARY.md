@@ -49,6 +49,10 @@
 
 - [The assembler: M1 and hex2 in Forth](33-the-assembler.md) — `130-asm.fth`, the two-pass M1 expander and hex2 linker that builds `M1` and `hex2` without GCC
 
+# Part V — The direct TinyCC extension
+
+- [Compiling TinyCC directly](34-direct-tinycc.md) — opt-in LP64 storage, private stack calls, initializers, Linux runtime, and the direct TinyCC fixed point
+
 # Appendices
 
 - [A — The 32 seed primitives](A1-32-seed-primitives.md) — one-row table per primitive (name, opcode, stack effect, source location)

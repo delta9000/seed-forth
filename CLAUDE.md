@@ -6,7 +6,7 @@ Project briefing for Claude Code sessions on `seed-forth`.
 
 A 1,772-byte hex0-encoded x86-64 Forth, plus a C-subset compiler
 written in Forth on top of it, plus an M1 assembler / hex2 linker
-in Forth (`130-asm.fth`), plus a 33-chapter literate book that
+in Forth (`130-asm.fth`), plus a 34-chapter literate book that
 teaches all three.  Stage-A check proves byte-identity of our
 compiler's M1 output against GCC-built M2-Planet.
 
@@ -39,7 +39,9 @@ compiler's M1 output against GCC-built M2-Planet.
   `HOST-TOOLS.md` for the shell-free boundary and focused checks.  After
   changing one, re-pin with `SF_PNUT64_REPIN=1` (see its README).
 - `gcc64/run-gcc64.sh` — the amd64 chain on from `tcc-boot2` to GCC 15.2
-  via musl (stage 0 = `sf-pnut-amd64-check.sh`; ~1.5 h, so only in
+  via musl (standalone stage 0 = `tests/tcc/kernel-route-check.sh`,
+  raw direct route; explicit `GCC64_STAGE0` verifies artifact pins in
+  `tools/tcc.recipe`, not supplied provenance; ~1.5 h, so only in
   `verify.sh` with `VERIFY_GCC64=1`).  Sources pinned in `gcc64/SOURCES`
   (fetched into gitignored `build-out/gcc64-cache`, never committed),
   artifact pins in `gcc64/HASHES` (`root`-scoped ones embed the build
@@ -88,7 +90,7 @@ unless the dependency graph forbids it.
 ./check-all.sh                 # build, tests, tangle --strict, book numbers/index/links, try-it, stage-A, bootstrap, pnut (i386, amd64), handoff
 ```
 
-`check-all.sh` runs all fourteen steps in sequence with per-step
+`check-all.sh` runs all sixteen steps in sequence with per-step
 pass/fail logging.  Use it before committing or after editing any
 fenced code block — or any exact byte count, offset, or file line
 count in prose — in `book/`.  The individual commands are still
@@ -97,6 +99,8 @@ useful for diagnosing a failure:
 ```sh
 ./build.sh                     # produces 1772-byte seed-forth
 ./test.sh                      # smoke tests for layers 010-070
+tests/tcc/native-check.sh      # opt-in direct compiler regression gate
+tests/tcc/kernel-route-check.sh # actual direct kernel/ladder host entry; QEMU is separate
 tools/tangle.sh verify --strict
 tools/check-numbers.py         # prose's exact numbers vs source (--dump shows the table)
 tools/check-tryit.py           # runs every Try-it block against ./seed-forth

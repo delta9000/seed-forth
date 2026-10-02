@@ -9,15 +9,18 @@ The image is K0's initial state, not an archive K0 parses:
   +0x4000  file table, 24-byte entries: name, nlen, data, size, cap, type
   +TABLE   names and file contents; the file heap starts after them
 
-init runs with stdin open on tools/amd64-start.fth, stdout and stderr on
+init runs with stdin open on tools/tcc-ladder-start.fth, stdout and stderr on
 the console, and the root as its working directory.
 
 Usage: mkfs.py OUT   (run from the repository root)
-Input: the git-tracked files outside book/ and vendor/, the pnut files
-pinned in tools/amd64-inputs.sha256, the built seed-forth, and an
-empty /tmp.
+Input: the direct-route source inventory and pinned raw archives/libc/tools
+from tools/tcc_inputs.py, the built seed-forth, and an empty /tmp.
+Source unpacking/exact patching runs in the guest with Forth-built helpers.
 """
-import os, struct, subprocess, sys
+import os, struct, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from tcc_inputs import source_tree
 
 FSIMG = 0x50000000
 BASE = FSIMG + 0x80
@@ -25,22 +28,13 @@ ENTS = FSIMG + 0x4000
 MAXENT = 16384
 HEAP0 = ENTS + MAXENT * 24
 MMAPB = 0x80000000
-INIT, STDIN = "seed-forth", "tools/amd64-start.fth"
-
-def tracked(prefix=""):
-    out = subprocess.run(["git", "-C", prefix or ".", "ls-files", "-s"],
-                         check=True, capture_output=True, text=True).stdout
-    for line in out.splitlines():
-        meta, path = line.split("\t", 1)
-        if meta.split()[0] in ("100644", "100755"):
-            yield os.path.join(prefix, path) if prefix else path
+INIT, STDIN = "seed-forth", "tools/tcc-ladder-start.fth"
 
 def write(out, extra=None):
     """extra maps image paths to bytes: files added, or contents replaced."""
     extra = extra or {}
-    repo = {f for f in tracked() if not f.startswith(("book/", "vendor/"))}
-    pnut = {l.split()[1] for l in open("tools/amd64-inputs.sha256")}
-    files = sorted(repo | pnut | {INIT} | set(extra))
+    repo = source_tree()
+    files = sorted(set(repo) | {INIT} | set(extra))
     dirs = {"tmp"}
     for f in files:
         d = os.path.dirname(f)
@@ -60,10 +54,11 @@ def write(out, extra=None):
         ents.append((blob(n), len(n), 0, 0, 2))
     for f in files:
         n = f.encode()
-        data = extra[f] if f in extra else open(f, "rb").read()
+        data = extra[f] if f in extra else Path(repo.get(f, f)).read_bytes()
         addr[f] = ENTS + 24 * len(ents)
         ents.append((blob(n), len(n), blob(data), len(data), 1))
     assert len(ents) < MAXENT
+    assert HEAP0 + len(heap) < MMAPB, "source image overlaps K0 mmap arena"
     for i, (name, nlen, data, size, typ) in enumerate(ents):
         struct.pack_into("<6I", img, ENTS - FSIMG + 24 * i,
                          name, nlen, data, size, size, typ)

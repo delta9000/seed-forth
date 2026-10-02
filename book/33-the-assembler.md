@@ -1595,7 +1595,7 @@ tools the check was copied from.
 - The six sigils differ only in field width and in absolute versus end-of-field-relative addressing, so one handler serves them all, plus `%target>base` for sizes.
 - `130-asm.fth` depends on `010-lib.fth` alone, so the assembler that removes the last GCC-built tools from the chain can be audited without reading the compiler.
 
-That is the end of the main book.  You started from 1,772
+That closes the M2-Planet and assembler route.  You started from 1,772
 hand-encoded bytes and read, in source, every step to a C compiler
 whose Stage-A `.M1` output matches M2-Planet built with GCC, and to
 the assembler that turns that output into running programs.  The
@@ -1603,7 +1603,11 @@ Prologue named two things that had to work together: a mechanical
 test that fluent-looking code cannot fake, and a literate program
 that keeps a human able to read every line.  Stage A and the
 byte-identity checks of this chapter are the first; the
-thirty-three chapters you just read are the second.
+first thirty-three chapters you just read are the second.
+
+[Chapter 34](34-direct-tinycc.md) extends the same compiler to
+TinyCC directly, removing the pnut compiler executable from that
+route while keeping the earlier proofs as controls.
 
 What that leaves you with is concrete.  Pick any of the 1,241 bytes
 of tri.c's binary and you can name the Forth word that wrote it, the

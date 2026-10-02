@@ -87,6 +87,10 @@ kw, goto
 kw, switch
 kw, case
 kw, default
+kw, union
+kw, float
+kw, double
+kw, inline
 [lit] 0 c,                                      \ terminator
 
 \ Keyword IDs in declaration order.
@@ -120,6 +124,10 @@ kw, default
 [lit] 27 constant kw-switch
 [lit] 28 constant kw-case
 [lit] 29 constant kw-default
+[lit] 30 constant kw-union
+[lit] 31 constant kw-float
+[lit] 32 constant kw-double
+[lit] 33 constant kw-inline
 
 \ ===========================================================================
 \ Helper: 2-byte peek
@@ -193,11 +201,13 @@ kw, default
 
 \ cc-skip-ws-and-comments ( -- )  Skip whitespace, // line-comments, and
 \ /* block comments.  Returns at the first non-whitespace, non-comment byte.
+: cc-cspace? dup space? over [lit] 11 = or swap [lit] 12 = or ;
+
 : cc-skip-ws-and-comments
   begin,
     cc-eof? 0=
   while,
-    cc-peek-char dup space? if,
+    cc-peek-char dup cc-cspace? if,
       drop cc-next-char drop
     else,
       [char] / <> if, exit, then,               \ stop: not ws or comment
@@ -295,9 +305,11 @@ kw, default
   tk-num tok-kind ! ;
 
 \ cc-lex-number ( -- )  Hex if it starts 0x or 0X, octal if it starts with
-\ 0 and another digit, else decimal.  A u/U/l/L suffix is skipped: every
-\ integer is 64 bits here.
+\ 0 and another digit, else decimal.  The full spelling, including a
+\ u/U/l/L suffix, is retained in tok-str-addr/len for type classification.
+\ tok-num still contains the unsigned 64-bit bit pattern, in both targets.
 : cc-lex-number
+  cc-src-buf cc-src-pos @ + >r                    \ numeric token start
   cc-peek-char-2                                  ( c1 c2 )
   over [char] 0 = if,                             \ c1 == '0' ?
     dup [char] x = over [char] X = or if,         \ c2 == 'x' or 'X' ?
@@ -323,7 +335,9 @@ kw, default
     over [char] l = or  swap [char] L = or
   while,
     cc-next-char drop
-  repeat, ;
+  repeat,
+  cc-src-buf cc-src-pos @ + r@ - tok-str-len !
+  r> tok-str-addr ! ;
 
 \ cc-lex-ident-or-kw ( -- )  Read [a-zA-Z_][a-zA-Z0-9_]* and check the
 \ keyword table.  Sets tok-str-addr/len, then dispatches kind.  Macros are

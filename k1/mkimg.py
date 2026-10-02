@@ -7,10 +7,13 @@ reads its arguments (after "--", without the leading "k1") from /k1.args.  Usage
   mkimg.py OUT [--add HOST=IMG ...] [--no-repo] -- k1-args...
 
 --add copies a host file or directory tree into the image at IMG.
-Default contents: the files k0/mkfs.py packs (git-tracked files outside
-book/ and vendor/, the pinned pnut files, seed-forth), plus k1 itself.
+Default contents: the direct-route source inventory and pinned raw
+archives/libc/tool sources from tools/tcc_inputs.py, seed-forth, plus k1 itself.
 """
-import os, struct, subprocess, sys
+import os, struct, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from tcc_inputs import source_tree
 
 FSIMG = 0x50000000
 BASE = FSIMG + 0x80
@@ -19,14 +22,6 @@ MAXENT = 65536
 HEAP0 = ENTS + MAXENT * 24
 MMAPB = 0x80000000
 
-def tracked():
-    out = subprocess.run(["git", "ls-files", "-s"], check=True,
-                         capture_output=True, text=True).stdout
-    for line in out.splitlines():
-        meta, path = line.split("\t", 1)
-        if meta.split()[0] in ("100644", "100755"):
-            yield path
-
 def main():
     argv = sys.argv[1:]
     out = argv.pop(0)
@@ -34,11 +29,7 @@ def main():
     opts = argv[:argv.index("--")] if "--" in argv else argv
     files = {}                                  # image path -> host path
     if "--no-repo" not in opts:
-        for f in tracked():
-            if not f.startswith(("book/", "vendor/")):
-                files[f] = f
-        for l in open("tools/amd64-inputs.sha256"):
-            files[l.split()[1]] = l.split()[1]
+        files.update(source_tree())
         files["seed-forth"] = "seed-forth"
     out_dir = os.environ.get("K1_OUT", "build-out/k1")
     files["k1"] = os.path.join(out_dir, "k1")

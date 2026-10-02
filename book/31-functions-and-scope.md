@@ -11,7 +11,7 @@ Every earlier Part III chapter compiles a piece of a C function: an
 expression, a declaration, a statement.  Nothing yet reads a whole
 file.  This chapter covers the last two parser files, which turn
 those pieces into a translation-unit compiler: `114-cc-func.fth`
-(310 lines; function definitions) and `116-cc-prog.fth` (880 lines;
+(310 lines; function definitions) and `116-cc-prog.fth` (884 lines;
 everything else at file scope, the entry stub, and the driver).  It
 also reads the call parser, which lives in `100-cc-expr.fth` because
 a call is an expression.  It has
@@ -162,6 +162,89 @@ stack, which this compiler doesn't implement.  M2-Planet has no
 function with more than six parameters.
 
 ```forth chunk=expr-call
+\ The native bootstrap image uses an internal all-stack call ABI.
+\ Arguments occupy eight-byte slots; arg 0 is nearest the return address.
+: cc-native-swap-args                            ( off1 off2 -- )
+  >r
+  dup [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 132 cc-emit-byte [lit] 36 cc-emit-byte cc-emit-4le
+  r@ [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 140 cc-emit-byte [lit] 36 cc-emit-byte cc-emit-4le
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 140 cc-emit-byte [lit] 36 cc-emit-byte cc-emit-4le
+  r> [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 132 cc-emit-byte [lit] 36 cc-emit-byte cc-emit-4le ;
+
+: cc-native-reverse-args                         ( n -- )
+  [lit] 0
+  begin, over [lit] 2 / over > while,
+    dup [lit] 8 * >r
+    over 1- over - [lit] 8 * r> swap cc-native-swap-args
+    1+
+  repeat, 2drop ;
+
+: cc-native-drop-args                            ( n -- )
+  dup if,
+    [lit] 72 cc-emit-byte [lit] 129 cc-emit-byte [lit] 196 cc-emit-byte
+    [lit] 8 * cc-emit-4le
+  else, drop then, ;
+
+: cc-native-load-call-target                     ( n -- )
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 132 cc-emit-byte [lit] 36 cc-emit-byte
+  [lit] 8 * cc-emit-4le ;                         \ mov rax,[rsp+n*8]
+
+: cc-native-parse-args                           ( -- n )
+  [lit] 0
+  cc-next-token-keep
+  [char] ) cc-tok-punct? if, exit, then,
+  cc-putback-token
+  begin,
+    cc-parse-assign-fwd cc-emit-materialize
+    cc-last-expr-type @ dup ty-base ty-struct = swap ty-ptr 0= and if,
+      [lit] 212 cc-die
+    then,
+    cc-emit-push-rdi 1+
+    cc-next-token-keep [char] , cc-tok-punct? 0=
+  until,
+  [char] ) cc-tok-punct? 0= if, [lit] 121 cc-die then,
+  dup cc-native-reverse-args ;
+
+: cc-parse-native-call                           ( id -- )
+  cc-check-static-init
+  dup cc-sym-kind-of sk-func <> if,
+    dup cc-sym-kind-of sk-local = if,
+      cc-sym-val-of cc-emit-load-local
+    else,
+      cc-sym-val-of cc-emit-global-ref cc-emit-load-via-rdi
+    then,
+    cc-emit-push-rdi
+    cc-native-parse-args
+    dup cc-native-load-call-target cc-emit-call-rax
+    1+ cc-native-drop-args
+  else,
+    cc-native-parse-args >r
+    dup cc-sym-val-of [lit] 0 = if,
+      cc-emit-call-rel32-placeholder
+      cc-expr-unevaluated @ if,
+        2drop
+      else, swap cc-sym-call-fixups cc-add-fixup-to-list then,
+    else,
+      cc-sym-val-of cc-emit-call-vaddr
+    then,
+    r> cc-native-drop-args
+  then,
+  cc-emit-mov-rdi-rax ;
+
+: cc-parse-indirect-call                         ( -- )
+  cc-check-static-init
+  cc-emit-materialize cc-emit-push-rdi
+  cc-native-parse-args
+  dup cc-native-load-call-target cc-emit-call-rax
+  1+ cc-native-drop-args
+  cc-emit-mov-rdi-rax
+  ty-int [lit] 0 ty-make [lit] 0 cc-mark-typed-value ;
+
 \ cc-parse-call ( id -- )  Parse a comma-separated argument list — the leading
 \ '(' has ALREADY been consumed by cc-parse-primary (it was the lookahead
 \ token that triggered dispatch here).  Evaluate each arg left-to-right
@@ -172,6 +255,7 @@ function with more than six parameters.
 \ Stack at entry: ( id ).  The id is the symbol-table id of the callee.
 \ Stack at exit:  ( ).
 : cc-parse-call
+  cc-target-lp64 @ if, cc-parse-native-call exit, then,
   \ Parse the argument list.  Stack underneath: ( id ).  We thread an
   \ argument count below the id.  Initial state: ( id 0 ).
   [lit] 0                                         ( id arg-count )
@@ -1684,6 +1768,10 @@ create cc-name-intptr_t  s, intptr_t
   begin, dup cc-sym-count @ < while,
     dup cc-sym-kind-of sk-func = if,
       dup cc-sym-call-fixups @  over cc-sym-addr-fixups @  or if,
+        cc-target-lp64 @ if,
+          dup cc-sym-name-addr cell[] @ over cc-sym-name-len cell[] @ cc-err-write
+          cc-die-end [lit] 1 cc-err-write
+        then,
         [lit] 206 cc-die
       then,
     then,

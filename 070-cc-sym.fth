@@ -1,6 +1,6 @@
 \ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
-\ Seven parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
+\ Nine parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins
 \   cc-sym-name-len  [id] : length of the name in bytes
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
@@ -32,6 +32,8 @@ create cc-sym-type       cc-sym-cap [lit] 8 * allot
 create cc-sym-val        cc-sym-cap [lit] 8 * allot
 create cc-sym-extra      cc-sym-cap [lit] 8 * allot
 create cc-sym-extra2     cc-sym-cap [lit] 8 * allot
+create cc-sym-desc        cc-sym-cap [lit] 8 * allot
+create cc-sym-inner       cc-sym-cap [lit] 8 * allot
 variable cc-sym-count
 
 [lit] 64 constant cc-scope-cap
@@ -68,6 +70,8 @@ variable cc-scope-depth
   \ inherit a stale value (sk-local array-len, sk-func fixup-list, etc.).
   [lit] 0 r@ cc-sym-extra  cell[] !
   [lit] 0 r@ cc-sym-extra2 cell[] !
+  [lit] 0 r@ cc-sym-desc cell[] !
+  [lit] 0 r@ cc-sym-inner cell[] !
   [lit] 1 cc-sym-count +!
   r> ;
 
@@ -95,8 +99,12 @@ variable cc-scope-depth
 \   descriptor (060-cc-types.fth).  Its type's base is ty-struct, which is
 \   how readers tell this meaning from an array length (so the subset has
 \   no arrays of structs).
-: cc-sym-struct-desc-of   cc-sym-extra     cell[] @ ;  \ ( id -- desc )
-: cc-sym-set-struct-desc  cc-sym-extra     cell[] ! ;  \ ( desc id -- )
+: cc-sym-struct-desc-of
+  cc-target-lp64 @ if, cc-sym-desc else, cc-sym-extra then, cell[] @ ;  \ ( id -- desc )
+: cc-sym-set-struct-desc
+  cc-target-lp64 @ if, cc-sym-desc else, cc-sym-extra then, cell[] ! ;
+: cc-sym-array-inner-of cc-sym-inner cell[] @ ;
+: cc-sym-set-array-inner cc-sym-inner cell[] ! ;  \ ( desc id -- )
 \   call fixups: for an sk-func not yet defined, the head of the list of
 \   `call rel32` sites waiting for its address.  This word gives the cell's
 \   address, so the list code can push onto it (0 = no pending calls).
@@ -107,7 +115,9 @@ variable cc-scope-depth
 \   function used as a value, e.g. `common_recursion(expression)` before
 \   expression's body).  cc-parse-function patches each imm64 to the real
 \   vaddr when it reaches the definition.  0 = no pending loads.
-: cc-sym-addr-fixups      cc-sym-extra2    cell[] ;    \ ( id -- cell )
+: cc-sym-addr-fixups      cc-sym-extra2    cell[] ;
+: cc-sym-object-size-of cc-sym-extra2 cell[] @ ;
+: cc-sym-set-object-size cc-sym-extra2 cell[] ! ;    \ ( id -- cell )
 
 \ ===========================================================================
 \ Scopes

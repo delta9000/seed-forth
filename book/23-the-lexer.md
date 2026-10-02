@@ -11,7 +11,7 @@ After Ch 22, `tri.c` is 466 bytes of characters, but a parser does
 not want characters.  At line 12 it should not have to see `i`, `n`,
 `t`, a space, `w`, `[`, a space, `4`.  It wants to ask "what's
 next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
-"the number 4".  The 669-line file `050-cc-lex.fth` answers that
+"the number 4".  The 683-line file `050-cc-lex.fth` answers that
 question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,
@@ -146,6 +146,10 @@ kw, goto
 kw, switch
 kw, case
 kw, default
+kw, union
+kw, float
+kw, double
+kw, inline
 [lit] 0 c,                                      \ terminator
 
 \ Keyword IDs in declaration order.
@@ -179,6 +183,10 @@ kw, default
 [lit] 27 constant kw-switch
 [lit] 28 constant kw-case
 [lit] 29 constant kw-default
+[lit] 30 constant kw-union
+[lit] 31 constant kw-float
+[lit] 32 constant kw-double
+[lit] 33 constant kw-inline
 
 ```
 
@@ -305,11 +313,13 @@ see:
 
 \ cc-skip-ws-and-comments ( -- )  Skip whitespace, // line-comments, and
 \ /* block comments.  Returns at the first non-whitespace, non-comment byte.
+: cc-cspace? dup space? over [lit] 11 = or swap [lit] 12 = or ;
+
 : cc-skip-ws-and-comments
   begin,
     cc-eof? 0=
   while,
-    cc-peek-char dup space? if,
+    cc-peek-char dup cc-cspace? if,
       drop cc-next-char drop
     else,
       [char] / <> if, exit, then,               \ stop: not ws or comment
@@ -437,9 +447,11 @@ Numbers come first, in decimal or hex:
   tk-num tok-kind ! ;
 
 \ cc-lex-number ( -- )  Hex if it starts 0x or 0X, octal if it starts with
-\ 0 and another digit, else decimal.  A u/U/l/L suffix is skipped: every
-\ integer is 64 bits here.
+\ 0 and another digit, else decimal.  The full spelling, including a
+\ u/U/l/L suffix, is retained in tok-str-addr/len for type classification.
+\ tok-num still contains the unsigned 64-bit bit pattern, in both targets.
 : cc-lex-number
+  cc-src-buf cc-src-pos @ + >r                    \ numeric token start
   cc-peek-char-2                                  ( c1 c2 )
   over [char] 0 = if,                             \ c1 == '0' ?
     dup [char] x = over [char] X = or if,         \ c2 == 'x' or 'X' ?
@@ -465,7 +477,9 @@ Numbers come first, in decimal or hex:
     over [char] l = or  swap [char] L = or
   while,
     cc-next-char drop
-  repeat, ;
+  repeat,
+  cc-src-buf cc-src-pos @ + r@ - tok-str-len !
+  r> tok-str-addr ! ;
 
 ```
 
@@ -475,8 +489,14 @@ Numbers come first, in decimal or hex:
 `*base + digit` on the data stack, then stores into `tok-num` and sets
 `tok-kind = tk-num`.  The accumulator is the full 64-bit cell and
 wraps, which is how the built-in `EOF` of Ch 22, spelled
-`0xFFFFFFFFFFFFFFFF`, reads as -1.  A suffix (`10UL`, `0xffL`) is
-skipped: every integer here is 64 bits wide.
+`0xFFFFFFFFFFFFFFFF`, has the all-ones bit pattern.  A suffix
+(`10UL`, `0xffL`) is consumed with the number, and its full original
+spelling is retained in `tok-str-addr` / `tok-str-len`.  The legacy
+target still treats every integer as 64 bits.  LP64 uses Ch 24's
+`cc-integer-literal-type` to select `int`, `unsigned int`, `long`, or
+`unsigned long` from the suffix, base, and unsigned value range.
+These existing slice cells are already saved by lexer marks, so
+lookahead restores number metadata without changing the state layout.
 
 Identifiers are read as a slice and checked against the keywords:
 

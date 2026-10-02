@@ -857,6 +857,10 @@ create cc-name-intptr_t  s, intptr_t
   begin, dup cc-sym-count @ < while,
     dup cc-sym-kind-of sk-func = if,
       dup cc-sym-call-fixups @  over cc-sym-addr-fixups @  or if,
+        cc-target-lp64 @ if,
+          dup cc-sym-name-addr cell[] @ over cc-sym-name-len cell[] @ cc-err-write
+          cc-die-end [lit] 1 cc-err-write
+        then,
         [lit] 206 cc-die
       then,
     then,

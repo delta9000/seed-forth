@@ -3,7 +3,7 @@
 # tcc-0.9.27 to GCC 15.2.0 by way of musl (see gcc64/README.md):
 #
 #   stage 0   seed-forth -> ... -> tcc-boot2 (portable_libc):
-#                        tests/pnut/sf-pnut-amd64-check.sh, as is
+#                        tests/tcc/kernel-route-check.sh (raw source inputs)
 #   stage 1   tcc-p0   : tcc-boot2 builds tcc (+live-bootstrap tcc patches) against a
 #                        "bridge" copy of libc64 (real ldexp/strtod, 1 GiB heap)
 #   stage 2   musl-1   : tcc-p0 builds musl-1.1.24 (x86_64, patched for tcc)
@@ -58,15 +58,16 @@
 #        GCC64_CACHE   source cache (default build-out/gcc64-cache).  Every file is
 #                      checked against gcc64/SOURCES before use; with all of them
 #                      cached, no network is needed.
-#        GCC64_STAGE0  a finished tests/pnut/sf-pnut-amd64-check.sh BUILDROOT (e.g.
+#        GCC64_STAGE0  a finished direct TinyCC or named pnut-control work root (e.g.
 #                      build-out/pnut-amd64): stage 0 checks its tcc-boot2 and boot2
-#                      libraries against that script's pins and copies its kit
-#                      instead of re-running the script.
+#                      libraries against tools/tcc.recipe and copies its kit
+#                      instead of re-running the direct route. Reuse verifies
+#                      artifacts, not the supplied root's compiler provenance.
 #        GCC64_REPIN=1 print the pins step's hashes instead of failing on them.
 #        JOBS          make -j (default 4).
 #
 # Exit:  0 pass, 1 fail, 77 skip (a source is neither cached nor fetchable, or
-#        vendor/pnut is missing for stage 0).
+#        required vendored TinyCC/libc sources are missing for stage 0).
 set -euo pipefail
 GCC64=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$GCC64/.." && pwd)
@@ -126,7 +127,7 @@ HOSTTOOLS="bash sh make sed grep egrep fgrep awk mawk tr cut sort uniq comm join
   tar gzip gunzip zcat xz unxz bzip2 patch diff cmp sha256sum md5sum cksum find xargs expr env
   uname date sleep test [ true false printf echo tee mktemp od dd du stat id hostname nproc
   getconf timeout nice seq split tsort fold nl sync which bison m4 python3
-  git bc unshare mount"   # the last four for stage 0 (sf-pnut-amd64-check.sh) only
+  git bc unshare mount"   # source fetching and namespace isolation
 mkhostbin() {
     local t p; rm -rf "$W/hostbin"; mkdir -p "$W/hostbin"
     for t in $HOSTTOOLS; do
@@ -218,28 +219,37 @@ if [ "${1:-}" = --fetch ]; then
     say "all $(echo "${!SRC_SHA[@]}" | wc -w) sources in $D, sha256 as pinned"; exit 0
 fi
 
-# --- stage 0: seed-forth -> tcc-boot2 (tests/pnut/sf-pnut-amd64-check.sh) -----------
+# --- stage 0: seed-forth -> direct TinyCC -> pinned tcc-boot2 --------------------
 K=$W/tccboot/kit
-PNUT64=$ROOT/tests/pnut/sf-pnut-amd64-check.sh
-pnut64_pin() { sed -n "s/^$1=\([0-9a-f]\{64\}\).*/\1/p" "$PNUT64"; }
+TCC0=$ROOT/tests/tcc/kernel-route-check.sh
+TCC0_PINS=$ROOT/tools/tcc.recipe
+stage0_copy() {
+    local s0=$1 f v
+    for f in build/tcc-boot2 build/boot2-lib/crt1.o build/boot2-lib/libc.a \
+             build/boot2-lib/tcc/libtcc1.a; do
+        v=$(awk -v f="$f" '$1 == "artifact" && $2 == f { print $3 }' "$TCC0_PINS")
+        [[ $v =~ ^[0-9a-f]{64}$ ]] || fail "no unique artifact pin for $f in $TCC0_PINS"
+        [ -f "$s0/kit/$f" ] || fail "stage 0: $s0/kit/$f missing (run $TCC0 first)"
+        [ "$(sha "$s0/kit/$f")" = "$v" ] || fail "stage 0: kit/$f differs from $TCC0_PINS"
+    done
+    # GCC64_STAGE0 may already name this build's tccboot; do not erase it.
+    [ "$s0/kit" = "$K" ] || {
+        rm -rf "$W/tccboot"; mkdir -p "$W/tccboot"; cp -a "$s0/kit" "$K"
+    }
+}
 stage0() {
     t_start stage0
     if [ -n "${GCC64_STAGE0:-}" ]; then
-        local s0 f v
+        local s0
         s0=$(cd "$GCC64_STAGE0" && pwd) || fail "GCC64_STAGE0=$GCC64_STAGE0 does not exist"
-        for f in build/tcc-boot2:PIN_TCC_BOOT2 build/boot2-lib/crt1.o:PIN_BOOT2_CRT1 \
-                 build/boot2-lib/libc.a:PIN_BOOT2_LIBC build/boot2-lib/tcc/libtcc1.a:PIN_BOOT2_LIBTCC1; do
-            v=$(pnut64_pin "${f#*:}"); [ -n "$v" ] || fail "no ${f#*:} in $PNUT64"
-            [ -f "$s0/kit/${f%%:*}" ] || fail "GCC64_STAGE0: $s0/kit/${f%%:*} missing (run $PNUT64 first)"
-            [ "$(sha "$s0/kit/${f%%:*}")" = "$v" ] || fail "GCC64_STAGE0: kit/${f%%:*} is not the pinned ${f#*:}"
-        done
-        rm -rf "$W/tccboot"; mkdir -p "$W/tccboot"; cp -a "$s0/kit" "$K"
-        echo "$me: stage 0 reused from $s0: tcc-boot2 and boot2-lib as pinned by $PNUT64" > "$LOG/stage0.log"
+        stage0_copy "$s0"
+        echo "$me: stage 0 reused from $s0: artifacts as pinned by $TCC0_PINS (supplied provenance)" > "$LOG/stage0.log"
     else
         local rc=0
-        (cd "$ROOT" && BUILDROOT=$W/tccboot "$PNUT64") > "$LOG/stage0.log" 2>&1 || rc=$?
+        (cd "$ROOT" && ./build.sh && "$TCC0") > "$LOG/stage0.log" 2>&1 || rc=$?
         [ "$rc" = 77 ] && skip "stage 0: $(grep -m1 SKIP "$LOG/stage0.log")"
-        [ "$rc" = 0 ] || fail "sf-pnut-amd64-check.sh (see $LOG/stage0.log)"
+        [ "$rc" = 0 ] || fail "direct TinyCC route (see $LOG/stage0.log)"
+        stage0_copy "$ROOT/build-out/pnut-amd64"
     fi
     tail -1 "$LOG/stage0.log"
     say "tcc-boot2: $(sha "$K/build/tcc-boot2")"
@@ -678,9 +688,24 @@ stages=("$@"); [ ${#stages[@]} -gt 0 ] || stages=(stage0 stage1 stage2 stage3 st
 for s in "${stages[@]}"; do
     case $s in stage[0-9]|stage1[0-2]) ;; *) echo "$me: unknown stage '$s' (stage0 ... stage12)" >&2; exit 1 ;; esac
 done
-# check the pinned sources up front (fetching what is missing), so a missing source
-# is a SKIP before hours of building rather than a failure after
-for f in "${!SRC_SHA[@]}"; do need "$f"; done
+# Check selected stages' pinned sources up front. A stage4-10 Linux
+# continuation must not require an unused GCC15 archive (or refetch stage0).
+stage_sources() {
+    case $1 in
+        stage2) echo musl-1.1.24.tar.gz ;;
+        stage4) echo binutils-2.30.tar.xz musl-1.1.24.tar.gz ;;
+        stage5) echo flex-2.6.4.tar.gz gcc-4.0.4-git-944765863e.tar ;;
+        stage6) echo gcc-4.0.4-git-944765863e.tar ;;
+        stage7) echo musl-1.1.24.tar.gz gmp-6.2.1+dfsg.tar.xz mpfr-4.1.0.tar.xz mpc-1.2.1.tar.gz ;;
+        stage8) echo gcc-4.7.4.tar.xz binutils-2.41.tar.xz ;;
+        stage9) echo binutils-2.41.tar.xz ;;
+        stage10) echo gcc-10.5.0.tar.xz ;;
+        stage11) echo gcc-15.2.0.tar.xz ;;
+    esac
+}
+for s in "${stages[@]}"; do
+    for f in $(stage_sources "$s"); do need "$f"; done
+done
 mkhostbin
 export PATH="$W/guard:$W/hostbin"
 mkguard

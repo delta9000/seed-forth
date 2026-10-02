@@ -250,7 +250,7 @@ into the Bootstrappable chain:
   its hex1/hex2/M0/`cc_amd64` pipeline.  Get M2-Planet.
 - **Trust the Forth route.**  Read this book.  Run
   `000-seed.hex0` through any hex0 assembler.  Get seed-forth.
-  Load the fifteen `.fth` files.  Get an M2-Planet-equivalent.
+  Load the nineteen `.fth` files.  Get an M2-Planet-equivalent.
 
 Both routes share the same `hex0-seed` (and the same Linux kernel,
 and the same CPU), so the trust roots overlap.  Above the trust
@@ -340,7 +340,10 @@ lines included) with `wc -l`:
 | Route                      | Hand-written source                         | Lines |
 |----------------------------|---------------------------------------------|------:|
 | stage0 AMD64 (canonical)   | hex0 / hex1 / hex2 / catm / M0 sources, `cc_amd64.M1` + its ELF header, defs, libc | 7,628 |
-| Forth (this book)          | `000-seed.hex0` + `010-lib.fth` + the 14 `-cc-` files                    | 7,902 |
+| Forth (this book)          | `000-seed.hex0` + `010-lib.fth` + the 18 `-cc-` files                    | 11,507 |
+
+The Forth total includes the opt-in direct-TinyCC extension now loaded
+with the numbered compiler files; the legacy default is unchanged.
 
 The stage0 row is the files `AMD64/mescc-tools-seed-kaem.kaem` and
 `AMD64/mescc-tools-mini-kaem.kaem` feed in before the first M2
@@ -367,7 +370,7 @@ mescc-tools' C with its first M2; the Forth route's equivalent is
 drive those steps; the Forth route leans on the host shell instead.
 
 Both totals are dominated by the small C compiler at the top.
-Ours is `090-cc-emit.fth` through `116-cc-prog.fth`, 5,541 lines of
+Ours is `090-cc-emit.fth` through `116-cc-prog.fth`, 6,795 lines of
 Forth.  The stage0 one is `cc_amd64.M1`, 5,413 lines of M1 assembly.
 Treat the two as the same order of magnitude.
 

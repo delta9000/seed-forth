@@ -1,0 +1,5 @@
+# Exact-match fixtures retain source blank lines; unified diffs retain their
+# single-space context prefix. Keep ordinary whitespace checks elsewhere.
+patches/tcc-ladder/*.before whitespace=-blank-at-eof
+patches/tcc-ladder/*.after whitespace=-blank-at-eof
+patches/tcc-ladder/*.patch whitespace=-blank-at-eol

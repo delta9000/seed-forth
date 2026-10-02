@@ -1,6 +1,118 @@
-# Seed-only amd64 executable closure
+# Direct TinyCC and historical control boundaries
 
-The default amd64 route now reaches the same TinyCC 0.9.27 fixed point
+## Current direct route: raw inputs through the fixed point
+
+The Forth compiler compiles TinyCC 0.9.27 directly. No pnut compiler
+executable runs to prepare its inputs or anywhere in this route:
+
+```sh
+./build.sh
+python3 tools/tcc_inputs.py
+./seed-forth < tools/tcc-ladder-start.fth
+```
+
+Source acquisition, initial seed construction, Linux/CPU/filesystem
+support, launch descriptors, and host image construction remain outside
+the executable boundary. `tools/tcc_inputs.py` verifies 50 pinned raw
+archive/libc/tool inputs; image writers copy those original bytes plus
+local source and fixtures. They do not extract TinyCC, apply its patches,
+or include an expanded `build-out/tcc-sources` tree in initial images.
+
+After the seed starts, the runner and helpers built from source perform
+file operations, extraction and exact patching. Forth performs every C
+include, macro expansion, conditional, declaration, expression, instruction
+and relocation. No host C compiler, preprocessor, assembler, linker,
+object file, pnut compiler or prebuilt TinyCC enters the chain.
+
+The direct chain is:
+
+1. The original seed compiles the narrow recipe runner from Forth/C source
+2. The runner stages pinned raw inputs. Forth compiles raw portable libc
+   together with `tools/simple-patch.c`, then the archive helper's source
+3. Those generated helpers decompress the original TinyCC archive, extract
+   its 400 regular source files, apply the exact kit/amd64/libc patches,
+   and verify all 440 prepared-file pins
+4. The extended Forth compiler preprocesses and compiles the resulting
+   TinyCC and portable libc, writing the pinned `tcc-seed`
+5. That TinyCC builds its runtime and successive TinyCC generations,
+   enforcing the original generation pins and executable/object fixed points
+6. Rebuilt TinyCC builds the archive and exact-patch helpers for the later
+   kernel ladder; the archive helper includes the documented LP64 CRC fix
+
+`tools/tcc.recipe` lists 49 explicit generated-program runs plus exact-patch
+applications. Its bootstrap helpers are `simple-patch` (27,456 bytes,
+SHA-256 `95782bd922815b1ba9df707a22feebe88e8b723010a4d960348934d00d151fc7`)
+and `bintools` (75,024 bytes,
+`d330f693121629b503cc9e6c8c9af1e384df320f80188986070dfa8e5475f5b4`).
+The 440 prepared-file pins cover the 439 source files plus their manifest.
+
+The source material still includes the TinyCC kit, archive-tool sources
+and portable libc pinned through `vendor/pnut`. Historical `PNUT_CC`
+macros select the compatibility profile; they do not run or embed the
+pnut compiler. Their provenance and licenses remain intact. The old
+pnut scripts are separate controls and GCC-oracle tests.
+
+For path-sensitive later artifact pins, the direct ladder still writes
+`build-out/pnut-amd64`. That historical directory name is not a compiler
+step. Default recipes and K0/K1 launchers use `tools/tcc-ladder-start.fth`
+and `tools/tcc.recipe`.
+
+## Verification and limits
+
+The raw-input host route passes end to end: generated helpers reproduce
+all prepared-source pins, Forth produces the unchanged TinyCC seed, and
+the full TinyCC generation/runtime pins, executable/object fixed points,
+and runtime tests pass. Rebuilt compilers also pass genuine float, double,
+long-double, bitfield, VLA and local-enum probes. The initial Forth profile
+still has restricted floating bit transport and three fail-closed runtime
+operations; see [Chapter 34](book/34-direct-tinycc.md) and the
+[native runtime](tests/tcc/native-runtime.md).
+
+```sh
+tests/tcc/kernel-route-check.sh   # actual raw-input host entry + helper checks
+tests/tcc/native-check.sh         # focused Forth compiler regressions
+tests/tcc/sf-tcc-check.sh         # independent prepared-source verification
+```
+
+`prep-stage-sources.py` remains an independent host-side preparation
+oracle for focused tests and the last command. It extracts and patches
+source in that separate verification workflow; it does not supply the
+default raw-input route. Its outputs are never host-preprocessed C.
+
+The earlier **prepared-source** isolation test has a narrower starting
+point. A fresh user-namespace/chroot with only the original seed executable
+and 460 reviewed inputs, no `/bin` or `/usr`, reproduced the 870,752-byte
+direct seed. All input hashes remained unchanged and only the seed and
+generated TinyCC were executable afterward. This checks compilation from
+prepared source, not raw archive extraction inside that isolated root.
+Its stronger syscall-audited gate reports SKIP (77) here because
+`PTRACE_TRACEME` is denied; no audited PASS is claimed.
+
+```sh
+python3 tests/tcc/source-closure-check.py --help
+```
+
+The fresh **raw-input K0 → K1 guest smoke test passed** under QEMU TCG
+with 3 GiB and no KVM, in about eleven minutes. K0 built the Forth helpers,
+unpacked/patched the original inputs, reached the TinyCC fixed point, and
+used that generated TinyCC to compile K1. After handoff, K1 imported its
+raw-input disk, rebuilt the seed via `hex0-seed`, and independently repeated
+the raw-helper/TinyCC/fixed-point/runtime sequence. The wrapper exited 0;
+the serial log reports `K1: PASS` and init status 0 (QEMU's expected debug
+exit status is 1). Logs are `build-out/k1-raw-seed-smoke.log` and
+`build-out/k1-raw-smoke/serial.log`.
+
+Host inventories alone would not prove guest execution; this run supplies
+that separate result. The longer GNU/Linux attempt did not complete and
+is not implied by the TinyCC fixed point or K0/K1 handoff.
+
+The remaining sections describe the separately retained pnut control.
+Its raw-archive preparation boundary is now also preserved by the direct
+route, using Forth-built helpers in place of pnut-built helpers.
+
+## Historical pnut control boundary
+
+The retained pnut control reaches the same TinyCC0.9.27 fixed point
 without executing host build tools after the initial seed launch:
 
 ```sh
