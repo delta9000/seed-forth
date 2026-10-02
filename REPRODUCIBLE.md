@@ -1,7 +1,8 @@
 # Reproducible Bootstrap
 
 This document records the bootstrap path from `000-seed.hex0` to a
-M2-Planet-compatible compiler output.
+M2-Planet-compatible compiler output and a direct Forth-to-TinyCC
+fixed point. The pnut-based paths remain separately reproducible controls.
 
 For a reader-facing walk-through with diagrams and one paragraph per
 stage, see **[Appendix C of the book](book/A3-reproducibility-chain.md)**.
@@ -583,6 +584,122 @@ M2-Planet tests: identical=36  both-fail=0  differ=0  (of 36)
 All stages passed.
 ```
 
+## Direct Forth-to-TinyCC
+
+The direct route replaces the pnut compiler executable with an extension
+to the Forth compiler. It retains the pinned TinyCC archive, kit patches,
+and portable-libc sources under `vendor/pnut`, plus this repository's
+amd64 patches. The `PNUT_CC` compatibility macro still selects the
+bootstrap source profile; it is not evidence that pnut executed.
+Retaining these sources also retains their copyright and license notices:
+see `vendor/pnut/LICENSE`, the headers in `portable_libc`, and TinyCC's
+`COPYING` files inside its archive. No upstream source is relabeled as
+seed-forth code.
+
+### Raw-input preparation and direct compile
+
+```sh
+./build.sh
+python3 tools/tcc_inputs.py
+./seed-forth < tools/tcc-ladder-start.fth
+# Equivalent checked host entry, including source inventories and helper tests:
+tests/tcc/kernel-route-check.sh
+```
+
+Initial host setup verifies/copies 50 raw archive/libc/tool inputs from
+`tools/tcc-raw-inputs.sha256` and `tools/tcc-bintools-inputs.sha256`, plus
+local source/fixtures. No expanded `build-out` source tree is an image
+input. The seed builds the narrow recipe runner; that runner stages raw
+bytes and has the extended Forth compiler build exact-patch and archive
+helpers from C with raw portable libc.
+
+Those generated helpers decompress the original TinyCC tarball, extract
+all 400 regular source files, and apply the exact kit, amd64 TinyCC, and
+portable-libc patches. The recipe verifies all 440 prepared-file pins in
+`tools/tcc-source-inputs.sha256`: 439 source files plus their manifest.
+It then runs the direct Forth compiler to write `build-out/tcc-seed` and
+carries it through the TinyCC fixed point and runtime checks.
+
+The raw-input host route has passed this full sequence. The 49 explicit
+recipe runs and exact-patch applications execute only the seed and
+programs produced by the chain; neither extraction nor patching requires
+a host helper after launch. The C preprocessor is the Forth preprocessor,
+not a hidden host `cpp`. No host C compiler, assembler, linker, libc,
+object or prebuilt TinyCC participates.
+
+The convenience driver remains
+`tests/tcc/compile-native.sh SOURCE OUTPUT [INCLUDE_DIRECTORY ...]`.
+`SF_NATIVE_FLOATBITS=1` selects the restricted initial TinyCC profile:
+private stack calls and eight-byte integer transport for floating data,
+without general IEEE arithmetic. `localtime`, `ldexp`, and `longjmp`
+print diagnostics and exit 125; other undefined functions fail compilation.
+A build reaching one of those bodies has failed.
+
+### Separate preparation oracle and isolation proof
+
+`tests/tcc/prep-stage-sources.py NEW_DIRECTORY` remains a host-side
+source-preparation oracle for focused tests and the independent
+`tests/tcc/sf-tcc-check.sh` workflow. It checks input/patch pins and writes
+the same prepared bytes. It neither preprocesses nor compiles C, and it
+does not supply the default raw-input launcher.
+
+The earlier `source-closure-check.py` test starts **after source
+preparation**. Its explicit 460-input manifest covers the original seed,
+Forth sources, and prepared C/header bytes. A fresh root with no `/bin`,
+`/usr`, prebuilt TinyCC, pnut compiler, or object/archive inputs rebuilt
+the same 870,752-byte seed with every input hash unchanged. This narrower
+proof does not establish raw archive extraction in that isolated root.
+
+The strong version additionally requires an exec-syscall trace. It reports
+SKIP (77) in this sandbox because `PTRACE_TRACEME` is denied; the isolated
+build success is not an audited PASS. The 17 verifier/launcher regression
+tests pass. See [`tests/tcc/README.md`](tests/tcc/README.md) for commands.
+Fresh raw-input K0 → K1 QEMU validation has now passed: K0 generated the
+helpers and TinyCC from raw inputs, used that TinyCC to compile K1, and
+handed off. K1 rebuilt the seed via hex0 and independently repeated the
+raw-helper/TinyCC/fixed-point/runtime sequence. This used 3 GiB TCG without
+KVM and took about eleven minutes; the wrapper exited 0 and guest init
+reported status 0/PASS. The logs are `build-out/k1-raw-seed-smoke.log`
+and `build-out/k1-raw-smoke/serial.log`. This is not a new full GNU/Linux
+rebuild. A longer attempt was interrupted before a complete musl/GNU/Linux
+result; full Linux validation remains pending. See the KVM handoff in
+`k1/README.md` and its consolidated `k1/chain-inputs.sha256`.
+
+### Verified outputs
+
+The direct seed and final compiler have different roles and different
+hashes:
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| Forth-built bootstrap `simple-patch` | 27,456 | `95782bd922815b1ba9df707a22feebe88e8b723010a4d960348934d00d151fc7` |
+| Forth-built bootstrap `bintools` | 75,024 | `d330f693121629b503cc9e6c8c9af1e384df320f80188986070dfa8e5475f5b4` |
+| Forth-built initial TinyCC | 870,752 | `7411c326d30ff5a0ebadfe36d6218b6e46d2e8357f76d3a003e74ed9aee2fc3a` |
+| `tcc-boot2` = `tcc-boot3` | 305,496 | `514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1` |
+| `tcc-boot2.o` = `tcc-boot3.o` | — | `b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61` |
+
+Run `tests/tcc/kernel-route-check.sh` for the actual raw host route, or
+`tests/tcc/sf-tcc-check.sh` for an independent prepared-source build and
+acceptance check (optional fresh `BUILDROOT`); `tests/tcc/downstream-check.py` owns
+the downstream reconstruction.
+
+A fresh downstream run from the direct seed executes forty generated
+compiler/runtime programs, matches the existing final control pins, and
+passes all 136 portable-libc checks. The boot2 runtime pins remain
+`9fc015db…` (`crt1.o`), `6f35761d…` (`libc.a`), and `21312cd0…`
+(`libtcc1.a`), expanded in the amd64 control table below. Independent
+acceptance programs built by boot2 and boot3 exercise genuine float,
+double, and long-double arithmetic, bitfields, variable-length arrays,
+and local enums. Their matching final bytes and runtime results are
+separate evidence from the seed compiler's restricted floating profile.
+
+The source preparation boundary must not be confused with executable
+closure. [`tests/tcc/README.md`](tests/tcc/README.md) documents the focused
+checks and launch interface, [`HOST-TOOLS.md`](HOST-TOOLS.md) defines the
+host-tool boundary, and [Chapter 34](book/34-direct-tinycc.md) owns the
+four native source files as literate code. The legacy controls below
+continue to establish their own fixed points and reference comparisons.
+
 ## Past M2-Planet: pnut and TinyCC
 
 `tests/pnut/sf-pnut-check.sh` takes the chain in a second direction,
@@ -758,8 +875,12 @@ chain, the per-stage table, the trust statement and the open issues;
 `patches/gcc64/README.md` has every patch.  It takes about 100 minutes
 on 4 cores, so it is not in `check-all.sh`; `verify.sh` runs it as step
 10 only with `VERIFY_GCC64=1` (SKIP otherwise), starting from step 9's
-`tcc-boot2` (`GCC64_STAGE0`, checked against `sf-pnut-amd64-check.sh`'s
-pins).
+`tcc-boot2` (`GCC64_STAGE0`, checked against `tools/tcc.recipe`'s
+artifact pins). Standalone stage 0 now defaults to the direct raw-input
+route. Explicit `GCC64_STAGE0` reuse verifies artifact bytes, not the
+supplied kit's compiler provenance. The full GCC timings/results below
+are historical control-chain results, not a rerun of the full chain after
+this stage-0 migration.
 
 ```sh
 gcc64/run-gcc64.sh --fetch          # sources into build-out/gcc64-cache (GCC64_CACHE)
@@ -792,7 +913,7 @@ BUILDROOT=DIR gcc64/run-gcc64.sh stage11 stage12   # re-run stages in place
 
 | Stage | Fixed point |
 |---|---|
-| 0 | `pnut64-g2 = g3`; `tcc-boot2 = tcc-boot3` (`514bc4d3…`) |
+| 0 | `tcc-boot2 = tcc-boot3` (`514bc4d3…`), plus object equality; pnut self-hosting belongs to the separate historical control |
 | 2 | musl-2 = musl-3 (`libc.a` `57d4b5e9…`); tcc-2 = tcc-3 |
 | 6 | gcc-B = gcc-C in `bin/gcc`, `bin/cpp`, `cc1`, `collect2`, `libgcc.a`, `crtbegin.o`, `crtend.o` |
 | 11 | gcc-15.2.0's `make compare`: "Comparison successful" (stage2 = stage3) |
@@ -808,8 +929,7 @@ musl's `libc.a` (built by tcc and by gcc-B), `libgmp.a` and gcc-B's
 (every tcc after `tcc-boot2`, `libtcc1.a`, binutils, flex, gcc-4.0.4,
 `libgcc.a`, `libmpfr.a`, `libmpc.a`).  `HASHES` marks the former `any`
 (enforced for every `BUILDROOT`) and the rest `root` (enforced only at
-the canonical `BUILDROOT`, the development sandbox's
-`/tmp/claude-0/-home-user-seed-forth/cc676fea-56ac-5a23-8fc7-209074f2e383/scratchpad/gcc64/clean`).
+the canonical `BUILDROOT` recorded on the `root` line of `gcc64/HASHES`).
 
 At that path two independent from-scratch runs, the development kit's
 and the repository scripts' on 2026-09-27, produced all 43 pinned

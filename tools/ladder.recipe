@@ -1,6 +1,7 @@
-# The ladder past TinyCC: run after tools/amd64.recipe, from the repository
+# The ladder past TinyCC: run after tools/tcc.recipe, from the repository
 # root, as  build-out/amd64-runner --recipe tools/ladder.recipe
 # Each stage is explicit runner commands: no shell, make, sed or patch.
+# Historical output pathname retained for path-sensitive downstream pins.
 set W ${ROOT}/build-out/pnut-amd64
 set K ${W}/kit
 set TESTS ${ROOT}/tests/pnut/amd64

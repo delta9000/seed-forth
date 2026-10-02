@@ -19,11 +19,27 @@ It is not part of `check-all.sh` (too slow).  `verify.sh` runs it only
 with `VERIFY_GCC64=1`, from its own step 9's `tcc-boot2`, and reports
 SKIP otherwise.
 
+## Stage-0 selection and verification scope
+
+Standalone `run-gcc64.sh` now builds stage 0 through the direct raw-input
+`tests/tcc/kernel-route-check.sh` route: Forth-built helpers unpack and
+patch the original TinyCC source, and Forth directly compiles TinyCC.
+There is no pnut compiler executable in this default path. Artifact pins
+are read from `tools/tcc.recipe`; the final TinyCC/runtime bytes match the
+historically verified control handoff.
+
+`GCC64_STAGE0=WORK_ROOT` can reuse a finished direct or named pnut-control
+kit. It checks `tcc-boot2`, `crt1.o`, `libc.a`, and `libtcc1.a` before copying
+it. This verifies the supplied artifacts, not their compiler provenance.
+The `verify.sh` opt-in continuation still explicitly supplies its control
+kit. The full GCC 15.2 timings and results below were recorded before
+this default stage-0 migration; they are not a new full-chain rebuild.
+
 ## The chain
 
 ```
-seed-forth (1,772 B)                                  tests/pnut/sf-pnut-amd64-check.sh
-  -> sf-pnut64 -> pnut-exe -> pnut-exe-for-tcc -> tcc-pnut -> tcc-boot0..3
+seed-forth (1,772 B)                                  tests/tcc/kernel-route-check.sh
+  -> Forth-built patch/archive helpers -> direct tcc-seed -> tcc-boot0..3
                                             tcc-boot2 = tcc-boot3 (portable_libc)
 stage 1   tcc-boot2   builds tcc-p0   (tcc + lb patches; "bridge" libc64: real ldexp/strtod)
 stage 2   tcc-p0      builds musl-1, then tcc-1 against it
@@ -49,13 +65,14 @@ and are not rebuilt later (see "Open issues").
 
 ## Stages
 
-Timings: the canonical clean run (below) on 4 cores, `JOBS=4`,
-wall-clock seconds.  `check-all.sh` and `verify.sh` ran alongside it
+Timings: the historical canonical clean control run (below) on 4 cores,
+`JOBS=4`, in wall-clock seconds. Stage 0 in this table used pnut; it does
+not time the current direct route.  `check-all.sh` and `verify.sh` ran alongside it
 during stages 10–11, so those two are somewhat slow.
 
 | Stage | What | Built by | Seconds |
 |---|---|---|---:|
-| 0 | seed-forth → pnut → tcc-0.9.27 x86_64, `tcc-boot2 = tcc-boot3` | seed-forth, pnut | 12 |
+| 0 (historical control) | seed-forth → pnut → tcc-0.9.27 x86_64, `tcc-boot2 = tcc-boot3` | seed-forth, pnut | 12 |
 | 1 | tcc-p0 | tcc-boot2 (portable_libc + bridge) | 1 |
 | 2 | musl-1.1.24 and tcc, to a fixed point | tcc-p0, then each tcc | 19 |
 | 3 | tcc `tests/tests2` | tcc-boot2, tcc-musl | 3 |
@@ -76,7 +93,8 @@ during stages 10–11, so those two are somewhat slow.
   tcc-2 = tcc-3 (stage 2); gcc-B = gcc-C byte for byte in `bin/gcc`,
   `bin/cpp`, `cc1`, `collect2`, `libgcc.a`, `crtbegin.o`, `crtend.o`
   (stage 6); gcc-15.2.0's "Comparison successful" (stage 11); and, in
-  stage 0, `pnut64-g2 = g3` and `tcc-boot2 = tcc-boot3`.
+  stage 0, `tcc-boot2 = tcc-boot3` with matching objects. The pnut
+  self-hosting fixed point belongs to the separately retained control.
 - **Tests:** `tests/gcc64/libc-test.c` (printf of 64-bit and floats,
   malloc, setjmp, qsort, strtod, `%.20Lg`, libm, varargs, stdio,
   fork/exec, sscanf) under tcc-musl and, at `-O2`, under gcc-A, gcc-B,
@@ -113,7 +131,7 @@ full it needs no network.  Nothing is vendored in the repository.
 | gmp-6.2.1 | Debian's `+dfsg` repack (non-free docs removed), not lb's `gmp-6.2.1.tar.xz` |
 | gcc-4.7.4 | a `.tar.xz` from Ubuntu's orig tarball; lb pins the `.tar.bz2`.  The uncompressed tar's sha256 is in `SOURCES` for comparison |
 | gcc-4.0.4 | `git archive` of gcc-mirror's `releases/gcc-4.0.4` tag, commit `944765863eec`; lb uses `gcc-core-4.0.4.tar.bz2`.  The export has no pregenerated parsers, so host bison makes them.  `SOURCES` pins the uncompressed tar, which `git archive` reproduces exactly (checked by re-cloning) |
-| tcc-0.9.27, portable_libc | from stage 0 (pnut's vendored tarball and `vendor/pnut` at `abc34a5`, pinned by `sf-pnut-amd64-check.sh`); lb uses savannah's `tcc-0.9.27.tar.bz2` |
+| tcc-0.9.27, portable_libc | from stage 0 (pnut's vendored tarball and `vendor/pnut` at `abc34a5`, source pins in `tools/tcc-raw-inputs.sha256`, artifact pins in `tools/tcc.recipe`); lb uses savannah's `tcc-0.9.27.tar.bz2` |
 
 ## Patches
 
@@ -139,8 +157,10 @@ gcc-15.2.0 needs none (live-bootstrap has none either).
 What the chain runs that it did not build:
 
 - **The seed and the sources.**  Stage 0 starts from the 1,772-byte seed
-  (via stage0-posix's `hex0-seed`) and pnut's source; every later source
-  is sha256-pinned in `SOURCES`.
+  (via stage0-posix's `hex0-seed`), Forth/compiler/helper sources, and the
+  raw TinyCC archive/portable libc retained in `vendor/pnut`. The default
+  stage does not compile pnut. Every later source is sha256-pinned in
+  `SOURCES`.
 - **Host build glue, never a compiler, assembler or linker.**  `PATH` is
   exactly `BUILDROOT/guard:BUILDROOT/hostbin` plus the stage's own
   chain-built `bin/` directories, so `/usr/bin` is never searched.
@@ -151,11 +171,13 @@ What the chain runs that it did not build:
   zcat xz unxz bzip2 patch diff cmp sha256sum md5sum cksum find xargs
   expr env uname date sleep test [ true false printf echo tee mktemp od
   dd du stat id hostname nproc getconf timeout nice seq split tsort fold
-  nl sync which bison m4 python3`, plus `git bc unshare mount` for
-  stage 0's script only.  Also reachable by absolute path: `/bin/sh`
+  nl sync which bison m4 python3`, plus the retained `git bc unshare mount`
+  allowances for setup/compatibility.  Also reachable by absolute path: `/bin/sh`
   (`#!` lines, `system()`), `/usr/bin/env`, and libtool's probes of
-  `file` and `ldconfig`.  `python3` runs only `simple-patch.py` (a
-  before/after text replacement); `curl` and `git` only fetch sources
+  `file` and `ldconfig`.  `python3` verifies raw stage-0 inputs/inventories and runs
+  `simple-patch.py` for later source replacements; stage-0 archive
+  extraction and exact patching use Forth-built helpers. `curl` and `git`
+  fetch sources
   (with the host `PATH`).
 - **Two host code generators.**  Host `bison` writes gcc-4.0.4's C parser
   (`c-parse.c`) and `gengtype-yacc.c` (the git export has none), and
@@ -218,12 +240,12 @@ stages 8–11 at a second path; they are recorded as path-dependent.
 its `root` line).  The pins step enforces `any` hashes everywhere and
 `root` hashes only at that path; elsewhere it reports them as not
 comparable.  The fixed points above are enforced everywhere.  To
-reproduce every hash, build at the canonical path, which is simply
-where the development sandbox happened to build (any path works; the
-`root` hashes belong to this one):
+reproduce every hash, read the canonical path from the checked-in manifest
+(any path works; the `root` hashes belong to that recorded path):
 
 ```sh
-gcc64/run-gcc64.sh --new /tmp/claude-0/-home-user-seed-forth/cc676fea-56ac-5a23-8fc7-209074f2e383/scratchpad/gcc64/clean
+canonical_root=$(sed -n 's/^root //p' gcc64/HASHES)
+gcc64/run-gcc64.sh --new "$canonical_root"
 ```
 
 ## Open issues
@@ -254,7 +276,9 @@ starting point from the seed: stage0-posix's `AMD64/bin`, including
 `kaem` and mescc-tools-extra (`catm`, `cp`, `chmod`, `mkdir`, `rm`,
 `sha256sum`, `untar`, `ungz`, `unbz2`, `unxz`, `replace`, `match`, ...).
 
-1. **Before bash.**  Drive stages 0–2 with kaem scripts, as
+1. **Before bash.** Stage 0 now runs through the seed-built recipe
+   runner and Forth-built raw-source helpers. Drive stages 1–2 with
+   chain-built scripting tools, as
    live-bootstrap's `steps/tcc-0.9.27/pass1.kaem` does: extraction with
    `ungz`/`untar`/`unxz`, hashes with `sha256sum`, and live-bootstrap's
    `simple-patch` (built by M2-Planet) instead of `python3
@@ -267,9 +291,8 @@ starting point from the seed: stage0-posix's `AMD64/bin`, including
    so the risk is low.
 3. **The rest of `HOSTTOOLS`:** `python3` goes with step 1; `timeout`,
    `hostname`, `nproc`, `getconf`, `od` come with coreutils/findutils;
-   `git`, `bc`, `unshare`, `mount` are stage 0's only (a tarball of
-   `vendor/pnut` would replace `git archive`); `/bin/sh` becomes the
-   chain-built bash.
+   source acquisition and namespace/image setup remain outside the
+   stage-0 seed execution boundary; `/bin/sh` becomes the chain-built bash.
 4. **No perl yet,** because nothing is regenerated; regenerating
    autotools output would need live-bootstrap's perl sequence too.
 5. **A chroot** of `BUILDROOT` with only chain-built `/bin`, as

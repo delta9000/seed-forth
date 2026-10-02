@@ -1,7 +1,8 @@
-# Seed Forth to M2-Planet
+# Seed Forth to M2-Planet and TinyCC
 
 This directory contains a minimal x86-64 Linux Forth seed and the Forth-coded
-C-subset compiler needed to reach M2-Planet compatibility.
+C-subset compiler needed to reach M2-Planet compatibility and, with
+an opt-in extension, compile TinyCC directly.
 
 The trust root is `000-seed.hex0`: an annotated hex0 file that encodes a
 1772-byte hand-written ELF/Forth image.  The seed is intentionally small: it
@@ -51,10 +52,10 @@ git submodule update --init vendor/stage0-posix
 git -C vendor/stage0-posix submodule update --init bootstrap-seeds
 ```
 
-`vendor/pnut` (pnut at `abc34a5`, no nested submodules) is needed only
-by `tests/pnut/sf-pnut-check.sh` and `tests/pnut/sf-pnut-amd64-check.sh`,
-which build pnut with the Forth C compiler (and go on to TinyCC); both
-report SKIP without it:
+`vendor/pnut` (pnut at `abc34a5`, no nested submodules) supplies the TinyCC archive, kit patches, and portable-libc sources used by
+the direct route. It is also needed by `tests/pnut/sf-pnut-check.sh` and
+`tests/pnut/sf-pnut-amd64-check.sh`, which build pnut with the Forth C
+compiler (and go on to TinyCC); both controls report SKIP without it:
 
 ```sh
 git submodule update --init vendor/pnut
@@ -138,7 +139,71 @@ M1, hex2 and blood-elf.  No binary is shared from the seed on; they
 share the `hex0-seed` file, the C/M1 sources, the kernel and bash.
 amd64 only.
 
-### On to TinyCC, without Mes
+### Directly to TinyCC, without a pnut executable
+
+The opt-in LP64 extension compiles the pinned, patched TinyCC 0.9.27
+and portable-libc C sources directly in Forth. It replaces the pnut
+compiler executable in this route. The vendored pnut kit remains the
+source of the TinyCC archive, compatibility patches, and portable libc;
+its provenance and licenses remain relevant. The legacy default and
+pnut routes below remain independent controls.
+
+From the repository root, the default route starts with raw pinned inputs:
+
+```sh
+./build.sh
+python3 tools/tcc_inputs.py
+./seed-forth < tools/tcc-ladder-start.fth
+```
+
+For the actual host entry plus inventory and helper checks, run
+`tests/tcc/kernel-route-check.sh`. It resets the known generated route
+outputs and performs the raw-input bootstrap. `tests/tcc/sf-tcc-check.sh`
+is an independent prepared-source fixed-point check (optional fresh
+`BUILDROOT`), not the default launcher's source supplier.
+
+Host setup verifies/copies 50 pinned raw archive/libc/tool inputs plus
+local sources and fixtures. Forth builds the exact-patch and archive
+helpers; those generated programs unpack the original TinyCC archive and
+apply the checked patches. All 440 prepared-file pins are verified before
+Forth compiles TinyCC and portable libc. Include handling, macro expansion,
+parsing, instruction generation, initialization, and ELF output are all in
+Forth. No pnut executable, host C compiler, `cpp`, assembler, linker,
+host libc, or object file participates.
+
+The direct seed is 870,752 bytes, SHA-256
+`7411c326d30ff5a0ebadfe36d6218b6e46d2e8357f76d3a003e74ed9aee2fc3a`.
+It uses LP64 object storage and a private all-stack ABI. Its restricted
+bootstrap float mode transports eight-byte integer bits, and unsupported
+`localtime`, `ldexp`, or `longjmp` calls report their names and exit 125.
+This seed is the intermediate compiler, not a claim of general floating
+arithmetic in Forth.
+
+The rebuilt TinyCC reaches the same `tcc-boot2 = tcc-boot3` executable
+and object fixed points as the pnut control. Its 305,496-byte executable
+hash remains
+`514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1`.
+All 136 portable-libc checks pass, and separate acceptance tests exercise
+real float/double/long-double arithmetic, bitfields, variable-length
+arrays, and block-scope enums in the rebuilt compiler.
+
+The earlier prepared-source isolation test also rebuilt the pinned seed
+from the original Forth seed in a root with no `/bin` or `/usr`; its
+stronger syscall-audited gate reports SKIP here because tracing is denied.
+That narrower proof is separate from raw-input guest validation; see the
+exact scope and current results in [HOST-TOOLS.md](HOST-TOOLS.md).
+A fresh raw-input QEMU test also passed the actual K0 → K1 handoff and
+K1's independent seed/TinyCC rebuild. A longer GNU/Linux attempt was
+interrupted before completion; full Linux validation remains pending.
+The [KVM handoff instructions](k1/README.md#full-linux-validation-with-kvm)
+include the archive pins and exact completion markers.
+
+[The direct-route instructions](tests/tcc/README.md) separate source
+preparation, compiler execution, and fixed-point checks.
+[Chapter 34](book/34-direct-tinycc.md) explains the extension and contains
+its canonical source; [REPRODUCIBLE.md](REPRODUCIBLE.md) records the pins.
+
+### Control routes to TinyCC through pnut
 
 The Forth C compiler also builds [pnut](https://github.com/udem-dlteam/pnut)
 (`vendor/pnut`, `pnut.c` exactly as shipped), and pnut's TinyCC kit
@@ -234,17 +299,18 @@ From the repository root, with the submodules fetched as in
 [Get the sources](#get-the-sources):
 
 ```sh
-./check-all.sh                 # ~90 s: build + tests + tangle --strict + book checks + stage-A + bootstrap + pnut (i386, amd64 to tcc) + handoff
+./check-all.sh                 # build, legacy/native tests, book, Stage-A, bootstrap, pnut controls, direct route, handoff
 ./verify.sh                    # ~6½ min, needs gcc: every GCC-reference comparison + stage0-posix checks
 ```
 
-`check-all.sh` is a wrapper that runs fourteen steps
+`check-all.sh` is a wrapper that runs sixteen steps
 with per-step OK/SKIP/FAIL output (logs in `${TMPDIR:-/tmp}/check-all-*.log`); Stage-A and the small assembler
 checks are skipped (not failed) if `gcc` isn't installed.  The last
-four steps run `./bootstrap.sh`, `tests/pnut/sf-pnut-check.sh` (the
+five steps run `./bootstrap.sh`, `tests/pnut/sf-pnut-check.sh` (the
 Forth C compiler builds pnut unmodified, and that pnut agrees with an
 M2-Planet-built one), `tests/pnut/sf-pnut-amd64-check.sh` (the amd64
-route on to tcc-0.9.27) and `./handoff.sh` (its main route only, on
+pnut control on to tcc-0.9.27), `tests/tcc/kernel-route-check.sh`
+(the actual direct kernel/ladder host entry), and `./handoff.sh` (its main route only, on
 bootstrap.sh's output), which need no gcc; the pnut steps are skipped
 without `vendor/pnut`, the handoff step if stage0-posix's nested
 submodules are not checked out.  For diagnosing a failure, the
@@ -253,6 +319,9 @@ individual commands are:
 ```sh
 ./build.sh
 ./test.sh
+tests/tcc/native-check.sh
+tests/tcc/kernel-route-check.sh   # actual host entry; QEMU guest checks are separate
+tests/tcc/sf-tcc-check.sh         # independent prepared-source fixed-point check
 tools/tangle.sh verify --strict
 tools/check-numbers.py
 tools/check-tryit.py
@@ -304,7 +373,8 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
 | `build.sh` | Strips comments/whitespace from `000-seed.hex0` and writes `seed-forth`. |
 | `010-lib.fth` | Forth helpers: syscalls, booleans, comparisons, control-flow combinators, defining words. |
 | `020-cc-arena.fth` .. `116-cc-prog.fth` | C-subset compiler layers loaded by seed-forth (the parser is `100-cc-expr.fth` expressions, `110-cc-decl.fth` declarations, `112-cc-stmt.fth` statements, `114-cc-func.fth` functions, `116-cc-prog.fth` file scope and entry stub). |
-| `120-cc-main.fth` | Compiler entry point; reads C from stdin and writes `/tmp/cc-out`. |
+| `115-cc-native.fth`, `117-cc-native-program.fth`, `118-cc-native-init.fth`, `119-cc-native-runtime.fth` | Opt-in direct TinyCC declarations, private stack ABI, initializers and Linux boundary; canonical source in book Ch 34. |
+| `120-cc-main.fth` | Default compiler entry point; reads C from stdin and writes `/tmp/cc-out`. |
 | `test.sh` / `test-*.fth` | Local unit/smoke tests for layers 010–070; the upper layers (080–116) are exercised end-to-end by `tests/cc/`. |
 | `bootstrap.sh` | The GCC-free build: hex0-seed → seed-forth → M2-Planet, M1, hex2 → self-hosted M2-Planet fixed point. |
 | `verify.sh` | Every comparison against GCC-built references (runs the `tests/` scripts below), then `tests/cc/stage0-check.sh` and `handoff.sh`; with `VERIFY_GCC64=1` also `gcc64/run-gcc64.sh`. |
@@ -315,6 +385,8 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
 | `vendor/M2-Planet`, `vendor/mescc-tools` | Pinned upstream submodules used by the checks. |
 | `vendor/stage0-posix` | Pinned upstream containing the `hex0-seed` assembler `build.sh` uses. |
 | `vendor/pnut` | Pinned pnut (`abc34a5`), the C compiler `tests/pnut/sf-pnut-check.sh` builds with the Forth C compiler, unmodified. |
+| `tests/tcc/` | Direct source preparation, native compiler tests, full `sf-tcc-check.sh` bootstrap, rebuilt-feature checks, and source-only closure verifier. |
+| `tools/tcc-start.fth`, `tools/tcc-compile.fth` | Original-seed launcher and Forth compiler driver for staged direct TinyCC sources. |
 | `tests/pnut/` | `sf-pnut-check.sh` (i386 route to TinyCC) and `sf-pnut-amd64-check.sh` (amd64 route; its test programs in `tests/pnut/amd64/`). |
 | `patches/amd64/` | Our patches for the amd64 route: pnut's heap size, four tcc-0.9.27 patches, six portable_libc patches (see its README). |
 | `gcc64/` | `run-gcc64.sh`, the amd64 chain from `tcc-boot2` to GCC 15.2 via musl, its build helpers, `SOURCES` (source pins) and `HASHES` (artifact pins); see its README. |
@@ -388,7 +460,7 @@ See `REPRODUCIBLE.md` for the full fixed-point chain.
 
 ## Reading the book
 
-The 33-chapter book lives under `book/` as Markdown.  Render it
+The 34-chapter book lives under `book/` as Markdown.  Render it
 with [mdBook](https://rust-lang.github.io/mdBook/):
 
 ```sh

@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-all of `112-cc-stmt.fth` (766 lines): the `cc-parse-stmt` dispatcher
+all of `112-cc-stmt.fth` (826 lines): the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -391,16 +391,19 @@ run *after* it.  The parser handles this in eight moves:
 \   jmp  <top>
 \   <end:>
 : cc-parse-for
+  cc-for-top-vaddr @ >r cc-for-end-fixup @ >r
+  cc-for-step-start @ >r cc-for-step-end @ >r
+  cc-scope-push
   lparen cc-expect-punct-c
 
-  \ --- Init (optional) ---
+  \ --- Init (optional); declaration scope ends with this loop. ---
   cc-next-token-keep
-  tok-kind @ tk-punct = tok-num @ [char] ; = and if,
-    \ ';' — empty init; token is consumed.
-  else,
-    cc-putback-token
-    cc-parse-expr
-    [char] ; cc-expect-punct-c
+  [char] ; cc-tok-punct? 0= if,
+    cc-target-lp64 @ if, cc-native-type-start-fwd else, [lit] 0 then, if,
+      cc-native-decl-fwd
+    else,
+      cc-putback-token cc-parse-expr [char] ; cc-expect-punct-c
+    then,
   then,
 
   \ Save outer break/continue heads + loop switch-depth on rstack (after
@@ -445,14 +448,9 @@ run *after* it.  The parser handles this in eight moves:
   begin,
     dup [lit] 0 >  cc-eof? 0= and
   while,
-    cc-peek-char lparen = if,
-      1+
-    else,
-      cc-peek-char [char] ) = if,
-        1-
-      then,
-    then,
-    cc-next-char drop
+    cc-next-token-keep
+    lparen cc-tok-punct? if, 1+ then,
+    [char] ) cc-tok-punct? if, 1- then,
   repeat,
   drop                                            ( -- )
   \ cc-src-pos is now just past ')'.  step-end = position of ')'.
@@ -467,7 +465,7 @@ run *after* it.  The parser handles this in eight moves:
   \ --- Re-parse step at recorded range ---
   \ Save current lexer state, set pos := step-start, len := step-end (so the
   \ tokenizer naturally hits EOF at the close-paren).  After parsing, restore.
-  cc-src-pos @ >r
+  cc-lex-state-size cc-alloc dup cc-lex-mark >r
   cc-src-len @ >r
   cc-for-step-end @ cc-src-len !
   cc-for-step-start @ cc-src-pos !
@@ -478,9 +476,8 @@ run *after* it.  The parser handles this in eight moves:
     cc-parse-expr
   then,
   \ Restore lexer state.
-  [lit] 0 cc-tok-pending !
   r> cc-src-len !
-  r> cc-src-pos !
+  r> cc-lex-reset
 
   \ Emit jmp top.
   cc-for-top-vaddr @ cc-emit-jmp-vaddr
@@ -494,7 +491,10 @@ run *after* it.  The parser handles this in eight moves:
   \ Restore outer heads.
   r> cc-loop-switch-depth   !
   r> cc-continue-stack-head !
-  r> cc-break-stack-head    ! ;
+  r> cc-break-stack-head    !
+  cc-scope-pop
+  r> cc-for-step-end ! r> cc-for-step-start !
+  r> cc-for-end-fixup ! r> cc-for-top-vaddr ! ;
 
 ```
 
@@ -721,6 +721,7 @@ cases with the same `K`.
 
   \ '{' (case|default|stmt)* '}'
   [char] { cc-expect-punct-c
+  cc-target-lp64 @ if, cc-scope-push then,
 
   begin,
     cc-next-token-keep
@@ -784,7 +785,8 @@ cases with the same `K`.
   \ Restore outer state.
   r> cc-break-stack-head     !
   r> cc-switch-default-vaddr !
-  r> cc-switch-cases-head    ! ;
+  r> cc-switch-cases-head    !
+  cc-target-lp64 @ if, cc-scope-pop then, ;
 
 ```
 
@@ -862,6 +864,7 @@ create cc-label-name-addr  cc-label-cap [lit] 8 * allot
 create cc-label-name-len   cc-label-cap [lit] 8 * allot
 create cc-label-vaddr      cc-label-cap [lit] 8 * allot
 create cc-label-fixup      cc-label-cap [lit] 8 * allot
+create cc-label-switch-depth cc-label-cap [lit] 8 * allot
 variable cc-label-count
 
 \ Each table is indexed with cell[] (030).
@@ -883,7 +886,8 @@ variable cc-label-count
   r@ cc-label-name-len  cell[] !                  \ store len
   r@ cc-label-name-addr cell[] !                  \ store addr
   [lit] 0 r@ cc-label-set-vaddr                   \ vaddr := 0
-  [lit] 0 r@ cc-label-fixups !                    \ fixup-list := 0
+  [lit] 0 r@ cc-label-fixups !
+  [lit] 0 r@ cc-label-switch-depth cell[] !                    \ fixup-list := 0
   [lit] 1 cc-label-count +!
   r> ;
 
@@ -909,10 +913,13 @@ variable cc-label-count
     [lit] 172 cc-die
   then,
   \ Set vaddr.
-  dup >r                                          ( id ; R: id )
+  >r                                              ( ; R: id )
   cc-here-vaddr r@ cc-label-set-vaddr
-  \ Walk forward-fixup list, patch each to current pos.
-  r> cc-label-fixups @ cc-walk-and-patch-fixups ;
+  cc-switch-depth @ r@ cc-label-switch-depth cell[] !
+  \ Native forward gotos use end-of-function switch-stack trampolines.
+  cc-target-lp64 @ if, r> drop else,
+    r> cc-label-fixups @ cc-walk-and-patch-fixups
+  then, ;
 
 ```
 
@@ -932,12 +939,48 @@ word `break` and `continue` use:
 \ If the target label is already defined, emit an absolute backward jmp.
 \ Otherwise emit a forward-jmp placeholder and prepend its rel32-fixup-offset
 \ to the label's fixup list (resolved when the label is defined).
+\ Adjust saved switch registers to the destination's lexical depth.
+: cc-native-goto-adjust ( source-depth target-depth -- )
+  - dup 0< if,
+    [lit] 0 swap -
+    begin, dup while, cc-emit-push-rbx 1- repeat, drop
+  else, cc-emit-switch-unwind then, ;
+: cc-native-goto-fixup ( label-id patch-offset -- )
+  [lit] 24 cc-alloc >r r@ !
+  cc-switch-depth @ r@ [lit] 8 + !
+  dup cc-label-fixups @ r@ [lit] 16 + !
+  r> swap cc-label-fixups ! ;
+: cc-native-finish-gotos
+  [lit] 0
+  begin, dup cc-label-count @ < while,
+    dup cc-label-fixups @
+    begin, dup while,
+      over cc-label-vaddr-of 0= if, [lit] 174 cc-die then,
+      dup @ cc-patch-rel32-to-here
+      dup >r [lit] 8 + @ over cc-label-switch-depth cell[] @
+      r> swap >r swap r>
+      cc-native-goto-adjust
+      over cc-label-vaddr-of cc-emit-jmp-vaddr
+      [lit] 16 + @
+    repeat, drop 1+
+  repeat, drop ;
+
 : cc-parse-goto-stmt
   cc-next-token-keep
   tok-kind @ tk-ident <> if,
     [lit] 173 cc-die
   then,
   tok-str-addr @ tok-str-len @ cc-label-find-or-create   ( id )
+  cc-target-lp64 @ if,
+    dup cc-label-vaddr-of if,
+      cc-switch-depth @ over cc-label-switch-depth cell[] @
+      cc-native-goto-adjust
+      cc-label-vaddr-of cc-emit-jmp-vaddr
+    else,
+      cc-emit-jmp-rel32-placeholder cc-native-goto-fixup
+    then,
+    [char] ; cc-expect-punct-c exit,
+  then,
 
   \ Unwind any open switch scrutinees before jumping (assumes the label is
   \ not inside any switch — a goto to a label inside any switch is unsupported).
@@ -1055,7 +1098,9 @@ reaches the finished word.
   \ Not a typedef (or not found yet — it may be a forward label).
   tok-str-addr @ tok-str-len @                    ( a u )
   cc-peek-after-is-colon? if,
-    cc-define-label exit,
+    cc-define-label
+    cc-target-lp64 @ if, cc-parse-stmt-fwd then,
+    exit,
   then,
   2drop
   cc-parse-expr-stmt ;
@@ -1068,6 +1113,21 @@ reaches the finished word.
 : cc-parse-stmt
   cc-skip-storage-quals
   cc-next-token-keep
+  cc-target-lp64 @ if,
+    kw-case cc-tok-kw? if,
+      cc-switch-depth @ 0= if, [lit] 170 cc-die then,
+      cc-parse-const [char] : cc-expect-punct-c
+      cc-here-vaddr cc-add-switch-case cc-parse-stmt-fwd exit,
+    then,
+    kw-default cc-tok-kw? if,
+      cc-switch-depth @ 0= if, [lit] 170 cc-die then,
+      [char] : cc-expect-punct-c
+      cc-here-vaddr cc-switch-default-vaddr ! cc-parse-stmt-fwd exit,
+    then,
+    cc-native-type-start-fwd kw-typedef cc-tok-kw? or if,
+      cc-native-decl-fwd exit,
+    then,
+  then,
   [char] ;    cc-tok-punct? if, exit, then,           \ the empty statement
   cc-tok-is-basic-type-kw? if, cc-parse-decl exit, then,
   kw-enum     cc-tok-kw? if,

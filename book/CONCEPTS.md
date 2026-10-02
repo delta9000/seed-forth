@@ -34,6 +34,7 @@ first principles and start using as a primitive.
 | Declaration/statement/function compiler | Chs 29-31 | complete C-subset parser | Ch 32 |
 | Proof harness | Ch 32 | Stage-A `.M1` parity | Appendices |
 | Assembler | Ch 33 | `130-asm.fth`: M1 expander + two-pass hex2 linker | `bootstrap.sh`, `handoff.sh` (builds `M1` and `hex2`) |
+| Direct TinyCC compiler | Ch 34 | LP64 parser, private ABI, initializers, and native runtime | direct TinyCC boot0 → boot3 |
 
 ## Capability ladder
 
@@ -59,6 +60,11 @@ shows what the artifact can *do* at each step.
 Ch 33 adds no compiler capability.  It gives the compiler's output a
 GCC-free way to become an ELF: `130-asm.fth` assembles M2-Planet's
 `.M1`, and then mescc-tools' `M1` and `hex2`, which take over.
+
+Ch 34 adds an opt-in profile: LP64 storage, aligned structs/unions,
+stack arguments and varargs, bounded initializers, and a finite Linux
+runtime. Its four new native files contain 893 lines; the shared
+compiler extensions remain covered in their original chapters.
 
 ## Topic → chapter quick reference
 
@@ -144,6 +150,15 @@ and given in source order within each area.
 - *One handler for six sigils (`asm-do-ref`), `%target>base`* — Ch 33
 - *Assembler capacity checks and exit codes 230–243* — Ch 33, Appendix G
 - *Why the assembler loads `010-lib.fth` alone* — Ch 33
+
+### The direct TinyCC extension
+
+- *LP64 storage versus private all-stack calling convention* — Ch 34
+- *Separate struct-tag namespace, aligned structs/unions, anonymous members* — Ch 34
+- *Static initializer routines with constant-expression guards and ordinary fixups* — Ch 34
+- *Finite Linux primitive boundary and fail-closed seed-only operations* — Ch 34
+- *Restricted floating bit transport versus rebuilt TinyCC's genuine floating arithmetic* — Ch 34
+- *Source preparation versus compiler execution and executable closure* — Ch 34
 
 ### Reading the proof
 
@@ -252,7 +267,7 @@ their introducing chapter.
   Ch 23; *Chs 27–31*
 - **Compact type encoding (one word per type)** — Ch 24;
   *Chs 27–31*
-- **Struct descriptor (16 + 40·N bytes)** — Ch 24; *Ch 28*
+- **Struct descriptor (16 + 40·N legacy, 32 + 48·N LP64 bytes)** — Ch 24; *Ch 28*
 - **Symbol table (parallel arrays)** — Ch 24; *Chs 26–31*
 - **Scope stack (push/pop count)** — Ch 24; *Chs 30, 31*
 - **System V AMD64 calling convention** — Ch 25; *Chs 26, 28, 31*
@@ -318,9 +333,11 @@ Ch 29  decls + structs    — Chs 24, 25, 26, 28
 Ch 30  statements         — Chs 11, 12, 26, 27, 28, 29
 Ch 31  functions          — Chs 24, 25, 26, 27, 28, 29, 30
 Ch 32  main + bootstrap   — *all previous*
-        (---- Part III complete; every -cc- file fully literate ----)
+        (---- Part III complete; legacy driver fully literate ----)
 Ch 33  assembler          — Chs 5, 6, 11, 12, 21, 32          (Part IV)
         (---- 130-asm.fth fully literate ----)
+Ch 34  direct TinyCC      — Chs 23–31                         (Part V)
+        (---- four native files fully literate; all -cc- files covered ----)
 ```
 
 ## Reading orders

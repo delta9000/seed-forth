@@ -12,7 +12,7 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(1674 lines total) solves this with a *precedence cascade*: plain
+(2307 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a
@@ -154,9 +154,20 @@ value, and the number 40 is not a `(`.
 \ ===========================================================================
 
 defer cc-parse-expr-fwd                           \ runs cc-parse-expr
+defer cc-parse-comma-fwd                          \ native comma expressions, no materialize
 defer cc-parse-assign-fwd                         \ runs cc-parse-assign
 defer cc-try-cast-fwd                             \ runs cc-try-cast (110)
 defer cc-parse-unary-fwd                          \ runs cc-parse-unary
+defer cc-sizeof-type-start-fwd                    \ current token starts a type?
+defer cc-sizeof-type-fwd                          \ current type token -> ty desc
+defer cc-parse-const-fwd                          \ constant expression evaluator
+variable cc-expr-unevaluated
+variable cc-native-static-init                    \ restrict runtime lowering to static constants
+
+: cc-check-static-init
+  cc-native-static-init @ cc-expr-unevaluated @ 0= and if,
+    [lit] 219 cc-die
+  then, ;
 
 ```
 
@@ -382,6 +393,115 @@ Three words read it:
   then,
   drop [lit] 0 ;                                  \ another level's operator
 
+\ Native arithmetic preserves type information and applies pointer scaling.
+\ These temporary cells are only used after recursive operand parsing ends.
+variable cc-expr-left-type
+variable cc-expr-left-desc
+variable cc-expr-right-type
+variable cc-expr-right-desc
+variable cc-expr-left-inner
+variable cc-expr-right-inner
+variable cc-expr-common
+variable cc-expr-op-row
+
+: cc-expr-promote                                ( ty -- ty' )
+  dup ty-ptr if, exit, then,
+  dup ty-size [lit] 4 < if, drop ty-int [lit] 0 ty-make then, ;
+
+: cc-expr-common-type                            ( left right -- ty )
+  cc-expr-promote swap cc-expr-promote swap
+  over ty-ptr if, drop exit, then,
+  dup ty-ptr if, nip exit, then,
+  2dup ty-size swap ty-size > if, nip exit, then,
+  2dup ty-size swap ty-size < if, drop exit, then,
+  dup ty-unsigned? if, nip else, drop then, ;
+
+: cc-expr-save-types                             ( left-ty left-desc right-ty right-desc -- )
+  cc-expr-right-desc ! cc-expr-right-type !
+  cc-expr-left-desc ! cc-expr-left-type !
+  cc-expr-left-type @ cc-expr-right-type @ cc-expr-common-type cc-expr-common ! ;
+
+: cc-expr-save-native-types                      ( left-ty left-desc left-inner -- )
+  cc-expr-left-inner !
+  cc-last-expr-array-inner @ cc-expr-right-inner !
+  cc-last-expr-type @ cc-last-struct-desc @ cc-expr-save-types ;
+
+: cc-expr-common-inner                           ( -- row-width )
+  cc-expr-common @ ty-ptr if,
+    cc-expr-left-type @ cc-expr-common @ = if,
+      cc-expr-left-inner @
+    else, cc-expr-right-inner @ then,
+  else, [lit] 0 then, ;
+
+: cc-expr-left-step
+  cc-expr-left-type @ cc-expr-left-desc @ cc-expr-pointee-size
+  cc-expr-left-inner @ if, cc-expr-left-inner @ * then, ;
+: cc-expr-right-step
+  cc-expr-right-type @ cc-expr-right-desc @ cc-expr-pointee-size
+  cc-expr-right-inner @ if, cc-expr-right-inner @ * then, ;
+
+: cc-expr-common-desc                            ( -- desc )
+  cc-expr-common @ ty-base ty-struct = if,
+    cc-expr-left-type @ cc-expr-common @ = if,
+      cc-expr-left-desc @
+    else, cc-expr-right-desc @ then,
+  else, [lit] 0 then, ;
+
+: cc-native-binop-emit                           ( -- )
+  cc-expr-common @ ty-unsigned? if,
+    cc-expr-op-row @ bo-op + @
+    dup [char] / = if, drop cc-emit-udiv-quotient exit, then,
+    dup [char] % = if, drop cc-emit-udiv-remainder exit, then,
+    dup pt-shr = if, drop cc-emit-shr-rdi-cl exit, then,
+    dup [char] < = if, drop cc-emit-cmp-ult exit, then,
+    dup pt-le = if, drop cc-emit-cmp-ule exit, then,
+    dup [char] > = if, drop cc-emit-cmp-ugt exit, then,
+    dup pt-ge = if, drop cc-emit-cmp-uge exit, then,
+    drop
+  then,
+  cc-expr-op-row @ bo-emitter + @ execute ;
+
+: cc-native-binop-apply                          ( left-ty left-desc left-inner row -- )
+  cc-expr-op-row !
+  cc-expr-save-native-types
+  cc-expr-op-row @ bo-level + @ level-shift = if,
+    cc-expr-left-type @ cc-expr-promote cc-expr-common !
+  then,
+  cc-emit-materialize
+  cc-expr-op-row @ bo-level + @ level-add = if,
+    cc-expr-left-type @ ty-ptr
+    cc-expr-right-type @ ty-ptr 0= and if,
+      cc-expr-left-step cc-emit-scale-rdi
+    then,
+  then,
+  cc-emit-mov-rcx-rdi cc-emit-pop-rdi
+  cc-expr-op-row @ bo-op + @ [char] + = if,
+    cc-expr-left-type @ ty-ptr 0=
+    cc-expr-right-type @ ty-ptr [lit] 0 <> and if,
+      cc-expr-right-step cc-emit-scale-rdi
+    then,
+  then,
+  cc-expr-common @ cc-emit-convert-rdi
+  cc-expr-common @ cc-emit-convert-rcx
+  cc-native-binop-emit
+  cc-expr-op-row @ bo-op + @ [char] - = if,
+    cc-expr-left-type @ ty-ptr cc-expr-right-type @ ty-ptr and if,
+      cc-expr-left-step
+      dup [lit] 1 <> if,
+        cc-emit-push-rdi cc-emit-mov-rdi-int
+        cc-emit-mov-rcx-rdi cc-emit-pop-rdi cc-emit-idiv-quotient
+      else, drop then,
+      ty-long [lit] 0 ty-make cc-expr-common !
+    then,
+  then,
+  cc-expr-op-row @ bo-level + @
+  dup level-rel = swap level-eq = or if,
+    ty-int [lit] 0 ty-make cc-expr-common !
+  then,
+  cc-expr-common @ cc-emit-convert-rdi
+  cc-expr-common @ cc-expr-common-desc cc-mark-typed-value
+  cc-expr-common-inner cc-last-expr-array-inner ! ;
+
 \ cc-binop-apply ( row -- )  The left operand is pushed and the right one
 \ is in rdi.  Materialize the right, move it to rcx, pop the left into rdi,
 \ emit the row's operation, and mark the result a plain value.
@@ -417,9 +537,13 @@ the fold, which the next section walks through.
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-unary                                \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -469,9 +593,13 @@ intermediate values.
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-mul                                  \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -505,9 +633,13 @@ nothing, and costs one call.
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-add                                  \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -535,9 +667,13 @@ C puts shifts between additive and relational operators, so
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-shift                                \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -559,9 +695,13 @@ C puts shifts between additive and relational operators, so
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-rel                                  \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -584,9 +724,13 @@ C puts shifts between additive and relational operators, so
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-eq                                   \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -602,9 +746,13 @@ C puts shifts between additive and relational operators, so
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-bit-and                              \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -620,9 +768,13 @@ C puts shifts between additive and relational operators, so
   while,
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+    then,
     cc-emit-push-rdi                              \ save left
     cc-parse-bit-xor                              \ rdi = right
-    r> cc-binop-apply                             \ rdi = left OP right
+    r> cc-target-lp64 @ if, cc-native-binop-apply else, cc-binop-apply then,
+                                                  \ rdi = left OP right
   repeat,
   drop                                            \ cc-binop?'s 0
   cc-putback-token ;                              \ we read one too many
@@ -689,7 +841,7 @@ token.
     cc-patch-rel32-to-here                        \ patch f-LHS
     [lit] 0 cc-emit-mov-rdi-imm32
     cc-patch-rel32-to-here                        \ patch f-end
-    cc-mark-not-lvalue
+    cc-mark-int-value
   repeat,
   cc-putback-token ;
 
@@ -715,7 +867,7 @@ token.
     cc-patch-rel32-to-here
     [lit] 1 cc-emit-mov-rdi-imm32
     cc-patch-rel32-to-here                        \ patch f-end
-    cc-mark-not-lvalue
+    cc-mark-int-value
   repeat,
   cc-putback-token ;
 

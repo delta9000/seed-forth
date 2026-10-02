@@ -76,6 +76,16 @@ create cc-arena-base  cc-arena-cap allot
 variable cc-arena-ptr
 \ Initialize the bump pointer to the base of the buffer.
 cc-arena-base cc-arena-ptr !
+variable cc-arena-start
+variable cc-arena-limit
+cc-arena-base cc-arena-start !
+cc-arena-cap cc-arena-limit !
+\ Opt-in workspace for larger translation units; the seed itself is unchanged.
+: cc-arena-map ( bytes -- )
+  dup cc-arena-limit !
+  [lit] 0 swap [lit] 3 [lit] 34 true [lit] 0 [lit] 9 syscall6
+  dup 0< if, [lit] 10 cc-die then,
+  dup cc-arena-start ! cc-arena-ptr ! ;
 
 \ ----- cc-alloc -----
 \ cc-alloc ( n -- addr )  Bump n bytes (rounded up to an 8-byte boundary)
@@ -93,5 +103,5 @@ cc-arena-base cc-arena-ptr !
 : cc-alloc                                       ( n -- addr )
   [lit] 7 + [lit] 8 / [lit] 8 *                  \ align up to 8 bytes
   cc-arena-ptr @ swap over +                     ( old-top new-top )
-  dup cc-arena-base -  cc-arena-cap [lit] 10 cc-check-cap
+  dup cc-arena-start @ -  cc-arena-limit @ [lit] 10 cc-check-cap
   cc-arena-ptr ! ;                               ( -- old-top )

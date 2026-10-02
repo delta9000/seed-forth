@@ -1,36 +1,66 @@
 #!/usr/bin/env python3
 """Write K1's input disk: the chain root's starting tree as one archive.
 
-  mkdisk.py OUT
+  mkdisk.py OUT [--seed-smoke] [--jobs N]
 
 The tree is what tools/chain-root.sh puts in its root -- hex0-seed (the only
 executable), 000-seed.hex0, the Forth and C sources, tools/, ladder/,
-patches/, tests/, gcc64/ and every tarball in build-out/distfiles -- plus
+patches/, tests/, gcc64/, the pinned raw TinyCC archive/libc/tool sources,
+and every tarball in build-out/distfiles -- plus
 /k1.args and /k1.recipe, which tell K1 what to run.  Format: see k1/ata.c.
 """
-import os, pathlib, struct, sys
+import argparse, os, pathlib, struct, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 HEX0 = ROOT / "vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed"
+sys.path.insert(0, str(ROOT / "tools"))
+from tcc_inputs import source_tree
 S_IFDIR, S_IFREG = 0o040000, 0o100000
 
-def tree():
-    files = [ROOT / "000-seed.hex0"] + list(ROOT.glob("[0-9][0-9][0-9]-*.fth"))
-    for d in ("tools", "ladder", "patches/amd64/exact", "patches/gcc64", "patches/ladder",
-              "tests/pnut/amd64", "tests/gcc64", "gcc64"):
-        files += [p for p in (ROOT / d).rglob("*") if p.is_file()]
-    files += [ROOT / l.split()[1] for l in (ROOT / "tools/amd64-inputs.sha256").read_text().splitlines()]
-    out = {str(p.relative_to(ROOT)): (p, 0o644) for p in files}
-    for p in sorted((ROOT / "build-out/distfiles").iterdir()):
-        out["build-out/distfiles/" + p.name] = (p, 0o644)
+def tree(seed_smoke=False):
+    out = {name: (path, 0o644) for name, path in source_tree().items()}
+    if not seed_smoke:
+        for p in sorted((ROOT / "build-out/distfiles").iterdir()):
+            out["build-out/distfiles/" + p.name] = (p, 0o644)
     out["hex0-seed"] = (HEX0, 0o755)
     return out
 
+def positive_jobs(value):
+    if not value.isascii() or not value.isdecimal() or not 1 <= int(value) <= 256:
+        raise argparse.ArgumentTypeError("jobs must be an integer from 1 to 256")
+    return int(value)
+
+
+def guest_recipe(seed_smoke=False, jobs=None):
+    """Render JOBS explicitly: the recipe runner intentionally supplies no env."""
+    recipe = ROOT / ("k1/seed.recipe" if seed_smoke else "k1/k1.recipe")
+    data = recipe.read_bytes()
+    if jobs is None or seed_smoke:
+        return data
+    jobs = positive_jobs(str(jobs))
+    text = data.decode()
+    for stage, bindir in ((10, "/build-out/pnut-amd64/usr/bin"),
+                          (11, "/usr/bin"), (12, "/usr/bin")):
+        original = f"{bindir}/bash /ladder/stage{stage}.sh"
+        replacement = f"{bindir}/env JOBS={jobs} {original}"
+        if text.count(original) != 1:
+            raise ValueError(f"expected exactly one guest stage{stage} command")
+        text = text.replace(original, replacement)
+    return text.encode()
+
+
 def main():
-    dest = sys.argv[1]
-    files = tree()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output")
+    parser.add_argument("--seed-smoke", action="store_true",
+                        help="rebuild the direct seed route under K1, without later ladder distfiles")
+    parser.add_argument("--jobs", type=positive_jobs,
+                        help="pass this make job count explicitly into guest stages 10-12")
+    args = parser.parse_args()
+    dest = args.output
+    files = tree(args.seed_smoke)
     extra = {"k1.args": b"/k0/build-out/amd64-runner\n--recipe\n/k1.recipe\n",
-             "k1.recipe": (ROOT / "k1/k1.recipe").read_bytes()}
+             "k1.recipe": guest_recipe(args.seed_smoke, args.jobs)}
     dirs = {"build-out", "tmp", "proc"}
     for name in list(files) + list(extra):
         d = os.path.dirname(name)
@@ -66,4 +96,5 @@ def main():
         o.write(b"\0" * (-o.tell() % 512))
     print(f"{dest}: {len(files) + len(extra)} files, {total >> 20} MiB")
 
-main()
+if __name__ == "__main__":
+    main()

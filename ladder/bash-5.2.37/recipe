@@ -5,7 +5,6 @@ mkdir builtins
 copy ${SRC}/fixtures/builtins/pipesize.h builtins/pipesize.h
 copy ${SRC}/fixtures/config.h config.h
 copy ${SRC}/fixtures/pathnames.h pathnames.h
-copy ${SRC}/fixtures/signames.h signames.h
 copy ${SRC}/fixtures/version.h version.h
 run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_64\"" "-DCONF_OSTYPE=\"linux-musl\"" "-DCONF_MACHTYPE=\"x86_64-pc-linux-musl\"" "-DCONF_VENDOR=\"pc\"" "-DLOCALEDIR=\"/usr/local/share/locale\"" "-DPACKAGE=\"bash\"" -DSHELL -DHAVE_CONFIG_H -I. -I. -I./include -I./lib -O2 -c shell.c
 run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_64\"" "-DCONF_OSTYPE=\"linux-musl\"" "-DCONF_MACHTYPE=\"x86_64-pc-linux-musl\"" "-DCONF_VENDOR=\"pc\"" "-DLOCALEDIR=\"/usr/local/share/locale\"" "-DPACKAGE=\"bash\"" -DSHELL -DHAVE_CONFIG_H -I. -I. -I./include -I./lib -O2 -c eval.c
@@ -38,6 +37,9 @@ run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_
 run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_64\"" "-DCONF_OSTYPE=\"linux-musl\"" "-DCONF_MACHTYPE=\"x86_64-pc-linux-musl\"" "-DCONF_VENDOR=\"pc\"" "-DLOCALEDIR=\"/usr/local/share/locale\"" "-DPACKAGE=\"bash\"" -DSHELL -DHAVE_CONFIG_H -I. -I. -I./include -I./lib -O2 -DBUILDTOOL -o buildsignames.o -c ./support/signames.c
 run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_64\"" "-DCONF_OSTYPE=\"linux-musl\"" "-DCONF_MACHTYPE=\"x86_64-pc-linux-musl\"" "-DCONF_VENDOR=\"pc\"" "-DLOCALEDIR=\"/usr/local/share/locale\"" "-DPACKAGE=\"bash\"" -DSHELL -DHAVE_CONFIG_H -I. -I. -I./include -I./lib -O2 -L./lib/termcap -rdynamic -O2 -rdynamic -O2 -o mksignames mksignames.o buildsignames.o
 run 0 - "${L}/out" ${L}/err ./mksignames lsignames.h
+# Makefile.in:744 selects the native header produced immediately above.
+# Do not import a host-generated signal table as a bootstrap source.
+copy lsignames.h signames.h
 run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_64\"" "-DCONF_OSTYPE=\"linux-musl\"" "-DCONF_MACHTYPE=\"x86_64-pc-linux-musl\"" "-DCONF_VENDOR=\"pc\"" "-DLOCALEDIR=\"/usr/local/share/locale\"" "-DPACKAGE=\"bash\"" -DSHELL -DHAVE_CONFIG_H -I. -I. -I./include -I./lib -O2 -c trap.c
 run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_64\"" "-DCONF_OSTYPE=\"linux-musl\"" "-DCONF_MACHTYPE=\"x86_64-pc-linux-musl\"" "-DCONF_VENDOR=\"pc\"" "-DLOCALEDIR=\"/usr/local/share/locale\"" "-DPACKAGE=\"bash\"" -DSHELL -DHAVE_CONFIG_H -I. -I. -I./include -I./lib -O2 -c input.c
 run 0 - "${L}/out" ${L}/err "${CC}" "-DPROGRAM=\"bash\"" "-DCONF_HOSTTYPE=\"x86_64\"" "-DCONF_OSTYPE=\"linux-musl\"" "-DCONF_MACHTYPE=\"x86_64-pc-linux-musl\"" "-DCONF_VENDOR=\"pc\"" "-DLOCALEDIR=\"/usr/local/share/locale\"" "-DPACKAGE=\"bash\"" -DSHELL -DHAVE_CONFIG_H -I. -I. -I./include -I./lib -O2 -c unwind_prot.c

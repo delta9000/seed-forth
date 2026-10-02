@@ -1,0 +1,6 @@
+# Limited-memory K0 -> K1 handoff test. K1 imports only sources and hex0-seed.
+run 0 - /dev/console /dev/console /hex0-seed /000-seed.hex0 /seed-forth
+chmod /seed-forth
+say "k1: seed-forth rebuilt by hex0-seed; starting direct TinyCC route"
+run 0 /tools/tcc-ladder-start.fth /dev/console /dev/console /seed-forth
+say "k1: PASS (K0-built K1 rebuilt the direct TinyCC fixed point from sources)"

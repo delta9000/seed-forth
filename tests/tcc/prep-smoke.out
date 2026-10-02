@@ -1,0 +1,14 @@
+"EXPANDED"
+"a + b"
+"\"x\\\\y\""
+EXPANDEDx
+changedx
+Elf64_Sym
+TOK_ASM_mov, "mov"
+TOK_ASM_add, "add"
+((1)+(2))
+((1)+(((2)+(3))))
+"M(1,2,3)"
+"EXPANDED", changed
+empty
+empty

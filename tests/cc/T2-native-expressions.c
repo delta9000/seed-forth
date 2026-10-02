@@ -1,0 +1,43 @@
+/* Direct LP64 mode: composed pointer metadata, widths, arrays and sizeof. */
+struct node { char tag; int value; struct node *next; int a[3]; };
+int g;
+int main() {
+  int a[4];
+  char bytes[4];
+  struct node nodes[3];
+  struct node *p;
+  struct node *q;
+  int *ip;
+  char *s;
+  int k;
+  a[0] = 11; a[1] = 22; a[2] = 33; a[3] = 44;
+  bytes[0] = 61; bytes[1] = 62; bytes[2] = 63; bytes[3] = 64;
+  ip = a;
+  if (*(ip + 2) != 33 || *(2 + ip) != 33 || (ip + 3) - ip != 3) return 1;
+  ip++; if (*ip != 22) return 2;
+  ++ip; if (*ip != 33) return 3;
+  ip -= 2; if (*ip != 11) return 4;
+  ip += 3; if (*ip-- != 44 || *--ip != 22) return 5;
+  if ((ip = a + 2)[0] != 33 || *&a[3] != 44 || *&*ip != 33) return 6;
+  s = bytes;
+  k = 1;
+  if (*(k ? s : s + 1) != 61 || (k ? s + 2 : 0)[0] != 63) return 7;
+  p = nodes;
+  p[0].value = 10; p[1].value = 20; p[2].value = 30;
+  q = &nodes[1];
+  if (q - p != 1 || (1 + p)->value != 20 || (*(p + 2)).value != 30) return 8;
+  p->next = q;
+  if ((k ? p : q)->next->value != 20) return 9;
+  if (*&q->value != 20 || ((struct node *)(long)q)->value != 20) return 10;
+  p++; ++p; if (p->value != 30) return 11;
+  p -= 2; if (p->value != 10) return 12;
+  p->a[0] = 5; p->a[1] = 6; p->a[2] = 7;
+  if (*(p->a + 1) != 6 || sizeof(p->a) != 12) return 13;
+  nodes[2] = nodes[0]; if (nodes[2].a[2] != 7 || nodes[2].next != q) return 14;
+  if (sizeof a != 16 || sizeof(bytes) != 4 || sizeof(nodes) != 96) return 15;
+  if (sizeof(*q) != 32 || sizeof(&g) != 8 || sizeof("abc") != 4) return 16;
+  if (sizeof(int[3]) != 12 || sizeof(long) != 8) return 17;
+  if (sizeof(ip++) != 8 || ip != a + 2) return 18;
+  g = 19; if (*&g != 19) return 19;
+  return 0;
+}

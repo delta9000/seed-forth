@@ -2,8 +2,10 @@
 # Runs in the unpacked source tree; needs CC, P, T, L and SRC set.
 # configure --disable-nls --disable-dependency-tracking --disable-extensions --disable-mpfr --without-readline
 mkdir awklib
-copy ${SRC}/fixtures/awklib/grcat.c awklib/grcat.c
-copy ${SRC}/fixtures/awklib/pwcat.c awklib/pwcat.c
+# Upstream awklib/Makefile.in:703-709 links these original archive sources.
+# A byte copy keeps the runner's source tree free of symlink requirements.
+copy awklib/eg/lib/grcat.c awklib/grcat.c
+copy awklib/eg/lib/pwcat.c awklib/pwcat.c
 copy ${SRC}/fixtures/config.h config.h
 cd ${B}/support
 run 0 - "${L}/out" ${L}/err "${CC}" -DGAWK -DHAVE_CONFIG_H -I./.. -I. -I.. -O2 -DNDEBUG -DNDEBUG -O2 -DNDEBUG -DNDEBUG -c -o dfa.o dfa.c

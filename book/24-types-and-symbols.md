@@ -17,15 +17,15 @@ inside the struct.  Both kinds of fact grow during parsing, but both
 have bounded sizes by the time M2-Planet's source has been read, so
 the simplest data structures suffice.
 
-The 97-line file `060-cc-types.fth` packs every C type into one
-64-bit word.  There are exactly five base kinds: `void`, `char`,
-`int`, `struct`, `func`.  No `short`, no `long`, no `float`, no
-`double`, no unions, no enums-as-distinct-types.  Pointer depth
-generalises to any level (`T**`, `T***`, …).  Struct layouts live in
-descriptors allocated from Ch 21's arena.
+The file `060-cc-types.fth` packs every C type into one 64-bit word.
+The original base kinds, `void`, `char`, `int`, `struct`, and `func`,
+keep their numbers.  Extra signed and unsigned integer kinds and
+floating storage kinds support the opt-in LP64 target.  Pointer depth
+generalises to any level (`T**`, `T***`, …).  Struct and union layouts
+live in descriptors allocated from Ch 21's arena.
 
-The 131-line file `070-cc-sym.fth` is the symbol table: seven columns
-of 4096 8-byte slots each, 224 KiB in all.  Every global, local,
+The 141-line file `070-cc-sym.fth` is the symbol table: nine columns
+of 4096 8-byte slots each, 288 KiB in all.  Every global, local,
 function, struct tag, enum constant and typedef gets one row, and
 `cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering
 and restoring the row count.  Types are *consumed* later: Ch 28 reads
@@ -49,14 +49,34 @@ to size locals, globals and struct fields.
 \ field record's pointee slot (below).  The caller resolves it before any
 \ size-of/field-offset query.
 \
-\ Depends on 010-lib.fth: constant, [lit], if,/then,/else,, +, -, *, /, =, dup,
-\   swap, drop, and, >, 1+; 020-cc-arena.fth: cc-check-cap.
+\ Depends on 010-lib.fth: constant, variable, [lit], if,/then,/else,, exit,,
+\   begin,/while,/repeat,, +, -, *, /, =, dup, swap, drop, and, or, >, 1+,
+\   @, !, c!, over; 020-cc-arena.fth: cc-check-cap, cc-alloc.
 
 [lit] 0 constant ty-void
 [lit] 1 constant ty-char
-[lit] 2 constant ty-int                       \ signed 64-bit
+[lit] 2 constant ty-int                       \ legacy 64-bit; LP64 32-bit
 [lit] 3 constant ty-struct
 [lit] 4 constant ty-func
+[lit] 5 constant ty-short
+[lit] 6 constant ty-long
+[lit] 7 constant ty-float
+[lit] 8 constant ty-double
+[lit] 9 constant ty-uchar
+[lit] 10 constant ty-ushort
+[lit] 11 constant ty-uint
+[lit] 12 constant ty-ulong
+[lit] 13 constant ty-ldouble
+
+\ The pinned M2/pnut route keeps the original data model unless opted in.
+variable cc-target-lp64
+[lit] 0 cc-target-lp64 !
+
+\ Restricted first-stage bootstrap approximation, never the default ABI.
+\ Portable bootstrap float values travel as integer bits in 8-byte cells.
+\ This flag does not implement IEEE floating arithmetic or conversions.
+variable cc-bootstrap-floatbits
+[lit] 0 cc-bootstrap-floatbits !
 
 \ ty-make ( base ptrdepth -- ty )  Pack base and ptr-depth into one word.
 : ty-make
@@ -70,21 +90,86 @@ to size locals, globals and struct fields.
 : ty-ptr
   [lit] 255 and ;
 
-\ ty-size ( ty -- bytes )  sizeof(T) in bytes.
-\ Pointers are always 8 bytes regardless of pointee.
-\ Scalars: void=0, char=1, int/func default=8.
-\ Struct sizes are NOT computed here — the caller resolves the descriptor
-\ pointer (stored in the symbol entry's val) and reads its size field.
+\ ty-size ( ty -- bytes )  Scalar/pointer storage size, not aggregate size.
+\ The caller resolves struct descriptors before asking their size/alignment.
+\ LP64 is the AMD64 System V model: int=4, long/pointer=8, long double=16.
+\ The default retains the original char=1 and other non-void scalars=8.
 : ty-size
-  dup ty-ptr [lit] 0 > if,
-    drop [lit] 8
+  dup ty-ptr [lit] 0 > if, drop [lit] 8 exit, then,
+  ty-base
+  dup ty-void = if, drop [lit] 0 exit, then,
+  dup ty-char = if, drop [lit] 1 exit, then,
+  cc-target-lp64 @ if,
+    cc-bootstrap-floatbits @ if,
+      dup ty-float = over ty-double = or over ty-ldouble = or if,
+        drop [lit] 8 exit,
+      then,
+    then,
+    dup ty-uchar = if, drop [lit] 1 exit, then,
+    dup ty-short = over ty-ushort = or if, drop [lit] 2 exit, then,
+    dup ty-int = over ty-uint = or over ty-float = or if,
+      drop [lit] 4 exit,
+    then,
+    dup ty-ldouble = if, drop [lit] 16 exit, then,
+  then,
+  drop [lit] 8 ;
+
+\ ty-unsigned? ( ty -- flag )  Pointers compare as unsigned addresses.
+\ Plain char is signed in LP64; legacy byte expressions are zero-extended.
+: ty-unsigned?
+  dup ty-ptr [lit] 0 > if, drop true exit, then,
+  ty-base
+  dup ty-uchar = over ty-ushort = or
+  over ty-uint = or over ty-ulong = or
+  swap ty-char = cc-target-lp64 @ 0= and or ;
+
+\ ty-align ( ty -- bytes )  Scalar/pointer alignment; void uses 1.
+\ Struct/union alignment is cc-sd-align, not the type word's fallback.
+: ty-align  ty-size dup 0= if, drop [lit] 1 then, ;
+
+\ cc-integer-literal-type ( -- ty )  Type of the current tk-num token.
+\ The original spelling (050) distinguishes decimal from hex/octal and
+\ preserves U/L/LL suffixes without expanding the lexer's snapshot state.
+\ LP64 treats long and long long as the same 64-bit representation.  As a
+\ bootstrap extension, a decimal value beyond signed long uses ulong.
+\ Range tests use unsigned division, so bit-63-set constants stay correct.
+variable cc-literal-unsigned
+variable cc-literal-long
+: cc-integer-literal-type
+  cc-target-lp64 @ 0= if, ty-int [lit] 0 ty-make exit, then,
+  [lit] 0 cc-literal-unsigned ! [lit] 0 cc-literal-long !
+  tok-str-addr @ tok-str-len @                    ( addr len )
+  begin, dup [lit] 0 > while,
+    over c@
+    dup [char] u = over [char] U = or if,
+      true cc-literal-unsigned !
+    then,
+    dup [char] l = swap [char] L = or if,
+      true cc-literal-long !
+    then,
+    swap 1+ swap 1-
+  repeat, drop drop
+  cc-literal-long @ if,
+    cc-literal-unsigned @ tok-num @ 2^63 / or if,
+      ty-ulong
+    else, ty-long then,
   else,
-    ty-base
-    dup ty-void = if, drop [lit] 0  else,
-    dup ty-char = if, drop [lit] 1  else,
-      drop [lit] 8                            \ int / struct / func
-    then, then,
-  then, ;
+    cc-literal-unsigned @ if,
+      tok-num @ [lit] 4294967296 / if, ty-ulong else, ty-uint then,
+    else,
+      tok-num @ [lit] 2147483648 / 0= if,
+        ty-int
+      else,
+        tok-str-addr @ c@ [char] 0 =
+        tok-num @ [lit] 4294967296 / 0= and if,
+          ty-uint
+        else,
+          tok-num @ 2^63 / if, ty-ulong else, ty-long then,
+        then,
+      then,
+    then,
+  then,
+  [lit] 0 ty-make ;
 
 ```
 
@@ -92,8 +177,9 @@ A type lives in one 64-bit word.  `ty-make` builds it: shift the base
 kind left by 16 (Forth has no shift operator, so multiply by 65 536)
 and add the pointer depth (0 = scalar, 1 = `T*`, 2 = `T**`, ...).
 Bits 8–15 are always 0: the depth field is simply given a byte of its
-own, and nothing else is packed there, since the only integer type is
-signed 64-bit `int`.  The base kinds are numbered 0 to 4 with no gaps.
+own, and nothing else is packed there.  The original base kinds stay
+numbered 0 to 4; LP64 additions occupy 5 to 13.  `cc-target-lp64`
+defaults to zero, preserving the original 64-bit `int` data model.
 
 A struct's type word says only "a struct", never which one.  Which
 struct lives beside the type: in the tag's symbol (its `val`), in a
@@ -104,7 +190,16 @@ pointee slot (below).
 pointer depth means "pointer, 8 bytes."  Otherwise it falls back to
 the base kind: `void` is 0 bytes (only legal in `void f(void)`-style
 signatures), `char` is 1 byte, and everything else (`int`, `func`,
-plain `struct`) is 8.
+plain `struct`) is 8 in the legacy target.  With `cc-target-lp64`
+set, `short` is 2 bytes, `int` and `float` are 4, `long`, `double`,
+and pointers are 8, and `long double` occupies 16.  Unsigned kinds
+share the corresponding width.  `ty-unsigned?` classifies integer
+conversion and comparison semantics; `ty-align` supplies scalar
+alignment.  Floating storage sizes alone do not implement floating
+arithmetic.  A separate, default-off `cc-bootstrap-floatbits` flag
+lets the restricted first bootstrap stage transport all three floating
+kinds in 8-byte integer cells.  That approximation is not IEEE
+arithmetic and does not change standard LP64 mode.
 
 The 8 for a struct is deliberately wrong.  `ty-size` sees only the
 type word, not the struct descriptor.  When codegen needs
@@ -117,59 +212,92 @@ that handles structs does that lookup explicitly and never asks
 \ ===========================================================================
 \ Struct descriptor accessors.
 \ ===========================================================================
-\ A struct descriptor (allocated via cc-alloc) has the layout:
+\ LP64 struct/union descriptors (allocated via cc-sd-alloc) have this layout:
 \
-\   offset  0:  total-size (bytes)
-\   offset  8:  field-count
-\   offset 16 + i*40:  field i record (5 cells)
-\     +  0:  name-addr
-\     +  8:  name-len
-\     + 16:  field type
-\     + 24:  field offset (bytes from struct base)
-\     + 32:  pointee struct descriptor (0 unless the field is a struct pointer)
+\   offset  0: total-size (bytes)
+\   offset  8: field-count
+\   offset 16: aggregate alignment (LP64)
+\   offset 24: is-union flag (LP64)
+\   offset 32 + i*48: field i record (6 cells)
+\     +  0: name-addr
+\     +  8: name-len
+\     + 16: field type (array element type when array-len is nonzero)
+\     + 24: field offset (bytes from aggregate base)
+\     + 32: aggregate/pointee descriptor, or 0
+\     + 40: array length (0 for a scalar)
 \
-\ The header is 16 bytes; each field record is 40 bytes.  Capped at 16 fields
-\ per struct (descriptor size cc-sd-bytes = 16 + 40*16 = 656 bytes).  The
-\ pointee field enables chained '->' / '.' postfix on fields that are
-\ themselves struct pointers (e.g. `head->next->prev` resolves both arrows).
+\ Legacy descriptors retain a 16-byte header, 40-byte field records, and a
+\ 16-field limit.  Only the first two header cells and first five record
+\ cells exist there.  LP64 permits 128 fields and the additional metadata.
+\ Both the legacy compiler arena budget and its emitted layout stay intact.
 
 [lit] 16 constant cc-sd-max-fields
-cc-sd-max-fields [lit] 40 * [lit] 16 + constant cc-sd-bytes      \ 656
+[lit] 128 constant cc-sd-lp64-max-fields
+cc-sd-max-fields [lit] 40 * [lit] 16 + constant cc-sd-bytes
+
+: cc-sd-field-cap
+  cc-target-lp64 @ if, cc-sd-lp64-max-fields else, cc-sd-max-fields then, ;
+
+: cc-sd-allocation-bytes
+  cc-target-lp64 @ if,
+    cc-sd-lp64-max-fields [lit] 48 * [lit] 32 +
+  else, cc-sd-bytes then, ;
+
+\ cc-sd-alloc ( -- desc )  Clear reused arena storage, including new cells.
+: cc-sd-alloc
+  cc-sd-allocation-bytes dup cc-alloc             ( bytes desc )
+  dup >r swap over +                             ( start end ; R: desc )
+  begin, over over < while,
+    swap [lit] 0 over c! 1+ swap
+  repeat,
+  drop drop r> ;
 
 : cc-sd-total-size      @ ;                            \ ( desc -- size )
 : cc-sd-field-count     [lit] 8 + @ ;                  \ ( desc -- n )
+: cc-sd-align           [lit] 16 + @ ;                 \ ( desc -- align )
+: cc-sd-union?          [lit] 24 + @ ;                 \ ( desc -- flag )
 : cc-sd-set-total-size  ! ;                            \ ( v desc -- )
 : cc-sd-set-field-count [lit] 8 + ! ;                  \ ( v desc -- )
+: cc-sd-set-align       [lit] 16 + ! ;                 \ ( v desc -- )
+: cc-sd-set-union       [lit] 24 + ! ;                 \ ( v desc -- )
 
-\ cc-sd-field-rec ( desc i -- rec-addr )  Address of field i's record.
-\ Dies with code 50 for i past the last record: a struct with more than
-\ cc-sd-max-fields fields.
+\ cc-sd-field-rec ( desc i -- rec-addr )  Check before accessing a record.
+\ Error 50 remains the legacy 17th-field failure; LP64's limit is larger.
 : cc-sd-field-rec
-  dup 1+ cc-sd-max-fields [lit] 50 cc-check-cap
-  [lit] 40 * [lit] 16 + + ;
+  dup 1+ cc-sd-field-cap [lit] 50 cc-check-cap
+  cc-target-lp64 @ if, [lit] 48 * [lit] 32 +
+  else, [lit] 40 * [lit] 16 + then, + ;
 
 \ Field-record accessors / mutators.  Each takes rec-addr on TOS.
+\ Alignment, union and array-length accessors are for LP64 descriptors only.
 : cc-sf-name-addr       @ ;                            \ ( rec -- a )
 : cc-sf-name-len        [lit]  8 + @ ;                 \ ( rec -- u )
 : cc-sf-type            [lit] 16 + @ ;                 \ ( rec -- ty )
 : cc-sf-offset          [lit] 24 + @ ;                 \ ( rec -- off )
 : cc-sf-desc            [lit] 32 + @ ;                 \ ( rec -- desc )
+: cc-sf-array-len       [lit] 40 + @ ;                 \ ( rec -- n )
 
 : cc-sf-set-name-addr   ! ;                            \ ( a rec -- )
 : cc-sf-set-name-len    [lit]  8 + ! ;                 \ ( u rec -- )
 : cc-sf-set-type        [lit] 16 + ! ;                 \ ( ty rec -- )
 : cc-sf-set-offset      [lit] 24 + ! ;                 \ ( off rec -- )
 : cc-sf-set-desc        [lit] 32 + ! ;                 \ ( desc rec -- )
+: cc-sf-set-array-len   [lit] 40 + ! ;                 \ ( n rec -- )
 ```
 
 The struct descriptor is a chunk of arena memory from `cc-alloc`
-(Ch 21), with the layout given in the comment: a 16-byte header, then
-one 40-byte record per field.  The 16-byte header plus 16 × 40 = 640
-bytes of field records gives `cc-sd-bytes`, 656 bytes per struct.
-M2-Planet's largest struct is well under 16 fields, and a 17th field
-would land past the descriptor, so `cc-sd-field-rec`, the one word
-that turns a field index into an address, dies with code 50 first
-(`tests/cc/die-50-struct-fields.c`).
+(Ch 21), with the layout given in the comment: a 32-byte header, then
+one 48-byte record per field in LP64 mode.  Legacy metadata keeps its
+16-byte header and 40-byte records, so `cc-sd-bytes` remains 656 bytes
+for 16 fields.  `cc-sd-allocation-bytes` chooses the larger 128-field
+LP64 capacity, and `cc-sd-alloc` clears the whole descriptor even
+when arena memory is reused.  LP64-only cells carry alignment, union
+layout, and field-array lengths; the legacy arena budget and generated
+object layouts stay unchanged.
+
+M2-Planet's largest struct is well under 16 fields.  The legacy
+17th-field error remains code 50 (`tests/cc/die-50-struct-fields.c`),
+checked by `cc-sd-field-rec` before it computes a record address.
 
 The pointee descriptor at offset 32 of each field record is the
 non-obvious piece.  When the parser sees `node->next->prev`, it needs
@@ -183,7 +311,7 @@ by name.
 ```forth file=070-cc-sym.fth
 \ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
-\ Seven parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
+\ Nine parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins
 \   cc-sym-name-len  [id] : length of the name in bytes
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
@@ -215,6 +343,8 @@ create cc-sym-type       cc-sym-cap [lit] 8 * allot
 create cc-sym-val        cc-sym-cap [lit] 8 * allot
 create cc-sym-extra      cc-sym-cap [lit] 8 * allot
 create cc-sym-extra2     cc-sym-cap [lit] 8 * allot
+create cc-sym-desc        cc-sym-cap [lit] 8 * allot
+create cc-sym-inner       cc-sym-cap [lit] 8 * allot
 variable cc-sym-count
 
 [lit] 64 constant cc-scope-cap
@@ -232,10 +362,10 @@ variable cc-scope-depth
 \ ===========================================================================
 ```
 
-Seven columns × 4096 rows × 8 bytes = 224 KiB, plus a 512-byte scope
+Nine columns × 4096 rows × 8 bytes = 288 KiB, plus a 512-byte scope
 stack (64 entries × 8 bytes).  That is the entire memory budget for
 global declarations, function definitions, every local variable in
-every function, every struct tag and every typedef.  The seven columns
+every function, every struct tag and every typedef.  The nine columns
 are the union of the metadata any symbol kind needs.
 
 `name-addr` and `name-len` point back into `cc-src-buf`.  There is no
@@ -281,6 +411,8 @@ accessors name each meaning instead.
   \ inherit a stale value (sk-local array-len, sk-func fixup-list, etc.).
   [lit] 0 r@ cc-sym-extra  cell[] !
   [lit] 0 r@ cc-sym-extra2 cell[] !
+  [lit] 0 r@ cc-sym-desc cell[] !
+  [lit] 0 r@ cc-sym-inner cell[] !
   [lit] 1 cc-sym-count +!
   r> ;
 
@@ -347,8 +479,12 @@ it reads the row through one-line accessors:
 \   descriptor (060-cc-types.fth).  Its type's base is ty-struct, which is
 \   how readers tell this meaning from an array length (so the subset has
 \   no arrays of structs).
-: cc-sym-struct-desc-of   cc-sym-extra     cell[] @ ;  \ ( id -- desc )
-: cc-sym-set-struct-desc  cc-sym-extra     cell[] ! ;  \ ( desc id -- )
+: cc-sym-struct-desc-of
+  cc-target-lp64 @ if, cc-sym-desc else, cc-sym-extra then, cell[] @ ;  \ ( id -- desc )
+: cc-sym-set-struct-desc
+  cc-target-lp64 @ if, cc-sym-desc else, cc-sym-extra then, cell[] ! ;
+: cc-sym-array-inner-of cc-sym-inner cell[] @ ;
+: cc-sym-set-array-inner cc-sym-inner cell[] ! ;  \ ( desc id -- )
 \   call fixups: for an sk-func not yet defined, the head of the list of
 \   `call rel32` sites waiting for its address.  This word gives the cell's
 \   address, so the list code can push onto it (0 = no pending calls).
@@ -359,7 +495,9 @@ it reads the row through one-line accessors:
 \   function used as a value, e.g. `common_recursion(expression)` before
 \   expression's body).  cc-parse-function patches each imm64 to the real
 \   vaddr when it reaches the definition.  0 = no pending loads.
-: cc-sym-addr-fixups      cc-sym-extra2    cell[] ;    \ ( id -- cell )
+: cc-sym-addr-fixups      cc-sym-extra2    cell[] ;
+: cc-sym-object-size-of cc-sym-extra2 cell[] @ ;
+: cc-sym-set-object-size cc-sym-extra2 cell[] ! ;    \ ( id -- cell )
 
 ```
 
@@ -558,12 +696,12 @@ function symbol in the M2-Planet input.
 
 ## Exercises
 
-1. **★★★ Extend.** Add `ty-short` (16-bit integer).  How many places change?
-   What new size does `ty-size` need to return?  Hint: changing
-   `060-cc-types.fth` is the easy part; finding all the places
-   in Chs 25–31 that assume 8-byte cells is the hard part.
+1. **★★★ Trace.** Follow LP64 `ty-short` from its 2-byte `ty-size`
+   through loads, stores, casts, and array strides.  Which parser
+   decisions must change as well as the type helpers?  Verify that
+   switching LP64 off retains the original generated bytes.
 
-2. **★★ Verify.** Struct fields max out at 16 per struct.  Find the largest
+2. **★★ Verify.** Legacy struct fields max out at 16 per struct.  Find the largest
    struct in M2-Planet's source.  Does it fit?
 
 3. **★★ Trace.** The symbol table is a linear-scan parallel-array.  What's the
@@ -589,7 +727,7 @@ The compiler has runtime data for names and C types: every type fits
 in one word (base kind plus pointer depth, with `ty-size` deriving the
 size), every symbol is a row across parallel columns, and scopes push
 and pop by remembering a count.  Struct definitions get their own
-16+40·N-byte descriptor.  Identical name resolution gives identical
+16+40·N-byte legacy or 32+48·N-byte LP64 descriptor.  Identical name resolution gives identical
 slot assignments and struct layouts, which every load and store byte
 in the Stage-A comparison depends on.  `tri.c` now has rows for `tri`
 and `t`, but the output buffer still holds nothing a CPU can run.  Ch

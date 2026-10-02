@@ -25,8 +25,11 @@
 #
 # Also used, from this repo and pinned elsewhere: tcc-0.9.27 (pnut's vendored
 # kit/tcc-0.9.27.tar.gz, sha256 db0a0bf3..., checked by
-# tests/pnut/sf-pnut-amd64-check.sh) and portable_libc (vendor/pnut at
-# commit abc34a5, checked by the same script), both via stage 0's kit.
+# tools/tcc-raw-inputs.sha256) and portable_libc (vendor/pnut at commit
+# abc34a5), via the direct raw-input stage 0 in tests/tcc/kernel-route-check.sh.
+# tools/tcc.recipe pins the resulting TinyCC/runtime artifacts. An explicit
+# GCC64_STAGE0 can reuse an independently supplied kit with those exact bytes;
+# that comparison does not prove the supplied kit's compiler provenance.
 
 # = lb musl-1.1.24.tar.gz
 musl-1.1.24.tar.gz          1370c9a812b2cf2a7d92802510cca0058cc37e66a7bedd70051f0a34015022a3  https://musl.libc.org/releases/musl-1.1.24.tar.gz  http://archive.ubuntu.com/ubuntu/pool/universe/m/musl/musl_1.1.24.orig.tar.gz

@@ -1,0 +1,145 @@
+# Direct seed-Forth -> TinyCC from pinned raw source archives and files.
+# Host preparation copies raw input bytes only. Seed-built helpers unpack and
+# apply exact source patches; Forth performs all preprocessing/compilation.
+# Keep historical W pathname for downstream path-sensitive pins.
+# tools/amd64.recipe remains the named independent pnut control.
+artifact ${ROOT}/build-out/amd64-runner 363bbcd4654c41354fd952e57afc861d6b11bca7833bf4e99af6c34dd4c918e6
+set W ${ROOT}/build-out/pnut-amd64
+set K ${W}/kit
+set B ${ROOT}/build-out/tcc-bootstrap
+set S ${ROOT}/build-out/tcc-sources
+set TESTS ${ROOT}/tests/pnut/amd64
+mkdir ${W}
+mkdir ${B}
+mkdir ${S}
+stage tools/tcc-raw-inputs.sha256 vendor/pnut ${B}/raw
+stage tools/tcc-bintools-inputs.sha256 vendor/pnut/kit/bintools ${B}/bintools-src
+pin tools/simple-patch.c 03967023dbe1ca5992213fc9cb9f7f16f6d90a3cb8d2b0a80010e736e1b43794
+cat ${B}/compiler.fth ${ROOT}/010-lib.fth ${ROOT}/020-cc-arena.fth ${ROOT}/030-cc-io.fth ${ROOT}/040-cc-prep.fth ${ROOT}/050-cc-lex.fth ${ROOT}/060-cc-types.fth ${ROOT}/070-cc-sym.fth ${ROOT}/080-cc-elf.fth ${ROOT}/090-cc-emit.fth ${ROOT}/100-cc-expr.fth ${ROOT}/110-cc-decl.fth ${ROOT}/112-cc-stmt.fth ${ROOT}/114-cc-func.fth ${ROOT}/115-cc-native.fth ${ROOT}/116-cc-prog.fth ${ROOT}/117-cc-native-program.fth ${ROOT}/118-cc-native-init.fth ${ROOT}/119-cc-native-runtime.fth
+text ${B}/empty ""
+cat ${B}/patch.input ${B}/compiler.fth ${ROOT}/tools/tcc-bootstrap-patch.fth ${ROOT}/tools/tcc-bootstrap-patch.c
+unlink ${B}/simple-patch
+run 0 ${B}/patch.input ${B}/patch.stdout ${B}/patch.err ${ROOT}/seed-forth
+same ${B}/empty ${B}/patch.stdout
+chmod ${B}/simple-patch
+artifact ${B}/simple-patch 95782bd922815b1ba9df707a22feebe88e8b723010a4d960348934d00d151fc7
+cd ${B}
+patches ${ROOT}/patches/tcc-ladder/bintools.manifest ${ROOT}/patches/tcc-ladder
+cd ${ROOT}
+cat ${B}/bintools.input ${B}/compiler.fth ${ROOT}/tools/tcc-bootstrap-bintools.fth ${ROOT}/tools/tcc-bootstrap-bintools.c
+unlink ${B}/bintools
+run 0 ${B}/bintools.input ${B}/bintools.stdout ${B}/bintools.err ${ROOT}/seed-forth
+same ${B}/empty ${B}/bintools.stdout
+chmod ${B}/bintools
+artifact ${B}/bintools d330f693121629b503cc9e6c8c9af1e384df320f80188986070dfa8e5475f5b4
+run 0 - ${B}/ungz.stdout ${B}/ungz.err ${B}/bintools ungz --file ${B}/raw/kit/tcc-0.9.27.tar.gz --output ${B}/tcc.tar
+cd ${S}
+run 0 - ${B}/untar.stdout ${B}/untar.err ${B}/bintools untar ${B}/tcc.tar
+copy ${B}/simple-patch simple-patch
+chmod simple-patch
+cd ${ROOT}
+stage tools/amd64-libc.sha256 vendor/pnut/portable_libc ${S}/libc64
+mkdir ${S}/kit
+mkdir ${S}/portable_libc
+copy ${B}/raw/kit/config.h ${S}/tcc-0.9.27/config.h
+copy ${B}/raw/kit/libtcc1.c ${S}/kit/libtcc1.c
+copy ${B}/raw/portable_libc/test-libc.c ${S}/portable_libc/test-libc.c
+copy tools/tcc-direct-input.c ${S}/direct-input.c
+copy tools/tcc-source-manifest.json ${S}/source-manifest.json
+cd ${S}
+patches ${ROOT}/patches/amd64/exact/kit.manifest ${ROOT}/patches/amd64/exact
+patches ${ROOT}/patches/amd64/exact/tcc.manifest ${ROOT}/patches/amd64/exact
+patches ${ROOT}/patches/amd64/exact/libc.manifest ${ROOT}/patches/amd64/exact
+unlink simple-patch
+cd ${ROOT}
+stage tools/tcc-source-inputs.sha256 build-out/tcc-sources ${K}
+say "direct-tcc: Forth-built helpers unpacked and patched all pinned TinyCC/libc sources"
+run 0 ${ROOT}/tools/tcc-start.fth ${W}/seed.log ${W}/seed.err ${ROOT}/seed-forth
+artifact ${ROOT}/build-out/tcc-seed 7411c326d30ff5a0ebadfe36d6218b6e46d2e8357f76d3a003e74ed9aee2fc3a
+cd ${K}
+mkdir build
+copy ${ROOT}/build-out/tcc-seed build/tcc-seed
+chmod build/tcc-seed
+say "direct-tcc: seed Forth compiled pinned TinyCC without pnut"
+mkdir build/boot0-lib
+mkdir build/boot0-lib/tcc
+run 0 - ${W}/boot0-crt1.log ${W}/boot0-crt1.err build/tcc-seed -c libc64/src/crt1.c -o build/boot0-lib/crt1.o
+run 0 - ${W}/boot0-libc.log ${W}/boot0-libc.err build/tcc-seed -c -D ADD_LIBC_STUB -I libc64/include -o build/boot0-lib/libc.o libc64/libc.c
+run 0 - ${W}/boot0-libc-ar.log ${W}/boot0-libc-ar.err build/tcc-seed -ar cr build/boot0-lib/libc.a build/boot0-lib/libc.o
+run 0 - ${W}/boot0-libtcc1.log ${W}/boot0-libtcc1.err build/tcc-seed -c -o build/boot0-lib/libtcc1.o kit/libtcc1.c
+run 0 - ${W}/boot0-va-list.log ${W}/boot0-va-list.err build/tcc-seed -c -o build/boot0-lib/va_list.o tcc-0.9.27/lib/va_list.c
+run 0 - ${W}/boot0-libtcc1-ar.log ${W}/boot0-libtcc1-ar.err build/tcc-seed -ar cr build/boot0-lib/tcc/libtcc1.a build/boot0-lib/libtcc1.o build/boot0-lib/va_list.o
+text build/boot0-lib/crtn.o ""
+text build/boot0-lib/crti.o ""
+run 0 - ${W}/boot0.log ${W}/boot0.err build/tcc-seed -static -o build/tcc-boot0 -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot0-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot0-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot0-lib:build/boot0-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"libc64/include\"" -D "TCC_LIBGCC=\"build/boot0-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot0-lib tcc-0.9.27/tcc.c
+run 0 - ${W}/boot0-obj.log ${W}/boot0-obj.err build/tcc-seed -static -c -o build/tcc-boot0.o -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot0-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot0-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot0-lib:build/boot0-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"SOME_DIRECTORY\"" -D "TCC_LIBGCC=\"build/boot0-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot0-lib tcc-0.9.27/tcc.c
+artifact build/tcc-boot0 0605483829e454c0a0422c28949ecec94d9b3624d294a9f65d8f16b7923b15de
+mkdir build/boot1-lib
+mkdir build/boot1-lib/tcc
+run 0 - ${W}/boot1-crt1.log ${W}/boot1-crt1.err build/tcc-boot0 -c libc64/src/crt1.c -o build/boot1-lib/crt1.o
+run 0 - ${W}/boot1-libc.log ${W}/boot1-libc.err build/tcc-boot0 -c -D ADD_LIBC_STUB -I libc64/include -o build/boot1-lib/libc.o libc64/libc.c
+run 0 - ${W}/boot1-libc-ar.log ${W}/boot1-libc-ar.err build/tcc-boot0 -ar cr build/boot1-lib/libc.a build/boot1-lib/libc.o
+run 0 - ${W}/boot1-libtcc1.log ${W}/boot1-libtcc1.err build/tcc-boot0 -c -o build/boot1-lib/libtcc1.o kit/libtcc1.c
+run 0 - ${W}/boot1-va-list.log ${W}/boot1-va-list.err build/tcc-boot0 -c -o build/boot1-lib/va_list.o tcc-0.9.27/lib/va_list.c
+run 0 - ${W}/boot1-libtcc1-ar.log ${W}/boot1-libtcc1-ar.err build/tcc-boot0 -ar cr build/boot1-lib/tcc/libtcc1.a build/boot1-lib/libtcc1.o build/boot1-lib/va_list.o
+text build/boot1-lib/crtn.o ""
+text build/boot1-lib/crti.o ""
+run 0 - ${W}/boot1.log ${W}/boot1.err build/tcc-boot0 -static -o build/tcc-boot1 -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot1-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot1-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot1-lib:build/boot1-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"libc64/include\"" -D "TCC_LIBGCC=\"build/boot1-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot1-lib tcc-0.9.27/tcc.c
+run 0 - ${W}/boot1-obj.log ${W}/boot1-obj.err build/tcc-boot0 -static -c -o build/tcc-boot1.o -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot1-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot1-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot1-lib:build/boot1-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"SOME_DIRECTORY\"" -D "TCC_LIBGCC=\"build/boot1-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot1-lib tcc-0.9.27/tcc.c
+artifact build/tcc-boot1 c382b52cc298438c52d6626e9a535b17d1177d0f93e1899bd8d681c58878a886
+mkdir build/boot2-lib
+mkdir build/boot2-lib/tcc
+run 0 - ${W}/boot2-crt1.log ${W}/boot2-crt1.err build/tcc-boot1 -c libc64/src/crt1.c -o build/boot2-lib/crt1.o
+run 0 - ${W}/boot2-libc.log ${W}/boot2-libc.err build/tcc-boot1 -c -D ADD_LIBC_STUB -I libc64/include -o build/boot2-lib/libc.o libc64/libc.c
+run 0 - ${W}/boot2-libc-ar.log ${W}/boot2-libc-ar.err build/tcc-boot1 -ar cr build/boot2-lib/libc.a build/boot2-lib/libc.o
+run 0 - ${W}/boot2-libtcc1.log ${W}/boot2-libtcc1.err build/tcc-boot1 -c -o build/boot2-lib/libtcc1.o kit/libtcc1.c
+run 0 - ${W}/boot2-va-list.log ${W}/boot2-va-list.err build/tcc-boot1 -c -o build/boot2-lib/va_list.o tcc-0.9.27/lib/va_list.c
+run 0 - ${W}/boot2-libtcc1-ar.log ${W}/boot2-libtcc1-ar.err build/tcc-boot1 -ar cr build/boot2-lib/tcc/libtcc1.a build/boot2-lib/libtcc1.o build/boot2-lib/va_list.o
+text build/boot2-lib/crtn.o ""
+text build/boot2-lib/crti.o ""
+run 0 - ${W}/boot2.log ${W}/boot2.err build/tcc-boot1 -static -o build/tcc-boot2 -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot2-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot2-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot2-lib:build/boot2-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"libc64/include\"" -D "TCC_LIBGCC=\"build/boot2-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot2-lib tcc-0.9.27/tcc.c
+run 0 - ${W}/boot2-obj.log ${W}/boot2-obj.err build/tcc-boot1 -static -c -o build/tcc-boot2.o -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot2-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot2-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot2-lib:build/boot2-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"SOME_DIRECTORY\"" -D "TCC_LIBGCC=\"build/boot2-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot2-lib tcc-0.9.27/tcc.c
+artifact build/tcc-boot2 514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1
+mkdir build/boot2-lib
+mkdir build/boot2-lib/tcc
+run 0 - ${W}/boot3-crt1.log ${W}/boot3-crt1.err build/tcc-boot2 -c libc64/src/crt1.c -o build/boot2-lib/crt1.o
+run 0 - ${W}/boot3-libc.log ${W}/boot3-libc.err build/tcc-boot2 -c -D ADD_LIBC_STUB -I libc64/include -o build/boot2-lib/libc.o libc64/libc.c
+run 0 - ${W}/boot3-libc-ar.log ${W}/boot3-libc-ar.err build/tcc-boot2 -ar cr build/boot2-lib/libc.a build/boot2-lib/libc.o
+run 0 - ${W}/boot3-libtcc1.log ${W}/boot3-libtcc1.err build/tcc-boot2 -c -o build/boot2-lib/libtcc1.o kit/libtcc1.c
+run 0 - ${W}/boot3-va-list.log ${W}/boot3-va-list.err build/tcc-boot2 -c -o build/boot2-lib/va_list.o tcc-0.9.27/lib/va_list.c
+run 0 - ${W}/boot3-libtcc1-ar.log ${W}/boot3-libtcc1-ar.err build/tcc-boot2 -ar cr build/boot2-lib/tcc/libtcc1.a build/boot2-lib/libtcc1.o build/boot2-lib/va_list.o
+text build/boot2-lib/crtn.o ""
+text build/boot2-lib/crti.o ""
+run 0 - ${W}/boot3.log ${W}/boot3.err build/tcc-boot2 -static -o build/tcc-boot3 -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot2-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot2-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot2-lib:build/boot2-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"libc64/include\"" -D "TCC_LIBGCC=\"build/boot2-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot2-lib tcc-0.9.27/tcc.c
+run 0 - ${W}/boot3-obj.log ${W}/boot3-obj.err build/tcc-boot2 -static -c -o build/tcc-boot3.o -D BOOTSTRAP=1 -D __SIZEOF_LONG_LONG__=8 -D HAVE_FLOAT=1 -D HAVE_BITFIELD=1 -D HAVE_LONG_LONG=1 -D HAVE_SETJMP=1 -I libc64/include -D TCC_TARGET_X86_64=1 -D "CONFIG_TCCDIR=\"build/boot2-lib/tcc\"" -D "CONFIG_TCC_CRTPREFIX=\"build/boot2-lib\"" -D "CONFIG_TCC_LIBPATHS=\"build/boot2-lib:build/boot2-lib/tcc\"" -D "CONFIG_TCC_SYSINCLUDEPATHS=\"SOME_DIRECTORY\"" -D "TCC_LIBGCC=\"build/boot2-lib/libc.a\"" -D "TCC_LIBTCC1=\"libtcc1.a\"" -D "CONFIG_TCC_ELFINTERP=\"/mes/loader\"" -D CONFIG_TCCBOOT=1 -D CONFIG_TCC_STATIC=1 -D CONFIG_USE_LIBGCC=1 -D "TCC_VERSION=\"0.9.27\"" -D ONE_SOURCE=1 -L build/boot2-lib tcc-0.9.27/tcc.c
+same build/tcc-boot2 build/tcc-boot3
+same build/tcc-boot2.o build/tcc-boot3.o
+artifact build/boot2-lib/crt1.o 9fc015dbe5674217d8d2b92b0bdbed91f3456b2b80afeb72c27a16ffa0247d51
+artifact build/boot2-lib/libc.a 6f35761d40d06c58b1e3a014110b0b59a4dd6db1a140769ddf4474d524d7c86a
+artifact build/boot2-lib/tcc/libtcc1.a 21312cd01450bba923f9c1f91193b810693084a5bf98bcc51d2ddce78057307e
+say "direct-tcc: TinyCC executable and object fixed points; all original hashes unchanged"
+mkdir ${W}/tests
+run 0 - ${W}/cc-t64.log ${W}/cc-t64.err build/tcc-boot2 -static ${TESTS}/t64.c -o ${W}/tests/t64
+run 0 - ${W}/t64.stdout ${W}/t64.err ${W}/tests/t64
+same ${TESTS}/t64.out ${W}/t64.stdout
+run 0 - ${W}/cc-hello.log ${W}/cc-hello.err build/tcc-boot2 -static ${TESTS}/hello.c -o ${W}/tests/hello
+run 7 - ${W}/hello.stdout ${W}/hello.err ${W}/tests/hello a b
+same ${TESTS}/hello.out ${W}/hello.stdout
+run 0 - ${W}/cc-printf.log ${W}/cc-printf.err build/tcc-boot2 -static ${TESTS}/printf.c -o ${W}/tests/printf
+run 0 - ${W}/printf.stdout ${W}/printf.err ${W}/tests/printf
+same ${TESTS}/printf.out ${W}/printf.stdout
+run 0 - ${W}/cc-test-libc.log ${W}/cc-test-libc.err build/tcc-boot2 -static portable_libc/test-libc.c -o ${W}/tests/test-libc
+run 0 - ${W}/test-libc.stdout ${W}/test-libc.err ${W}/tests/test-libc
+contains ${W}/test-libc.stdout "All tests passed!\n"
+artifact build/tcc-boot2.o b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61
+run 0 - ${W}/rebuilt-features-cc.log ${W}/rebuilt-features-cc.err build/tcc-boot2 -static -L build/boot2-lib ${ROOT}/tests/tcc/rebuilt-features.c build/boot2-lib/libc.o -o ${W}/tests/rebuilt-features
+run 0 - ${W}/rebuilt-features.stdout ${W}/rebuilt-features.err ${W}/tests/rebuilt-features
+run 0 - ${W}/simple-patch.log ${W}/simple-patch.err build/tcc-boot2 -static -I libc64/include ${ROOT}/tools/simple-patch.c -o simple-patch
+artifact simple-patch efc7af6660cd232eb024c3ec5831adde6fd8cc56dfe312ddc5597a8f9d050375
+cd ${ROOT}
+stage tools/tcc-bintools-inputs.sha256 vendor/pnut/kit/bintools ${K}/bintools-src
+cd ${K}
+patches ${ROOT}/patches/tcc-ladder/bintools.manifest ${ROOT}/patches/tcc-ladder
+run 0 - ${W}/bintools.log ${W}/bintools.err build/tcc-boot2 -static -I libc64/include bintools-src/bintools-base.c -o bintools
+artifact bintools 26f7128a493101ab13579c8f141b8f5cbd06536c779f001a1f94792ae11d67c0
+say "direct-tcc: PASS (TinyCC fixed point, runtime checks, generated-TinyCC-built ladder helpers)"

@@ -14,6 +14,15 @@
 \ Bookkeeping
 \ ===========================================================================
 
+defer cc-native-type-name-fwd
+defer cc-native-decl-fwd
+defer cc-native-type-start-fwd
+\ Native declarations use dynamically sized frames, patched after the body.
+variable cc-native-return-type
+variable cc-native-return-desc
+variable cc-native-frame-limit
+[lit] 131072 cc-native-frame-limit !
+
 variable cc-main-vaddr                            \ vaddr where main starts
 variable cc-call-main-patch                       \ file-offset of rel32 to patch
 variable cc-fn-local-count                        \ # locals in current function
@@ -25,7 +34,9 @@ variable cc-fn-local-count                        \ # locals in current function
 \ silently overlapping the stack below it.
 [lit] 32 constant cc-frame-slots
 : cc-fn-add-slots
-  dup cc-fn-local-count @ + cc-frame-slots [lit] 162 cc-check-cap
+  dup cc-fn-local-count @ +
+  cc-target-lp64 @ if, cc-native-frame-limit @ else, cc-frame-slots then,
+  [lit] 162 cc-check-cap
   cc-fn-local-count +! ;
 
 \ cc-pending-struct-desc is set by cc-parse-base-type when it parses a
@@ -129,6 +140,7 @@ variable cc-decl-static
       tok-kw-id @ kw-extern    = or
       tok-kw-id @ kw-auto      = or
       tok-kw-id @ kw-register  = or
+      tok-kw-id @ kw-inline    = or
       tok-kw-id @ kw-const     = or
       tok-kw-id @ kw-volatile  = or
       tok-kw-id @ kw-restrict  = or
@@ -351,6 +363,10 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
     dup [lit] 0 >
   while,
     cc-next-token-keep
+    tok-kind @ tk-eof = if, [lit] 184 cc-die then,
+    cc-target-lp64 @ cc-bootstrap-floatbits @ 0= and if,
+      kw-float cc-tok-kw? kw-double cc-tok-kw? or if, [lit] 214 cc-die then,
+    then,
     tok-kind @ tk-punct = if,
       tok-num @ lparen = if, 1+ then,
       tok-num @ [char] ) = if, 1- then,
@@ -539,6 +555,7 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
 
 \ cc-type-start? ( -- f )  Does the current token begin a type name?
 : cc-type-start?
+  cc-target-lp64 @ if, cc-native-type-start-fwd exit, then,
   cc-tok-is-basic-type-kw?  cc-qualifier? or
   kw-struct cc-tok-kw? or  kw-enum cc-tok-kw? or
   tok-kind @ tk-ident = if,
@@ -549,6 +566,7 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
 \ cc-parse-type-name ( -- ty )  The current token begins a type name; read
 \ it, stars and all, and leave the token after it pending.
 : cc-parse-type-name
+  cc-target-lp64 @ if, cc-native-type-name-fwd exit, then,
   [lit] 0 cc-cast-desc !
   begin, cc-qualifier? while, cc-next-token-keep repeat,
   kw-struct cc-tok-kw? if,
@@ -592,8 +610,10 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
   cc-parse-unary
   cc-emit-materialize
   r> r>                                            ( desc ty )
-  dup ty-base ty-char =  over ty-ptr 0= and if,
-    cc-emit-zx-byte-rdi
+  cc-target-lp64 @ if,
+    dup cc-emit-convert-rdi
+  else,
+    dup ty-base ty-char = over ty-ptr 0= and if, cc-emit-zx-byte-rdi then,
   then,
   cc-mark-not-lvalue
   cc-last-expr-type !
@@ -717,8 +737,14 @@ variable cc-loop-switch-depth
   else,
     cc-putback-token
     cc-parse-expr
+    cc-target-lp64 @ if, cc-native-return-type @ cc-emit-convert-rdi then,
     cc-emit-mov-rax-rdi                           \ result -> rax (SYS-V)
     cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
     [char] ; cc-expect-punct-c
   then, ;
+
+\ Bind the expression parser's native sizeof type queries after declaration parsing.
+: cc-native-sizeof-type cc-parse-type-name cc-cast-desc @ ;
+' cc-type-start? is cc-sizeof-type-start-fwd
+' cc-native-sizeof-type is cc-sizeof-type-fwd

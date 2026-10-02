@@ -39,7 +39,7 @@ ld --version | head -1
 
 if [ ! -e "$LOG/zlib.done" ]; then
     unpack zlib-1.3.1 zlib-1.3.1.tar.gz 9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
-    ( cd "$S/zlib-1.3.1" && CC=gcc ./configure --prefix=$P --static && make -j16 && make install ) \
+    ( cd "$S/zlib-1.3.1" && CC=gcc ./configure --prefix=$P --static && make -j"${JOBS:-16}" && make install ) \
         > "$LOG/zlib.log" 2>&1 || fail "zlib (see $LOG/zlib.log)"
     touch "$LOG/zlib.done"; say zlib-1.3.1
 fi
@@ -54,8 +54,8 @@ if [ ! -e "$LOG/elfutils.done" ]; then
       ac_cv_search__obstack_free="none required" ac_cv_search_fts_open="none required" CC=gcc CFLAGS="-O2 -I$P/include" LDFLAGS="-L$P/lib" ./configure --prefix=$P \
         --disable-debuginfod --disable-libdebuginfod --disable-nls --disable-shared \
         --without-bzlib --without-lzma --without-zstd --disable-demangler &&
-      make -C libelf -j16 libelf.a &&
-      make -C lib -j16 xasprintf.o xstrdup.o xstrndup.o xmalloc.o next_prime.o \
+      make -C libelf -j"${JOBS:-16}" libelf.a &&
+      make -C lib -j"${JOBS:-16}" xasprintf.o xstrdup.o xstrndup.o xmalloc.o next_prime.o \
           crc32.o crc32_file.o eu-search.o error.o &&       # libeu, less its argp parts
       ar r libelf/libelf.a lib/xasprintf.o lib/xstrdup.o lib/xstrndup.o lib/xmalloc.o \
           lib/next_prime.o lib/crc32.o lib/crc32_file.o lib/eu-search.o lib/error.o &&
@@ -92,7 +92,7 @@ if [ ! -e "$LOG/linux.done" ]; then
         $K olddefconfig &&
         $K headers &&                     # asm/ and linux/ for host tools; headers_install
         cp -r usr/include/. $P/include/ &&  # would copy them with rsync
-        $K -j16 bzImage
+        $K -j"${JOBS:-16}" bzImage
     } > "$LOG/linux.log" 2>&1 || fail "linux (see $LOG/linux.log)"
     cp arch/x86/boot/bzImage $O/bzImage
     cp .config $O/config

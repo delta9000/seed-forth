@@ -4,7 +4,7 @@ This is the protocol for turning a chapter stub into prose.  It exists
 so you can sit down, follow the checklist, and finish a chapter without
 re-deriving "wait, what was I supposed to do?" each time.
 
-> **Note.**  The 33-chapter book is now complete (all rows ✅ in the
+> **Note.**  The 34-chapter book is now complete (all rows ✅ in the
 > [README.md](README.md) TOC and `tools/tangle.sh verify --strict`
 > passing).  The procedure below is preserved for two cases: editing
 > an existing chapter, and writing entirely new chapters (e.g. for a

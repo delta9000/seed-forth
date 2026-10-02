@@ -4,7 +4,7 @@
 run 0 - /dev/console /dev/console /hex0-seed /000-seed.hex0 /seed-forth
 chmod /seed-forth
 say "k1: seed-forth built by hex0-seed"
-run 0 /tools/amd64-start.fth /dev/console /dev/console /seed-forth
+run 0 /tools/tcc-ladder-start.fth /dev/console /dev/console /seed-forth
 run 0 - /dev/console /dev/console /build-out/amd64-runner --recipe /tools/ladder.recipe
 run 0 - /dev/console /dev/console /build-out/pnut-amd64/usr/bin/bash /ladder/stage10.sh
 run 0 - /dev/console /dev/console /usr/bin/bash /ladder/stage11.sh

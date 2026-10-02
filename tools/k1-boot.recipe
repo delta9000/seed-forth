@@ -1,5 +1,5 @@
 # ---- under K0 only: build K1 with tcc-boot2 and hand the machine to it ----
-# k1/mkboot.py appends this to tools/amd64.recipe in K0's boot image, after
+# k1/mkboot.py appends this to tools/tcc.recipe in K0's boot image, after
 # the route has built tcc-boot2.  K1 never returns: it takes over the machine,
 # imports its starting tree from the input disk, and runs /k1.recipe.
 run 0 - ${W}/k1.out ${W}/k1.err build/tcc-boot2 -nostdlib -nostdinc -static -Wl,-Ttext=200000,-section-alignment=1000 -o ${W}/k1 ${ROOT}/k1/k1.S ${ROOT}/k1/main.c ${ROOT}/k1/mm.c ${ROOT}/k1/fs.c ${ROOT}/k1/proc.c ${ROOT}/k1/sys.c ${ROOT}/k1/linux.c ${ROOT}/k1/ata.c build/boot2-lib/tcc/libtcc1.a

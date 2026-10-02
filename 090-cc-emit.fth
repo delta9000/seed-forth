@@ -79,7 +79,7 @@
 \   0..15 emit it unchanged plus a disp8; deeper slots switch to mod=10
 \   (modrm8 + 0x40) plus the 32-bit two's-complement displacement.
 : cc-emit-local-ea
-  over [lit] 16 < if,
+  over [lit] 16 < >r over [lit] 0 [lit] 16 - >= r> and if,
     cc-emit-byte
     cc-disp8-from-slot cc-emit-byte
   else,
@@ -450,6 +450,13 @@
 \ only the upper bound needs checking — which keeps every in-range constant
 \ on the exact imm32 bytes it emitted before.
 : cc-emit-mov-rdi-int                             ( v -- )
+  cc-target-lp64 @ if,
+    \ Unsigned magnitude also catches literals with bit 63 set.
+    dup [lit] 2147483648 / if,
+      cc-emit-movabs-rdi-imm64
+    else, cc-emit-mov-rdi-imm32 then,
+    exit,
+  then,
   dup [lit] 2147483647 > if,
     cc-emit-movabs-rdi-imm64
   else,
@@ -1185,3 +1192,137 @@ variable cc-bss-base-vaddr                       \ set by cc-finalize-globals
   cc-out-pos @                                      ( slot patch-off )
   [lit] 0 cc-emit-8le                               \ imm64 placeholder
   swap cc-gfixup-add ;
+
+\ ===========================================================================
+\ Opt-in LP64 integer encoders.
+\ ===========================================================================
+\ The original words above stay byte-identical.  The typed wrappers retain
+\ their legacy encodings while cc-target-lp64 is 0.  Scalar floating types
+\ have storage sizes in 060, but these words implement integer operations.
+\ A typed store writes only the destination width; use convert-rdi first
+\ when the assignment expression must retain a correctly converted result.
+
+\ cc-emit-load-typed-via-rdi ( ty -- )  rdi := *(T *)rdi.
+: cc-emit-load-typed-via-rdi
+  dup ty-size [lit] 1 = if,
+    ty-unsigned? if, cc-emit-load-byte-via-rdi else,
+      [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
+      [lit] 190 cc-emit-byte [lit] 63 cc-emit-byte  \ movsx rdi, byte [rdi]
+    then, exit,
+  then,
+  dup ty-size [lit] 2 = if,
+    [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
+    ty-unsigned? if, [lit] 183 else, [lit] 191 then, cc-emit-byte
+    [lit] 63 cc-emit-byte exit,                    \ movzx/movsx rdi, word [rdi]
+  then,
+  dup ty-size [lit] 4 = if,
+    ty-unsigned? if,
+      [lit] 139 cc-emit-byte [lit] 63 cc-emit-byte  \ mov edi, [rdi]
+    else,
+      [lit] 72 cc-emit-byte [lit] 99 cc-emit-byte
+      [lit] 63 cc-emit-byte                       \ movsxd rdi, dword [rdi]
+    then, exit,
+  then,
+  drop cc-emit-load-via-rdi ;
+
+\ cc-emit-store-typed-via-rcx ( ty -- )  *(T *)rcx := rdi.
+: cc-emit-store-typed-via-rcx
+  ty-size
+  dup [lit] 1 = if, drop cc-emit-store-byte-via-rcx exit, then,
+  dup [lit] 2 = if,
+    drop [lit] 102 cc-emit-byte [lit] 137 cc-emit-byte
+    [lit] 57 cc-emit-byte exit,                    \ mov word [rcx], di
+  then,
+  [lit] 4 = if,
+    [lit] 137 cc-emit-byte [lit] 57 cc-emit-byte    \ mov dword [rcx], edi
+  else, cc-emit-store-via-rcx then, ;
+
+\ cc-emit-convert-rdi ( ty -- )  Truncate/sign-extend the integer in rdi.
+: cc-emit-convert-rdi
+  dup ty-size [lit] 1 = if,
+    ty-unsigned? if, cc-emit-zx-byte-rdi else,
+      [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
+      [lit] 190 cc-emit-byte [lit] 255 cc-emit-byte \ movsx rdi, dil
+    then, exit,
+  then,
+  dup ty-size [lit] 2 = if,
+    [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
+    ty-unsigned? if, [lit] 183 else, [lit] 191 then, cc-emit-byte
+    [lit] 255 cc-emit-byte exit,                   \ movzx/movsx rdi, di
+  then,
+  dup ty-size [lit] 4 = if,
+    ty-unsigned? if,
+      [lit] 137 cc-emit-byte [lit] 255 cc-emit-byte \ mov edi, edi
+    else,
+      [lit] 72 cc-emit-byte [lit] 99 cc-emit-byte
+      [lit] 255 cc-emit-byte                      \ movsxd rdi, edi
+    then, exit,
+  then,
+  drop ;
+
+\ cc-emit-convert-rcx ( ty -- )  Same conversion for the right operand.
+: cc-emit-convert-rcx
+  dup ty-size [lit] 1 = if,
+    [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
+    ty-unsigned? if, [lit] 182 else, [lit] 190 then, cc-emit-byte
+    [lit] 201 cc-emit-byte exit,                   \ movzx/movsx rcx, cl
+  then,
+  dup ty-size [lit] 2 = if,
+    [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
+    ty-unsigned? if, [lit] 183 else, [lit] 191 then, cc-emit-byte
+    [lit] 201 cc-emit-byte exit,                   \ movzx/movsx rcx, cx
+  then,
+  dup ty-size [lit] 4 = if,
+    ty-unsigned? if,
+      [lit] 137 cc-emit-byte [lit] 201 cc-emit-byte \ mov ecx, ecx
+    else,
+      [lit] 72 cc-emit-byte [lit] 99 cc-emit-byte
+      [lit] 201 cc-emit-byte                      \ movsxd rcx, ecx
+    then, exit,
+  then,
+  drop ;
+
+\ cc-emit-load-local-typed ( slot ty -- )  LP64 memory width, legacy qword.
+: cc-emit-load-local-typed
+  cc-target-lp64 @ if,
+    swap cc-emit-lea-rdi-local cc-emit-load-typed-via-rdi
+  else, drop cc-emit-load-local then, ;
+
+\ cc-emit-store-local-typed ( slot ty -- )  rdi is preserved.
+: cc-emit-store-local-typed
+  cc-target-lp64 @ 0= if, drop cc-emit-store-local exit, then,
+  ty-size
+  dup [lit] 1 = if,
+    drop [lit] 64 cc-emit-byte [lit] 136 cc-emit-byte
+    [lit] 125 cc-emit-local-ea exit,               \ mov byte [rbp+disp], dil
+  then,
+  dup [lit] 2 = if,
+    drop [lit] 102 cc-emit-byte [lit] 137 cc-emit-byte
+    [lit] 125 cc-emit-local-ea exit,               \ mov word [rbp+disp], di
+  then,
+  [lit] 4 = if,
+    [lit] 137 cc-emit-byte [lit] 125 cc-emit-local-ea
+  else, cc-emit-store-local then, ;
+
+\ Unsigned division clears rdx, then DIV rcx uses the full rdx:rax dividend.
+\ Both operands must already have been converted to the common C type.
+: cc-emit-udiv-quotient
+  cc-emit-mov-rax-rdi
+  [lit] 49 cc-emit-byte [lit] 210 cc-emit-byte      \ xor edx, edx
+  [lit] 72 cc-emit-byte [lit] 247 cc-emit-byte [lit] 241 cc-emit-byte
+  cc-emit-mov-rdi-rax ;                            \ div rcx; mov rdi, rax
+
+: cc-emit-udiv-remainder
+  cc-emit-mov-rax-rdi
+  [lit] 49 cc-emit-byte [lit] 210 cc-emit-byte
+  [lit] 72 cc-emit-byte [lit] 247 cc-emit-byte [lit] 241 cc-emit-byte
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 215 cc-emit-byte ;
+
+: cc-emit-cmp-ult [lit] 146 cc-emit-cmp-set ;       \ setB
+: cc-emit-cmp-uge [lit] 147 cc-emit-cmp-set ;       \ setAE
+: cc-emit-cmp-ule [lit] 150 cc-emit-cmp-set ;       \ setBE
+: cc-emit-cmp-ugt [lit] 151 cc-emit-cmp-set ;       \ setA
+
+\ Logical (unsigned) right shift: shr rdi, cl = 48 D3 EF.
+: cc-emit-shr-rdi-cl
+  [lit] 72 cc-emit-byte [lit] 211 cc-emit-byte [lit] 239 cc-emit-byte ;

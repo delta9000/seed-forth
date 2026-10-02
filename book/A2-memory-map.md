@@ -1,20 +1,28 @@
 # Appendix B — The memory map
 
-Two memory regimes appear in this book:
+Three distinct allocations matter here. Keep the compiler's own
+working memory separate from the memory of a program it generates:
 
-1. **The seed-Forth VM**: one `PT_LOAD` segment of 16 MiB starting
-   at virtual address `0x400000`.  Everything the seed needs (code,
-   dictionary headers, the heap that `HERE` walks across, the data
-   stack, the I/O scratch byte, the token buffer, and the sysvars)
-   lives inside this one segment.  No `mmap` calls; the kernel
-   zero-fills the part of the segment that extends past the on-disk
-   image.
+1. **The seed-Forth VM** has one `PT_LOAD` segment of 16 MiB starting
+   at `0x400000`. The original seed's code, dictionary, data stack,
+   I/O scratch byte, token buffer, and sysvars live in that segment.
+   The seed's own machine code makes no `mmap` call; Linux zero-fills
+   the segment past the on-disk image. Loading the compiler adds its
+   fixed buffers, tables, and default 32 KiB arena inside the segment.
 
-2. **The C compiler's runtime heap**: a 256 MiB anonymous mmap that
-   compiled programs allocate from with a bump-allocator `calloc`
-   shim.  Sized to host M2-Planet self-compiles without ever calling
-   `free` (which is a no-op).  This region is *outside* the seed's
-   16 MiB and is allocated lazily by Linux on first touch.
+2. **The native compiler's optional arena** is an additional 8 MiB
+   anonymous mapping requested by `tools/tcc-compile.fth` through
+   `cc-arena-map`. Native parsing allocates descriptors, recursive
+   contexts, lexer marks, and fixup nodes here. This extends the
+   loaded Forth program's workspace without changing the original
+   seed image or moving its dictionary and fixed buffers.
+
+3. **A legacy compiled program's heap** is a 256 MiB anonymous
+   mapping created by the emitted `calloc` shim. It belongs to the
+   generated executable, not to the compiler process. M2-Planet
+   uses it for self-compiles; `free` is a no-op. The native TinyCC
+   seed instead uses its compiled portable libc's bounded static
+   heap and allocator, not this legacy shim.
 
 ## The seed-Forth memory map (`PT_LOAD` covers `0x400000..0x1400000`)
 
@@ -22,12 +30,16 @@ The picture puts higher addresses at the top; `^` and `v` mark
 which way a region fills.
 
 ```text
+ mmap-chosen +--------------------------------------+ outside seed PT_LOAD
+             | native compiler scratch arena 8 MiB | cc-arena-map, opt-in
+             +--------------------------------------+
+
 0x1400000 +-----------------------------------------+ end of the 16 MiB PT_LOAD
           | unused tail                             |
           |                                         |
           | ^ compiler tables: macros, macro        |
           |   scratch, includes, symbols, scopes,   |
-          |   globals, fixups (grow up; ~3.7 MiB)   |
+          |   globals, fixups and code (~4.3 MiB)   |
 0x814000  +-----------------------------------------+
           | output buffer                 1 MiB     |
 0x714000  +-----------------------------------------+
@@ -80,7 +92,7 @@ detail.
 | `0x4000BA` — `0x4006EB` | ~1.6K | the 32 primitives, each a dictionary header followed by its code, with the unnamed helpers beside their users and the REPL last | seed image | Chs 14–20 |
 | `0x4006EC` — `0x400FFF` | ~2.3K | zero-filled gap below the dictionary heap (the segment's `memsz` exceeds the 1,772-byte on-disk image) | seed loader | Ch 13 |
 | `0x401000` — *(grows up)* | ~37K | dictionary heap, low part (~5K of `010-lib.fth` and `020-cc-arena.fth` definitions, then the 32K `cc-arena-base` area): headers + bodies that `010-lib.fth` and `020-cc-arena.fth` define before `030-cc-io.fth` jumps `HERE` to `0x414000` | seed code | Chs 2, 17, 21 |
-| tail of low heap | 32K | C compiler's **arena** (`create cc-arena-base  cc-arena-cap allot` — the 32 KiB slab sits at the *end* of the low dictionary heap, just before the HERE-jump) | `cc-alloc` | Ch 21 |
+| `0x402406` — `0x40A405` | 32 KiB | Default compiler **arena**, `cc-arena-base`; later low-heap definitions follow it before the HERE-jump. The native driver switches active allocation to a separate mapping. | `cc-alloc` in default mode | Chs 21, 34 |
 | `0x410000` — `0x410FFF` | 4K  | data stack: pushes start just below `0x411000` and grow *down* through this page.  Nothing guards it — the whole segment is RWX — so a deep stack would run on down into the low dictionary heap.  `HERE` is jumped *past* the stack before the C compiler's big buffers are created | seed code (`rbp` pushes) | Chs 13, 14 |
 | `0x411000`              | —   | initial data-stack base (grows *down* in `rbp`) | seed code | Chs 13, 14 |
 | `0x412000`              | 1   | I/O scratch byte (`emit`/`key` buffer) | seed code | Ch 16 |
@@ -90,35 +102,64 @@ detail.
 | `0x413010`              | 8   | `HERE` sysvar (next-byte-to-write)     | seed init + `,`, `:`, `;`, `compile_call` (REPL and `[lit]`) | Chs 2, 13 |
 | `0x413018`              | 8   | `LAST_FOUND` sysvar (latest hit from `find`) | `find_code` | Chs 13, 17 |
 | `0x413020` — `0x413FFF` | ~4K | rest of the sysvar page, unused | — | Ch 13 |
-| `0x414000` — `0x513FFF` | 1 MiB | C compiler's **input buffer** `cc-in-buf` (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
-| `0x514000` — `0x713FFF` | 2 MiB | C compiler's **source buffer** `cc-src-buf` (preprocessed source, read by the lexer) | `cc-preprocess` | Chs 21, 22 |
-| `0x714000` — `0x813FFF` | 1 MiB | C compiler's **output buffer** `cc-out-buf` (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
-| `0x814000` — *(grows up)* | ~3.7 MiB | macro table + 64 KiB macro pool, 2 MiB macro scratch, 1 MiB include pool (4 × 256 KiB), symbol/type/scope parallel arrays, 64 KiB globals data area, 16,384-entry fixup table — all `create … allot`'d in load order across `040`–`116`, ending near `0xBD1500` | `cc-*` | Chs 22, 24, 26, 31 |
+| `0x41404C` — `0x51404B` | 1 MiB | C compiler's **input buffer** `cc-in-buf` (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
+| `0x5140C8` — `0x7140C7` | 2 MiB | C compiler's **source buffer** `cc-src-buf` (preprocessed source, read by the lexer) | `cc-preprocess` | Chs 21, 22 |
+| `0x7144C9` — `0x8144C8` | 1 MiB | C compiler's **output buffer** `cc-out-buf` (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
+| after `0x8144C8` — *(grows up)* | ~4.3 MiB | Remaining compiler dictionary/code and tables: 4,096-entry macro table, 256 KiB macro pool, 2 MiB scratch, 1 MiB include pool, symbols/scopes, globals and fixups; allocated in load order through `119-cc-native-runtime.fth`, ending around `0xC50000` | seed dictionary compiler and `cc-*` | Chs 22, 24, 26, 31, 34 |
 | *(end of buffers)* — `0x13FFFFF` | remainder | genuinely unused tail of the 16 MiB `PT_LOAD` | — | Ch 13 |
 
-The numbers come from `020-cc-arena.fth` and `030-cc-io.fth`: the
-arena is `[lit] 32768 constant cc-arena-cap` followed by `create
-cc-arena-base  cc-arena-cap allot`, allotted at the current
-`HERE`, so it sits at the tail of the dictionary heap *before*
-`030-cc-io.fth` calls `skip-vm-pages` (`010-lib.fth`), which jumps
-`HERE` to `0x414000`, one page above the sysvar page's start.  After
-the jump the input buffer (1 MiB) is created at `0x414000`, the
-source buffer (2 MiB) at `0x514000` and the output buffer (1 MiB) at
-`0x714000`.  Every later compiler buffer (the macro, symbol, type,
-string, and globals tables) continues upward from `0x814000` in load
-order.  The largest are the preprocessor's: 2 MiB of scratch for
-macro arguments and replacements, and 1 MiB for included files.
-A compiled program's global *arrays* take no room here at all: they
-are only a size until the output ELF's `p_memsz` asks the kernel for
-them (Ch 26 §5).  None of these are separately
-mmapped; they are `create … allot`'d inside the existing `PT_LOAD`
-segment.
+The default arena comes from `[lit] 32768 constant cc-arena-cap`
+and `create cc-arena-base cc-arena-cap allot`. It is created in the
+low dictionary heap before `030-cc-io.fth` calls `skip-vm-pages`.
+The definitions after the arena still occupy low-heap space; the
+arena is not the final object before the jump.
 
-## The C-compiler runtime heap (compiled-program memory)
+After the jump to `0x414000`, dictionary headers account for the
+small gaps between the buffer ranges in the table. Every later
+fixed compiler buffer and word continues upward in load order.
+The post-output region is now roughly 4.3 MiB, including Forth code
+and dictionary headers, not just table payload. Its exact end
+changes when a definition or its name changes; it is not an ABI.
 
-The C compiler emits a `calloc` shim that runs *inside compiled
+Both compiler profiles reserve the larger preprocessor tables when
+loaded. Their **enforced limits** differ: the default keeps 1,024
+macros and a 64 KiB macro text limit; direct mode permits 4,096 and
+256 KiB. The shared include pool is 1 MiB. The default uses four
+256 KiB slots; direct mode packs live file contents into that same
+pool and tracks up to thirty-two nested include levels. None of
+these buffers is separately mapped: they are `create … allot` data
+inside the existing seed segment.
+
+A compiled program's global *arrays* do not occupy the compiler's
+globals-data buffer: their zero-initialized storage is represented
+by a size until the output ELF's `p_memsz` asks the loader for it
+(Ch 26 §5).
+
+## The optional native compiler arena
+
+`cc-arena-map` asks Linux for an anonymous private read/write mapping,
+then replaces `cc-arena-start`, `cc-arena-limit`, and `cc-arena-ptr`.
+`cc-alloc` keeps its bump-allocation interface and rounds allocation
+sizes to eight-byte multiples, but checks against this active base and limit rather
+than always against `cc-arena-base`. Mapping failure or exhaustion
+still produces error 10.
+
+| Range | Size | Region | Owner |
+|---|---|---|---|
+| `mmap`-chosen | 8 MiB in the direct TinyCC driver | Native compiler scratch arena, outside the seed `PT_LOAD` | `cc-arena-map` and `cc-alloc` |
+
+The original 32 KiB slab remains in the dictionary; it is simply no
+longer the active allocator region. The additional mapping belongs
+to the compiler process and disappears when that process exits.
+The generated ELF contains neither that scratch mapping nor the
+compiler's dictionary. Ch 34 explains the native data structures
+that need the larger workspace.
+
+## The legacy runtime heap (compiled-program memory)
+
+The default C compiler emits a `calloc` shim that runs *inside compiled
 programs*, not inside the seed.  This shim mmaps a 256 MiB
-anonymous private region at compiled-program startup and bumps a
+anonymous private region on its first allocation and bumps a
 pointer through it.  Ch 26 walks the shim's machine code.
 
 | Range | Size | Region | Owner |
@@ -129,22 +170,25 @@ There is no overlap with the seed's `0x400000..0x1400000` mapping:
 this 256 MiB lives wherever Linux's `mmap` decides, typically
 high in the virtual address space.
 
-## The two regimes side by side
+## The allocations side by side
 
-The seed-Forth VM packs everything into 16 MiB because the seed
-itself is *1,772 bytes*: spending another mmap call would add
-five instructions of overhead the budget cannot afford.
+The original 1,772-byte seed relies on the ELF loader for its one
+16 MiB segment. Loading Forth can add behavior without changing
+those bytes: the direct compiler uses the library's `syscall6`
+wrapper to request its larger arena. That is a compiler extension,
+not a new seed primitive.
 
-The compiled program's heap is 256 MiB because M2-Planet allocates
-type tables, struct tables, function tables, and source buffers
-during its own self-compile, and the simplest allocator that gets
-the job done is "bump until the mmap is full, then crash."  Free
-is a no-op.
+The 256 MiB legacy heap serves a different lifetime and purpose.
+It exists inside a generated program such as M2-Planet, whose own
+self-compile allocates type tables, function tables, and source
+buffers. The native TinyCC image instead compiles the portable
+libc allocator with its bounded static heap and real `free`/`realloc`
+implementation. Do not count either generated program's allocator
+as scratch storage used while Forth compiles that program.
 
-Both regimes share one principle: *one region, one bump pointer*.
-The seed avoids mmap entirely (it gets its segment from the
-kernel's ELF loader); compiled programs make one mmap call at
-startup and never another.
+The shared design principle is *one region, one owner and cursor*;
+it is not a promise that every mode makes the same number of
+mapping calls.
 
 ## Where to look for confirmation
 
@@ -155,4 +199,6 @@ startup and never another.
 | Token buffer       | `000-seed.hex0:398` (`read_word`) |
 | I/O scratch        | `000-seed.hex0:267` (`emit_code`) and `:288` (`key_code`) |
 | Source buffer base | `020-cc-arena.fth` and `030-cc-io.fth` |
+| Native 8 MiB scratch mmap | `020-cc-arena.fth` `cc-arena-map`, selected by `tools/tcc-compile.fth` (Ch 34) |
+| Macro/include capacities | `040-cc-prep.fth` `cc-macro-cap`, `cc-macro-pool-cap`, `cc-prep-inc-pool`, and `cc-prep-direct-depth` (Ch 22) |
 | 256 MiB heap mmap  | `090-cc-emit.fth` `cc-emit-calloc-shim` (Ch 26) |

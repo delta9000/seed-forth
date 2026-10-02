@@ -65,6 +65,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/check-all"
           TMPDIR="$RUNNER_TEMP/check-all" ./check-all.sh
 
+      - name: Direct handoff and fixture guards
+        run: |
+          python3 k1/tests/options-check.py
+          bash tests/gcc64/stage0-check.sh
+          python3 tests/ladder/capture-copies-check.py
+          python3 tests/ladder/fixture-closure-check.py
+
       - name: Seed-only amd64 tooling and isolated root
         run: tests/pnut/host-tools-check.sh
 
