@@ -23,8 +23,8 @@ while IFS='|' read -r label code source; do
 done <<'CASES'
 floating-return-call|232|float f(void); int g(void){f(); return 0;}
 floating-argument-call|232|void f(double); int g(void){f(1); return 0;}
-aggregate-return-call|232|struct S{int x;}; struct S f(void); int g(void){f(); return 0;}
-aggregate-argument-call|232|struct S{int x;}; void f(struct S); int g(void){struct S s={1}; f(s); return 0;}
+aggregate-return-call|232|struct S{double x;}; struct S f(void); int g(void){f(); return 0;}
+aggregate-argument-call|232|struct S{double x;}; void f(struct S); int g(void){struct S s={1}; f(s); return 0;}
 floating-return-definition|232|float f(void){return 0;}
 floating-parameter-definition|232|int f(double x){return 0;}
 floating-local-load|232|int f(void){float x; return x;}

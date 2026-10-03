@@ -68,6 +68,7 @@
 - [Binary64 values](45-direct-gcc-binary64.md) — typed floating arithmetic, conversion, storage, and return values
 - [Exact floating literals](46-direct-gcc-float-literals.md) — decimal ratios and correctly rounded binary64 representations
 - [Record bitfields](47-direct-gcc-bitfields.md) — bit allocation, promotions, preserving stores, and explicit limits
+- [48. Record values at the System V boundary](48-direct-gcc-aggregate-abi.md)
 
 # Appendices
 

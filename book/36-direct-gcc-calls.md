@@ -723,6 +723,9 @@ defer cc-sysv-implicit-declared-fwd
 
 \ Stage each argument in an eight-byte temporary, converting fixed arguments
 \ to the prototype's actual width before the register/stack split.
+: cc-sysv-argument-check-default ( signature index -- ) 2drop ;
+defer cc-sysv-argument-check-fwd
+' cc-sysv-argument-check-default is cc-sysv-argument-check-fwd
 : cc-sysv-parse-args ( signature -- count )
   [lit] 0 cc-next-token-keep
   [char] ) cc-tok-punct? 0= if,
@@ -730,6 +733,7 @@ defer cc-sysv-implicit-declared-fwd
     begin,
       dup cc-sysv-arg-cap >= if, [lit] 234 cc-die then,
       cc-parse-assign-fwd cc-emit-materialize
+      2dup cc-sysv-argument-check-fwd
       cc-expr-unevaluated @ 0= if, cc-last-expr-type @ cc-sysv-check-scalar-default then,
       over cc-sysv-sig-count over > [lit] 2 cc-npick cc-sysv-prototype? and if,
         2dup cc-sysv-sig-param @
@@ -901,6 +905,9 @@ defer cc-sysv-result-value-fwd
 \ K&R declarations refine the identifier list by name, preserving order.
 \ Undeclared parameters keep C90's implicit int. Only register storage is
 \ permitted here; a declaration outside the identifier list is an error.
+: cc-sysv-abi-type-default ( type descriptor -- ) drop cc-sysv-check-scalar-default ;
+defer cc-sysv-abi-type-fwd
+' cc-sysv-abi-type-default is cc-sysv-abi-type-fwd
 : cc-sysv-old-parameters ( sig -- )
   cc-nctx @ >r cc-ncontext
   begin, [char] { cc-tok-punct? 0= while,
@@ -910,7 +917,7 @@ defer cc-sysv-result-value-fwd
       cc-ndeclarator
       nc-func @ if, [lit] 233 cc-die then,
       cc-sysv-adjust-array-parameter
-      nc-ty @ cc-sysv-check-scalar-default
+      nc-ty @ nc-desc @ cc-sysv-abi-type-fwd
       nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
       dup nc-name @ nc-nlen @ cc-sysv-find-parameter
       dup 0< if, [lit] 233 cc-die then,
@@ -945,6 +952,21 @@ defer cc-sysv-varargs-save-fwd
 ' cc-sysv-varargs-prepare-default is cc-sysv-varargs-prepare-fwd
 ' cc-sysv-varargs-save-default is cc-sysv-varargs-save-fwd
 
+defer cc-sysv-params-fwd
+' cc-sysv-params is cc-sysv-params-fwd
+: cc-sysv-store-params-default
+  [lit] 0 begin, dup cc-native-param-count @ < while,
+    dup [lit] 6 < if, dup cc-sysv-store-gp else,
+      [lit] 0 over [lit] 3 - - cc-emit-load-local
+      dup 1+ cc-emit-store-local
+    then, 1+
+  repeat, drop ;
+defer cc-sysv-store-params-fwd
+' cc-sysv-store-params-default is cc-sysv-store-params-fwd
+: cc-sysv-return-check-default ( type descriptor -- ) drop cc-sysv-check-scalar ;
+defer cc-sysv-return-check-fwd
+' cc-sysv-return-check-default is cc-sysv-return-check-fwd
+
 variable cc-sysv-frame-patch
 variable cc-sysv-function-signature
 : cc-sysv-function
@@ -977,7 +999,7 @@ variable cc-sysv-function-signature
   nc-ty @ nc-id @ cc-sym-type cell[] !
   nc-desc @ nc-id @ cc-sym-set-struct-desc
   [char] { cc-tok-punct? 0= if, exit, then,
-  nc-ty @ cc-sysv-check-scalar
+  nc-ty @ nc-desc @ cc-sysv-return-check-fwd
   nc-id @ cc-sym-val-of if, [lit] 211 cc-die then,
   cc-here-vaddr nc-id @ cc-sym-val cell[] !
   nc-id @ cc-sym-call-fixups @ cc-here-vaddr cc-walk-and-patch-to-vaddr
@@ -991,17 +1013,12 @@ variable cc-sysv-function-signature
   [lit] 0 cc-sysv-stack-depth !
   [lit] 0 cc-break-stack-head ! [lit] 0 cc-continue-stack-head !
   [lit] 0 cc-switch-depth ! [lit] 0 cc-loop-switch-depth !
-  cc-sysv-function-signature @ cc-sysv-params
+  cc-sysv-function-signature @ cc-sysv-params-fwd
   cc-sysv-function-signature @ cc-sysv-varargs-prepare-fwd
   [lit] 0 cc-emit-prologue
   cc-out-pos @ [lit] 4 - cc-sysv-frame-patch ! cc-sysv-save-callee
   cc-sysv-varargs-save-fwd
-  [lit] 0 begin, dup cc-native-param-count @ < while,
-    dup [lit] 6 < if, dup cc-sysv-store-gp else,
-      [lit] 0 over [lit] 3 - - cc-emit-load-local
-      dup 1+ cc-emit-store-local
-    then, 1+
-  repeat, drop
+  cc-sysv-store-params-fwd
   begin,
     cc-next-token-keep [char] } cc-tok-punct? 0= while,
     cc-putback-token cc-parse-stmt

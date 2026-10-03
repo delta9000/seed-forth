@@ -44,6 +44,6 @@ grouped-return-conflict|237|int (*f(void)); long *f(void);
 callback-array-argument-count|235|struct X{int (*f[3])(int);}; int g(struct X *p){return p->f[0]();}
 function-object-cast|230|int f(void); char **g(void){return (char **)f;}
 grouped-object-function-cast|230|int f(void); int g(void){char (**p);p=(char **)f;return 0;}
-aggregate-callback-argument|232|struct S{int x;}; struct X{int (*f[3])(struct S);}; int g(struct X *p){struct S s;return p->f[0](s);}
+aggregate-callback-argument|232|struct S{double x;}; struct X{int (*f[3])(struct S);}; int g(struct X *p){struct S s;return p->f[0](s);}
 long-double-callback-argument|232|struct X{int (*f[3])(long double);}; int g(struct X *p){return p->f[0](1);}
 CASES

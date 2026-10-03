@@ -376,3 +376,4 @@ bootstrap. Their current implementation and limits are in [DIRECT-GCC.md](https:
 | [45: binary64 values](45-direct-gcc-binary64.md) | 24, 28, 36 | Typed floating operations and the scalar return boundary |
 | [46: floating literals](46-direct-gcc-float-literals.md) | 1–12, 45 | Exact integer ratios rounded to binary64 without a host parser |
 | [47: bitfields](47-direct-gcc-bitfields.md) | 24, 28, 36, 45 | Record layout, integer promotions, and preserving bitfield stores |
+| [48: aggregate ABI](48-direct-gcc-aggregate-abi.md) | 28, 36, 45, 47 | Record byte transport, argument locations, register rollback, and result lifetimes |

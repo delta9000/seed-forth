@@ -152,6 +152,10 @@ defer cc-value-negate-fwd
 ' cc-emit-neg-rdi is cc-value-negate-fwd
 defer cc-value-complement-fwd
 ' cc-emit-not-rdi is cc-value-complement-fwd
+\ Unary plus has no opcode, but its operand still has type constraints.
+: cc-value-plus-default ;
+defer cc-value-plus-fwd
+' cc-value-plus-default is cc-value-plus-fwd
 : cc-value-ternary-noop ;
 defer cc-value-ternary-fwd
 ' cc-value-ternary-noop is cc-value-ternary-fwd
@@ -1481,6 +1485,7 @@ field, a `char` and a pointer target.
   cc-target-lp64 @ if,
     [char] + cc-tok-punct? if,
       cc-parse-unary cc-emit-materialize
+      cc-value-plus-fwd
       cc-last-expr-type @ cc-unary-type dup cc-emit-convert-rdi
       [lit] 0 cc-mark-typed-value exit,
     then,
@@ -1655,6 +1660,10 @@ variable cc-assign-desc
 variable cc-assign-op
 variable cc-assign-field
 
+: cc-aggregate-assignment-default ;
+defer cc-aggregate-assignment-fwd
+' cc-aggregate-assignment-default is cc-aggregate-assignment-fwd
+
 \ One native store path handles locals, globals, fields and dereferences.
 \ Snapshots live on the return stack across the recursive RHS parse.
 : cc-parse-native-assign                          ( kind slot -- )
@@ -1679,6 +1688,7 @@ variable cc-assign-field
   r> cc-assign-field !
   cc-assign-type @ ty-base ty-struct = cc-assign-type @ ty-ptr 0= and if,
     cc-assign-op @ [char] = <> if, [lit] 120 cc-die then,
+    cc-aggregate-assignment-fwd
     [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 254 cc-emit-byte
     cc-emit-pop-rdi cc-emit-push-rdi               \ rsi=source; rdi=destination
     [lit] 72 cc-emit-byte [lit] 199 cc-emit-byte [lit] 193 cc-emit-byte

@@ -60,9 +60,12 @@ and ABI comparisons only.
 The runtime currently supplies allocation, memory/string operations, unbuffered
 streams, and integer/pointer/string formatting. Historical ANSI headers use an
 explicit bounded C90-oriented target profile. Binary64 literals, expressions,
-storage and return values have executable proofs. Floating arguments and
-aggregate value calling conventions remain unsupported; accepting declarations or taking
-`sizeof` does not implement those value operations. The original GCC configure
+storage and return values have executable proofs. Integer/pointer record values
+now cross the System V INTEGER/MEMORY boundary with checked identities,
+register rollback, independent copies and hidden result pointers. Floating
+arguments, floating-member record values and aggregate variadic calls remain
+unsupported; accepting declarations or taking `sizeof` does not implement those
+value operations. The original GCC configure
 probes now support a bounded, independently audited generator configuration.
 Original `gencheck.c`, `gengenrtl.c`, and `errors.c` compile through actual
 Makefile object rules and run with the Forth-built runtime. `gencheck` emits
@@ -121,6 +124,14 @@ fresh component replay after seed recovery. Two explicit skips were the absent
 historical preprocessor byte fixture and the optional original `vasprintf`
 test requiring a separately retained configuration. The later runtime changes
 are identified separately; previous hashes do not validate modified sources.
+
+The reviewed aggregate stage also closes inherited record-to-scalar initializer,
+unevaluated unary-plus, and void-return constraint gaps. Its independent
+bidirectional tests cover byte sizes 1–33 and 264 argument layouts, including
+callbacks, protected-page tails, nested result lifetimes and the hidden result
+pointer returned in RAX. These are ABI and language-subset proofs. Selected
+original GCC record-return wrapper bodies run with explicit test shims; the
+complete GCC `real.c` unit and compiler bootstrap are not established by them.
 
 ## Verification scope at 2026-10-03 16:43 UTC
 

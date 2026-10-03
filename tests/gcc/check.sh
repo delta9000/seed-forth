@@ -29,6 +29,7 @@ python3 tests/gcc/review-types-check.py
 bash tests/gcc/sysv-declarator-edges-check.sh
 python3 tests/gcc/review-declarator-check.py
 SF_GCC_CAST_ORACLE=1 bash tests/gcc/sysv-function-integer-casts-check.sh
+python3 tests/gcc/aggregate-check.py --oracle
 bash tests/gcc/sysv-binary64-check.sh
 python3 tests/gcc/float-literal-check.py
 python3 tests/gcc/review-floating-literals.py
