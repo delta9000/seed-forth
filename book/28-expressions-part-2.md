@@ -65,6 +65,7 @@ statements that call `cc-parse-expr` are Ch 30's.
 
 variable cc-last-lvalue-kind                       \ lv-value .. lv-deref-byte
 variable cc-last-ident-slot
+variable cc-last-field-rec                         \ 0 or aggregate field metadata
 variable cc-last-struct-desc
 variable cc-last-expr-type
 variable cc-last-expr-array-len                    \ undecayed array length for sizeof
@@ -74,6 +75,7 @@ variable cc-last-expr-array-inner                  \ row width for a two-dimensi
 : cc-mark
   cc-last-lvalue-kind !
   cc-last-ident-slot !
+  [lit] 0 cc-last-field-rec !
   [lit] 0 cc-last-struct-desc !
   [lit] 0 cc-last-expr-type !
   [lit] 0 cc-last-expr-array-len !
@@ -187,11 +189,26 @@ defer cc-value-init-fwd
 \ through it (one byte or eight) so rdi holds the value, and mark it a plain
 \ value.  The struct descriptor and type describe the value either way, so
 \ they are kept.  A no-op for lv-value and lv-local.
+\ Record members can override scalar storage without changing ordinary lvalues.
+: cc-field-load-default ( ty rec -- ) drop cc-emit-load-typed-via-rdi ;
+: cc-field-store-default ( ty rec -- ) drop cc-emit-store-typed-via-rcx ;
+: cc-field-value-type-default ( ty rec -- ty ) drop ;
+: cc-field-use-default ( rec -- ) drop ;
+defer cc-field-load-fwd
+defer cc-field-store-fwd
+defer cc-field-value-type-fwd
+defer cc-field-use-fwd
+' cc-field-load-default is cc-field-load-fwd
+' cc-field-store-default is cc-field-store-fwd
+' cc-field-value-type-default is cc-field-value-type-fwd
+' cc-field-use-default is cc-field-use-fwd
+
 : cc-emit-materialize
   cc-deref-pending? if,
     cc-target-lp64 @ if,
       cc-check-static-init
-      cc-last-expr-type @ cc-emit-load-typed-via-rdi
+      cc-last-expr-type @ cc-last-field-rec @ cc-field-load-fwd
+      cc-last-expr-type @ cc-last-field-rec @ cc-field-value-type-fwd cc-last-expr-type !
     else,
       cc-last-lvalue-kind @ lv-deref-byte = if,
         cc-emit-load-byte-via-rdi
@@ -253,6 +270,7 @@ variable cc-ff-desc
 variable cc-ff-result-desc                           \ matched field's pointee desc (0 if not a struct ptr)
 variable cc-ff-result-type                           \ matched field's encoded type (ty-base + ptr-depth)
 variable cc-ff-result-array                          \ matched field's inline array length
+variable cc-ff-result-record
 
 \ cc-find-field ( name-addr name-len desc -- offset )
 : cc-find-field
@@ -272,6 +290,7 @@ variable cc-ff-result-array                          \ matched field's inline ar
       cc-ff-needle-addr @ swap                      ( count i rec needle entry )
       cc-ff-needle-len  @                           ( count i rec needle entry u )
       bytes-eq if,                                  ( count i rec )
+        dup cc-ff-result-record !
         dup cc-sf-desc cc-ff-result-desc !
         dup cc-sf-type cc-ff-result-type !
         cc-target-lp64 @ if,
@@ -887,6 +906,7 @@ the `(` as grouping.
 ```forth chunk=expr-primary-postfix-incdec
 variable cc-change-type
 variable cc-change-desc
+variable cc-change-field
 variable cc-change-postfix
 variable cc-change-delta
 
@@ -896,13 +916,14 @@ variable cc-change-delta
   cc-change-postfix ! cc-change-delta !
   cc-last-expr-type @ dup cc-value-integer-use-fwd cc-change-type !
   cc-last-struct-desc @ cc-change-desc !
+  cc-last-field-rec @ cc-change-field !
   cc-last-lvalue-kind @ lv-local = if,
     cc-last-ident-slot @ cc-emit-lea-rdi-local
   else,
     cc-deref-pending? 0= if, [lit] 113 cc-die then,
   then,
   cc-emit-push-rdi
-  cc-change-type @ cc-emit-load-typed-via-rdi
+  cc-change-type @ cc-change-field @ cc-field-load-fwd
   cc-change-postfix @ if, cc-emit-push-rdi then,
   cc-change-type @ ty-ptr if,
     cc-change-type @ cc-change-desc @ cc-expr-pointee-size
@@ -911,11 +932,12 @@ variable cc-change-delta
   cc-change-type @ cc-emit-convert-rdi
   cc-change-postfix @ if, cc-emit-pop-rdx then,
   cc-emit-pop-rcx
-  cc-change-type @ cc-emit-store-typed-via-rcx
+  cc-change-type @ cc-change-field @ cc-field-store-fwd
   cc-change-postfix @ if,
     [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 215 cc-emit-byte
   then,                                           \ mov rdi,rdx (old value)
-  cc-change-type @ cc-change-desc @ cc-mark-typed-value ;
+  cc-change-type @ cc-change-field @ cc-field-value-type-fwd
+  cc-change-desc @ cc-mark-typed-value ;
 
 \ cc-parse-postfix-inc-dec ( op -- )  Postfix '++' / '--' on an lvalue.
 \ For a local, the operand parse already loaded the old value into rdi and
@@ -1060,6 +1082,7 @@ handles `.` and `->`:
       swap [lit] 1 + swap cc-mark-typed-value
       cc-ff-result-array @ cc-last-expr-array-len !
     else, cc-mark-typed-deref then,
+    cc-ff-result-record @ cc-last-field-rec !
     exit,
   then,
   [lit] 0 cc-mark-deref
@@ -1155,6 +1178,7 @@ keyword, `struct TAG`, a typedef name, or a local variable.
 \ Native sizeof parses its operand without retaining any emitted code or
 \ relocations. An array's length/row metadata prevents its normal decay.
 : cc-native-sizeof-expr-size                     ( -- bytes )
+  cc-last-field-rec @ cc-field-use-fwd
   cc-last-expr-type @ cc-last-struct-desc @
   cc-last-expr-array-len @ if,
     cc-expr-pointee-size cc-last-expr-array-len @ *
@@ -1375,6 +1399,7 @@ field, a `char` and a pointer target.
   [char] & cc-tok-punct? if,
     cc-target-lp64 @ if,
       cc-parse-unary
+      cc-last-field-rec @ cc-field-use-fwd
       cc-last-lvalue-kind @ lv-local = if,
         cc-last-ident-slot @ cc-emit-lea-rdi-local
       else,
@@ -1628,6 +1653,7 @@ ruled out.
 variable cc-assign-type
 variable cc-assign-desc
 variable cc-assign-op
+variable cc-assign-field
 
 \ One native store path handles locals, globals, fields and dereferences.
 \ Snapshots live on the return stack across the recursive RHS parse.
@@ -1641,14 +1667,16 @@ variable cc-assign-op
     cc-last-expr-type @ ty-ptr 0= and or
     0= if, [lit] 120 cc-die then,
   then,
+  cc-last-field-rec @ >r
   cc-last-expr-type @ >r cc-last-struct-desc @ >r tok-num @ >r
   cc-emit-push-rdi
   r@ [char] = <> if,
-    cc-last-expr-type @ cc-emit-load-typed-via-rdi
+    cc-last-expr-type @ cc-last-field-rec @ cc-field-load-fwd
     cc-emit-push-rdi
   then,
   cc-parse-assign-fwd cc-emit-materialize
   r> cc-assign-op ! r> cc-assign-desc ! r> cc-assign-type !
+  r> cc-assign-field !
   cc-assign-type @ ty-base ty-struct = cc-assign-type @ ty-ptr 0= and if,
     cc-assign-op @ [char] = <> if, [lit] 120 cc-die then,
     [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 254 cc-emit-byte
@@ -1660,11 +1688,11 @@ variable cc-assign-op
     cc-assign-type @ cc-assign-desc @ cc-mark-typed-value exit,
   then,
   cc-assign-op @ [char] = <> if,
-    cc-assign-type @ cc-assign-desc @
+    cc-assign-type @ cc-assign-field @ cc-field-value-type-fwd cc-assign-desc @
     cc-last-expr-type @ cc-last-struct-desc @ cc-expr-save-types
     cc-assign-op @ bo-compound cc-binop-row cc-expr-op-row !
     cc-expr-op-row @ bo-level + @ level-shift = if,
-      cc-assign-type @ cc-expr-promote cc-expr-common !
+      cc-expr-left-type @ cc-expr-promote cc-expr-common !
     then,
     cc-assign-type @ ty-ptr if,
       cc-expr-op-row @ bo-level + @ level-add = if,
@@ -1678,8 +1706,9 @@ variable cc-assign-op
   then,
   cc-last-expr-type @ cc-assign-type @ cc-emit-convert-value
   cc-emit-pop-rcx
-  cc-assign-type @ cc-emit-store-typed-via-rcx
-  cc-assign-type @ cc-assign-desc @ cc-mark-typed-value ;
+  cc-assign-type @ cc-assign-field @ cc-field-store-fwd
+  cc-assign-type @ cc-assign-field @ cc-field-value-type-fwd
+  cc-assign-desc @ cc-mark-typed-value ;
 
 : cc-parse-assign
   cc-parse-ternary

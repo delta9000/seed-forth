@@ -175,6 +175,10 @@ defer cc-ni-string-fwd
   ni-array @ if, ni-array @ exit, then,
   ni-desc @ cc-sd-union? if, [lit] 1 else, ni-desc @ cc-sd-field-count then, ;
 
+: cc-ni-field-default ( rec -- handled? ) drop [lit] 0 ;
+defer cc-ni-field-fwd
+' cc-ni-field-default is cc-ni-field-fwd
+
 : cc-ni-child
   ni-array @ if,
     ni-type @ ni-desc @ ni-inner @ [lit] 0
@@ -183,6 +187,7 @@ defer cc-ni-string-fwd
     ni-index @ * ni-offset @ + true cc-ni-value-fwd
   else,
     ni-desc @ ni-index @ cc-sd-field-rec
+    dup cc-ni-field-fwd if, drop exit, then,
     dup cc-sf-type over cc-sf-desc
     [lit] 2 cc-npick cc-sf-array-len [lit] 0
     [lit] 4 cc-npick cc-sf-offset ni-offset @ +

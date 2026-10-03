@@ -238,10 +238,17 @@ cc-sd-max-fields [lit] 40 * [lit] 16 + constant cc-sd-bytes
 : cc-sd-field-cap
   cc-target-lp64 @ if, cc-sd-lp64-max-fields else, cc-sd-max-fields then, ;
 
+: cc-sd-header-bytes-default
+  cc-target-lp64 @ if, [lit] 32 else, [lit] 16 then, ;
+: cc-sd-record-bytes-default
+  cc-target-lp64 @ if, [lit] 48 else, [lit] 40 then, ;
+defer cc-sd-header-bytes
+defer cc-sd-record-bytes
+' cc-sd-header-bytes-default is cc-sd-header-bytes
+' cc-sd-record-bytes-default is cc-sd-record-bytes
+
 : cc-sd-allocation-bytes
-  cc-target-lp64 @ if,
-    cc-sd-lp64-max-fields [lit] 48 * [lit] 32 +
-  else, cc-sd-bytes then, ;
+  cc-sd-field-cap cc-sd-record-bytes * cc-sd-header-bytes + ;
 
 \ cc-sd-alloc ( -- desc )  Clear reused arena storage, including new cells.
 : cc-sd-alloc
@@ -265,8 +272,7 @@ cc-sd-max-fields [lit] 40 * [lit] 16 + constant cc-sd-bytes
 \ Error 50 remains the legacy 17th-field failure; LP64's limit is larger.
 : cc-sd-field-rec
   dup 1+ cc-sd-field-cap [lit] 50 cc-check-cap
-  cc-target-lp64 @ if, [lit] 48 * [lit] 32 +
-  else, [lit] 40 * [lit] 16 + then, + ;
+  cc-sd-record-bytes * cc-sd-header-bytes + + ;
 
 \ Field-record accessors / mutators.  Each takes rec-addr on TOS.
 \ Alignment, union and array-length accessors are for LP64 descriptors only.

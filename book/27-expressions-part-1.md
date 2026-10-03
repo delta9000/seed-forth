@@ -469,11 +469,11 @@ defer cc-native-binop-emit
 
 : cc-native-binop-apply                          ( left-ty left-desc left-inner row -- )
   cc-expr-op-row !
+  cc-emit-materialize
   cc-expr-save-native-types
   cc-expr-op-row @ bo-level + @ level-shift = if,
     cc-expr-left-type @ cc-expr-promote cc-expr-common !
   then,
-  cc-emit-materialize
   cc-expr-op-row @ bo-level + @ level-add = if,
     cc-expr-left-type @ ty-ptr
     cc-expr-right-type @ ty-ptr 0= and if,

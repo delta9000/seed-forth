@@ -90,6 +90,11 @@ defer cc-nbase-fwd
 
 defer cc-naggregate-fwd
 
+\ A target can retain enum provenance without changing its scalar encoding.
+: cc-nenum-desc-default [lit] 0 ;
+defer cc-nenum-desc-fwd
+' cc-nenum-desc-default is cc-nenum-desc-fwd
+
 \ Read an enum type and optionally install its enumerators.
 : cc-nenum
   cc-next-token-keep
@@ -113,7 +118,7 @@ defer cc-naggregate-fwd
     repeat,
     drop
   else, cc-putback-token then,
-  ty-int [lit] 0 ty-make [lit] 0 ;
+  ty-int [lit] 0 ty-make cc-nenum-desc-fwd ;
 
 \ The current token is a base type. Return encoded type and descriptor.
 : cc-nbase
@@ -251,12 +256,19 @@ defer cc-nfnptr-name-fwd
     dup [lit] 4 cc-npick swap cc-sd-field-rec
     [lit] 3 cc-npick dup cc-sd-field-count swap over cc-sd-field-rec
     swap drop
-    [lit] 48 cc-ncopy
+    cc-sd-record-bytes cc-ncopy
     [lit] 2 cc-npick dup cc-sd-field-count cc-sd-field-rec
     dup cc-sf-offset r@ + swap cc-sf-set-offset
     [lit] 2 cc-npick dup cc-sd-field-count 1+ swap cc-sd-set-field-count
     1+
   repeat, 2drop 2drop r> drop ;
+
+\ A target may add member syntax while retaining the shared declarator.
+: cc-nmember-default ( desc -- )
+  dup cc-nadd-field
+  nc-nlen @ 0= if, nc-desc @ swap cc-npromote-fields else, drop then, ;
+defer cc-nmember-fwd
+' cc-nmember-default is cc-nmember-fwd
 
 : cc-naggregate
   kw-union cc-tok-kw? >r
@@ -279,10 +291,7 @@ defer cc-nfnptr-name-fwd
       cc-nbase-fwd nc-sdesc ! nc-base !
       begin,
         cc-ndeclarator
-        dup cc-nadd-field
-        nc-nlen @ 0= if,
-          nc-desc @ over cc-npromote-fields
-        then,
+        dup cc-nmember-fwd
         [char] , cc-tok-punct?
       while, repeat,
       [char] ; cc-tok-punct? 0= if, [lit] 58 cc-die then,

@@ -1251,6 +1251,7 @@ variable cc-om-address-frame
         oa-type @ ty-base ty-struct <> if, cc-const-unsupported then,
         cc-expect-ident
         tok-str-addr @ tok-str-len @ oa-desc @ cc-find-field oa-value +!
+        cc-ff-result-record @ cc-field-use-fwd
         cc-ff-result-type @ oa-type ! cc-ff-result-desc @ oa-desc !
         cc-ff-result-array @ oa-array !
       else,
