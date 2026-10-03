@@ -48,3 +48,8 @@ The source-built `process.c` and `stat.c` extend this boundary with terminating
 `exit` and Linux AMD64 `stat`/`fstat`. The public `sys/types.h` and `sys/stat.h`
 contracts, original GCC consumers, ABI references, limitations and independent
 verification are described in [Configure runtime contracts](CONFIGURE.md).
+
+The source-built `sort.c` supplies the `qsort` consumed by original GCC
+`genmodes.c`. Its constant-space heapsort, callback/reentrancy contract,
+arbitrary element representations and independent production/oracle checks
+are described in [Source-built qsort](SORT.md).
