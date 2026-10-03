@@ -51,6 +51,7 @@ The file opens by naming everything a token can be:
 [lit] 4 constant tk-chr
 [lit] 5 constant tk-punct
 [lit] 6 constant tk-kw
+[lit] 7 constant tk-float
 
 \ Multi-char punctuation codes start at 256 to avoid clash with single-byte
 \ ASCII codes used directly for one-char punct (e.g. '(' = 40).
@@ -859,8 +860,13 @@ of these chains.
 \ ===========================================================================
 
 \ cc-next-token ( -- )  Skip ws/comments, dispatch on the first byte.
+: cc-lex-extra-default [lit] 0 ;
+defer cc-lex-extra-fwd
+' cc-lex-extra-default is cc-lex-extra-fwd
+
 : cc-next-token
   cc-skip-ws-and-comments
+  cc-lex-extra-fwd if, exit, then,
   cc-eof? if,
     tk-eof tok-kind !
   else,

@@ -1279,6 +1279,11 @@ defer cc-emit-type-check-fwd
   then,
   drop ;
 
+\ Conversions with source type preserve the integer emitter by default.
+: cc-emit-convert-value-default ( source destination -- ) nip cc-emit-convert-rdi ;
+defer cc-emit-convert-value
+' cc-emit-convert-value-default is cc-emit-convert-value
+
 \ cc-emit-convert-rcx ( ty -- )  Same conversion for the right operand.
 : cc-emit-convert-rcx
   cc-emit-type-check-fwd
@@ -1301,6 +1306,10 @@ defer cc-emit-type-check-fwd
     then, exit,
   then,
   drop ;
+
+: cc-emit-convert-right-default ( source destination -- ) nip cc-emit-convert-rcx ;
+defer cc-emit-convert-right
+' cc-emit-convert-right-default is cc-emit-convert-right
 
 \ cc-emit-load-local-typed ( slot ty -- )  LP64 memory width, legacy qword.
 : cc-emit-load-local-typed

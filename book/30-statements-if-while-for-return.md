@@ -101,7 +101,7 @@ defer cc-parse-stmt-fwd
   cc-parse-expr
   [char] ) cc-expect-punct-c
 
-  cc-emit-test-rdi
+  cc-value-test-fwd
   cc-emit-jz-rel32-placeholder                    ( fixup-jz )
 
   cc-parse-stmt-fwd                             \ then-body
@@ -328,7 +328,7 @@ loops never see each other's fixups.
   cc-here-vaddr                                   ( top-vaddr )
   cc-parse-expr
   [char] ) cc-expect-punct-c
-  cc-emit-test-rdi
+  cc-value-test-fwd
   cc-emit-jz-rel32-placeholder                    ( top fixup-end )
 
   \ Park top-vaddr on rstack so it survives the body parse.
@@ -430,7 +430,7 @@ run *after* it.  The parser handles this in eight moves:
     [char] ; cc-expect-punct-c
   then,
 
-  cc-emit-test-rdi
+  cc-value-test-fwd
   cc-emit-jz-rel32-placeholder                    ( top fixup-end )
   cc-for-end-fixup !
   cc-for-top-vaddr !
@@ -571,7 +571,7 @@ rewind above at work.
   [char] ) cc-expect-punct-c
   [char] ; cc-expect-punct-c
 
-  cc-emit-test-rdi
+  cc-value-test-fwd
   r> cc-emit-jnz-vaddr                            \ jnz top
 
   \ Break target = here.
@@ -706,6 +706,7 @@ cases with the same `K`.
   \ '(' expr ')'
   lparen cc-expect-punct-c
   cc-parse-expr                                   \ rdi = scrutinee
+  cc-last-expr-type @ cc-value-integer-use-fwd
   [char] ) cc-expect-punct-c
 
   \ Save outer rbx, then move scrutinee into rbx.  Mark the switch open so

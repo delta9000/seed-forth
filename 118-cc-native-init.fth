@@ -143,8 +143,13 @@ defer cc-ni-value-fwd
   swap cc-emit-movabs-rdi-imm64 cc-ni-mov-rsi-rdi
   ni-offset @ cc-ni-address cc-ni-copy-bytes ;
 
+: cc-value-static-init-default drop ;
+defer cc-value-static-init-fwd
+' cc-value-static-init-default is cc-value-static-init-fwd
+
 : cc-ni-scalar
   cc-ni-aggregate? cc-ni-static @ and if, [lit] 219 cc-die then,
+  cc-ni-static @ if, ni-type @ cc-value-static-init-fwd then,
   ni-offset @ cc-ni-address cc-emit-push-rdi
   cc-putback-token cc-parse-assign
   cc-ni-aggregate? if,
@@ -155,8 +160,9 @@ defer cc-ni-value-fwd
     cc-emit-pop-rdi
     ni-type @ ni-desc @ cc-nsize cc-ni-copy-bytes
   else,
-    cc-emit-materialize cc-emit-pop-rcx
-    ni-type @ cc-emit-store-typed-via-rcx
+    cc-emit-materialize
+    cc-last-expr-type @ ni-type @ cc-value-init-fwd
+    cc-emit-pop-rcx ni-type @ cc-emit-store-typed-via-rcx
   then,
   cc-next-token-keep ;
 

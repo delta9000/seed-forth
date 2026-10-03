@@ -185,7 +185,7 @@ create cc-om-string-name s, .Lstring
 : cc-om-scalar-initializer
   cc-sysv-object-mode @ cc-ni-static @ and 0= if, cc-ni-scalar exit, then,
   cc-ni-aggregate? if, [lit] 219 cc-die then,
-  ni-type @ cc-sysv-check-scalar
+  ni-type @ cc-sysv-check-scalar-default
   cc-putback-token cc-parse-static-const-fwd
   dup if,
     ni-type @ ty-size [lit] 8 <> if, [lit] 238 cc-die then,

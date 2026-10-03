@@ -21,17 +21,17 @@ while IFS='|' read -r label code source; do
   fi
   echo "PASS: $label rejects with $code and preserves output"
 done <<'CASES'
-floating-return-call|232|double f(void); int g(void){f(); return 0;}
+floating-return-call|232|float f(void); int g(void){f(); return 0;}
 floating-argument-call|232|void f(double); int g(void){f(1); return 0;}
 aggregate-return-call|232|struct S{int x;}; struct S f(void); int g(void){f(); return 0;}
 aggregate-argument-call|232|struct S{int x;}; void f(struct S); int g(void){struct S s={1}; f(s); return 0;}
-floating-return-definition|232|double f(void){return 0;}
+floating-return-definition|232|float f(void){return 0;}
 floating-parameter-definition|232|int f(double x){return 0;}
-floating-local-load|232|int f(void){double x; return x;}
-floating-global-load|232|extern double x; int f(void){return x;}
-floating-pointer-load|232|int f(double *p){return *p;}
-floating-pointer-store|232|int f(double *p){*p=0; return 0;}
-floating-runtime-cast|232|int f(void){return (int)(double)1;}
+floating-local-load|232|int f(void){float x; return x;}
+floating-global-load|232|extern float x; int f(void){return x;}
+floating-pointer-load|232|int f(float *p){return *p;}
+floating-pointer-store|232|int f(float *p){*p=0; return 0;}
+floating-runtime-cast|232|int f(void){return (int)(float)1;}
 floating-static-value|232|double x=0;
 floating-static-field|232|struct S{int x; double y;}; struct S s={1,0};
 floating-static-cast|240|int x=(int)(double)1;

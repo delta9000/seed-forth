@@ -157,8 +157,9 @@ object. We keep its real type, size, and alignment: local storage also
 aligns long doubles and containing aggregates to sixteen bytes. Scalar
 local lvalues materialize only when their value is needed, so taking
 `&local_double` does not first perform an unsupported floating load.
-Typed load, store, and conversion hooks reject executable floating values;
-static floating initializers and unsupported function definitions/calls
+Typed load, store, and conversion hooks reject unsupported value classes.
+[Ch45](45-direct-gcc-binary64.md) adds binary64 computation and return values;
+scalar float/long-double values, static floating initializers and unsupported function definitions/calls
 also fail before publication. `sizeof` may inspect their types without
 creating a call or a value operation. Existing aggregate byte copies remain
 supported; aggregate values still cannot cross this scalar call boundary.
@@ -235,12 +236,15 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
 : cc-sysv-check-signature
   dup 0= if, [lit] 230 cc-die then,
   dup @ cc-sysv-signature-tag <> if, [lit] 230 cc-die then, ;
-: cc-sysv-check-scalar ( ty -- )
+: cc-sysv-check-scalar-default ( ty -- )
   dup [lit] 256 / [lit] 255 and if, [lit] 231 cc-die then,
   dup ty-ptr if, drop exit, then,
   ty-base
   dup ty-struct = over ty-float = or over ty-double = or
   over ty-ldouble = or swap ty-func = or if, [lit] 232 cc-die then, ;
+defer cc-sysv-check-scalar
+' cc-sysv-check-scalar-default is cc-sysv-check-scalar
+
 \ Bound object-size arithmetic before multiplying. Explicit bounds are
 \ distinct from the unsized-array sentinel inherited from the native parser.
 [lit] 1073741824 constant cc-sysv-object-size-limit
@@ -590,9 +594,11 @@ defer cc-sysv-implicit-declared-fwd
     begin,
       dup cc-sysv-arg-cap >= if, [lit] 234 cc-die then,
       cc-parse-assign-fwd cc-emit-materialize
-      cc-expr-unevaluated @ 0= if, cc-last-expr-type @ cc-sysv-check-scalar then,
+      cc-expr-unevaluated @ 0= if, cc-last-expr-type @ cc-sysv-check-scalar-default then,
       over cc-sysv-sig-count over > [lit] 2 cc-npick cc-sysv-prototype? and if,
-        2dup cc-sysv-sig-param @ cc-emit-convert-rdi
+        2dup cc-sysv-sig-param @
+        cc-expr-unevaluated @ 0= if, dup cc-sysv-check-scalar-default then,
+        cc-last-expr-type @ swap cc-emit-convert-value
       else,
         over cc-sysv-sig-varargs [lit] 3 and 0= if, [lit] 235 cc-die then,
         cc-last-expr-type @ cc-unary-type cc-emit-convert-rdi
@@ -699,6 +705,9 @@ variable cc-sysv-stack-depth
   [lit] 147 cc-sysv-load-staged
   cc-sysv-zero-vector-count
   [lit] 65 cc-emit-byte [lit] 255 cc-emit-byte [lit] 210 cc-emit-byte ;
+defer cc-sysv-result-value-fwd
+' cc-emit-convert-rdi is cc-sysv-result-value-fwd
+
 : cc-sysv-call ( id -- )
   cc-target-sysv @ 0= if, cc-parse-native-call exit, then,
   cc-check-static-init
@@ -720,7 +729,7 @@ variable cc-sysv-stack-depth
     else, cc-sym-val-of cc-emit-call-vaddr then,
     r> [lit] 0 r> cc-sysv-finish-call
   then,
-  r> cc-sysv-sig-return cc-emit-convert-rdi ;
+  r> cc-sysv-sig-return cc-sysv-result-value-fwd ;
 ' cc-sysv-call is cc-native-call-fwd
 : cc-sysv-indirect-call
   cc-target-sysv @ 0= if, cc-parse-indirect-call exit, then,
@@ -730,7 +739,7 @@ variable cc-sysv-stack-depth
   cc-emit-materialize cc-emit-push-rdi
   r@ cc-sysv-parse-args dup true cc-sysv-prepare-call >r
   dup cc-sysv-call-staged-target true r> cc-sysv-finish-call
-  r@ cc-sysv-sig-return dup cc-emit-convert-rdi
+  r@ cc-sysv-sig-return dup cc-sysv-result-value-fwd
   r> cc-sysv-sig-desc cc-mark-typed-value ;
 ' cc-sysv-indirect-call is cc-native-indirect-fwd
 
@@ -765,7 +774,7 @@ variable cc-sysv-stack-depth
       cc-ndeclarator
       nc-func @ if, [lit] 233 cc-die then,
       cc-sysv-adjust-array-parameter
-      nc-ty @ cc-sysv-check-scalar
+      nc-ty @ cc-sysv-check-scalar-default
       nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
       dup nc-name @ nc-nlen @ cc-sysv-find-parameter
       dup 0< if, [lit] 233 cc-die then,
@@ -784,7 +793,7 @@ variable cc-sysv-stack-depth
     2dup cc-sysv-sig-name dup @ nc-name ! [lit] 8 + @ nc-nlen !
     nc-nlen @ 0= if, [lit] 233 cc-die then,
     2dup cc-sysv-parameter-type nc-desc ! nc-ty !
-    nc-ty @ cc-sysv-check-scalar
+    nc-ty @ cc-sysv-check-scalar-default
     [lit] 0 nc-array ! [lit] 0 nc-inner !
     sk-local over 1+ cc-ninstall-symbol drop
     [lit] 1 cc-fn-add-slots 1+
@@ -1149,7 +1158,7 @@ create cc-om-string-name s, .Lstring
 : cc-om-scalar-initializer
   cc-sysv-object-mode @ cc-ni-static @ and 0= if, cc-ni-scalar exit, then,
   cc-ni-aggregate? if, [lit] 219 cc-die then,
-  ni-type @ cc-sysv-check-scalar
+  ni-type @ cc-sysv-check-scalar-default
   cc-putback-token cc-parse-static-const-fwd
   dup if,
     ni-type @ ty-size [lit] 8 <> if, [lit] 238 cc-die then,

@@ -1,0 +1,26 @@
+{
+  "binary64_output_sha256": "6d3f08e24d8825c34fb77bc9cf5ad739a40ab286660da5119b50ff9a51812c02",
+  "bounds": {
+    "absolute_decimal_exponent": 1000000,
+    "significant_digits": 768,
+    "token_bytes": 4096,
+    "workspace_bits": 4096
+  },
+  "corpus_sha256": "68fd299d9cf2cc1e935eee1def1add750e74dcbf9fd9c5121a74301ed5c3765f",
+  "oracle": "Python Fraction and integer divmod; no host floating conversion",
+  "production": "seed Forth integer-ratio decoder",
+  "rejected_cases": 52,
+  "replay": "same order byte-identical; reverse order independently checked",
+  "schema": 1,
+  "seed_sha256": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+  "source_sha256": {
+    "000-seed.hex0": "ba72ed985964a3860473c614a9eee73611027dba774b4a9993b24e3fe9947148",
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "128-cc-float-literal.fth": "2d8c111de63ba71cdccee2421518376c1e17da256eceb2d6b0841896f36d0c80",
+    "book/46-direct-gcc-float-literals.md": "9387cb176aa2fd0d78ef2c820d14b047bb840937b52a4af59272727aefe07497",
+    "tests/gcc/float-literal-check.py": "a6a7adac769dc0bbbb0d583701aa66dd23a6fe2c39aa1a216857b955cd1bd966"
+  },
+  "valid_cases": 228
+}

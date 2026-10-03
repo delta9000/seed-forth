@@ -408,13 +408,16 @@ variable cc-expr-op-row
   dup ty-ptr if, exit, then,
   dup ty-size [lit] 4 < if, drop ty-int [lit] 0 ty-make then, ;
 
-: cc-expr-common-type                            ( left right -- ty )
+: cc-expr-common-type-default                            ( left right -- ty )
   cc-expr-promote swap cc-expr-promote swap
   over ty-ptr if, drop exit, then,
   dup ty-ptr if, nip exit, then,
   2dup ty-size swap ty-size > if, nip exit, then,
   2dup ty-size swap ty-size < if, drop exit, then,
   dup ty-unsigned? if, nip else, drop then, ;
+
+defer cc-expr-common-type
+' cc-expr-common-type-default is cc-expr-common-type
 
 : cc-expr-save-types                             ( left-ty left-desc right-ty right-desc -- )
   cc-expr-right-desc ! cc-expr-right-type !
@@ -447,7 +450,7 @@ variable cc-expr-op-row
     else, cc-expr-right-desc @ then,
   else, [lit] 0 then, ;
 
-: cc-native-binop-emit                           ( -- )
+: cc-native-binop-emit-default                           ( -- )
   cc-expr-common @ ty-unsigned? if,
     cc-expr-op-row @ bo-op + @
     dup [char] / = if, drop cc-emit-udiv-quotient exit, then,
@@ -460,6 +463,9 @@ variable cc-expr-op-row
     drop
   then,
   cc-expr-op-row @ bo-emitter + @ execute ;
+
+defer cc-native-binop-emit
+' cc-native-binop-emit-default is cc-native-binop-emit
 
 : cc-native-binop-apply                          ( left-ty left-desc left-inner row -- )
   cc-expr-op-row !
@@ -481,8 +487,8 @@ variable cc-expr-op-row
       cc-expr-right-step cc-emit-scale-rdi
     then,
   then,
-  cc-expr-common @ cc-emit-convert-rdi
-  cc-expr-common @ cc-emit-convert-rcx
+  cc-expr-left-type @ cc-expr-common @ cc-emit-convert-value
+  cc-expr-right-type @ cc-expr-common @ cc-emit-convert-right
   cc-native-binop-emit
   cc-expr-op-row @ bo-op + @ [char] - = if,
     cc-expr-left-type @ ty-ptr cc-expr-right-type @ ty-ptr and if,
@@ -826,11 +832,11 @@ token.
     tok-kind @ tk-punct = tok-num @ pt-and-and = and
   while,
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jz-rel32-placeholder >r               \ R: fixup-false-LHS
     cc-parse-bit-or
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jz-rel32-placeholder >r               \ R: f-LHS f-RHS
     [lit] 1 cc-emit-mov-rdi-imm32
     cc-emit-jmp-rel32-placeholder >r              \ R: f-LHS f-RHS f-end
@@ -852,11 +858,11 @@ token.
     tok-kind @ tk-punct = tok-num @ pt-or-or = and
   while,
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jnz-rel32-placeholder >r              \ R: fixup-true-LHS
     cc-parse-log-and
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jnz-rel32-placeholder >r              \ R: t-LHS t-RHS
     [lit] 0 cc-emit-mov-rdi-imm32
     cc-emit-jmp-rel32-placeholder >r              \ R: t-LHS t-RHS f-end

@@ -620,7 +620,7 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
   cc-emit-materialize
   r> r>                                            ( desc ty )
   cc-target-lp64 @ if,
-    dup cc-emit-convert-rdi
+    cc-last-expr-type @ over cc-emit-convert-value
   else,
     dup ty-base ty-char = over ty-ptr 0= and if, cc-emit-zx-byte-rdi then,
   then,
@@ -737,6 +737,9 @@ variable cc-loop-switch-depth
 \ call cc-expect-punct-c again.  Otherwise putback and parse the expression.
 \ Either way, unwind any open switch scrutinees so rbx is restored before
 \ the epilogue's ret.
+defer cc-value-return-fwd
+' cc-emit-mov-rax-rdi is cc-value-return-fwd
+
 : cc-parse-return
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [char] ; = and if,
@@ -746,8 +749,10 @@ variable cc-loop-switch-depth
   else,
     cc-putback-token
     cc-parse-expr
-    cc-target-lp64 @ if, cc-native-return-type @ cc-emit-convert-rdi then,
-    cc-emit-mov-rax-rdi                           \ result -> rax (SYS-V)
+    cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-native-return-type @ cc-emit-convert-value
+    then,
+    cc-value-return-fwd                           \ result -> rax (SYS-V)
     cc-switch-depth @ cc-emit-switch-unwind
     cc-emit-epilogue
     [char] ; cc-expect-punct-c

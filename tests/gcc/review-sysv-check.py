@@ -163,7 +163,7 @@ def main():
             'conflicting-struct-pointer': (237, 'struct A{int x;}; struct B{int x;}; long f(struct A*); long f(struct B*x){return 0;} int main(void){return 0;}'),
             'floating-function-pointer-call': (232, 'int main(void){long (*p)(double); p=0; return p(1);}'),
             'aggregate-function-pointer-call': (232, 'struct S{int x;}; int main(void){long (*p)(struct S); struct S s; p=0; return p(s);}'),
-            'floating-local-value': (232, 'int main(void){double d; return d;}'),
+            'floating-local-value': (232, 'int main(void){float d; return d;}'),
         }
         results = []
         for name, source in valid.items():

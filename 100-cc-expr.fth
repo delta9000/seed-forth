@@ -173,6 +173,29 @@ variable cc-last-expr-array-inner                  \ row width for a two-dimensi
   cc-mark-not-lvalue
   cc-last-struct-desc ! cc-last-expr-type ! ;
 
+\ Typed value operations share the historical encoders until a target binds them.
+: cc-value-literal-default [lit] 0 ;
+defer cc-value-literal-fwd
+' cc-value-literal-default is cc-value-literal-fwd
+defer cc-value-test-fwd
+' cc-emit-test-rdi is cc-value-test-fwd
+defer cc-value-not-fwd
+' cc-emit-not-zero-flag is cc-value-not-fwd
+defer cc-value-negate-fwd
+' cc-emit-neg-rdi is cc-value-negate-fwd
+defer cc-value-complement-fwd
+' cc-emit-not-rdi is cc-value-complement-fwd
+: cc-value-ternary-noop ;
+defer cc-value-ternary-fwd
+' cc-value-ternary-noop is cc-value-ternary-fwd
+\ Integer-only consumers have a distinct check from scalar load/store support.
+: cc-value-integer-use-default drop ;
+defer cc-value-integer-use-fwd
+' cc-value-integer-use-default is cc-value-integer-use-fwd
+: cc-value-init-default ( source destination -- ) 2drop ;
+defer cc-value-init-fwd
+' cc-value-init-default is cc-value-init-fwd
+
 : cc-mark-typed-deref                             ( ty desc -- )
   over ty-base ty-func = if,
     over ty-ptr 0= if, cc-mark-typed-value exit, then,
@@ -854,6 +877,7 @@ defer cc-native-unknown-ident-fwd
 \ a literal, a name, a cast or a parenthesised expression.
 : cc-parse-operand
   cc-next-token-keep
+  cc-value-literal-fwd if, exit, then,
   tok-kind @ tk-num = if,
     cc-target-lp64 @ if,
       cc-integer-literal-type cc-last-expr-type !
@@ -886,7 +910,7 @@ variable cc-change-delta
 : cc-native-inc-dec
   cc-check-static-init
   cc-change-postfix ! cc-change-delta !
-  cc-last-expr-type @ cc-change-type !
+  cc-last-expr-type @ dup cc-value-integer-use-fwd cc-change-type !
   cc-last-struct-desc @ cc-change-desc !
   cc-last-lvalue-kind @ lv-local = if,
     cc-last-ident-slot @ cc-emit-lea-rdi-local
@@ -961,6 +985,7 @@ variable cc-change-delta
     cc-last-expr-array-inner @ >r
     cc-emit-push-rdi
     cc-parse-expr-fwd
+    cc-last-expr-type @ cc-value-integer-use-fwd
     2dup cc-expr-pointee-size
     r@ if, r@ * then,
     cc-emit-scale-rdi
@@ -1381,20 +1406,20 @@ defer cc-sizeof-type-size-fwd
     cc-parse-unary cc-emit-materialize
     cc-target-lp64 @ if,
       cc-last-expr-type @ cc-unary-type
-      cc-emit-neg-rdi dup cc-emit-convert-rdi
+      cc-value-negate-fwd dup cc-emit-convert-rdi
       [lit] 0 cc-mark-typed-value exit,
     then,
     cc-emit-neg-rdi cc-mark-not-lvalue exit,
   then,
   [char] ! cc-tok-punct? if,
     cc-parse-unary cc-emit-materialize
-    cc-emit-not-zero-flag cc-mark-int-value exit,
+    cc-value-not-fwd cc-mark-int-value exit,
   then,
   [char] ~ cc-tok-punct? if,
     cc-parse-unary cc-emit-materialize
     cc-target-lp64 @ if,
       cc-last-expr-type @ cc-unary-type
-      cc-emit-not-rdi dup cc-emit-convert-rdi
+      cc-value-complement-fwd dup cc-emit-convert-rdi
       [lit] 0 cc-mark-typed-value exit,
     then,
     cc-emit-not-rdi cc-mark-not-lvalue exit,
@@ -1564,13 +1589,16 @@ variable cc-expr-op-row
   dup ty-ptr if, exit, then,
   dup ty-size [lit] 4 < if, drop ty-int [lit] 0 ty-make then, ;
 
-: cc-expr-common-type                            ( left right -- ty )
+: cc-expr-common-type-default                            ( left right -- ty )
   cc-expr-promote swap cc-expr-promote swap
   over ty-ptr if, drop exit, then,
   dup ty-ptr if, nip exit, then,
   2dup ty-size swap ty-size > if, nip exit, then,
   2dup ty-size swap ty-size < if, drop exit, then,
   dup ty-unsigned? if, nip else, drop then, ;
+
+defer cc-expr-common-type
+' cc-expr-common-type-default is cc-expr-common-type
 
 : cc-expr-save-types                             ( left-ty left-desc right-ty right-desc -- )
   cc-expr-right-desc ! cc-expr-right-type !
@@ -1603,7 +1631,7 @@ variable cc-expr-op-row
     else, cc-expr-right-desc @ then,
   else, [lit] 0 then, ;
 
-: cc-native-binop-emit                           ( -- )
+: cc-native-binop-emit-default                           ( -- )
   cc-expr-common @ ty-unsigned? if,
     cc-expr-op-row @ bo-op + @
     dup [char] / = if, drop cc-emit-udiv-quotient exit, then,
@@ -1616,6 +1644,9 @@ variable cc-expr-op-row
     drop
   then,
   cc-expr-op-row @ bo-emitter + @ execute ;
+
+defer cc-native-binop-emit
+' cc-native-binop-emit-default is cc-native-binop-emit
 
 : cc-native-binop-apply                          ( left-ty left-desc left-inner row -- )
   cc-expr-op-row !
@@ -1637,8 +1668,8 @@ variable cc-expr-op-row
       cc-expr-right-step cc-emit-scale-rdi
     then,
   then,
-  cc-expr-common @ cc-emit-convert-rdi
-  cc-expr-common @ cc-emit-convert-rcx
+  cc-expr-left-type @ cc-expr-common @ cc-emit-convert-value
+  cc-expr-right-type @ cc-expr-common @ cc-emit-convert-right
   cc-native-binop-emit
   cc-expr-op-row @ bo-op + @ [char] - = if,
     cc-expr-left-type @ ty-ptr cc-expr-right-type @ ty-ptr and if,
@@ -1879,11 +1910,11 @@ variable cc-expr-op-row
     tok-kind @ tk-punct = tok-num @ pt-and-and = and
   while,
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jz-rel32-placeholder >r               \ R: fixup-false-LHS
     cc-parse-bit-or
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jz-rel32-placeholder >r               \ R: f-LHS f-RHS
     [lit] 1 cc-emit-mov-rdi-imm32
     cc-emit-jmp-rel32-placeholder >r              \ R: f-LHS f-RHS f-end
@@ -1905,11 +1936,11 @@ variable cc-expr-op-row
     tok-kind @ tk-punct = tok-num @ pt-or-or = and
   while,
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jnz-rel32-placeholder >r              \ R: fixup-true-LHS
     cc-parse-log-and
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jnz-rel32-placeholder >r              \ R: t-LHS t-RHS
     [lit] 0 cc-emit-mov-rdi-imm32
     cc-emit-jmp-rel32-placeholder >r              \ R: t-LHS t-RHS f-end
@@ -1947,7 +1978,7 @@ variable cc-expr-op-row
   tok-kind @ tk-punct = tok-num @ [char] ? = and if,
     \ '?' — consume and emit branch.
     cc-emit-materialize
-    cc-emit-test-rdi
+    cc-value-test-fwd
     cc-emit-jz-rel32-placeholder >r               \ R: f-else
     cc-target-lp64 @ if, cc-parse-comma-fwd else, cc-parse-assign-fwd then,
                                                   \ then-arm (right-assoc)
@@ -1969,7 +2000,7 @@ variable cc-expr-op-row
     cc-emit-materialize
     r> cc-patch-rel32-to-here                     \ patch f-end
     cc-target-lp64 @ if,
-      cc-expr-save-native-types
+      cc-expr-save-native-types cc-value-ternary-fwd
       cc-expr-common @ cc-emit-convert-rdi
       cc-expr-common @ cc-expr-common-desc cc-mark-typed-value
       cc-expr-common-inner cc-last-expr-array-inner !
@@ -2055,7 +2086,8 @@ variable cc-assign-op
     cc-assign-type @ cc-assign-desc @ cc-mark-typed-value exit,
   then,
   cc-assign-op @ [char] = <> if,
-    cc-assign-type @ cc-last-expr-type @ cc-expr-common-type cc-expr-common !
+    cc-assign-type @ cc-assign-desc @
+    cc-last-expr-type @ cc-last-struct-desc @ cc-expr-save-types
     cc-assign-op @ bo-compound cc-binop-row cc-expr-op-row !
     cc-expr-op-row @ bo-level + @ level-shift = if,
       cc-assign-type @ cc-expr-promote cc-expr-common !
@@ -2066,11 +2098,11 @@ variable cc-assign-op
       then,
     then,
     cc-emit-mov-rcx-rdi cc-emit-pop-rdi
-    cc-expr-common @ cc-emit-convert-rdi
-    cc-expr-common @ cc-emit-convert-rcx
-    cc-native-binop-emit
+    cc-expr-left-type @ cc-expr-common @ cc-emit-convert-value
+    cc-expr-right-type @ cc-expr-common @ cc-emit-convert-right
+    cc-native-binop-emit cc-expr-common @ cc-last-expr-type !
   then,
-  cc-assign-type @ cc-emit-convert-rdi
+  cc-last-expr-type @ cc-assign-type @ cc-emit-convert-value
   cc-emit-pop-rcx
   cc-assign-type @ cc-emit-store-typed-via-rcx
   cc-assign-type @ cc-assign-desc @ cc-mark-typed-value ;
