@@ -216,26 +216,33 @@ evaluate right into `rdi`, move it to `rcx`, pop the left back into
 \ Stack ops
 \ ===========================================================================
 
+\ Optional compile-time accounting; native defaults emit no extra bytes.
+: cc-emit-track-noop ;
+defer cc-emit-track-push-fwd
+defer cc-emit-track-pop-fwd
+' cc-emit-track-noop is cc-emit-track-push-fwd
+' cc-emit-track-noop is cc-emit-track-pop-fwd
+
 \ push rdi: 0x57
-: cc-emit-push-rdi  [lit]  87 cc-emit-byte ;
+: cc-emit-push-rdi  cc-emit-track-push-fwd [lit]  87 cc-emit-byte ;
 
 \ pop rdi:  0x5F
-: cc-emit-pop-rdi   [lit]  95 cc-emit-byte ;
+: cc-emit-pop-rdi   cc-emit-track-pop-fwd [lit]  95 cc-emit-byte ;
 
 \ pop rsi:  0x5E
-: cc-emit-pop-rsi   [lit]  94 cc-emit-byte ;
+: cc-emit-pop-rsi   cc-emit-track-pop-fwd [lit]  94 cc-emit-byte ;
 
 \ pop rdx:  0x5A
-: cc-emit-pop-rdx   [lit]  90 cc-emit-byte ;
+: cc-emit-pop-rdx   cc-emit-track-pop-fwd [lit]  90 cc-emit-byte ;
 
 \ pop rcx:  0x59
-: cc-emit-pop-rcx   [lit]  89 cc-emit-byte ;
+: cc-emit-pop-rcx   cc-emit-track-pop-fwd [lit]  89 cc-emit-byte ;
 
 \ pop r8:   0x41 0x58  (REX.B + pop)
-: cc-emit-pop-r8    [lit]  65 cc-emit-byte [lit]  88 cc-emit-byte ;
+: cc-emit-pop-r8    cc-emit-track-pop-fwd [lit]  65 cc-emit-byte [lit]  88 cc-emit-byte ;
 
 \ pop r9:   0x41 0x59
-: cc-emit-pop-r9    [lit]  65 cc-emit-byte [lit]  89 cc-emit-byte ;
+: cc-emit-pop-r9    cc-emit-track-pop-fwd [lit]  65 cc-emit-byte [lit]  89 cc-emit-byte ;
 
 \ push rbx (0x53) / pop rbx (0x5B).  Used by switch to preserve the outer
 \ value of rbx across the switch (which uses rbx to hold the scrutinee).
@@ -868,7 +875,7 @@ header back:
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth
+  cat 010-lib.fth $(tools/compiler-layers.sh)
   cat <<'C'
 #define ROWS 4
 struct tri { int rows; int stars; };

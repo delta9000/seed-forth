@@ -839,7 +839,7 @@ defer cc-ni-value-fwd
     cc-last-expr-type @ ty-ptr [lit] 0 <> or
     cc-last-struct-desc @ ni-desc @ <> or if, [lit] 224 cc-die then,
     cc-ni-mov-rsi-rdi
-    [lit] 95 cc-emit-byte
+    cc-emit-pop-rdi
     ni-type @ ni-desc @ cc-nsize cc-ni-copy-bytes
   else,
     cc-emit-materialize cc-emit-pop-rcx

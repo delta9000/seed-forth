@@ -4,6 +4,7 @@ long eighth(long a, long b, long c, long d, long e, long f, long g, long h) {
 }
 signed char narrow(signed char x) { return x; }
 long recurse(long n) { if (n == 0) return 0; return n + recurse(n-1); }
+int fixed_part(int first, ...) { return first; }
 int main(int argc, char **argv) {
   int (*fp)(int, int); fp = add;
   if (argc != 1 || argv[0] == 0) return 1;
@@ -13,5 +14,6 @@ int main(int argc, char **argv) {
   if (fp(20,22) != 42 || (*fp)(19,23) != 42) return 5;
   if (narrow(255) != -1) return 6;
   if (recurse(10) != 55) return 7;
+  if (fixed_part(42,1,2,3,4,5,6,7) != 42) return 8;
   return 0;
 }

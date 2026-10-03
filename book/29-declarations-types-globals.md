@@ -49,6 +49,8 @@ defer cc-native-type-start-fwd
 \ Native declarations use dynamically sized frames, patched after the body.
 variable cc-native-return-type
 variable cc-native-return-desc
+variable cc-type-name-array
+variable cc-type-name-inner
 variable cc-native-frame-limit
 [lit] 131072 cc-native-frame-limit !
 

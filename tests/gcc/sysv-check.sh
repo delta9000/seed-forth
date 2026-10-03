@@ -24,5 +24,4 @@ floating-parameter|214|int f(double x); int main(void) { return 0; }
 missing-argument|235|int f(int x) { return x; } int main(void) { return f(); }
 excess-argument|235|int f(void) { return 0; } int main(void) { return f(1); }
 conflicting-prototype|237|int f(int x); long f(int x) { return x; } int main(void) { return 0; }
-variadic-definition|236|int f(int x, ...) { return x; } int main(void) { return 0; }
 CASES

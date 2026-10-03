@@ -242,6 +242,20 @@ defer cc-sysv-compatible-signatures-fwd
   then,
   nip dup cc-native-reverse-args ;
 
+\ Count actual expression/argument pushes, separately from lexical switch
+\ saves. A call snapshots the complete surviving span, including outer-call
+\ arguments and switch RBX saves; its own argument vector is transient.
+variable cc-sysv-stack-depth
+: cc-sysv-track-push
+  cc-target-sysv @ if, [lit] 1 cc-sysv-stack-depth +! then, ;
+: cc-sysv-track-pop
+  cc-target-sysv @ if,
+    cc-sysv-stack-depth @ 0= if, [lit] 239 cc-die then,
+    [lit] 1 cc-sysv-stack-depth -!
+  then, ;
+' cc-sysv-track-push is cc-emit-track-push-fwd
+' cc-sysv-track-pop is cc-emit-track-pop-fwd
+
 : cc-sysv-stack-count [lit] 6 - dup 0< if, drop [lit] 0 then, ;
 : cc-sysv-load-staged ( index modrm -- )
   cc-emit-byte [lit] 8 * cc-emit-4le ;
@@ -257,17 +271,47 @@ defer cc-sysv-compatible-signatures-fwd
 : cc-sysv-store-outgoing ( offset -- )
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
   [lit] 132 cc-emit-byte [lit] 36 cc-emit-byte cc-emit-4le ;
-: cc-sysv-prepare-call ( count -- )
-  \ r11 points to staged arg0. Align a fresh block below all live temporaries.
+\ Call record: RSP frame slot, surviving cell count, staged cell count.
+: cc-sysv-save-live ( record -- )
+  >r
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  r@ @ [lit] 101 cc-emit-local-ea                \ mov [rbp+slot],rsp
+  [lit] 0 begin, dup r@ [lit] 8 + @ < while,
+    [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+    [lit] 188 cc-emit-byte [lit] 36 cc-emit-byte
+    dup r@ [lit] 16 + @ + [lit] 8 * cc-emit-4le
+    dup r@ @ + 1+ cc-emit-store-local
+    1+
+  repeat, drop r> drop ;
+: cc-sysv-restore-live ( record -- )
+  >r
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  r@ @ [lit] 101 cc-emit-local-ea                \ mov rsp,[rbp+slot]
+  [lit] 0 begin, dup r@ [lit] 8 + @ < while,
+    dup r@ @ + 1+ cc-emit-load-local
+    [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+    [lit] 188 cc-emit-byte [lit] 36 cc-emit-byte
+    dup r@ [lit] 16 + @ + [lit] 8 * cc-emit-4le
+    1+
+  repeat, drop r> drop ;
+: cc-sysv-prepare-call ( count indirect? -- record )
+  >r dup r> if, 1+ then,
+  [lit] 24 cc-alloc dup >r [lit] 16 + !
+  cc-sysv-stack-depth @ r@ [lit] 16 + @ -
+  dup 0< if, [lit] 239 cc-die then,
+  cc-switch-depth @ + dup r@ [lit] 8 + !
+  cc-expr-unevaluated @ if,
+    drop [lit] 0 r@ ! [lit] 0 r@ [lit] 8 + !
+  else,
+    cc-fn-local-count @ r@ ! 1+ cc-fn-add-slots
+  then,
+  r@ cc-sysv-save-live
+  \ Align a fresh outgoing block below every staged and surviving value.
   [lit] 73 cc-emit-byte [lit] 137 cc-emit-byte [lit] 227 cc-emit-byte
   [lit] 72 cc-emit-byte [lit] 129 cc-emit-byte [lit] 236 cc-emit-byte
-  dup cc-sysv-stack-count 1+ [lit] 8 * [lit] 15 + cc-emit-4le
+  dup cc-sysv-stack-count [lit] 8 * [lit] 15 + cc-emit-4le
   [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
   [lit] 228 cc-emit-byte [lit] 240 cc-emit-byte
-  \ The saved original RSP follows, and never overlaps, the stack arguments.
-  [lit] 76 cc-emit-byte [lit] 137 cc-emit-byte
-  [lit] 156 cc-emit-byte [lit] 36 cc-emit-byte
-  dup cc-sysv-stack-count [lit] 8 * cc-emit-4le
   [lit] 6 begin, 2dup > while,
     [lit] 73 cc-emit-byte [lit] 139 cc-emit-byte
     dup [lit] 131 cc-sysv-load-staged
@@ -276,13 +320,11 @@ defer cc-sysv-compatible-signatures-fwd
   repeat, drop
   [lit] 0 begin, 2dup > over [lit] 6 < and while,
     dup cc-sysv-load-gp 1+
-  repeat, 2drop ;
-: cc-sysv-finish-call ( count indirect? -- )
-  >r
-  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
-  [lit] 164 cc-emit-byte [lit] 36 cc-emit-byte
-  dup cc-sysv-stack-count [lit] 8 * cc-emit-4le
-  r> if, 1+ then, cc-native-drop-args
+  repeat, 2drop r> ;
+: cc-sysv-finish-call ( count indirect? record -- )
+  >r 2drop r@ cc-sysv-restore-live
+  r@ [lit] 16 + @ dup cc-sysv-stack-depth @ swap - cc-sysv-stack-depth !
+  cc-native-drop-args r> drop
   cc-emit-mov-rdi-rax ;
 : cc-sysv-zero-vector-count
   [lit] 49 cc-emit-byte [lit] 192 cc-emit-byte ;
@@ -301,17 +343,17 @@ defer cc-sysv-compatible-signatures-fwd
       cc-sym-val-of cc-emit-load-local
     else, cc-sym-val-of cc-emit-global-ref cc-emit-load-via-rdi then,
     cc-emit-push-rdi
-    r@ cc-sysv-parse-args dup cc-sysv-prepare-call
-    dup cc-sysv-call-staged-target true cc-sysv-finish-call
+    r@ cc-sysv-parse-args dup true cc-sysv-prepare-call >r
+    dup cc-sysv-call-staged-target true r> cc-sysv-finish-call
   else,
-    r@ cc-sysv-parse-args dup cc-sysv-prepare-call >r
+    r@ cc-sysv-parse-args dup [lit] 0 cc-sysv-prepare-call >r >r
     cc-sysv-zero-vector-count
     dup cc-sym-val-of 0= if,
       cc-emit-call-rel32-placeholder
       cc-expr-unevaluated @ if, 2drop
       else, swap cc-sym-call-fixups cc-add-fixup-to-list then,
     else, cc-sym-val-of cc-emit-call-vaddr then,
-    r> [lit] 0 cc-sysv-finish-call
+    r> [lit] 0 r> cc-sysv-finish-call
   then,
   r> cc-sysv-sig-return cc-emit-convert-rdi ;
 ' cc-sysv-call is cc-native-call-fwd
@@ -321,8 +363,8 @@ defer cc-sysv-compatible-signatures-fwd
   cc-last-expr-type @ ty-base ty-func <> if, [lit] 230 cc-die then,
   cc-last-struct-desc @ cc-sysv-check-signature >r
   cc-emit-materialize cc-emit-push-rdi
-  r@ cc-sysv-parse-args dup cc-sysv-prepare-call
-  dup cc-sysv-call-staged-target true cc-sysv-finish-call
+  r@ cc-sysv-parse-args dup true cc-sysv-prepare-call >r
+  dup cc-sysv-call-staged-target true r> cc-sysv-finish-call
   r@ cc-sysv-sig-return dup cc-emit-convert-rdi
   r> cc-sysv-sig-desc cc-mark-typed-value ;
 ' cc-sysv-indirect-call is cc-native-indirect-fwd
@@ -372,7 +414,6 @@ defer cc-sysv-compatible-signatures-fwd
     cc-next-token-keep
   repeat, drop r> cc-nctx ! ;
 : cc-sysv-params ( sig -- )
-  dup cc-sysv-sig-varargs [lit] 1 and if, [lit] 236 cc-die then,
   dup cc-sysv-sig-count cc-native-param-count !
   [lit] 0 begin, over cc-sysv-sig-count over > while,
     2dup cc-sysv-sig-name dup @ nc-name ! [lit] 8 + @ nc-nlen !
@@ -382,6 +423,16 @@ defer cc-sysv-compatible-signatures-fwd
     sk-local over 1+ cc-ninstall-symbol drop
     [lit] 1 cc-fn-add-slots 1+
   repeat, 2drop ;
+
+\ Later target layers may implement variadic definitions; the default
+\ remains a checked rejection until their register-save machinery exists.
+: cc-sysv-varargs-prepare-default ( signature -- )
+  cc-sysv-sig-varargs [lit] 1 and if, [lit] 236 cc-die then, ;
+: cc-sysv-varargs-save-default ;
+defer cc-sysv-varargs-prepare-fwd
+defer cc-sysv-varargs-save-fwd
+' cc-sysv-varargs-prepare-default is cc-sysv-varargs-prepare-fwd
+' cc-sysv-varargs-save-default is cc-sysv-varargs-save-fwd
 
 variable cc-sysv-frame-patch
 variable cc-sysv-function-signature
@@ -425,11 +476,14 @@ variable cc-sysv-function-signature
   nc-ty @ cc-native-return-type ! nc-desc @ cc-native-return-desc !
   cc-nctx @ >r cc-ncontext cc-scope-push
   [lit] 1 cc-fn-local-count ! [lit] 0 cc-label-count !
+  [lit] 0 cc-sysv-stack-depth !
   [lit] 0 cc-break-stack-head ! [lit] 0 cc-continue-stack-head !
   [lit] 0 cc-switch-depth ! [lit] 0 cc-loop-switch-depth !
   cc-sysv-function-signature @ cc-sysv-params
+  cc-sysv-function-signature @ cc-sysv-varargs-prepare-fwd
   [lit] 0 cc-emit-prologue
   cc-out-pos @ [lit] 4 - cc-sysv-frame-patch ! cc-sysv-save-callee
+  cc-sysv-varargs-save-fwd
   [lit] 0 begin, dup cc-native-param-count @ < while,
     dup [lit] 6 < if, dup cc-sysv-store-gp else,
       [lit] 0 over [lit] 3 - - cc-emit-load-local
@@ -440,6 +494,7 @@ variable cc-sysv-function-signature
     cc-next-token-keep [char] } cc-tok-punct? 0= while,
     cc-putback-token cc-parse-stmt
   repeat,
+  cc-sysv-stack-depth @ if, [lit] 239 cc-die then,
   cc-emit-xor-rax-rax cc-emit-epilogue cc-native-finish-gotos
   cc-fn-local-count @ [lit] 8 * [lit] 16 cc-nalign
   cc-sysv-frame-patch @ cc-out-patch-4le

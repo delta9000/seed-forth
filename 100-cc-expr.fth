@@ -779,7 +779,13 @@ defer cc-native-string-fwd
 \ cc-parse-ident ( -- )  The current token is an identifier.  Look it up,
 \ then peek one token to tell a call, a subscript and a plain reference
 \ apart.
+\ Optional target intrinsics consume the complete call when handled.
+: cc-native-intrinsic-noop [lit] 0 ;
+defer cc-native-intrinsic-fwd
+' cc-native-intrinsic-noop is cc-native-intrinsic-fwd
+
 : cc-parse-ident
+  cc-native-intrinsic-fwd if, exit, then,
   tok-str-addr @ tok-str-len @ cc-sym-find        ( id | -1 )
   dup 0< if,
     drop
