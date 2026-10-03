@@ -76,6 +76,36 @@ features requires extending `exit` and the startup return path together.
 If an external syscall filter denies termination, `exit` keeps attempting
 termination instead of returning to its caller.
 
+## Abnormal termination
+
+The original libiberty `C_alloca` failure path requires `abort`. The bounded
+runtime implements it with real SIGABRT delivery, including a previously
+blocked or ignored signal. It first unblocks SIGABRT and sends it to the
+current thread. An installed handler can leave through a nonreturning action;
+if it returns, the runtime installs the default disposition, unblocks the
+signal again, and sends it again. If signal delivery is denied, termination
+falls back to status 134 through `exit`; `abort` never returns normally.
+Normal operation terminates from signal 6 rather than merely returning that
+numeric exit status.
+
+The implementation uses Linux AMD64 syscall numbers from the pinned-reference
+[syscall table](https://github.com/torvalds/linux/blob/v6.12/arch/x86/entry/syscalls/syscall_64.tbl).
+Its private action buffer is the kernel ABI's four eight-byte words: handler,
+flags, restorer, and mask. It is not glibc's public `struct sigaction` layout.
+The [GNU C library description](https://www.gnu.org/software/libc/manual/2.30/html_node/Aborting-a-Program.html)
+describes the signal/handler contract; this implementation is original project
+code, not copied libc source. The supported runtime is still single-threaded
+and does not expose a new signal-registration API.
+
+`python3 tests/gcc/abort-check.py` builds production objects and their executable
+with Forth, then verifies default, blocked, and ignored SIGABRT termination.
+Separate host ABI oracles test a returning handler, `siglongjmp`, a handler
+that exits, and a handler that changes the disposition/mask. A separate syscall
+double verifies exact raw arguments and the failed-delivery fallback. Tests
+disable core files only in their child processes. The optional `--compiler-root`
+argument selects a recorded immutable compiler during concurrent development;
+every report records its exact compiler/runtime input hashes.
+
 ## Verification
 
 Run from the repository root:

@@ -10,6 +10,7 @@ void qsort(void *base, size_t count, size_t size,
            int (*compare)(const void *, const void *));
 /* Terminates the supported single-threaded, unbuffered runtime; no atexit. */
 void exit(int status);
+void abort(void);
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 #endif
