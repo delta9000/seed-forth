@@ -42,6 +42,23 @@ currently targets one native ABI and does not implement a virtual machine.
 
 ## Checkpoints and verification
 
+The first reconstructed components now have executable proofs: the Forth
+object writer emits separate call/data objects; the Forth linker resolves
+them into an executable; the scalar System V mode runs C programs and has
+bilateral host interoperability tests; and the Forth-emitted syscall bridge
+performs real Linux I/O and mapping calls. These are bounded, unfinished
+components. The object adapter currently rejects global storage, string
+materialization, and absolute function-address materialization. Floating and
+aggregate call classes remain unsupported. No original GCC translation unit
+or complete GCC bootstrap has been built by this reconstructed implementation.
+
+`tests/gcc/baseline-20261003/` records a fresh independent replay of the
+surviving baseline, including the actual raw-input direct TinyCC fixed point.
+Those results apply to its named source commit. New component tests are in
+`tests/gcc/`; run `bash tests/gcc/check.sh` for their current combined gate.
+Passing component tests alone does not prove all supported C semantics or
+complete source/bootstrap closure.
+
 Commit source, tests, and this status on this branch in small increments before
 lengthy validation, then commit the measured results. Verify the remote commit
 before considering a checkpoint durable. Preserve additional reviewed work

@@ -139,7 +139,7 @@ variable cc-last-expr-array-inner                  \ row width for a two-dimensi
 \ Native expression metadata uses the existing encoded type plus descriptor.
 \ A plain aggregate is represented by its address, never by its first word.
 : cc-expr-symbol-desc                             ( id -- desc )
-  dup cc-sym-type-of ty-base ty-struct = if,
+  dup cc-sym-type-of ty-base dup ty-struct = swap ty-func = or if,
     cc-sym-struct-desc-of
   else, drop [lit] 0 then, ;
 
@@ -486,6 +486,21 @@ variable cc-ff-result-array                          \ matched field's inline ar
   cc-emit-mov-rdi-rax
   ty-int [lit] 0 ty-make [lit] 0 cc-mark-typed-value ;
 
+\ Optional ABI hooks preserve the native default until an explicit opt-in.
+defer cc-native-call-fwd
+defer cc-native-indirect-fwd
+' cc-parse-native-call is cc-native-call-fwd
+' cc-parse-indirect-call is cc-native-indirect-fwd
+: cc-native-call-result ( id -- ty desc )
+  dup cc-sym-kind-of sk-func = if, dup cc-sym-type-of
+  else, ty-int [lit] 0 ty-make then,
+  swap cc-expr-symbol-desc ;
+defer cc-native-call-result-fwd
+' cc-native-call-result is cc-native-call-result-fwd
+: cc-native-function-desc drop [lit] 0 ;
+defer cc-native-function-desc-fwd
+' cc-native-function-desc is cc-native-function-desc-fwd
+
 \ cc-parse-call ( id -- )  Parse a comma-separated argument list — the leading
 \ '(' has ALREADY been consumed by cc-parse-primary (it was the lookahead
 \ token that triggered dispatch here).  Evaluate each arg left-to-right
@@ -496,7 +511,7 @@ variable cc-ff-result-array                          \ matched field's inline ar
 \ Stack at entry: ( id ).  The id is the symbol-table id of the callee.
 \ Stack at exit:  ( ).
 : cc-parse-call
-  cc-target-lp64 @ if, cc-parse-native-call exit, then,
+  cc-target-lp64 @ if, cc-native-call-fwd exit, then,
   \ Parse the argument list.  Stack underneath: ( id ).  We thread an
   \ argument count below the id.  Initial state: ( id 0 ).
   [lit] 0                                         ( id arg-count )
@@ -609,8 +624,11 @@ variable cc-ff-result-array                          \ matched field's inline ar
   cc-patch-rel32-to-here
   cc-emit-movabs-rdi-imm64 ;
 
+defer cc-native-string-fwd
+' cc-parse-native-string-literal is cc-native-string-fwd
+
 : cc-parse-string-literal
-  cc-target-lp64 @ if, cc-parse-native-string-literal exit, then,
+  cc-target-lp64 @ if, cc-native-string-fwd exit, then,
   cc-emit-jmp-rel32-placeholder                   ( fixup-off )
   \ Capture the vaddr where the string bytes will start (= current emit
   \ position, NOT the rel32 fixup, so we keep it on the stack under the
@@ -633,6 +651,7 @@ variable cc-ff-result-array                          \ matched field's inline ar
 \ `common_recursion(expression)` (where `expression` is forward-declared)
 \ loads 0 into rdi and crashes at the indirect call.
 : cc-parse-func-ref
+  dup cc-native-function-desc-fwd >r
   dup cc-sym-val-of [lit] 0 = if,
     cc-emit-movabs-rdi-imm64-placeholder          ( id patch-off )
     cc-expr-unevaluated @ if,
@@ -645,8 +664,8 @@ variable cc-ff-result-array                          \ matched field's inline ar
     cc-sym-val-of cc-emit-movabs-rdi-imm64
   then,
   cc-target-lp64 @ if,
-    ty-func [lit] 1 ty-make [lit] 0 cc-mark-typed-value
-  else, cc-mark-not-lvalue then, ;
+    ty-func [lit] 1 ty-make r> cc-mark-typed-value
+  else, r> drop cc-mark-not-lvalue then, ;
 
 \ cc-parse-global-ref ( id -- )  A file-scope global.  Emit movabs rdi,
 \ <vaddr-placeholder> with a deferred fixup.  Scalar globals are
@@ -787,11 +806,7 @@ variable cc-ff-result-array                          \ matched field's inline ar
     \ cc-parse-call (above) consumes the '(' (already peeked), parses the
     \ args, emits the call, and leaves the return value in rdi.
     cc-target-lp64 @ if,
-      dup cc-sym-kind-of sk-func = if,
-        dup cc-sym-type-of
-      else, ty-int [lit] 0 ty-make then,
-      >r
-      dup cc-expr-symbol-desc >r
+      dup cc-native-call-result-fwd swap >r >r
       cc-parse-call
       r> r> swap cc-mark-typed-value exit,
     then,
@@ -1034,7 +1049,7 @@ variable cc-change-delta
         drop cc-parse-postfix-index
       else,
         dup lparen = cc-target-lp64 @ and if,
-          drop cc-parse-indirect-call
+          drop cc-native-indirect-fwd
         else,
           cc-parse-postfix-field
         then,

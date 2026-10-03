@@ -245,6 +245,21 @@ function with more than six parameters.
   cc-emit-mov-rdi-rax
   ty-int [lit] 0 ty-make [lit] 0 cc-mark-typed-value ;
 
+\ Optional ABI hooks preserve the native default until an explicit opt-in.
+defer cc-native-call-fwd
+defer cc-native-indirect-fwd
+' cc-parse-native-call is cc-native-call-fwd
+' cc-parse-indirect-call is cc-native-indirect-fwd
+: cc-native-call-result ( id -- ty desc )
+  dup cc-sym-kind-of sk-func = if, dup cc-sym-type-of
+  else, ty-int [lit] 0 ty-make then,
+  swap cc-expr-symbol-desc ;
+defer cc-native-call-result-fwd
+' cc-native-call-result is cc-native-call-result-fwd
+: cc-native-function-desc drop [lit] 0 ;
+defer cc-native-function-desc-fwd
+' cc-native-function-desc is cc-native-function-desc-fwd
+
 \ cc-parse-call ( id -- )  Parse a comma-separated argument list — the leading
 \ '(' has ALREADY been consumed by cc-parse-primary (it was the lookahead
 \ token that triggered dispatch here).  Evaluate each arg left-to-right
@@ -255,7 +270,7 @@ function with more than six parameters.
 \ Stack at entry: ( id ).  The id is the symbol-table id of the callee.
 \ Stack at exit:  ( ).
 : cc-parse-call
-  cc-target-lp64 @ if, cc-parse-native-call exit, then,
+  cc-target-lp64 @ if, cc-native-call-fwd exit, then,
   \ Parse the argument list.  Stack underneath: ( id ).  We thread an
   \ argument count below the id.  Initial state: ( id 0 ).
   [lit] 0                                         ( id arg-count )

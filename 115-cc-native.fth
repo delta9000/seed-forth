@@ -144,6 +144,15 @@ defer cc-naggregate-fwd
   [lit] 0 ty-make [lit] 0 ;
 ' cc-nbase is cc-nbase-fwd
 
+\ The optional ABI layer records function-pointer signatures at this seam.
+: cc-nfnptr-default
+  cc-skip-fnptr-params ty-func [lit] 1 ty-make nc-ty ! ;
+defer cc-nfnptr-fwd
+' cc-nfnptr-default is cc-nfnptr-fwd
+: cc-ndeclarator-check-noop ;
+defer cc-ndeclarator-check-fwd
+' cc-ndeclarator-check-noop is cc-ndeclarator-check-fwd
+
 \ Declarator after nc-base/nc-sdesc. Function parameter tokens are saved
 \ so a definition can return and install parameter names after classification.
 : cc-ndeclarator
@@ -159,8 +168,7 @@ defer cc-naggregate-fwd
     cc-expect-ident
     tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
     [char] ) cc-expect-punct-c
-    lparen cc-expect-punct-c cc-skip-fnptr-params
-    ty-func [lit] 1 ty-make nc-ty !
+    lparen cc-expect-punct-c cc-nfnptr-fwd
     cc-next-token-keep
   else,
     tok-kind @ tk-ident = if,
@@ -184,7 +192,8 @@ defer cc-naggregate-fwd
     nc-params cc-lex-mark
     cc-skip-fnptr-params
     cc-next-token-keep
-  then, ;
+  then,
+  cc-ndeclarator-check-fwd ;
 
 \ Add a field, including flattened anonymous aggregate members.
 : cc-nadd-field ( desc -- )

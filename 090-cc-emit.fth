@@ -339,7 +339,12 @@
   [lit] 236 cc-emit-byte                          \ sub rsp, imm32 prefix
   cc-emit-4le ;
 
+: cc-emit-restore-noop ;
+defer cc-emit-restore-callee-fwd
+' cc-emit-restore-noop is cc-emit-restore-callee-fwd
+
 : cc-emit-epilogue
+  cc-emit-restore-callee-fwd
   [lit]  72 cc-emit-byte
   [lit] 137 cc-emit-byte
   [lit] 236 cc-emit-byte                          \ mov rsp, rbp
