@@ -1,0 +1,35 @@
+Target adapter for GCC 4.0.4 libiberty C_alloca.
+Upstream commit: 944765863eec87a9f37e297994fd2af960397138.
+Purpose: preserve original allocation/reclamation using the calling Forth C
+function's stable caller RBP, rather than expression-dependent temporary RSP.
+The __SEED_FORTH__ branch alone uses the private Forth-built ABI helper.
+Other compilers and all original list/reclamation logic remain unchanged.
+Evidence: same-caller nested argument allocation was prematurely freed by
+C_alloca(0); production SIGSEGV and independent free-observation witnesses.
+
+--- a/libiberty/alloca.c
++++ b/libiberty/alloca.c
+@@ -55,6 +55,10 @@
+ #include <stdlib.h>
+ #endif
+ 
++#ifdef __SEED_FORTH__
++#include <seed-frame.h>
++#endif
++
+ /* These variables are used by the ASTRDUP implementation that relies
+    on C_alloca.  */
+ const char *libiberty_optr;
+@@ -157,7 +161,12 @@
+      size_t size;
+ {
+   auto char probe;		/* Probes stack depth: */
++#ifdef __SEED_FORTH__
++  /* Expression temporaries vary RSP within one caller; its RBP is stable.  */
++  register char *depth = (char *) __seed_parent_frame ();
++#else
+   register char *depth = ADDRESS_FUNCTION (probe);
++#endif
+ 
+ #if STACK_DIRECTION == 0
+   if (STACK_DIR == 0)		/* Unknown growth direction.  */

@@ -167,3 +167,35 @@ lazy driver extraction, archive ordering, dependency rescans, an archive-only
 `main`, and rejection/atomic-publication cases. The compiler driver loads
 `141-archive.fth` after the linker only when an archive is supplied; the
 standalone archive source is never loaded as a C compiler extension.
+
+## C_alloca target frame metric
+
+The original libiberty `C_alloca` estimates caller depth using its own local
+variable address. A nested argument expression changes the temporary stack
+depth in this Forth compiler: `second(17, C_alloca(64))` followed by
+`C_alloca(0)` in the same caller prematurely freed the second live allocation.
+The unchanged original code both segfaulted with the real allocator and showed
+that precise premature free in a separate observation harness.
+
+`--alloca-frame` applies the hash-checked
+`gcc-direct/patches/alloca-frame.patch` in a private source view after verifying
+the original archive. It does not edit the upstream source tree or configure
+answers. Under `__SEED_FORTH__` alone, `C_alloca` includes private `seed-frame.h`
+and obtains its caller's stable saved RBP through `__seed_parent_frame()`.
+The Forth-built leaf helper is a separate `frame.o` runtime object. This ABI
+requires the calling C function and its parent to use the seed SysV RBP frame
+chain; it is not a general frame API for arbitrary host-compiled functions.
+
+The original allocation list, allocation sizes, deeper-frame reclamation,
+`C_alloca(0)`, and non-seed fallback remain intact. To check the adapter with a
+coherent compiler directory and a retained libiberty configure run:
+
+```sh
+python3 tests/gcc/driver-alloca-check.py COMPILER_ROOT LIBIBERTY_WORK
+```
+
+The production witness checks same-frame, nested-argument, callback, and
+recursive lifetimes using the actual allocator and abort. A separate test
+allocator observes all13 allocations being reclaimed, rejects duplicate or
+unknown frees, and poisons freed storage to expose premature reclamation.
+That observer is never linked into production generators.

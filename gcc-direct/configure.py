@@ -126,6 +126,7 @@ def snapshot(work):
     names = ["000-seed.hex0", "seed-forth", "010-lib.fth", "tools/gcc-direct-cc.py",
              "gcc-direct/configure.py"]
     names += [name for name in ("141-archive.fth", "tools/gcc-direct-ar.py") if (ROOT / name).is_file()]
+    names += [str(path.relative_to(ROOT)) for path in (ROOT / "gcc-direct/patches").glob("alloca-frame.*")]
     names += [p.name for p in ROOT.glob("[0-9][0-9][0-9]-cc-*.fth") if p.name != "120-cc-main.fth"]
     names += [str(p.relative_to(ROOT)) for p in (ROOT / "runtime/gcc-seed").rglob("*")
               if p.is_file() and p.suffix in (".c", ".h")]
@@ -142,6 +143,40 @@ def snapshot(work):
         hashes[name] = sha(value)
     write_json(work / "toolchain-inputs.json", hashes)
     return toolchain
+
+
+def prepare_alloca_source(source, work):
+    """Make an explicit source view with one hash-checked target adapter."""
+    directory = ROOT / "gcc-direct/patches"
+    patch = directory / "alloca-frame.patch"
+    manifest = json.loads((directory / "alloca-frame.json").read_text())
+    original = source / manifest["source"]
+    if sha(original.read_bytes()) != manifest["before_sha256"] or sha(patch.read_bytes()) != manifest["patch_sha256"]:
+        raise RuntimeError("alloca target adapter source or patch hash differs")
+    view = work / "gcc-source"
+    view.mkdir()
+    for entry in source.iterdir():
+        if entry.name == ".git":
+            continue
+        if entry.name != "libiberty":
+            (view / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+            continue
+        (view / "libiberty").mkdir()
+        for member in entry.iterdir():
+            destination = view / "libiberty" / member.name
+            if member.name == "alloca.c":
+                destination.write_bytes(member.read_bytes())
+            else:
+                destination.symlink_to(member, target_is_directory=member.is_dir())
+    result = subprocess.run(["patch", "--batch", "--forward", "--fuzz=0", "-p1", "-i", str(patch)],
+                            cwd=view, capture_output=True)
+    (work / "alloca-adapter.log").write_bytes(result.stdout + result.stderr)
+    if result.returncode or sha((view / manifest["source"]).read_bytes()) != manifest["after_sha256"]:
+        raise RuntimeError("exact alloca target adapter application failed")
+    save = {**manifest, "original_source": str(source), "prepared_source": str(view),
+            "scope": "One explicit target-guarded source patch; no configuration answer changes"}
+    write_json(work / "alloca-adapter.json", save)
+    return view
 
 
 def summarize(work):
@@ -215,6 +250,7 @@ def main():
     parser.add_argument("--work", type=Path, help="new directory; existing directories are rejected")
     parser.add_argument("--gencheck", action="store_true", help="also compile/link/verify original gencheck; configuration remains provisional")
     parser.add_argument("--forth-ar", action="store_true", help="use the frozen Forth archive/index adapter for AR and RANLIB")
+    parser.add_argument("--alloca-frame", action="store_true", help="apply the exact target-guarded C_alloca stable-frame adapter in a private source view")
     arguments = parser.parse_args()
     if arguments.gencheck and arguments.component != "gcc":
         parser.error("--gencheck requires --component gcc")
@@ -227,6 +263,8 @@ def main():
         (ROOT / "build-out").mkdir(exist_ok=True)
         work = Path(tempfile.mkdtemp(prefix="direct-configure-", dir=ROOT / "build-out"))
     write_json(work / "gcc-source-inputs.json", source_proof)
+    if arguments.alloca_frame:
+        source = prepare_alloca_source(source, work)
     toolchain = snapshot(work)
     driver = toolchain / "tools/gcc-direct-cc.py"
     recipe = toolchain / "gcc-direct/configure.py"
@@ -278,6 +316,7 @@ def main():
               "gcc_source_sha256": source_proof["archive_sha256"], "work": str(work),
               "compiler": "frozen Forth source snapshot", "host_target_tools": "guarded; attempts retained",
               "archive_adapter": "Forth fresh indexed archives" if arguments.forth_ar else "guarded, unavailable",
+              "alloca_adapter": "explicit Forth caller-frame depth" if arguments.alloca_frame else "unmodified original C_alloca",
               "probes": summarize(work)}
     write_json(work / "report.json", report)
     print(json.dumps(report, indent=2), flush=True)

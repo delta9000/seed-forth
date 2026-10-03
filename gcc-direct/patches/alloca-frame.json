@@ -1,0 +1,11 @@
+{
+  "after_sha256": "290e59c965e6b40040e7962e9f9ad6ae6ac29c1777def7f9ef05905e9e147cc0",
+  "before_sha256": "ddb2ee400165ea08c3af4a5996af1eaead87e015aa6a800c661a1e2b26fa5cc1",
+  "contract": "Calling Forth C function and parent preserve the seed SysV RBP frame chain; helper returns the calling function\u2019s saved parent RBP. Used only as C_alloca depth metric.",
+  "guard": "__SEED_FORTH__",
+  "helper": "void *__seed_parent_frame(void)",
+  "patch_sha256": "fef2d7b1ae37e1b314a349902ccc2cec6bb484d964a7dbe92ef11417a7d80699",
+  "preserved": "Original allocations, deeper-frame reclamation, C_alloca(0), direction discovery and non-seed fallback",
+  "source": "libiberty/alloca.c",
+  "upstream_commit": "944765863eec87a9f37e297994fd2af960397138"
+}
