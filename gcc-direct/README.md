@@ -240,7 +240,9 @@ host oracle: `insn-modes.h` is 3522 bytes, `min-insn-modes.c` is 4589 bytes, and
 `insn-modes.c` is 16715 bytes. The full-current-core integration replay includes
 bitfields and final declarator guards; its object and output bytes equal the
 previous narrower compiler composition. `genmodes-proof.json` records the exact
-sources, configuration lineage and outputs. This proves the bounded original
+sources, configuration lineage and outputs. The final proof reruns both original
+configure scripts on the full current source, including the object-section capacity
+repair, and preserves their direct probe traces. This proves the bounded original
 generator/selected-library milestone, not full GCC or full libiberty.
 
 A fresh build can reuse an existing configuration without claiming that the new
