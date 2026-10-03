@@ -6,7 +6,7 @@ work=$(mktemp -d /tmp/sf-sysv-knr.XXXXXX)
 trap 'rm -rf "$work"' EXIT
 tests/gcc/sysv-compile.sh tests/gcc/sysv-knr.c "$work/knr"
 "$work/knr"
-echo 'PASS: K&R declared/default parameters, promotions, preserved prototypes'
+echo 'PASS: C90 implicit int, K&R parameters/promotions and preserved prototypes'
 while IFS='|' read -r label code source; do
   printf '%s\n' "$source" > "$work/reject.c"
   rc=0
@@ -21,6 +21,7 @@ done <<'CASES'
 unspecified-char-conflict|237|int f(); int f(char x) { return x; } int main(void){return 0;}
 unspecified-variadic-conflict|237|int f(); int f(int x,...); int main(void){return 0;}
 knr-count-conflict|237|int f(int,int); int f(x) int x; {return x;} int main(void){return 0;}
+implicit-return-conflict|237|long f(void); f(){return 0;} int main(void){return 0;}
 knr-width-conflict|237|int f(long); int f(x) int x; {return x;} int main(void){return 0;}
 knr-unknown-name|233|int f(x) int y; {return x;} int main(void){return 0;}
 knr-duplicate-name|233|int f(x,x) int x; {return x;} int main(void){return 0;}

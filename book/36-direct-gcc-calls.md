@@ -38,6 +38,12 @@ retain their parameter names, then bind the following declarations by
 name. Parameters without a declaration become `int`. Comparing such a
 definition with a prototype compares its promoted parameter types; a
 later unspecified declaration does not erase an already visible prototype.
+
+File-scope declarations and function definitions also admit C90's
+omitted `int`; typedef names still introduce explicit types. This handles
+the original configure probe `main(){return(0);}` through the ordinary
+parser, without recognizing that spelling specially or rewriting source.
+
 Function bodies install the finalized signature directly, avoiding a
 second parameter parser with different type rules.
 
@@ -246,6 +252,18 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   nc-ty @ nc-desc @ cc-nalignment [lit] 8 cc-nmax cc-nalign
   [lit] 8 / dup cc-fn-local-count @ - swap 1- ;
 ' cc-sysv-local-layout is cc-native-local-layout-fwd
+
+\ C90 permits an omitted int at file scope. A typedef name still starts
+\ an explicit type; other identifiers remain pending for the declarator.
+: cc-sysv-implicit-base ( -- type descriptor true | false )
+  cc-target-sysv @ nc-top @ and 0= if, [lit] 0 exit, then,
+  tok-kind @ tk-ident <> if, [lit] 0 exit, then,
+  tok-str-addr @ tok-str-len @ cc-sym-find
+  dup 0< 0= if,
+    dup cc-sym-kind-of sk-typedef = if, drop [lit] 0 exit, then,
+  then, drop
+  cc-putback-token ty-int [lit] 0 ty-make [lit] 0 true ;
+' cc-sysv-implicit-base is cc-native-implicit-base-fwd
 
 : cc-sysv-check-declarator
   cc-target-sysv @ if,

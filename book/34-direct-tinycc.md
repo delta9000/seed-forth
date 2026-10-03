@@ -188,6 +188,11 @@ variable cc-ntag-u
 defer cc-ntypedef-check-fwd
 ' cc-ntypedef-check-noop is cc-ntypedef-check-fwd
 
+\ A target may provide C90's omitted int base without changing native mode.
+: cc-native-implicit-base-noop [lit] 0 ;
+defer cc-native-implicit-base-fwd
+' cc-native-implicit-base-noop is cc-native-implicit-base-fwd
+
 defer cc-nbase-fwd
 
 defer cc-naggregate-fwd
@@ -222,6 +227,7 @@ defer cc-naggregate-fwd
   cc-nctx @ 0= if, cc-ncontext then,
   [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
   begin, cc-qualifier? while, cc-next-token-keep repeat,
+  cc-native-implicit-base-fwd if, exit, then,
   kw-struct cc-tok-kw? kw-union cc-tok-kw? or if,
     cc-naggregate-fwd exit,
   then,

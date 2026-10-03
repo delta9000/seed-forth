@@ -98,6 +98,18 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   [lit] 8 / dup cc-fn-local-count @ - swap 1- ;
 ' cc-sysv-local-layout is cc-native-local-layout-fwd
 
+\ C90 permits an omitted int at file scope. A typedef name still starts
+\ an explicit type; other identifiers remain pending for the declarator.
+: cc-sysv-implicit-base ( -- type descriptor true | false )
+  cc-target-sysv @ nc-top @ and 0= if, [lit] 0 exit, then,
+  tok-kind @ tk-ident <> if, [lit] 0 exit, then,
+  tok-str-addr @ tok-str-len @ cc-sym-find
+  dup 0< 0= if,
+    dup cc-sym-kind-of sk-typedef = if, drop [lit] 0 exit, then,
+  then, drop
+  cc-putback-token ty-int [lit] 0 ty-make [lit] 0 true ;
+' cc-sysv-implicit-base is cc-native-implicit-base-fwd
+
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
     cc-sysv-inherit-array
