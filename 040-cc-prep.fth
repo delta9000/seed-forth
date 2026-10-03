@@ -481,6 +481,37 @@ create cc-prep-file-paths  cc-prep-direct-depth 1+ cc-prep-path-cap * allot
 create cc-prep-file-lens   cc-prep-direct-depth 1+ [lit] 8 * allot
 variable cc-prep-inc-mode                         \ 1=quote, 2=angle
 
+\ Source provenance is separate from flattened diagnostic line numbers.
+\ Each live file caches a physical-line cursor. Macro replacement text keeps
+\ its invocation location; raw argument slices can recover their own lines.
+variable cc-pp-location-enabled
+variable cc-pp-location-line
+create cc-pp-file-base    cc-prep-direct-depth 1+ [lit] 8 * allot
+create cc-pp-file-end     cc-prep-direct-depth 1+ [lit] 8 * allot
+create cc-pp-file-cursor  cc-prep-direct-depth 1+ [lit] 8 * allot
+create cc-pp-file-line    cc-prep-direct-depth 1+ [lit] 8 * allot
+: cc-pp-location-cell  cc-prep-inc-depth @ swap cell[] ;
+: cc-pp-location-enter
+  cc-prep-src-addr @ dup cc-pp-file-base cc-pp-location-cell !
+  dup cc-pp-file-cursor cc-pp-location-cell !
+  cc-prep-src-len @ + cc-pp-file-end cc-pp-location-cell !
+  [lit] 1 cc-pp-file-line cc-pp-location-cell ! ;
+: cc-pp-location-at ( address -- )
+  cc-pp-location-enabled @ 0= if, drop exit, then,
+  dup cc-pp-file-base cc-pp-location-cell @ < if, drop exit, then,
+  dup cc-pp-file-end cc-pp-location-cell @ >= if, drop exit, then,
+  dup cc-pp-file-cursor cc-pp-location-cell @ < if,
+    cc-pp-file-base cc-pp-location-cell @ cc-pp-file-cursor cc-pp-location-cell !
+    [lit] 1 cc-pp-file-line cc-pp-location-cell !
+  then,
+  cc-pp-file-cursor cc-pp-location-cell @
+  begin, 2dup > while,
+    dup c@ nl = if, [lit] 1 cc-pp-file-line cc-pp-location-cell +! then,
+    1+
+  repeat,
+  nip cc-pp-file-cursor cc-pp-location-cell !
+  cc-pp-file-line cc-pp-location-cell @ cc-pp-location-line ! ;
+
 : cc-prep-config-reset
   [lit] 0 cc-prep-direct !  [lit] 0 cc-prep-include-count !
   [lit] 0 cc-prep-source-len ! ;
@@ -941,9 +972,47 @@ variable cc-pp-arg-paste
 \ The busy flag of macro i.
 : cc-macro-busy-cell  cc-macro-busy cell[] ;       ( i -- cell )
 
+create cc-pp-location-digits [lit] 24 allot
+variable cc-pp-location-digit-count
+: cc-pp-location-number ( unsigned -- )
+  [lit] 0 cc-pp-location-digit-count !
+  begin,
+    dup [lit] 10 / swap over [lit] 10 * - [char] 0 +
+    cc-pp-location-digits cc-pp-location-digit-count @ + c!
+    [lit] 1 cc-pp-location-digit-count +!
+    dup 0=
+  until, drop
+  begin, cc-pp-location-digit-count @ while,
+    [lit] 1 cc-pp-location-digit-count -!
+    cc-pp-location-digits cc-pp-location-digit-count @ + c@ cc-prep-emit-byte
+  repeat, ;
+: cc-pp-location-string-byte ( byte -- )
+  dup [char] " = over backslash = or if,
+    backslash cc-prep-emit-byte cc-prep-emit-byte exit,
+  then,
+  dup [lit] 32 >= over [lit] 127 < and if, cc-prep-emit-byte exit, then,
+  backslash cc-prep-emit-byte
+  dup [lit] 64 / [char] 0 + cc-prep-emit-byte
+  dup [lit] 8 / [lit] 7 and [char] 0 + cc-prep-emit-byte
+  [lit] 7 and [char] 0 + cc-prep-emit-byte ;
+create cc-pp-stdin-name s, <stdin>
+: cc-pp-location-filename
+  [char] " cc-prep-emit-byte
+  cc-prep-current-path cc-prep-inc-depth @ cc-prep-file-lens cell[] @
+  dup 0= if, 2drop cc-pp-stdin-name [lit] 7 then,
+  begin, dup while,
+    over c@ cc-pp-location-string-byte swap 1+ swap 1-
+  repeat, 2drop [char] " cc-prep-emit-byte ;
+
 \ cc-pp-expand-object ( i -- )  Scan object-like macro i's body in place of
 \ its name.
 : cc-pp-expand-object
+  dup cc-macro-params cell[] @ [lit] 0 [lit] 2 - = if,
+    drop cc-pp-location-line @ cc-pp-location-number exit,
+  then,
+  dup cc-macro-params cell[] @ [lit] 0 [lit] 3 - = if,
+    drop cc-pp-location-filename exit,
+  then,
   cc-pp-out-pos @ >r
   true over cc-macro-busy-cell !
   dup cc-macro-body-addr cell[] @  over cc-macro-body-len cell[] @
@@ -1017,7 +1086,7 @@ variable cc-pp-tail-name
 \ macro that is not busy (a function-like one only when '(' follows);
 \ otherwise copy it.  Newlines a file-level call swallowed are owed; write
 \ them now.
-: cc-pp-ident
+: cc-pp-ident-work
   cc-prep-read-ident
   cc-pp-in-if @ if,
     cc-pp-n-defined [lit] 7 cc-prep-ident= if, cc-pp-defined exit, then,
@@ -1040,6 +1109,11 @@ variable cc-pp-tail-name
     then,
   then,
   cc-prep-in-file @ if, cc-pp-flush-nl then, ;
+: cc-pp-ident
+  cc-pp-location-line @ >r
+  cc-prep-src-addr @ cc-prep-src-pos @ + cc-pp-location-at
+  cc-pp-ident-work
+  r> cc-pp-location-line ! ;
 
 \ ---------------------------------------------------------------------------
 \ Conditional groups
@@ -1317,6 +1391,7 @@ variable cc-prep-inc-end
       cc-prep-src-pos  @ cc-prep-save-pos  cc-prep-save-slot !
       [lit] 1 cc-prep-inc-depth +!
       cc-prep-src-len ! cc-prep-src-addr ! [lit] 0 cc-prep-src-pos !
+      cc-pp-location-enter
       cc-pp-scan
       [lit] 1 cc-prep-inc-depth -!
       cc-prep-save-addr cc-prep-save-slot @ cc-prep-src-addr !
@@ -1475,15 +1550,22 @@ create cc-prep-name-include  s, include
 create cc-prep-name-define   s, define
 create cc-prep-name-undef    s, undef
 create cc-prep-name-error    s, error
+create cc-prep-name-line     s, line
 
 : cc-prep-handle-directive
   cc-prep-skip-blanks                              \ leading indent before '#'
   cc-prep-advance                                  \ consume '#'
   cc-prep-skip-blanks
+  cc-pp-location-enabled @ cc-pp-skipping? 0= and if,
+    cc-prep-peek digit? if, [lit] 49 cc-die then,
+  then,
   cc-prep-peek ident-start? if,
     cc-prep-read-ident
     cc-pp-cond-directive if, cc-prep-skip-to-eol exit, then,
     cc-pp-skipping? 0= if,
+      cc-pp-location-enabled @ if,
+        cc-prep-name-line [lit] 4 cc-prep-ident= if, [lit] 49 cc-die then,
+      then,
       cc-prep-name-include [lit] 7 cc-prep-ident= if,
         cc-prep-handle-include cc-prep-skip-to-eol exit,
       then,
@@ -1549,6 +1631,16 @@ create cc-builtin-name-O_TRUNC       s, O_TRUNC
 \ then rewinds the reader (cc-src-pos 0, cc-src-line 1) for the lexer.  An
 \ #if still open at the end dies with 39.
 
+\ Negative parameter tags below -1 identify dynamic object-like builtins.
+\ They are real table entries: defined/#ifdef, replacement and undef work
+\ through the same lookup as ordinary macros, without fixed line answers.
+create cc-pp-name-line s, __LINE__
+create cc-pp-name-file s, __FILE__
+: cc-prep-location-builtins
+  true cc-pp-location-enabled !
+  cc-pp-name-line [lit] 8 [lit] 0 [lit] 0 [lit] 0 [lit] 2 - cc-macro-record
+  cc-pp-name-file [lit] 8 [lit] 0 [lit] 0 [lit] 0 [lit] 3 - cc-macro-record ;
+
 \ Optional target-owned predefined macros. The default preserves native output.
 : cc-prep-target-default ;
 defer cc-prep-target-fwd
@@ -1567,6 +1659,7 @@ defer cc-prep-target-fwd
   cc-src-buf cc-pp-out !  [lit] 0 cc-pp-out-pos !
   cc-src-cap cc-pp-out-cap !  [lit] 36 cc-pp-out-code !
   cc-prep-direct @ 0= if, cc-prep-builtins then,
+  [lit] 0 cc-pp-location-enabled ! [lit] 1 cc-pp-location-line !
   cc-prep-target-fwd
   [lit] 0 cc-prep-inc-top !
   cc-prep-source-path cc-prep-source-len @ cc-prep-file-paths cc-prep-copy-path
@@ -1574,6 +1667,7 @@ defer cc-prep-target-fwd
   cc-in-buf cc-prep-src-addr !
   cc-in-len @ cc-prep-src-len !
   [lit] 0 cc-prep-src-pos !
+  cc-pp-location-enter
   true cc-prep-in-file !
   cc-pp-scan
   cc-pp-cond-depth @ if, [lit] 39 cc-die then,

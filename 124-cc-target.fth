@@ -10,6 +10,7 @@ create cc-target-name-lp64       s, __LP64__
 
 : cc-target-predefines
   cc-target-sysv @ if,
+    cc-prep-location-builtins
     cc-target-name-stdc   [lit] 8  cc-pp-t1 [lit] 1 cc-macro-add
     cc-target-name-hosted [lit] 15 cc-pp-t0 [lit] 1 cc-macro-add
     cc-target-name-seed   [lit] 14 cc-pp-t1 [lit] 1 cc-macro-add
