@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -27,7 +28,11 @@ def main():
     cc = shutil.which('gcc')
     if not cc:
         raise SystemExit('SKIP: gcc needed only for independent ABI oracle')
-    inputs = sorted(ROOT.glob('[0-9][0-9][0-9]-cc-*.fth'))
+    inputs = [ROOT / 'seed-forth', ROOT / '010-lib.fth'] + [
+        p for p in sorted(ROOT.glob('[0-9][0-9][0-9]-cc-*.fth'))
+        if p.name not in ('120-cc-main.fth', '140-cc-link.fth')]
+    inputs += [ROOT / 'tests/gcc/sysv-compile.sh',
+               ROOT / 'tests/gcc/sysv-object-compile.sh']
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
     with tempfile.TemporaryDirectory(prefix='review-sysv.') as temp:
         work = Path(temp)
@@ -40,7 +45,58 @@ def main():
                  str(ROOT / 'tests/gcc/review-sysv-oracle.S'), '-o', str(oracle)])
             print(run([str(oracle), str(target)]).stdout.decode().strip(), optimization)
 
+
+        # Repeat all ABI instrumentation against the actual ET_REL adapter.
+        # Rename target symbols so the host can retain independent references.
+        fixture = (ROOT / 'tests/gcc/review-sysv-fixture.c').read_text().split('/* Pointer export')[0]
+        object_source = work / 'object-target.c'
+        object_source.write_text(fixture.replace('review_', 'seed_'))
+        obj = work / 'target.o'
+        run([str(ROOT / 'tests/gcc/sysv-object-compile.sh'), str(object_source), str(obj)])
+        prototypes = []
+        for match in re.finditer(r'(?m)^(?:long|signed char|unsigned char|short|unsigned short|int|unsigned int) (review_\w+)\([^;{}]*\) \{', fixture):
+            prototype = match.group(0)[:-2]
+            prototypes.append(prototype.replace(match.group(1), match.group(1).replace('review_', 'seed_'), 1)+';')
+        names = ['zero', 'six', 'seven', 'eight', 'twelve', 'recursion', 'operands',
+                 'narrow', 'return_char', 'return_uchar', 'return_short', 'return_ushort',
+                 'return_int', 'return_uint', 'callback', 'call_narrow', 'call_variadic', 'control']
+        assert len(prototypes) == len(names)
+        exports = '\n'.join(prototypes)+'\nstatic long review_object_lookup(long index) { switch(index) {'
+        exports += ''.join(f'case {i}: return (long)seed_{name};' for i, name in enumerate(names))
+        exports += 'default: return 0; } }\n'
+        (work / 'review-sysv-object-exports.h').write_text(exports)
+        for optimization in ('-O0', '-O2'):
+            oracle = work / ('object-oracle'+optimization[1:])
+            run([cc, '-std=c99', '-Wall', '-Wextra', '-Werror', optimization,
+                 '-fPIE', '-pie', '-Wl,-z,noexecstack', '-DREVIEW_OBJECT_ORACLE',
+                 '-I'+str(work), str(ROOT / 'tests/gcc/review-sysv-oracle.c'),
+                 str(ROOT / 'tests/gcc/review-sysv-oracle.S'), str(obj), '-o', str(oracle)])
+            print(run([str(oracle)]).stdout.decode().strip(), 'ET_REL', optimization)
+
         valid = {
+            'oldstyle-promoted-parameters': '''
+                long f(int,int);
+                long f(a,b) signed char a; unsigned short b; { return a+b; }
+                int main(void) { return f(255,65535)!=65534; }''',
+            'oldstyle-implicit-int': '''
+                long f();
+                long f(a,b) long b; { return a+b; }
+                int main(void) { return f(12,30L)!=42; }''',
+            'oldstyle-eight-arguments': '''
+                long f();
+                long f(a,b,c,d,e,f,g,h)
+                signed char a; unsigned char b; short c; unsigned short d;
+                int e; unsigned int f; long g; unsigned long h;
+                { return a!=-128 || b!=255 || c!=-32768 || d!=65535
+                    || e!=(-2147483647-1) || f!=4294967295U
+                    || g!=-4294967297L || h!=18446744073709551615UL; }
+                int main(void) { return f(128,255,32768,65535,(-2147483647-1),
+                    4294967295U,-4294967297L,18446744073709551615UL); }''',
+            'prototype-survives-unspecified': '''
+                long f(long);
+                long f();
+                long f(long x) { return x; }
+                int main(void) { return f(42L)!=42; }''',
             'typedef-function-pointer-return': '''
                 typedef long (*F)(long);
                 long add(long x) { return x+3; }
@@ -67,6 +123,14 @@ def main():
         total = sum(i*i for i in range(1,65))
         valid['64-arguments'] = f'long f({args}) {{ return {weighted}; }} int main(void) {{ return f({values})!={total}; }}'
         rejections = {
+            'void-after-parameter': (233, 'int f(int a,void){return a;} int main(void){return 0;}'),
+            'duplicate-typed-parameter': (233, 'int f(int a,int a){return a;} int main(void){return 0;}'),
+            'oldstyle-duplicate-parameter': (233, 'int f(a,a) int a; {return a;} int main(void){return 0;}'),
+            'oldstyle-unknown-declaration': (233, 'int f(a) int b; {return a;} int main(void){return 0;}'),
+            'oldstyle-duplicate-declaration': (233, 'int f(a) int a; int a; {return a;} int main(void){return 0;}'),
+            'unspecified-narrow-prototype': (237, 'int f(); int f(char x){return x;} int main(void){return 0;}'),
+            'prototype-survives-for-arity': (235, 'long f(long); long f(); long f(long x){return x;} int main(void){return f();}'),
+            'function-parameter-declarator': (233, 'int f(int cb(int)){return 0;} int main(void){return 0;}'),
             '65-parameters': (234, 'long f(' + ','.join(f'long a{i}' for i in range(65)) + '); int main(void){return 0;}'),
             '65-call-arguments': (234, 'long f(long x,...); int main(void){return f(' + ','.join('1' for _ in range(65)) + ');}'),
             'pointer-call-too-few': (235, 'long f(long x){return x;} int main(void){long (*p)(long); p=f; return p();}'),

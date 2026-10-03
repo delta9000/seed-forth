@@ -47,6 +47,22 @@ variable cc-obj-nstr
 variable cc-obj-shoff
 variable cc-obj-local-end
 variable cc-obj-initialized
+\ Publication state is separate from object metadata and reset between writes.
+create cc-obj-temp-path  [lit] 4096 allot
+create cc-obj-temp-suffix  s, .obj-
+create cc-obj-hex-digits  s, 0123456789abcdef
+create cc-obj-stat-buffer  [lit] 144 allot
+variable cc-obj-path
+variable cc-obj-fd
+variable cc-obj-written
+variable cc-obj-temp-owned
+variable cc-obj-temp-length
+variable cc-obj-pid
+variable cc-obj-ti
+: cc-obj-reset-write ( -- )
+  true cc-obj-fd ! [lit] 0 cc-obj-path ! [lit] 0 cc-obj-written !
+  [lit] 0 cc-obj-temp-owned ! [lit] 0 cc-obj-temp-length !
+  [lit] 0 cc-obj-pid ! [lit] 0 cc-obj-ti ! [lit] 0 cc-obj-temp-path c! ;
 
 : cc-obj-sh ( section -- a )  [lit] 72 * cc-obj-sections + ;
 : cc-obj-sym ( id -- a )  [lit] 64 * cc-obj-symbols + ;
@@ -239,6 +255,7 @@ here cc-obj-shnames - constant cc-obj-shnames-size
   cc-obj-sh >r r@ [lit] 56 + ! r@ [lit] 16 + !
   r@ [lit] 8 + ! r> ! ;
 : cc-obj-init ( -- )
+  cc-obj-reset-write
   cc-obj-sections [lit] 720 cc-obj-zero
   [lit] 0 cc-obj-nsym ! [lit] 0 cc-obj-nrel ! [lit] 1 cc-obj-nstr !
   [lit] 0 cc-obj-strings c! cc-obj-text cc-obj-current !
@@ -353,18 +370,60 @@ variable cc-obj-pass
     cc-obj-i @ cc-obj-emit-sh [lit] 1 cc-obj-i +!
   repeat, ;
 
-variable cc-obj-fd
-variable cc-obj-written
+\ Validate/build before creating a sibling temporary. Never truncate the old
+\ output; only publish after every byte and close succeed. Refuse special files.
+: cc-obj-check-output ( -- )
+  cc-obj-path @ cc-obj-stat-buffer [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 4 syscall6
+  dup [lit] 0 [lit] 2 - = if, drop exit, then,
+  0= 0= if, [lit] 248 cc-die then,
+  cc-obj-stat-buffer [lit] 24 + @ [lit] 61440 and [lit] 32768 <>
+  if, [lit] 248 cc-die then, ;
+: cc-obj-make-temp-path ( -- )
+  begin, cc-obj-path @ cc-obj-temp-length @ + c@ dup while,
+    cc-obj-temp-length @ [lit] 4074 >= if, [lit] 248 cc-die then,
+    cc-obj-temp-path cc-obj-temp-length @ + c!
+    [lit] 1 cc-obj-temp-length +!
+  repeat, drop
+  cc-obj-temp-length @ 0= if, [lit] 248 cc-die then,
+  begin, cc-obj-ti @ [lit] 5 < while,
+    cc-obj-temp-suffix cc-obj-ti @ + c@
+    cc-obj-temp-path cc-obj-temp-length @ + cc-obj-ti @ + c!
+    [lit] 1 cc-obj-ti +!
+  repeat,
+  [lit] 5 cc-obj-temp-length +!
+  [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 39 syscall6 cc-obj-pid !
+  [lit] 16 cc-obj-ti !
+  begin, cc-obj-ti @ while,
+    [lit] 1 cc-obj-ti -!
+    cc-obj-hex-digits cc-obj-pid @ [lit] 15 and + c@
+    cc-obj-temp-path cc-obj-temp-length @ + cc-obj-ti @ + c!
+    cc-obj-pid @ [lit] 16 / cc-obj-pid !
+  repeat,
+  [lit] 0 cc-obj-temp-path cc-obj-temp-length @ + [lit] 16 + c! ;
+: cc-obj-abandon-output ( -- )
+  cc-obj-fd @ 0< 0= if, cc-obj-fd @ close drop true cc-obj-fd ! then,
+  cc-obj-temp-owned @ if,
+    cc-obj-temp-path [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 87 syscall6 drop
+    [lit] 0 cc-obj-temp-owned !
+  then,
+  [lit] 248 cc-die ;
 : cc-obj-write ( nul-terminated-path -- )
-  cc-obj-build [lit] 577 [lit] 420 open
+  cc-obj-require-init cc-obj-reset-write cc-obj-path ! cc-obj-build
+  cc-obj-make-temp-path cc-obj-check-output
+  \ O_WRONLY | O_CREAT | O_EXCL; an existing temporary is never ours to unlink.
+  cc-obj-temp-path [lit] 193 [lit] 420 open
   dup 0< if, [lit] 248 cc-die then, cc-obj-fd !
-  [lit] 0 cc-obj-written !
+  true cc-obj-temp-owned !
   begin, cc-obj-written @ cc-out-pos @ < while,
     cc-obj-fd @ cc-out-buf cc-obj-written @ + cc-out-pos @ cc-obj-written @ - write
     dup [lit] 0 [lit] 4 - = if, drop
     else,
-      dup [lit] 0 <= if, cc-obj-fd @ close drop [lit] 248 cc-die then,
+      dup [lit] 0 <= if, cc-obj-abandon-output then,
       cc-obj-written +!
     then,
   repeat,
-  cc-obj-fd @ close 0< if, [lit] 248 cc-die then, ;
+  \ Linux may release the descriptor even when close reports an error.
+  cc-obj-fd @ close true cc-obj-fd ! 0= 0= if, cc-obj-abandon-output then,
+  cc-obj-temp-path cc-obj-path @ [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 82 syscall6
+  0= 0= if, cc-obj-abandon-output then,
+  cc-obj-reset-write ;

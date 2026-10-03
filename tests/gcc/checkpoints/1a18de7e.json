@@ -1,0 +1,68 @@
+{
+  "source_commit": "1a18de7e2551051a94b54f09104290723ee4fe8b",
+  "source_tree": "8bf1bbfbce1af87d1ce444176df261905718bb88",
+  "method": "Fresh git archive of the exact remote commit; pinned source submodules referenced read-only; all archived Git blobs verified unchanged after execution.",
+  "archived_blobs_checked": 818,
+  "source_archive_sha256": "aafcdb653492d4aa0dbf5f5b43eaa426c3d38a2189e90c52b5aab9550659a8d6",
+  "commands": [
+    {
+      "command": "./build.sh",
+      "status": "PASS",
+      "exit_status": 0
+    },
+    {
+      "command": "bash tests/gcc/check.sh",
+      "status": "PASS",
+      "exit_status": 0
+    },
+    {
+      "command": "python3 tests/gcc/review-sysv-check.py",
+      "status": "PASS",
+      "exit_status": 0
+    },
+    {
+      "command": "tests/tcc/native-check.sh",
+      "status": "PASS",
+      "exit_status": 0
+    },
+    {
+      "command": "tests/tcc/kernel-route-check.sh",
+      "status": "PASS",
+      "exit_status": 0
+    }
+  ],
+  "batch_exit_status": 0,
+  "combined_output": {
+    "bytes": 11479,
+    "sha256": "4db39ea23f88e278f95aff69e338853e332f66b62bfa8ed287415c74e25fd71d"
+  },
+  "artifacts": {
+    "seed-forth": {
+      "bytes": 1772,
+      "sha256": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot2": {
+      "bytes": 305496,
+      "sha256": "514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot3": {
+      "bytes": 305496,
+      "sha256": "514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot2.o": {
+      "bytes": 497080,
+      "sha256": "b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot3.o": {
+      "bytes": 497080,
+      "sha256": "b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61"
+    }
+  },
+  "limits": [
+    "This validates commit 1a18de7e2551051a94b54f09104290723ee4fe8b only, not later K&R/runtime/linker edits.",
+    "Host gcc/ld/readelf used only in interoperability and semantic oracles; production Forth objects/linker and raw TinyCC route remain separately described by their scripts.",
+    "Full check-all.sh/verify.sh, direct GCC build and QEMU guest boot were not run in this checkpoint."
+  ],
+  "vendor_files_verified_after_run": 2373,
+  "vendor_manifest_sha256": "a9568bc274a01b341712ce8a8df57160b03d0088eb866b5a38e6a78bdde70ced"
+}

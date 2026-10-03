@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (390 lines),
+This chapter owns `115-cc-native.fth` (399 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (292 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
@@ -137,6 +137,7 @@ variable cc-nctx
 : nc-sdesc  cc-nctx @ [lit] 152 + ;
 : nc-id     cc-nctx @ [lit] 160 + ;
 : nc-slot   cc-nctx @ [lit] 168 + ;
+: nc-extern cc-nctx @ [lit] 176 + ;
 : cc-nzero ( a n -- )
   begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;
 : cc-ncontext
@@ -252,8 +253,8 @@ defer cc-naggregate-fwd
 ' cc-nbase is cc-nbase-fwd
 
 \ The optional ABI layer records function-pointer signatures at this seam.
-: cc-nfnptr-default
-  cc-skip-fnptr-params ty-func [lit] 1 ty-make nc-ty ! ;
+: cc-nfnptr-default ( extra-stars -- )
+  drop cc-skip-fnptr-params ty-func [lit] 1 ty-make nc-ty ! ;
 defer cc-nfnptr-fwd
 ' cc-nfnptr-default is cc-nfnptr-fwd
 : cc-ndeclarator-check-noop ;
@@ -271,11 +272,11 @@ defer cc-ndeclarator-check-fwd
   cc-next-token-keep
   lparen cc-tok-punct? if,
     [char] * cc-expect-punct-c
-    cc-count-stars drop
+    cc-count-stars >r
     cc-expect-ident
     tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
     [char] ) cc-expect-punct-c
-    lparen cc-expect-punct-c cc-nfnptr-fwd
+    lparen cc-expect-punct-c r> cc-nfnptr-fwd
     cc-next-token-keep
   else,
     tok-kind @ tk-ident = if,
@@ -474,9 +475,12 @@ defer cc-native-init-finish-fwd
   then,
   [char] = cc-tok-punct? if, cc-native-init-fwd then, ;
 
+defer cc-nobject-fwd
+' cc-nobject is cc-nobject-fwd
+
 : cc-native-declaration ( top? -- )
   cc-nctx @ >r cc-ncontext nc-top !
-  cc-decl-static @ nc-static !
+  cc-decl-static @ nc-static ! cc-decl-extern @ nc-extern !
   kw-typedef cc-tok-kw? if,
     true nc-td ! cc-next-token-keep
   then,
@@ -496,7 +500,7 @@ defer cc-native-init-finish-fwd
       nc-func @ if,
         cc-native-function-fwd
         [char] } cc-tok-punct? if, r> cc-nctx ! exit, then,
-      else, cc-nobject then,
+      else, cc-nobject-fwd then,
     then,
     [char] , cc-tok-punct?
   while, repeat,
@@ -834,6 +838,11 @@ defer cc-ni-value-fwd
   then,
   cc-next-token-keep ;
 
+defer cc-ni-scalar-fwd
+defer cc-ni-string-fwd
+' cc-ni-scalar is cc-ni-scalar-fwd
+' cc-ni-string is cc-ni-string-fwd
+
 : cc-ni-child-count
   ni-array @ if, ni-array @ exit, then,
   ni-desc @ cc-sd-union? if, [lit] 1 else, ni-desc @ cc-sd-field-count then, ;
@@ -878,12 +887,12 @@ defer cc-ni-value-fwd
 
 \ Character-array strings may optionally have a single pair of braces.
 : cc-ni-char-array
-  tok-kind @ tk-str = if, cc-ni-string exit, then,
+  tok-kind @ tk-str = if, cc-ni-string-fwd exit, then,
   [char] { cc-tok-punct? if,
     cc-lex-state-size cc-alloc dup >r cc-lex-mark
     cc-next-token-keep
     tok-kind @ tk-str = if,
-      r> drop cc-ni-string
+      r> drop cc-ni-string-fwd
       [char] , cc-tok-punct? if, cc-next-token-keep then,
       [char] } cc-tok-punct? 0= if, [lit] 223 cc-die then,
       cc-next-token-keep exit,
@@ -909,7 +918,7 @@ defer cc-ni-value-fwd
     cc-ni-aggregate? if,
       [char] { cc-tok-punct? ni-nested @ or if,
         cc-ni-list
-      else, cc-ni-scalar then,
+      else, cc-ni-scalar-fwd then,
     else,
       [char] { cc-tok-punct? if,
         cc-next-token-keep
@@ -917,7 +926,7 @@ defer cc-ni-value-fwd
         [char] , cc-tok-punct? if, cc-next-token-keep then,
         [char] } cc-tok-punct? 0= if, [lit] 227 cc-die then,
         cc-next-token-keep
-      else, cc-ni-scalar then,
+      else, cc-ni-scalar-fwd then,
     then,
   then,
   r> cc-ni-frame ! ;

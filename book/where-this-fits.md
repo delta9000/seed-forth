@@ -370,7 +370,7 @@ mescc-tools' C with its first M2; the Forth route's equivalent is
 drive those steps; the Forth route leans on the host shell instead.
 
 Both totals are dominated by the small C compiler at the top.
-Ours is `090-cc-emit.fth` through `116-cc-prog.fth`, 6,795 lines of
+Ours is `090-cc-emit.fth` through `116-cc-prog.fth`, 6,824 lines of
 Forth.  The stage0 one is `cc_amd64.M1`, 5,413 lines of M1 assembly.
 Treat the two as the same order of magnitude.
 

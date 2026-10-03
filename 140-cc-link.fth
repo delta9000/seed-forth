@@ -93,8 +93,11 @@ create lnk-stat-buffer  [lit] 144 allot
   [lit] 0 lnk-done !
   begin, lnk-done @ lnk-size @ < while,
     lnk-fd @ lnk-op @ @ lnk-done @ + lnk-size @ lnk-done @ - read
-    dup [lit] 0 > 0= if, [lit] 255 cc-die then,
-    lnk-done +!
+    dup [lit] 0 [lit] 4 - = if, drop
+    else,
+      dup [lit] 0 > 0= if, [lit] 255 cc-die then,
+      lnk-done +!
+    then,
   repeat,
   lnk-fd @ lnk-fstat
   lnk-stat-buffer @ [lit] 104 lnk-field !
@@ -164,6 +167,8 @@ variable lnk-shstrlen
   lnk-sh @ [lit] 4 + c@ [lit] 2 = lnk-need
   lnk-sh @ [lit] 5 + c@ [lit] 1 = lnk-need
   lnk-sh @ [lit] 6 + c@ [lit] 1 = lnk-need
+  lnk-sh @ [lit] 7 + c@ dup 0= swap [lit] 3 = or lnk-need
+  lnk-sh @ [lit] 8 + [lit] 8 lnk-zero? lnk-need
   lnk-sh @ [lit] 16 + lnk-u16 [lit] 1 = lnk-need
   lnk-sh @ [lit] 18 + lnk-u16 [lit] 62 = lnk-need
   lnk-sh @ [lit] 20 + lnk-u32 [lit] 1 = lnk-need
@@ -171,6 +176,7 @@ variable lnk-shstrlen
   lnk-sh @ [lit] 32 + @ 0= lnk-need
   lnk-sh @ [lit] 48 + lnk-u32 0= lnk-need
   lnk-sh @ [lit] 52 + lnk-u16 [lit] 64 = lnk-need
+  lnk-sh @ [lit] 54 + lnk-u16 0= lnk-need
   lnk-sh @ [lit] 56 + lnk-u16 0= lnk-need
   lnk-sh @ [lit] 58 + lnk-u16 [lit] 64 = lnk-need
   lnk-sh @ [lit] 60 + lnk-u16 [lit] 10 = lnk-need

@@ -1,13 +1,110 @@
-# 37. Linking separate AMD64 objects
+# Chapter 37 — Linking independent AMD64 objects
 
-The direct route needs a linker that starts from independently emitted objects.
-This chapter implements that boundary in Forth, above the library, arena and
-I/O layers. Its input follows the ten-section relocatable-object contract of
-Chapter 36. The linker does not invoke an assembler or a host linker.
+## Goal and source coverage
 
-The public interface loads object paths, selects an entry symbol, and writes a
-static executable. Object bytes and the output use separately allocated memory;
-input ranges must be validated before addresses are dereferenced.
+You can now take two independently produced object files and make a static
+Linux executable using only Forth running on the seed. `140-cc-link.fth` loads
+on the library, arena, and I/O layers; it does not need the C parser or an
+external linker. The ten-section object contract comes from Chapter 35.
+This is newly reconstructed source, not recovered historical code.
+
+Concepts carried in: Chapter 35's section-relative symbols and RELA records,
+and Chapter 36's System V scalar calls. Concepts introduced: global symbol
+resolution, input-specific section placement, checked relocation arithmetic,
+separate memory and file extents, and publishing a completed executable.
+Deferred: archive member selection, arbitrary external ELF sections, COMMON,
+TLS, GOT relocations, COMDAT, dynamic linking, and GCC-scale compilation.
+
+## 1. The public boundary
+
+The driver calls `lnk-init`, then `lnk-add-object (nul-path --)` for each
+input. `lnk-entry (name length --)` chooses a global entry symbol in `.text`.
+`lnk-link (nul-output-path --)` computes placement, resolves names, applies
+relocations, and writes an executable. Paths and the entry name belong to the
+caller and must stay available through the call that consumes them.
+
+Each object has a separately allocated byte buffer, a validated view of its
+symbol and string tables, and four placement cells. A name never points into
+a temporary read buffer. `lnk-release` releases all owned mappings; `lnk-init`
+also releases the previous session before allocating a fresh name table.
+Calling `lnk-link` again preserves inputs and replaces its previous image.
+
+The limits are explicit: 256 objects, 65,536 symbols per object, 65,536 global
+names, 256 MiB per input and output image, and section alignments through
+1 MiB. They are policy constants, not implicit limits imposed by the seed's
+original output buffer. This gate proves a bounded object boundary, not that
+these bounds or the compiler cover GCC's full source tree.
+
+## 2. Validate before dereferencing
+
+A file-supplied offset is a number until its entire range has been checked.
+`lnk-span` first checks that the offset is within the file, then compares the
+requested length with the remaining length. It never relies on an unchecked
+`offset + size`, which could wrap around. String names must reach a NUL inside
+the relevant string table. Symbol values and extents must fit their sections.
+
+The linker accepts exactly the ten roles emitted by Chapter 35: null, text,
+rodata, data, BSS, two relocation tables, symbols, strings, and section names.
+It verifies their types, flags, links, alignment and entry sizes. It rejects
+unsupported layouts instead of silently treating unknown sections as empty.
+The null symbol is all zero, local symbols precede global and weak symbols,
+and undefined symbols have no section-relative value or extent.
+
+## 3. Resolve a name once
+
+Local symbols stay within their original object. Global and weak names use
+an open-addressed table, kept at most half full. A defined strong symbol wins
+over a weak definition regardless of input order; two strong definitions are
+an error. If only weak definitions exist, the first input wins. An unresolved
+weak reference has value zero; an unresolved strong reference is an error.
+An absolute symbol's value is already final and needs no section placement.
+
+The slot stores the selected symbol together with its owning object. That
+pair matters: the same section-relative value in two objects generally has
+two different final addresses. Definitions are selected before any relocation
+is applied, so later strong definitions can replace earlier weak candidates.
+
+## 4. Place bytes and zero-filled memory
+
+Four passes place all text, all rodata, all data, then all BSS. Each input's
+alignment is applied independently. The executable uses one read/execute
+`PT_LOAD` segment for its headers, text and rodata and a page-aligned
+read/write `PT_LOAD` for data and BSS. The image starts at virtual address
+`0x400000`; `_start` is merely the test's chosen name, not a hard-coded entry.
+
+The data segment's file extent ends after initialized data. Its memory extent
+continues through BSS alignment and storage. Linux therefore supplies zeroed
+BSS without writing those zeros to the executable. The generated file has no
+section table or dynamic interpreter; loading depends on its ELF and program
+headers.
+
+## 5. Relocations are checked assignments
+
+For a symbol value `S`, explicit addend `A`, and relocation-site address `P`,
+`R_X86_64_64` writes `S + A`. `R_X86_64_PC32` and `R_X86_64_PLT32` write
+`S + A - P`; a static PLT32 call needs no actual PLT. `R_X86_64_32` writes a
+zero-extended 32-bit value, while `R_X86_64_32S` requires sign extension.
+
+The target bytes must fit their section, the symbol index must exist, and
+unsupported relocation types fail. Narrow writes verify their representation
+before touching the image. Sign extension is checked by reconstructing the
+full 64-bit value from its low 32 bits, avoiding overflowing signed
+comparisons for extreme addends.
+
+## 6. A failed link keeps the old output
+
+All object, symbol, entry and relocation checks finish before output creation.
+The output path is checked against input device/inode pairs, so an input
+cannot be silently replaced through its original name, a hard link, or a
+symbolic link. A successful image is written to an exclusive temporary file
+beside the destination, with interrupted writes retried and short writes
+completed, then renamed into place. A failure leaves the previous output
+untouched. This provides atomic replacement, not crash-durable storage.
+
+Errors use the compiler's diagnostic mechanism: 250 for unsupported or
+malformed metadata, 251 for resource limits, 252 for duplicate strong names,
+253 for an unresolved symbol or unusable entry, 254 for a relocation or its
+range, and 255 for file I/O or an input/output alias.
 
 ## Canonical source
 
@@ -107,8 +204,11 @@ create lnk-stat-buffer  [lit] 144 allot
   [lit] 0 lnk-done !
   begin, lnk-done @ lnk-size @ < while,
     lnk-fd @ lnk-op @ @ lnk-done @ + lnk-size @ lnk-done @ - read
-    dup [lit] 0 > 0= if, [lit] 255 cc-die then,
-    lnk-done +!
+    dup [lit] 0 [lit] 4 - = if, drop
+    else,
+      dup [lit] 0 > 0= if, [lit] 255 cc-die then,
+      lnk-done +!
+    then,
   repeat,
   lnk-fd @ lnk-fstat
   lnk-stat-buffer @ [lit] 104 lnk-field !
@@ -178,6 +278,8 @@ variable lnk-shstrlen
   lnk-sh @ [lit] 4 + c@ [lit] 2 = lnk-need
   lnk-sh @ [lit] 5 + c@ [lit] 1 = lnk-need
   lnk-sh @ [lit] 6 + c@ [lit] 1 = lnk-need
+  lnk-sh @ [lit] 7 + c@ dup 0= swap [lit] 3 = or lnk-need
+  lnk-sh @ [lit] 8 + [lit] 8 lnk-zero? lnk-need
   lnk-sh @ [lit] 16 + lnk-u16 [lit] 1 = lnk-need
   lnk-sh @ [lit] 18 + lnk-u16 [lit] 62 = lnk-need
   lnk-sh @ [lit] 20 + lnk-u32 [lit] 1 = lnk-need
@@ -185,6 +287,7 @@ variable lnk-shstrlen
   lnk-sh @ [lit] 32 + @ 0= lnk-need
   lnk-sh @ [lit] 48 + lnk-u32 0= lnk-need
   lnk-sh @ [lit] 52 + lnk-u16 [lit] 64 = lnk-need
+  lnk-sh @ [lit] 54 + lnk-u16 0= lnk-need
   lnk-sh @ [lit] 56 + lnk-u16 0= lnk-need
   lnk-sh @ [lit] 58 + lnk-u16 [lit] 64 = lnk-need
   lnk-sh @ [lit] 60 + lnk-u16 [lit] 10 = lnk-need
@@ -584,3 +687,51 @@ variable lnk-ti
   lnk-layout lnk-check-unresolved lnk-find-entry
   lnk-copy-sections lnk-relocate lnk-output-header lnk-write ;
 ```
+
+## Try it
+
+Build the seed and run the bounded linker regression suite:
+
+```sh
+./build.sh
+python3 tests/gcc/linker-check.py
+python3 tests/gcc/linker-c-check.py
+```
+
+The test reports its `build-out/linker-*` directory. Its `a.o` and `b.o` are
+produced by Forth. They cross-call, relocate a data pointer across objects,
+read initialized data, and read zero-filled BSS before the executable exits
+with status 42. A fresh linker process reproduces the same executable without
+loading the object writer. Reversing the object order also executes correctly.
+
+Additional checks cover all five relocation kinds, exact 32-bit boundaries,
+local symbol isolation, weak resolution, repeated sessions, input aliases,
+malformed metadata, and preservation of an existing output on failure.
+Python inspects bytes and constructs deliberately damaged test inputs;
+optional `readelf` independently inspects the result. Neither supplies the
+object files or executable in the successful production path.
+
+The second test compiles two independent C files through Chapter 36's
+object adapter, adds a Forth-produced `_start`, and links all three objects
+with this linker. Both inputs define their own static `adjust` function;
+one calls an eight-argument function in the other input. Both link orders
+execute with status 42. This is a real C-to-object-to-executable boundary,
+while the adapter's currently unsupported C features remain explicit.
+
+## Exercises
+
+- **★** Change the selected entry name and explain why a data symbol is rejected
+- **★★** Add an input whose BSS requires a larger alignment and inspect the
+  difference between its segment's file and memory sizes
+- **★★** Add a narrow relocation at the last byte of a section and verify that
+  the old destination survives the rejected link
+- **★★★** Design archive member selection without importing unused members or
+  turning weak undefined references into mandatory extraction requests
+
+## Takeaways
+
+- Separate objects require a selected definition and its owning section map
+- Zero-filled BSS changes memory size without changing file size
+- Validation and relocation finish before a completed executable is published
+
+Chapter 38 adds the operating-system boundary needed by compiled programs.

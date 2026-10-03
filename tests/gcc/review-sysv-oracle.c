@@ -32,7 +32,14 @@ long review_host_variadic(long count,...) {
     return result;
 }
 #define CHECK(test) do { if (!(test)) { fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#test); return 1; } } while(0)
+#ifdef REVIEW_OBJECT_ORACLE
+#include "review-sysv-object-exports.h"
+#endif
 int main(int argc,char **argv) {
+#ifdef REVIEW_OBJECT_ORACLE
+    long (*lookup)(long)=review_object_lookup;
+    (void)argc; (void)argv;
+#else
     struct stat st; Elf64_Ehdr eh; Elf64_Phdr ph; unsigned char *map;
     int fd; size_t mapsz; unsigned char *entry; int32_t rel;
     long (*lookup)(long);
@@ -53,6 +60,7 @@ int main(int argc,char **argv) {
     CHECK(entry[0]==0xe8 && memcmp(entry+5,startup,sizeof startup)==0);
     memcpy(&rel,entry+17,4);
     lookup=(long (*)(long))(void *)(entry+21+rel);
+#endif
     CHECK(((long (*)(void))(uintptr_t)lookup(0))()==42);
     CHECK(((long (*)(long,long,long,long,long,long))(uintptr_t)lookup(1))(-1,2,-3,4,-5,6)==review_six(-1,2,-3,4,-5,6));
     CHECK(((long (*)(long,long,long,long,long,long,long))(uintptr_t)lookup(2))(-1,2,-3,4,-5,6,-7)==review_seven(-1,2,-3,4,-5,6,-7));
@@ -77,7 +85,9 @@ int main(int argc,char **argv) {
     CHECK(((long (*)(review_narrow_callback))(uintptr_t)lookup(15))(review_narrow)==0);
     CHECK(((long (*)(review_variadic))(uintptr_t)lookup(16))(review_checked_variadic)==0);
     CHECK(!review_bad_alignment && !review_bad_vector_count);
+#ifndef REVIEW_OBJECT_ORACLE
     CHECK(munmap(map,mapsz)==0);
+#endif
     puts("PASS: host/seed SysV interoperability, 0/6/7/8/12 arguments, callbacks, recursion, widths, alignment, AL and callee-save sentinels");
     return 0;
 }

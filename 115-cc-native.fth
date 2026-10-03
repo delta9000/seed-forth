@@ -30,6 +30,7 @@ variable cc-nctx
 : nc-sdesc  cc-nctx @ [lit] 152 + ;
 : nc-id     cc-nctx @ [lit] 160 + ;
 : nc-slot   cc-nctx @ [lit] 168 + ;
+: nc-extern cc-nctx @ [lit] 176 + ;
 : cc-nzero ( a n -- )
   begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;
 : cc-ncontext
@@ -145,8 +146,8 @@ defer cc-naggregate-fwd
 ' cc-nbase is cc-nbase-fwd
 
 \ The optional ABI layer records function-pointer signatures at this seam.
-: cc-nfnptr-default
-  cc-skip-fnptr-params ty-func [lit] 1 ty-make nc-ty ! ;
+: cc-nfnptr-default ( extra-stars -- )
+  drop cc-skip-fnptr-params ty-func [lit] 1 ty-make nc-ty ! ;
 defer cc-nfnptr-fwd
 ' cc-nfnptr-default is cc-nfnptr-fwd
 : cc-ndeclarator-check-noop ;
@@ -164,11 +165,11 @@ defer cc-ndeclarator-check-fwd
   cc-next-token-keep
   lparen cc-tok-punct? if,
     [char] * cc-expect-punct-c
-    cc-count-stars drop
+    cc-count-stars >r
     cc-expect-ident
     tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
     [char] ) cc-expect-punct-c
-    lparen cc-expect-punct-c cc-nfnptr-fwd
+    lparen cc-expect-punct-c r> cc-nfnptr-fwd
     cc-next-token-keep
   else,
     tok-kind @ tk-ident = if,
@@ -367,9 +368,12 @@ defer cc-native-init-finish-fwd
   then,
   [char] = cc-tok-punct? if, cc-native-init-fwd then, ;
 
+defer cc-nobject-fwd
+' cc-nobject is cc-nobject-fwd
+
 : cc-native-declaration ( top? -- )
   cc-nctx @ >r cc-ncontext nc-top !
-  cc-decl-static @ nc-static !
+  cc-decl-static @ nc-static ! cc-decl-extern @ nc-extern !
   kw-typedef cc-tok-kw? if,
     true nc-td ! cc-next-token-keep
   then,
@@ -389,7 +393,7 @@ defer cc-native-init-finish-fwd
       nc-func @ if,
         cc-native-function-fwd
         [char] } cc-tok-punct? if, r> cc-nctx ! exit, then,
-      else, cc-nobject then,
+      else, cc-nobject-fwd then,
     then,
     [char] , cc-tok-punct?
   while, repeat,

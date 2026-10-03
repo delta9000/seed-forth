@@ -8,12 +8,18 @@ variable cc-target-sysv
 create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
 
 \ Signature: tag, return type, return descriptor, count, variadic flag,
-\ then 64 (type, descriptor) pairs. Function-pointer descriptors are tagged.
+\ then 64 (type, descriptor) pairs and 64 (name, length, declared) records.
+\ Flags: 1 variadic, 2 unspecified prototype, 4 identifier-list definition.
+\ Function-pointer descriptors are tagged; names are compile-time metadata.
 : cc-sysv-sig-return [lit] 8 + @ ;
 : cc-sysv-sig-desc [lit] 16 + @ ;
 : cc-sysv-sig-count [lit] 24 + @ ;
 : cc-sysv-sig-varargs [lit] 32 + @ ;
 : cc-sysv-sig-param [lit] 16 * [lit] 40 + + ;
+: cc-sysv-sig-name [lit] 24 * [lit] 1064 + + ;
+: cc-sysv-prototype? cc-sysv-sig-varargs [lit] 2 and 0= ;
+: cc-sysv-known-params?
+  dup cc-sysv-prototype? swap cc-sysv-sig-varargs [lit] 4 and or ;
 : cc-sysv-check-signature
   dup 0= if, [lit] 230 cc-die then,
   dup @ cc-sysv-signature-tag <> if, [lit] 230 cc-die then, ;
@@ -32,37 +38,86 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
 defer cc-sysv-signature-fwd
 : cc-sysv-fnptr
   cc-target-sysv @ 0= if, cc-nfnptr-default exit, then,
+  if, [lit] 231 cc-die then,
   nc-ty @ nc-desc @ cc-sysv-signature-fwd nc-desc !
   ty-func [lit] 1 ty-make nc-ty ! ;
 ' cc-sysv-fnptr is cc-nfnptr-fwd
 
+: cc-sysv-find-parameter ( sig name length -- index|-1 )
+  [lit] 0 begin, [lit] 3 cc-npick cc-sysv-sig-count over > while,
+    [lit] 3 cc-npick over cc-sysv-sig-name
+    dup [lit] 8 + @ [lit] 3 cc-npick = if,
+      @ [lit] 3 cc-npick [lit] 3 cc-npick bytes-eq if,
+        >r drop 2drop r> exit,
+      then,
+    else, drop then,
+    1+
+  repeat, drop drop 2drop true ;
+: cc-sysv-identifier-list ( sig -- sig )
+  dup cc-sysv-sig-count if, [lit] 233 cc-die then,
+  [lit] 6 over [lit] 32 + !
+  begin,
+    tok-kind @ tk-ident <> if, [lit] 233 cc-die then,
+    dup cc-sysv-sig-count cc-sysv-arg-cap >= if, [lit] 234 cc-die then,
+    dup tok-str-addr @ tok-str-len @ cc-sysv-find-parameter 0< 0= if,
+      [lit] 233 cc-die
+    then,
+    dup dup cc-sysv-sig-count cc-sysv-sig-name
+    tok-str-addr @ over ! tok-str-len @ swap [lit] 8 + !
+    dup dup cc-sysv-sig-count cc-sysv-sig-param
+    ty-int [lit] 0 ty-make swap !
+    [lit] 1 over [lit] 24 + +!
+    cc-next-token-keep [char] , cc-tok-punct? if,
+      cc-next-token-keep
+    else,
+      [char] ) cc-tok-punct? 0= if, [lit] 233 cc-die then, exit,
+    then,
+  again, ;
 : cc-sysv-signature ( return-type return-desc -- signature )
   over cc-sysv-check-scalar
-  [lit] 1064 cc-alloc dup >r [lit] 1064 cc-nzero
+  [lit] 2600 cc-alloc dup >r [lit] 2600 cc-nzero
   r@ [lit] 16 + ! r@ [lit] 8 + !
   cc-sysv-signature-tag r@ !
   cc-nctx @ >r cc-ncontext
   begin,
     cc-next-token-keep
-    [char] ) cc-tok-punct? if, r> cc-nctx ! r> exit, then,
+    [char] ) cc-tok-punct? if,
+      r> cc-nctx ! r>
+      dup cc-sysv-sig-count if, [lit] 233 cc-die then,
+      [lit] 2 over [lit] 32 + ! exit,
+    then,
     pt-ellipsis cc-tok-punct? if,
       r> cc-nctx ! r>
       dup cc-sysv-sig-count 0= if, [lit] 233 cc-die then,
-      true over [lit] 32 + ! [char] ) cc-expect-punct-c exit,
+      [lit] 1 over [lit] 32 + ! [char] ) cc-expect-punct-c exit,
     then,
     kw-void cc-tok-kw? if,
       cc-peek-mark cc-lex-mark cc-next-token-keep
-      [char] ) cc-tok-punct? if, r> cc-nctx ! r> exit, then,
+      [char] ) cc-tok-punct? if,
+        r> cc-nctx ! r> dup cc-sysv-sig-count if, [lit] 233 cc-die then, exit,
+      then,
       cc-peek-mark cc-lex-reset
     then,
+    tok-kind @ tk-ident = cc-native-type-start 0= and if,
+      r> cc-nctx ! r> cc-sysv-identifier-list exit,
+    then,
     cc-nbase nc-sdesc ! nc-base ! cc-ndeclarator
+    nc-func @ if, [lit] 233 cc-die then,
     nc-array @ if, [lit] 1 nc-ty +! [lit] 0 nc-array ! then,
     nc-ty @ cc-sysv-check-scalar
     nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
     r> r> dup >r swap >r
+    nc-nlen @ if,
+      dup nc-name @ nc-nlen @ cc-sysv-find-parameter 0< 0= if,
+        [lit] 233 cc-die
+      then,
+    then,
     dup cc-sysv-sig-count dup cc-sysv-arg-cap >= if, [lit] 234 cc-die then,
     over swap cc-sysv-sig-param
     nc-ty @ over ! nc-desc @ swap [lit] 8 + !
+    dup dup cc-sysv-sig-count cc-sysv-sig-name
+    nc-name @ over ! nc-nlen @ over [lit] 8 + !
+    true swap [lit] 16 + !
     [lit] 1 swap [lit] 24 + +!
     [char] , cc-tok-punct? 0= if,
       [char] ) cc-tok-punct? 0= if, [lit] 184 cc-die then,
@@ -85,14 +140,33 @@ defer cc-sysv-compatible-signatures-fwd
   ty-struct = if, r> r> = else, r> drop r> drop true then, ;
 : cc-sysv-signature-result dup cc-sysv-sig-return swap cc-sysv-sig-desc ;
 : cc-sysv-parameter-type cc-sysv-sig-param dup @ swap [lit] 8 + @ ;
+: cc-sysv-comparison-param ( sig index -- type desc )
+  over cc-sysv-prototype? >r cc-sysv-parameter-type
+  r> 0= if, swap cc-unary-type swap then, ;
+: cc-sysv-default-compatible? ( sig -- flag )
+  dup cc-sysv-sig-varargs [lit] 1 and if, drop [lit] 0 exit, then,
+  [lit] 0 begin, over cc-sysv-sig-count over > while,
+    2dup cc-sysv-sig-param @ dup cc-unary-type <> if,
+      2drop [lit] 0 exit,
+    then, 1+
+  repeat, 2drop true ;
 : cc-sysv-compatible-signatures ( sig1 sig2 -- flag )
-  2dup cc-sysv-sig-count swap cc-sysv-sig-count <> if, 2drop [lit] 0 exit, then,
-  2dup cc-sysv-sig-varargs swap cc-sysv-sig-varargs <> if, 2drop [lit] 0 exit, then,
   2dup >r cc-sysv-signature-result r> cc-sysv-signature-result
   cc-sysv-compatible-types 0= if, 2drop [lit] 0 exit, then,
+  over cc-sysv-known-params? 0= if,
+    nip dup cc-sysv-prototype? if, cc-sysv-default-compatible?
+    else, drop true then, exit,
+  then,
+  dup cc-sysv-known-params? 0= if,
+    drop dup cc-sysv-prototype? if, cc-sysv-default-compatible?
+    else, drop true then, exit,
+  then,
+  2dup cc-sysv-sig-count swap cc-sysv-sig-count <> if, 2drop [lit] 0 exit, then,
+  2dup cc-sysv-sig-varargs [lit] 1 and
+  swap cc-sysv-sig-varargs [lit] 1 and <> if, 2drop [lit] 0 exit, then,
   [lit] 0 begin, over cc-sysv-sig-count over > while,
-    [lit] 2 cc-npick over cc-sysv-parameter-type
-    [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-parameter-type
+    [lit] 2 cc-npick over cc-sysv-comparison-param
+    [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-comparison-param
     cc-sysv-compatible-types 0= if, drop 2drop [lit] 0 exit, then,
     1+
   repeat, drop 2drop true ;
@@ -125,10 +199,10 @@ defer cc-sysv-compatible-signatures-fwd
       dup cc-sysv-arg-cap >= if, [lit] 234 cc-die then,
       cc-parse-assign-fwd cc-emit-materialize
       cc-last-expr-type @ cc-sysv-check-scalar
-      over cc-sysv-sig-count over > if,
+      over cc-sysv-sig-count over > [lit] 2 cc-npick cc-sysv-prototype? and if,
         2dup cc-sysv-sig-param @ cc-emit-convert-rdi
       else,
-        over cc-sysv-sig-varargs 0= if, [lit] 235 cc-die then,
+        over cc-sysv-sig-varargs [lit] 3 and 0= if, [lit] 235 cc-die then,
         cc-last-expr-type @ cc-unary-type cc-emit-convert-rdi
       then,
       cc-emit-push-rdi 1+
@@ -136,7 +210,9 @@ defer cc-sysv-compatible-signatures-fwd
     until,
     [char] ) cc-tok-punct? 0= if, [lit] 121 cc-die then,
   then,
-  over cc-sysv-sig-count over > if, [lit] 235 cc-die then,
+  over cc-sysv-prototype? if,
+    over cc-sysv-sig-count over > if, [lit] 235 cc-die then,
+  then,
   nip dup cc-native-reverse-args ;
 
 : cc-sysv-stack-count [lit] 6 - dup 0< if, drop [lit] 0 then, ;
@@ -243,28 +319,42 @@ defer cc-sysv-compatible-signatures-fwd
   dup [lit] 3 = if, drop cc-emit-store-local-from-rcx exit, then,
   dup [lit] 4 = if, drop cc-emit-store-local-from-r8 exit, then,
   drop cc-emit-store-local-from-r9 ;
-: cc-sysv-params
-  [lit] 0 cc-native-param-count !
-  begin,
+\ K&R declarations refine the identifier list by name, preserving order.
+\ Undeclared parameters keep C90's implicit int. Only register storage is
+\ permitted here; a declaration outside the identifier list is an error.
+: cc-sysv-old-parameters ( sig -- )
+  cc-nctx @ >r cc-ncontext
+  begin, [char] { cc-tok-punct? 0= while,
+    kw-register cc-tok-kw? if, cc-next-token-keep then,
+    cc-nbase nc-sdesc ! nc-base !
+    begin,
+      cc-ndeclarator
+      nc-func @ if, [lit] 233 cc-die then,
+      nc-array @ if, [lit] 1 nc-ty +! [lit] 0 nc-array ! then,
+      nc-ty @ cc-sysv-check-scalar
+      nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
+      dup nc-name @ nc-nlen @ cc-sysv-find-parameter
+      dup 0< if, [lit] 233 cc-die then,
+      2dup cc-sysv-sig-name dup [lit] 16 + @ if, [lit] 233 cc-die then,
+      true swap [lit] 16 + !
+      over swap cc-sysv-sig-param
+      nc-ty @ over ! nc-desc @ swap [lit] 8 + !
+      [char] , cc-tok-punct?
+    while, repeat,
+    [char] ; cc-tok-punct? 0= if, [lit] 233 cc-die then,
     cc-next-token-keep
-    [char] ) cc-tok-punct? if, exit, then,
-    pt-ellipsis cc-tok-punct? if, [lit] 236 cc-die then,
-    kw-void cc-tok-kw? if,
-      cc-peek-mark cc-lex-mark cc-next-token-keep
-      [char] ) cc-tok-punct? if, exit, then,
-      cc-peek-mark cc-lex-reset
-    then,
-    cc-nbase nc-sdesc ! nc-base ! cc-ndeclarator
-    nc-array @ if, [lit] 1 nc-ty +! [lit] 0 nc-array ! then,
-    nc-ty @ cc-sysv-check-scalar
-    nc-nlen @ if,
-      sk-local cc-native-param-count @ 1+ cc-ninstall-symbol drop
-    then,
-    [lit] 1 cc-fn-add-slots [lit] 1 cc-native-param-count +!
-    [char] , cc-tok-punct? 0= if,
-      [char] ) cc-tok-punct? 0= if, [lit] 184 cc-die then, exit,
-    then,
-  again, ;
+  repeat, drop r> cc-nctx ! ;
+: cc-sysv-params ( sig -- )
+  dup cc-sysv-sig-varargs [lit] 1 and if, [lit] 236 cc-die then,
+  dup cc-sysv-sig-count cc-native-param-count !
+  [lit] 0 begin, over cc-sysv-sig-count over > while,
+    2dup cc-sysv-sig-name dup @ nc-name ! [lit] 8 + @ nc-nlen !
+    nc-nlen @ 0= if, [lit] 233 cc-die then,
+    2dup cc-sysv-parameter-type nc-desc ! nc-ty !
+    [lit] 0 nc-array ! [lit] 0 nc-inner !
+    sk-local over 1+ cc-ninstall-symbol drop
+    [lit] 1 cc-fn-add-slots 1+
+  repeat, 2drop ;
 
 variable cc-sysv-frame-patch
 variable cc-sysv-function-signature
@@ -275,6 +365,9 @@ variable cc-sysv-function-signature
   nc-params cc-lex-reset
   nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !
   r> cc-lex-reset
+  cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 4 and if,
+    cc-sysv-function-signature @ cc-sysv-old-parameters
+  then,
   nc-name @ nc-nlen @ cc-sym-find
   dup 0< 0= if,
     dup cc-sym-kind-of sk-func <> if, [lit] 237 cc-die then,
@@ -284,9 +377,14 @@ variable cc-sysv-function-signature
   dup 0< if,
     drop nc-name @ nc-nlen @ sk-func nc-ty @ [lit] 0 cc-sym-add
     nc-desc @ over cc-sym-set-struct-desc
+    [lit] 0 over cc-sysv-signatures cell[] !
   then,
   nc-id !
-  cc-sysv-function-signature @ nc-id @ cc-sysv-signatures cell[] !
+  nc-id @ cc-sysv-signatures cell[] @ dup if,
+    cc-sysv-prototype? cc-sysv-function-signature @ cc-sysv-prototype? 0= and
+  else, drop [lit] 0 then, 0= if,
+    cc-sysv-function-signature @ nc-id @ cc-sysv-signatures cell[] !
+  then,
   nc-ty @ nc-id @ cc-sym-type cell[] !
   nc-desc @ nc-id @ cc-sym-set-struct-desc
   [char] { cc-tok-punct? 0= if, exit, then,
@@ -298,12 +396,11 @@ variable cc-sysv-function-signature
   [lit] 0 nc-id @ cc-sym-addr-fixups !
   nc-name @ nc-nlen @ cc-is-main? if, cc-here-vaddr cc-main-vaddr ! then,
   nc-ty @ cc-native-return-type ! nc-desc @ cc-native-return-desc !
-  nc-params cc-lex-reset
   cc-nctx @ >r cc-ncontext cc-scope-push
   [lit] 1 cc-fn-local-count ! [lit] 0 cc-label-count !
   [lit] 0 cc-break-stack-head ! [lit] 0 cc-continue-stack-head !
   [lit] 0 cc-switch-depth ! [lit] 0 cc-loop-switch-depth !
-  cc-sysv-params [char] { cc-expect-punct-c
+  cc-sysv-function-signature @ cc-sysv-params
   [lit] 0 cc-emit-prologue
   cc-out-pos @ [lit] 4 - cc-sysv-frame-patch ! cc-sysv-save-callee
   [lit] 0 begin, dup cc-native-param-count @ < while,

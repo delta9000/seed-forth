@@ -53,6 +53,14 @@
 
 - [Compiling TinyCC directly](34-direct-tinycc.md) — opt-in LP64 storage, private stack calls, initializers, Linux runtime, and the direct TinyCC fixed point
 
+# Part VI — Direct GCC components (work in progress)
+
+- [Relocatable objects](35-direct-gcc-objects.md) — symbols, sections, and explicit relocation records
+- [System V calls](36-direct-gcc-calls.md) — integer/pointer ABI, separate C units, and original GCC ffs
+- [The Forth ELF linker](37-direct-gcc-linker.md) — symbol resolution, relocation, BSS, and executable publication
+- [The runtime syscall boundary](38-direct-gcc-runtime.md) — raw Linux calls, errno storage, and process entry
+- [A bounded C runtime](39-direct-gcc-libc.md) — source-built allocation, memory, and string operations
+
 # Appendices
 
 - [A — The 32 seed primitives](A1-32-seed-primitives.md) — one-row table per primitive (name, opcode, stack effect, source location)

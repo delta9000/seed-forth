@@ -49,8 +49,10 @@ bilateral host interoperability tests; and the Forth-emitted syscall bridge
 performs real Linux I/O and mapping calls. These are bounded, unfinished
 components. The object adapter currently rejects global storage, string
 materialization, and absolute function-address materialization. Floating and
-aggregate call classes remain unsupported. No original GCC translation unit
-or complete GCC bootstrap has been built by this reconstructed implementation.
+aggregate call classes remain unsupported. The unchanged GCC libiberty/ffs.c now compiles and runs through the Forth
+object/linker path, with independent behavioral comparisons. The bounded
+allocation, memory, and string runtime also executes through that path. A
+complete GCC bootstrap remains unfinished.
 
 `tests/gcc/baseline-20261003/` records a fresh independent replay of the
 surviving baseline, including the actual raw-input direct TinyCC fixed point.
@@ -74,3 +76,30 @@ Use the repository's build and test instructions in README.md and check-all.sh.
 Run focused tests during implementation, independent review at coherent gates,
 and applicable aggregate checks for the final composed source state. Report
 passed, failed, skipped, and never-run checks distinctly.
+
+## Known open component issue
+
+The ELF linker publishes its output atomically and preserves a previous output
+on write failure. The object writer still needs equivalent publication behavior:
+a forced short write can leave a partial destination file. The independent
+regression is `tests/gcc/review-elf-writer-atomicity.py`; hardening is in progress.
+This checkpoint preserves the implementation and the failure, not a claim that
+all review findings are closed.
+
+## Working checkpoint: 2026-10-03 14:16 UTC
+
+This checkpoint preserves reconstructed source before the next aggregate replay.
+Newer work includes K&R/unspecified declarations, typed integer constants,
+relocatable globals/strings/function addresses, atomic object publication, and
+the bounded C allocation/memory/string runtime. Focused owner and independent
+checks have executed; their reports identify the tested source hashes.
+
+The exact immutable commit 1a18de7e passed the combined component gate,
+independent scalar ABI review, native checks, and the raw TinyCC executable
+and object fixed points; see tests/gcc/checkpoints/1a18de7e.json. Those results
+do not validate every later change in this checkpoint. Full current aggregate
+checks and book count/index refresh remain pending. Known storage-boundary
+work remains for explicit invalid array bounds and multiplication overflow.
+GCC generator/configuration closure and a complete direct GCC build remain
+unfinished. Earlier object-output atomicity findings are repaired in the
+current writer and retain their reproduction test.

@@ -1859,6 +1859,18 @@ over the same grammar that computes instead of emitting:
 variable cc-cx-pp
 variable cc-cx-skip                              \ true in an unevaluated constant arm
 
+\ The object target supplies symbolic leaves; other targets never enter
+\ them. The typed evaluator binds the parser after all compiler layers load.
+: cc-const-unsupported [lit] 240 cc-die ;
+defer cc-parse-static-const-fwd
+defer cc-const-ident-fwd
+defer cc-const-address-fwd
+defer cc-const-string-fwd
+' cc-const-unsupported is cc-parse-static-const-fwd
+' cc-const-unsupported is cc-const-ident-fwd
+' cc-const-unsupported is cc-const-address-fwd
+' cc-const-unsupported is cc-const-string-fwd
+
 \ cc-cx-operand ( -- v )
 : cc-cx-operand
   cc-next-token-keep
@@ -1938,24 +1950,27 @@ variable cc-cx-skip                              \ true in an unevaluated consta
   cc-putback-token ;
 
 \ cc-parse-const ( -- v )  cond ? a : b, or just cond.
-: cc-parse-const
+: cc-parse-const-default
   cc-cx-or
   cc-next-token-keep
   [char] ? cc-tok-punct? if,
     cc-cx-skip @ >r                                 ( c ; R: outer-skip )
     dup 0= if, true cc-cx-skip ! then,
-    cc-parse-const                                  ( c a ; R: outer-skip )
+    cc-parse-const-default                                  ( c a ; R: outer-skip )
     r@ cc-cx-skip !
     >r                                              ( c ; R: outer-skip a )
     cc-next-token-keep
     [char] : cc-tok-punct? 0= if, [lit] 128 cc-die then,
     dup if, true cc-cx-skip ! then,
-    cc-parse-const                                  ( c b ; R: outer-skip a )
+    cc-parse-const-default                                  ( c b ; R: outer-skip a )
     swap if, drop r> else, r> drop then,
     r> cc-cx-skip !
   else,
     cc-putback-token
   then, ;
+
+defer cc-parse-const
+' cc-parse-const-default is cc-parse-const
 
 ' cc-parse-const is cc-parse-const-fwd
 

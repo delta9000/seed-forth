@@ -129,12 +129,14 @@ variable cc-pending-struct-desc
 \ local declared static gets file-scope storage instead of a frame slot
 \ (cc-parse-local-declarator).  The rest are no-ops.
 variable cc-decl-static
+variable cc-decl-extern
 
 : cc-skip-storage-quals
-  [lit] 0 cc-decl-static !
+  [lit] 0 cc-decl-static ! [lit] 0 cc-decl-extern !
   begin,
     cc-next-token-keep
     kw-static cc-tok-kw? if, true cc-decl-static ! then,
+    kw-extern cc-tok-kw? if, true cc-decl-extern ! then,
     tok-kind @ tk-kw =
       tok-kw-id @ kw-static    =
       tok-kw-id @ kw-extern    = or

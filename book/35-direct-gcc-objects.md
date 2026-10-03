@@ -51,7 +51,12 @@ within bytes that already exist.
 
 `cc-obj-build` serializes into `cc-out-buf` and `cc-out-pos`; calling it
 again is deterministic. `cc-obj-write (NUL-path --)` builds and writes
-with mode 0644, retries interrupted writes, and handles short writes.
+an exclusive sibling temporary with mode 0644 (subject to the process umask),
+retries interrupted writes, and handles short writes. Only after all bytes
+and close succeed does it atomically rename that file over the destination.
+Existing regular-file output therefore survives a diagnosed write or close
+failure. An existing symlink to a regular file is replaced by the new object;
+its target is not modified. Special-file destinations are rejected.
 The API is sequential and uses fixed scratch cells; it is not reentrant.
 
 ## 2. Ten sections, no assumed load address
@@ -100,6 +105,18 @@ or out-of-range relocation; 248 means file I/O failure. The existing
 output emitter retains error 21 for output capacity. A failure exits
 through `cc-die`; there is no partial-success return value.
 
+Publication state is reset by initialization and between successful writes.
+The sibling name appends `.obj-` and sixteen hexadecimal process-ID digits;
+the pathname buffer allows at most 4074 destination bytes before that suffix
+and its terminating NUL. The filesystem's own pathname/component limits may
+be smaller. Exclusive creation rejects a pre-existing temporary without
+removing it. Once a temporary belongs to this write, a write, close, or rename
+failure closes any live descriptor and attempts to unlink that temporary
+before reporting error 248. The descriptor is marked closed before handling
+a close error, because Linux may already have released it. Atomic publication
+does not promise crash durability; no `fsync` is performed, and abrupt process
+termination may leave a temporary.
+
 ## 4. Sources and evidence
 
 The wire layout is derived from the [System V generic ABI, ELF sections,
@@ -115,6 +132,15 @@ its `shared_value` of 21. The caller also contains data relocations,
 including a negative addend and a local symbol inserted after globals.
 An independently linked executable must exit 42. Host inspection/linking
 is a test oracle only; it is not a production route from Forth to GCC.
+
+`tests/gcc/object-writer-publication-check.py`, also run by the main writer
+check, limits `RLIMIT_FSIZE` to 128 bytes with `SIGXFSZ` ignored. This forces a
+real partial write followed by `EFBIG`; both an existing output and an absent
+output retain their prior state, with no temporary left behind. Other cases
+cover descriptor exhaustion, short/interrupted writes, injected close failure,
+rename failure, temporary collisions, special files, and repeated writes in
+one process. The C object-driver checks also reject source/output identity
+through the same pathname, hard links, and symlinks before compilation.
 
 ## Canonical source
 
@@ -168,6 +194,22 @@ variable cc-obj-nstr
 variable cc-obj-shoff
 variable cc-obj-local-end
 variable cc-obj-initialized
+\ Publication state is separate from object metadata and reset between writes.
+create cc-obj-temp-path  [lit] 4096 allot
+create cc-obj-temp-suffix  s, .obj-
+create cc-obj-hex-digits  s, 0123456789abcdef
+create cc-obj-stat-buffer  [lit] 144 allot
+variable cc-obj-path
+variable cc-obj-fd
+variable cc-obj-written
+variable cc-obj-temp-owned
+variable cc-obj-temp-length
+variable cc-obj-pid
+variable cc-obj-ti
+: cc-obj-reset-write ( -- )
+  true cc-obj-fd ! [lit] 0 cc-obj-path ! [lit] 0 cc-obj-written !
+  [lit] 0 cc-obj-temp-owned ! [lit] 0 cc-obj-temp-length !
+  [lit] 0 cc-obj-pid ! [lit] 0 cc-obj-ti ! [lit] 0 cc-obj-temp-path c! ;
 
 : cc-obj-sh ( section -- a )  [lit] 72 * cc-obj-sections + ;
 : cc-obj-sym ( id -- a )  [lit] 64 * cc-obj-symbols + ;
@@ -360,6 +402,7 @@ here cc-obj-shnames - constant cc-obj-shnames-size
   cc-obj-sh >r r@ [lit] 56 + ! r@ [lit] 16 + !
   r@ [lit] 8 + ! r> ! ;
 : cc-obj-init ( -- )
+  cc-obj-reset-write
   cc-obj-sections [lit] 720 cc-obj-zero
   [lit] 0 cc-obj-nsym ! [lit] 0 cc-obj-nrel ! [lit] 1 cc-obj-nstr !
   [lit] 0 cc-obj-strings c! cc-obj-text cc-obj-current !
@@ -474,21 +517,63 @@ variable cc-obj-pass
     cc-obj-i @ cc-obj-emit-sh [lit] 1 cc-obj-i +!
   repeat, ;
 
-variable cc-obj-fd
-variable cc-obj-written
+\ Validate/build before creating a sibling temporary. Never truncate the old
+\ output; only publish after every byte and close succeed. Refuse special files.
+: cc-obj-check-output ( -- )
+  cc-obj-path @ cc-obj-stat-buffer [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 4 syscall6
+  dup [lit] 0 [lit] 2 - = if, drop exit, then,
+  0= 0= if, [lit] 248 cc-die then,
+  cc-obj-stat-buffer [lit] 24 + @ [lit] 61440 and [lit] 32768 <>
+  if, [lit] 248 cc-die then, ;
+: cc-obj-make-temp-path ( -- )
+  begin, cc-obj-path @ cc-obj-temp-length @ + c@ dup while,
+    cc-obj-temp-length @ [lit] 4074 >= if, [lit] 248 cc-die then,
+    cc-obj-temp-path cc-obj-temp-length @ + c!
+    [lit] 1 cc-obj-temp-length +!
+  repeat, drop
+  cc-obj-temp-length @ 0= if, [lit] 248 cc-die then,
+  begin, cc-obj-ti @ [lit] 5 < while,
+    cc-obj-temp-suffix cc-obj-ti @ + c@
+    cc-obj-temp-path cc-obj-temp-length @ + cc-obj-ti @ + c!
+    [lit] 1 cc-obj-ti +!
+  repeat,
+  [lit] 5 cc-obj-temp-length +!
+  [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 39 syscall6 cc-obj-pid !
+  [lit] 16 cc-obj-ti !
+  begin, cc-obj-ti @ while,
+    [lit] 1 cc-obj-ti -!
+    cc-obj-hex-digits cc-obj-pid @ [lit] 15 and + c@
+    cc-obj-temp-path cc-obj-temp-length @ + cc-obj-ti @ + c!
+    cc-obj-pid @ [lit] 16 / cc-obj-pid !
+  repeat,
+  [lit] 0 cc-obj-temp-path cc-obj-temp-length @ + [lit] 16 + c! ;
+: cc-obj-abandon-output ( -- )
+  cc-obj-fd @ 0< 0= if, cc-obj-fd @ close drop true cc-obj-fd ! then,
+  cc-obj-temp-owned @ if,
+    cc-obj-temp-path [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 87 syscall6 drop
+    [lit] 0 cc-obj-temp-owned !
+  then,
+  [lit] 248 cc-die ;
 : cc-obj-write ( nul-terminated-path -- )
-  cc-obj-build [lit] 577 [lit] 420 open
+  cc-obj-require-init cc-obj-reset-write cc-obj-path ! cc-obj-build
+  cc-obj-make-temp-path cc-obj-check-output
+  \ O_WRONLY | O_CREAT | O_EXCL; an existing temporary is never ours to unlink.
+  cc-obj-temp-path [lit] 193 [lit] 420 open
   dup 0< if, [lit] 248 cc-die then, cc-obj-fd !
-  [lit] 0 cc-obj-written !
+  true cc-obj-temp-owned !
   begin, cc-obj-written @ cc-out-pos @ < while,
     cc-obj-fd @ cc-out-buf cc-obj-written @ + cc-out-pos @ cc-obj-written @ - write
     dup [lit] 0 [lit] 4 - = if, drop
     else,
-      dup [lit] 0 <= if, cc-obj-fd @ close drop [lit] 248 cc-die then,
+      dup [lit] 0 <= if, cc-obj-abandon-output then,
       cc-obj-written +!
     then,
   repeat,
-  cc-obj-fd @ close 0< if, [lit] 248 cc-die then, ;
+  \ Linux may release the descriptor even when close reports an error.
+  cc-obj-fd @ close true cc-obj-fd ! 0= 0= if, cc-obj-abandon-output then,
+  cc-obj-temp-path cc-obj-path @ [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 82 syscall6
+  0= 0= if, cc-obj-abandon-output then,
+  cc-obj-reset-write ;
 ```
 
 ## Try it

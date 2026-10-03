@@ -355,3 +355,16 @@ two valid alternatives:
 
 Source order (the default) is best for someone who has decided to
 follow the project from the bottom up and wants every concept earned.
+
+## Experimental direct-GCC components
+
+These chapters extend the existing route; they do not establish a complete GCC
+bootstrap. Their current implementation and limits are in [DIRECT-GCC.md](https://github.com/delta9000/seed-forth/blob/bootstrap/forth-direct-gcc/DIRECT-GCC.md).
+
+| Chapter | Prerequisites | Executable proof |
+| --- | --- | --- |
+| [35: objects](35-direct-gcc-objects.md) | 21, 25, 34 | Separate objects with symbol and relocation tables |
+| [36: calls](36-direct-gcc-calls.md) | 24, 31, 34, 35 | Scalar System V interoperability and original GCC ffs |
+| [37: linking](37-direct-gcc-linker.md) | 13, 21, 35 | Separate C objects linked by Forth into a running program |
+| [38: syscall boundary](38-direct-gcc-runtime.md) | 5, 35–37 | Forth-built process entry, errno storage, and Linux calls |
+| [39: runtime](39-direct-gcc-libc.md) | 36–38 | Forth-built allocation, memory, and string execution |

@@ -4,6 +4,7 @@ import pathlib
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -218,7 +219,7 @@ bad = [
     ("reloc-negative", symbol + " drop cc-obj-text true cc-obj-r32 [lit] 1 [lit] 0 cc-obj-reloc", 247),
     ("reloc-id-zero", "cc-obj-text [lit] 0 cc-obj-r32 [lit] 0 [lit] 0 cc-obj-reloc", 246),
     ("open-failure", "create bad-path s, /no-such-object-writer-directory/file.o [lit] 0 c, bad-path cc-obj-write", 248),
-    ("write-failure", "create full-path s, /dev/full [lit] 0 c, full-path cc-obj-write", 248),
+    ("special-output", "create full-path s, /dev/full [lit] 0 c, full-path cc-obj-write", 248),
 ]
 for name, body, status in bad:
     forth(name, "cc-obj-init\n" + body, status)
@@ -282,3 +283,4 @@ assert section_limit.stat().st_size < 400000
 
 print(f"object-writer: cross-object executable exits 42; metadata/reset/capacities and {len(bad) + 6} rejection cases pass")
 print(f"object-writer: inspectable evidence: {OUT}")
+subprocess.run([sys.executable, ROOT / "tests/gcc/object-writer-publication-check.py"], check=True)

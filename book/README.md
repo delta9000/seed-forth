@@ -4,7 +4,7 @@ A compiler binary can carry a backdoor that no reading of its
 source will find; Ken Thompson showed how in 1984.  The defence is
 a first program small enough to check by hand.  Here that program
 is 1,772 bytes of hand-encoded x86-64: a Forth that, given its
-library and 10,349 lines of compiler source (`020-cc-arena.fth`
+library and 10,748 lines of compiler source (`020-cc-arena.fth`
 through `120-cc-main.fth`, by `wc -l`), becomes a C compiler whose `.M1` output is byte-identical to
 GCC-built M2-Planet's, and whose opt-in LP64 extension compiles
 TinyCC directly. This book walks every one of those bytes and lines, and backs each of its central claims with a command you can run.
@@ -114,7 +114,7 @@ canonical artifacts.  See
 
 ## How the book is organized
 
-Five parts plus a prologue and seven appendices.  Within each
+Five established parts, an experimental direct-GCC part, a prologue, and seven appendices.  Within each
 part, chapters follow **source order**: each one picks up the file
 where the previous chapter stopped.
 
@@ -135,6 +135,9 @@ where the previous chapter stopped.
   its focused and independent fixed-point checks. The native regression
   gate and actual host entry are included in `check-all.sh`; QEMU guest
   checks remain separate.
+- **Part VI (Chs 35–39, work in progress)** explains the reconstructed object,
+  ABI, linker, and bounded runtime components. It includes an unchanged GCC
+  source-unit proof; a complete direct GCC bootstrap remains unfinished.
 - **Appendices A–G** are reference cards: primitives, memory
   map, reproducibility chain, worked exercises, further reading,
   C subset, and compiler exit codes.

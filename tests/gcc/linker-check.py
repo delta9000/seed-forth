@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+(ROOT / "build-out").mkdir(exist_ok=True)
 OUT = Path(tempfile.mkdtemp(prefix="linker-", dir=ROOT / "build-out"))
 BASE = "\n".join((ROOT / p).read_text() for p in
                  ("010-lib.fth", "020-cc-arena.fth", "030-cc-io.fth"))
@@ -41,13 +42,17 @@ def path_word(name, path):
 
 def link(objects, name, expected=0, entry="_start"):
     dest = OUT / name
+    previous = dest.read_bytes() if dest.exists() else None
     program = LINK + "\nlnk-init\n"
     for i, obj in enumerate(objects):
         program += path_word(f"input-{i}", obj) + f"input-{i} lnk-add-object\n"
     program += f"create entry-name s, {entry}\nentry-name [lit] {len(entry)} lnk-entry\n"
     program += path_word("output-name", dest) + "output-name lnk-link\n"
     run_forth(program, expected)
-    assert dest.exists() == (expected == 0), (name, "partial output")
+    if expected and previous is not None:
+        assert dest.read_bytes() == previous, (name, "old output changed")
+    else:
+        assert dest.exists() == (expected == 0), (name, "partial output")
     return dest
 
 
@@ -117,12 +122,14 @@ program += path_word("caller-path", caller) + path_word("provider-path", provide
 program += "object-writer-caller caller-path cc-obj-write\n"
 program += "object-writer-provider provider-path cc-obj-write\n"
 run_forth(program)
-execute(link([caller, provider], "all-relocations"))
+all_reloc = link([caller, provider], "all-relocations")
+execute(all_reloc)
+all_bytes = all_reloc.read_bytes()
+all_data = u64(all_bytes, 120 + 8)
+assert u32(all_bytes, all_data + 8) == 42
+assert u32(all_bytes, all_data + 12) == 2**32 - 1
 
-# Repeated local ABS names are scoped to their input, even when identical.
-local_copy = mutated(provider, "local-copy", lambda x: None)
 # A provider duplicate is a deliberate strong-definition error.
-link([a, b, local_copy], "duplicate-cross-fixture", 253) if False else None
 link([a, b, b], "duplicate", 252)
 link([a], "unresolved", 253)
 link([a, b], "missing-entry", 253, "absent")
@@ -150,6 +157,9 @@ cases = [
     ("machine", lambda x: put(x, 18, 3, 2), 250),
     ("class", lambda x: put(x, 4, 1, 1), 250),
     ("endian", lambda x: put(x, 5, 2, 1), 250),
+    ("osabi", lambda x: put(x, 7, 255, 1), 250),
+    ("ident-padding", lambda x: put(x, 8, 1, 1), 250),
+    ("program-header-size", lambda x: put(x, 54, 56, 2), 250),
     ("section-offset-wrap", lambda x: put(x, 40, 2**64 - 64), 250),
     ("section-size-wrap", lambda x: put(x, sh(x, 1) + 32, 2**64 - 1), 250),
     ("section-overrun", lambda x: put(x, sh(x, 1) + 24, len(x) - 1), 250),
@@ -167,6 +177,8 @@ cases = [
     ("symbol-section", lambda x: put(x, symbols(x)["_start"] + 6, 6, 2), 250),
     ("symbol-range", lambda x: put(x, symbols(x)["_start"] + 8, 15), 250),
     ("symbol-binding", lambda x: put(x, symbols(x)["_start"] + 4, 0x32, 1), 250),
+    ("symbol-name-unterminated", lambda x: x.__setitem__(slice(section_offset(x, 8) + 1, section_offset(x, 8) + u64(x, sh(x, 8) + 32)), b"X" * (u64(x, sh(x, 8) + 32) - 1)), 250),
+    ("section-name-overrun", lambda x: put(x, sh(x, 1), 2**32 - 1, 4), 250),
     ("symbol-type", lambda x: put(x, symbols(x)["_start"] + 4, 0x1a, 1), 250),
     ("relocation-type", lambda x: put(x, section_offset(x, 5) + 8, 9, 4), 254),
     ("relocation-offset", lambda x: put(x, section_offset(x, 5), 2**64 - 1), 254),
@@ -188,6 +200,82 @@ for kind in (2, 4, 10, 11):
             put(data, p + 16, addend)
         bad = mutated(a, f"range-{kind}-{addend}", edit)
         link([bad, b], f"range-{kind}-{addend}", 254)
+
+# Failed validation and file alias checks must preserve existing contents.
+(OUT / "preserve").write_bytes(b"previous output survives\n")
+link([a], "preserve", 253)
+bad_reloc = mutated(a, "preserve-reloc", lambda x: put(x, section_offset(x, 5) + 8, 9, 4))
+link([bad_reloc, b], "preserve", 254)
+link([a, b], "a.o", 255)
+os.link(a, OUT / "hardlink.o")
+link([a, b], "hardlink.o", 255)
+(OUT / "symlink.o").symlink_to(a)
+link([a, b], "symlink.o", 255)
+link([a, b], "preserve")
+execute(OUT / "preserve")
+assert not list(OUT.glob("*.lnk-*")), "temporary output leaked"
+
+# A session may link twice or be reset repeatedly. New sessions may reuse
+# names, but must not retain definitions from earlier inputs.
+reused = [OUT / f"reuse-{i}" for i in range(4)]
+program = LINK + path_word("input-a", a) + path_word("input-b", b)
+program += "create entry-name s, _start\n"
+for i, path in enumerate(reused):
+    program += path_word(f"reuse-out-{i}", path)
+program += "lnk-init input-a lnk-add-object input-b lnk-add-object\n"
+program += "entry-name [lit] 6 lnk-entry reuse-out-0 lnk-link reuse-out-1 lnk-link\n"
+program += "lnk-init lnk-init input-b lnk-add-object input-a lnk-add-object\n"
+program += "entry-name [lit] 6 lnk-entry reuse-out-2 lnk-link\n"
+program += "lnk-init input-a lnk-add-object entry-name [lit] 6 lnk-entry reuse-out-3 lnk-link\n"
+run_forth(program, 253)
+assert reused[0].read_bytes() == reused[1].read_bytes() == first.read_bytes()
+execute(reused[2])
+assert not reused[3].exists(), "old global definition survived reset"
+
+# A pure text object exercises an empty RW segment. A second object contains
+# an identically named local ABS symbol whose value must remain independent.
+pure, local = OUT / "pure.o", OUT / "local.o"
+program = WRITE + path_word("pure-path", pure) + path_word("local-path", local)
+program += """
+create pure-start s, _start
+create pure-local s, private_answer
+variable pure-id
+cc-obj-init
+[lit] 191 cc-obj-byte [lit] 0 cc-obj-4le
+[lit] 184 cc-obj-byte [lit] 60 cc-obj-4le
+[lit] 15 cc-obj-byte [lit] 5 cc-obj-byte
+pure-start [lit] 6 cc-obj-global cc-obj-func cc-obj-default
+cc-obj-text [lit] 0 [lit] 12 cc-obj-symbol drop
+pure-local [lit] 14 cc-obj-local cc-obj-notype cc-obj-default
+cc-obj-abs [lit] 42 [lit] 0 cc-obj-symbol pure-id !
+cc-obj-text [lit] 1 cc-obj-r32 pure-id @ [lit] 0 cc-obj-reloc
+pure-path cc-obj-write
+cc-obj-init
+pure-local [lit] 14 cc-obj-local cc-obj-notype cc-obj-default
+cc-obj-abs [lit] 99 [lit] 0 cc-obj-symbol drop
+local-path cc-obj-write
+"""
+run_forth(program)
+execute(link([pure, local], "local-scope"))
+execute(link([local, pure], "local-scope-reversed"))
+
+# Exact signed/unsigned 32-bit boundaries are accepted, while the adjacent
+# values are rejected. The patched operand is inspected rather than executed.
+for kind, accepted in ((10, (0, 2**32 - 1)), (11, (2**31 - 1, 2**64 - 2**31))):
+    for value in accepted:
+        def boundary_edit(data, kind=kind, value=value):
+            p = symbols(data)["private_answer"]
+            put(data, p + 8, value)
+            put(data, section_offset(data, 5) + 8, kind, 4)
+        obj = mutated(pure, f"boundary-{kind}-{value}", boundary_edit)
+        exe = link([obj], f"boundary-{kind}-{value}")
+        assert u32(exe.read_bytes(), 4097) == value % 2**32
+for kind, value in ((10, 2**32), (10, 2**64 - 1), (11, 2**31), (11, 2**64 - 2**31 - 1)):
+    def bad_boundary(data, kind=kind, value=value):
+        put(data, symbols(data)["private_answer"] + 8, value)
+        put(data, section_offset(data, 5) + 8, kind, 4)
+    obj = mutated(pure, f"bad-boundary-{kind}-{value}", bad_boundary)
+    link([obj], f"bad-boundary-{kind}-{value}", 254)
 
 if shutil.which("readelf"):
     result = subprocess.run(["readelf", "-h", "-l", first], capture_output=True)

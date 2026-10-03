@@ -160,6 +160,11 @@ defer cc-ni-value-fwd
   then,
   cc-next-token-keep ;
 
+defer cc-ni-scalar-fwd
+defer cc-ni-string-fwd
+' cc-ni-scalar is cc-ni-scalar-fwd
+' cc-ni-string is cc-ni-string-fwd
+
 : cc-ni-child-count
   ni-array @ if, ni-array @ exit, then,
   ni-desc @ cc-sd-union? if, [lit] 1 else, ni-desc @ cc-sd-field-count then, ;
@@ -204,12 +209,12 @@ defer cc-ni-value-fwd
 
 \ Character-array strings may optionally have a single pair of braces.
 : cc-ni-char-array
-  tok-kind @ tk-str = if, cc-ni-string exit, then,
+  tok-kind @ tk-str = if, cc-ni-string-fwd exit, then,
   [char] { cc-tok-punct? if,
     cc-lex-state-size cc-alloc dup >r cc-lex-mark
     cc-next-token-keep
     tok-kind @ tk-str = if,
-      r> drop cc-ni-string
+      r> drop cc-ni-string-fwd
       [char] , cc-tok-punct? if, cc-next-token-keep then,
       [char] } cc-tok-punct? 0= if, [lit] 223 cc-die then,
       cc-next-token-keep exit,
@@ -235,7 +240,7 @@ defer cc-ni-value-fwd
     cc-ni-aggregate? if,
       [char] { cc-tok-punct? ni-nested @ or if,
         cc-ni-list
-      else, cc-ni-scalar then,
+      else, cc-ni-scalar-fwd then,
     else,
       [char] { cc-tok-punct? if,
         cc-next-token-keep
@@ -243,7 +248,7 @@ defer cc-ni-value-fwd
         [char] , cc-tok-punct? if, cc-next-token-keep then,
         [char] } cc-tok-punct? 0= if, [lit] 227 cc-die then,
         cc-next-token-keep
-      else, cc-ni-scalar then,
+      else, cc-ni-scalar-fwd then,
     then,
   then,
   r> cc-ni-frame ! ;
