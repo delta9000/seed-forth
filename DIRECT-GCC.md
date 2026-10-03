@@ -54,9 +54,14 @@ The runtime currently supplies allocation, memory/string operations, unbuffered
 streams, and integer/pointer/string formatting. Historical ANSI headers use an
 explicit bounded C90-oriented target profile. Floating and aggregate value
 calling conventions remain unsupported; accepting declarations or taking
-`sizeof` does not implement those value operations. Genuine GCC configuration
-and the first generator are the next integration targets. A complete GCC build
-and self-rebuild remain unfinished.
+`sizeof` does not implement those value operations. The original GCC configure
+probes now support a bounded, independently audited generator configuration.
+Original `gencheck.c`, `gengenrtl.c`, and `errors.c` compile through actual
+Makefile object rules and run with the Forth-built runtime. `gencheck` emits
+all 164 source-defined checks; both complete `gengenrtl` outputs match an
+independently host-built original generator. These focused links currently
+omit unused `BUILD_LIBIBERTY`; real archive/runtime closure for `genmodes` is
+next. A complete GCC build and self-rebuild remain unfinished.
 
 `tests/gcc/baseline-20261003/` records a fresh independent replay of the
 surviving baseline, including the actual raw-input direct TinyCC fixed point.
@@ -71,26 +76,30 @@ before considering a checkpoint durable. Preserve additional reviewed work
 manifests in the private checkpoint repository. Local build directories are
 scratch space, not backups.
 
-## Verification scope at 2026-10-03 16:02 UTC
+## Verification scope at 2026-10-03 16:43 UTC
 
-The exact immutable commit `1a18de7e` passed its combined component gate,
-independent scalar ABI review, native checks, and the raw TinyCC executable
-and object fixed points; see `tests/gcc/checkpoints/1a18de7e.json`. Those results
-do not validate every later change. Frozen tree `0f06514b` also passed the
-expanded component gate, native checks, and the actual raw TinyCC bootstrap,
-preserving the seed and TinyCC executable/object fixed-point hashes. Its 902
-source blobs and 2,373 copied vendor files were rehashed after execution; see
-`tests/gcc/checkpoints/composed-0f06514b.json`. This tree includes the driver,
-stdio, typed storage, and implicit-int definitions, but predates the namespace,
-configure runtime, and variadic XMM-save repairs. Later focused owner and
-independent checks record their own source hashes. Full repository aggregate
-and final book count/index checks remain pending for the current composition.
+The accepted frozen compiler/runtime composition through implicit calls and
+reviewed source-location macros passed the expanded direct-GCC component gate
+and all sixteen `check-all.sh` steps. This includes both architecture handoffs,
+book examples and consistency checks, the original default bootstrap, native
+regressions, and the actual raw-input TinyCC executable/object fixed points.
+The seed and TinyCC hashes remain unchanged. All 941 source files and 2,373
+copied vendor files were rehashed after the final run; the exact source map
+and test limits are in `tests/gcc/checkpoints/accepted-20261003T1643.json`.
 
-The earlier object-writer short-write publication bug and invalid-array-bound
-findings are repaired and retain their reproduction tests. Current integration
-work includes genuine configure runtime contracts, separate tag/ordinary-name
-lookup, and preserving incoming variadic register data. Until their combined
-checks pass, treat the branch as an implementation checkpoint, not a release.
+The first full replay found a missing loader helper in the book-example
+sandbox and missing vendor Git metadata in the isolated validation copy.
+The helper-copy repair passed all 54 examples; adding the already pinned Git
+metadata restored the handoff provenance queries. The repeated full aggregate
+then passed. Neither repair supplied target compiler artifacts.
+
+The newer archive extension and qsort work are outside that full-pass
+composition. Their focused owner and independent checks identify their own
+source hashes; integration gates must cover them before a broader claim.
+Configuration audit reports preserve the initial false endian/mkdir answers
+as failed evidence, followed by the corrected original-probe replay. Full
+GCC compilation, self-rebuild, `verify.sh`, and QEMU execution remain unclaimed
+for this direct-GCC branch.
 
 Run the repository's applicable aggregate checks against the final composed
 source state. Report passed, failed, skipped, and never-run checks distinctly.
