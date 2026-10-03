@@ -281,7 +281,7 @@ variable cc-pp-pending-nl
 [lit] 1 constant put-emit
 [lit] 2 constant put-count
 variable cc-pp-put-mode
-variable cc-pp-line-control                     \ strict #line operand scan
+variable cc-pp-line-control                     \ -1 operand, 2 prefix scan
 
 \ cc-pp-put ( c -- )  Dispose of one walked-over byte.
 : cc-pp-put
@@ -304,6 +304,14 @@ variable cc-pp-line-control                     \ strict #line operand scan
     then,
   then, [lit] 0 ;
 
+\ Consume a known LF or CRLF continuation, disposing of only its newline
+\ through the caller's put mode. The physical source cursor still moves
+\ past every byte, so location macros retain physical line accounting.
+: cc-pp-take-continuation
+  cc-prep-advance
+  cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+  cc-pp-take ;
+
 \ cc-pp-block-comment ( -- )  pos at "/*": walk through the closing "*/",
 \ or to EOR.
 : cc-pp-block-comment
@@ -314,7 +322,14 @@ variable cc-pp-line-control                     \ strict #line operand scan
     then,
     [char] * [char] / cc-prep-at? 0=
   while,
-    cc-pp-line-control @ cc-pp-line-continuation? and if, [lit] 49 cc-die then,
+    cc-pp-line-control @ cc-pp-line-continuation? and if,
+      \ Prefix lookahead also crosses ordinary comments. A splice is
+      \ inert there unless it follows '*', which could hide a closer.
+      cc-pp-line-control @ [lit] 2 <> if, [lit] 49 cc-die then,
+      cc-prep-src-addr @ cc-prep-src-pos @ + 1- c@ [char] * = if,
+        [lit] 49 cc-die
+      then,
+    then,
     cc-pp-take
   repeat,
   cc-pp-take cc-pp-take ;
@@ -1255,6 +1270,16 @@ variable cc-pp-cond-depth
     cc-pp-line-comment
   then, ;
 
+\ In source text, only continuations at a whitespace/comment boundary
+\ are supported. They cannot join an identifier, number or delimiter.
+: cc-pp-file-splice-safe?
+  cc-prep-src-pos @ 0= if, true exit, then,
+  cc-prep-src-addr @ cc-prep-src-pos @ + 1- dup c@ space? if,
+    drop true exit,
+  then,
+  cc-prep-src-pos @ [lit] 2 < if, drop [lit] 0 exit, then,
+  dup c@ [char] / = swap 1- c@ [char] * = and ;
+
 \ cc-pp-scan-char ( -- )  Deal with the byte at pos, and the construct it
 \ starts.  A newline in macro text (an argument spread over lines) is a
 \ blank, and the newline is owed.
@@ -1269,6 +1294,12 @@ variable cc-pp-cond-depth
     exit,
   then,
   [lit] 0 cc-prep-at-line-start !
+  cc-prep-in-file @ cc-pp-location-enabled @ and if,
+    cc-pp-line-continuation? if,
+      cc-pp-file-splice-safe? 0= if, [lit] 49 cc-die then,
+      put-emit cc-pp-put-mode ! cc-pp-take-continuation exit,
+    then,
+  then,
   cc-prep-in-file @ if,
     cc-pp-skipping? if, cc-pp-skip-char exit, then,
   then,
@@ -1291,9 +1322,9 @@ variable cc-pp-cond-depth
 variable cc-prep-isd-save-pos
 
 \ SysV recognizes all C horizontal whitespace at directive boundaries.
-\ Reuse the comment walker for lookahead; selected comment-prefixed
-\ directives fail49 explicitly until their complete phase-three grammar
-\ is supported. Ordinary source comments still follow the normal walker.
+\ Reuse the comment walker for lookahead and consumption. Prefix mode
+\ permits inert block-comment splices; split delimiters and malformed
+\ comments still fail49 before any directive can silently disappear.
 : cc-prep-directive-blanks
   begin,
     cc-prep-peek [lit] 13 = if,
@@ -1305,12 +1336,14 @@ variable cc-prep-isd-save-pos
     else, [lit] 0 then,
   while, cc-prep-advance repeat, ;
 
-: cc-prep-directive-prefix ( put-mode -- comment? )
+: cc-prep-directive-prefix ( put-mode -- )
   cc-pp-put-mode @ >r cc-pp-put-mode !
-  cc-pp-line-control @ >r true cc-pp-line-control !
-  [lit] 0
+  cc-pp-line-control @ >r [lit] 2 cc-pp-line-control !
   begin,
     cc-prep-directive-blanks
+    begin, cc-pp-line-continuation? while,
+      cc-pp-take-continuation cc-prep-directive-blanks
+    repeat,
     \ A splice may split a comment opener before or after '#'. Do not
     \ let that unsupported prefix look like ordinary text or vanish.
     cc-prep-peek [char] / = if,
@@ -1319,19 +1352,15 @@ variable cc-prep-isd-save-pos
     then,
     [char] / [char] * cc-prep-at?
   while,
-    drop true cc-pp-block-comment
+    cc-pp-block-comment
   repeat,
   [char] / [char] / cc-prep-at? if, cc-pp-line-comment then,
-  cc-pp-line-continuation? if, [lit] 49 cc-die then,
   r> cc-pp-line-control ! r> cc-pp-put-mode ! ;
 
 : cc-prep-line-is-directive?
   cc-prep-src-pos @ cc-prep-isd-save-pos !
   cc-pp-location-enabled @ if,
     put-drop cc-prep-directive-prefix
-    cc-prep-peek [char] # = and cc-pp-skipping? 0= and if,
-      [lit] 49 cc-die
-    then,
   else, cc-prep-skip-blanks then,
   cc-prep-peek [char] # = >r
   cc-prep-isd-save-pos @ cc-prep-src-pos !
@@ -1823,13 +1852,11 @@ create cc-prep-name-line     s, line
 
 : cc-prep-handle-directive
   cc-pp-location-enabled @ if,
-    put-count cc-prep-directive-prefix drop
+    put-count cc-prep-directive-prefix
   else, cc-prep-skip-blanks then,                 \ leading indent before '#'
   cc-prep-advance                                 \ consume '#'
   cc-pp-location-enabled @ if,
-    put-count cc-prep-directive-prefix cc-pp-skipping? 0= and if,
-      [lit] 49 cc-die
-    then,
+    put-count cc-prep-directive-prefix
   else, cc-prep-skip-blanks then,
   cc-pp-location-enabled @ cc-pp-skipping? 0= and if,
     cc-prep-peek digit? if, [lit] 49 cc-die then,

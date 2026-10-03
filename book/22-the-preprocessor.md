@@ -448,7 +448,7 @@ count their newlines as owed (`put-count`), or nothing (`put-drop`).
 [lit] 1 constant put-emit
 [lit] 2 constant put-count
 variable cc-pp-put-mode
-variable cc-pp-line-control                     \ strict #line operand scan
+variable cc-pp-line-control                     \ -1 operand, 2 prefix scan
 
 \ cc-pp-put ( c -- )  Dispose of one walked-over byte.
 : cc-pp-put
@@ -471,6 +471,14 @@ variable cc-pp-line-control                     \ strict #line operand scan
     then,
   then, [lit] 0 ;
 
+\ Consume a known LF or CRLF continuation, disposing of only its newline
+\ through the caller's put mode. The physical source cursor still moves
+\ past every byte, so location macros retain physical line accounting.
+: cc-pp-take-continuation
+  cc-prep-advance
+  cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+  cc-pp-take ;
+
 \ cc-pp-block-comment ( -- )  pos at "/*": walk through the closing "*/",
 \ or to EOR.
 : cc-pp-block-comment
@@ -481,7 +489,14 @@ variable cc-pp-line-control                     \ strict #line operand scan
     then,
     [char] * [char] / cc-prep-at? 0=
   while,
-    cc-pp-line-control @ cc-pp-line-continuation? and if, [lit] 49 cc-die then,
+    cc-pp-line-control @ cc-pp-line-continuation? and if,
+      \ Prefix lookahead also crosses ordinary comments. A splice is
+      \ inert there unless it follows '*', which could hide a closer.
+      cc-pp-line-control @ [lit] 2 <> if, [lit] 49 cc-die then,
+      cc-prep-src-addr @ cc-prep-src-pos @ + 1- c@ [char] * = if,
+        [lit] 49 cc-die
+      then,
+    then,
     cc-pp-take
   repeat,
   cc-pp-take cc-pp-take ;
@@ -1577,6 +1592,16 @@ construct starts there.
     cc-pp-line-comment
   then, ;
 
+\ In source text, only continuations at a whitespace/comment boundary
+\ are supported. They cannot join an identifier, number or delimiter.
+: cc-pp-file-splice-safe?
+  cc-prep-src-pos @ 0= if, true exit, then,
+  cc-prep-src-addr @ cc-prep-src-pos @ + 1- dup c@ space? if,
+    drop true exit,
+  then,
+  cc-prep-src-pos @ [lit] 2 < if, drop [lit] 0 exit, then,
+  dup c@ [char] / = swap 1- c@ [char] * = and ;
+
 \ cc-pp-scan-char ( -- )  Deal with the byte at pos, and the construct it
 \ starts.  A newline in macro text (an argument spread over lines) is a
 \ blank, and the newline is owed.
@@ -1591,6 +1616,12 @@ construct starts there.
     exit,
   then,
   [lit] 0 cc-prep-at-line-start !
+  cc-prep-in-file @ cc-pp-location-enabled @ and if,
+    cc-pp-line-continuation? if,
+      cc-pp-file-splice-safe? 0= if, [lit] 49 cc-die then,
+      put-emit cc-pp-put-mode ! cc-pp-take-continuation exit,
+    then,
+  then,
   cc-prep-in-file @ if,
     cc-pp-skipping? if, cc-pp-skip-char exit, then,
   then,
@@ -1632,9 +1663,9 @@ tokens, such as an identifier split across physical lines.
 variable cc-prep-isd-save-pos
 
 \ SysV recognizes all C horizontal whitespace at directive boundaries.
-\ Reuse the comment walker for lookahead; selected comment-prefixed
-\ directives fail49 explicitly until their complete phase-three grammar
-\ is supported. Ordinary source comments still follow the normal walker.
+\ Reuse the comment walker for lookahead and consumption. Prefix mode
+\ permits inert block-comment splices; split delimiters and malformed
+\ comments still fail49 before any directive can silently disappear.
 : cc-prep-directive-blanks
   begin,
     cc-prep-peek [lit] 13 = if,
@@ -1646,12 +1677,14 @@ variable cc-prep-isd-save-pos
     else, [lit] 0 then,
   while, cc-prep-advance repeat, ;
 
-: cc-prep-directive-prefix ( put-mode -- comment? )
+: cc-prep-directive-prefix ( put-mode -- )
   cc-pp-put-mode @ >r cc-pp-put-mode !
-  cc-pp-line-control @ >r true cc-pp-line-control !
-  [lit] 0
+  cc-pp-line-control @ >r [lit] 2 cc-pp-line-control !
   begin,
     cc-prep-directive-blanks
+    begin, cc-pp-line-continuation? while,
+      cc-pp-take-continuation cc-prep-directive-blanks
+    repeat,
     \ A splice may split a comment opener before or after '#'. Do not
     \ let that unsupported prefix look like ordinary text or vanish.
     cc-prep-peek [char] / = if,
@@ -1660,19 +1693,15 @@ variable cc-prep-isd-save-pos
     then,
     [char] / [char] * cc-prep-at?
   while,
-    drop true cc-pp-block-comment
+    cc-pp-block-comment
   repeat,
   [char] / [char] / cc-prep-at? if, cc-pp-line-comment then,
-  cc-pp-line-continuation? if, [lit] 49 cc-die then,
   r> cc-pp-line-control ! r> cc-pp-put-mode ! ;
 
 : cc-prep-line-is-directive?
   cc-prep-src-pos @ cc-prep-isd-save-pos !
   cc-pp-location-enabled @ if,
     put-drop cc-prep-directive-prefix
-    cc-prep-peek [char] # = and cc-pp-skipping? 0= and if,
-      [lit] 49 cc-die
-    then,
   else, cc-prep-skip-blanks then,
   cc-prep-peek [char] # = >r
   cc-prep-isd-save-pos @ cc-prep-src-pos !
@@ -2298,13 +2327,11 @@ create cc-prep-name-line     s, line
 
 : cc-prep-handle-directive
   cc-pp-location-enabled @ if,
-    put-count cc-prep-directive-prefix drop
+    put-count cc-prep-directive-prefix
   else, cc-prep-skip-blanks then,                 \ leading indent before '#'
   cc-prep-advance                                 \ consume '#'
   cc-pp-location-enabled @ if,
-    put-count cc-prep-directive-prefix cc-pp-skipping? 0= and if,
-      [lit] 49 cc-die
-    then,
+    put-count cc-prep-directive-prefix
   else, cc-prep-skip-blanks then,
   cc-pp-location-enabled @ cc-pp-skipping? 0= and if,
     cc-prep-peek digit? if, [lit] 49 cc-die then,
@@ -2627,15 +2654,36 @@ other existing macro-expansion limits remain unchanged.
 
 Directive boundaries in the SysV profile recognize space, tab, form feed,
 vertical tab and CRLF endings. A bare carriage return in the prefix is
-rejected49, since this engine tracks LF source lines. A selected directive with a block comment
-before its `#` or between `#` and the directive name is explicitly rejected49;
-it must not silently discard `#line` or bypass numeric-marker rejection.
-Lookahead uses the same comment walker, with strict rejection of unterminated
-or continued prefix comments. In skipped groups, ordinary comment prefixes
-are walked and their newlines counted so conditional nesting stays balanced.
-Nonliteral continuations in a directive prefix or splitting its name also
-fail49; the shared engine does not yet join those phase-two tokens.
+rejected49, since this engine tracks LF source lines. Complete block comments
+before `#` or between `#` and the directive name are consumed by the shared
+comment walker, in active and skipped groups. Lookahead drops their bytes;
+consumption counts their newlines so source locations and conditional nesting
+stay balanced. A directive cannot vanish behind a comment prefix.
+
+Prefix lookahead also crosses ordinary source comments. The unchanged GCC
+`ansidecl.h` contains a backslash-newline in a commented-out macro example.
+Such a splice is inert inside a block comment unless it follows `*`, where
+phase two could assemble a closing delimiter. Prefix mode permits the inert
+case and rejects the latter, split opening delimiters, line-comment
+continuations and unterminated comments with49. The stricter `#line` operand
+mode continues to reject all comment continuations. Both modes use the same
+walker; this does not add another macro or comment parser.
+Continuations between prefix whitespace and complete comments are consumed
+with the same newline disposal operation in lookahead and dispatch. This also
+handles a continuation immediately after a complete source comment, as emitted
+by the unchanged Flex scanner skeleton. In ordinary file text, continuations
+are accepted only at the start of the input, after whitespace, or immediately
+after a complete block comment. Their physical newline is emitted without
+turning the next byte into a new directive line. Location macros still count
+the original source bytes. Other nonliteral source continuations and splices
+splitting a directive name or comment delimiter fail49; the shared engine
+does not yet join those phase-two tokens.
 Legacy/native and TinyCC directive dispatch retain their previous bytes.
+
+The unchanged ordinary string-literal copier still preserves a backslash followed
+by CRLF instead of performing line splicing. That boundary is recorded as a
+known limitation; the accepted comment-boundary repair does not establish full
+translation-phase-two handling for arbitrary source text.
 
 This maps location macros only. Compiler diagnostics still use flattened
 source line numbers; no diagnostic or debug-location remapping is claimed.

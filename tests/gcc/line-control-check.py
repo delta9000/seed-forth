@@ -23,6 +23,9 @@ def main():
     cases={
       'prefix-whitespace':'\f\v #\f\v line 30 \"prefix.c\"\n__LINE__ __FILE__\n',
       'skipped-prefix':'#if 0\n#/**/line 30 \"v.c\"\n#/**/ 1 \"v.c\"\n#/**/endif\n__LINE__\n',
+      'comment-prefix':'#/**/line 30 "v.c"\n__LINE__ __FILE__\n',
+      'leading-comment-prefix':'/* prefix */ #line 30 "v.c"\n__LINE__ __FILE__\n',
+      'multiline-prefix':'# /* one\ntwo */ line 30 "v.c"\n__LINE__ __FILE__\n',
       'number-only':'#line 40\n__LINE__ __FILE__\n__LINE__\n',
       'filename':'#line 91 "virtual.c"\n__LINE__ __FILE__\n#line 2\n__LINE__ __FILE__\n',
       'empty-filename':'#line 1 ""\n__LINE__ __FILE__\n',
@@ -49,6 +52,7 @@ def main():
       'no-final-newline':'#line 6 "end.c"\n__LINE__ __FILE__',
       'command-line':'#line COMMAND_LINE COMMAND_FILE\n__LINE__ __FILE__\n',
     }
+    cases.update({'file-splice-comments-lf': '/* first */\\\n/* second */\n__LINE__ __FILE__\n', 'file-splice-comment-code-lf': '/* first */\\\n__LINE__ __FILE__\n', 'file-splice-comment-line-lf': '/* first */\\\n#line 51 "mapped.y"\n__LINE__ __FILE__\n', 'file-splice-source-whitespace-lf': 'int x; \\\n__LINE__ __FILE__\n', 'file-splice-initial-lf': '\\\n__LINE__ __FILE__\n', 'file-splice-directive-prefix-lf': '#\\\nline 61 "prefix.y"\n__LINE__ __FILE__\n', 'file-splice-skipped-lf': '#if 0\n/* first */\\\n/* second */\nint ignored;\n#endif\n__LINE__\n', 'file-splice-repeat-comments-lf': '#line 60 "outer.y"\n/*a*/\\\n/*b*/\\\n/*c*/ #line __LINE__ __FILE__\n__LINE__ __FILE__\n', 'file-splice-comments-crlf': '/* first */\\\r\n/* second */\r\n__LINE__ __FILE__\r\n', 'file-splice-comment-code-crlf': '/* first */\\\r\n__LINE__ __FILE__\r\n', 'file-splice-comment-line-crlf': '/* first */\\\r\n#line 51 "mapped.y"\r\n__LINE__ __FILE__\r\n', 'file-splice-source-whitespace-crlf': 'int x; \\\r\n__LINE__ __FILE__\r\n', 'file-splice-initial-crlf': '\\\r\n__LINE__ __FILE__\r\n', 'file-splice-directive-prefix-crlf': '#\\\r\nline 61 "prefix.y"\r\n__LINE__ __FILE__\r\n', 'file-splice-skipped-crlf': '#if 0\r\n/* first */\\\r\n/* second */\r\nint ignored;\r\n#endif\r\n__LINE__\r\n', 'file-splice-repeat-comments-crlf': '#line 60 "outer.y"\r\n/*a*/\\\r\n/*b*/\\\r\n/*c*/ #line __LINE__ __FILE__\r\n__LINE__ __FILE__\r\n'})
     for name,text in cases.items():
         source.write_text(text);flags=['-DCOMMAND_LINE=62','-DCOMMAND_FILE="command.c"']
         actual=run([DRIVER,'-E',*flags,source]).stdout
@@ -75,10 +79,13 @@ def main():
     for text in ['#define N 9\n#define NAME 30\n#define AME\n#line N\\\nAME\n', '#line 1\\\n2\n', '#line 10 // continued \\\nmore\n']:
         source.write_text(text+'__LINE__\n');out=work/'previous.i';out.write_bytes(b'previous text\n')
         run([DRIVER,'-E',source,'-o',out],status=49);assert out.read_bytes()==b'previous text\n'
-    for data in [b'#/\\\n**/line 25 \"v.y\"\n__LINE__\n', b'#/\\\r\n**/line 25 \"v.y\"\r\n__LINE__\r\n', b'/\\\n*p*/ #line 25 \"v.y\"\n__LINE__\n', b'/\\\r\n*p*/ #line 25 \"v.y\"\r\n__LINE__\r\n', b'#\\\nline 30 \"v.y\"\n__LINE__\n', b'#\\\n 1 \"v.y\"\n', b'#li\\\nne 30 \"v.y\"\n', b'#li\\\r\nne 30 \"v.y\"\r\n', b'#// x \\\r\nline 30 \"v.y\"\r\n__LINE__\r\n', b'#// x \\\nline 30 \"v.y\"\n__LINE__\n', b'#line 10 // x \\\r\nmore\r\n__LINE__\r\n', b'#line 10 /* x *\\\n/\n__LINE__\n']:
+    for data in [b'#/\\\n**/line 25 \"v.y\"\n__LINE__\n', b'#/\\\r\n**/line 25 \"v.y\"\r\n__LINE__\r\n', b'/\\\n*p*/ #line 25 \"v.y\"\n__LINE__\n', b'/\\\r\n*p*/ #line 25 \"v.y\"\r\n__LINE__\r\n', b'#\\\n 1 \"v.y\"\n', b'#li\\\nne 30 \"v.y\"\n', b'#li\\\r\nne 30 \"v.y\"\r\n', b'#// x \\\r\nline 30 \"v.y\"\r\n__LINE__\r\n', b'#// x \\\nline 30 \"v.y\"\n__LINE__\n', b'#line 10 // x \\\r\nmore\r\n__LINE__\r\n', b'#line 10 /* x *\\\n/\n__LINE__\n']:
         source.write_bytes(data);out=work/'previous.i';out.write_bytes(b'previous text\n')
         run([DRIVER,'-E',source,'-o',out],status=49);assert out.read_bytes()==b'previous text\n'
-    for directive in ['#/**/line 30 "v.c"', '#/**/ 1 "v.c"', '/* prefix */ #line 30 "v.c"', '# /* one\ntwo */ line 30 "v.c"', '# /* unclosed', '#\rline 30 \"v.c\"', '\r#line 30 \"v.c\"']:
+    for data in [b'#define N 9\n#define NAME 25\n#define AME\nN\\\nAME\n', b'1\\\n2\n', b'int value; /\\\n* comment */\n', b'int value; /\\\n/ comment\n', b'#define N 9\r\n#define NAME 25\r\n#define AME\r\nN\\\r\nAME\r\n', b'1\\\r\n2\r\n', b'int value; /\\\r\n* comment */\r\n', b'int value; /\\\r\n/ comment\r\n']:
+        source.write_bytes(data);out=work/'previous.i';out.write_bytes(b'previous text\n')
+        run([DRIVER,'-E',source,'-o',out],status=49);assert out.read_bytes()==b'previous text\n'
+    for directive in ['#/**/ 1 "v.c"', '# /* unclosed', '#\rline 30 \"v.c\"', '\r#line 30 \"v.c\"']:
         source.write_text(directive+'\n__LINE__ __FILE__\n');out=work/'previous.i';out.write_bytes(b'previous text\n')
         run([DRIVER,'-E',source,'-o',out],status=49);assert out.read_bytes()==b'previous text\n'
     for directive in ['# 99 "marker.c"','#line 1 "a" extra']:
@@ -109,7 +116,7 @@ int main(void) {
     result=run([ROOT/'seed-forth'],vocab+b'\n'+script)
     assert module.tokens(result.stdout)==[b'16',('string',b'stale.y'),b'1',('string',b'<stdin>')],result.stdout
     assert hashes=={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
-    report={'status':'PASS','source_sha256':hashes,'token_cases':records,'reject49_preserves_output':len(bad)+24,'repeated_preprocess':'same seed process resets logical state','production':'Forth compiler/runtime/linker execution validates nested line/name state','scope':'ISO decimal range; ordinary filename byte strings up to 1023 decoded non-NUL bytes; GNU numeric markers and ambiguous nonliteral continuations remain unsupported; diagnostics remain flattened'}
+    report={'status':'PASS','source_sha256':hashes,'token_cases':records,'reject49_preserves_output':len(bad)+28,'repeated_preprocess':'same seed process resets logical state','production':'Forth compiler/runtime/linker execution validates nested line/name state','scope':'ISO decimal range; ordinary filename byte strings up to 1023 decoded non-NUL bytes; GNU numeric markers and ambiguous nonliteral continuations remain unsupported; diagnostics remain flattened'}
     (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print('PASS: C #line macro operands, logical locations, physical includes, Forth execution, resets and failure preservation')
     print(work/'report.json')
