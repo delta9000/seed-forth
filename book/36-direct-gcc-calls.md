@@ -48,6 +48,50 @@ names for its own parameters. The focused abstract-callback gate checks
 compatible redeclarations, pointer sizes, an actual indirect call and
 incompatible return/argument types.
 
+Explicit function-pointer casts use that same signature parser in abstract
+type names. For example, libiberty's
+`(struct _obstack_chunk * (*)(void *, long)) chunkfun` restores a typed
+allocator after storing its address through a generic callback type.
+The cast leaves the address bits unchanged and replaces the expression's
+signature descriptor. Casting back therefore preserves pointer equality,
+while the next indirect call gets the selected parameter conversions,
+return type, and nested return descriptor. A callback that returns another
+callback retains both signatures; a callback returning a struct pointer
+retains the struct tag needed by `->`.
+
+This permission covers conversion and restoration, not calling a function
+through a signature incompatible with its actual definition. The focused
+`sysv-function-pointer-casts-check.sh` gate only calls restored matching
+types. It exercises direct addresses, generic locals and record members,
+narrow integer arguments, and callbacks returning callbacks through both
+Forth-only executable paths. Optional `SF_GCC_CAST_ORACLE=1` runs separate
+host `-O0` and `-O2` semantic oracles and a host-linked Forth object.
+
+Together with Chapter 47's bitfield layout, the pinned-source
+`sysv-gcc-obstack-check.sh` gate compiles the unchanged original
+`libiberty/obstack.c` and its original header. Its Forth-only executable
+exercises both callback dispatch modes, copies an object into a grown chunk,
+and checks allocation and release counts. Callback casts at the public
+API boundary are restored to their actual definitions before invocation.
+The fixture therefore tests the original allocator's control flow without
+relying on incompatible function calls or a replacement allocator body.
+
+The explicit-cast hook in Chapter 29 defaults to doing nothing. This target
+rejects crossings between a function pointer and any other value type with
+230, except a cast to `void` that discards the value. In particular,
+function/object-pointer conversion remains unsupported: the configure
+probe that casts a function address to `char **` still takes its
+conservative false branch. A cast from an integer null
+pointer constant, such as `(int (*)(void))0` or `(Callback)0`, is valid C
+but is not implemented by this bounded restoration stage: it also rejects
+with230. General integer/function-address casts remain outside this stage.
+The original obstack unit does not need these conversions, and the negative
+gate records their rejection explicitly. Supported function-pointer casts
+do not skip call checks. Floating argument classes, unsupported floating returns,
+aggregate arguments and aggregate returns still reject with232; the
+new negative fixtures verify that rejected compilation preserves an
+existing output file.
+
 A call to an undeclared ordinary identifier creates C90's implicit
 `extern int name()` declaration. Its name is visible only in the current
 block. A separate translation-unit record keeps the external identity,
@@ -450,6 +494,34 @@ defer cc-sysv-signature-fwd
     then,
   again, ;
 ' cc-sysv-signature is cc-sysv-signature-fwd
+
+\ Abstract function-pointer type names reuse the declaration signature parser.
+\ The operand address is unchanged; the cast result carries the new signature.
+: cc-sysv-type-name
+  cc-native-type-name
+  cc-target-sysv @ 0= if, exit, then,
+  cc-next-token-keep
+  lparen cc-tok-punct? if,
+    cc-type-name-array @ if, [lit] 238 cc-die then,
+    [char] * cc-expect-punct-c
+    cc-skip-qualifiers cc-count-stars if, [lit] 231 cc-die then,
+    [char] ) cc-expect-punct-c lparen cc-expect-punct-c
+    cc-cast-desc @ cc-sysv-signature cc-cast-desc !
+    ty-func [lit] 1 ty-make
+  else, cc-putback-token then, ;
+' cc-sysv-type-name is cc-native-type-name-fwd
+
+\ C permits function-pointer conversions and a round trip back to the
+\ original signature. A call still uses its actual selected signature and
+\ the normal ABI class checks. Object/function-pointer crossings reject.
+: cc-sysv-function-pointer? ( type -- flag )
+  dup ty-base ty-func = swap ty-ptr [lit] 1 = and ;
+: cc-sysv-cast-types ( source destination -- )
+  cc-target-sysv @ 0= if, 2drop exit, then,
+  dup ty-void [lit] 0 ty-make = if, 2drop exit, then,
+  cc-sysv-function-pointer? swap cc-sysv-function-pointer? <>
+  if, [lit] 230 cc-die then, ;
+' cc-sysv-cast-types is cc-cast-types-fwd
 
 
 \ Type identity is checked at redeclarations. Struct pointers retain tag

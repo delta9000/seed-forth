@@ -607,6 +607,10 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
 \ compile the whole cast — type, ')', then the operand, a unary
 \ expression — and answer true.  Otherwise answer false with the token
 \ after the '(' put back, for cc-parse-paren.
+: cc-cast-types-default ( source destination -- ) 2drop ;
+defer cc-cast-types-fwd
+' cc-cast-types-default is cc-cast-types-fwd
+
 : cc-try-cast
   cc-next-token-keep
   cc-type-start? 0= if,
@@ -620,6 +624,7 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
   cc-emit-materialize
   r> r>                                            ( desc ty )
   cc-target-lp64 @ if,
+    cc-last-expr-type @ over cc-cast-types-fwd
     cc-last-expr-type @ over cc-emit-convert-value
   else,
     dup ty-base ty-char = over ty-ptr 0= and if, cc-emit-zx-byte-rdi then,
