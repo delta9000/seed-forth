@@ -78,7 +78,11 @@ PASTE(__LI,NE__)
 __LINE__ __FILE__
 LOC
 ''')
-    cases = [source]
+    alias = work/'alias.c'
+    alias.write_text('#define A(x) __LINE__, x\n#define B A\nB\n(\n __LINE__\n)\n')
+    function_alias = work/'function-alias.c'
+    function_alias.write_text('#define A(x) __LINE__, x\n#define B() A\nB()\n(\n __LINE__\n)\n')
+    cases = [source, alias, function_alias]
     # Quoted, backslashed and control-byte path spellings must remain one C
     # string token, not become directives, separators or unintended escapes.
     for name in ('quote"source.c', 'back\\source.c', 'line\nsource.c', 'tab\tsource.c'):

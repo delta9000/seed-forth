@@ -486,6 +486,13 @@ variable cc-prep-inc-mode                         \ 1=quote, 2=angle
 \ its invocation location; raw argument slices can recover their own lines.
 variable cc-pp-location-enabled
 variable cc-pp-location-line
+variable cc-pp-location-rescan
+variable cc-pp-location-depth
+variable cc-pp-location-object-root
+: cc-pp-location-begin ( object-like? -- )
+  cc-pp-location-depth @ 0= if, cc-pp-location-object-root ! else, drop then,
+  [lit] 1 cc-pp-location-depth +! ;
+: cc-pp-location-end [lit] 1 cc-pp-location-depth -! ;
 create cc-pp-file-base    cc-prep-direct-depth 1+ [lit] 8 * allot
 create cc-pp-file-end     cc-prep-direct-depth 1+ [lit] 8 * allot
 create cc-pp-file-cursor  cc-prep-direct-depth 1+ [lit] 8 * allot
@@ -497,7 +504,7 @@ create cc-pp-file-line    cc-prep-direct-depth 1+ [lit] 8 * allot
   cc-prep-src-len @ + cc-pp-file-end cc-pp-location-cell !
   [lit] 1 cc-pp-file-line cc-pp-location-cell ! ;
 : cc-pp-location-at ( address -- )
-  cc-pp-location-enabled @ 0= if, drop exit, then,
+  cc-pp-location-enabled @ 0= cc-pp-location-rescan @ or if, drop exit, then,
   dup cc-pp-file-base cc-pp-location-cell @ < if, drop exit, then,
   dup cc-pp-file-end cc-pp-location-cell @ >= if, drop exit, then,
   dup cc-pp-file-cursor cc-pp-location-cell @ < if,
@@ -1006,7 +1013,7 @@ create cc-pp-stdin-name s, <stdin>
 
 \ cc-pp-expand-object ( i -- )  Scan object-like macro i's body in place of
 \ its name.
-: cc-pp-expand-object
+: cc-pp-expand-object-body
   dup cc-macro-params cell[] @ [lit] 0 [lit] 2 - = if,
     drop cc-pp-location-line @ cc-pp-location-number exit,
   then,
@@ -1019,13 +1026,15 @@ create cc-pp-stdin-name s, <stdin>
   cc-pp-expand-text
   [lit] 0 swap cc-macro-busy-cell !
   r> cc-prep-direct @ if, cc-pp-rescan-tail-fwd else, drop then, ;
+: cc-pp-expand-object
+  true cc-pp-location-begin cc-pp-expand-object-body cc-pp-location-end ;
 
 \ cc-pp-expand-call ( i -- )  The '(' of function-like macro i's call has
 \ been read.  Collect and expand the arguments, substitute them into the
 \ body, and scan the result in place of the call.  A call with more
 \ arguments than the macro has parameters dies with 45 (a macro with no
 \ parameters takes one empty argument).
-: cc-pp-expand-call
+: cc-pp-expand-call-body
   cc-pp-out-pos @ >r
   cc-pp-scratch-top @ >r                           ( i ; R: top )
   cc-pp-args-max [lit] 16 * cc-pp-scratch-alloc    ( i recs )
@@ -1053,6 +1062,8 @@ create cc-pp-stdin-name s, <stdin>
   [lit] 0 r> cc-macro-busy-cell !
   r> cc-pp-scratch-top !
   r> cc-prep-direct @ if, cc-pp-rescan-tail-fwd else, drop then, ;
+: cc-pp-expand-call
+  [lit] 0 cc-pp-location-begin cc-pp-expand-call-body cc-pp-location-end ;
 
 \ Rescan the final token together with the surrounding source.  This is
 \ essential for both an alias (DEF_BWLX(mov)) and a computed name such as
@@ -1078,7 +1089,11 @@ variable cc-pp-tail-name
   dup cc-macro-busy-cell @ if, drop exit, then,
   dup cc-macro-params cell[] @ 0< if, drop exit, then,
   cc-pp-paren-ahead? if,
-    cc-pp-tail-name @ cc-pp-out-pos ! cc-pp-expand-call
+    cc-pp-tail-name @ cc-pp-out-pos !
+    cc-pp-location-rescan @ >r
+    cc-pp-location-object-root @ cc-pp-location-rescan !
+    cc-pp-expand-call
+    r> cc-pp-location-rescan !
   else, drop then, ;
 ' cc-pp-rescan-tail is cc-pp-rescan-tail-fwd
 
@@ -1660,6 +1675,7 @@ defer cc-prep-target-fwd
   cc-src-cap cc-pp-out-cap !  [lit] 36 cc-pp-out-code !
   cc-prep-direct @ 0= if, cc-prep-builtins then,
   [lit] 0 cc-pp-location-enabled ! [lit] 1 cc-pp-location-line !
+  [lit] 0 cc-pp-location-rescan ! [lit] 0 cc-pp-location-depth !
   cc-prep-target-fwd
   [lit] 0 cc-prep-inc-top !
   cc-prep-source-path cc-prep-source-len @ cc-prep-file-paths cc-prep-copy-path

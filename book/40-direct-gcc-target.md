@@ -24,7 +24,14 @@ preprocessor's ordinary macro table. A macro defined in a header and invoked
 in a C file reports the invocation's file and physical line. An argument
 written on a later line retains its own location during argument expansion.
 Nested replacements save and restore that location so one argument cannot
-change the line used by the containing replacement. Includes keep separate
+change the line used by the containing replacement. If the outermost macro expansion began with an object-like alias and leaves a
+function-like macro name that consumes parentheses from the surrounding file,
+the resulting call keeps the outer expansion's invocation location, including
+its rescanned arguments. This matches GCC's alias-tail behavior and is tested
+separately from directly spelled calls and function-like expansions that
+return another macro name. An expansion-depth counter records that outermost
+kind; nested aliases inherit it. Function-root calls retain raw argument
+locations. Includes keep separate
 file cursors; returning from an include resumes the enclosing file's count.
 The opened filename is escaped as a C string token, including quotes,
 backslashes, and control bytes. With no supplied source name it is `<stdin>`.
