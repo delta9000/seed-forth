@@ -1128,6 +1128,9 @@ keyword, `struct TAG`, a typedef name, or a local variable.
     cc-last-expr-array-inner @ if, cc-last-expr-array-inner @ * then,
   else, cc-expr-type-size then, ;
 
+defer cc-sizeof-type-size-fwd
+' cc-expr-type-size is cc-sizeof-type-size-fwd
+
 : cc-native-sizeof                              ( -- bytes )
   cc-out-pos @ >r cc-gfixup-count @ >r
   cc-expr-unevaluated @ >r true cc-expr-unevaluated !
@@ -1135,7 +1138,7 @@ keyword, `struct TAG`, a typedef name, or a local variable.
   lparen cc-tok-punct? if,
     cc-next-token-keep
     cc-sizeof-type-start-fwd if,
-      cc-sizeof-type-fwd cc-expr-type-size
+      cc-sizeof-type-fwd cc-sizeof-type-size-fwd
       cc-next-token-keep
       begin, [char] [ cc-tok-punct? while,
         cc-parse-const-fwd *

@@ -14,7 +14,7 @@
   repeat, drop 2drop ;
 
 variable cc-nctx
-[lit] 192 constant cc-nctx-bytes
+[lit] 208 constant cc-nctx-bytes
 : nc-ty     cc-nctx @ ;
 : nc-desc   cc-nctx @ [lit] 8 + ;
 : nc-name   cc-nctx @ [lit] 16 + ;
@@ -32,6 +32,8 @@ variable cc-nctx
 : nc-slot   cc-nctx @ [lit] 168 + ;
 : nc-extern cc-nctx @ [lit] 176 + ;
 : nc-bound-mask cc-nctx @ [lit] 184 + ;
+: nc-base-array cc-nctx @ [lit] 192 + ;
+: nc-base-inner cc-nctx @ [lit] 200 + ;
 : cc-nzero ( a n -- )
   begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;
 : cc-ncontext
@@ -110,6 +112,8 @@ defer cc-naggregate-fwd
 
 \ The current token is a base type. Return encoded type and descriptor.
 : cc-nbase
+  cc-nctx @ 0= if, cc-ncontext then,
+  [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
   begin, cc-qualifier? while, cc-next-token-keep repeat,
   kw-struct cc-tok-kw? kw-union cc-tok-kw? or if,
     cc-naggregate-fwd exit,
@@ -276,8 +280,17 @@ defer cc-ndeclarator-check-fwd
   ty-struct [lit] 0 ty-make swap ;
 ' cc-naggregate is cc-naggregate-fwd
 
+\ Type queries preserve the enclosing declaration's array base shape.
+: cc-native-type-shape-default + ;
+defer cc-native-type-shape-fwd
+' cc-native-type-shape-default is cc-native-type-shape-fwd
 : cc-native-type-name
-  cc-nbase cc-cast-desc ! cc-skip-qualifiers cc-count-stars + ;
+  cc-nctx @ 0= if, cc-ncontext then,
+  nc-base-array @ >r nc-base-inner @ >r
+  [lit] 0 cc-type-name-array ! [lit] 0 cc-type-name-inner !
+  cc-nbase cc-cast-desc ! cc-skip-qualifiers cc-count-stars
+  cc-native-type-shape-fwd
+  r> nc-base-inner ! r> nc-base-array ! ;
 ' cc-native-type-name is cc-native-type-name-fwd
 
 defer cc-native-function-fwd

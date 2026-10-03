@@ -42,13 +42,42 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   nc-inner @ [lit] 0 > if, nc-inner @ cc-sysv-size-product then, ;
 : cc-sysv-typedef-check
   cc-target-sysv @ if,
-    dup cc-sym-array-len-of over cc-sym-array-inner-of or if,
-      [lit] 238 cc-die
-    then,
+    dup cc-sym-array-len-of nc-base-array !
+    dup cc-sym-array-inner-of nc-base-inner !
   then, ;
 ' cc-sysv-typedef-check is cc-ntypedef-check-fwd
+\ Preserve array typedef shape through aliases and ordinary declarations.
+\ The existing representation admits two dimensions, not pointers to arrays.
+: cc-sysv-inherit-array
+  nc-base-array @ if,
+    nc-ty @ nc-base @ <> nc-func @ or if, [lit] 238 cc-die then,
+    nc-array @ if,
+      nc-inner @ nc-base-inner @ or nc-base-array @ [lit] 0 < or if,
+        [lit] 238 cc-die
+      then,
+      nc-base-array @ nc-inner !
+    else,
+      nc-base-array @ nc-array ! nc-base-inner @ nc-inner !
+    then,
+  then, ;
+: cc-sysv-type-shape ( base-type stars -- type )
+  cc-target-sysv @ 0= if, + exit, then,
+  dup 0= 0= nc-base-array @ 0= 0= and if, [lit] 238 cc-die then,
+  nc-base-array @ cc-type-name-array ! nc-base-inner @ cc-type-name-inner ! + ;
+' cc-sysv-type-shape is cc-native-type-shape-fwd
+: cc-sysv-sizeof-type ( type descriptor -- bytes )
+  cc-expr-type-size
+  cc-target-sysv @ if,
+    cc-type-name-array @ if,
+      cc-type-name-array @ [lit] 0 < if, [lit] 238 cc-die then,
+      cc-type-name-array @ cc-sysv-size-product
+      cc-type-name-inner @ if, cc-type-name-inner @ cc-sysv-size-product then,
+    then,
+  then, ;
+' cc-sysv-sizeof-type is cc-sizeof-type-size-fwd
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
+    cc-sysv-inherit-array
     nc-ty @ [lit] 256 / [lit] 255 and if, [lit] 231 cc-die then,
     nc-bound-mask @ [lit] 1 and if,
       nc-array @ [lit] 0 <= if, [lit] 238 cc-die then,
@@ -61,6 +90,12 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
     then,
   then, ;
 ' cc-sysv-check-declarator is cc-ndeclarator-check-fwd
+
+: cc-sysv-adjust-array-parameter
+  nc-array @ if,
+    nc-inner @ if, [lit] 238 cc-die then,
+    [lit] 1 nc-ty +! [lit] 0 nc-array !
+  then, ;
 
 defer cc-sysv-signature-fwd
 : cc-sysv-fnptr
@@ -130,7 +165,7 @@ defer cc-sysv-signature-fwd
     then,
     cc-nbase nc-sdesc ! nc-base ! cc-ndeclarator
     nc-func @ if, [lit] 233 cc-die then,
-    nc-array @ if, [lit] 1 nc-ty +! [lit] 0 nc-array ! then,
+    cc-sysv-adjust-array-parameter
     nc-ty @ cc-sysv-check-scalar
     nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
     r> r> dup >r swap >r
@@ -399,7 +434,7 @@ variable cc-sysv-stack-depth
     begin,
       cc-ndeclarator
       nc-func @ if, [lit] 233 cc-die then,
-      nc-array @ if, [lit] 1 nc-ty +! [lit] 0 nc-array ! then,
+      cc-sysv-adjust-array-parameter
       nc-ty @ cc-sysv-check-scalar
       nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
       dup nc-name @ nc-nlen @ cc-sysv-find-parameter

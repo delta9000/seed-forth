@@ -22,17 +22,36 @@ CASES = {
  'zero-bound': 'int zero[0]; int review(void){return sizeof(zero)==0?0:1;}',
  'negative-bound': 'int negative[-2]; int review(void){return sizeof(negative)==4?0:1;}',
  'overflow-bound': 'long overflow[2305843009213693953UL]; int review(void){return sizeof(overflow)==8?0:1;}',
- 'typedef-array': 'typedef int A[3]; A a; int review(void){return sizeof(a)==12?0:1;}',
+ 'typedef-array': '''typedef int A[3]; typedef A B; typedef long Different; typedef int Other[5];
+ B a; A m[2]={{1,2,3},{4,5,6}};
+ A first={sizeof(Different[5])}, after={7,8,9}; A alias_first={sizeof(Other)}, alias_after={10,11,12};
+ int parameter(B p){return sizeof(p)==8&&sizeof(B)==12&&p[2]==6?0:1;}
+ int review(void){
+ B local={4,5,6}; A local_first={sizeof(Different[5])}, local_after={13,14,15};
+ A local_alias_first={sizeof(Other)}, local_alias_after={16,17,18};
+ if(sizeof(A)!=12||sizeof(B)!=12||sizeof(a)!=12||sizeof(m)!=24||m[1][2]!=6)return 1;
+ if(a[0]!=0||a[1]!=0||a[2]!=0)return 2; a[2]=42;
+ if(sizeof(local)!=12||parameter(local)!=0||local[2]!=6)return 3;
+ if(sizeof(first)!=12||first[0]!=40||sizeof(after)!=12||after[2]!=9)return 4;
+ if(sizeof(alias_first)!=12||alias_first[0]!=20||sizeof(alias_after)!=12||alias_after[2]!=12)return 5;
+ if(sizeof(local_first)!=12||local_first[0]!=40||sizeof(local_after)!=12||local_after[2]!=15)return 6;
+ if(sizeof(local_alias_first)!=12||local_alias_first[0]!=20||sizeof(local_alias_after)!=12||local_alias_after[2]!=18)return 7;
+ return a[2]==42?0:8;
+ }''',
+ 'typedef-array-pointer': 'typedef int A[3]; A *p;',
+ 'typedef-multidim-parameter': 'typedef int A[2][3]; int f(A p){return 0;}',
+ 'typedef-three-dimensions': 'typedef int A[3]; A m[2][2];',
  'scalar-array-redecl': 'int a; extern int a[3]; int review(void){return sizeof(a)==12?0:1;}',
  'array-scalar-redecl': 'int a[3]={1,2,3}; extern int a; int review(void){return sizeof(a)==4?0:1;}',
 }
 expected_rejections = {
  'zero-bound':238, 'negative-bound':238, 'overflow-bound':245,
- 'typedef-array':238, 'scalar-array-redecl':237, 'array-scalar-redecl':237,
+ 'typedef-array-pointer':238, 'typedef-multidim-parameter':238,
+ 'typedef-three-dimensions':238, 'scalar-array-redecl':237, 'array-scalar-redecl':237,
 }
 work=Path(tempfile.mkdtemp(prefix='sf-review-storage-'))
 print('Artifacts:',work,flush=True)
-positives = {'extern-order','array-redecl','static-collision','pointer-aggregates','function-pointer-array','static-local-addresses'}
+positives = {'extern-order','array-redecl','static-collision','pointer-aggregates','function-pointer-array','static-local-addresses','typedef-array'}
 def forth_driver(files,driver):
  data=b''.join((ROOT/f).read_bytes() for f in files)+driver.encode()
  return subprocess.run([str(ROOT/'seed-forth')],input=data,capture_output=True,timeout=15)
@@ -50,6 +69,12 @@ for name,source in CASES.items():
  if name in positives and result.returncode==0:
   syms=subprocess.run(['readelf','-sW',str(obj)],text=True,capture_output=True)
   (work/(name+'.symbols')).write_text(syms.stdout)
+  if name=='typedef-array':
+   object_sizes={parts[7]:int(parts[2]) for line in syms.stdout.splitlines()
+                 if len(parts:=line.split())==8 and parts[3]=='OBJECT'}
+   expected_sizes={'a':12,'m':24,'first':12,'after':12,'alias_first':12,'alias_after':12}
+   row['object_sizes']={name:object_sizes.get(name) for name in expected_sizes}
+   assert row['object_sizes']==expected_sizes, f'array typedef object sizes: {row}'
   host=work/'host.c'; host.write_text('int review(void); int main(void){return review();}\n')
   exe=work/(name+'.exe')
   link=subprocess.run(['cc','-O2','-fno-pie','-no-pie',str(host),str(obj),'-o',str(exe)],text=True,capture_output=True)
@@ -83,4 +108,4 @@ for row in results:
   assert row['compile']==code, f"wrong rejection exit: {row}"
   assert row['diagnostic']==f'cc: line 1: error {code}', f"wrong rejection diagnostic: {row}"
   assert not row['output_exists'], f"rejected translation unit published an object: {row}"
-print('PASS: six storage groups through host and Forth executables; six exact diagnostics without object publication')
+print(f'PASS: {len(positives)} storage groups through host and Forth executables; {len(expected_rejections)} exact diagnostics without object publication')

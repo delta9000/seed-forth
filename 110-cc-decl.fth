@@ -609,6 +609,7 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
     cc-putback-token [lit] 0 exit,
   then,
   cc-parse-type-name >r                            ( ; R: ty )
+  cc-target-lp64 @ if, cc-type-name-array @ if, [lit] 238 cc-die then, then,
   [char] ) cc-expect-punct-c
   cc-cast-desc @ >r                                ( ; R: ty desc )
   cc-parse-unary

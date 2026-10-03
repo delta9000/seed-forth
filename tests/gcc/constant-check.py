@@ -77,13 +77,15 @@ def layers():
     return b"".join(p.read_bytes() for p in files)
 
 
-def seed(source, count, api="cc-parse-integer-const", setup="cc-sysv-enable"):
+def seed(source, count, api="cc-parse-integer-const", setup="cc-sysv-enable", declarations=0):
+    declaration_parser = "cc-skip-storage-quals cc-next-token-keep true cc-native-declaration\n" * declarations
     driver = f"""
 {setup}
 [lit] 8388608 cc-arena-map
 create const-output [lit] 16 allot
 : const-check-main
   cc-load-stdin cc-preprocess cc-out-init cc-globals-init
+  {declaration_parser}
   [lit] {count} begin, dup while,
     >r {api} const-output [lit] 8 + ! const-output !
     [char] ; cc-expect-punct-c
@@ -121,6 +123,7 @@ def main():
                       "cc-parse-const cc-const-int-type", mode)
         assert result.returncode == 0 and struct.unpack("<QQ", result.stdout)[0] == expected
     print("PASS: legacy/native constants retain original behavior; System V opts in")
+    check_array_aliases()
     check_symbols()
     cc = shutil.which("gcc")
     if not cc:
@@ -151,6 +154,21 @@ def main():
             failures = [(e, a, b) for e, a, b in zip(expressions, got, want) if a != b]
             raise AssertionError(failures[:12])
     print(f"PASS: {len(expressions)} constant values and types match independent GCC oracle")
+
+
+def check_array_aliases():
+    preamble = "typedef int A[3]; typedef A B; typedef A M[2];\n"
+    expressions = "sizeof(A); sizeof(B); sizeof(M); sizeof(int); (int)1;\n"
+    result = seed(preamble + expressions, 5, declarations=3)
+    assert result.returncode == 0, (result.returncode, result.stdout, result.stderr)
+    assert list(struct.iter_unpack("<QQ", result.stdout)) == [
+        (12, ULONG << 16), (12, ULONG << 16), (24, ULONG << 16),
+        (4, ULONG << 16), (1, INT << 16),
+    ]
+    for expression in ("(A)1", "(B)1", "(M)1", "(A)(1/0)", "1 ? 1 : (A)1"):
+        result = seed(preamble + expression + ";\n", 1, declarations=3)
+        assert result.returncode == 240, (expression, result.returncode, result.stdout, result.stderr)
+    print("PASS: array-alias sizeof retains full shape; array casts reject before operand evaluation")
 
 
 def check_symbols():

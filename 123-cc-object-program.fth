@@ -144,6 +144,8 @@ create cc-om-string-name s, .Lstring
   nc-ty @ nc-desc @ nc-array @ nc-inner @ [lit] 0 [lit] 0 cc-ni-value ;
 : cc-sysv-object-declaration
   cc-sysv-object-mode @ 0= if, cc-nobject exit, then,
+  nc-top @ 0= nc-extern @ 0= and nc-array @ [lit] 0 < and
+  [char] = cc-tok-punct? 0= and if, [lit] 238 cc-die then,
   nc-top @ nc-static @ or nc-extern @ or 0= if, cc-nobject exit, then,
   [char] = cc-tok-punct? if, cc-native-init-prepare-fwd then,
   nc-top @ 0= nc-static @ and if, [lit] 0

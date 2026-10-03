@@ -142,7 +142,9 @@ defer cc-const-conditional-fwd
   lparen cc-tok-punct? if,
     cc-next-token-keep
     cc-type-start? if,
-      cc-parse-type-name >r cc-cast-desc @ >r
+      cc-parse-type-name
+      cc-type-name-array @ if, cc-const-unsupported then,
+      >r cc-cast-desc @ >r
       [char] ) cc-expect-punct-c
       cc-const-unary-fwd
       r> r> swap cc-const-cast exit,

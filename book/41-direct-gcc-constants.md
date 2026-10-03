@@ -37,7 +37,9 @@ arithmetic conversion rules. Every binary operation converts its operands to
 the common type, evaluates, then normalizes the result to that type. Shifts
 instead use the promoted left operand's type. Relational, equality, and logical
 operators produce `int`; `sizeof` produces the target's unsigned `size_t`.
-The existing type representation gives `long` and `long long` the same width
+Array typedefs retain their full shape in `sizeof`; a cast to an array typedef
+is rejected before its operand is evaluated. The existing type representation
+gives `long` and `long long` the same width
 and signedness. Decimal literals beyond signed `long` retain the documented
 unsigned extension, provided the value fits in an unsigned machine word.
 
@@ -259,7 +261,9 @@ defer cc-const-conditional-fwd
   lparen cc-tok-punct? if,
     cc-next-token-keep
     cc-type-start? if,
-      cc-parse-type-name >r cc-cast-desc @ >r
+      cc-parse-type-name
+      cc-type-name-array @ if, cc-const-unsupported then,
+      >r cc-cast-desc @ >r
       [char] ) cc-expect-punct-c
       cc-const-unary-fwd
       r> r> swap cc-const-cast exit,
