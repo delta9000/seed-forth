@@ -1,0 +1,141 @@
+{
+  "audit_date": "2026-10-03",
+  "configure_invocations": 177,
+  "configure_returncodes": {
+    "0": 32,
+    "143": 39,
+    "144": 1,
+    "2": 17,
+    "205": 2,
+    "238": 1,
+    "253": 41,
+    "30": 36,
+    "93": 8
+  },
+  "diagnostic_variants": [
+    {
+      "name": "endian",
+      "original_status": 93,
+      "original_trace": "probes/1791043168952662067-g_zmsyy0",
+      "variant_execution_status": 0,
+      "variant_source_sha256": "f09f837ebbf06adeb90889c6c5d3c986ef30ecc7f8c50e93c08ed1f20a8a5e6e",
+      "variant_status": 0
+    },
+    {
+      "name": "mkdir",
+      "original_status": 93,
+      "original_trace": "probes/1791043227183731165-2ah5lcme",
+      "variant_execution_status": null,
+      "variant_source_sha256": "392e69df779c2da1ab9fe53f737aaf869817e972997a798901bad6814ca70626",
+      "variant_status": 0
+    }
+  ],
+  "evidence_sha256": {
+    "build-out/configure-audit-gencheck-9qoxolfo/report.json": "136e49c7d16071159327f929d8f58baa9233cd2e68db0fa61c9e51cace6ee4df",
+    "build-out/configure-audit-k79ms3z9/report.json": "ff57701b899773759d051b5f464de4cf7b6f4b6d24987aa20da40c9d3af3dc30",
+    "build-out/configure-audit-k79ms3z9/verified-probes.json": "dc0cabe48a9a3041c3117b5080f39e634700669ed5d5addd87e3ba8ff3397ea8"
+  },
+  "gcc_archive_sha256": "091f7e50fb712289632fb14d93582a6a49d731c59b8c095cc75cff01c1f40a67",
+  "gcc_source_entries_verified": 25654,
+  "gencheck": {
+    "definition_inputs": {
+      "c-common.def": {
+        "count": 12,
+        "sha256": "cbf29e1827c30c79a77f14df42691f265f09902672ecac6582821d89637819a5"
+      },
+      "tree.def": {
+        "count": 152,
+        "sha256": "c4cf2790f3968a0cf04220939ff02edf6e58eb75978552cc889cbce80aaf01a1"
+      }
+    },
+    "executable_sha256": "8575f1ad8768b672e3129490073eb86de13231bef05bce05992d4a96161641f1",
+    "generated_header_sha256": {
+      "auto-host.h": "0dc4ea80d5b287662386940cbe43e71208102de8312e453a453e868f1c84f0e2",
+      "bconfig.h": "b9b3caa0092309f5287d81c2408276ad1b194537312c70556736450c5e66bb2b",
+      "configargs.h": "c46d4fb4c4a37d39078e1d0e8d0066ff1451b810046e05a6fe5e00c362ff73ca",
+      "cs-bconfig.h": "2cd8ec3de6a07e1fd39676100db57ba62372e820c19812fee55899f65746e192",
+      "cs-tm.h": "2cd8ec3de6a07e1fd39676100db57ba62372e820c19812fee55899f65746e192",
+      "gencheck.h": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gthr-default.h": "971c63b7084d9bed32f6f82872e2ebd24f91c25b153cd065e58a025b40da49d4",
+      "tm.h": "11807ce1e2f3bddc9a377991a9eb3d7c1efa7c0a9c930227336878886b471b24"
+    },
+    "object_sha256": "eed194c7d8e7ba473130836b5bcccb2dd02e649bd496dde72830f2e36d595980",
+    "output_bytes": 9675,
+    "output_sha256": "911a211b76f293fb5c7863cfb6bd82ad71da3956d130fdf56fe9487387e062f3",
+    "scope": "Original Makefile object flags replayed; bounded runtime focused link omits BUILD_LIBIBERTY. No archive/full Makefile link/full GCC proof.",
+    "unique_tree_codes": 164
+  },
+  "independent_layout_stdout": "sizes 1 2 4 8 8 8\nalignments 2 4 8 8 8\nbytes 8 1 1 0\nstat 144 8 24 48 72\ntypes 4 0 8 1 4 1\n",
+  "independent_size_replay": [
+    {
+      "binary_sha256": "5049b51204eb63729137a866ee8f1dde16f5ccf0af1ab9609ba449abce993e8a",
+      "returncode": 0,
+      "trace": "probes/1791043152462985105-c9xjvrvs",
+      "type": "void *",
+      "value": "8\n"
+    },
+    {
+      "binary_sha256": "f8260c786672078df96bff63913850fd19f29820c98e19ead7c3ae3d75ad003d",
+      "returncode": 0,
+      "trace": "probes/1791043153464191713-rgttdx2w",
+      "type": "short",
+      "value": "2\n"
+    },
+    {
+      "binary_sha256": "e9a1177c80d60302e26c3f607e22ad88cc554198679bd8cacb6bc6951662c3e1",
+      "returncode": 0,
+      "trace": "probes/1791043154475309506-xur0s4b1",
+      "type": "int",
+      "value": "4\n"
+    },
+    {
+      "binary_sha256": "5049b51204eb63729137a866ee8f1dde16f5ccf0af1ab9609ba449abce993e8a",
+      "returncode": 0,
+      "trace": "probes/1791043155526437715-3nt3tj8h",
+      "type": "long",
+      "value": "8\n"
+    },
+    {
+      "binary_sha256": "5049b51204eb63729137a866ee8f1dde16f5ccf0af1ab9609ba449abce993e8a",
+      "returncode": 0,
+      "trace": "probes/1791043156502988983-_44vhf9s",
+      "type": "long long",
+      "value": "8\n"
+    }
+  ],
+  "original_configure_sha256": {
+    "build/gcc/Makefile": "4adf3c059236c8e85a9b4576d4cd5c7c55dceda05f5206105148c12cbbb580b7",
+    "build/gcc/auto-host.h": "0dc4ea80d5b287662386940cbe43e71208102de8312e453a453e868f1c84f0e2",
+    "build/gcc/config.log": "9fcadd40e0a4f39c2e68f5c36ad33e874066f58c9d1c3ec2d649b11aee718098",
+    "configure-command.json": "d6d8432a2483b187d67470588a9fe67676100237bb44b234d683421fed553f7a",
+    "configure.log": "7eb4c3a091fffd0d19ed0c60835442976a89b07dd11fbd66edc9acd453965947",
+    "gcc-source-inputs.json": "c98c464450c06afcba41e9a2d1cab0aaf44f4a67c4d960f66182c2690b63d9fb",
+    "host-tool-attempts.jsonl": "f641bb668354977d0f111ca26d2b76080a078ab6a5884ace44b2ad460dadc26a",
+    "probe-inventory.json": "fc776c59c044100c56c5d3f19c1cafb8716a6bf6b7f40f6bc5867e31ab3704f9",
+    "report.json": "bc68ef755de99720a18c19c94e0d7a7b8b69862b3d3aede656071a32e81e31b1",
+    "toolchain-inputs.json": "1d23162bb65cfcb4e2feabe03c00fa47b66950819678674a82c44f72bdb8af9b"
+  },
+  "original_configure_work": "build-out/direct-configure-imvvopu0",
+  "required_corrections": [
+    "Rerun unchanged original native endian probe after generic implicit-call behavior is repaired; do not edit generated answers.",
+    "Do not interpret mkdir compile failure as proven one-argument runtime ABI.",
+    "Keep GETGROUPS_T fallback and declaration-probe negatives within their actual consumer scope."
+  ],
+  "source_sha256": {
+    "gcc-direct/probe-audit.md": "a203cbf19315359e6e9add0da06bd1935f42ce4996c2cd83ad01f61f230773d5",
+    "tests/gcc/configure-audit-check.py": "b1d0e1c0da8369684903de2fef378e1cd38f920e5b50f1f0589ec36960c52204",
+    "tests/gcc/configure-audit-gencheck.py": "cb1ec29c3343f20bde61aada6235f22dcf17a3eb2ccfa2c22694ed9bd66366a5",
+    "tests/gcc/configure-audit-layout.c": "7825a5e32a66b49a0edd59e4c52a354ba0d5fc1ec15c44c90265b31842f2e68a"
+  },
+  "status": "first configure remains provisional; independent original gencheck output verified",
+  "verification": [
+    "all retained configure input/output hashes",
+    "frozen toolchain input hashes",
+    "original GCC source/archive hashes",
+    "actual runtime ELF exported symbols",
+    "original size binaries reexecuted",
+    "independent target layout/macros executable",
+    "independent gencheck object/link/execution/output replay",
+    "tools/tangle.sh verify --strict"
+  ]
+}
