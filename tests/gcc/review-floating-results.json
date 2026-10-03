@@ -1,0 +1,187 @@
+{
+  "compiler_sha256": {
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "040-cc-prep.fth": "62439124b461ccf6bfd4990420ac85b0237295f6f138449890ca29ffed52d49b",
+    "050-cc-lex.fth": "bf834e9c54e127db1a861b6d46baa83462a46a36d3c6f7cd5fef328209101f80",
+    "060-cc-types.fth": "b9cf251897d0e075acbb7c60cd3a93a7b9dc0e2dd118e5c097c4376f73966afe",
+    "070-cc-sym.fth": "a82876cd1e252416217e2ccb7cd7aa638ed71d78949d9e144ee03d9b384d471a",
+    "080-cc-elf.fth": "9b354a5296c84c118a7d33c517402bb2f2b71026fa505a46e33471aedadc1e47",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "090-cc-emit.fth": "b4185773610671a92df5229e6539f65dea8484351ea32606f009b228d5929a0d",
+    "100-cc-expr.fth": "e338c1f1975592db34e691ccd1e678d7a64a19963805b03983a2195439bee471",
+    "110-cc-decl.fth": "f0caf7b7264e72cebfe57fcb78bc8f8e42027ff2c2b9531bff7f1a359acd3f68",
+    "112-cc-stmt.fth": "72e11ac2950caf36ba75011f7cda20cea194c7f48a0ed06d641887a6737e3fe6",
+    "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
+    "115-cc-native.fth": "44f2072b2935f906c04f10f3398fd09266b0960702a310224b260207b316c547",
+    "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
+    "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
+    "118-cc-native-init.fth": "d4766fc4f741bcef893f6a3fed5f7b49147e7eb7e7a1e2a2636261a70fa50932",
+    "119-cc-native-runtime.fth": "b6504df1d6eb025ed930c3ad26865f4acef646ba2cd5fa9ab7a78bf0c0af8354",
+    "120-cc-main.fth": "2655c5e7fcc966ac1d7e6867aa6e650c21e173f714a89201e54aad416a6a4741",
+    "121-cc-sysv.fth": "dd2daa4304049f0f36487115fb14a21af7904b1378e7f3aca7f11cb1fc99d66a",
+    "122-cc-sysv-runtime.fth": "aeab9adcb99cc1b180212f876d5715c137199e2697b94968b1ba18ea6a6de2fa",
+    "123-cc-object-program.fth": "e12632c000a0ee1a164675e22ccd44b391ea6eee0cf28cc6f6f4d6b9a610161f",
+    "124-cc-target.fth": "7cc14dbb2f5405dcf94f51f6aede0bc06c841965edf8381b524689a85d28f833",
+    "125-cc-consteval.fth": "4c0a19d98c49b22c2ab58f643663db83100d9a1a1d81f125800bcc6a624493d6",
+    "126-cc-varargs.fth": "ace8d45e525afd9291a8581696cef12002356091e842ae80d778495417030b0b",
+    "127-cc-binary64.fth": "20fe2cf59d1ca7946c2e8fa05be25cb617b2f761c1e7f5b8dbbf501469c91295",
+    "128-cc-float-literal.fth": "2d8c111de63ba71cdccee2421518376c1e17da256eceb2d6b0841896f36d0c80",
+    "140-cc-link.fth": "abacc3197fd03baf31d2d86b0c999ca3b63e04b806882078d7925ae55bfd4e84",
+    "runtime/gcc-seed/include/errno.h": "74bdda42ea45803c322abcd869f00797cde8e31097a00bdb86b143b2cfda8816",
+    "runtime/gcc-seed/include/limits.h": "f2816b74d907b4b807c6859c66b1d385494c7dcff9102d7e230b55f35d203df1",
+    "runtime/gcc-seed/include/seed-syscall.h": "0b48a0551ee160e293897be689972898da5b25918f13eb9832ef7c086f2ab6b1",
+    "runtime/gcc-seed/include/stdarg.h": "2e4299158bbcb93fa91312fcfec98a60abcd2a5c9e91b086a65dd81194234c51",
+    "runtime/gcc-seed/include/stddef.h": "c6b77a9f36b42741a512106d0489421e609f6298dfdcad800293d54e55905b2c",
+    "runtime/gcc-seed/include/stdio.h": "54d09244b296a579d2f705c0a047d0810feddcab77f2bfdac64869d2a75fd599",
+    "runtime/gcc-seed/include/stdlib.h": "4f65f8f3b80231bdd9e44dad358953b3c5498fc0cc96e49075140dd745fbe22d",
+    "runtime/gcc-seed/include/string.h": "f403d347b9289f42a96586592c355ca9df27821f967c557284c33f92ec45ff6c",
+    "runtime/gcc-seed/include/sys/stat.h": "7966a888e8c64e2e466bb4412f21f3542ae5278565df73ecbe7b0b7610ea0ab7",
+    "runtime/gcc-seed/include/sys/types.h": "4c6740ca362e2464acfd2834f7659a07c0d482321c4fe95abcf46c4ce51721a9",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+    "tests/gcc/sysv-object-compile.sh": "6d10494393f63684d8cd9a6f8824fb02bdf27f12a0f06482ce6a445d6c037569",
+    "tools/gcc-direct-cc.py": "a3997b2efe5b8db4a77b2094cf5b7b1584d2a4a8695dba9b28fe0eed6d918967"
+  },
+  "fixture_object_sha256": "411075419182e3c7c4ff3427dada444a12fb379eaa2d704927f30a51f1a2b3ee",
+  "full_hashtab_acceptance": true,
+  "host_tools": "Independent oracles only; no host target code in bootstrap proof",
+  "results": [
+    {
+      "kind": "binary64-ABI-oracle",
+      "optimization": "-O0",
+      "output": "PASS: scalar floating host oracle 2521 checks"
+    },
+    {
+      "kind": "binary64-ABI-oracle",
+      "optimization": "-O2",
+      "output": "PASS: scalar floating host oracle 2521 checks"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-parameter"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-fixed-call"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-unprototyped-call"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-variadic-call"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-indirect-call"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "float-value"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "long-double-value"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "mixed-ternary"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "mixed-ternary-reversed"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "prefix-increment"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "postfix-increment"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "prefix-decrement"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "postfix-decrement"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "floating-array-index"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "floating-switch"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "static-double-initializer"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-to-pointer"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "pointer-to-double"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-remainder"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-bitwise"
+    },
+    {
+      "exit": 232,
+      "kind": "fail-closed",
+      "name": "double-shift"
+    },
+    {
+      "exit": 247,
+      "kind": "fail-closed",
+      "name": "double-va-arg"
+    },
+    {
+      "header_sha256": "4ea28b4fd9a06f5ac81e5f0f10e15dbafd39b262bfa1ef85618a7a2b2c1a859c",
+      "kind": "untouched-hashtab-unit",
+      "object_sha256": "7101a9c7c9e98552544a2c4910654531936405161562f48e037ba50b5d90935c",
+      "optimization": "-O0",
+      "output": "PASS: untouched hashtab.c htab_collisions 144 checks",
+      "source_sha256": "64dfaa8263d2b9c1737cb442824e0437b001dbafef92fc985c4431b5700ad802"
+    },
+    {
+      "header_sha256": "4ea28b4fd9a06f5ac81e5f0f10e15dbafd39b262bfa1ef85618a7a2b2c1a859c",
+      "kind": "untouched-hashtab-unit",
+      "object_sha256": "7101a9c7c9e98552544a2c4910654531936405161562f48e037ba50b5d90935c",
+      "optimization": "-O2",
+      "output": "PASS: untouched hashtab.c htab_collisions 144 checks",
+      "source_sha256": "64dfaa8263d2b9c1737cb442824e0437b001dbafef92fc985c4431b5700ad802"
+    }
+  ]
+}

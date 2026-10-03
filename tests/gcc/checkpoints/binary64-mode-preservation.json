@@ -1,0 +1,51 @@
+{
+  "inputs": {
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "040-cc-prep.fth": "62439124b461ccf6bfd4990420ac85b0237295f6f138449890ca29ffed52d49b",
+    "050-cc-lex.fth": "bf834e9c54e127db1a861b6d46baa83462a46a36d3c6f7cd5fef328209101f80",
+    "060-cc-types.fth": "b9cf251897d0e075acbb7c60cd3a93a7b9dc0e2dd118e5c097c4376f73966afe",
+    "070-cc-sym.fth": "a82876cd1e252416217e2ccb7cd7aa638ed71d78949d9e144ee03d9b384d471a",
+    "080-cc-elf.fth": "9b354a5296c84c118a7d33c517402bb2f2b71026fa505a46e33471aedadc1e47",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "090-cc-emit.fth": "b4185773610671a92df5229e6539f65dea8484351ea32606f009b228d5929a0d",
+    "100-cc-expr.fth": "e338c1f1975592db34e691ccd1e678d7a64a19963805b03983a2195439bee471",
+    "110-cc-decl.fth": "f0caf7b7264e72cebfe57fcb78bc8f8e42027ff2c2b9531bff7f1a359acd3f68",
+    "112-cc-stmt.fth": "72e11ac2950caf36ba75011f7cda20cea194c7f48a0ed06d641887a6737e3fe6",
+    "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
+    "115-cc-native.fth": "44f2072b2935f906c04f10f3398fd09266b0960702a310224b260207b316c547",
+    "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
+    "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
+    "118-cc-native-init.fth": "d4766fc4f741bcef893f6a3fed5f7b49147e7eb7e7a1e2a2636261a70fa50932",
+    "119-cc-native-runtime.fth": "b6504df1d6eb025ed930c3ad26865f4acef646ba2cd5fa9ab7a78bf0c0af8354",
+    "121-cc-sysv.fth": "dd2daa4304049f0f36487115fb14a21af7904b1378e7f3aca7f11cb1fc99d66a",
+    "122-cc-sysv-runtime.fth": "aeab9adcb99cc1b180212f876d5715c137199e2697b94968b1ba18ea6a6de2fa",
+    "123-cc-object-program.fth": "e12632c000a0ee1a164675e22ccd44b391ea6eee0cf28cc6f6f4d6b9a610161f",
+    "124-cc-target.fth": "7cc14dbb2f5405dcf94f51f6aede0bc06c841965edf8381b524689a85d28f833",
+    "125-cc-consteval.fth": "4c0a19d98c49b22c2ab58f643663db83100d9a1a1d81f125800bcc6a624493d6",
+    "126-cc-varargs.fth": "ace8d45e525afd9291a8581696cef12002356091e842ae80d778495417030b0b",
+    "127-cc-binary64.fth": "20fe2cf59d1ca7946c2e8fa05be25cb617b2f761c1e7f5b8dbbf501469c91295",
+    "128-cc-float-literal.fth": "2d8c111de63ba71cdccee2421518376c1e17da256eceb2d6b0841896f36d0c80"
+  },
+  "artifacts": [
+    {
+      "mode": "native",
+      "fixture": "tests/tcc/native-forward-types.c",
+      "size": 776,
+      "sha256": "c5d3faa74334030ee231beec48ac6b9df19dc10640194670c4635e9b45389cf7"
+    },
+    {
+      "mode": "native",
+      "fixture": "tests/tcc/native-many-args.c",
+      "size": 1442,
+      "sha256": "e064b2350b76779fb16cc3a19e00ff21f7176fabcb4117999eb84f4c10bd0dc4"
+    },
+    {
+      "mode": "sysv",
+      "fixture": "tests/gcc/sysv-scalars.c",
+      "size": 3507,
+      "sha256": "b4e5e8b33b2c75af159b36b15aab3cc53ecfcd93ab084bd3115a8e4107b26c8e"
+    }
+  ]
+}
