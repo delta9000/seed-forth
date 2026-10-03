@@ -40,6 +40,14 @@ binding. `tests/gcc/sysv-namespaces-check.sh` covers both declaration orders,
 ordinary local shadowing, static address initializers, and member names in
 standalone ELF and relocatable objects.
 
+Prototype parameters can omit the name inside a function-pointer
+declarator, including pointer-returning callbacks such as
+`FILE *(*)(struct buf *, struct stat *, int)`. The signature stores the
+same nested type for named and unnamed forms. A definition still requires
+names for its own parameters. The focused abstract-callback gate checks
+compatible redeclarations, pointer sizes, an actual indirect call and
+incompatible return/argument types.
+
 C90 distinguishes `f()` from `f(void)`: the first leaves the parameter
 list unspecified and applies default integer promotions, while the second
 is a prototype requiring zero arguments. Identifier-list definitions
@@ -316,6 +324,15 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
     nc-inner @ if, [lit] 238 cc-die then,
     [lit] 1 nc-ty +! [lit] 0 nc-array !
   then, ;
+
+\ Parameter signatures carry types independently of optional source names.
+: cc-sysv-fnptr-name
+  cc-target-sysv @ 0= if, cc-nfnptr-name-default exit, then,
+  cc-next-token-keep
+  tok-kind @ tk-ident = if,
+    tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
+  else, cc-putback-token then, ;
+' cc-sysv-fnptr-name is cc-nfnptr-name-fwd
 
 defer cc-sysv-signature-fwd
 : cc-sysv-fnptr

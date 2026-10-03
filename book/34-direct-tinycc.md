@@ -15,9 +15,9 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (399 lines),
+This chapter owns `115-cc-native.fth` (435 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
-(292 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
+(297 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
 preprocessor, types, expressions, and statement code they extend.
 The compiler files still load in numerical order: the native words
@@ -277,6 +277,14 @@ defer cc-nfnptr-fwd
 defer cc-ndeclarator-check-fwd
 ' cc-ndeclarator-check-noop is cc-ndeclarator-check-fwd
 
+\ A named declarator is the bootstrap default. Prototype parameters may
+\ opt into an abstract function-pointer declarator with no identifier.
+: cc-nfnptr-name-default
+  cc-expect-ident
+  tok-str-addr @ nc-name ! tok-str-len @ nc-nlen ! ;
+defer cc-nfnptr-name-fwd
+' cc-nfnptr-name-default is cc-nfnptr-name-fwd
+
 \ Declarator after nc-base/nc-sdesc. Function parameter tokens are saved
 \ so a definition can return and install parameter names after classification.
 : cc-ndeclarator
@@ -290,8 +298,7 @@ defer cc-ndeclarator-check-fwd
   lparen cc-tok-punct? if,
     [char] * cc-expect-punct-c
     cc-count-stars >r
-    cc-expect-ident
-    tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
+    cc-nfnptr-name-fwd
     [char] ) cc-expect-punct-c
     lparen cc-expect-punct-c r> cc-nfnptr-fwd
     cc-next-token-keep

@@ -170,6 +170,14 @@ defer cc-nfnptr-fwd
 defer cc-ndeclarator-check-fwd
 ' cc-ndeclarator-check-noop is cc-ndeclarator-check-fwd
 
+\ A named declarator is the bootstrap default. Prototype parameters may
+\ opt into an abstract function-pointer declarator with no identifier.
+: cc-nfnptr-name-default
+  cc-expect-ident
+  tok-str-addr @ nc-name ! tok-str-len @ nc-nlen ! ;
+defer cc-nfnptr-name-fwd
+' cc-nfnptr-name-default is cc-nfnptr-name-fwd
+
 \ Declarator after nc-base/nc-sdesc. Function parameter tokens are saved
 \ so a definition can return and install parameter names after classification.
 : cc-ndeclarator
@@ -183,8 +191,7 @@ defer cc-ndeclarator-check-fwd
   lparen cc-tok-punct? if,
     [char] * cc-expect-punct-c
     cc-count-stars >r
-    cc-expect-ident
-    tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
+    cc-nfnptr-name-fwd
     [char] ) cc-expect-punct-c
     lparen cc-expect-punct-c r> cc-nfnptr-fwd
     cc-next-token-keep

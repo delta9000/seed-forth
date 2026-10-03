@@ -153,6 +153,15 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
     [lit] 1 nc-ty +! [lit] 0 nc-array !
   then, ;
 
+\ Parameter signatures carry types independently of optional source names.
+: cc-sysv-fnptr-name
+  cc-target-sysv @ 0= if, cc-nfnptr-name-default exit, then,
+  cc-next-token-keep
+  tok-kind @ tk-ident = if,
+    tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
+  else, cc-putback-token then, ;
+' cc-sysv-fnptr-name is cc-nfnptr-name-fwd
+
 defer cc-sysv-signature-fwd
 : cc-sysv-fnptr
   cc-target-sysv @ 0= if, cc-nfnptr-default exit, then,
