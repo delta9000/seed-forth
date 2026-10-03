@@ -1,0 +1,44 @@
+{
+  "status": "bounded aggregate ABI accepted; complete GCC build remains unfinished",
+  "source_sha256": {
+    "100-cc-expr.fth": "65bf46ccd3a061e7a563897f59cffd3d5cc61781de56789a58756c15b0ec8020",
+    "121-cc-sysv.fth": "c1c0dc84065c6cc16be043bca53fb77ef86efeff9e246e679d0d02ec0356941e",
+    "131-cc-aggregate-abi.fth": "58c915ffeea91c6486d3424a6b3cf8c1c526630edf2841db3b0db3e423a8adb5",
+    "tests/gcc/aggregate-check.py": "4eee1335831eab1d4bb7bebbcb8647b72e67d02fd7551fdf965ac2631aff095c",
+    "tests/gcc/aggregate-constraints.c": "c2ec82243370fd1985804dddd39c2ca97c5e77ca0a260dcf616a6d967d8b632c",
+    "tests/gcc/aggregate-interop-review.py": "0d67bcf8a8573393d76b4f7a6f76671f4ff45927a92145d0ae54a071b0462cff"
+  },
+  "independent_evidence": {
+    "layouts": 264,
+    "cross_abi_invocations": 2112,
+    "byte_sizes": [
+      1,
+      33
+    ],
+    "optimizations": [
+      "O0",
+      "O2"
+    ],
+    "coverage": [
+      "inbound/outbound and callbacks",
+      "register rollback",
+      "protected source and destination tails",
+      "sret RAX identity",
+      "nested and recursive lifetime",
+      "initialization/unary-plus/void-return constraints"
+    ],
+    "repaired_source_review": "accepted with native/binary64/strict-tangle preservation"
+  },
+  "composed_execution": {
+    "owner_report_sha256": "8fd1c51e4b7bd2b1bd25647f4334dbcf9656719a3e17c7d89b9f976394654ce0",
+    "negative_forms": 40,
+    "valid_neighbor_fixture": true,
+    "matrix_report_sha256": "abc24e6702fe6b99b3b71b6545fd1610b15b45bd53a9f0d8e9bb412579b272f3",
+    "source_unchanged_during_matrix": true
+  },
+  "limits": [
+    "Floating-member records and aggregate variadic value ABI unsupported; metadata-only sizeof remains permitted.",
+    "Original GCC wrapper-body test uses explicit test shims, not a complete real.c compilation.",
+    "Full expanded component/default/TinyCC composition checks pending."
+  ]
+}

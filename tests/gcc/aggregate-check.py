@@ -143,7 +143,7 @@ r=real_arithmetic2(5,&a,&b);if(r.sig[0]!=117||r.uexp!=54||r.sig[1]!=203||a.sig[0
   for opt in ('-O0','-O2'):
    for name,files in oracle_inputs:
     exe=work/(name+opt);run([host,opt,'-I'+str(TEST),'-fno-pie','-no-pie','-Wl,-z,noexecstack',*files,'-o',exe]);run([exe]);report['executions'].append({'name':name+opt,'sha256':sha(exe)})
-  print('PASS: independent O0/O2 cross-ABI, protected-page tails, double-result and original-wrapper oracles',flush=True)
+  print('PASS: independent O0/O2 cross-ABI, protected-page tails and valid-constraint oracles',flush=True)
  assert hashes=={str(p.relative_to(ROOT)):sha(p) for p in inputs},'compiler or tests changed during proof'
  (work/'report.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');print(work/'report.json')
 if __name__=='__main__':main()

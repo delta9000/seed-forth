@@ -95,43 +95,43 @@ to its call site.
 | 80  | `090-cc-emit.fth:1160` | `cc-globals-alloc`: the data area of file-scope scalars (64 KiB) is full. |
 | 81  | `090-cc-emit.fth:1189` | `cc-gfixup-add`: global-fixup table (16,384 entries) full. |
 | 82  | `090-cc-emit.fth:1168` | `cc-bss-alloc`: global arrays need more than the 256 MiB bss. |
-| 90  | `100-cc-expr.fth:305` | Field name not found in the struct descriptor. |
-| 91  | `100-cc-expr.fth:344` | `name[`: array base isn't a local or a global. |
-| 92  | `100-cc-expr.fth:394` | Subscript `name[i]`: missing `]`. |
-| 93  | `100-cc-expr.fth:842` | Primary expression: identifier not in the symbol table. |
-| 94  | `100-cc-expr.fth:859` | `name(...)` where `name` is neither a function nor a function-pointer local. |
-| 95  | `100-cc-expr.fth:883` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
-| 96  | `100-cc-expr.fth:892` | Parenthesised expression: missing `)`. |
-| 97  | `100-cc-expr.fth:921` | Primary expression: token can't start one (not a literal, identifier or `(`). |
-| 98  | `100-cc-expr.fth:980` | Postfix `++`/`--`: operand isn't an lvalue. |
-| 99  | `100-cc-expr.fth:1016,1038` | Postfix `[` on any expression: missing `]`. |
-| 100 | `100-cc-expr.fth:1052` | `.` / `->` on an expression with no known struct descriptor. |
-| 101 | `100-cc-expr.fth:1064` | `.` / `->` not followed by an identifier (field name). |
-| 102 | `100-cc-expr.fth:1221` | `sizeof`: missing `(`. |
-| 103 | `100-cc-expr.fth:1229` | `sizeof(struct`: tag isn't an identifier. |
-| 104 | `100-cc-expr.fth:1233` | `sizeof(struct TAG`: tag not found. |
-| 105 | `100-cc-expr.fth:1236` | `sizeof(struct TAG`: name isn't a struct tag. |
-| 106 | `100-cc-expr.fth:1250` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
-| 107 | `100-cc-expr.fth:1260` | `sizeof(`: identifier not found. |
-| 108 | `100-cc-expr.fth:1289` | `sizeof(`: identifier found but neither a typedef nor a local. |
-| 109 | `100-cc-expr.fth:1293` | `sizeof(`: token is neither a keyword nor an identifier. |
-| 110 | `100-cc-expr.fth:1197,1205,1298` | `sizeof(...`: missing `)`. |
-| 113 | `100-cc-expr.fth:939,1349` | Prefix `++`/`--`: operand isn't an lvalue. |
-| 114 | `100-cc-expr.fth:1388` | Unary `&`: operand isn't an identifier. |
-| 115 | `100-cc-expr.fth:1393` | Unary `&`: identifier not found. |
-| 116 | `100-cc-expr.fth:1380,1397` | Unary `&`: identifier isn't a local. |
-| 117 | `100-cc-expr.fth:2018` | Ternary `?`: missing `:`. |
-| 118 | `100-cc-expr.fth:2075` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
-| 120 | `100-cc-expr.fth:2094,2107,2227` | Assignment: left-hand side isn't an lvalue. |
-| 121 | `100-cc-expr.fth:493,579` | Call: argument list not closed by `)`. |
-| 122 | `100-cc-expr.fth:587` | Call: more than six arguments (the register-only calling convention). |
-| 123 | `100-cc-expr.fth:627` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
-| 124 | `100-cc-expr.fth:1479` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
-| 125 | `100-cc-expr.fth:2295` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
-| 126 | `100-cc-expr.fth:2304` | Constant expression: a token that can't start an operand. |
-| 127 | `100-cc-expr.fth:2301` | Constant expression: `(` not closed by `)`. |
-| 128 | `100-cc-expr.fth:2376` | Constant expression: `?` without its `:`. |
-| 129 | `100-cc-expr.fth:2404` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
+| 90  | `100-cc-expr.fth:309` | Field name not found in the struct descriptor. |
+| 91  | `100-cc-expr.fth:348` | `name[`: array base isn't a local or a global. |
+| 92  | `100-cc-expr.fth:398` | Subscript `name[i]`: missing `]`. |
+| 93  | `100-cc-expr.fth:846` | Primary expression: identifier not in the symbol table. |
+| 94  | `100-cc-expr.fth:863` | `name(...)` where `name` is neither a function nor a function-pointer local. |
+| 95  | `100-cc-expr.fth:887` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
+| 96  | `100-cc-expr.fth:896` | Parenthesised expression: missing `)`. |
+| 97  | `100-cc-expr.fth:925` | Primary expression: token can't start one (not a literal, identifier or `(`). |
+| 98  | `100-cc-expr.fth:984` | Postfix `++`/`--`: operand isn't an lvalue. |
+| 99  | `100-cc-expr.fth:1020,1042` | Postfix `[` on any expression: missing `]`. |
+| 100 | `100-cc-expr.fth:1056` | `.` / `->` on an expression with no known struct descriptor. |
+| 101 | `100-cc-expr.fth:1068` | `.` / `->` not followed by an identifier (field name). |
+| 102 | `100-cc-expr.fth:1225` | `sizeof`: missing `(`. |
+| 103 | `100-cc-expr.fth:1233` | `sizeof(struct`: tag isn't an identifier. |
+| 104 | `100-cc-expr.fth:1237` | `sizeof(struct TAG`: tag not found. |
+| 105 | `100-cc-expr.fth:1240` | `sizeof(struct TAG`: name isn't a struct tag. |
+| 106 | `100-cc-expr.fth:1254` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
+| 107 | `100-cc-expr.fth:1264` | `sizeof(`: identifier not found. |
+| 108 | `100-cc-expr.fth:1293` | `sizeof(`: identifier found but neither a typedef nor a local. |
+| 109 | `100-cc-expr.fth:1297` | `sizeof(`: token is neither a keyword nor an identifier. |
+| 110 | `100-cc-expr.fth:1201,1209,1302` | `sizeof(...`: missing `)`. |
+| 113 | `100-cc-expr.fth:943,1353` | Prefix `++`/`--`: operand isn't an lvalue. |
+| 114 | `100-cc-expr.fth:1392` | Unary `&`: operand isn't an identifier. |
+| 115 | `100-cc-expr.fth:1397` | Unary `&`: identifier not found. |
+| 116 | `100-cc-expr.fth:1384,1401` | Unary `&`: identifier isn't a local. |
+| 117 | `100-cc-expr.fth:2023` | Ternary `?`: missing `:`. |
+| 118 | `100-cc-expr.fth:2080` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
+| 120 | `100-cc-expr.fth:2103,2116,2237` | Assignment: left-hand side isn't an lvalue. |
+| 121 | `100-cc-expr.fth:497,583` | Call: argument list not closed by `)`. |
+| 122 | `100-cc-expr.fth:591` | Call: more than six arguments (the register-only calling convention). |
+| 123 | `100-cc-expr.fth:631` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
+| 124 | `100-cc-expr.fth:1484` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
+| 125 | `100-cc-expr.fth:2305` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
+| 126 | `100-cc-expr.fth:2314` | Constant expression: a token that can't start an operand. |
+| 127 | `100-cc-expr.fth:2311` | Constant expression: `(` not closed by `)`. |
+| 128 | `100-cc-expr.fth:2386` | Constant expression: `?` without its `:`. |
+| 129 | `100-cc-expr.fth:2414` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
 | 140 | `110-cc-decl.fth:67` | `cc-expect-kw-id`: next token wasn't a keyword. |
 | 141 | `110-cc-decl.fth:70` | `cc-expect-kw-id`: keyword id mismatch. |
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
@@ -215,7 +215,7 @@ native parser; the file distinguishes its implementation.
 | 205 | `115-cc-native.fth:487` | Native declaration missing its final semicolon. |
 | 210 | `115-cc-native.fth:46` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
-| 212 | `100-cc-expr.fth:488`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
+| 212 | `100-cc-expr.fth:492`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
 | 213 | `115-cc-native.fth:270` | Nested array field, outside the native field profile. |
 | 214 | `110-cc-decl.fth:376`, `115-cc-native.fth:158` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:151` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
