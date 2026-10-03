@@ -14,7 +14,8 @@ What is run
   pipe into `./seed-forth` (`| ./seed-forth`, `| timeout N ./seed-forth`).
   Each block runs under `bash` in a fresh temporary directory holding
   *copies* (never symlinks — a stray `>` must not reach the repo) of
-  `seed-forth`, `000-seed.hex0` and every top-level `*.fth`.  `./build.sh`
+  `seed-forth`, `000-seed.hex0`, every top-level `*.fth`, and the compiler
+  load-order helper used by full-compiler examples. `./build.sh`
   is a no-op (the tool never rebuilds or overwrites ./seed-forth).  When
   `unshare -rm` works, the block also gets a private /tmp, so examples that
   write /tmp/cc-out neither see nor clobber the real one; without it, such
@@ -284,10 +285,12 @@ def run_block(md, blk, timeout, private_tmp, verbose):
         work, outd, ptmp = (os.path.join(root, x) for x in ("work", "out", "tmp"))
         for d in (work, outd, ptmp):
             os.mkdir(d)
-        for f in ["seed-forth", "000-seed.hex0"] + [os.path.basename(p) for p in glob.glob(os.path.join(ROOT, "*.fth"))]:
+        for f in ["seed-forth", "000-seed.hex0", "tools/compiler-layers.sh"] + [os.path.basename(p) for p in glob.glob(os.path.join(ROOT, "*.fth"))]:
             src = os.path.join(ROOT, f)
             if os.path.exists(src):
-                shutil.copy2(src, os.path.join(work, f))
+                dst = os.path.join(work, f)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy2(src, dst)
         before = snapshot(work)
         script = os.path.join(root, "block.sh")
         open(script, "w").write(build_script(chunks, "../out"))
