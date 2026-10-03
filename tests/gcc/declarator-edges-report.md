@@ -18,7 +18,8 @@ without changing the source translation units or their preprocessed text.
 `112-cc-stmt.fth` and `115-cc-native.fth` are the only compiler layers changed.
 The existing function-pointer cast hook and argument/return ABI checks remain
 in place. Pointer-to-array forms, extra function-pointer indirection and
-unrepresented nested declarator suffixes reject. Grouped ordinary pointers
+unrepresented nested declarator suffixes reject. Function fields and arrays
+of functions also reject; callback-pointer arrays remain valid. Grouped ordinary pointers
 are represented, but casting a function to `char **` still rejects with 230.
 Aggregate and floating callback argument ABI support is not added.
 
@@ -29,7 +30,7 @@ returns/objects, callback arrays, typed calls, indirect-call lvalue
 single evaluation, pointer decrement, whitespace/comment-only steps, nested
 loops and genuine nonempty decrement steps. It runs a Forth-only mapped ELF,
 a Forth-compiled and Forth-linked executable, a host-linked Forth object,
-and separate strict C90 `-O0`/`-O2` reference executables. Thirteen rejected
+and separate strict C90 `-O0`/`-O2` reference executables. Sixteen rejected
 forms preserve an existing output artifact.
 
 Existing `sysv-function-pointer-casts-check.sh`, `sysv-knr-check.sh` and

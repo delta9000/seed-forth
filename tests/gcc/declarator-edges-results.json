@@ -84,31 +84,31 @@
   "configuration_sha256": "05a131b97d40c8f49bceff4638a71be539f16af1e68350a8f8b21a02d545d6a1",
   "original_units": [
     {
-      "compiler_identity": "c3087af1f406ac23861472226e4daef95d3f6eac74d4c612c3a7fab179d8bcd6",
+      "compiler_identity": "5a9762c157111244d9d094a12f054ef6c98da71df789177fa23df213d17fb06a",
       "object_sha256": "5dc59105101b04fbcb85187e306f5af3f9d13935901bacc37653ec46a206d038",
       "source": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/direct-gcc-inputs/gcc-source/libiberty/spaces.c",
       "source_sha256": "b5181b38f3b08cf3ceaefdd9e45ec9cba56fc798df5427523ab6e93e91cf616a"
     },
     {
-      "compiler_identity": "c3087af1f406ac23861472226e4daef95d3f6eac74d4c612c3a7fab179d8bcd6",
+      "compiler_identity": "5a9762c157111244d9d094a12f054ef6c98da71df789177fa23df213d17fb06a",
       "object_sha256": "44aee6ee059ad62463e15a78661a9ff976962948d887bf2c8de133cb0d5c9b73",
       "source": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/direct-gcc-inputs/gcc-source/libiberty/dyn-string.c",
       "source_sha256": "5b460a78979677333b7ca60ba26737ab5bc7e1dc3aee320e26f5e8b4ad89755b"
     },
     {
-      "compiler_identity": "c3087af1f406ac23861472226e4daef95d3f6eac74d4c612c3a7fab179d8bcd6",
+      "compiler_identity": "5a9762c157111244d9d094a12f054ef6c98da71df789177fa23df213d17fb06a",
       "object_sha256": "be5903ca02f75ce6567c169e3831eebdb836ae0e98669b7cf1d0982916f50342",
       "source": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/direct-gcc-inputs/gcc-source/libiberty/fnmatch.c",
       "source_sha256": "0788ef89a0a7c093d78433da9bdf0cb21a97c9a33ca8ce2c614305f6100c00a8"
     },
     {
-      "compiler_identity": "c3087af1f406ac23861472226e4daef95d3f6eac74d4c612c3a7fab179d8bcd6",
+      "compiler_identity": "5a9762c157111244d9d094a12f054ef6c98da71df789177fa23df213d17fb06a",
       "object_sha256": "9f0c58e2de560356fac1c828ec158088ee5f77a8453f47de748d0c2b820f1165",
       "source": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/direct-gcc-inputs/gcc-source/libiberty/getcwd.c",
       "source_sha256": "cb2e878690fdedcc768d11abf323bb93ed72888fc4e71b12e66a058bb222731d"
     },
     {
-      "compiler_identity": "c3087af1f406ac23861472226e4daef95d3f6eac74d4c612c3a7fab179d8bcd6",
+      "compiler_identity": "5a9762c157111244d9d094a12f054ef6c98da71df789177fa23df213d17fb06a",
       "object_sha256": "972174f3bfafe8c65dc27f20e615a4ff9894b423f5d1b1b79c35937646732ffc",
       "source": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/direct-gcc-inputs/gcc-source/libiberty/xatexit.c",
       "source_sha256": "45f5fe7ed4dd85c488c165717a32c0057c09baf579b4f96a21dd6e066edf2e2a"
@@ -130,7 +130,7 @@
     "110-cc-decl.fth": "da08b940f71029cb8310f102f3ee86b8ccec067addc393b1b81f8566e5244c90",
     "112-cc-stmt.fth": "5942ce90a33d95e00462756d09fb634f80824a9f56a7fae5ad871f2198bb52a4",
     "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
-    "115-cc-native.fth": "259915d52368d45582404d3bb5f2659ddd995e6138d9b7bff2337d2d2137a605",
+    "115-cc-native.fth": "19b7cc5cfe7d2b256038f41f95468ef9136a2a58a90f2a6152caccdf85ce0fea",
     "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
     "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
     "118-cc-native-init.fth": "9ca34eb32219670538272159c8b24f09471ec3f5b8f097aef0605e4f3db07122",

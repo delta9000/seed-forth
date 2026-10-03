@@ -1,0 +1,22 @@
+{
+  "accepted_parser_sha256": {
+    "112-cc-stmt.fth": "5942ce90a33d95e00462756d09fb634f80824a9f56a7fae5ad871f2198bb52a4",
+    "115-cc-native.fth": "19b7cc5cfe7d2b256038f41f95468ef9136a2a58a90f2a6152caccdf85ce0fea"
+  },
+  "compiler_source_identity": "5a9762c157111244d9d094a12f054ef6c98da71df789177fa23df213d17fb06a",
+  "outstanding_measured_defects": [],
+  "production_host_target_tools": false,
+  "review": "independent grouped declarator and omitted-for-step acceptance",
+  "source_report_sha256": {
+    "tests/gcc/review-declarator-check.py": "b9abda5d701ce031c83ebfd786a066e61c1fa4a87e71f1157d9e195304a27cae",
+    "tests/gcc/review-declarator-consumer-check.py": "8248ad12ac94075aceeec8ba43463e06d30dbad3af8600d8cba7e9f442de51f6",
+    "tests/gcc/review-declarator-consumer-results.json": "8950e835b1e514244eff7401cf5bb75987e458322766551d880c3127ed6906ed",
+    "tests/gcc/review-declarator-consumer.c": "f4740b67bc1a75db314cb32c2be42ccc38c946958a6d1202244c81a54197ef9c",
+    "tests/gcc/review-declarator-fixture.c": "9b600834db9571000c2b53694ab65a4ad74bd2bca6e38a7f3c77a9fbc6197392",
+    "tests/gcc/review-declarator-identity-results.json": "cd0f309eacad0f22a0d0ad2b33057e2bff329364209390271f53705fc3ff3ca7",
+    "tests/gcc/review-declarator-identity.c": "0fa2ac3e669c1cff8fa60f36ee2f938775d19628da402ecf275699b97c4fe947",
+    "tests/gcc/review-declarator-identity.py": "e799a963b86ad297961601542953813cbeef374caf400baca09155007ce35233",
+    "tests/gcc/review-declarator-report.md": "25687a0b2cdf28b11e398b721895b03b4db3884457eca94b65f7f64fe7ea7545",
+    "tests/gcc/review-declarator-results.json": "9e1754c8a6370338f1a1172854943e8d12959f395de18d3e18370be0950df922"
+  }
+}

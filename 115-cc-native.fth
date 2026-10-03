@@ -201,6 +201,8 @@ defer cc-nfnptr-name-fwd
   then, ;
 
 : cc-nfunction-suffix
+  \ An array may contain pointers to functions, never functions themselves.
+  nc-array @ if, [lit] 238 cc-die then,
   true nc-func !
   nc-params cc-lex-mark
   cc-skip-fnptr-params
@@ -301,6 +303,7 @@ defer cc-nfnptr-name-fwd
 
 \ A target may add member syntax while retaining the shared declarator.
 : cc-nmember-default ( desc -- )
+  nc-func @ if, [lit] 238 cc-die then,
   dup cc-nadd-field
   nc-nlen @ 0= if, nc-desc @ swap cc-npromote-fields else, drop then, ;
 defer cc-nmember-fwd
