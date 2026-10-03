@@ -167,7 +167,7 @@ def main():
         record('raw-no-path-'+('sysv' if enabled else 'native'), result.returncode == 0 and tokens(result.stdout) == expectation,
                actual=result.stdout.decode(), stderr=result.stderr.decode(), status=result.returncode)
 
-    for index, directive in enumerate(('#line 100 "virtual.c"', '# 100 "virtual.c"')):
+    for index, directive in enumerate(('# 100 "virtual.c"',)):
         path = work/f'line-control-{index}.c'
         path.write_text(directive+'\n__LINE__\n')
         dest = work/f'line-control-{index}.o'

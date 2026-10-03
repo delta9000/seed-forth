@@ -99,6 +99,13 @@ automaton report match an independent build of the unchanged original source.
 Real signal delivery removes its temporary files and preserves inherited
 ignored signals. Generated-parser execution is a separate preprocessor gate.
 
+The subsequent composed gate also executes the generated parser: its unchanged
+`#line` directives are handled by the Forth preprocessor, and ten arithmetic
+and error cases agree with an independent host build. Logical source locations
+remain separate from physical include lookup. A systematic independent sweep
+checks supported directive forms against host tokens and locations, while
+unsupported splice/comment forms fail explicitly and preserve previous output.
+
 Runtime entry initializes the program name before `main`; the raw startup
 object remains available independently. The bounded runtime now implements
 descriptor-backed streams, exclusive temporary files, unlink and immediate

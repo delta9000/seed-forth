@@ -13,7 +13,8 @@
 \   3. #if, #ifdef, #ifndef, #elif, #else and #endif keep or drop lines;
 \      #if and #elif evaluate a constant expression in which
 \      `defined NAME` asks whether NAME is a macro.
-\   4. #error stops the compiler.  Any other directive is dropped.
+\   4. #error stops the compiler. SysV #line sets presumed source locations;
+\      GNU numeric markers fail explicitly. Other directives are dropped.
 \   5. Everything else is copied through unchanged.
 \
 \ Every source line keeps its line number, so cc-die's "line N" is the line
@@ -280,6 +281,7 @@ variable cc-pp-pending-nl
 [lit] 1 constant put-emit
 [lit] 2 constant put-count
 variable cc-pp-put-mode
+variable cc-pp-line-control                     \ strict #line operand scan
 
 \ cc-pp-put ( c -- )  Dispose of one walked-over byte.
 : cc-pp-put
@@ -292,14 +294,27 @@ variable cc-pp-put-mode
 \ cc-pp-take ( -- )  Put the current byte and step past it.
 : cc-pp-take  cc-prep-peek cc-pp-put cc-prep-advance ;
 
+\ Source #line operands fail closed on unsupported splices inside comments.
+\ Detect CRLF as well as LF, even though the general engine only splices LF.
+: cc-pp-line-continuation?
+  backslash nl cc-prep-at? if, true exit, then,
+  backslash [lit] 13 cc-prep-at? if,
+    cc-prep-src-pos @ [lit] 2 + cc-prep-src-len @ < if,
+      cc-prep-src-addr @ cc-prep-src-pos @ + [lit] 2 + c@ nl = exit,
+    then,
+  then, [lit] 0 ;
+
 \ cc-pp-block-comment ( -- )  pos at "/*": walk through the closing "*/",
 \ or to EOR.
 : cc-pp-block-comment
   cc-pp-take cc-pp-take
   begin,
-    cc-prep-eor? if, exit, then,
+    cc-prep-eor? if,
+      cc-pp-line-control @ if, [lit] 49 cc-die then, exit,
+    then,
     [char] * [char] / cc-prep-at? 0=
   while,
+    cc-pp-line-control @ cc-pp-line-continuation? and if, [lit] 49 cc-die then,
     cc-pp-take
   repeat,
   cc-pp-take cc-pp-take ;
@@ -310,6 +325,7 @@ variable cc-pp-put-mode
   begin,
     cc-prep-eor? 0= cc-prep-peek nl <> and
   while,
+    cc-pp-line-control @ cc-pp-line-continuation? and if, [lit] 49 cc-die then,
     cc-pp-take
   repeat, ;
 
@@ -355,6 +371,18 @@ variable cc-pp-put-mode
     then,
   repeat, ;
 
+\ The shared text engine does not join split identifier tokens or splice
+\ line comments. In #line operands fail closed on those phase-two forms;
+\ whitespace-separated and literal continuations retain their usual path.
+: cc-pp-line-splice-boundary
+  cc-pp-line-control @ 0= if, exit, then,
+  cc-prep-src-pos @ 0= if, exit, then,
+  cc-prep-src-addr @ cc-prep-src-pos @ + 1- c@ space? if, exit, then,
+  cc-prep-src-pos @ [lit] 2 + cc-prep-src-len @ >= if, exit, then,
+  cc-prep-src-addr @ cc-prep-src-pos @ + [lit] 2 + c@ space? 0= if,
+    [lit] 49 cc-die
+  then, ;
+
 \ cc-pp-line-slice ( -- a u )  The rest of the directive line, from pos to
 \ (not including) the newline that ends it; pos moves there.  Comments and
 \ backslash-newlines stay in the slice (scanning it counts their newlines).
@@ -373,7 +401,9 @@ variable cc-pp-put-mode
         [char] / [char] * cc-prep-at? if,
           cc-pp-block-comment
         else,
-          backslash nl cc-prep-at? if, cc-prep-advance then,
+          backslash nl cc-prep-at? if,
+            cc-pp-line-splice-boundary cc-prep-advance
+          then,
           cc-prep-advance
         then,
       then,
@@ -514,12 +544,22 @@ create cc-pp-file-base    cc-prep-direct-depth 1+ [lit] 8 * allot
 create cc-pp-file-end     cc-prep-direct-depth 1+ [lit] 8 * allot
 create cc-pp-file-cursor  cc-prep-direct-depth 1+ [lit] 8 * allot
 create cc-pp-file-line    cc-prep-direct-depth 1+ [lit] 8 * allot
+\ Physical cursors never change for #line: an offset supplies the logical
+\ line, including when argument prescan revisits an earlier source slice.
+\ Virtual names never change cc-prep-file-paths, used for include search.
+create cc-pp-file-offset  cc-prep-direct-depth 1+ [lit] 8 * allot
+create cc-pp-file-names   cc-prep-direct-depth 1+ cc-prep-path-cap * allot
+create cc-pp-file-name-len cc-prep-direct-depth 1+ [lit] 8 * allot
+: cc-pp-logical-name
+  cc-prep-inc-depth @ cc-prep-path-cap * cc-pp-file-names + ;
 : cc-pp-location-cell  cc-prep-inc-depth @ swap cell[] ;
 : cc-pp-location-enter
   cc-prep-src-addr @ dup cc-pp-file-base cc-pp-location-cell !
   dup cc-pp-file-cursor cc-pp-location-cell !
   cc-prep-src-len @ + cc-pp-file-end cc-pp-location-cell !
-  [lit] 1 cc-pp-file-line cc-pp-location-cell ! ;
+  [lit] 1 cc-pp-file-line cc-pp-location-cell !
+  [lit] 0 cc-pp-file-offset cc-pp-location-cell !
+  true cc-pp-file-name-len cc-pp-location-cell ! ;
 : cc-pp-location-at ( address -- )
   cc-pp-location-enabled @ 0= cc-pp-location-rescan @ or if, drop exit, then,
   dup cc-pp-file-base cc-pp-location-cell @ < if, drop exit, then,
@@ -534,7 +574,8 @@ create cc-pp-file-line    cc-prep-direct-depth 1+ [lit] 8 * allot
     1+
   repeat,
   nip cc-pp-file-cursor cc-pp-location-cell !
-  cc-pp-file-line cc-pp-location-cell @ cc-pp-location-line ! ;
+  cc-pp-file-line cc-pp-location-cell @
+  cc-pp-file-offset cc-pp-location-cell @ + cc-pp-location-line ! ;
 
 : cc-prep-config-reset
   [lit] 0 cc-prep-direct !  [lit] 0 cc-prep-include-count !
@@ -1028,8 +1069,10 @@ variable cc-pp-location-digit-count
 create cc-pp-stdin-name s, <stdin>
 : cc-pp-location-filename
   [char] " cc-prep-emit-byte
-  cc-prep-current-path cc-prep-inc-depth @ cc-prep-file-lens cell[] @
-  dup 0= if, 2drop cc-pp-stdin-name [lit] 7 then,
+  cc-pp-file-name-len cc-pp-location-cell @ dup 0< if,
+    drop cc-prep-current-path cc-prep-inc-depth @ cc-prep-file-lens cell[] @
+    dup 0= if, 2drop cc-pp-stdin-name [lit] 7 then,
+  else, cc-pp-logical-name swap then,
   begin, dup while,
     over c@ cc-pp-location-string-byte swap 1+ swap 1-
   repeat, 2drop [char] " cc-prep-emit-byte ;
@@ -1247,9 +1290,49 @@ variable cc-pp-cond-depth
 \ the current line is '#'.  Does NOT advance pos.
 variable cc-prep-isd-save-pos
 
+\ SysV recognizes all C horizontal whitespace at directive boundaries.
+\ Reuse the comment walker for lookahead; selected comment-prefixed
+\ directives fail49 explicitly until their complete phase-three grammar
+\ is supported. Ordinary source comments still follow the normal walker.
+: cc-prep-directive-blanks
+  begin,
+    cc-prep-peek [lit] 13 = if,
+      cc-prep-peek2 nl <> if, [lit] 49 cc-die then, cc-prep-advance
+    then,
+    cc-prep-eor? 0= if,
+      cc-prep-peek dup bl = over tab = or over [lit] 11 = or
+      swap [lit] 12 = or
+    else, [lit] 0 then,
+  while, cc-prep-advance repeat, ;
+
+: cc-prep-directive-prefix ( put-mode -- comment? )
+  cc-pp-put-mode @ >r cc-pp-put-mode !
+  cc-pp-line-control @ >r true cc-pp-line-control !
+  [lit] 0
+  begin,
+    cc-prep-directive-blanks
+    \ A splice may split a comment opener before or after '#'. Do not
+    \ let that unsupported prefix look like ordinary text or vanish.
+    cc-prep-peek [char] / = if,
+      cc-prep-advance cc-pp-line-continuation?
+      [lit] 1 cc-prep-src-pos -! if, [lit] 49 cc-die then,
+    then,
+    [char] / [char] * cc-prep-at?
+  while,
+    drop true cc-pp-block-comment
+  repeat,
+  [char] / [char] / cc-prep-at? if, cc-pp-line-comment then,
+  cc-pp-line-continuation? if, [lit] 49 cc-die then,
+  r> cc-pp-line-control ! r> cc-pp-put-mode ! ;
+
 : cc-prep-line-is-directive?
   cc-prep-src-pos @ cc-prep-isd-save-pos !
-  cc-prep-skip-blanks
+  cc-pp-location-enabled @ if,
+    put-drop cc-prep-directive-prefix
+    cc-prep-peek [char] # = and cc-pp-skipping? 0= and if,
+      [lit] 49 cc-die
+    then,
+  else, cc-prep-skip-blanks then,
   cc-prep-peek [char] # = >r
   cc-prep-isd-save-pos @ cc-prep-src-pos !
   r> ;
@@ -1487,6 +1570,107 @@ variable cc-prep-inc-expanded
   r> cc-pp-scratch-top ! ;
 
 \ ---------------------------------------------------------------------------
+\ #line: shared macro expansion followed by a bounded operand grammar
+\ ---------------------------------------------------------------------------
+\ Only the source-location-enabled target uses this directive. The parser
+\ accepts decimal 1..2147483647 and an optional ordinary byte string.
+\ Simple, octal and hex escapes are decoded; NUL, overflow, wide/Unicode
+\ forms and names exceeding 1023 bytes fail49 rather than alter provenance.
+variable cc-pp-line-number
+variable cc-pp-line-name-size
+
+: cc-pp-line-blanks
+  begin, cc-prep-eor? 0= if,
+    cc-prep-peek dup space? over [lit] 11 = or swap [lit] 12 = or
+  else, [lit] 0 then, while, cc-prep-advance repeat, ;
+
+: cc-pp-line-decimal
+  cc-prep-peek digit? 0= if, [lit] 49 cc-die then,
+  [lit] 0
+  begin, cc-prep-peek digit? while,
+    [lit] 10 * cc-prep-peek [char] 0 - +
+    dup [lit] 2147483647 > if, [lit] 49 cc-die then,
+    cc-prep-advance
+  repeat,
+  dup 0= if, [lit] 49 cc-die then, cc-pp-line-number ! ;
+
+: cc-pp-line-hex ( c -- n|-1 )
+  dup digit? if, [char] 0 - exit, then,
+  dup [char] a >= over [char] f <= and if, [char] a - [lit] 10 + exit, then,
+  dup [char] A >= over [char] F <= and if, [char] A - [lit] 10 + exit, then,
+  drop true ;
+
+: cc-pp-line-octal? ( c -- f )
+  dup [char] 0 >= swap [char] 7 <= and ;
+
+: cc-pp-line-escape ( -- byte )
+  cc-prep-eor? if, [lit] 49 cc-die then,
+  cc-prep-peek cc-prep-advance
+  dup [char] x = if,
+    drop cc-prep-peek cc-pp-line-hex 0< if, [lit] 49 cc-die then,
+    [lit] 0
+    begin, cc-prep-peek cc-pp-line-hex dup 0< 0= while,
+      swap [lit] 16 * + dup [lit] 255 > if, [lit] 49 cc-die then,
+      cc-prep-advance
+    repeat, drop exit,
+  then,
+  dup cc-pp-line-octal? if,
+    [char] 0 - [lit] 1
+    begin, dup [lit] 3 < cc-prep-peek cc-pp-line-octal? and while,
+      swap [lit] 8 * cc-prep-peek [char] 0 - + swap 1+ cc-prep-advance
+    repeat, drop exit,
+  then,
+  dup [char] a = if, drop [lit] 7 exit, then,
+  dup [char] b = if, drop [lit] 8 exit, then,
+  dup [char] f = if, drop [lit] 12 exit, then,
+  dup [char] n = if, drop nl exit, then,
+  dup [char] r = if, drop [lit] 13 exit, then,
+  dup [char] t = if, drop tab exit, then,
+  dup [char] v = if, drop [lit] 11 exit, then,
+  dup backslash = over [char] " = or over [char] ' = or over [char] ? = or
+  0= if, [lit] 49 cc-die then, ;
+
+: cc-pp-line-filename
+  cc-prep-peek [char] " <> if, [lit] 49 cc-die then,
+  cc-prep-advance [lit] 0 cc-pp-line-name-size !
+  begin,
+    cc-prep-eor? cc-prep-peek nl = or if, [lit] 49 cc-die then,
+    cc-prep-peek [char] " <>
+  while,
+    cc-prep-peek cc-prep-advance
+    dup backslash = if, drop cc-pp-line-escape then,
+    dup 0= over [lit] 255 > or if, [lit] 49 cc-die then,
+    cc-pp-line-name-size @ 1+ cc-prep-path-cap 1- [lit] 49 cc-check-cap
+    cc-pp-logical-name cc-pp-line-name-size @ + c!
+    [lit] 1 cc-pp-line-name-size +!
+  repeat,
+  cc-prep-advance ;
+
+: cc-prep-handle-line
+  cc-pp-scratch-top @ >r
+  true cc-pp-line-control ! cc-pp-line-slice
+  cc-pp-temp-begin cc-pp-expand-text cc-pp-temp-end
+  [lit] 0 cc-pp-line-control !
+  cc-prep-src-addr @ >r cc-prep-src-len @ >r cc-prep-src-pos @ >r
+  cc-prep-at-line-start @ >r
+  cc-prep-src-len ! cc-prep-src-addr ! [lit] 0 cc-prep-src-pos !
+  cc-pp-line-blanks cc-pp-line-decimal cc-pp-line-blanks
+  true cc-pp-line-name-size !
+  cc-prep-eor? 0= if, cc-pp-line-filename cc-pp-line-blanks then,
+  cc-prep-eor? 0= if, [lit] 49 cc-die then,
+  r> cc-prep-at-line-start !
+  r> cc-prep-src-pos ! r> cc-prep-src-len ! r> cc-prep-src-addr !
+  r> cc-pp-scratch-top !
+  \ The terminating physical newline is still unread. Set the offset for
+  \ the following line only after validating the entire expanded operand.
+  cc-prep-src-addr @ cc-prep-src-pos @ + cc-pp-location-at
+  cc-pp-line-number @ cc-pp-file-line cc-pp-location-cell @ 1+ -
+  cc-pp-file-offset cc-pp-location-cell !
+  cc-pp-line-name-size @ dup 0< if, drop else,
+    cc-pp-file-name-len cc-pp-location-cell !
+  then, ;
+
+\ ---------------------------------------------------------------------------
 \ #define and #undef
 \ ---------------------------------------------------------------------------
 
@@ -1638,18 +1822,29 @@ create cc-prep-name-error    s, error
 create cc-prep-name-line     s, line
 
 : cc-prep-handle-directive
-  cc-prep-skip-blanks                              \ leading indent before '#'
-  cc-prep-advance                                  \ consume '#'
-  cc-prep-skip-blanks
+  cc-pp-location-enabled @ if,
+    put-count cc-prep-directive-prefix drop
+  else, cc-prep-skip-blanks then,                 \ leading indent before '#'
+  cc-prep-advance                                 \ consume '#'
+  cc-pp-location-enabled @ if,
+    put-count cc-prep-directive-prefix cc-pp-skipping? 0= and if,
+      [lit] 49 cc-die
+    then,
+  else, cc-prep-skip-blanks then,
   cc-pp-location-enabled @ cc-pp-skipping? 0= and if,
     cc-prep-peek digit? if, [lit] 49 cc-die then,
   then,
   cc-prep-peek ident-start? if,
     cc-prep-read-ident
+    cc-pp-location-enabled @ cc-pp-line-continuation? and if,
+      [lit] 49 cc-die
+    then,
     cc-pp-cond-directive if, cc-prep-skip-to-eol exit, then,
     cc-pp-skipping? 0= if,
       cc-pp-location-enabled @ if,
-        cc-prep-name-line [lit] 4 cc-prep-ident= if, [lit] 49 cc-die then,
+        cc-prep-name-line [lit] 4 cc-prep-ident= if,
+          cc-prep-handle-line exit,
+        then,
       then,
       cc-prep-name-include [lit] 7 cc-prep-ident= if,
         cc-prep-handle-include cc-prep-skip-to-eol exit,
@@ -1739,7 +1934,7 @@ defer cc-prep-target-fwd
   [lit] 0 cc-pp-cond-depth !
   [lit] 0 cc-pp-sink-depth !
   [lit] 0 cc-pp-pending-nl !
-  [lit] 0 cc-pp-in-if !
+  [lit] 0 cc-pp-in-if ! [lit] 0 cc-pp-line-control !
   cc-pp-scratch cc-pp-scratch-top !
   cc-src-buf cc-pp-out !  [lit] 0 cc-pp-out-pos !
   cc-src-cap cc-pp-out-cap !  [lit] 36 cc-pp-out-code !

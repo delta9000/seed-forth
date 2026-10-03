@@ -130,9 +130,10 @@ int main(void) {
     command([DRIVER,source,'-o',exe])
     command([exe])
     print('PASS: Forth-only static filenames and invocation line execution')
-    # Until line-control parsing is implemented, a selected #line or GNU
-    # marker must diagnose rather than silently report false provenance.
-    for index, text in enumerate(('#line 99 "virtual.c"\n__LINE__\n', '# 99 "virtual.c"\n__LINE__\n')):
+    # C line control is accepted; GNU markers still fail explicitly.
+    source.write_text('#line 99 "virtual.c"\n__LINE__ __FILE__\n')
+    assert tokens(command([DRIVER,'-E',source]).stdout) == [b'99',('string','virtual.c')]
+    for index, text in enumerate(('# 99 "virtual.c"\n__LINE__\n',)):
         source.write_text(text)
         out = work/f'reject-{index}.o'
         out.write_bytes(b'previous artifact\n')
@@ -143,7 +144,7 @@ int main(void) {
     assert tokens(command([DRIVER,'-E',source]).stdout) == [b'4']
     for name,digest in hashes.items():
         assert hashlib.sha256((ROOT/name).read_bytes()).hexdigest() == digest, 'source changed: '+name
-    report={'source_sha256':hashes,'oracle':'host CPP token comparison only','production':'Forth preprocessor/compiler/runtime/linker','line_control':'selected #line and numeric markers explicitly rejected49; skipped directives ignored','status':'PASS'}
+    report={'source_sha256':hashes,'oracle':'host CPP token comparison only','production':'Forth preprocessor/compiler/runtime/linker','line_control':'C #line supported; numeric markers explicitly rejected49; skipped directives ignored','status':'PASS'}
     (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(work/'report.json')
 

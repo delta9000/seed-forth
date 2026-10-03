@@ -36,6 +36,7 @@ bash tests/gcc/sysv-setjmp-check.sh
 python3 tests/gcc/target-macros-check.py
 python3 tests/gcc/source-location-check.py
 python3 tests/gcc/review-source-location-check.py
+python3 tests/gcc/line-control-check.py
 python3 tests/gcc/computed-include-check.py
 python3 tests/gcc/review-computed-include-check.py
 python3 tests/gcc/literal-splice-check.py
