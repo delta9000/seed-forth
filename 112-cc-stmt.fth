@@ -325,7 +325,8 @@ variable cc-for-step-end
   cc-for-step-start @ cc-src-pos !
   \ Clear any pending putback before re-tokenising at the new position.
   [lit] 0 cc-tok-pending !
-  \ Parse step iff there is one (pos < len).
+  \ Whitespace/comments alone do not make an omitted step an expression.
+  cc-skip-ws-and-comments
   cc-src-pos @ cc-src-len @ < if,
     cc-parse-expr
   then,

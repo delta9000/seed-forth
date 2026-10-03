@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-all of `112-cc-stmt.fth` (826 lines): the `cc-parse-stmt` dispatcher
+all of `112-cc-stmt.fth` (827 lines): the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -471,7 +471,8 @@ run *after* it.  The parser handles this in eight moves:
   cc-for-step-start @ cc-src-pos !
   \ Clear any pending putback before re-tokenising at the new position.
   [lit] 0 cc-tok-pending !
-  \ Parse step iff there is one (pos < len).
+  \ Whitespace/comments alone do not make an omitted step an expression.
+  cc-skip-ws-and-comments
   cc-src-pos @ cc-src-len @ < if,
     cc-parse-expr
   then,

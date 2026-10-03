@@ -183,29 +183,9 @@ defer cc-ndeclarator-check-fwd
 defer cc-nfnptr-name-fwd
 ' cc-nfnptr-name-default is cc-nfnptr-name-fwd
 
-\ Declarator after nc-base/nc-sdesc. Function parameter tokens are saved
-\ so a definition can return and install parameter names after classification.
-: cc-ndeclarator
-  cc-skip-qualifiers
-  nc-base @ cc-count-stars + nc-ty !
-  nc-sdesc @ nc-desc !
-  [lit] 0 nc-name ! [lit] 0 nc-nlen !
-  [lit] 0 nc-array ! [lit] 0 nc-inner ! [lit] 0 nc-func !
-  [lit] 0 nc-bound-mask !
-  cc-next-token-keep
-  lparen cc-tok-punct? if,
-    [char] * cc-expect-punct-c
-    cc-count-stars >r
-    cc-nfnptr-name-fwd
-    [char] ) cc-expect-punct-c
-    lparen cc-expect-punct-c r> cc-nfnptr-fwd
-    cc-next-token-keep
-  else,
-    tok-kind @ tk-ident = if,
-      tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
-      cc-next-token-keep
-    then,
-  then,
+\ Parse array suffixes with the current '[' already read. The count and
+\ element type are independent, including arrays of function pointers.
+: cc-narray-suffix
   [char] [ cc-tok-punct? if,
     cc-next-token-keep
     [char] ] cc-tok-punct? if, true nc-array ! else,
@@ -218,13 +198,69 @@ defer cc-nfnptr-name-fwd
       cc-parse-const nc-inner ! [char] ] cc-expect-punct-c
       cc-next-token-keep
     then,
-  then,
+  then, ;
+
+: cc-nfunction-suffix
+  true nc-func !
+  nc-params cc-lex-mark
+  cc-skip-fnptr-params
+  cc-next-token-keep ;
+
+\ A grouped declarator distinguishes (*f()) (function returning a pointer)
+\ from (*f)() and (*f[N])() (a pointer or array of pointers to functions).
+\ Stars inside the group belong to the object only when no outer function
+\ suffix follows. General pointers to arrays still lack a representation.
+: cc-ngrouped-declarator
+  cc-count-stars >r
+  cc-nfnptr-name-fwd
+  cc-next-token-keep
   lparen cc-tok-punct? if,
-    true nc-func !
-    nc-params cc-lex-mark
-    cc-skip-fnptr-params
+    nc-nlen @ 0= if, [lit] 203 cc-die then,
+    r> nc-ty +!
+    cc-nfunction-suffix
+    [char] ) cc-tok-punct? 0= if, [lit] 143 cc-die then,
     cc-next-token-keep
+    lparen cc-tok-punct? [char] [ cc-tok-punct? or if, [lit] 238 cc-die then,
+    exit,
   then,
+  cc-narray-suffix
+  [char] ) cc-tok-punct? 0= if, [lit] 143 cc-die then,
+  cc-next-token-keep
+  lparen cc-tok-punct? if,
+    r@ 0= if,
+      r> drop
+      nc-array @ if, [lit] 238 cc-die then,
+      cc-nfunction-suffix
+    else,
+      r> 1- cc-nfnptr-fwd
+      cc-next-token-keep
+      lparen cc-tok-punct? [char] [ cc-tok-punct? or if, [lit] 238 cc-die then,
+    then,
+  else,
+    r@ nc-array @ or [char] [ cc-tok-punct? and if, [lit] 238 cc-die then,
+    r> nc-ty +!
+  then, ;
+
+\ Declarator after nc-base/nc-sdesc. Function parameter tokens are saved
+\ so a definition can return and install parameter names after classification.
+: cc-ndeclarator
+  cc-skip-qualifiers
+  nc-base @ cc-count-stars + nc-ty !
+  nc-sdesc @ nc-desc !
+  [lit] 0 nc-name ! [lit] 0 nc-nlen !
+  [lit] 0 nc-array ! [lit] 0 nc-inner ! [lit] 0 nc-func !
+  [lit] 0 nc-bound-mask !
+  cc-next-token-keep
+  lparen cc-tok-punct? if,
+    cc-ngrouped-declarator
+  else,
+    tok-kind @ tk-ident = if,
+      tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
+      cc-next-token-keep
+    then,
+  then,
+  cc-narray-suffix
+  lparen cc-tok-punct? if, cc-nfunction-suffix then,
   cc-ndeclarator-check-fwd ;
 
 \ Add a field, including flattened anonymous aggregate members.
