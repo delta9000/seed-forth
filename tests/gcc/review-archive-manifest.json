@@ -1,0 +1,23 @@
+{
+  "checks": 176,
+  "seed_runs": 161,
+  "gnu_ld_comparisons": 15,
+  "failures": 0,
+  "executed_fixture_sha256": "c06da3d368c4d17c4ffb943d9b1cc4cdcf3879bd7ba9a048442a0668b4066b79",
+  "post_run_fixture_change": "Remove source-tree evidence overwrite; py_compile and isolated actual result-writer destination check passed.",
+  "files": {
+    "tests/gcc/review-archive-check.py": "7b31a75f1ffa69916151e2d8b5e92454ea89db46b77aa4da466fb9df8e36cc86",
+    "tests/gcc/review-archive-results.json": "0bd782d26d98809b08d0918c7f5e210b8d9a7fadc4afb7ad24d4e6435b3330d6",
+    "tests/gcc/review-archive-report.md": "9e7e5c235a5e641c8da57b2545309f71d0f3e7e704b9ac94935ede24feb41043",
+    "book/44-direct-gcc-archives.md": "c1fcfb3b12a9316517f03a29f2436ce3339cd5b56ef989d59ab66121a0459dc0",
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "140-cc-link.fth": "abacc3197fd03baf31d2d86b0c999ca3b63e04b806882078d7925ae55bfd4e84",
+    "141-archive.fth": "e6a544feae6a75286dab034f319da04ca5149131ebf930257fc503ca975aa674",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e"
+  },
+  "baseline_revision": "f6777bf6b657cbd10601f52d482891959da3a05f",
+  "baseline_140_sha256": "9be639f99a6ffeef31baf456e3db765f83c9dd75c54054904c340febe81d84f8"
+}

@@ -1,0 +1,19 @@
+{
+  "scope": "Deterministic Forth GNU ar writer and bounded lazy archive extraction; fresh-only CLI; not complete GCC",
+  "files": {
+    "140-cc-link.fth": "abacc3197fd03baf31d2d86b0c999ca3b63e04b806882078d7925ae55bfd4e84",
+    "141-archive.fth": "e6a544feae6a75286dab034f319da04ca5149131ebf930257fc503ca975aa674",
+    "tools/gcc-direct-ar.py": "a2a3b7796e7b4ae522c6ccbda08e000086c3c63494b3cd4796ddaa6b8f88a586",
+    "tests/gcc/archive-check.py": "d213f9d00b5bae8996f758fedf5259f7bafbdfc74feaf17911523e4d9f4b568c",
+    "tests/gcc/archive-boundary-check.py": "29e86b32d9a5ed8a634943ed194f430c48b30eb0608d183775e5928879e52f6b",
+    "book/37-direct-gcc-linker.md": "70249793816539c87236d5466a4fdc0a94931fd3449b2c45cb2098dcb67eb608",
+    "book/44-direct-gcc-archives.md": "c1fcfb3b12a9316517f03a29f2436ce3339cd5b56ef989d59ab66121a0459dc0"
+  },
+  "validation": [
+    "archive-check:14 seed runs, GNU ar/readelf/ld oracles",
+    "archive-boundary-check:37 named boundary checks",
+    "linker-check:75 seed runs",
+    "strict tangle:pass"
+  ],
+  "review": "Independent review continuing on this frozen source"
+}

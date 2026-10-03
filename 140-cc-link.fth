@@ -33,6 +33,15 @@ variable lnk-sp
 variable lnk-np
 variable lnk-nl
 
+\ Track source identities independently of selected archive members.
+[lit] 1024 constant lnk-input-cap
+create lnk-inputs lnk-input-cap [lit] 16 * allot
+variable lnk-input-count
+: lnk-note-input ( device inode -- )
+  lnk-input-count @ 1+ lnk-input-cap [lit] 251 cc-check-cap
+  lnk-input-count @ [lit] 16 * lnk-inputs + >r
+  r@ [lit] 8 + ! r> ! [lit] 1 lnk-input-count +! ;
+
 : lnk-bad  [lit] 250 cc-die ;
 : lnk-need  0= if, lnk-bad then, ;
 : lnk-cap  lnk-byte-cap [lit] 251 cc-check-cap ;
@@ -80,12 +89,12 @@ create lnk-stat-buffer  [lit] 144 allot
 : lnk-fstat ( fd -- )
   lnk-stat-buffer [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 5 syscall6
   0= 0= if, [lit] 255 cc-die then, ;
-: lnk-read-object ( path -- address size )
+: lnk-read-file ( path -- address size )
   dup [lit] 120 lnk-field !
   [lit] 0 [lit] 0 open dup 0< if, [lit] 255 cc-die then,
   lnk-fd !
   lnk-fd @ [lit] 0 [lit] 2 [lit] 0 [lit] 0 [lit] 0 [lit] 8 syscall6
-  dup [lit] 64 < if, [lit] 250 cc-die then,
+  dup 0< if, [lit] 255 cc-die then,
   dup lnk-cap lnk-size !
   lnk-fd @ [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 8 syscall6
   0= 0= if, [lit] 255 cc-die then,
@@ -102,8 +111,11 @@ create lnk-stat-buffer  [lit] 144 allot
   lnk-fd @ lnk-fstat
   lnk-stat-buffer @ [lit] 104 lnk-field !
   lnk-stat-buffer [lit] 8 + @ [lit] 112 lnk-field !
+  lnk-stat-buffer @ lnk-stat-buffer [lit] 8 + @ lnk-note-input
   lnk-fd @ close 0= 0= if, [lit] 255 cc-die then,
   lnk-op @ @ lnk-size @ ;
+: lnk-read-object ( path -- address size )
+  lnk-read-file dup [lit] 64 < if, [lit] 250 cc-die then, ;
 
 \ Find a terminating NUL strictly inside a previously validated string table.
 variable lnk-string-end
@@ -139,7 +151,7 @@ variable lnk-string-size
 : lnk-init
   lnk-release
   [lit] 1 cc-src-line !
-  [lit] 0 lnk-count ! [lit] 0 lnk-global-count !
+  [lit] 0 lnk-count ! [lit] 0 lnk-global-count ! [lit] 0 lnk-input-count !
   [lit] 0 lnk-entry-name ! [lit] 0 lnk-entry-len !
   lnk-hash-cap [lit] 32 * lnk-map lnk-globals ! ;
 : lnk-entry  lnk-entry-len ! lnk-entry-name ! ;
@@ -284,7 +296,12 @@ variable lnk-old
     lnk-choose exit,
   then,
   lnk-slot @ [lit] 16 + @ lnk-old !
-  lnk-sp @ lnk-shndx 0= if, exit, then,
+  lnk-sp @ lnk-shndx 0= if,
+    lnk-old @ lnk-shndx 0=
+    lnk-old @ lnk-binding [lit] 2 = and
+    lnk-sp @ lnk-binding [lit] 1 = and if, lnk-choose then,
+    exit,
+  then,
   lnk-old @ lnk-shndx 0= if, lnk-choose exit, then,
   lnk-sp @ lnk-binding [lit] 2 = if, exit, then,
   lnk-old @ lnk-binding [lit] 2 = if, lnk-choose exit, then,
@@ -293,7 +310,7 @@ variable lnk-symbol-index
 variable lnk-index
 variable lnk-value
 variable lnk-length
-: lnk-check-symbol
+: lnk-validate-symbol
   lnk-sp @ lnk-symbol-name 2drop
   lnk-sp @ lnk-binding dup [lit] 2 <= lnk-need
   lnk-symbol-index @ [lit] 56 lnk-field @ < if,
@@ -320,11 +337,10 @@ variable lnk-length
       lnk-value @ - lnk-length @ >= lnk-need
     then,
   then,
-  lnk-sp @ lnk-binding if, lnk-register then, ;
-: lnk-add-object
-  lnk-count @ 1+ lnk-object-cap [lit] 251 cc-check-cap
-  lnk-count @ lnk-object lnk-op !
-  lnk-read-object [lit] 8 lnk-field ! drop
+  ;
+: lnk-check-symbol
+  lnk-validate-symbol lnk-sp @ lnk-binding if, lnk-register then, ;
+: lnk-accept-object
   lnk-header lnk-sections
   [lit] 0 lnk-symbol-index !
   begin, lnk-symbol-index @ [lit] 32 lnk-field @ < while,
@@ -332,6 +348,22 @@ variable lnk-length
     [lit] 1 lnk-symbol-index +!
   repeat,
   [lit] 1 lnk-count +! ;
+: lnk-add-object
+  lnk-count @ 1+ lnk-object-cap [lit] 251 cc-check-cap
+  lnk-count @ lnk-object lnk-op !
+  lnk-read-object [lit] 8 lnk-field ! drop lnk-accept-object ;
+\ Archive members are copied: ordinary object release owns every mapping.
+variable lnk-buffer-a
+variable lnk-buffer-n
+: lnk-add-buffer ( address size -- )
+  lnk-buffer-n ! lnk-buffer-a !
+  lnk-buffer-n @ [lit] 64 >= lnk-need
+  lnk-count @ 1+ lnk-object-cap [lit] 251 cc-check-cap
+  lnk-count @ lnk-object lnk-op !
+  lnk-buffer-n @ lnk-map lnk-op @ !
+  lnk-buffer-n @ [lit] 8 lnk-field !
+  lnk-buffer-a @ lnk-op @ @ lnk-buffer-n @ lnk-copy
+  lnk-accept-object ;
 
 \ Place sections in four passes. Text and rodata share an RX mapping;
 \ data and BSS share an RW mapping. BSS consumes no bytes in the file.
@@ -524,10 +556,10 @@ variable lnk-ti
   dup [lit] 0 [lit] 2 - = if, drop exit, then,
   0= 0= if, [lit] 255 cc-die then,
   [lit] 0 lnk-oi !
-  begin, lnk-oi @ lnk-count @ < while,
-    lnk-oi @ lnk-object lnk-op !
-    [lit] 104 lnk-field @ lnk-stat-buffer @ =
-    [lit] 112 lnk-field @ lnk-stat-buffer [lit] 8 + @ = and
+  begin, lnk-oi @ lnk-input-count @ < while,
+    lnk-oi @ [lit] 16 * lnk-inputs +
+    dup @ lnk-stat-buffer @ =
+    swap [lit] 8 + @ lnk-stat-buffer [lit] 8 + @ = and
     if, [lit] 255 cc-die then,
     [lit] 1 lnk-oi +!
   repeat, ;

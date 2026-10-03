@@ -1,0 +1,1061 @@
+{
+  "fixture_sha256": "c06da3d368c4d17c4ffb943d9b1cc4cdcf3879bd7ba9a048442a0668b4066b79",
+  "book44_sha256": "c1fcfb3b12a9316517f03a29f2436ce3339cd5b56ef989d59ab66121a0459dc0",
+  "baseline_revision": "f6777bf6b657cbd10601f52d482891959da3a05f",
+  "baseline_140_sha256": "9be639f99a6ffeef31baf456e3db765f83c9dd75c54054904c340febe81d84f8",
+  "root": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003",
+  "output": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-archive-0penq_27",
+  "hashes": {
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "140-cc-link.fth": "abacc3197fd03baf31d2d86b0c999ca3b63e04b806882078d7925ae55bfd4e84",
+    "141-archive.fth": "e6a544feae6a75286dab034f319da04ca5149131ebf930257fc503ca975aa674",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e"
+  },
+  "checks": [
+    {
+      "name": "object-start.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-demand.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-provider.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-chain.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-bar.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-unused.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-weak.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-local.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-weak-demand.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-strong-demand.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-call-start.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-a-very-long-object-member-name.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-123456789012345",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-1234567890123456",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "base.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "deterministic.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "self-parse",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "runtime",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "runtime-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "basic",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "basic-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "unused-library",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "archive-before-demand",
+      "expected": 253,
+      "status": 253,
+      "okay": true
+    },
+    {
+      "name": "archive-before-demand-gnu-ld",
+      "okay": true,
+      "status": 1
+    },
+    {
+      "name": "repeat-library",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "repeat-library-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "reverse.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "fixed-point",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "fixed-point-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "local.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "local-not-indexed",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "weak.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "weak-provider-first",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "weak-provider-first-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "weak-undefined-no-extract",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "weak-undefined-no-extract-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "weak-then-strong-demand",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "weak-then-strong-demand-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "strong-then-weak-demand",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "weak-definition-stops-extraction",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "weak-definition-stops-extraction-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "ordinary-strong-after-weak",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "ordinary-duplicate",
+      "expected": 252,
+      "status": 252,
+      "okay": true
+    },
+    {
+      "name": "foo-only.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "bar-only.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "cross-archive-no-group",
+      "expected": 253,
+      "status": 253,
+      "okay": true
+    },
+    {
+      "name": "cross-archive-no-group-gnu-ld",
+      "okay": true,
+      "status": 1
+    },
+    {
+      "name": "cross-archive-repeat",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "cross-archive-repeat-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "object-all-sections.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "all-sections.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s1_1.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s1_1",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s1_2.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s1_2",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s1_3.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s1_3",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s1_4.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s1_4",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s1_65521.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s1_65521",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s2_1.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s2_1",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s2_2.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s2_2",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s2_3.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s2_3",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s2_4.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s2_4",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-need-s2_65521.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "section-s2_65521",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "longs.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "long-name",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "long-name-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "gnu-reader",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "gnu-reader-link",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "unused-invalid.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "unselected-invalid",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "invalid-payload-envelope",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "duplicate-unused.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "unselected-duplicate",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "selected-invalid-envelope",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "selected-invalid-elf",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "prior-unresolved",
+      "expected": 253,
+      "status": 253,
+      "okay": true
+    },
+    {
+      "name": "prior-malformed-member",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "prior-write-failure",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "archive-write-failure",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "archive-output-alias",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "archive-hardlink-alias",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "archive-symlink-alias",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "writer-input-alias",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "writer-hardlink-alias",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "truncate-0",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "truncate-1",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "truncate-7",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "truncate-9",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "truncate-67",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "truncate-995",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "bad-magic",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "thin-magic",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "bad-header-trailer",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "size-negative",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "size-overflow",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "size-junk",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "size-all-space",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "size-leading-space",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-too-short",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-count-overflow",
+      "expected": 251,
+      "status": 251,
+      "okay": true
+    },
+    {
+      "name": "index-count-overrun",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-offset-0",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-offset-8",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-offset-68",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-offset-996",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-offset-81",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-offset-140",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-empty-name",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index-unterminated",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "odd-payload-envelope",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "odd-padding-non-newline",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "odd-padding-missing",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "name-empty",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "name-control",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "name-nul",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "name-bsd-index",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "name-bad-long-ref",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "missing-long-table",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "long-name-mid-entry",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "long-name-outside",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "long-name-missing-slash",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "long-name-missing-newline",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "bsd-extended",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "bsd-extended-link",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "bsd-name-zero",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "bsd-name-overrun",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "bsd-name-empty",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "empty.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "bare-empty",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "no-index",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "selected-map-release",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "session-reset-release",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "plain-object-baseline",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "objects-with-archive-layer",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "repeat-writer-session",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "extended-writer-session",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "writer-odd-member.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "writer-odd-member-parse",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "writer-odd-member-link",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "empty-global-definition",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "empty-global-undefined",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "reserved-writer-__.SYMDEF",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "reserved-writer-__.SYMDEF_64",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "ordinary-reserved-prefix.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "ordinary-reserved-prefix-parse",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "ordinary-reserved-prefix-link",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "writer-to-reader-release",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "unselected-archive-output-alias",
+      "expected": 255,
+      "status": 255,
+      "okay": true
+    },
+    {
+      "name": "member-limit.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "reader-member-limit",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "member-limit-selection",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "writer-member-over-limit",
+      "expected": 251,
+      "status": 251,
+      "okay": true
+    },
+    {
+      "name": "reader-member-over-limit",
+      "expected": 251,
+      "status": 251,
+      "okay": true
+    },
+    {
+      "name": "duplicate-symbol-index",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "index64-unsupported",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "duplicate-long-table",
+      "expected": 250,
+      "status": 250,
+      "okay": true
+    },
+    {
+      "name": "object-extra-provider.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-extra-weak-provider.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "object-bar-demand.o",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "extra-provider.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "extra-weak-provider.a",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "selected-strong-duplicate",
+      "expected": 252,
+      "status": 252,
+      "okay": true
+    },
+    {
+      "name": "selected-strong-duplicate-gnu-ld",
+      "okay": true,
+      "status": 1
+    },
+    {
+      "name": "selected-strong-replaces-weak",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "selected-strong-replaces-weak-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "selected-weak-keeps-strong",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    },
+    {
+      "name": "selected-weak-keeps-strong-gnu-ld",
+      "okay": true,
+      "status": 0
+    },
+    {
+      "name": "pre-archive-object-baseline",
+      "expected": 0,
+      "status": 0,
+      "okay": true
+    }
+  ],
+  "failures": []
+}
