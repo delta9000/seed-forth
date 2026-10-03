@@ -126,3 +126,30 @@ the executable/object/output hashes and the narrowed link scope.
 The Makefile template hardcodes `CFLAGS = -g` despite configure accepting an
 empty CFLAGS. The recipe therefore passes `CFLAGS= LDFLAGS=` explicitly to
 make, retaining the original compilation rule while selecting supported flags.
+
+## Original RTL generator checks
+
+Given a retained successful component configure directory, run:
+
+```sh
+python3 tests/gcc/driver-gengenrtl-check.py build-out/direct-configure-...
+python3 tests/gcc/driver-gengenrtl-oracle.py build-out/direct-configure-...
+```
+
+The first command compiles unchanged `gengenrtl.c` and `errors.c` with their
+actual Makefile rules, then links them with the Forth driver and bounded runtime.
+Both generator modes produce retained `genrtl.c` and `genrtl.h`. An independent
+reader of original `rtl.def` selects its conditional alternatives using audited
+`auto-host.h` facts and the real `GENERATOR_FILE` option. It checks the ordered
+format definitions/declarations and RTL macro coverage. The initial naive
+inventory included both `USE_MAPPED_LOCATION` branches; that inventory error
+was corrected in the checker, and was not a compiler failure.
+
+The input manifest covers every original header and definition file (a superset
+of those consumed), concrete generator sources, generated headers, and the
+complete frozen Forth compiler/runtime inputs. Coverage checks alone are not a
+full byte oracle. The optional second command builds the same unchanged source
+with host GCC in C90 mode and host libc, with the same configured branch facts,
+and compares both complete outputs byte for byte. Host executables and output
+stay under `host-oracle/`; none enters the production path. Neither narrowed
+generator link claims completion of the Makefile's `BUILD_LIBIBERTY` dependency.
