@@ -76,3 +76,52 @@ Run `python3 tests/gcc/driver-check.py` for targeted production checks and
 invalidation, and runtime isolation checks in an isolated source-copy fixture.
 These are evidence for this driver contract, not proof that original GCC configure,
 generators, a full compiler build, or a GCC fixed point have succeeded.
+
+## Measured original configure runs
+
+`python3 gcc-direct/configure.py --component gcc` runs the original pinned
+GCC 4.0.4 `gcc/configure` in a new retained build directory. `libiberty`,
+`libcpp`, and `top` select the corresponding original configure scripts.
+The default source/archive paths are under `build-out/direct-gcc-inputs/`;
+explicit paths can be passed with `--source` and `--archive`.
+
+The recipe checks the archive against `gcc64/SOURCES` and compares every
+source file and symlink against that archive. It rejects extra source files
+(Git administrative metadata is excluded). It captures the Forth compiler,
+seed, driver, and runtime sources before invoking any configure probe, so
+concurrent development cannot change the compiler partway through a run.
+
+The original scripts receive a C-only, native Linux AMD64 configuration,
+explicit Forth CC/CPP commands, empty CFLAGS/CPPFLAGS/LDFLAGS/LIBS, no site
+configuration, and no prefilled configure cache. Host compilers, assembler,
+linker, archiver, and related target tools are guarded. Their attempted
+invocations fail and are logged; the recipe does not supply success answers
+or pretend that a target assembler exists.
+
+The printed build path retains `configure.log`, the original `config.log`,
+the exact invocation/environment, compiler/source manifests, and individual
+compiler traces under `probes/`. Each trace preserves its arguments, working
+directory, C/object inputs, current configuration headers, diagnostics,
+preprocessor output, and successful file outputs. `probe-inventory.json`
+collects their outcomes. A successful configure exit is explicitly provisional:
+failed probes, suspicious positive answers, generated size/type macros, and
+their consumers still require review.
+
+For the first `gencheck` proof, the original GCC Makefile supplies the required
+header and object rules: `gencheck.h` from the configured language-tree list,
+`bconfig.h`, `tm.h`, and `build/gencheck.o` with the actual `CC_FOR_BUILD`,
+`BUILD_CFLAGS`, and `BUILD_CPPFLAGS`. Its complete link rule additionally
+requires `BUILD_LIBIBERTY`. A narrower link of this original generator against
+the source-built bounded runtime may establish its direct symbol requirements;
+it does not establish the full libiberty/archive or Makefile build closure.
+Pass `--gencheck` with `--component gcc` to run this measured generator check
+after configure: the unchanged Makefile builds the object, the Forth linker
+creates `build/gencheck-direct`, and its output and error-usage behavior are
+checked against the original source. `tree-check.h` is the actual generator
+stdout. Its expected-output oracle is kept in Python memory; it does not
+produce target code or replace generated data. `gencheck-report.json` records
+the executable/object/output hashes and the narrowed link scope.
+
+The Makefile template hardcodes `CFLAGS = -g` despite configure accepting an
+empty CFLAGS. The recipe therefore passes `CFLAGS= LDFLAGS=` explicitly to
+make, retaining the original compilation rule while selecting supported flags.
