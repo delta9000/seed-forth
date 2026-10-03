@@ -372,3 +372,4 @@ bootstrap. Their current implementation and limits are in [DIRECT-GCC.md](https:
 | [41: typed constants](41-direct-gcc-constants.md) | 28, 34–36 | LP64 constant arithmetic and symbolic address initializers |
 | [42: variadic lists](42-direct-gcc-varargs.md) | 34, 36, 37 | Array-based System V lists across separately compiled units |
 | [43: streams](43-direct-gcc-stdio.md) | 35–39, 42 | Forth-built file I/O and bounded formatted generator output |
+| [44: archives](44-direct-gcc-archives.md) | 35, 37 | Indexed archives and selection driven by unresolved symbols |

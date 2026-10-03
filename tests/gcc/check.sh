@@ -12,6 +12,8 @@ done
 python3 tests/gcc/object-writer-check.py
 python3 tests/gcc/linker-check.py
 python3 tests/gcc/linker-c-check.py
+python3 tests/gcc/archive-boundary-check.py
+python3 tests/gcc/review-archive-check.py
 bash tests/gcc/sysv-check.sh
 bash tests/gcc/sysv-knr-check.sh
 bash tests/gcc/sysv-namespaces-check.sh
@@ -32,6 +34,8 @@ python3 tests/gcc/syscall-check.py
 python3 tests/gcc/syscall-runtime-check.py
 python3 tests/gcc/runtime-check.py
 python3 tests/gcc/runtime-oracle-check.py
+python3 tests/gcc/sort-check.py
+python3 tests/gcc/sort-oracle-check.py
 bash tests/gcc/varargs-intrinsic-check.sh
 python3 tests/gcc/varargs-check.py
 bash tests/gcc/varargs-interop-check.sh
@@ -39,8 +43,10 @@ python3 tests/gcc/stdio-check.py
 python3 tests/gcc/stdio-oracle-check.py
 python3 tests/gcc/configure-runtime-check.py
 python3 tests/gcc/configure-runtime-oracle-check.py
+python3 tests/gcc/abort-check.py
 python3 tests/gcc/driver-check.py
 python3 tests/gcc/driver-cache-check.py
+python3 tests/gcc/driver-archive-check.py
 python3 tests/gcc/review-sysv-check.py
 python3 tests/gcc/review-sysv-syscall-check.py
 ffs_status=0

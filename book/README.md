@@ -135,8 +135,8 @@ where the previous chapter stopped.
   its focused and independent fixed-point checks. The native regression
   gate and actual host entry are included in `check-all.sh`; QEMU guest
   checks remain separate.
-- **Part VI (Chs 35–43, work in progress)** explains the reconstructed object,
-  ABI, linker, typed constants, header policy, variadic lists, and bounded
+- **Part VI (Chs 35–44, work in progress)** explains the reconstructed object,
+  ABI, linker, archives, typed constants, header policy, variadic lists, and bounded
   runtime components. It includes unchanged GCC source-unit proofs;
   a complete direct GCC bootstrap remains unfinished.
 - **Appendices A–G** are reference cards: primitives, memory

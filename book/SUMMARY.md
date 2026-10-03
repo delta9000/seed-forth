@@ -64,6 +64,7 @@
 - [Typed constants](41-direct-gcc-constants.md) — integer types, checked arithmetic, and symbolic addresses
 - [System V variadic lists](42-direct-gcc-varargs.md) — array identity, saved registers, and argument cursors
 - [Streams and formatting](43-direct-gcc-stdio.md) — real files and bounded integer, pointer, and string formatting
+- [Indexed archives](44-direct-gcc-archives.md) — deterministic archive creation and selection of needed members
 
 # Appendices
 
