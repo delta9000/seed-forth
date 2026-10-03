@@ -65,6 +65,9 @@
 - [System V variadic lists](42-direct-gcc-varargs.md) — array identity, saved registers, and argument cursors
 - [Streams and formatting](43-direct-gcc-stdio.md) — real files and bounded integer, pointer, and string formatting
 - [Indexed archives](44-direct-gcc-archives.md) — deterministic archive creation and selection of needed members
+- [Binary64 values](45-direct-gcc-binary64.md) — typed floating arithmetic, conversion, storage, and return values
+- [Exact floating literals](46-direct-gcc-float-literals.md) — decimal ratios and correctly rounded binary64 representations
+- [Record bitfields](47-direct-gcc-bitfields.md) — bit allocation, promotions, preserving stores, and explicit limits
 
 # Appendices
 

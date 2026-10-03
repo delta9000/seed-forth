@@ -45,6 +45,6 @@ def main():
     assert hashes=={str(p.relative_to(ROOT)):sha(p) for p in inputs},'compiler changed'
     assert source_hashes=={str(p.relative_to(ROOT)):sha(p) for p in source_inputs},'original source or configured header changed'
     report={'compiler_source_identity':run([cc,'--print-source-hash']).stdout.strip(),'source_closure_sha256':source_hashes,'compiler_sha256':hashes,'configuration_sha256':sha(config/'config.h'),'source_sha256':{str(p.relative_to(ROOT)):sha(p) for p in original},'fixture_sha256':sha(fixture),'script_sha256':sha(Path(__file__)),'object_sha256':{p.name:sha(p) for p in objs},'executions':outcomes,'work':str(work),'host_target_tools':False,'oracle_host':'gcc C90 O0/O2'}
-    (TEST/'review-declarator-consumer-results.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
-    print(TEST/'review-declarator-consumer-results.json')
+    (work/'review-declarator-consumer-results.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+    print(work/'review-declarator-consumer-results.json')
 if __name__=='__main__':main()

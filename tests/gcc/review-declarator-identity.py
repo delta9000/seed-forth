@@ -12,7 +12,7 @@ def main():
     before=dict(after)
     for n in ('112-cc-stmt.fth','115-cc-native.fth'):before[n]=(baseline/n).read_bytes()
     work=Path(tempfile.mkdtemp(prefix='review-declarator-identity-'))
-    source=(TEST/'review-declarator-identity.c').read_bytes()
+    source=(work/'review-declarator-identity.c').read_bytes()
     records=[]
     for mode in ('default','native'):
         artifacts=[]
@@ -34,5 +34,5 @@ def main():
         print('PASS:',mode,'before/after bytes identical')
     assert after=={n:(ROOT/n).read_bytes() for n in names},'compiler changed'
     report={'compiler_sha256':{n:sha(b) for n,b in after.items()},'baseline_edited_layer_sha256':{n:sha(before[n]) for n in ('112-cc-stmt.fth','115-cc-native.fth')},'fixture_sha256':sha(source),'script_sha256':sha(Path(__file__).read_bytes()),'results':records,'work':str(work)}
-    (TEST/'review-declarator-identity-results.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+    (work/'review-declarator-identity-results.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
 if __name__=='__main__':main()

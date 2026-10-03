@@ -99,7 +99,7 @@ def main():
         print(name,checks[0]['rc'],'preserved',all(c['preserved'] for c in checks),flush=True)
     assert hashes=={str(p.relative_to(ROOT)):sha(p) for p in inputs},'compiler changed'
     report={'compiler_source_identity':checked([cc,'--print-source-hash']).stdout.strip(),'compiler_sha256':hashes,'fixture_sha256':sha(fixture),'review_script_sha256':sha(Path(__file__)),'work':str(work),'executions':outcomes,'rejections':results,'caller_unsigned_char_conversions':narrow_count,'caller_disassembly_sha256':sha(work/'caller-conversions.txt')}
-    (TEST/'review-declarator-results.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
-    print(TEST/'review-declarator-results.json')
+    (work/'review-declarator-results.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+    print(work/'review-declarator-results.json')
 
 if __name__=='__main__':main()

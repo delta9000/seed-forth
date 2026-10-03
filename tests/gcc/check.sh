@@ -26,10 +26,20 @@ python3 tests/gcc/review-storage-probe.py
 python3 tests/gcc/constant-check.py
 bash tests/gcc/sysv-declaration-types-check.sh
 python3 tests/gcc/review-types-check.py
+bash tests/gcc/sysv-declarator-edges-check.sh
+python3 tests/gcc/review-declarator-check.py
+SF_GCC_CAST_ORACLE=1 bash tests/gcc/sysv-function-pointer-casts-check.sh
+bash tests/gcc/sysv-binary64-check.sh
+python3 tests/gcc/float-literal-check.py
+python3 tests/gcc/review-floating-literals.py
 bash tests/gcc/sysv-setjmp-check.sh
 python3 tests/gcc/target-macros-check.py
 python3 tests/gcc/source-location-check.py
 python3 tests/gcc/review-source-location-check.py
+python3 tests/gcc/computed-include-check.py
+python3 tests/gcc/review-computed-include-check.py
+python3 tests/gcc/literal-splice-check.py
+python3 tests/gcc/review-literal-splice-check.py
 python3 tests/gcc/syscall-check.py
 python3 tests/gcc/syscall-runtime-check.py
 python3 tests/gcc/runtime-check.py
@@ -44,6 +54,7 @@ python3 tests/gcc/stdio-oracle-check.py
 python3 tests/gcc/configure-runtime-check.py
 python3 tests/gcc/configure-runtime-oracle-check.py
 python3 tests/gcc/abort-check.py
+python3 tests/gcc/frame-check.py
 python3 tests/gcc/driver-check.py
 python3 tests/gcc/driver-cache-check.py
 python3 tests/gcc/driver-archive-check.py
@@ -55,5 +66,15 @@ if [ "$ffs_status" != 0 ] && [ "$ffs_status" != 77 ]; then exit "$ffs_status"; f
 hex_status=0
 bash tests/gcc/sysv-gcc-hex-check.sh "${GCC4_HEX_SOURCE:-build-out/direct-gcc-inputs/gcc-source/libiberty/hex.c}" "${GCC4_INCLUDE:-build-out/direct-gcc-inputs/gcc-source/include}" || hex_status=$?
 if [ "$hex_status" != 0 ] && [ "$hex_status" != 77 ]; then exit "$hex_status"; fi
+gcc_source=${GCC4_SOURCE_ROOT:-build-out/direct-gcc-inputs/gcc-source}
+if [ -f "$gcc_source/libiberty/hashtab.c" ]; then
+    python3 tests/gcc/review-floating-check.py --source-root "$gcc_source"
+    python3 tests/gcc/bitfield-check.py --source-root "$gcc_source" --oracle
+    python3 tests/gcc/review-bitfield-check.py --source-root "$gcc_source"
+    bash tests/gcc/sysv-gcc-obstack-check.sh "$gcc_source/libiberty/obstack.c" "$gcc_source/include"
+else
+    python3 tests/gcc/review-floating-check.py --skip-hashtab
+    echo 'SKIP: original GCC hashtab, fibheap and obstack gates require the pinned source archive' >&2
+fi
 tools/tangle.sh verify --strict
-echo 'PASS: direct-GCC objects, linker, scalar ABI, typed storage, runtime and driver component gate'
+echo 'PASS: direct-GCC objects, archives, ABI, typed storage, floating literals, preprocessor, runtime and driver component gate'

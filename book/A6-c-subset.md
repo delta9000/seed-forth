@@ -21,7 +21,7 @@ Sources of truth, in case this appendix drifts:
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `112-cc-stmt.fth` `cc-parse-stmt`
-  (lines 784–823).
+  (lines 786–825).
 - The gates in `tests/cc/`, run by `tests/cc/run-gates.sh`: each
   `P*.c` file exercises one family of the features below, and each
   `die-*` file one of the rejections (Appendix G).
@@ -105,7 +105,7 @@ stands for `c` (so `\\`, `\'` and `\"` work).
 
 ## Statements
 
-`cc-parse-stmt` in `112-cc-stmt.fth:784` dispatches the following
+`cc-parse-stmt` in `112-cc-stmt.fth:786` dispatches the following
 forms.  Anything not listed here is rejected by the parser with one
 of the parser's codes (`100-cc-expr.fth` through `116-cc-prog.fth`; Appendix G).
 
