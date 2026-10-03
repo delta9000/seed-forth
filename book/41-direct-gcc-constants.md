@@ -561,5 +561,5 @@ arithmetic. GCC participates only in that independent comparison.
 - A symbolic initializer carries an addend and identity until the linker assigns its address
 - Unevaluated arms retain syntax and type checking while suppressing arithmetic and output effects
 
-The [direct GCC status](../DIRECT-GCC.md) records the remaining production
+The [direct GCC status](https://github.com/delta9000/seed-forth/blob/bootstrap/forth-direct-gcc/DIRECT-GCC.md) records the remaining production
 reconstruction boundaries and the evidence established so far.

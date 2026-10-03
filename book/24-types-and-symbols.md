@@ -437,19 +437,30 @@ would be unreadable.  Forth code gets hard to follow once the stack
 holds more than three or four unrelated values; the return stack is
 the release valve.
 
-Adding is half the job; the other half is finding a name again:
+Adding is half the job; the other half is finding a name again.
+Ordinary names and explicit tag references enter through separate deferred
+words. Both retain the historical lookup by default. The System V target
+binds namespace-aware searches, allowing `struct stat` and the function
+`stat` to coexist while retaining the same scope stack:
 
 ```forth file=070-cc-sym.fth
 \ cc-sym-find ( name-addr name-len -- id-or-neg1 )
 \ cc-name-find walks the entries newest first and returns at the first
 \ match, which gives innermost-scope semantics: -1 means "not found",
 \ anything >= 0 is the matched id.
-: cc-sym-find
+\ The default keeps the original single lookup for the bootstrap dialect.
+\ A target can separate C's ordinary and tag namespaces without replacing
+\ the shared symbol records or their scope lifetime.
+: cc-sym-find-default
   cc-sym-name-addr cc-sym-name-len cc-sym-count @ cc-name-find ;
+defer cc-sym-find
+defer cc-sym-find-tag
+' cc-sym-find-default is cc-sym-find
+' cc-sym-find-default is cc-sym-find-tag
 
 ```
 
-`cc-sym-find` is Ch 21's `cc-name-find` over the two name columns,
+The default `cc-sym-find` is Ch 21's `cc-name-find` over the two name columns,
 the same lookup the macro table uses.  It walks the table
 newest-first and returns with `exit,` on the first hit.  Innermost
 declarations appear later in the table, so the reverse walk finds

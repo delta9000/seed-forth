@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (750 lines), the first of the
+That machinery is `110-cc-decl.fth` (759 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
@@ -306,7 +306,7 @@ descriptor.  There are two lookups:
   tok-kind @ tk-ident <> if,
     [lit] 145 cc-die
   then,
-  tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
+  tok-str-addr @ tok-str-len @ cc-sym-find-tag        ( id-or-neg1 )
   dup 0< if,
     drop
     [lit] 146 cc-die
@@ -326,7 +326,7 @@ descriptor.  There are two lookups:
   tok-kind @ tk-ident <> if,
     [lit] 148 cc-die
   then,
-  tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
+  tok-str-addr @ tok-str-len @ cc-sym-find-tag        ( id-or-neg1 )
   dup 0< if,
     drop [lit] 0
   else,

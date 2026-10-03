@@ -79,8 +79,15 @@ variable cc-scope-depth
 \ cc-name-find walks the entries newest first and returns at the first
 \ match, which gives innermost-scope semantics: -1 means "not found",
 \ anything >= 0 is the matched id.
-: cc-sym-find
+\ The default keeps the original single lookup for the bootstrap dialect.
+\ A target can separate C's ordinary and tag namespaces without replacing
+\ the shared symbol records or their scope lifetime.
+: cc-sym-find-default
   cc-sym-name-addr cc-sym-name-len cc-sym-count @ cc-name-find ;
+defer cc-sym-find
+defer cc-sym-find-tag
+' cc-sym-find-default is cc-sym-find
+' cc-sym-find-default is cc-sym-find-tag
 
 \ ===========================================================================
 \ Field accessors / mutators (all take id on TOS).

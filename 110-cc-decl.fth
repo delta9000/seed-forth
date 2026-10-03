@@ -213,7 +213,7 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
   tok-kind @ tk-ident <> if,
     [lit] 145 cc-die
   then,
-  tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
+  tok-str-addr @ tok-str-len @ cc-sym-find-tag        ( id-or-neg1 )
   dup 0< if,
     drop
     [lit] 146 cc-die
@@ -233,7 +233,7 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
   tok-kind @ tk-ident <> if,
     [lit] 148 cc-die
   then,
-  tok-str-addr @ tok-str-len @ cc-sym-find        ( id-or-neg1 )
+  tok-str-addr @ tok-str-len @ cc-sym-find-tag        ( id-or-neg1 )
   dup 0< if,
     drop [lit] 0
   else,

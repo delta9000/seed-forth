@@ -31,6 +31,15 @@ Struct pointers retain their tag identity. Function-pointer descriptors
 hold a tagged signature, and repeated declarations compare that signature
 recursively instead of quietly replacing the first declaration's type.
 
+C tags have a separate lookup path from ordinary identifiers. A function
+named `stat` can coexist with `struct stat`; typedefs, objects, enumerators,
+and function pointers likewise ignore tag entries. Both searches walk the
+same scoped records backwards, and members stay in their own aggregate
+descriptors. Native mode retains its existing lookup through the default
+binding. `tests/gcc/sysv-namespaces-check.sh` covers both declaration orders,
+ordinary local shadowing, static address initializers, and member names in
+standalone ELF and relocatable objects.
+
 C90 distinguishes `f()` from `f(void)`: the first leaves the parameter
 list unspecified and applies default integer promotions, while the second
 is a prototype requiring zero arguments. Identifier-list definitions
@@ -161,6 +170,27 @@ variable cc-target-sysv
 [lit] 64 constant cc-sysv-arg-cap
 [lit] 1398362966 constant cc-sysv-signature-tag
 create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
+
+\ An ordinary identifier never resolves to a struct/union tag. The reverse
+\ scan still chooses the innermost ordinary declaration; member names live
+\ in their aggregate descriptors and enumerators remain ordinary names.
+: cc-sysv-find-ordinary ( a u -- id|-1 )
+  cc-target-sysv @ 0= if, cc-sym-find-default exit, then,
+  cc-nf-u ! cc-nf-a ! cc-sym-count @
+  begin, dup while,
+    1-
+    dup cc-sym-kind-of sk-struct <> if,
+      dup cc-sym-name-len cell[] @ cc-nf-u @ = if,
+        dup cc-sym-name-addr cell[] @ cc-nf-a @ cc-nf-u @ bytes-eq if,
+          exit,
+        then,
+      then,
+    then,
+  repeat, drop true ;
+: cc-sysv-find-tag ( a u -- id|-1 )
+  cc-target-sysv @ if, cc-nfind-tag else, cc-sym-find-default then, ;
+' cc-sysv-find-ordinary is cc-sym-find
+' cc-sysv-find-tag is cc-sym-find-tag
 
 \ Signature: tag, return type, return descriptor, count, variadic flag,
 \ then 64 (type, descriptor) pairs and 64 (name, length, declared) records.

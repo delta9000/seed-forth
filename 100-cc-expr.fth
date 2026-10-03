@@ -1174,7 +1174,7 @@ defer cc-sizeof-type-size-fwd
       tok-kind @ tk-ident <> if,
         [lit] 103 cc-die
       then,
-      tok-str-addr @ tok-str-len @ cc-sym-find
+      tok-str-addr @ tok-str-len @ cc-sym-find-tag
       dup 0< if,
         [lit] 104 cc-die
       then,

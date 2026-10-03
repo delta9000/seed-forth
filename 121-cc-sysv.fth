@@ -7,6 +7,27 @@ variable cc-target-sysv
 [lit] 1398362966 constant cc-sysv-signature-tag
 create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
 
+\ An ordinary identifier never resolves to a struct/union tag. The reverse
+\ scan still chooses the innermost ordinary declaration; member names live
+\ in their aggregate descriptors and enumerators remain ordinary names.
+: cc-sysv-find-ordinary ( a u -- id|-1 )
+  cc-target-sysv @ 0= if, cc-sym-find-default exit, then,
+  cc-nf-u ! cc-nf-a ! cc-sym-count @
+  begin, dup while,
+    1-
+    dup cc-sym-kind-of sk-struct <> if,
+      dup cc-sym-name-len cell[] @ cc-nf-u @ = if,
+        dup cc-sym-name-addr cell[] @ cc-nf-a @ cc-nf-u @ bytes-eq if,
+          exit,
+        then,
+      then,
+    then,
+  repeat, drop true ;
+: cc-sysv-find-tag ( a u -- id|-1 )
+  cc-target-sysv @ if, cc-nfind-tag else, cc-sym-find-default then, ;
+' cc-sysv-find-ordinary is cc-sym-find
+' cc-sysv-find-tag is cc-sym-find-tag
+
 \ Signature: tag, return type, return descriptor, count, variadic flag,
 \ then 64 (type, descriptor) pairs and 64 (name, length, declared) records.
 \ Flags: 1 variadic, 2 unspecified prototype, 4 identifier-list definition.
