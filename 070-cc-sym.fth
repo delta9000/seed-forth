@@ -115,14 +115,18 @@ defer cc-sym-find-tag
 \   call fixups: for an sk-func not yet defined, the head of the list of
 \   `call rel32` sites waiting for its address.  This word gives the cell's
 \   address, so the list code can push onto it (0 = no pending calls).
-: cc-sym-call-fixups      cc-sym-extra     cell[] ;    \ ( id -- cell )
+: cc-sym-call-fixups-default cc-sym-extra cell[] ;
+defer cc-sym-call-fixups
+' cc-sym-call-fixups-default is cc-sym-call-fixups    \ ( id -- cell )
 \ The extra2 cell has one meaning, for sk-func only.
 \   address fixups: the head of the list of `movabs rdi, imm64` sites that
 \   load the function's address before it is defined (a forward-declared
 \   function used as a value, e.g. `common_recursion(expression)` before
 \   expression's body).  cc-parse-function patches each imm64 to the real
 \   vaddr when it reaches the definition.  0 = no pending loads.
-: cc-sym-addr-fixups      cc-sym-extra2    cell[] ;
+: cc-sym-addr-fixups-default cc-sym-extra2 cell[] ;
+defer cc-sym-addr-fixups
+' cc-sym-addr-fixups-default is cc-sym-addr-fixups
 : cc-sym-object-size-of cc-sym-extra2 cell[] @ ;
 : cc-sym-set-object-size cc-sym-extra2 cell[] ! ;    \ ( id -- cell )
 

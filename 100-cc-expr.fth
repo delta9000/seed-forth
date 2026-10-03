@@ -787,9 +787,14 @@ defer cc-native-local-load-fwd
 defer cc-native-intrinsic-fwd
 ' cc-native-intrinsic-noop is cc-native-intrinsic-fwd
 
+: cc-native-unknown-ident-default true ;
+defer cc-native-unknown-ident-fwd
+' cc-native-unknown-ident-default is cc-native-unknown-ident-fwd
+
 : cc-parse-ident
   cc-native-intrinsic-fwd if, exit, then,
   tok-str-addr @ tok-str-len @ cc-sym-find        ( id | -1 )
+  dup 0< if, drop cc-native-unknown-ident-fwd then,
   dup 0< if,
     drop
     [lit] 93 cc-die

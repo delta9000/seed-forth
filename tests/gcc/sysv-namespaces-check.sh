@@ -25,7 +25,6 @@ while IFS='|' read -r label code source; do
   echo "PASS: $label rejects with $code and preserves output"
 done <<'CASES'
 tag-is-not-value|93|struct missing {int x;}; int f(void){return missing;}
-tag-is-not-callable|93|struct missing {int x;}; int f(void){return missing();}
 ordinary-function-object-conflict|237|struct same {int x;}; int same(void); int same;
 ordinary-prototype-conflict|237|struct same {int x;}; int same(int); int same(long);
 CASES

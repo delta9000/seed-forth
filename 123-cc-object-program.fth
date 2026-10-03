@@ -48,6 +48,20 @@ variable cc-om-find-length
   dup cc-sym-name-addr cell[] @ swap cc-sym-name-len cell[] @ cc-om-find
   dup 0= if, [lit] 238 cc-die then, ;
 
+\ The unused final record cell retains an implicit declaration's stable
+\ identity even after its block-scoped parser symbol has disappeared.
+: om-implicit cc-om-record [lit] 120 + ;
+: cc-sysv-object-implicit ( id -- )
+  cc-sysv-object-mode @ 0= if, drop exit, then,
+  dup cc-sym-name-addr cell[] @ over cc-sym-name-len cell[] @ cc-om-find
+  dup 0= if,
+    drop dup cc-sym-name-addr cell[] @ over cc-sym-name-len cell[] @
+    cc-obj-global cc-obj-func cc-om-new
+  then,
+  dup om-kind @ cc-obj-func <> if, [lit] 237 cc-die then,
+  swap cc-sysv-implicit-symbol swap om-implicit ! ;
+' cc-sysv-object-implicit is cc-sysv-implicit-declared-fwd
+
 variable cc-om-relocations
 : cc-om-reloc ( section offset kind record addend -- )
   [lit] 48 cc-alloc >r
@@ -294,7 +308,8 @@ variable cc-om-address-frame
   dup om-section @ swap om-flags @ [lit] 16 and or ;
 : cc-om-function-calls ( record -- )
   dup om-kind @ cc-obj-func <> if, drop exit, then,
-  dup om-symbol @ cc-sym-call-fixups @
+  dup om-implicit @ dup if, [lit] 32 + @
+  else, drop dup om-symbol @ cc-sym-call-fixups @ then,
   begin, dup while,
     cc-obj-text over @ cc-obj-plt32 [lit] 4 cc-npick [lit] 0 [lit] 4 - cc-om-reloc
     [lit] 8 + @

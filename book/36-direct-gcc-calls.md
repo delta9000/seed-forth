@@ -48,6 +48,25 @@ names for its own parameters. The focused abstract-callback gate checks
 compatible redeclarations, pointer sizes, an actual indirect call and
 incompatible return/argument types.
 
+A call to an undeclared ordinary identifier creates C90's implicit
+`extern int name()` declaration. Its name is visible only in the current
+block. A separate translation-unit record keeps the external identity,
+unspecified signature, and pending call/address fixups after that block's
+parser symbols are discarded. Later compatible declarations and definitions
+reuse the identity; incompatible returns, non-promoted parameter types,
+variadic prototypes, static linkage, and file-scope objects reject with237.
+An unknown identifier used as a value still rejects with93.
+
+The two fixup accessors in Ch24 are deferred so existing call and address
+emitters can use that persistent record without changing the native default.
+Object records retain the same identity in their final cell. Each unresolved
+call therefore survives as a real relocation, even across nested blocks and
+reused parser symbol IDs. A missing implementation remains a final link
+failure; standalone ELF mode rejects unresolved records with206. The implicit
+call gate covers scoped names, promoted arguments, function addresses, later
+definitions and unresolved symbols. This also lets the unchanged configure
+endianness probe call `exit` under its original C90 declaration rules.
+
 C90 distinguishes `f()` from `f(void)`: the first leaves the parameter
 list unspecified and applies default integer promotions, while the second
 is a prototype requiring zero arguments. Identifier-list definitions
@@ -303,8 +322,13 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   cc-putback-token ty-int [lit] 0 ty-make [lit] 0 true ;
 ' cc-sysv-implicit-base is cc-native-implicit-base-fwd
 
+: cc-sysv-implicit-declarator-noop ;
+defer cc-sysv-implicit-declarator-fwd
+' cc-sysv-implicit-declarator-noop is cc-sysv-implicit-declarator-fwd
+
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
+    cc-sysv-implicit-declarator-fwd
     cc-sysv-inherit-array
     nc-ty @ [lit] 256 / [lit] 255 and if, [lit] 231 cc-die then,
     nc-bound-mask @ [lit] 1 and if,
@@ -474,6 +498,71 @@ defer cc-sysv-compatible-signatures-fwd
     1+
   repeat, drop 2drop true ;
 ' cc-sysv-compatible-signatures is cc-sysv-compatible-signatures-fwd
+
+\ C90 implicit externs keep scoped visibility but persistent declaration
+\ identity and fixups: a block's symbol IDs may be reused after it exits.
+\ Record: next, name, length, unspecified-int signature, calls, addresses.
+variable cc-sysv-implicit-head
+variable cc-sysv-implicit-count
+: cc-sysv-implicit-find ( name length -- record|0 )
+  cc-nf-u ! cc-nf-a ! cc-sysv-implicit-head @
+  begin, dup while,
+    dup [lit] 16 + @ cc-nf-u @ = if,
+      dup [lit] 8 + @ cc-nf-a @ cc-nf-u @ bytes-eq if, exit, then,
+    then, @
+  repeat, ;
+: cc-sysv-implicit-symbol ( id -- record|0 )
+  dup cc-sym-kind-of sk-func <> if, drop [lit] 0 exit, then,
+  dup cc-sym-name-addr cell[] @ swap cc-sym-name-len cell[] @ cc-sysv-implicit-find ;
+: cc-sysv-call-fixups ( id -- cell )
+  cc-target-sysv @ if,
+    dup cc-sysv-implicit-symbol dup if, nip [lit] 32 + exit, then, drop
+  then, cc-sym-call-fixups-default ;
+: cc-sysv-address-fixups ( id -- cell )
+  cc-target-sysv @ if,
+    dup cc-sysv-implicit-symbol dup if, nip [lit] 40 + exit, then, drop
+  then, cc-sym-addr-fixups-default ;
+' cc-sysv-call-fixups is cc-sym-call-fixups
+' cc-sysv-address-fixups is cc-sym-addr-fixups
+: cc-sysv-implicit-record ( name length -- record )
+  2dup cc-sysv-implicit-find dup if, nip nip exit, then, drop
+  cc-sysv-implicit-count @ 1+ cc-sym-cap [lit] 60 cc-check-cap
+  [lit] 1 cc-sysv-implicit-count +!
+  [lit] 48 cc-alloc dup >r [lit] 48 cc-nzero
+  r@ [lit] 16 + ! r@ [lit] 8 + !
+  cc-sysv-implicit-head @ r@ ! r@ cc-sysv-implicit-head !
+  [lit] 2600 cc-alloc dup [lit] 2600 cc-nzero
+  cc-sysv-signature-tag over !
+  ty-int [lit] 0 ty-make over [lit] 8 + !
+  [lit] 2 over [lit] 32 + ! r@ [lit] 24 + ! r> ;
+: cc-sysv-implicit-declared-noop drop ;
+defer cc-sysv-implicit-declared-fwd
+' cc-sysv-implicit-declared-noop is cc-sysv-implicit-declared-fwd
+: cc-sysv-unknown-ident ( -- id|-1 )
+  cc-target-sysv @ 0= if, true exit, then,
+  cc-peek-mark cc-lex-mark cc-next-token-keep
+  lparen cc-tok-punct? cc-peek-mark cc-lex-reset 0= if, true exit, then,
+  tok-str-addr @ tok-str-len @ cc-sysv-implicit-record >r
+  tok-str-addr @ tok-str-len @ sk-func ty-int [lit] 0 ty-make [lit] 0 cc-sym-add
+  r> [lit] 24 + @ over cc-sysv-signatures cell[] !
+  dup cc-sysv-implicit-declared-fwd ;
+' cc-sysv-unknown-ident is cc-native-unknown-ident-fwd
+: cc-sysv-check-implicit-signature ( signature -- )
+  nc-name @ nc-nlen @ cc-sysv-implicit-find dup if,
+    nc-static @ if, [lit] 237 cc-die then,
+    [lit] 24 + @ cc-sysv-compatible-signatures 0= if, [lit] 237 cc-die then,
+  else, 2drop then, ;
+\ A file-scope object cannot replace an earlier implicit external function;
+\ a typedef or a block-local object has no conflicting external linkage.
+: cc-sysv-implicit-declarator
+  nc-top @ nc-func @ 0= and nc-td @ 0= and if,
+    nc-name @ nc-nlen @ cc-sysv-implicit-find if, [lit] 237 cc-die then,
+  then, ;
+' cc-sysv-implicit-declarator is cc-sysv-implicit-declarator-fwd
+: cc-sysv-check-implicit-defined
+  cc-sysv-implicit-head @ begin, dup while,
+    dup [lit] 32 + @ over [lit] 40 + @ or if, [lit] 206 cc-die then, @
+  repeat, drop ;
 
 : cc-sysv-symbol-signature ( id -- signature )
   dup cc-sym-kind-of sk-func = if,
@@ -722,6 +811,7 @@ variable cc-sysv-function-signature
   cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 4 and if,
     cc-sysv-function-signature @ cc-sysv-old-parameters
   then,
+  cc-sysv-function-signature @ cc-sysv-check-implicit-signature
   nc-name @ nc-nlen @ cc-sym-find
   dup 0< 0= if,
     dup cc-sym-kind-of sk-func <> if, [lit] 237 cc-die then,
@@ -779,6 +869,7 @@ variable cc-sysv-function-signature
 ' cc-sysv-function is cc-native-function-fwd
 
 : cc-sysv-enable
+  [lit] 0 cc-sysv-implicit-head ! [lit] 0 cc-sysv-implicit-count !
   true cc-target-sysv ! true cc-target-lp64 ! true cc-prep-direct !
   [lit] 0 cc-bootstrap-floatbits ! ;
 : cc-sysv-translation-unit
@@ -795,7 +886,8 @@ variable cc-sysv-function-signature
   [lit] 15 cc-emit-byte [lit] 5 cc-emit-byte ;
 : cc-sysv-program
   cc-sysv-entry cc-sysv-translation-unit
-  cc-native-init-finish-fwd cc-check-fns-defined cc-patch-call-main ;
+  cc-native-init-finish-fwd cc-sysv-check-implicit-defined
+  cc-check-fns-defined cc-patch-call-main ;
 ```
 
 ## 4. Carry code and storage into a relocatable object
@@ -919,6 +1011,20 @@ variable cc-om-find-length
   dup cc-sym-kind-of sk-global = if, cc-sym-val-of exit, then,
   dup cc-sym-name-addr cell[] @ swap cc-sym-name-len cell[] @ cc-om-find
   dup 0= if, [lit] 238 cc-die then, ;
+
+\ The unused final record cell retains an implicit declaration's stable
+\ identity even after its block-scoped parser symbol has disappeared.
+: om-implicit cc-om-record [lit] 120 + ;
+: cc-sysv-object-implicit ( id -- )
+  cc-sysv-object-mode @ 0= if, drop exit, then,
+  dup cc-sym-name-addr cell[] @ over cc-sym-name-len cell[] @ cc-om-find
+  dup 0= if,
+    drop dup cc-sym-name-addr cell[] @ over cc-sym-name-len cell[] @
+    cc-obj-global cc-obj-func cc-om-new
+  then,
+  dup om-kind @ cc-obj-func <> if, [lit] 237 cc-die then,
+  swap cc-sysv-implicit-symbol swap om-implicit ! ;
+' cc-sysv-object-implicit is cc-sysv-implicit-declared-fwd
 
 variable cc-om-relocations
 : cc-om-reloc ( section offset kind record addend -- )
@@ -1166,7 +1272,8 @@ variable cc-om-address-frame
   dup om-section @ swap om-flags @ [lit] 16 and or ;
 : cc-om-function-calls ( record -- )
   dup om-kind @ cc-obj-func <> if, drop exit, then,
-  dup om-symbol @ cc-sym-call-fixups @
+  dup om-implicit @ dup if, [lit] 32 + @
+  else, drop dup om-symbol @ cc-sym-call-fixups @ then,
   begin, dup while,
     cc-obj-text over @ cc-obj-plt32 [lit] 4 cc-npick [lit] 0 [lit] 4 - cc-om-reloc
     [lit] 8 + @
