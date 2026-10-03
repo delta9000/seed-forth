@@ -29,9 +29,36 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   ty-base
   dup ty-struct = over ty-float = or over ty-double = or
   over ty-ldouble = or swap ty-func = or if, [lit] 232 cc-die then, ;
+\ Bound object-size arithmetic before multiplying. Explicit bounds are
+\ distinct from the unsized-array sentinel inherited from the native parser.
+[lit] 1073741824 constant cc-sysv-object-size-limit
+: cc-sysv-size-product ( size count -- size' )
+  dup 0< if, [lit] 245 cc-die then,
+  over 0= if, [lit] 238 cc-die then,
+  over cc-sysv-object-size-limit swap / over < if, [lit] 245 cc-die then, * ;
+: cc-sysv-object-size
+  nc-ty @ nc-desc @ cc-nsize
+  nc-array @ [lit] 0 > if, nc-array @ cc-sysv-size-product then,
+  nc-inner @ [lit] 0 > if, nc-inner @ cc-sysv-size-product then, ;
+: cc-sysv-typedef-check
+  cc-target-sysv @ if,
+    dup cc-sym-array-len-of over cc-sym-array-inner-of or if,
+      [lit] 238 cc-die
+    then,
+  then, ;
+' cc-sysv-typedef-check is cc-ntypedef-check-fwd
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
     nc-ty @ [lit] 256 / [lit] 255 and if, [lit] 231 cc-die then,
+    nc-bound-mask @ [lit] 1 and if,
+      nc-array @ [lit] 0 <= if, [lit] 238 cc-die then,
+    then,
+    nc-bound-mask @ [lit] 2 and if,
+      nc-inner @ [lit] 0 <= if, [lit] 238 cc-die then,
+    then,
+    nc-array @ [lit] 0 > nc-inner @ [lit] 0 > or if,
+      cc-sysv-object-size drop
+    then,
   then, ;
 ' cc-sysv-check-declarator is cc-ndeclarator-check-fwd
 

@@ -31,6 +31,7 @@ variable cc-nctx
 : nc-id     cc-nctx @ [lit] 160 + ;
 : nc-slot   cc-nctx @ [lit] 168 + ;
 : nc-extern cc-nctx @ [lit] 176 + ;
+: nc-bound-mask cc-nctx @ [lit] 184 + ;
 : cc-nzero ( a n -- )
   begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;
 : cc-ncontext
@@ -74,6 +75,10 @@ variable cc-ntag-u
   then, ;
 ' cc-native-type-start is cc-native-type-start-fwd
 
+: cc-ntypedef-check-noop ;
+defer cc-ntypedef-check-fwd
+' cc-ntypedef-check-noop is cc-ntypedef-check-fwd
+
 defer cc-nbase-fwd
 
 defer cc-naggregate-fwd
@@ -114,6 +119,7 @@ defer cc-naggregate-fwd
     tok-str-addr @ tok-str-len @ cc-sym-find
     dup 0< if, [lit] 194 cc-die then,
     dup cc-sym-kind-of sk-typedef <> if, [lit] 195 cc-die then,
+    cc-ntypedef-check-fwd
     dup cc-sym-val-of swap cc-sym-struct-desc-of exit,
   then,
   \ Stack: base unsigned? long-seen?; preserve all across token reads.
@@ -162,6 +168,7 @@ defer cc-ndeclarator-check-fwd
   nc-sdesc @ nc-desc !
   [lit] 0 nc-name ! [lit] 0 nc-nlen !
   [lit] 0 nc-array ! [lit] 0 nc-inner ! [lit] 0 nc-func !
+  [lit] 0 nc-bound-mask !
   cc-next-token-keep
   lparen cc-tok-punct? if,
     [char] * cc-expect-punct-c
@@ -180,10 +187,12 @@ defer cc-ndeclarator-check-fwd
   [char] [ cc-tok-punct? if,
     cc-next-token-keep
     [char] ] cc-tok-punct? if, true nc-array ! else,
+      [lit] 1 nc-bound-mask !
       cc-putback-token cc-parse-const nc-array ! [char] ] cc-expect-punct-c
     then,
     cc-next-token-keep
     [char] [ cc-tok-punct? if,
+      [lit] 2 nc-bound-mask +!
       cc-parse-const nc-inner ! [char] ] cc-expect-punct-c
       cc-next-token-keep
     then,

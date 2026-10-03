@@ -139,9 +139,36 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   ty-base
   dup ty-struct = over ty-float = or over ty-double = or
   over ty-ldouble = or swap ty-func = or if, [lit] 232 cc-die then, ;
+\ Bound object-size arithmetic before multiplying. Explicit bounds are
+\ distinct from the unsized-array sentinel inherited from the native parser.
+[lit] 1073741824 constant cc-sysv-object-size-limit
+: cc-sysv-size-product ( size count -- size' )
+  dup 0< if, [lit] 245 cc-die then,
+  over 0= if, [lit] 238 cc-die then,
+  over cc-sysv-object-size-limit swap / over < if, [lit] 245 cc-die then, * ;
+: cc-sysv-object-size
+  nc-ty @ nc-desc @ cc-nsize
+  nc-array @ [lit] 0 > if, nc-array @ cc-sysv-size-product then,
+  nc-inner @ [lit] 0 > if, nc-inner @ cc-sysv-size-product then, ;
+: cc-sysv-typedef-check
+  cc-target-sysv @ if,
+    dup cc-sym-array-len-of over cc-sym-array-inner-of or if,
+      [lit] 238 cc-die
+    then,
+  then, ;
+' cc-sysv-typedef-check is cc-ntypedef-check-fwd
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
     nc-ty @ [lit] 256 / [lit] 255 and if, [lit] 231 cc-die then,
+    nc-bound-mask @ [lit] 1 and if,
+      nc-array @ [lit] 0 <= if, [lit] 238 cc-die then,
+    then,
+    nc-bound-mask @ [lit] 2 and if,
+      nc-inner @ [lit] 0 <= if, [lit] 238 cc-die then,
+    then,
+    nc-array @ [lit] 0 > nc-inner @ [lit] 0 > or if,
+      cc-sysv-object-size drop
+    then,
   then, ;
 ' cc-sysv-check-declarator is cc-ndeclarator-check-fwd
 
@@ -587,6 +614,12 @@ also receive `R_X86_64_64` relocations. The current emitter uses absolute
 addresses, so these objects target the bounded static executable path;
 they do not claim position-independent code generation.
 
+Object bounds are checked before multiplication, and explicit zero or
+negative bounds are rejected separately from an unsized `[]`. Repeated
+object declarations must agree on scalar versus array shape. An array
+typedef is retained in the symbol table, but using it as a type is rejected
+until the complete array shape can travel through type lookup.
+
 The constant type representation does not yet encode a pointer to an
 array. Address constants such as `&rows[i][j]` are supported, while a bare
 `&array` or unindexed multidimensional-array decay is rejected. Block-scope
@@ -724,6 +757,7 @@ create cc-om-string-name s, .Lstring
   dup om-kind @ cc-obj-object <> if, [lit] 237 cc-die then,
   dup om-type @ over om-desc @ nc-ty @ nc-desc @
   cc-sysv-compatible-types 0= if, [lit] 237 cc-die then,
+  dup om-array @ 0= nc-array @ 0= <> if, [lit] 237 cc-die then,
   dup om-array @ [lit] 0 > nc-array @ [lit] 0 > and if,
     dup om-array @ nc-array @ <> if, [lit] 237 cc-die then,
   then,
@@ -734,7 +768,7 @@ create cc-om-string-name s, .Lstring
     dup om-array @ nc-array !
   then,
   nc-array @ over om-array ! nc-inner @ over om-inner !
-  cc-nobject-size over om-size !
+  cc-sysv-object-size over om-size !
   nc-ty @ nc-desc @ cc-nalignment swap om-align ! ;
 : cc-om-install-object ( record -- )
   dup nc-slot !
@@ -748,7 +782,7 @@ create cc-om-string-name s, .Lstring
     nc-array @ over cc-sym-set-array-len nc-inner @ over cc-sym-set-array-inner
     over over cc-sym-val cell[] !
   then,
-  dup nc-id ! cc-nobject-size swap cc-sym-set-object-size drop ;
+  dup nc-id ! cc-sysv-object-size swap cc-sym-set-object-size drop ;
 : cc-om-initializer
   true cc-ni-static ! cc-next-token-keep
   nc-ty @ nc-desc @ nc-array @ nc-inner @ [lit] 0 [lit] 0 cc-ni-value ;

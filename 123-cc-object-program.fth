@@ -113,6 +113,7 @@ create cc-om-string-name s, .Lstring
   dup om-kind @ cc-obj-object <> if, [lit] 237 cc-die then,
   dup om-type @ over om-desc @ nc-ty @ nc-desc @
   cc-sysv-compatible-types 0= if, [lit] 237 cc-die then,
+  dup om-array @ 0= nc-array @ 0= <> if, [lit] 237 cc-die then,
   dup om-array @ [lit] 0 > nc-array @ [lit] 0 > and if,
     dup om-array @ nc-array @ <> if, [lit] 237 cc-die then,
   then,
@@ -123,7 +124,7 @@ create cc-om-string-name s, .Lstring
     dup om-array @ nc-array !
   then,
   nc-array @ over om-array ! nc-inner @ over om-inner !
-  cc-nobject-size over om-size !
+  cc-sysv-object-size over om-size !
   nc-ty @ nc-desc @ cc-nalignment swap om-align ! ;
 : cc-om-install-object ( record -- )
   dup nc-slot !
@@ -137,7 +138,7 @@ create cc-om-string-name s, .Lstring
     nc-array @ over cc-sym-set-array-len nc-inner @ over cc-sym-set-array-inner
     over over cc-sym-val cell[] !
   then,
-  dup nc-id ! cc-nobject-size swap cc-sym-set-object-size drop ;
+  dup nc-id ! cc-sysv-object-size swap cc-sym-set-object-size drop ;
 : cc-om-initializer
   true cc-ni-static ! cc-next-token-keep
   nc-ty @ nc-desc @ nc-array @ nc-inner @ [lit] 0 [lit] 0 cc-ni-value ;
