@@ -143,6 +143,7 @@ def input_names():
                        "tools/gcc-direct-cc.py"]
                       + [p.name for p in ROOT.glob("[0-9][0-9][0-9]-cc-*.fth")
                          if p.name != "120-cc-main.fth"]
+                      + (["141-archive.fth"] if (ROOT / "141-archive.fth").is_file() else [])
                       + [str(p.relative_to(ROOT)) for p in (ROOT / RUNTIME).rglob("*")
                          if p.is_file() and p.suffix in (".c", ".h")]))
 
@@ -281,13 +282,17 @@ class Toolchain:
             return [private / name for name in names]
 
     def link(self, objects, output):
+        archives = any(path.suffix == ".a" for path in objects)
+        if archives and "141-archive.fth" not in self.inputs:
+            raise Failure("archive input requires the Forth 141-archive.fth layer", 2)
         driver = "lnk-init\n"
         for index, path in enumerate(objects):
             driver += path_word(f"driver-obj-{index}", path)
-            driver += f"driver-obj-{index} lnk-add-object\n"
+            operation = "lnk-add-archive" if path.suffix == ".a" else "lnk-add-object"
+            driver += f"driver-obj-{index} {operation}\n"
         driver += "create driver-entry s, _start\ndriver-entry [lit] 6 lnk-entry\n"
         driver += path_word("driver-output", output) + "driver-output lnk-link bye\n"
-        self.forth(list(BASE) + ["140-cc-link.fth"], driver)
+        self.forth(list(BASE) + ["140-cc-link.fth"] + (["141-archive.fth"] if archives else []), driver)
 
 
 def publish(source, destination, mode):
@@ -329,11 +334,11 @@ def main(arguments):
             inputs.append((Path.cwd() / "<stdin>", "stdin", sys.stdin.buffer.read()))
         else:
             path = Path(spelling).absolute()
-            kind = "c" if language == "c" or path.suffix == ".c" else "o" if path.suffix == ".o" else None
+            kind = "c" if language == "c" or path.suffix == ".c" else path.suffix[1:] if path.suffix in (".o", ".a") else None
             if kind is None:
                 raise Failure(f"unsupported input type: {spelling}; use -x c for C", 2)
-            if kind == "o" and options["mode"] != "link":
-                raise Failure("object inputs require link mode", 2)
+            if kind in ("o", "a") and options["mode"] != "link":
+                raise Failure("object/archive inputs require link mode", 2)
             inputs.append((path, kind, path.read_bytes()))
     destinations = []
     if options["mode"] == "link" and inputs:
@@ -365,8 +370,8 @@ def main(arguments):
         objects = []
         results = []
         for index, (path, kind, data) in enumerate(inputs):
-            output = work / f"input-{index}.o"
-            if kind == "o":
+            output = work / f"input-{index}.{'a' if kind == 'a' else 'o'}"
+            if kind in ("o", "a"):
                 output.write_bytes(data)
             else:
                 toolchain.compile(data, b"" if kind == "stdin" else path, output, includes, options["macros"],
@@ -375,7 +380,13 @@ def main(arguments):
             results.append(output)
         if options["mode"] == "link":
             if not options["nostdlib"]:
-                objects += toolchain.runtime_objects()
+                runtime = toolchain.runtime_objects()
+                if any(path.suffix == ".a" for path in objects):
+                    # The startup's main reference must exist before archive
+                    # scanning, just as with a conventional C driver.
+                    objects = [path for path in runtime if path.name == "start.o"] + objects
+                    runtime = [path for path in runtime if path.name != "start.o"]
+                objects += runtime
             output = work / "program"
             toolchain.link(objects, output)
             results = [output]

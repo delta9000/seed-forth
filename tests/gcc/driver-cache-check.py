@@ -36,6 +36,8 @@ def main():
         inputs = [ROOT / name for name in ("000-seed.hex0", "seed-forth", "010-lib.fth",
                                            "tools/gcc-direct-cc.py")]
         inputs += [p for p in ROOT.glob("[0-9][0-9][0-9]-cc-*.fth") if p.name != "120-cc-main.fth"]
+        if (ROOT / "141-archive.fth").is_file():
+            inputs.append(ROOT / "141-archive.fth")
         inputs += [p for p in (ROOT / "runtime/gcc-seed").rglob("*")
                    if p.is_file() and p.suffix in (".c", ".h")]
         data = {str(p.relative_to(ROOT)): p.read_bytes() for p in inputs}

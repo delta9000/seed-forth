@@ -36,14 +36,18 @@ the bounded preprocessor still limits source/include path lengths.
 Links are static Linux AMD64 LP64 executables. The default runtime consists
 of the current original C files under `runtime/gcc-seed/` and Forth-built
 syscall, errno, and startup objects. User `-D`, `-U`, and `-I` options do not
-affect that runtime build. Runtime objects are linked eagerly, so this driver
-does not provide archive extraction or replacement-libc symbol semantics.
+affect that runtime build. Runtime objects are linked eagerly, so they do not
+provide replacement-libc symbol semantics. Explicit `.a` inputs use the Forth
+archive layer's lazy extraction at their command-line position, including
+member rescans for newly selected dependencies. The default startup precedes
+archive scanning so an archive may provide `main`. `-l`/`-L` library search is
+not implemented; pass an explicit archive pathname.
 `-nostdlib` omits all runtime/startup objects; the caller must supply `_start`.
 Inputs ending in `.o` must satisfy the Forth linker's object contract.
 
 `-static`, `-O0`, and `-g0` describe the actual output and are accepted.
 Optimization/debug flags including `-O2` and `-g`, other language standards,
-assembly, shared libraries, archives, `-l`, `-L`, dependency files, forced
+assembly, shared libraries, `-l`, `-L`, dependency files, forced
 includes, and unknown flags fail explicitly. This matters to configure:
 its `-g` probe should fail, and its non-GNU fallback can select empty CFLAGS.
 Use `CFLAGS= LDFLAGS=` when explicitly testing a clean bootstrap configuration.
@@ -83,6 +87,10 @@ generators, a full compiler build, or a GCC fixed point have succeeded.
 `python3 gcc-direct/configure.py --component gcc` runs the original pinned
 GCC 4.0.4 `gcc/configure` in a new retained build directory. `libiberty`,
 `libcpp`, and `top` select the corresponding original configure scripts.
+Use `--forth-ar` when the frozen Forth archive layer is available to select
+its genuine AR command and `AR s` index validation as RANLIB. Other host target
+tools remain guarded. The archive adapter currently creates fresh indexed
+archives; it explicitly rejects incremental replacement of an existing file.
 The default source/archive paths are under `build-out/direct-gcc-inputs/`;
 explicit paths can be passed with `--source` and `--archive`.
 
@@ -153,3 +161,9 @@ with host GCC in C90 mode and host libc, with the same configured branch facts,
 and compares both complete outputs byte for byte. Host executables and output
 stay under `host-oracle/`; none enters the production path. Neither narrowed
 generator link claims completion of the Makefile's `BUILD_LIBIBERTY` dependency.
+
+`python3 tests/gcc/driver-archive-check.py` checks Forth-only archive creation,
+lazy driver extraction, archive ordering, dependency rescans, an archive-only
+`main`, and rejection/atomic-publication cases. The compiler driver loads
+`141-archive.fth` after the linker only when an archive is supplied; the
+standalone archive source is never loaded as a C compiler extension.

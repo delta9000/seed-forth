@@ -125,6 +125,7 @@ def verify_source(source, archive):
 def snapshot(work):
     names = ["000-seed.hex0", "seed-forth", "010-lib.fth", "tools/gcc-direct-cc.py",
              "gcc-direct/configure.py"]
+    names += [name for name in ("141-archive.fth", "tools/gcc-direct-ar.py") if (ROOT / name).is_file()]
     names += [p.name for p in ROOT.glob("[0-9][0-9][0-9]-cc-*.fth") if p.name != "120-cc-main.fth"]
     names += [str(p.relative_to(ROOT)) for p in (ROOT / "runtime/gcc-seed").rglob("*")
               if p.is_file() and p.suffix in (".c", ".h")]
@@ -213,6 +214,7 @@ def main():
     parser.add_argument("--component", choices=("gcc", "libiberty", "libcpp", "top"), default="gcc")
     parser.add_argument("--work", type=Path, help="new directory; existing directories are rejected")
     parser.add_argument("--gencheck", action="store_true", help="also compile/link/verify original gencheck; configuration remains provisional")
+    parser.add_argument("--forth-ar", action="store_true", help="use the frozen Forth archive/index adapter for AR and RANLIB")
     arguments = parser.parse_args()
     if arguments.gencheck and arguments.component != "gcc":
         parser.error("--gencheck requires --component gcc")
@@ -228,6 +230,9 @@ def main():
     toolchain = snapshot(work)
     driver = toolchain / "tools/gcc-direct-cc.py"
     recipe = toolchain / "gcc-direct/configure.py"
+    archive_driver = toolchain / "tools/gcc-direct-ar.py"
+    if arguments.forth_ar and not (archive_driver.is_file() and (toolchain / "141-archive.fth").is_file()):
+        raise RuntimeError("--forth-ar requires tools/gcc-direct-ar.py and 141-archive.fth")
     trace = work / "probes"
     trace.mkdir()
     guards = work / "guard"
@@ -251,6 +256,9 @@ def main():
                         "LD": str(guards / "ld"), "AR": str(guards / "ar"), "RANLIB": str(guards / "ranlib"),
                         "NM": str(guards / "nm"), "AS_FOR_TARGET": str(guards / "as"),
                         "LD_FOR_TARGET": str(guards / "ld")})
+    if arguments.forth_ar:
+        environment["AR"] = shlex.join([sys.executable, str(archive_driver)])
+        environment["RANLIB"] = environment["AR"] + " s"
     build = work / "build" / ("top" if arguments.component == "top" else arguments.component)
     build.mkdir(parents=True)
     configure = source / ("" if arguments.component == "top" else arguments.component) / "configure"
@@ -269,6 +277,7 @@ def main():
               "component": arguments.component, "returncode": result.returncode,
               "gcc_source_sha256": source_proof["archive_sha256"], "work": str(work),
               "compiler": "frozen Forth source snapshot", "host_target_tools": "guarded; attempts retained",
+              "archive_adapter": "Forth fresh indexed archives" if arguments.forth_ar else "guarded, unavailable",
               "probes": summarize(work)}
     write_json(work / "report.json", report)
     print(json.dumps(report, indent=2), flush=True)
