@@ -22,4 +22,5 @@ int *__errno_location(void);
 #define EDOM 33
 #define ERANGE 34
 #define ENOSYS 38
+#define EOVERFLOW 75
 #endif

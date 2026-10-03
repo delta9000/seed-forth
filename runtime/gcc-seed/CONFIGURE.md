@@ -1,0 +1,108 @@
+# Configure runtime contracts
+
+This increment supplies the interfaces demanded by the original GCC 4.0.4
+configure source and its C preprocessor. It does not make every GCC configure
+test pass, and does not claim a complete libc or a completed GCC bootstrap.
+
+The source is the unmodified `gcc-mirror` release commit
+`944765863eec87a9f37e297994fd2af960397138`, pinned in
+[`gcc64/SOURCES`](../../gcc64/SOURCES). In that source:
+
+- `gcc/configure:2517` and `:2518` include `sys/types.h` and `sys/stat.h` in
+  the ANSI C compilation probe
+- `gcc/configure:2667` uses `exit(42)` and many executable probes call `exit`
+- `gcc/configure:10156` calls `fstat` in a vfork test; the other process APIs
+  needed by that test remain outside this increment
+- `libcpp/files.c:212` and `:261` use `fstat` and `stat`, respectively
+- `gcc/system.h:457` onward and `libcpp/system.h:293` onward consume file-kind
+  mode macros
+
+No C bootstrap consumer requiring `lstat` was found. The Ada implementation
+uses it, but Ada is outside this bootstrap's scope, so no `lstat` declaration
+or implementation is supplied. Permission-changing and file-creation APIs
+are also absent.
+
+## ABI and provenance
+
+The declarations and implementations are original seed-forth code under the
+repository [MIT license](../../LICENSE). They encode ABI facts, rather than
+copying libc implementations. The following primary sources were checked
+on 2026-10-03:
+
+- Linux v6.12 [AMD64 stat layout](https://github.com/torvalds/linux/blob/v6.12/arch/x86/include/uapi/asm/stat.h)
+  defines the kernel field order, widths and padding
+- Linux v6.12 [scalar ABI types](https://github.com/torvalds/linux/blob/v6.12/include/uapi/asm-generic/posix_types.h)
+  and glibc 2.40 [x86 public type widths](https://github.com/bminor/glibc/blob/glibc-2.40/sysdeps/unix/sysv/linux/x86/bits/typesizes.h)
+  establish the LP64 scalar types
+- Linux v6.12 [file-kind constants](https://github.com/torvalds/linux/blob/v6.12/include/uapi/linux/stat.h)
+  establish the mode masks and values
+- Linux v6.12 [AMD64 syscall table](https://github.com/torvalds/linux/blob/v6.12/arch/x86/entry/syscalls/syscall_64.tbl)
+  assigns `stat`, `fstat` and `exit` their syscall numbers
+- Linux v6.12 [process termination](https://github.com/torvalds/linux/blob/v6.12/kernel/exit.c)
+  establishes the low-byte status contract
+
+The referenced Linux UAPI files identify their license as
+`GPL-2.0 WITH Linux-syscall-note`; Linux `kernel/exit.c` is GPL-2.0-only;
+the referenced glibc type header is LGPL-2.1-or-later. These sources remain
+under their own licenses. No upstream source text is vendored here, and no
+host header or object becomes an input to production compilation.
+
+`struct stat` is 144 bytes with alignment 8 on Linux AMD64. Its field offsets
+are checked against an independently compiled host header and an actual
+kernel result. Size, block count and time seconds are signed 64-bit values;
+device, inode and link counts are unsigned 64-bit values; mode, UID and GID
+are unsigned 32-bit values. The time-seconds words have the kernel's binary
+layout while exposing signed `time_t`, including pre-epoch timestamps.
+The three `st_*time_nsec` members are documented seed extensions. This
+header does not declare `struct timespec` or promise the POSIX.1-2008 member
+spellings. Padding and reserved words are not public application data.
+
+The wrappers pass the caller's buffer directly to syscall 4 or 5. Results
+from -4095 through -1 become -1 with positive `errno`; successful calls
+preserve `errno`. There is no narrow-field conversion or invented success.
+The real kernel supplies path following, file-descriptor validation,
+permissions, sparse file size, timestamps and file kind. The API is specific
+to Linux AMD64 LP64; other operating systems, x32 and i386 need separate
+layouts and entry points.
+
+## Process termination
+
+`exit` never returns. It invokes Linux syscall 60 with the status low byte.
+The supported runtime has one thread, unbuffered stdio and no `atexit` or
+`tmpfile` registration. Therefore all successful output writes are already
+issued; kernel process termination releases open file descriptors. No user
+cleanup callback or buffered flush is silently promised. Extending those
+features requires extending `exit` and the startup return path together.
+If an external syscall filter denies termination, `exit` keeps attempting
+termination instead of returning to its caller.
+
+## Verification
+
+Run from the repository root:
+
+```sh
+python3 tests/gcc/configure-runtime-check.py
+python3 tests/gcc/configure-runtime-oracle-check.py
+```
+
+The first command compiles runtime C and fixtures using the Forth compiler,
+emits syscall/errno/startup objects from Forth, links with the Forth linker,
+and retains objects, executables and SHA-256 records under `build-out`.
+It tests all exposed type widths and signedness, struct size/alignment and
+field offsets, a sparse file larger than 8 GiB, a negative mtime with
+nanoseconds, a hard link, symlink following, directories, pipe descriptors,
+ENOENT/EBADF/EFAULT and preservation of `errno` after success. An isolated
+Forth-built syscall double checks argument registers, the raw-error bounds
+and EOVERFLOW. It is linked only into the fault-test executable.
+
+Exit is exercised with nine positive/negative statuses, verifies absence
+of post-exit output, and leaves an unbuffered file stream open to prove its
+bytes persist. The test runner and Python `os.stat` are orchestration and
+independent observation, not producers of target code.
+
+The second command separately compiles the layout fixture against host
+system headers and host libc at `-O0` and `-O2`, then compares its complete
+output to the Forth-produced executable. It can reuse a production run by
+accepting the path to that run's `report.json`; it rejects stale source
+hashes. Host compilers, assemblers, linkers and libc are used only for this
+explicitly labeled oracle and contribute no production bytes.

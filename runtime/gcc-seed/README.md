@@ -43,3 +43,8 @@ and execution test. Its report records retained objects, executable and hashes.
 Run `python3 tests/gcc/runtime-oracle-check.py` for the optional comparison
 between Forth-built functions and host libc at host GCC `-O0` and `-O2`.
 See [chapter 39](../../book/39-direct-gcc-libc.md) for the design and proof boundary.
+
+The source-built `process.c` and `stat.c` extend this boundary with terminating
+`exit` and Linux AMD64 `stat`/`fstat`. The public `sys/types.h` and `sys/stat.h`
+contracts, original GCC consumers, ABI references, limitations and independent
+verification are described in [Configure runtime contracts](CONFIGURE.md).
