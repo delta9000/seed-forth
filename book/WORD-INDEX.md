@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2217 names and 97 ideas.
+carry none.  2225 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -362,6 +362,8 @@ for which chapter depends on which, the
 - `cc-cast-desc` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-types-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-types-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
+- `cc-cast-value-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
+- `cc-cast-value-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-change-delta` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-desc` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-field` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
@@ -1681,6 +1683,9 @@ for which chapter depends on which, the
 - `cc-sysrt-main-name` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-name` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-object` — *compiler word (`122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
+- `cc-sysrt-sigreturn-code` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
+- `cc-sysrt-sigreturn-name` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
+- `cc-sysrt-sigreturn-object` — *compiler word (`122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-start-code` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-start-name` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-start-object` — *compiler word (`122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
@@ -1691,7 +1696,8 @@ for which chapter depends on which, the
 - `cc-sysv-call-fixups` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-call-result` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-call-staged-target` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
-- `cc-sysv-cast-types` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-cast-types` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
+- `cc-sysv-cast-value` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-check-declarator` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-check-implicit-defined` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-check-implicit-signature` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -1732,6 +1738,7 @@ for which chapter depends on which, the
 - `cc-sysv-implicit-symbol` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-indirect-call` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-inherit-array` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-integral?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-known-params?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-load-gp` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-load-staged` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -1831,6 +1838,7 @@ for which chapter depends on which, the
 - `cc-va-last-named` — *compiler word (`126-cc-varargs.fth`)* — [Ch 42, Canonical source](42-direct-gcc-varargs.md#canonical-source)
 - `cc-va-name?` — *compiler word (`126-cc-varargs.fth`)* — [Ch 42, Canonical source](42-direct-gcc-varargs.md#canonical-source)
 - `cc-va-next-address` — *compiler word (`126-cc-varargs.fth`)* — [Ch 42, Canonical source](42-direct-gcc-varargs.md#canonical-source)
+- `cc-va-next-double-address` — *compiler word (`126-cc-varargs.fth`)* — [Ch 42, Canonical source](42-direct-gcc-varargs.md#canonical-source)
 - `cc-va-operand` — *compiler word (`126-cc-varargs.fth`)* — [Ch 42, Canonical source](42-direct-gcc-varargs.md#canonical-source)
 - `cc-va-prepare` — *compiler word (`126-cc-varargs.fth`)* — [Ch 42, Canonical source](42-direct-gcc-varargs.md#canonical-source)
 - `cc-va-register-slot` — *compiler word (variable, `126-cc-varargs.fth`)* — [Ch 42, Canonical source](42-direct-gcc-varargs.md#canonical-source)

@@ -74,3 +74,9 @@ error text and real SIGABRT. Results and hashes are retained in a fresh director
 If host GCC is available, a separate C90 build of the same ctype fixture with
 host headers/libc at `-O0` and `-O2` is compared as an independent oracle. Those
 host executables are never production inputs.
+
+The measured parser-generator path also uses [unsigned string conversion](STRTOUL.md),
+[integer absolute values](ABS.md), [short option parsing](GETOPT.md), and
+[persistent signal handlers](SIGNAL.md). Each document gives the implemented
+contract, original source consumer, and production/reference checks. These
+interfaces extend the bounded runtime without claiming a complete libc.

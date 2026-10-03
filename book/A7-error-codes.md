@@ -149,8 +149,8 @@ to its call site.
 | 156 | `110-cc-decl.fth:451` | Local array declaration: size is zero or negative. |
 | 157 | `110-cc-decl.fth:453` | Local array declaration: missing `]`. |
 | 159 | `110-cc-decl.fth:508` | Local declaration: a declarator followed by neither `,` nor `;`. |
-| 160 | `110-cc-decl.fth:667` | Struct local declaration: variable name missing. |
-| 161 | `110-cc-decl.fth:702` | Struct-pointer local not followed by `=` or `;`. |
+| 160 | `110-cc-decl.fth:671` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:706` | Struct-pointer local not followed by `=` or `;`. |
 | 162 | `110-cc-decl.fth:45` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
 | 170 | `112-cc-stmt.fth:508,791,796` | `case` label not followed by `:`. |
 | 171 | `112-cc-stmt.fth:619` | `cc-label-create`: more than 64 labels in one function. |

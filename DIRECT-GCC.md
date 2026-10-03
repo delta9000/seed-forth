@@ -21,6 +21,13 @@ configuration probes, generated-file ancestry, and failure limits belong with
 each executable proof. Successful compilation of selected source files is not
 a complete compiler bootstrap or a self-rebuild.
 
+The present development recipes still use host Python, a POSIX shell, Make,
+and text utilities for orchestration and source-driven configuration/header
+rules. Their commands and generated inputs belong to the retained evidence.
+The focused proofs establish Forth C compilation, object construction,
+archives, and linking; they do not yet establish a bootstrap of those build
+tools. Closing that dependency chain is part of the source-only route.
+
 ## Stages
 
 1. Add an isolated AMD64 System V ABI and ELF relocatable-object mode, with a

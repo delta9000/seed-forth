@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (769 lines), the first of the
+That machinery is `110-cc-decl.fth` (773 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and

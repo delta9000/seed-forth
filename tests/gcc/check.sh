@@ -51,12 +51,17 @@ bash tests/gcc/varargs-intrinsic-check.sh
 python3 tests/gcc/varargs-check.py
 bash tests/gcc/varargs-interop-check.sh
 python3 tests/gcc/varargs-binary64-check.py
+python3 tests/gcc/review-binary64-va-arg-check.py
 python3 tests/gcc/stdio-check.py
 python3 tests/gcc/stdio-oracle-check.py
 python3 tests/gcc/configure-runtime-check.py
 python3 tests/gcc/configure-runtime-oracle-check.py
 python3 tests/gcc/abort-check.py
 python3 tests/gcc/ctype-assert-check.py
+python3 tests/gcc/strtoul-check.py
+bash tests/gcc/abs-check.sh
+python3 tests/gcc/signal-check.py
+python3 tests/gcc/getopt-check.py
 python3 tests/gcc/frame-check.py
 python3 tests/gcc/driver-check.py
 python3 tests/gcc/driver-cache-check.py
@@ -75,6 +80,11 @@ if [ -f "$gcc_source/libiberty/hashtab.c" ]; then
     python3 tests/gcc/bitfield-check.py --source-root "$gcc_source" --oracle
     python3 tests/gcc/review-bitfield-check.py --source-root "$gcc_source"
     bash tests/gcc/sysv-gcc-obstack-check.sh "$gcc_source/libiberty/obstack.c" "$gcc_source/include"
+    if [ -n "${GCC4_LIBIBERTY_CONFIG:-}" ]; then
+        python3 tests/gcc/varargs-vasprintf-check.py --source-root "$gcc_source" --config-dir "$GCC4_LIBIBERTY_CONFIG"
+    else
+        echo 'SKIP: original vasprintf execution additionally needs GCC4_LIBIBERTY_CONFIG from genuine configure probes' >&2
+    fi
 else
     python3 tests/gcc/review-floating-check.py --skip-hashtab
     echo 'SKIP: original GCC hashtab, fibheap and obstack gates require the pinned source archive' >&2
