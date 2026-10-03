@@ -18,8 +18,10 @@ The public declarations live in `runtime/gcc-seed/include/stdarg.h`.
 **Concepts introduced:** array typedef identity, per-invocation register-save
 areas, variadic cursors, checked compiler intrinsics, and list copying.
 
-**Deferred:** floating values, XMM register saves, aggregate argument values,
-vector types, and a complete GCC reconstruction.
+**Deferred:** floating expressions and `va_arg` results, floating named
+parameters or return values, aggregate argument values, vector types, and a
+complete GCC reconstruction. Saving opaque incoming XMM bytes for a host
+consumer does not implement those C language features.
 
 ## 1. The list is an array of one record
 
@@ -46,9 +48,13 @@ field names is not accepted as a list. Type-name array metadata also prevents
 
 For the supported INTEGER class, the first six arguments arrive in RDI, RSI,
 RDX, RCX, R8, and R9. Remaining arguments are eight-byte stack slots. The
-callee first reserves six local slots after its named parameters, then saves
-these registers before the ordinary parameter-copy code can overwrite RDI.
-The saved registers are consecutive in increasing address order.
+callee reserves 22 eight-byte local slots after its named parameters. Their
+first 48 bytes save these six registers before the ordinary parameter-copy
+code can overwrite RDI. Eight consecutive 16-byte slots then save XMM0 through
+XMM7, giving the register-save area 176 bytes. All offsets increase with the
+memory address, even though our local slot numbers increase downward. An
+extra padding slot, when needed, keeps the area 16-byte aligned without
+changing the named-parameter slots.
 
 The reservation belongs to the callee's ordinary frame. Recursion and calls
 back through a function pointer create independent copies. No global runtime
@@ -60,8 +66,24 @@ If a function has `n` named INTEGER arguments, `va_start` sets `gp_offset` to
 `min(n,6)*8`. The first unnamed stack argument is at
 `rbp + 16 + max(n-6,0)*8`: eight bytes account for the saved frame pointer and
 eight for the return address. `reg_save_area` addresses the saved RDI slot.
-`fp_offset` is initialized to 48, the conventional start of the vector region.
-This compiler does not save that region or accept floating argument values.
+`fp_offset` is initialized to 48, the start of the saved XMM region. This is
+the register layout specified by the [AMD64 System V ABI](https://gitlab.com/x86-psABIs/x86-64-ABI/-/blob/master/x86-64-ABI/low-level-sys-info.tex).
+
+Each XMM store uses `movups` to copy all 128 bits without interpreting them
+as floating values. The allocator also preserves 16-byte save-area alignment
+for host consumers. We save all
+eight registers unconditionally, so every permitted incoming AL value from
+zero through eight works, including an upper bound larger than the number
+of actual vector arguments. No AL-dependent branch or runtime trap is needed.
+
+The resulting list can be passed to a host consumer that knows its argument
+types. That consumer can retrieve incoming doubles from the XMM slots and
+use the unchanged overflow pointer for arguments passed on the stack. This
+also lets an integer-only callee ignore unused floating arguments. It does
+not make the Forth compiler classify, evaluate, or emit floating C values: all
+named parameters must still use the supported INTEGER class. Its own
+`va_arg` accepts only the integer and pointer types described below; a caller
+and consumer must still agree on every retrieved argument type.
 
 ## 3. Four intrinsics with ordinary C spelling
 
@@ -84,7 +106,8 @@ Pointers and the LP64 long types use all eight bytes.
 The caller already applies default promotions to unnamed arguments. Reading
 an `int` is appropriate for promoted `char` and `short` values; asking
 `va_arg` for either narrow type is rejected. Floating and aggregate requests
-also fail rather than consuming an INTEGER slot under a different ABI.
+also fail rather than consuming an INTEGER slot under a different ABI. Opaque
+forwarding leaves those typed retrieval operations to a host consumer.
 
 `va_copy` copies the entire three-word record, producing an independent cursor
 that shares the immutable saved arguments. `va_end` evaluates and checks its
@@ -100,8 +123,11 @@ an invalid list, invocation, named-parameter reference, or start context.
 Error 247 means an unsupported requested result type. The numbers overlap
 errors in other bounded compiler components, so the prefix identifies the
 phase. Declaration-only floating types can be named, so `va_arg(list, double)`
-reaches the intrinsic's error 247. Pointers to floating objects still belong
-to the INTEGER class and can be retrieved without loading a floating value.
+reaches the intrinsic's error 247, as do `float` and `long double`. The negative
+checks require exit status 247, exactly one `varargs: cc: line N: error 247`
+diagnostic, empty stdout, and preservation of an existing output file.
+Pointers to floating objects still belong to the INTEGER class and can be
+retrieved without loading a floating value.
 
 `varargs-intrinsic-check.sh` isolates lowering with a direct declaration of
 the genuine record array. Its copied list expression also calls a function,
@@ -112,22 +138,30 @@ objects, adds Forth-generated process entry, and links with the Forth linker.
 Its cases cross both register and stack boundaries, use five, six, and seven
 named parameters, preserve signed and unsigned values, copy active cursors,
 restart lists, recurse, and forward lists through callbacks. Negative cases
-also verify that a failed compilation leaves an existing output intact.
-The report records source and artifact hashes.
+also verify the exact diagnostic shape and that a failed compilation leaves
+an existing output intact. The report records source and artifact hashes.
 
 `varargs-interop-check.sh` compiles the same provider with Forth and uses GCC
 at `-O0` and `-O2` for the other side. It checks both directions of variadic
 calls and list forwarding, then gives a Forth-initialized list to the host's
-`vsnprintf`. That final check exercises a real libc consumer of the record
-layout. None of those host-built objects enters the production proof.
+`vsnprintf`. Its separate forwarding fixture never evaluates a floating C
+expression: host callers supply floating arguments, and host consumers read
+them from the forwarded lists. The oracle covers ignored floating extras,
+every AL count from zero through eight, ten doubles overflowing the XMM
+registers, interleaved GP overflow, seven named parameters, stack-aligned
+`long double`, recursive reentry, and copies retained across intervening
+calls. A host assembly fixture supplies AL=8 with only a GP argument, checking
+the permitted upper-bound case. The formatter comparison mixes ten doubles,
+ten longs, and a long double, comparing both bytes and return length. None of
+those host-built objects enters the production proof.
 
 ## Canonical source
 
 ```forth file=126-cc-varargs.fth
 \ 126-cc-varargs.fth — integer/pointer System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
-\ The six GP slots belong to each invocation, below its named parameters.
-\ Floating and aggregate argument values remain an explicit boundary.
+\ Six GP and eight XMM slots belong to each invocation below named parameters.
+\ XMM bytes may be forwarded; floating expressions and va_arg stay unsupported.
 create cc-va-error-prefix s, varargs: bl c,
 : cc-va-die cc-va-error-prefix [lit] 9 cc-err-write cc-die ;
 
@@ -137,9 +171,15 @@ variable cc-va-register-slot
 : cc-va-prepare ( signature -- )
   dup cc-va-signature !
   cc-sysv-sig-varargs [lit] 1 and if,
-    cc-fn-local-count @ [lit] 5 + cc-va-register-slot !
-    [lit] 6 cc-fn-add-slots
+    cc-fn-local-count @ [lit] 1 and if, [lit] 1 cc-fn-add-slots then,
+    cc-fn-local-count @ [lit] 21 + cc-va-register-slot !
+    [lit] 22 cc-fn-add-slots
   then, ;
+: cc-va-save-xmm ( index -- )
+  [lit] 15 cc-emit-byte [lit] 17 cc-emit-byte
+  dup [lit] 8 * [lit] 133 + cc-emit-byte \ movups [rbp+disp32], xmmN
+  [lit] 16 * [lit] 48 +
+  cc-va-register-slot @ 1+ [lit] 8 * - cc-emit-4le ;
 : cc-va-save-registers
   cc-va-signature @ cc-sysv-sig-varargs [lit] 1 and if,
     cc-va-register-slot @ dup cc-emit-store-local
@@ -148,6 +188,9 @@ variable cc-va-register-slot
     1- dup cc-emit-store-local-from-rcx
     1- dup cc-emit-store-local-from-r8
     1- cc-emit-store-local-from-r9
+    [lit] 0 begin, dup [lit] 8 < while,
+      dup cc-va-save-xmm 1+
+    repeat, drop
   then, ;
 
 create cc-va-tag-name s, __seed_va_list_tag
@@ -309,13 +352,14 @@ bash tests/gcc/varargs-interop-check.sh
 - **★** Trace `gp_offset` through five and then six unnamed integer arguments
   after one named parameter
 - **★★** Add a test that copies a cursor after it has entered the overflow area
-- **★★★** Describe the extra classification, alignment, and register-save work
-  needed before a real `double` can cross this boundary
+- **★★★** Describe the extra classification and typed lowering needed for
+  `va_arg(list, double)` after opaque XMM preservation already works
 
 ## Takeaways
 
 - The array typedef and the 24-byte record are both observable parts of the ABI
 - Register saves and cursor state belong to each active invocation
-- Source-built execution and host interoperability are separate proofs
+- Opaque floating-list forwarding has a separate host proof and does not imply
+  floating C expression support
 
 The next runtime component can consume these lists through ordinary C headers.

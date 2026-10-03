@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib
 import json
+import re
 import subprocess
 import tempfile
 
@@ -41,7 +42,8 @@ def reject(work, name, code, text, prefix=b"varargs: ", include_header=True):
     output.write_bytes(b"previous valid artifact\n")
     result = subprocess.run([ROOT / "tests/gcc/sysv-object-compile.sh", source,
                              output, *INCLUDES], capture_output=True, timeout=30)
-    if (result.returncode != code or prefix not in result.stderr
+    diagnostic = re.escape(prefix) + rb"cc: line [0-9]+: error " + str(code).encode() + rb"\n"
+    if (result.returncode != code or not re.fullmatch(diagnostic, result.stderr)
             or result.stdout or output.read_bytes() != b"previous valid artifact\n"):
         raise SystemExit(f"negative {name}: {result.returncode}, {result.stdout!r}, {result.stderr!r}")
 
@@ -82,8 +84,11 @@ def main():
     ]
     for name, code, source in negatives:
         reject(work, name, code, source)
-    reject(work, "floating-arg", 247,
-           "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,double); return 0; }")
+    for name, typename in (("single", "float"), ("double", "double"),
+                           ("extended", "long double")):
+        reject(work, "floating-arg-" + name, 247,
+               "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,"
+               + typename + "); return 0; }")
     reject(work, "bad-layout", 246,
            "struct __seed_va_list_tag { unsigned long gp_offset; unsigned int fp_offset; "
            "void *overflow_arg_area; void *reg_save_area; }; "
@@ -100,7 +105,7 @@ def main():
         "host_compiler": False,
         "host_linker": False,
         "host_libc": False,
-        "negative_cases": len(negatives) + 2,
+        "negative_cases": len(negatives) + 4,
         "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                           for p in sources},
         "artifact_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()

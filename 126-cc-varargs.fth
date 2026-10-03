@@ -1,7 +1,7 @@
 \ 126-cc-varargs.fth — integer/pointer System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
-\ The six GP slots belong to each invocation, below its named parameters.
-\ Floating and aggregate argument values remain an explicit boundary.
+\ Six GP and eight XMM slots belong to each invocation below named parameters.
+\ XMM bytes may be forwarded; floating expressions and va_arg stay unsupported.
 create cc-va-error-prefix s, varargs: bl c,
 : cc-va-die cc-va-error-prefix [lit] 9 cc-err-write cc-die ;
 
@@ -11,9 +11,15 @@ variable cc-va-register-slot
 : cc-va-prepare ( signature -- )
   dup cc-va-signature !
   cc-sysv-sig-varargs [lit] 1 and if,
-    cc-fn-local-count @ [lit] 5 + cc-va-register-slot !
-    [lit] 6 cc-fn-add-slots
+    cc-fn-local-count @ [lit] 1 and if, [lit] 1 cc-fn-add-slots then,
+    cc-fn-local-count @ [lit] 21 + cc-va-register-slot !
+    [lit] 22 cc-fn-add-slots
   then, ;
+: cc-va-save-xmm ( index -- )
+  [lit] 15 cc-emit-byte [lit] 17 cc-emit-byte
+  dup [lit] 8 * [lit] 133 + cc-emit-byte \ movups [rbp+disp32], xmmN
+  [lit] 16 * [lit] 48 +
+  cc-va-register-slot @ 1+ [lit] 8 * - cc-emit-4le ;
 : cc-va-save-registers
   cc-va-signature @ cc-sysv-sig-varargs [lit] 1 and if,
     cc-va-register-slot @ dup cc-emit-store-local
@@ -22,6 +28,9 @@ variable cc-va-register-slot
     1- dup cc-emit-store-local-from-rcx
     1- dup cc-emit-store-local-from-r8
     1- cc-emit-store-local-from-r9
+    [lit] 0 begin, dup [lit] 8 < while,
+      dup cc-va-save-xmm 1+
+    repeat, drop
   then, ;
 
 create cc-va-tag-name s, __seed_va_list_tag

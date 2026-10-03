@@ -7,6 +7,7 @@
 
 int seed_format(char *, unsigned long, const char *, ...);
 long seed_call_host(void);
+int host_forwarding_checks(void);
 
 long host_vsum(int count, va_list list)
 {
@@ -76,5 +77,7 @@ int main(void)
     if (seed_apply(0, triple, 14L) != 42) return 17;
     if (!seed_float_pointers(&floating_single, &floating_double, &floating_extended,
                              &floating_single, &floating_double, &floating_extended)) return 18;
+    written = host_forwarding_checks();
+    if (written) return 20 + written;
     return 0;
 }
