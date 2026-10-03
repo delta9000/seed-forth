@@ -1,0 +1,42 @@
+{
+  "archive": "oyacc-6.6.tar.gz",
+  "archive_sha256": "eb0866e740b79bd3a23e0ca47885eb3148aab18d77a4bedba96e979d8b4ebfe1",
+  "upstream": "https://github.com/ibara/yacc/releases/download/oyacc-6.6/oyacc-6.6.tar.gz",
+  "translation_units": [
+    "closure.c",
+    "error.c",
+    "lalr.c",
+    "lr0.c",
+    "main.c",
+    "mkpar.c",
+    "output.c",
+    "reader.c",
+    "skeleton.c",
+    "symtab.c",
+    "verbose.c",
+    "warshall.c",
+    "portable.c"
+  ],
+  "files": {
+    "README.md": "310fcf1f4789b3621d89b6199416b1c85c1ff97347eea392368eb3b19956bb97",
+    "closure.c": "878bea2fbac28e8b5c65e30cf8c56ea7ec44ca35d3319f65020244e2a4eefd5b",
+    "configure": "dfb96483265898c5a3bef2fc8f8b82b06bf2fad3a57f056e1b9b5b7229fbc3ea",
+    "defs.h": "93ed623b5642317a99b660fb031b7fe0bad6abf00e15c6a286460e162b3ad5f0",
+    "error.c": "95854d85bc3987e1634e7ef08aa7ce34ac595040ecb8f95727628a6b8da82a92",
+    "lalr.c": "58e26ee1d633a64be409385506118e77aa38286da1c8e21da34f4403ca8cc729",
+    "lr0.c": "716715b148ad7fef27926297376d4ca2031caa3261ab35dc678661497c42a7e6",
+    "main.c": "5921f977f38360912530069734ee0a85068577916d929ec72cb836c005970791",
+    "mkpar.c": "c8568cea10c65fc263fc2b2f733b81beebd853ffaf84c44253a1af4421b10b2a",
+    "output.c": "ac853ef43f653e0c590bc9b746360a6359073197928de22db22e2d7dcdec95d5",
+    "portable.c": "6be98c0925faa6cac8d4107aeb6c4d78dec77beee9da0cd0220992a972fbf8a3",
+    "portable.h": "960edc5677d07763248b4e545d855d6646fa3c1f9838c1d560619fc4e95df3e1",
+    "reader.c": "ca8fbb6e0e38c2d8c33b51efb25ee28b72cbc4c5e968fd2e09238e0f237abc96",
+    "skeleton.c": "f9bfdf15139c4c6a9cb996a05f62e9c83213fecc6ae79c9e0f239006acc721c8",
+    "symtab.c": "5282099dff0184049c6d5aeb38b1a4735af0bbfc3acf12fa1a69517083dd5e99",
+    "verbose.c": "df6ca613a548a713d5a03398fbd255d7aa19d96e48eaecfad505498a43fbb1e5",
+    "warshall.c": "d849635375612da4c5ecab76fa5c1f3448330d050dc1204cb466bdf3d0751d8d",
+    "yacc.1": "889e2b046894e0d183958d9d5b50e89d69bfce05bc9e676bcaacd894abecfea9",
+    "yyfix.1": "9162ad2b2dc53fb1fb24f6b5033114f32c5e1532c08fb9d968f233770b9bdd77",
+    "yyfix.sh": "9d3a06dbcf75c3098dba17fab4e013bf91c78be163387b1f23862c2171b1b2c0"
+  }
+}

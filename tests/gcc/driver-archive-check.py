@@ -42,6 +42,32 @@ def main():
         run([AR, "rcs", "entire-program.a", "helper.o", "needed.o", "main.o", "poison.o"], work)
         run([CC, "entire-program.a", "-o", "all-archive"], work)
         run([work / "all-archive"], work)
+        # A source package can provide the complete getopt member itself.
+        # The default runtime must not select its competing member merely
+        # because the program uses another runtime service such as printf.
+        (work / "own-getopt.c").write_text(
+            "#include <unistd.h>\n"
+            "char *optarg; int optind=1, opterr=1, optopt;\n"
+            "int getopt(int n,char *const *v,const char *s) { return 71; }\n")
+        (work / "own-main.c").write_text(
+            "#include <stdio.h>\n#include <unistd.h>\n"
+            "int main(int n,char **v) { int x=getopt(n,v,\"\"); "
+            "printf(\"%d\\n\",x); return x!=71; }\n")
+        run([CC, "-c", "own-getopt.c"], work)
+        run([CC, "-c", "own-main.c"], work)
+        run([CC, "own-main.o", "own-getopt.o", "-o", "own-program"], work)
+        actual = subprocess.run([work / "own-program"], capture_output=True, timeout=10)
+        assert (actual.returncode, actual.stdout, actual.stderr) == (0, b"71\n", b""), actual
+        run([AR, "rcs", "own-provider.a", "own-getopt.o"], work)
+        run([CC, "own-main.o", "own-provider.a", "-o", "own-archive-program"], work)
+        actual = subprocess.run([work / "own-archive-program"], capture_output=True, timeout=10)
+        assert (actual.returncode, actual.stdout, actual.stderr) == (0, b"71\n", b""), actual
+        # Eager duplicate definitions remain an error, with atomic output.
+        (work / "duplicate-output").write_bytes(b"existing output")
+        duplicate = run([CC, "own-main.o", "own-getopt.o", "own-getopt.o",
+                         "-o", "duplicate-output"], work, False)
+        assert duplicate.returncode == 252, duplicate
+        assert (work / "duplicate-output").read_bytes() == b"existing output"
         run([CC, "-c", "entire-program.a"], work, False)
         before = (work / "entire-program.a").read_bytes()
         run([CC, "entire-program.a", "-o", "entire-program.a"], work, False)
@@ -51,7 +77,8 @@ def main():
         run([CC, "main.o", "broken.a", "-o", "preserved"], work, False)
         assert (work / "preserved").read_bytes() == b"existing output"
         print("PASS: Forth .a driver selection, dependency rescans, unused-member isolation,")
-        print("      archive ordering, archive-only main, malformed rejection and atomic aliases")
+        print("      archive ordering, archive-only main, runtime member replacement,")
+        print("      eager duplicate rejection, malformed rejection and atomic aliases")
 
 
 if __name__ == "__main__":

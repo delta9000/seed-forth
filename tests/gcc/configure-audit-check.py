@@ -162,10 +162,18 @@ def main():
                             "variant_execution_status": status, "variant_source_sha256": sha(path)})
 
     caches = list((work / "toolchain/build-out/gcc-direct-cache").glob("*/manifest.json"))
+    # Configure retains its orchestration and archive adapter alongside the
+    # C compiler. Those files were verified above, but do not enter the C
+    # runtime cache key. Keep this exclusion explicit: a new snapshot input
+    # requires a fresh audit of which producer consumes it.
+    orchestration = {"gcc-direct/configure.py", "gcc-direct/replay.py",
+                     "tools/gcc-direct-ar.py", "gcc-direct/patches/alloca-frame.patch",
+                     "gcc-direct/patches/alloca-frame.json"}
+    compiler_inputs = {k: v for k, v in frozen.items() if k not in orchestration}
     symbols = {}
     for manifest in caches:
         cache = json.loads(manifest.read_text())
-        if cache["source_sha256"] != {k: v for k, v in frozen.items() if k != "gcc-direct/configure.py"}:
+        if cache["source_sha256"] != compiler_inputs:
             raise RuntimeError("runtime cache differs from frozen toolchain")
         for name, digest in cache["artifact_sha256"].items():
             path = manifest.parent / name

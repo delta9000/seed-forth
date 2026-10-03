@@ -264,7 +264,7 @@ class Toolchain:
             driver = ""
             for name, builder in (("syscall", "cc-sysrt-object"),
                                   ("errno", "cc-sysrt-errno-object"),
-                                  ("start", "cc-sysrt-start-object"),
+                                  ("start", "cc-sysrt-runtime-start-object"),
                                   ("frame", "cc-sysrt-frame-object"),
                                   ("sigreturn", "cc-sysrt-sigreturn-object")):
                 driver += path_word(name + "-path", build / (name + ".o"))
@@ -282,6 +282,21 @@ class Toolchain:
                 if not cache.exists():
                     raise
             return [private / name for name in names]
+
+    def runtime_archive(self, objects):
+        # Keep startup eager so its main reference precedes user archives.
+        # All remaining runtime members are selected by the Forth linker
+        # only when an unresolved symbol needs them.
+        output = self.work / "libseed.a"
+        driver = "arc-init\n" + path_word("driver-runtime-archive", output)
+        for index, path in enumerate(objects):
+            if path.name == "start.o":
+                continue
+            name = f"driver-runtime-member-{index}"
+            driver += path_word(name, path) + f"{name} arc-add-object\n"
+        driver += "driver-runtime-archive arc-write bye\n"
+        self.forth(list(BASE) + ["140-cc-link.fth", "141-archive.fth"], driver)
+        return output
 
     def link(self, objects, output):
         archives = any(path.suffix == ".a" for path in objects)
@@ -383,12 +398,8 @@ def main(arguments):
         if options["mode"] == "link":
             if not options["nostdlib"]:
                 runtime = toolchain.runtime_objects()
-                if any(path.suffix == ".a" for path in objects):
-                    # The startup's main reference must exist before archive
-                    # scanning, just as with a conventional C driver.
-                    objects = [path for path in runtime if path.name == "start.o"] + objects
-                    runtime = [path for path in runtime if path.name != "start.o"]
-                objects += runtime
+                objects = ([path for path in runtime if path.name == "start.o"]
+                           + objects + [toolchain.runtime_archive(runtime)])
             output = work / "program"
             toolchain.link(objects, output)
             results = [output]

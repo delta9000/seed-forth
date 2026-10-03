@@ -15,6 +15,8 @@ FILE *__seed_stderr(void);
 #define stdout (__seed_stdout())
 #define stderr (__seed_stderr())
 FILE *fopen(const char *path, const char *mode);
+/* Ownership transfers only on success; w modes never truncate the fd. */
+FILE *fdopen(int descriptor, const char *mode);
 int fclose(FILE *stream);
 int fflush(FILE *stream);
 int ferror(FILE *stream);

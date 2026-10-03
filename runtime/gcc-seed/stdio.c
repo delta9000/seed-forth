@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <errno.h>
 #include <seed-syscall.h>
+#include <fcntl.h>
 
 #define SEED_READ 1
 #define SEED_WRITE 2
@@ -53,26 +54,46 @@ static int seed_stream_check(FILE *stream, int access)
     return 1;
 }
 
+static int seed_open_mode(const char *mode, int *flags, int *access)
+{
+    int binary = 0;
+    int update = 0;
+    int index = 1;
+    if (mode == NULL) { errno = EINVAL; return 0; }
+    if (mode[0] == 'r') { *flags = O_RDONLY; *access = SEED_READ; }
+    else if (mode[0] == 'w') { *flags = O_WRONLY | O_CREAT | O_TRUNC; *access = SEED_WRITE; }
+    else if (mode[0] == 'a') { *flags = O_WRONLY | O_CREAT | O_APPEND; *access = SEED_WRITE; }
+    else { errno = EINVAL; return 0; }
+    while (mode[index]) {
+        if (mode[index] == '+' && !update) update = 1;
+        else if (mode[index] == 'b' && !binary) binary = 1;
+        else { errno = EINVAL; return 0; }
+        index++;
+    }
+    if (update) {
+        *flags = (*flags & ~O_ACCMODE) | O_RDWR;
+        *access = SEED_READ | SEED_WRITE;
+    }
+    return 1;
+}
+
+static void seed_stream_init(FILE *stream, int descriptor, int access)
+{
+    stream->descriptor = descriptor;
+    stream->flags = access | SEED_OWNED;
+    stream->error = 0;
+    stream->ended = 0;
+    stream->pushed = 0;
+    stream->byte = 0;
+}
+
 FILE *fopen(const char *path, const char *mode)
 {
     int flags;
     int access;
-    int binary = 0;
-    int update = 0;
-    int index = 1;
     long descriptor;
     FILE *stream;
-    if (mode[0] == 'r') { flags = 0; access = SEED_READ; }
-    else if (mode[0] == 'w') { flags = 577; access = SEED_WRITE; }
-    else if (mode[0] == 'a') { flags = 1089; access = SEED_WRITE; }
-    else { errno = EINVAL; return NULL; }
-    while (mode[index]) {
-        if (mode[index] == '+' && !update) update = 1;
-        else if (mode[index] == 'b' && !binary) binary = 1;
-        else { errno = EINVAL; return NULL; }
-        index = index + 1;
-    }
-    if (update) { flags = (flags & ~3) | 2; access = SEED_READ | SEED_WRITE; }
+    if (!seed_open_mode(mode, &flags, &access)) return NULL;
     stream = malloc(sizeof(FILE));
     if (stream == NULL) return NULL;
     do {
@@ -83,12 +104,46 @@ FILE *fopen(const char *path, const char *mode)
         free(stream);
         return NULL;
     }
-    stream->descriptor = (int)descriptor;
-    stream->flags = access | SEED_OWNED;
-    stream->error = 0;
-    stream->ended = 0;
-    stream->pushed = 0;
-    stream->byte = 0;
+    seed_stream_init(stream, (int)descriptor, access);
+    return stream;
+}
+
+FILE *fdopen(int descriptor, const char *mode)
+{
+    int flags;
+    int access;
+    int actual_access;
+    long actual_flags;
+    long result;
+    FILE *stream;
+    if (!seed_open_mode(mode, &flags, &access)) return NULL;
+    do {
+        actual_flags = __seed_syscall6(72, descriptor, F_GETFL, 0, 0, 0, 0);
+    } while (actual_flags == -EINTR);
+    if (actual_flags < 0) { errno = (int)-actual_flags; return NULL; }
+    /* Linux O_PATH descriptors cannot supply stream I/O. */
+    if (actual_flags & 2097152L) { errno = EBADF; return NULL; }
+    actual_access = (int)actual_flags & O_ACCMODE;
+    if (actual_access == O_ACCMODE
+        || ((access & SEED_READ) && actual_access == O_WRONLY)
+        || ((access & SEED_WRITE) && actual_access == O_RDONLY)) {
+        errno = EINVAL;
+        return NULL;
+    }
+    stream = malloc(sizeof(FILE));
+    if (stream == NULL) return NULL;
+    if ((flags & O_APPEND) && !(actual_flags & O_APPEND)) {
+        do {
+            result = __seed_syscall6(72, descriptor, F_SETFL,
+                                    actual_flags | O_APPEND, 0, 0, 0);
+        } while (result == -EINTR);
+        if (result < 0) {
+            errno = (int)-result;
+            free(stream);
+            return NULL;
+        }
+    }
+    seed_stream_init(stream, descriptor, access);
     return stream;
 }
 

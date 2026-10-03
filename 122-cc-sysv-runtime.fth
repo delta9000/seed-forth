@@ -99,3 +99,35 @@ create cc-sysrt-sigreturn-code
   cc-obj-text cc-obj-use cc-sysrt-sigreturn-code [lit] 9 cc-obj-bytes
   cc-sysrt-sigreturn-name [lit] 16 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-text [lit] 0 [lit] 9 cc-obj-symbol drop ;
+
+\ Runtime-aware process entry. Keep argc/argv across initialization and
+\ keep the minimal raw _start builder independent of the C runtime.
+create cc-sysrt-init-name s, __seed_init_program_name
+create cc-sysrt-runtime-start-code
+[lit] 72 c, [lit] 139 c, [lit] 60 c, [lit] 36 c, \ mov rdi,[rsp]
+[lit] 72 c, [lit] 141 c, [lit] 116 c, [lit] 36 c, [lit] 8 c,
+                                                 \ lea rsi,[rsp+8]
+[lit] 72 c, [lit] 131 c, [lit] 228 c, [lit] 240 c, \ and rsp,-16
+[lit] 87 c, [lit] 86 c,                          \ push rdi; push rsi
+[lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
+                                                 \ call initializer (RELA16)
+[lit] 94 c, [lit] 95 c,                          \ pop rsi; pop rdi
+[lit] 49 c, [lit] 192 c,                         \ xor eax,eax
+[lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
+                                                 \ call main (RELA25)
+[lit] 72 c, [lit] 137 c, [lit] 199 c,             \ mov rdi,rax
+[lit] 184 c, [lit] 60 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
+                                                 \ mov eax,60
+[lit] 15 c, [lit] 5 c,                           \ syscall
+[lit] 15 c, [lit] 11 c,                          \ ud2 if exit returned
+: cc-sysrt-runtime-start-object
+  cc-obj-init
+  cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 41 cc-obj-bytes
+  cc-sysrt-init-name [lit] 24 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
+  cc-obj-text [lit] 16 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
+  cc-sysrt-main-name [lit] 4 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
+  cc-obj-text [lit] 25 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
+  cc-sysrt-start-name [lit] 6 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-text [lit] 0 [lit] 41 cc-obj-symbol drop ;

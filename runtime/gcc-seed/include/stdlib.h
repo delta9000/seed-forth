@@ -12,6 +12,10 @@ void qsort(void *base, size_t count, size_t size,
 unsigned long strtoul(const char *text, char **end, int base);
 /* INT_MIN has no representable positive int result, as in ISO C. */
 int abs(int value);
+/* Create a 0600 exclusive read/write file by replacing six trailing Xs. */
+int mkstemp(char *template);
+/* Basename of argv[0], initialized by the runtime-aware entry before main. */
+extern char *__progname;
 /* Terminates the supported single-threaded, unbuffered runtime; no atexit. */
 void exit(int status);
 void abort(void);

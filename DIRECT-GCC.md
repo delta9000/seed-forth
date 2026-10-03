@@ -90,6 +90,31 @@ before considering a checkpoint durable. Preserve additional reviewed work
 manifests in the private checkpoint repository. Local build directories are
 scratch space, not backups.
 
+## Runtime and parser-generator recovery at 2026-10-03 20:53 UTC
+
+The original 13-unit oyacc 6.6 parser generator now compiles and links with
+the Forth compiler and source-built runtime. Its real configure probes select
+the provided declarations and upstream fallbacks. Parser C, token header and
+automaton report match an independent build of the unchanged original source.
+Real signal delivery removes its temporary files and preserves inherited
+ignored signals. Generated-parser execution is a separate preprocessor gate.
+
+Runtime entry initializes the program name before `main`; the raw startup
+object remains available independently. The bounded runtime now implements
+descriptor-backed streams, exclusive temporary files, unlink and immediate
+exit. Independent tests cover failed allocation/syscalls, partial entropy,
+collisions, descriptor ownership and flags, and entry ABI. The driver places
+startup first and a Forth-built runtime archive last, allowing an original
+package to supply its own complete `getopt` object. Strong duplicate symbols
+still fail. These changes passed focused owner and independent composition
+checks; the expanded combined component gate is pending on this checkpoint.
+
+The restored baseline at `14a09df78d02da8f12afca98609239848f001b71` passed a
+fresh component replay after seed recovery. Two explicit skips were the absent
+historical preprocessor byte fixture and the optional original `vasprintf`
+test requiring a separately retained configuration. The later runtime changes
+are identified separately; previous hashes do not validate modified sources.
+
 ## Verification scope at 2026-10-03 16:43 UTC
 
 The accepted frozen compiler/runtime composition through implicit calls and

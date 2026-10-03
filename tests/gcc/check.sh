@@ -54,6 +54,8 @@ python3 tests/gcc/varargs-binary64-check.py
 python3 tests/gcc/review-binary64-va-arg-check.py
 python3 tests/gcc/stdio-check.py
 python3 tests/gcc/stdio-oracle-check.py
+python3 tests/gcc/startup-check.py
+python3 tests/gcc/descriptor-check.py
 python3 tests/gcc/configure-runtime-check.py
 python3 tests/gcc/configure-runtime-oracle-check.py
 python3 tests/gcc/abort-check.py

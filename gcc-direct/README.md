@@ -36,8 +36,12 @@ the bounded preprocessor still limits source/include path lengths.
 Links are static Linux AMD64 LP64 executables. The default runtime consists
 of the current original C files under `runtime/gcc-seed/` and Forth-built
 syscall, errno, and startup objects. User `-D`, `-U`, and `-I` options do not
-affect that runtime build. Runtime objects are linked eagerly, so they do not
-provide replacement-libc symbol semantics. Explicit `.a` inputs use the Forth
+affect that runtime build. Startup is linked first; all other runtime objects
+form a deterministic Forth-built archive searched after user inputs. An
+original source package may therefore supply an entire competing member,
+such as `getopt`, without pulling the runtime's copy. Selection is at object
+granularity: replacing one symbol while requiring another from the same
+member still diagnoses duplicate definitions. Explicit `.a` inputs use the Forth
 archive layer's lazy extraction at their command-line position, including
 member rescans for newly selected dependencies. The default startup precedes
 archive scanning so an archive may provide `main`. `-l`/`-L` library search is
