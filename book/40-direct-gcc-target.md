@@ -43,13 +43,15 @@ independently of the flattened output line used by compiler diagnostics.
 A backwards raw-argument scan resets its file cursor before counting again.
 Command-line macro text is processed before the real source's cursor starts.
 
-The first stage deliberately rejects selected `#line` directives and numeric
-line markers with error 49. Silently dropping them would make the new location
-macros report false provenance. Skipped directives remain inactive. Logical
-line-control support is a later required extension for generated parsers;
-physical locations already suffice for the original GCC `gengenrtl.c` and
-`errors.c` consumers. This is a declared boundary, not a claim of complete
-preprocessor conformance.
+The direct profile supports the bounded C `#line` form described in
+[Chapter 22](22-the-preprocessor.md#c-line-control-for-generated-parser-sources):
+macro-expanded decimal line numbers and an optional ordinary filename string.
+Logical locations affect these macros; physical paths still resolve includes.
+Malformed directives, GNU numeric markers, and unsupported prefix/comment
+splices fail with error 49, preserving the output destination. Skipped groups
+remain inactive. Original oyacc-generated parser source exercises this path
+without changing its line directives. These explicit limits do not claim
+complete preprocessor conformance.
 
 `tests/gcc/source-location-check.py` compares nested includes, macro calls,
 multiline arguments, token pasting, stringification, and escaped paths with

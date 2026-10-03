@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2228 names and 97 ideas.
+carry none.  2246 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1360,14 +1360,28 @@ for which chapter depends on which, the
 - `cc-pp-file-cursor` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-file-end` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-file-line` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-pp-file-name-len` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-pp-file-names` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-pp-file-offset` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-flush-nl` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-from-pool` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §2 The macro table](22-the-preprocessor.md#2-the-macro-table)
 - `cc-pp-ident` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-pp-ident-work` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-if-value` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
 - `cc-pp-in-if` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
+- `cc-pp-line-blanks` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
 - `cc-pp-line-comment` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
+- `cc-pp-line-continuation?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
+- `cc-pp-line-control` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
+- `cc-pp-line-decimal` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
+- `cc-pp-line-escape` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
+- `cc-pp-line-filename` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
+- `cc-pp-line-hex` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
+- `cc-pp-line-name-size` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
+- `cc-pp-line-number` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
+- `cc-pp-line-octal?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
 - `cc-pp-line-slice` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
+- `cc-pp-line-splice-boundary` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-literal` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-literal-splices` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-location-at` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
@@ -1385,6 +1399,7 @@ for which chapter depends on which, the
 - `cc-pp-location-object-root` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-location-rescan` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-location-string-byte` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
+- `cc-pp-logical-name` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-n-defined` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-n-elif` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
 - `cc-pp-n-else` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
@@ -1480,6 +1495,8 @@ for which chapter depends on which, the
 - `cc-prep-current-path` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-direct` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §2 The macro table](22-the-preprocessor.md#2-the-macro-table)
 - `cc-prep-direct-depth` — *compiler word (constant, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-prep-directive-blanks` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
+- `cc-prep-directive-prefix` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-prep-directory` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-emit-byte` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §1 The contract, the sink and the scratch area](22-the-preprocessor.md#1-the-contract-the-sink-and-the-scratch-area)
 - `cc-prep-eor?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
@@ -1488,7 +1505,8 @@ for which chapter depends on which, the
 - `cc-prep-handle-define` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#define` and `#undef`](22-the-preprocessor.md#define-and-undef)
 - `cc-prep-handle-directive` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, The dispatcher](22-the-preprocessor.md#the-dispatcher)
 - `cc-prep-handle-directive-fwd` — *compiler word (defer, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
-- `cc-prep-handle-include` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#define` and `#undef`](22-the-preprocessor.md#define-and-undef)
+- `cc-prep-handle-include` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Computed include operands](22-the-preprocessor.md#computed-include-operands)
+- `cc-prep-handle-line` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
 - `cc-prep-handle-undef` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#define` and `#undef`](22-the-preprocessor.md#define-and-undef)
 - `cc-prep-ident-addr` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-prep-ident-len` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
