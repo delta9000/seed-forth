@@ -72,3 +72,16 @@ create cc-sysrt-start-code
   cc-obj-text [lit] 16 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-start-name [lit] 6 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-text [lit] 0 [lit] 32 cc-obj-symbol drop ;
+
+\ Private Forth-C frame contract, not a portable host backtrace interface.
+\ The calling C function keeps RBP fixed; [RBP] is its parent's saved frame.
+\ This leaf adds no frame and preserves every callee-saved register.
+create cc-sysrt-frame-name s, __seed_parent_frame
+create cc-sysrt-frame-code
+[lit] 72 c, [lit] 139 c, [lit] 69 c, [lit] 0 c, \ mov rax,[rbp+0]
+[lit] 195 c,                                    \ ret
+: cc-sysrt-frame-object
+  cc-obj-init
+  cc-obj-text cc-obj-use cc-sysrt-frame-code [lit] 5 cc-obj-bytes
+  cc-sysrt-frame-name [lit] 19 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-text [lit] 0 [lit] 5 cc-obj-symbol drop ;

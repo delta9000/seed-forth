@@ -98,6 +98,19 @@ create cc-sysrt-start-code
   cc-obj-text [lit] 16 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-start-name [lit] 6 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-text [lit] 0 [lit] 32 cc-obj-symbol drop ;
+
+\ Private Forth-C frame contract, not a portable host backtrace interface.
+\ The calling C function keeps RBP fixed; [RBP] is its parent's saved frame.
+\ This leaf adds no frame and preserves every callee-saved register.
+create cc-sysrt-frame-name s, __seed_parent_frame
+create cc-sysrt-frame-code
+[lit] 72 c, [lit] 139 c, [lit] 69 c, [lit] 0 c, \ mov rax,[rbp+0]
+[lit] 195 c,                                    \ ret
+: cc-sysrt-frame-object
+  cc-obj-init
+  cc-obj-text cc-obj-use cc-sysrt-frame-code [lit] 5 cc-obj-bytes
+  cc-sysrt-frame-name [lit] 19 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-text [lit] 0 [lit] 5 cc-obj-symbol drop ;
 ```
 
 The optional interoperability check is `python3 tests/gcc/syscall-check.py`.
@@ -127,3 +140,21 @@ with two arguments and verifies their values, zeroed errno and stable storage,
 getpid, raw EBADF, and the final process status. It needs no host C compiler,
 assembler, linker, or libc artifact. This composed reconstruction test passed
 on 2026-10-03. It still does not supply the public C allocation and I/O library.
+
+A fourth, optional object provides `__seed_parent_frame`, a private adapter
+for the Forth C compiler's fixed-RBP frame chain. The helper adds no frame:
+its five-byte body loads `[rbp]` into the result register and returns. This
+is the saved parent frame of the C function making the call. It is deliberately
+not a generic host backtrace API and must not be called from a compiler that
+omits or repurposes RBP. The private `seed-frame.h` states that contract.
+
+Original libiberty `C_alloca` estimates caller depth from the address of one
+of its own locals. A caller's temporary expression/argument stack changes
+that address between calls in the same live C frame. The preserved failure
+witness shows a live block being reclaimed after such a call. Giving the
+existing allocator its actual caller frame removes that variation while
+preserving its heap chain and lazy reclamation algorithm. The adaptation is
+guarded by the compiler identity and kept as a provenance patch to the original
+source; it does not change ordinary C calls or replace allocation with a leak.
+The primitive frame test and original allocator lifetime test are separate
+proofs, and the latter must pass before accepting the adapted consumer.
