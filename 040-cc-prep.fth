@@ -355,11 +355,19 @@ variable cc-pp-put-mode
   begin,
     cc-prep-eor? 0= cc-prep-peek nl <> and
   while,
-    [char] / [char] * cc-prep-at? if,
-      cc-pp-block-comment
+    cc-prep-peek dup [char] " = swap [char] ' = or if,
+      cc-pp-literal
     else,
-      backslash nl cc-prep-at? if, cc-prep-advance then,
-      cc-prep-advance
+      [char] / [char] / cc-prep-at? if,
+        cc-pp-line-comment
+      else,
+        [char] / [char] * cc-prep-at? if,
+          cc-pp-block-comment
+        else,
+          backslash nl cc-prep-at? if, cc-prep-advance then,
+          cc-prep-advance
+        then,
+      then,
     then,
   repeat,
   cc-prep-src-pos @ swap - ;
@@ -1378,8 +1386,9 @@ create cc-prep-save-pos   cc-prep-save-count [lit] 8 * allot
 \ then recurse on quoted names, and on angle names in direct mode.
 \ At exit pos is at end-of-line (or EOR); newline is NOT consumed.
 variable cc-prep-inc-end
+variable cc-prep-inc-expanded
 
-: cc-prep-handle-include
+: cc-prep-include-literal
   cc-prep-skip-blanks
   [lit] 0 cc-prep-inc-mode !
   cc-prep-peek [char] " = if,
@@ -1395,9 +1404,31 @@ variable cc-prep-inc-end
     begin,
       cc-prep-eor? 0= cc-prep-peek cc-prep-inc-end @ <> and
       cc-prep-peek nl <> and
-    while, cc-prep-advance repeat,
+    while,
+      cc-prep-inc-expanded @ cc-prep-inc-mode @ [lit] 1 = and
+      cc-prep-peek backslash = and if,
+        cc-prep-advance
+        cc-prep-eor? 0= cc-prep-peek nl <> and if, cc-prep-advance then,
+      else, cc-prep-advance then,
+    repeat,
     cc-prep-src-pos @ swap -
+    cc-prep-direct @ if,
+      dup 0= cc-prep-peek cc-prep-inc-end @ <> or if, [lit] 30 cc-die then,
+    then,
     cc-prep-peek cc-prep-inc-end @ = if, cc-prep-advance then,
+    cc-prep-inc-expanded @ if,
+      \ Macro expansion must yield exactly one header operand.
+      cc-prep-skip-blanks cc-prep-eor? 0= if, [lit] 30 cc-die then,
+      cc-prep-inc-mode @ [lit] 2 = if,
+        \ Whitespace-sensitive angle token joining is not yet represented.
+        \ Reject it explicitly instead of silently selecting another file.
+        2dup begin, dup while,
+          over c@ space? if, [lit] 30 cc-die then,
+          swap 1+ swap 1-
+        repeat, 2drop
+      then,
+    then,
+    [lit] 0 cc-prep-inc-expanded !
     cc-prep-inc-mode @ [lit] 1 = cc-prep-direct @ or if,
       cc-prep-inc-top @ >r
       cc-prep-load-file
@@ -1415,6 +1446,29 @@ variable cc-prep-inc-end
       r> cc-prep-inc-top !
     else, 2drop then,
   then, ;
+
+\ A computed operand is rescanned with the same macro engine as C text.
+\ Preserve the original file region while parsing its expanded header token;
+\ recursive include search and location state still belong to that file.
+: cc-prep-handle-include
+  [lit] 0 cc-prep-inc-expanded !
+  cc-prep-skip-blanks
+  cc-prep-peek [char] " = cc-prep-peek [char] < = or
+  cc-prep-direct @ 0= or if, cc-prep-include-literal exit, then,
+  cc-pp-scratch-top @ >r
+  cc-pp-line-slice
+  cc-pp-temp-begin cc-pp-expand-text cc-pp-temp-end
+  cc-prep-src-addr @ >r cc-prep-src-len @ >r cc-prep-src-pos @ >r
+  cc-prep-at-line-start @ >r
+  cc-prep-src-len ! cc-prep-src-addr ! [lit] 0 cc-prep-src-pos !
+  cc-prep-skip-blanks
+  cc-prep-peek [char] " = cc-prep-peek [char] < = or 0= if,
+    [lit] 30 cc-die
+  then,
+  true cc-prep-inc-expanded ! cc-prep-include-literal
+  r> cc-prep-at-line-start !
+  r> cc-prep-src-pos ! r> cc-prep-src-len ! r> cc-prep-src-addr !
+  r> cc-pp-scratch-top ! ;
 
 \ ---------------------------------------------------------------------------
 \ #define and #undef

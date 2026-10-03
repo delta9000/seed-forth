@@ -1,0 +1,446 @@
+{
+  "status": "PASS",
+  "reference": "https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html",
+  "scope": "Quoted computed headers and angle results with no internal whitespace. GNU accepts the documented space-sensitive angle cases; this implementation deliberately rejects them with 30.",
+  "oracle": "Host cc -E -P output token comparison only; all target preprocessing and state checks executed by the Forth seed.",
+  "production_source_sha256": {
+    "000-seed.hex0": "ba72ed985964a3860473c614a9eee73611027dba774b4a9993b24e3fe9947148",
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "040-cc-prep.fth": "4510f0499c350533a1d8c8059616f8a9b270c2b6ee863db5599a61fe1d3ccfb4",
+    "050-cc-lex.fth": "bf834e9c54e127db1a861b6d46baa83462a46a36d3c6f7cd5fef328209101f80",
+    "060-cc-types.fth": "ffba767989a5b2e36155ebe772886217312ad75d03a3d25defc1488b3475de52",
+    "070-cc-sym.fth": "a82876cd1e252416217e2ccb7cd7aa638ed71d78949d9e144ee03d9b384d471a",
+    "080-cc-elf.fth": "9b354a5296c84c118a7d33c517402bb2f2b71026fa505a46e33471aedadc1e47",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "090-cc-emit.fth": "b4185773610671a92df5229e6539f65dea8484351ea32606f009b228d5929a0d",
+    "100-cc-expr.fth": "a298583c8dbab87c5ba62d4bb5be59128ab99fc339710a02b8e44eb425533885",
+    "110-cc-decl.fth": "da08b940f71029cb8310f102f3ee86b8ccec067addc393b1b81f8566e5244c90",
+    "112-cc-stmt.fth": "72e11ac2950caf36ba75011f7cda20cea194c7f48a0ed06d641887a6737e3fe6",
+    "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
+    "115-cc-native.fth": "70d59eac69dcccbfb63c28b234310ca039873b245d9a6886c720412a9301276e",
+    "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
+    "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
+    "118-cc-native-init.fth": "9ca34eb32219670538272159c8b24f09471ec3f5b8f097aef0605e4f3db07122",
+    "119-cc-native-runtime.fth": "b6504df1d6eb025ed930c3ad26865f4acef646ba2cd5fa9ab7a78bf0c0af8354",
+    "121-cc-sysv.fth": "4888777bdb58fc395850519166b5265c705dfc5ba6a399080f24184aabc85edf",
+    "122-cc-sysv-runtime.fth": "96c19f8c0768a6568b5859d4d2d1a17895a60e3f8d1ffb983c9d1771fce25e12",
+    "123-cc-object-program.fth": "342265a9653749d6048737e3ff47796da3dfd3e4168fe8fa2fd54df535b547bb",
+    "124-cc-target.fth": "7cc14dbb2f5405dcf94f51f6aede0bc06c841965edf8381b524689a85d28f833",
+    "125-cc-consteval.fth": "4c0a19d98c49b22c2ab58f643663db83100d9a1a1d81f125800bcc6a624493d6",
+    "126-cc-varargs.fth": "ace8d45e525afd9291a8581696cef12002356091e842ae80d778495417030b0b",
+    "127-cc-binary64.fth": "20fe2cf59d1ca7946c2e8fa05be25cb617b2f761c1e7f5b8dbbf501469c91295",
+    "128-cc-float-literal.fth": "2d8c111de63ba71cdccee2421518376c1e17da256eceb2d6b0841896f36d0c80",
+    "129-cc-bitfield.fth": "6b063611400da557cad78d6519e0b6b969c2470c119b85b1f41352f8fb2e3fac",
+    "140-cc-link.fth": "abacc3197fd03baf31d2d86b0c999ca3b63e04b806882078d7925ae55bfd4e84",
+    "141-archive.fth": "e6a544feae6a75286dab034f319da04ca5149131ebf930257fc503ca975aa674",
+    "runtime/gcc-seed/alloc.c": "e991d68e2762297a016f790c89c9100fc26356bdafb98c2b42108dc269b8d0db",
+    "runtime/gcc-seed/include/errno.h": "74bdda42ea45803c322abcd869f00797cde8e31097a00bdb86b143b2cfda8816",
+    "runtime/gcc-seed/include/limits.h": "f2816b74d907b4b807c6859c66b1d385494c7dcff9102d7e230b55f35d203df1",
+    "runtime/gcc-seed/include/seed-frame.h": "799126e8e802b1239c60387eb02a41dbd241d7a514fb8bdf98d7658f6d32733e",
+    "runtime/gcc-seed/include/seed-syscall.h": "0b48a0551ee160e293897be689972898da5b25918f13eb9832ef7c086f2ab6b1",
+    "runtime/gcc-seed/include/stdarg.h": "2e4299158bbcb93fa91312fcfec98a60abcd2a5c9e91b086a65dd81194234c51",
+    "runtime/gcc-seed/include/stddef.h": "c6b77a9f36b42741a512106d0489421e609f6298dfdcad800293d54e55905b2c",
+    "runtime/gcc-seed/include/stdio.h": "54d09244b296a579d2f705c0a047d0810feddcab77f2bfdac64869d2a75fd599",
+    "runtime/gcc-seed/include/stdlib.h": "4f65f8f3b80231bdd9e44dad358953b3c5498fc0cc96e49075140dd745fbe22d",
+    "runtime/gcc-seed/include/string.h": "f403d347b9289f42a96586592c355ca9df27821f967c557284c33f92ec45ff6c",
+    "runtime/gcc-seed/include/sys/stat.h": "7966a888e8c64e2e466bb4412f21f3542ae5278565df73ecbe7b0b7610ea0ab7",
+    "runtime/gcc-seed/include/sys/types.h": "4c6740ca362e2464acfd2834f7659a07c0d482321c4fe95abcf46c4ce51721a9",
+    "runtime/gcc-seed/memory.c": "88c67f23ce55f61b9a6179a892e7635fbc228f27f69cde5962717e8a921f945b",
+    "runtime/gcc-seed/process.c": "3616c91604a13263d2a6a6bb327085036e4fcae43a1f7a4e4a1eedaa32b1ff5a",
+    "runtime/gcc-seed/sort.c": "a4f7a6e389eff9e9b2172756e1e22a53fcaf67dd52c945202fe2dcfd7fd08a87",
+    "runtime/gcc-seed/stat.c": "3b151bb6df4d85ca13639b1563d7572f6414de2b312f5ce8e6417738b0e477e1",
+    "runtime/gcc-seed/stdio.c": "64aed2d240f69021d6d34513044ad677b6deb4f3db84496839359747d9350d87",
+    "runtime/gcc-seed/string.c": "ae960271bebcc87cf1acca7555937af0eff7e9ba8bfff3011d57db2ef607471f",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+    "tools/gcc-direct-cc.py": "96bb6c803277f58e75720da702020d517052f33b82ae7cecc9dc49be5aa285c7"
+  },
+  "review_script_sha256": "e2f5674e2edf4afec21aa655f69c75b1a498deec7a9f791b0d70ea81c9b253cb",
+  "positive_and_policy_cases": [
+    {
+      "case": "nested_relative_and_return_location",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "6fddc5ae0c20fd877fef3bcc45473c58a5e21c8ecfa55012effdd19ca3cf7098"
+    },
+    {
+      "case": "quote_prefers_includer",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "0559844dff773538c0b5338a37f64cca892c8f4ac06f884333957a5b0b582530"
+    },
+    {
+      "case": "angle_uses_include_order",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "bd69eae9546d8e8d5d3b178a39ecacf49cc0701be97043951a80a1c3bdd28332"
+    },
+    {
+      "case": "quote_include_fallback",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "6e098b50cb7ed1c93f33f23d451a97e2b853ea8ecdaf09d474c51af29652bff1"
+    },
+    {
+      "case": "absolute_quote",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "6e098b50cb7ed1c93f33f23d451a97e2b853ea8ecdaf09d474c51af29652bff1"
+    },
+    {
+      "case": "absolute_angle",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "6e098b50cb7ed1c93f33f23d451a97e2b853ea8ecdaf09d474c51af29652bff1"
+    },
+    {
+      "case": "alias_chain",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "5c9e6b189f7f551c1690596792aae625bcfbdabf969e3989e9752c4b649fef0f"
+    },
+    {
+      "case": "function_argument_string",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "c5bef1849e4067d7ddb3c153302389c1d9d45f41cdd7c33b507b115c96dd3801"
+    },
+    {
+      "case": "empty_macro_after_header",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "c5bef1849e4067d7ddb3c153302389c1d9d45f41cdd7c33b507b115c96dd3801"
+    },
+    {
+      "case": "function_alias",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "c5bef1849e4067d7ddb3c153302389c1d9d45f41cdd7c33b507b115c96dd3801"
+    },
+    {
+      "case": "function_returns_function",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "c5bef1849e4067d7ddb3c153302389c1d9d45f41cdd7c33b507b115c96dd3801"
+    },
+    {
+      "case": "stringize_raw",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "6e098b50cb7ed1c93f33f23d451a97e2b853ea8ecdaf09d474c51af29652bff1"
+    },
+    {
+      "case": "stringize_prescan",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "ba1acc6171e1cd9967a5f3596111b1e212ee2d3851dce735ee79d10702de7060"
+    },
+    {
+      "case": "stringize_line",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "8205632343dd1ada455155436edd06828e58209bedc8e1417a60434b4229b99b"
+    },
+    {
+      "case": "pasted_macro_name",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "c5bef1849e4067d7ddb3c153302389c1d9d45f41cdd7c33b507b115c96dd3801"
+    },
+    {
+      "case": "comments_around_operand",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "dc44c5eb9cbacdef23f9961cf7f287b507d043a30a216b7b74214ea1390be41e"
+    },
+    {
+      "case": "quoted_block_comment_marker",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "ab1ca586d42be070996913db1e3e50d95e63cc54d03c7f7a1bd982a7430f00b1"
+    },
+    {
+      "case": "line_comment_block_marker",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "22e6f357fb03a126ac16c86e7fcea23accbdf125d39ebf8ef714e6e798cc70f6"
+    },
+    {
+      "case": "multiline_comment",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "4e7461df4d2eef99ab1c04346487a21e9629be8e574d3ed07f7c6510fb926e4c"
+    },
+    {
+      "case": "continued_operand",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "4e7461df4d2eef99ab1c04346487a21e9629be8e574d3ed07f7c6510fb926e4c"
+    },
+    {
+      "case": "inactive_nested",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "ab26d6d78a7ee38abc7e8992b79063c1d7ae6262884ca38a011e4765bc749776"
+    },
+    {
+      "case": "quoted_space",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "1e6648abbfc740a0fc8e1d6611339acb08aa7f7037b8c38755b8c153671717b0"
+    },
+    {
+      "case": "quoted_backslash_n",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "78239a1ca709e0a37808d3367fffeac9399e5ce347219f47b0e0c7fb20481bcd"
+    },
+    {
+      "case": "quoted_double_backslash",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "120cc663b76eff2b52d7a1322794c5780fcb30a0934f73354fa16a91e50b88a8"
+    },
+    {
+      "case": "quoted_escaped_quote",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "c2783faaf800a09d3624b307941a82ccc49bc6b5b583e9a0e03ea3f2477579af"
+    },
+    {
+      "case": "end_of_file_operand",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "7a1bd25a3077ae31d49616f8df7131d98401d240811313d1602d15c2233fe848"
+    },
+    {
+      "case": "header_without_final_newline",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "7453fd222fd9ff4063a9fe29fd6bd64349e6024b6ad1af39e1619bd369d2a2f1"
+    },
+    {
+      "case": "dynamic_file_guarded_self",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "0c520872d3c5cbcbd1b14333466ca7c88cfe9ff8cd2d1bda3d11a3cb2be09416"
+    },
+    {
+      "case": "macro_redefinition_after_return",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "66a884a1acdf2605acdea14ec959fa4e6a5662ed88b8f962a913818d94ab14cf"
+    },
+    {
+      "case": "repeated_computed_includes",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "02019bf17e6330059c194faf2977a0ab1c904ef1b165fd100f4c37d4461bb5e6"
+    },
+    {
+      "case": "angle_leading_space",
+      "host_status": 0,
+      "forth_status": 30,
+      "expected_explicit_angle_policy_rejection": true
+    },
+    {
+      "case": "angle_trailing_space",
+      "host_status": 0,
+      "forth_status": 30,
+      "expected_explicit_angle_policy_rejection": true
+    },
+    {
+      "case": "angle_internal_space",
+      "host_status": 0,
+      "forth_status": 30,
+      "expected_explicit_angle_policy_rejection": true
+    },
+    {
+      "case": "angle_function_substitution",
+      "host_status": 0,
+      "forth_status": 30,
+      "expected_explicit_angle_policy_rejection": true
+    },
+    {
+      "case": "original_pinned_i386_modes",
+      "host_status": 0,
+      "forth_status": 0,
+      "tokens_equal_host": true,
+      "output_sha256": "ccd03ea8c0dcb874e5cacc09a00db1ca145b5d083d5630dd0c09aaab48dd490a"
+    }
+  ],
+  "rejections": [
+    {
+      "case": "unknown",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "integer",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "character",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "empty_macro",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "empty_string",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "empty_angle",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "object_self_cycle",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "mutual_cycle",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "function_self_cycle",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "two_strings",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "trailing_identifier",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "trailing_punctuation",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "angle_trailing_token",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "angle_unclosed",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "angle_double_close",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "parenthesized_string",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "wide_string",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "missing_quote_file",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "missing_angle_file",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "missing_nested_target",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    },
+    {
+      "case": "missing_extra_modes_target",
+      "forth_status": 30,
+      "error_30_and_output_preserved": true
+    }
+  ],
+  "state_restoration": {
+    "status": "PASS",
+    "assertions": [
+      "cc-pp-scratch-top @ cc-pp-scratch =",
+      "cc-prep-src-addr @ cc-in-buf =",
+      "cc-prep-src-len @ cc-in-len @ =",
+      "cc-prep-src-pos @ cc-in-len @ =",
+      "cc-prep-in-file @",
+      "cc-prep-inc-depth @ 0=",
+      "cc-prep-inc-top @ 0=",
+      "cc-pp-sink-depth @ 0=",
+      "cc-pp-location-depth @ 0=",
+      "cc-pp-out @ cc-src-buf =",
+      "cc-pp-pending-nl @ 0="
+    ]
+  },
+  "shared_macro_engine_limitation": {
+    "case": "function_call_separated_by_comment",
+    "forth_status": 30,
+    "host_status": 0,
+    "status": "known shared macro-engine gap"
+  },
+  "original_i386_target": {
+    "input_sha256": "0141dec67f7141c1f2bb4096ad18fb2a7628f4a7ea5258acd9dc736491c6330d",
+    "pinned_input_unchanged": true,
+    "markers_present": {
+      "ieee_extended_intel_96_format": true,
+      "ieee_quad_format": true,
+      "CCGC": true,
+      "CCFPU": true,
+      "TARGET_128BIT_LONG_DOUBLE": true
+    },
+    "tokens_equal_host": true
+  },
+  "failures": [],
+  "work_directory": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-computed-v24c4cln"
+}

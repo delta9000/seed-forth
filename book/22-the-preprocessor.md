@@ -11,7 +11,7 @@ Proof link: pnut.c, exactly as shipped, comes out token for token what GCC's cpp
 then uses `ROWS` four times.  Before the parser sees the program,
 something has to delete that line and make each `ROWS` mean 4.  That
 is the preprocessor's job, and in this compiler it does all of it in
-one pass over the text, before the lexer starts.  The 1,692-line file
+one pass over the text, before the lexer starts.  The 1,738-line file
 `040-cc-prep.fth` handles `#include "…"` (spliced in recursively),
 object-like and function-like `#define`s with any body, `#undef`, and
 conditional compilation with `#if`, `#ifdef`, `#ifndef`, `#elif`,
@@ -528,11 +528,19 @@ literal cross a line).
   begin,
     cc-prep-eor? 0= cc-prep-peek nl <> and
   while,
-    [char] / [char] * cc-prep-at? if,
-      cc-pp-block-comment
+    cc-prep-peek dup [char] " = swap [char] ' = or if,
+      cc-pp-literal
     else,
-      backslash nl cc-prep-at? if, cc-prep-advance then,
-      cc-prep-advance
+      [char] / [char] / cc-prep-at? if,
+        cc-pp-line-comment
+      else,
+        [char] / [char] * cc-prep-at? if,
+          cc-pp-block-comment
+        else,
+          backslash nl cc-prep-at? if, cc-prep-advance then,
+          cc-prep-advance
+        then,
+      then,
     then,
   repeat,
   cc-prep-src-pos @ swap - ;
@@ -1759,8 +1767,9 @@ create cc-prep-save-pos   cc-prep-save-count [lit] 8 * allot
 \ then recurse on quoted names, and on angle names in direct mode.
 \ At exit pos is at end-of-line (or EOR); newline is NOT consumed.
 variable cc-prep-inc-end
+variable cc-prep-inc-expanded
 
-: cc-prep-handle-include
+: cc-prep-include-literal
   cc-prep-skip-blanks
   [lit] 0 cc-prep-inc-mode !
   cc-prep-peek [char] " = if,
@@ -1776,9 +1785,31 @@ variable cc-prep-inc-end
     begin,
       cc-prep-eor? 0= cc-prep-peek cc-prep-inc-end @ <> and
       cc-prep-peek nl <> and
-    while, cc-prep-advance repeat,
+    while,
+      cc-prep-inc-expanded @ cc-prep-inc-mode @ [lit] 1 = and
+      cc-prep-peek backslash = and if,
+        cc-prep-advance
+        cc-prep-eor? 0= cc-prep-peek nl <> and if, cc-prep-advance then,
+      else, cc-prep-advance then,
+    repeat,
     cc-prep-src-pos @ swap -
+    cc-prep-direct @ if,
+      dup 0= cc-prep-peek cc-prep-inc-end @ <> or if, [lit] 30 cc-die then,
+    then,
     cc-prep-peek cc-prep-inc-end @ = if, cc-prep-advance then,
+    cc-prep-inc-expanded @ if,
+      \ Macro expansion must yield exactly one header operand.
+      cc-prep-skip-blanks cc-prep-eor? 0= if, [lit] 30 cc-die then,
+      cc-prep-inc-mode @ [lit] 2 = if,
+        \ Whitespace-sensitive angle token joining is not yet represented.
+        \ Reject it explicitly instead of silently selecting another file.
+        2dup begin, dup while,
+          over c@ space? if, [lit] 30 cc-die then,
+          swap 1+ swap 1-
+        repeat, 2drop
+      then,
+    then,
+    [lit] 0 cc-prep-inc-expanded !
     cc-prep-inc-mode @ [lit] 1 = cc-prep-direct @ or if,
       cc-prep-inc-top @ >r
       cc-prep-load-file
@@ -1816,6 +1847,29 @@ libc shims such as `putchar` and `malloc` (Chs 26 and 31).
 
 ```forth file=040-cc-prep.fth
   then, ;
+
+\ A computed operand is rescanned with the same macro engine as C text.
+\ Preserve the original file region while parsing its expanded header token;
+\ recursive include search and location state still belong to that file.
+: cc-prep-handle-include
+  [lit] 0 cc-prep-inc-expanded !
+  cc-prep-skip-blanks
+  cc-prep-peek [char] " = cc-prep-peek [char] < = or
+  cc-prep-direct @ 0= or if, cc-prep-include-literal exit, then,
+  cc-pp-scratch-top @ >r
+  cc-pp-line-slice
+  cc-pp-temp-begin cc-pp-expand-text cc-pp-temp-end
+  cc-prep-src-addr @ >r cc-prep-src-len @ >r cc-prep-src-pos @ >r
+  cc-prep-at-line-start @ >r
+  cc-prep-src-len ! cc-prep-src-addr ! [lit] 0 cc-prep-src-pos !
+  cc-prep-skip-blanks
+  cc-prep-peek [char] " = cc-prep-peek [char] < = or 0= if,
+    [lit] 30 cc-die
+  then,
+  true cc-prep-inc-expanded ! cc-prep-include-literal
+  r> cc-prep-at-line-start !
+  r> cc-prep-src-pos ! r> cc-prep-src-len ! r> cc-prep-src-addr !
+  r> cc-pp-scratch-top ! ;
 
 \ ---------------------------------------------------------------------------
 \ #define and #undef
@@ -2265,8 +2319,36 @@ last function-macro token is rescanned with the following source, so
 both `DEF_BWLX(mov)` and `ELFW(ST_INFO)(bind,type)` can find the opening
 parenthesis outside their own replacement regions. This is the targeted
 TinyCC profile, not a claim of a complete ISO C preprocessor: variadic
-macros, computed include names, and all general hide-set rescanning cases
-remain outside it.
+macros and general hide-set rescanning remain outside it.
+
+### Computed include operands
+
+Original GCC `genmodes.c` selects a target definition file through
+`#include EXTRA_MODES_FILE`. Merely accepting that directive without reading
+the named file produces a plausible, incomplete program. Direct mode now
+expands a nonliteral include operand using the ordinary macro engine and
+requires the result to contain exactly one header name. It then uses the same
+search order and include recursion as a directly written header. Unknown,
+empty, malformed, cyclic, or missing results fail with code 30 and preserve
+the prior output artifact.
+
+The expanded operand occupies a temporary scratch region. The caller's
+original file region and position are restored afterward; relative searches
+and `__FILE__`/`__LINE__` still refer to the actual including and included
+files. Quoted computed names preserve backslashes literally, including an
+escaped quote in the string token. Whitespace-free computed angle operands
+are supported. Internal whitespace in a computed angle result is explicitly
+rejected: the current text macro engine adds separator blanks and cannot yet
+preserve GNU's full token-spacing rule. A function macro that stringifies its
+header argument provides an unambiguous supported form.
+
+The [GNU computed-include documentation](https://gcc.gnu.org/onlinedocs/cpp/Computed-Includes.html)
+explains why token joining matters. `tests/gcc/computed-include-check.py`
+compares supported forms with an independent host preprocessor, runs a
+Forth-built program dependent on a selected header, and checks every token
+of the pinned original `i386-modes.def` after a computed include. The input
+hash and target-specific markers prevent the earlier silent omission from
+being mistaken for successful generator reconstruction.
 
 The seed-only checks run without writing the shared compiler output:
 
