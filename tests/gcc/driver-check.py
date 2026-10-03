@@ -72,6 +72,10 @@ int main(void) {
         run("-E", "-nostdinc", "-", data=b"#include <stdio.h>\n", cwd=work, success=False)
         run("-E", "-nostdinc", "-U__STDC__", "-",
             data=b"#ifdef __STDC__\n#error failed undef\n#endif\nint ok;\n", cwd=work)
+        (work / "stdin-header.h").write_text("#define STDIN_VALUE 7\n")
+        stdin_pp = run("-E", "-DOPTION=1", "-", cwd=work,
+                       data=b'#include "stdin-header.h"\n__FILE__ __LINE__ STDIN_VALUE\n').stdout
+        assert stdin_pp.split() == [b'"<stdin>"', b"2", b"7"], stdin_pp
         assert b"seed-forth" in run("--version", cwd=work).stdout
         assert run("-dumpmachine", cwd=work).stdout == b"x86_64-pc-linux-gnu\n"
         identity = run("--print-source-hash", cwd=work).stdout.decode().strip()

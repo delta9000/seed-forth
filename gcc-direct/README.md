@@ -19,7 +19,8 @@ Build the seed first with `./build.sh`. Then, from any working directory:
 The default executable is `a.out`; `-c file.c` produces `file.o` in the current
 directory. Multiple sources and objects can be linked, or multiple sources
 compiled with `-c` and no `-o`. For stdin use `-x c -`; `-E -` also accepts
-stdin. Preprocessing writes stdout unless `-o` names a file. The driver
+stdin. Its presumed source filename is `<stdin>` and quoted includes start
+from the current directory. Preprocessing writes stdout unless `-o` names a file. The driver
 recognizes joined and separate `-o`, `-I`, `-D`, and `-U` arguments. `-x c`
 and `-x none` select/reset the language for following inputs.
 

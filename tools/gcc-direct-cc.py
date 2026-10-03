@@ -326,7 +326,7 @@ def main(arguments):
             if stdin_seen or (language != "c" and options["mode"] != "preprocess"):
                 raise Failure("stdin requires -x c (or -E), and can occur only once", 2)
             stdin_seen = True
-            inputs.append((Path.cwd() / "<stdin>", "c", sys.stdin.buffer.read()))
+            inputs.append((Path.cwd() / "<stdin>", "stdin", sys.stdin.buffer.read()))
         else:
             path = Path(spelling).absolute()
             kind = "c" if language == "c" or path.suffix == ".c" else "o" if path.suffix == ".o" else None
@@ -369,7 +369,7 @@ def main(arguments):
             if kind == "o":
                 output.write_bytes(data)
             else:
-                toolchain.compile(data, path, output, includes, options["macros"],
+                toolchain.compile(data, b"" if kind == "stdin" else path, output, includes, options["macros"],
                                   options["mode"] == "preprocess")
             objects.append(output)
             results.append(output)
