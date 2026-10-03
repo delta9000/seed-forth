@@ -313,16 +313,25 @@ variable cc-pp-put-mode
     cc-pp-take
   repeat, ;
 
+\ cc-pp-literal-splices ( -- )  Remove physical continuations before
+\ interpreting escapes, including between a backslash and its escaped byte.
+: cc-pp-literal-splices
+  begin, backslash nl cc-prep-at? while,
+    cc-prep-advance cc-prep-advance
+    cc-pp-put-mode @ put-drop <> if, [lit] 1 cc-pp-pending-nl +! then,
+  repeat, ;
+
 \ cc-pp-literal ( -- )  pos at a ' or ": walk through the closing quote.
-\ A backslash takes the next byte with it; an unclosed literal stops at the
-\ end of its line.
+\ A backslash takes the next logical byte with it; an unclosed literal
+\ stops at the end of its logical line.
 : cc-pp-literal
   cc-prep-peek cc-pp-take                          ( q )
   begin,
+    cc-pp-literal-splices
     cc-prep-eor? if, drop exit, then,
     cc-prep-peek nl = if, drop exit, then,
     cc-prep-peek backslash = if,
-      cc-pp-take
+      cc-pp-take cc-pp-literal-splices
       cc-prep-eor? 0= if, cc-pp-take then,
     else,
       cc-prep-peek over = if, drop cc-pp-take exit, then,
@@ -846,11 +855,16 @@ variable cc-pp-string-u
 \ # collapses whitespace and comments, preserving literal contents and
 \ escaping quotes/backslashes in the resulting C string token.
 : cc-pp-stringify
-  cc-pp-trim-slice cc-pp-string-u ! cc-pp-string-a !
+  \ Whitespace is collapsed below, after physical splices are removed.
+  cc-pp-string-u ! cc-pp-string-a !
   [lit] 0 cc-pp-string-quote ! [lit] 0 cc-pp-string-escape !
   [lit] 0 cc-pp-string-space ! true cc-pp-string-start !
   [char] " cc-prep-emit-byte
   begin, cc-pp-string-u @ while,
+    backslash nl cc-pp-string-at? if,
+      \ Raw-argument line accounting is done by argument prescan.
+      cc-pp-string-step cc-pp-string-step
+    else,
     cc-pp-string-peek
     cc-pp-string-quote @ if,
       dup cc-pp-string-byte
@@ -877,6 +891,7 @@ variable cc-pp-string-u
           cc-pp-string-byte cc-pp-string-step
         then,
       then,
+    then,
     then,
   repeat,
   [char] " cc-prep-emit-byte ;
@@ -1215,7 +1230,8 @@ variable cc-pp-cond-depth
     cc-pp-skipping? if, cc-pp-skip-char exit, then,
   then,
   cc-prep-peek dup [char] " = swap [char] ' = or if,
-    put-emit cc-pp-put-mode !  cc-pp-literal exit,
+    put-emit cc-pp-put-mode ! cc-pp-literal
+    cc-prep-in-file @ if, cc-pp-flush-nl then, exit,
   then,
   [char] / [char] * cc-prep-at?  [char] / [char] / cc-prep-at? or if,
     cc-pp-comment exit,

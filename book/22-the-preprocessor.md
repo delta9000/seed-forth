@@ -11,7 +11,7 @@ Proof link: pnut.c, exactly as shipped, comes out token for token what GCC's cpp
 then uses `ROWS` four times.  Before the parser sees the program,
 something has to delete that line and make each `ROWS` mean 4.  That
 is the preprocessor's job, and in this compiler it does all of it in
-one pass over the text, before the lexer starts.  The 1,738-line file
+one pass over the text, before the lexer starts.  The 1,762-line file
 `040-cc-prep.fth` handles `#include "…"` (spliced in recursively),
 object-like and function-like `#define`s with any body, `#undef`, and
 conditional compilation with `#if`, `#ifdef`, `#ifndef`, `#elif`,
@@ -423,8 +423,10 @@ variable cc-pp-pending-nl
 ```
 
 `cc-pp-flush-nl` pays them back.  The walker calls it right after a
-directive and right after a macro call made at file level (§5, §6),
-so the next line starts where the source's next line starts.
+directive, a macro call made at file level (§5, §6), or a completed
+literal containing a continued physical line.  The removed newline
+belongs after the token, where it cannot change the string's contents.
+The next line still starts where the source's next line starts.
 
 Comments and literals need care in a text pass: a `'` inside a
 comment is not a character literal, a `//` inside a string is not a
@@ -478,16 +480,25 @@ variable cc-pp-put-mode
     cc-pp-take
   repeat, ;
 
+\ cc-pp-literal-splices ( -- )  Remove physical continuations before
+\ interpreting escapes, including between a backslash and its escaped byte.
+: cc-pp-literal-splices
+  begin, backslash nl cc-prep-at? while,
+    cc-prep-advance cc-prep-advance
+    cc-pp-put-mode @ put-drop <> if, [lit] 1 cc-pp-pending-nl +! then,
+  repeat, ;
+
 \ cc-pp-literal ( -- )  pos at a ' or ": walk through the closing quote.
-\ A backslash takes the next byte with it; an unclosed literal stops at the
-\ end of its line.
+\ A backslash takes the next logical byte with it; an unclosed literal
+\ stops at the end of its logical line.
 : cc-pp-literal
   cc-prep-peek cc-pp-take                          ( q )
   begin,
+    cc-pp-literal-splices
     cc-prep-eor? if, drop exit, then,
     cc-prep-peek nl = if, drop exit, then,
     cc-prep-peek backslash = if,
-      cc-pp-take
+      cc-pp-take cc-pp-literal-splices
       cc-prep-eor? 0= if, cc-pp-take then,
     else,
       cc-prep-peek over = if, drop cc-pp-take exit, then,
@@ -497,8 +508,8 @@ variable cc-pp-put-mode
 
 ```
 
-`cc-pp-literal` handles `'…'` and `"…"` alike, keeping each backslash
-with the byte after it so `"\""` does not end early, and stopping at
+`cc-pp-literal` handles `'…'` and `"…"` alike, removing physical continuations before keeping each backslash
+with the next logical byte so `"\""` does not end early, and stopping at
 the end of the line if the literal is never closed (C does not let a
 literal cross a line).
 
@@ -1129,11 +1140,16 @@ variable cc-pp-string-u
 \ # collapses whitespace and comments, preserving literal contents and
 \ escaping quotes/backslashes in the resulting C string token.
 : cc-pp-stringify
-  cc-pp-trim-slice cc-pp-string-u ! cc-pp-string-a !
+  \ Whitespace is collapsed below, after physical splices are removed.
+  cc-pp-string-u ! cc-pp-string-a !
   [lit] 0 cc-pp-string-quote ! [lit] 0 cc-pp-string-escape !
   [lit] 0 cc-pp-string-space ! true cc-pp-string-start !
   [char] " cc-prep-emit-byte
   begin, cc-pp-string-u @ while,
+    backslash nl cc-pp-string-at? if,
+      \ Raw-argument line accounting is done by argument prescan.
+      cc-pp-string-step cc-pp-string-step
+    else,
     cc-pp-string-peek
     cc-pp-string-quote @ if,
       dup cc-pp-string-byte
@@ -1160,6 +1176,7 @@ variable cc-pp-string-u
           cc-pp-string-byte cc-pp-string-step
         then,
       then,
+    then,
     then,
   repeat,
   [char] " cc-prep-emit-byte ;
@@ -1535,7 +1552,8 @@ construct starts there.
     cc-pp-skipping? if, cc-pp-skip-char exit, then,
   then,
   cc-prep-peek dup [char] " = swap [char] ' = or if,
-    put-emit cc-pp-put-mode !  cc-pp-literal exit,
+    put-emit cc-pp-put-mode ! cc-pp-literal
+    cc-prep-in-file @ if, cc-pp-flush-nl then, exit,
   then,
   [char] / [char] * cc-prep-at?  [char] / [char] / cc-prep-at? or if,
     cc-pp-comment exit,
@@ -1554,11 +1572,16 @@ literals whole: an apostrophe in a comment, or a `/*` that closes on a
 later line, must not change where the next directive is found.  The
 line's newline is still written, so dropped lines keep their numbers.
 
-In a kept group, a literal is copied verbatim, a comment is copied too
+In a kept group, a literal is copied with backslash-newline pairs removed,
+and a comment is copied too
 (the lexer skips it, Ch 23), a number is copied whole, and a name goes
 to `cc-pp-ident`.  In macro text, a comment or a newline becomes a
 blank and the newline is owed: such text is an argument that spanned
-lines, and its newlines are paid back after the call.
+lines, and its newlines are paid back after the call. Stringification
+also removes these pairs before quoting the raw argument. This bounded
+stage handles continued string and character tokens and stringified
+arguments; it does not yet implement phase-two splicing of arbitrary
+tokens, such as an identifier split across physical lines.
 
 ```forth file=040-cc-prep.fth
 \ cc-prep-line-is-directive? ( -- f )  -1 iff the first non-blank byte on
