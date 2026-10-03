@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Retain a source snapshot; build and execute qsort entirely through Forth."""
 from pathlib import Path
+import argparse
 import hashlib
 import json
 import os
@@ -31,10 +32,14 @@ def path_word(name, path):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--work", type=Path, help="retain production evidence here")
+    args = parser.parse_args()
     if not (ROOT / "seed-forth").is_file():
         subprocess.run([ROOT / "build.sh"], check=True)
     (ROOT / "build-out").mkdir(exist_ok=True)
-    work = Path(tempfile.mkdtemp(prefix="sort-production-", dir=ROOT / "build-out"))
+    work = args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix="sort-production-", dir=ROOT / "build-out"))
+    work.mkdir(parents=True, exist_ok=True)
     frozen = work / "source"
     inputs = sorted(set([ROOT / "seed-forth", ROOT / "010-lib.fth",
                          ROOT / "tests/gcc/sysv-object-compile.sh",

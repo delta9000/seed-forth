@@ -44,8 +44,9 @@ python3 tests/gcc/syscall-check.py
 python3 tests/gcc/syscall-runtime-check.py
 python3 tests/gcc/runtime-check.py
 python3 tests/gcc/runtime-oracle-check.py
-python3 tests/gcc/sort-check.py
-python3 tests/gcc/sort-oracle-check.py
+sort_work=$(mktemp -d "$PWD/build-out/sort-composed-XXXXXX")
+python3 tests/gcc/sort-check.py --work "$sort_work"
+python3 tests/gcc/sort-oracle-check.py "$sort_work"
 bash tests/gcc/varargs-intrinsic-check.sh
 python3 tests/gcc/varargs-check.py
 bash tests/gcc/varargs-interop-check.sh
