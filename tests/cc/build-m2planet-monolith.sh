@@ -86,11 +86,11 @@ rc=0
 if [ -n "${PTMP:-}" ]; then
     # stdin and seed-forth (fd 3) are opened before the mount, so they stay
     # reachable even when CC_OUT itself is under /tmp.
-    cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$MONOLITH" \
+    cat 010-lib.fth $(tools/compiler-layers.sh) "$MONOLITH" \
         | unshare -rm sh -c 'mount --bind "$1" /tmp && exec /proc/self/fd/3 3<&3' \
             _ "$PTMP" 3< ./seed-forth || rc=$?
 else
-    cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$MONOLITH" | ./seed-forth || rc=$?
+    cat 010-lib.fth $(tools/compiler-layers.sh) "$MONOLITH" | ./seed-forth || rc=$?
 fi
 
 if [ "$rc" != 0 ] || [ ! -f "$OUT" ]; then

@@ -74,7 +74,8 @@ run_sf() {
     return $rc
 }
 LIB=$ROOT/010-lib.fth
-CC=( "$ROOT"/[0-9][0-9][0-9]-cc-*.fth )
+CC=()
+while IFS= read -r source; do CC+=("$source"); done < <("$ROOT/tools/compiler-layers.sh" "$ROOT")
 
 # --- Stage 1: SF compiles pnut.c -------------------------------------------
 rc=0

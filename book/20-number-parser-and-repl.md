@@ -419,7 +419,7 @@ and one line of C after it:
 
 ```sh
 {
-  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth
+  cat 010-lib.fth $(tools/compiler-layers.sh)
   echo 'int main(void) { putchar(42); return 0; }'
 } | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out         # prints '*'

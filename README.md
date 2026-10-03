@@ -399,7 +399,9 @@ Generated binaries such as `seed-forth`, `/tmp/cc-out` and `build-out/` are not 
 The checked-in files are the source of record.  Start with `000-seed.hex0`, which
 annotates the hand-written ELF bytes, then read the numbered `.fth` files in
 lexical order.  The C-compiler loader globs `010-lib.fth` plus
-`[0-9][0-9][0-9]-cc-*.fth`, so the filenames carry the load order.
+`[0-9][0-9][0-9]-cc-*.fth` in numeric order, with the executing
+`120-cc-main.fth` held until last by `tools/compiler-layers.sh`. Optional
+library layers numbered after 120 must be defined before main reads C input.
 The assembler `130-asm.fth` (book Ch 33) lives outside that pattern:
 it loads on `010-lib.fth` alone.
 

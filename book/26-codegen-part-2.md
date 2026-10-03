@@ -1068,7 +1068,12 @@ full-width literals, and legacy opcode bytes without a host C compiler.
 \ when the assignment expression must retain a correctly converted result.
 
 \ cc-emit-load-typed-via-rdi ( ty -- )  rdi := *(T *)rdi.
+: cc-emit-type-check-noop ;
+defer cc-emit-type-check-fwd
+' cc-emit-type-check-noop is cc-emit-type-check-fwd
+
 : cc-emit-load-typed-via-rdi
+  cc-emit-type-check-fwd
   dup ty-size [lit] 1 = if,
     ty-unsigned? if, cc-emit-load-byte-via-rdi else,
       [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
@@ -1092,6 +1097,7 @@ full-width literals, and legacy opcode bytes without a host C compiler.
 
 \ cc-emit-store-typed-via-rcx ( ty -- )  *(T *)rcx := rdi.
 : cc-emit-store-typed-via-rcx
+  cc-emit-type-check-fwd
   ty-size
   dup [lit] 1 = if, drop cc-emit-store-byte-via-rcx exit, then,
   dup [lit] 2 = if,
@@ -1104,6 +1110,7 @@ full-width literals, and legacy opcode bytes without a host C compiler.
 
 \ cc-emit-convert-rdi ( ty -- )  Truncate/sign-extend the integer in rdi.
 : cc-emit-convert-rdi
+  cc-emit-type-check-fwd
   dup ty-size [lit] 1 = if,
     ty-unsigned? if, cc-emit-zx-byte-rdi else,
       [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
@@ -1127,6 +1134,7 @@ full-width literals, and legacy opcode bytes without a host C compiler.
 
 \ cc-emit-convert-rcx ( ty -- )  Same conversion for the right operand.
 : cc-emit-convert-rcx
+  cc-emit-type-check-fwd
   dup ty-size [lit] 1 = if,
     [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte
     ty-unsigned? if, [lit] 182 else, [lit] 190 then, cc-emit-byte
@@ -1155,6 +1163,7 @@ full-width literals, and legacy opcode bytes without a host C compiler.
 
 \ cc-emit-store-local-typed ( slot ty -- )  rdi is preserved.
 : cc-emit-store-local-typed
+  cc-emit-type-check-fwd
   cc-target-lp64 @ 0= if, drop cc-emit-store-local exit, then,
   ty-size
   dup [lit] 1 = if,
@@ -1279,7 +1288,7 @@ and exits:
 ```sh
 ./build.sh
 {
-  cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth
+  cat 010-lib.fth $(tools/compiler-layers.sh)
   cat <<'C'
 int main(void) { putchar(42); return 0; }
 C

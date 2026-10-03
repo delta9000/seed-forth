@@ -5,7 +5,7 @@ this into a terminal:
 
 ```sh
 ./build.sh
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; cat <<'EOC'; } | ./seed-forth
+{ cat 010-lib.fth $(tools/compiler-layers.sh); cat <<'EOC'; } | ./seed-forth
 int fib(int n) { if (n < 2) return n; return fib(n - 1) + fib(n - 2); }
 void print(int n) { if (n > 9) print(n / 10); putchar('0' + n % 10); }
 int main(void) {

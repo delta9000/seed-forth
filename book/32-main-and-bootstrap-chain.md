@@ -154,7 +154,7 @@ the C source that `cc-load-stdin` reads.
 tri.c's binary.  Here are all nine steps on the whole program:
 
 ```sh
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; cat <<'C'
+{ cat 010-lib.fth $(tools/compiler-layers.sh); cat <<'C'
 #define ROWS 4
 struct tri { int rows; int stars; };
 struct tri t;
@@ -451,13 +451,13 @@ terminal:
 
 ```sh
 ./build.sh
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; echo 'int main(void) { return 42; }'; } \
+{ cat 010-lib.fth $(tools/compiler-layers.sh); echo 'int main(void) { return 42; }'; } \
     | ./seed-forth
 chmod +x /tmp/cc-out && /tmp/cc-out
 echo $?      # 42
 ```
 
-The pattern `010-lib.fth [0-9][0-9][0-9]-cc-*.fth` names the library,
+`010-lib.fth` and the list from `tools/compiler-layers.sh` name the library,
 then globs the fourteen `-cc-` files (`020-cc-arena.fth` through
 `120-cc-main.fth`) in numerical (load) order, which names all
 fifteen files without listing them.  The `-cc-` infix matters: it skips
@@ -527,3 +527,9 @@ reads it, and with it the last source file between the seed and
 the chain's binaries.
 
 Next: Chapter 33 — The Assembler: M1 and hex2 in Forth.
+
+The loader helper lists every compiler library first and places
+`120-cc-main.fth` last. That file runs `cc-main` immediately; later Forth in
+stdin would otherwise be mistaken for C source. This distinction matters
+when optional library layers have numbers greater than 120. The helper only
+orders source filenames; it does not preprocess C or generate target bytes.

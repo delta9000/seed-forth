@@ -30,7 +30,7 @@ trap 'rm -f "$TMP_STDOUT"' EXIT
 # seed's reader skips \ and ( ) comments itself).  The REPL parses the Forth,
 # hits `cc-main` and invokes it; cc-main reads the remaining bytes (the C
 # source) via cc-load-stdin.
-cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$GATE_FILE" | ./seed-forth
+cat 010-lib.fth $(tools/compiler-layers.sh) "$GATE_FILE" | ./seed-forth
 
 [ -f "$OUT" ] || { echo "FAIL: $1 — $OUT not produced"; exit 1; }
 chmod +x "$OUT" 2>/dev/null || true

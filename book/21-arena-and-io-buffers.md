@@ -741,7 +741,7 @@ int main() {
 }
 C
 }
-{ cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth; tri; } | ./seed-forth
+{ cat 010-lib.fth $(tools/compiler-layers.sh); tri; } | ./seed-forth
 /tmp/cc-out                         # draws the triangle
 echo "exit: $?"                     # prints "exit: 16"
 { cat 010-lib.fth 0[2-9]0-cc-*.fth 1[01][0-9]-cc-*.fth

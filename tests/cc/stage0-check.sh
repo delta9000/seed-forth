@@ -318,7 +318,7 @@ int main()
 }
 EOF
 # (a) the Forth C compiler compiles it directly to an ELF
-cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$W/andand.c" > "$W/andand.in"
+cat 010-lib.fth $(tools/compiler-layers.sh) "$W/andand.c" > "$W/andand.in"
 rm -rf "$W/tmp"; mkdir -p "$W/tmp"
 if [ "$use_private" = 1 ]; then
     # stdin and seed-forth (fd 3) are opened before the mount, so they stay

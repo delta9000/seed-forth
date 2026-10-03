@@ -19,7 +19,9 @@ compiler's M1 output against GCC-built M2-Planet.
   `110-cc-decl.fth` (declarations, Ch 29), `112-cc-stmt.fth`
   (statements, Ch 30), `114-cc-func.fth` (function definitions) and
   `116-cc-prog.fth` (file scope, entry stub, driver; both Ch 31).
-  Scripts load them with the `[0-9][0-9][0-9]-cc-*.fth` glob.
+  Scripts use `tools/compiler-layers.sh`: all numbered compiler libraries
+  first, then the executing `120-cc-main.fth` last. A raw numeric glob
+  would start reading C before optional layers numbered after 120 load.
 - `130-asm.fth` — the M1 assembler / hex2 linker (book Ch 33).  Loads
   on `010-lib.fth` alone; `bootstrap.sh` uses it to build `M1` and
   `hex2` without GCC.

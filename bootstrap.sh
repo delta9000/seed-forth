@@ -206,7 +206,7 @@ strip_c() {
         strip_c "$M2_PLANET/$f"
     done
 } > "$WORK/m2planet-monolith.c"
-cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$WORK/m2planet-monolith.c" > "$WORK/cc-v1.in"
+cat 010-lib.fth $(tools/compiler-layers.sh) "$WORK/m2planet-monolith.c" > "$WORK/cc-v1.in"
 run_forth "$M2_PLANET" "$WORK/cc-v1.in" cc-out "$OUT/cc-out-v1"
 ok "cc-out-v1: $(wc -c < "$OUT/cc-out-v1") bytes (Forth-compiled M2-Planet)"
 

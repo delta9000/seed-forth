@@ -32,7 +32,7 @@ case "$GATE_FILE" in
 esac
 
 ACTUAL=0
-cat 010-lib.fth [0-9][0-9][0-9]-cc-*.fth "$CC_DIE_TMP/src.c" \
+cat 010-lib.fth $(tools/compiler-layers.sh) "$CC_DIE_TMP/src.c" \
     | ./seed-forth > /dev/null 2> "$CC_DIE_TMP/stderr" || ACTUAL=$?
 ACTUAL_STDERR=$(tail -n 1 "$CC_DIE_TMP/stderr")
 
