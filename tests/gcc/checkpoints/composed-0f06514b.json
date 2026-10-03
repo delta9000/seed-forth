@@ -1,0 +1,67 @@
+{
+  "source_tree": "0f06514b4f477c67bd1b2a29e948b5db3e14ce4c",
+  "source_commit": null,
+  "status": "PASS",
+  "method": "Frozen Git-tree archive, copied source vendors, expanded test harness recorded separately. All archived Git blobs and copied vendor files rehashed after execution. This tree predates namespace, configure runtime, and XMM-save repairs.",
+  "archived_blobs_checked": 902,
+  "vendor_files_checked": 2373,
+  "expanded_runner_sha256": "7ea86e81af39c85a2ae1bdab9f8f8f4d350b2af03d95712acf592479ca6527e9",
+  "commands": [
+    {
+      "command": "./build.sh",
+      "status": "PASS",
+      "exit_status": 0
+    },
+    {
+      "command": "bash tests/gcc/check-expanded.sh",
+      "status": "PASS",
+      "exit_status": 0
+    },
+    {
+      "command": "tests/tcc/native-check.sh",
+      "status": "PASS",
+      "exit_status": 0
+    },
+    {
+      "command": "tests/tcc/kernel-route-check.sh",
+      "status": "PASS",
+      "exit_status": 0
+    }
+  ],
+  "combined_output": {
+    "bytes": 30251,
+    "sha256": "8b18fe0eeabb500b521cb4fa9f8eb7e3e0b7e66bcc95fbd98851857bddbda1d5"
+  },
+  "artifacts": {
+    "seed-forth": {
+      "bytes": 1772,
+      "sha256": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e"
+    },
+    "build-out/tcc-seed": {
+      "bytes": 870752,
+      "sha256": "7411c326d30ff5a0ebadfe36d6218b6e46d2e8357f76d3a003e74ed9aee2fc3a"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot2": {
+      "bytes": 305496,
+      "sha256": "514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot3": {
+      "bytes": 305496,
+      "sha256": "514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot2.o": {
+      "bytes": 497080,
+      "sha256": "b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61"
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot3.o": {
+      "bytes": 497080,
+      "sha256": "b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61"
+    }
+  },
+  "not_run": [
+    "full check-all.sh",
+    "full verify.sh",
+    "QEMU kernel boot",
+    "complete GCC bootstrap"
+  ]
+}
