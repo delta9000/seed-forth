@@ -251,7 +251,7 @@ def main():
         "failures": failures,
         "work_directory": str(work),
     }
-    destination = ROOT / "tests/gcc/review-computed-include-results.json"
+    destination = work / "review-computed-include-results.json"
     destination.write_text(json.dumps(report, indent=2) + "\n")
     print(report["status"], len(good), "host-equal cases; 4 explicit angle limits;", len(rejected), "preserved-output rejections; state assertions", state["status"])
     print(destination)

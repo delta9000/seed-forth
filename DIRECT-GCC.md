@@ -52,16 +52,23 @@ and ABI comparisons only.
 
 The runtime currently supplies allocation, memory/string operations, unbuffered
 streams, and integer/pointer/string formatting. Historical ANSI headers use an
-explicit bounded C90-oriented target profile. Floating and aggregate value
-calling conventions remain unsupported; accepting declarations or taking
+explicit bounded C90-oriented target profile. Binary64 literals, expressions,
+storage and return values have executable proofs. Floating arguments and
+aggregate value calling conventions remain unsupported; accepting declarations or taking
 `sizeof` does not implement those value operations. The original GCC configure
 probes now support a bounded, independently audited generator configuration.
 Original `gencheck.c`, `gengenrtl.c`, and `errors.c` compile through actual
 Makefile object rules and run with the Forth-built runtime. `gencheck` emits
 all 164 source-defined checks; both complete `gengenrtl` outputs match an
-independently host-built original generator. These focused links currently
-omit unused `BUILD_LIBIBERTY`; real archive/runtime closure for `genmodes` is
-next. A complete GCC build and self-rebuild remain unfinished.
+independently host-built original generator. Those first two focused links
+omit unused `BUILD_LIBIBERTY`. The subsequent `genmodes` proof builds seven
+original C units, selects five original libiberty members into a real Forth
+archive, and links with the Forth runtime. It consumes the complete i386 mode
+definitions; all three outputs match the independently host-built original
+generator byte-for-byte. Its source-closure review and later integration replay
+identify their exact compiler and configuration inputs. This selected archive
+does not claim the full 75-member library. A complete GCC build and self-rebuild
+remain unfinished.
 
 `tests/gcc/baseline-20261003/` records a fresh independent replay of the
 surviving baseline, including the actual raw-input direct TinyCC fixed point.
@@ -93,9 +100,10 @@ The helper-copy repair passed all 54 examples; adding the already pinned Git
 metadata restored the handoff provenance queries. The repeated full aggregate
 then passed. Neither repair supplied target compiler artifacts.
 
-The newer archive extension and qsort work are outside that full-pass
-composition. Their focused owner and independent checks identify their own
-source hashes; integration gates must cover them before a broader claim.
+The newer archives, qsort, binary64, bitfields, declarator repairs and
+preprocessor continuations are outside that full-pass composition. Their
+focused owner and independent checks identify their own source hashes;
+integration gates must cover them before a broader claim.
 Configuration audit reports preserve the initial false endian/mkdir answers
 as failed evidence, followed by the corrected original-probe replay. Full
 GCC compilation, self-rebuild, `verify.sh`, and QEMU execution remain unclaimed

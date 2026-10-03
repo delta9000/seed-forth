@@ -277,9 +277,9 @@ cc-obj-bss cc-obj-use cc-obj-bss-cap cc-obj-reserve drop
 """)
 limit_sections = read_object(section_limit)[0]
 for name in (".text", ".rodata", ".data"):
-    assert limit_sections[name][1][5] == 131072
+    assert limit_sections[name][1][5] == 262144
 assert limit_sections[".bss"][1][5] == 1073741824
-assert section_limit.stat().st_size < 400000
+assert 786432 <= section_limit.stat().st_size < 800000
 
 print(f"object-writer: cross-object executable exits 42; metadata/reset/capacities and {len(bad) + 6} rejection cases pass")
 print(f"object-writer: inspectable evidence: {OUT}")

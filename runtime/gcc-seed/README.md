@@ -53,3 +53,24 @@ The source-built `sort.c` supplies the `qsort` consumed by original GCC
 `genmodes.c`. Its constant-space heapsort, callback/reentrancy contract,
 arbitrary element representations and independent production/oracle checks
 are described in [Source-built qsort](SORT.md).
+
+The source-built `ctype.c` supplies exactly the seven functions used by original
+oyacc 6.6: `isalpha`, `isalnum`, `isdigit`, `isprint`, `isspace`, `isupper`, and
+`tolower`. They implement the fixed ASCII C locale for EOF or unsigned-char
+arguments. No locale switching or extended character classification is claimed.
+The input to every function is evaluated once; EOF is never classified and
+`tolower(EOF)` returns EOF.
+
+The `assert.h` macro and source-built `assert.c` implement the C89 assertion
+contract. Enabled assertions evaluate their expression once, print its spelling,
+file and line to real stderr on failure, and invoke the existing real `abort`.
+`NDEBUG` suppresses evaluation entirely. Reincluding the header after changing
+`NDEBUG` updates the macro as required. Implicit C99 function-name metadata is
+not supplied; the failure helper accepts an optional explicit function name.
+
+Run `python3 tests/gcc/ctype-assert-check.py` for Forth-built production checks
+covering EOF and every byte, side effects, NDEBUG and header reinclusion, exact
+error text and real SIGABRT. Results and hashes are retained in a fresh directory.
+If host GCC is available, a separate C90 build of the same ctype fixture with
+host headers/libc at `-O0` and `-O2` is compared as an independent oracle. Those
+host executables are never production inputs.

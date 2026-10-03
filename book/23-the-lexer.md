@@ -11,7 +11,7 @@ After Ch 22, `tri.c` is 466 bytes of characters, but a parser does
 not want characters.  At line 12 it should not have to see `i`, `n`,
 `t`, a space, `w`, `[`, a space, `4`.  It wants to ask "what's
 next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
-"the number 4".  The 683-line file `050-cc-lex.fth` answers that
+"the number 4".  The 689-line file `050-cc-lex.fth` answers that
 question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,

@@ -1248,7 +1248,7 @@ responsibility pattern at codegen scale, with `cc-globals-buf` and the
 
 ## 6. The path back together
 
-`090-cc-emit.fth` is 1349 lines of compiler-side machine-code
+`090-cc-emit.fth` is 1358 lines of compiler-side machine-code
 emission, used three ways:
 
 - **Per-instruction encoders** (Ch 25 §3–§7 and §4 here) write the

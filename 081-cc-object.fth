@@ -28,7 +28,7 @@
 [lit] 10 constant cc-obj-r32
 [lit] 11 constant cc-obj-r32s
 
-[lit] 131072 constant cc-obj-section-cap
+[lit] 262144 constant cc-obj-section-cap
 [lit] 1073741824 constant cc-obj-bss-cap
 [lit] 2048 constant cc-obj-symbol-cap
 [lit] 4096 constant cc-obj-reloc-cap

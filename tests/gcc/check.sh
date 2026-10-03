@@ -54,6 +54,7 @@ python3 tests/gcc/stdio-oracle-check.py
 python3 tests/gcc/configure-runtime-check.py
 python3 tests/gcc/configure-runtime-oracle-check.py
 python3 tests/gcc/abort-check.py
+python3 tests/gcc/ctype-assert-check.py
 python3 tests/gcc/frame-check.py
 python3 tests/gcc/driver-check.py
 python3 tests/gcc/driver-cache-check.py

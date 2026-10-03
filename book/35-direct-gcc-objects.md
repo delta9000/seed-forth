@@ -85,11 +85,17 @@ from silently redirecting an already-recorded relocation.
 
 ## 3. Bounds and failures
 
-The first writer allows 128 KiB for each backed section, 1 GiB for bss,
+The writer allows 256 KiB for each backed section, 1 GiB for bss,
 2048 symbols, 4096 relocations, and 64 KiB of symbol names. These are
 initial bring-up limits, not a claim that GCC's generated translation
 units fit. A later larger profile must coordinate section storage,
 metadata storage, and the shared output buffer's capacity.
+The first bound was 128 KiB. Compiling the unchanged GCC 4.0.4
+`gengtype.c` measured a 136,607-byte text section, so this stage doubles
+the backed-section bound. Exact-limit and one-past tests still enforce
+each bound, and the final ELF remains checked against the shared 1 MiB
+output limit. Larger sources must fail explicitly until that bound is
+revisited; the writer does not silently truncate them.
 
 Every public size is checked for a negative/high-bit value before signed
 comparison; growth checks use remaining capacity to avoid wrapping an
@@ -175,7 +181,7 @@ through the same pathname, hard links, and symlinks before compilation.
 [lit] 10 constant cc-obj-r32
 [lit] 11 constant cc-obj-r32s
 
-[lit] 131072 constant cc-obj-section-cap
+[lit] 262144 constant cc-obj-section-cap
 [lit] 1073741824 constant cc-obj-bss-cap
 [lit] 2048 constant cc-obj-symbol-cap
 [lit] 4096 constant cc-obj-reloc-cap
