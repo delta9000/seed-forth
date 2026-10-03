@@ -196,7 +196,7 @@ python3 tests/gcc/driver-alloca-check.py COMPILER_ROOT LIBIBERTY_WORK
 
 The production witness checks same-frame, nested-argument, callback, and
 recursive lifetimes using the actual allocator and abort. A separate test
-allocator observes all13 allocations being reclaimed, rejects duplicate or
+allocator observes all 13 allocations being reclaimed, rejects duplicate or
 unknown frees, and poisons freed storage to expose premature reclamation.
 That observer is never linked into production generators.
 
@@ -215,7 +215,7 @@ archive five selected members: alloca, hashtab, xmalloc, xstrdup, and xexit.
 The sole source change is the documented target-guarded C_alloca adapter.
 The original GCC Makefile then builds `genmodes` with that actual archive as
 `BUILD_LIBIBERTY`. This is a selected-member bootstrap archive, not a complete
-libiberty build. Earlier full-library measurement built57 of75 objects; the
+libiberty build. Earlier full-library measurement built 57 of 75 objects; the
 remaining failures are retained separately.
 
 Before executing the generator, the checker preserves Forth preprocessing and
@@ -234,3 +234,27 @@ outputs must equal Forth production byte for byte. All oracle artifacts stay in
 exposed a real line-splicing defect: physical backslash-newline inside string
 literals became extra output newlines. That differential failure is retained;
 it does not count as accepted generator output.
+
+After the literal repair, complete original genmodes output matches the independent
+host oracle: `insn-modes.h` is 3522 bytes, `min-insn-modes.c` is 4589 bytes, and
+`insn-modes.c` is 16715 bytes. The full-current-core integration replay includes
+bitfields and final declarator guards; its object and output bytes equal the
+previous narrower compiler composition. `genmodes-proof.json` records the exact
+sources, configuration lineage and outputs. This proves the bounded original
+generator/selected-library milestone, not full GCC or full libiberty.
+
+A fresh build can reuse an existing configuration without claiming that the new
+compiler produced its answers:
+
+```sh
+python3 gcc-direct/replay.py ORIGINAL_GCC_WORK ORIGINAL_LIBIBERTY_WORK
+python3 tests/gcc/driver-genmodes-check.py PRINTED_GCC_WORK PRINTED_LIBIBERTY_WORK
+python3 tests/gcc/driver-genmodes-oracle.py PRINTED_GCC_WORK PRINTED_LIBIBERTY_WORK
+```
+
+The helper snapshots the current compiler and copies configured build inputs
+into new directories, excluding existing objects, archives and generator
+executables. It preserves the original configure command and probe inventory,
+records the old configuration compiler and exact header hashes, and supplies
+explicit Make command-line overrides for the new Forth tools. Configure is not
+rerun, so the source set used to answer its probes remains separately identified.

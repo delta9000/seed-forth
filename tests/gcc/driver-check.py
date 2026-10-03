@@ -76,6 +76,15 @@ int main(void) {
         stdin_pp = run("-E", "-DOPTION=1", "-", cwd=work,
                        data=b'#include "stdin-header.h"\n__FILE__ __LINE__ STDIN_VALUE\n').stdout
         assert stdin_pp.split() == [b'"<stdin>"', b"2", b"7"], stdin_pp
+        # Physical backslash-newline pairs disappear before literal tokenization,
+        # while __LINE__ still names the original physical source line.
+        splice = bytes((92, 10))
+        literal_pp = run("-E", "-", cwd=work,
+                         data=b'"' + splice + b'A' + splice + b'B" __LINE__\n').stdout
+        assert literal_pp.split() == [b'"AB"', b"3"], literal_pp
+        literal_c = b'#include <stdio.h>\nint main(void) { puts("' + splice + b'A' + splice + b'B"); return 0; }\n'
+        run("-x", "c", "-", "-o", "literal-splice", data=literal_c, cwd=work)
+        execute(work / "literal-splice", b"AB\n")
         assert b"seed-forth" in run("--version", cwd=work).stdout
         assert run("-dumpmachine", cwd=work).stdout == b"x86_64-pc-linux-gnu\n"
         identity = run("--print-source-hash", cwd=work).stdout.decode().strip()

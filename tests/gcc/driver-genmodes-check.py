@@ -29,6 +29,17 @@ def configured(work, component):
     command = json.loads((work / "configure-command.json").read_text())
     environment = os.environ.copy()
     environment.update(command["environment"])
+    replay = work / "configuration-reuse.json"
+    if replay.is_file():
+        reuse = json.loads(replay.read_text())
+        origin = Path(reuse["original_work"])
+        assert sha(origin / "configure-command.json") == reuse["configure_command_sha256"]
+        assert sha(origin / "report.json") == reuse["configure_report_sha256"]
+        assert sha(origin / "probe-inventory.json") == reuse["configure_probes_sha256"]
+        for name, expected in reuse["configured_header_sha256"].items():
+            assert sha(origin / "build" / component / name) == expected
+            assert sha(work / "build" / component / name) == expected
+        environment.update(reuse["build_environment"])
     hashes = json.loads((work / "toolchain-inputs.json").read_text())
     for name, expected in hashes.items():
         assert sha(work / "toolchain" / name) == expected, name
@@ -70,11 +81,16 @@ def main():
     save(work / "genmodes-source-inputs.json", {"original_sources_headers_definitions": source_inputs,
          "compiler": compiler, "alloca_adapter": adapter})
     objects = " ".join("./" + name + ".o" for name in members)
-    archive_command = ["make", "CFLAGS=", "LDFLAGS=", "REQUIRED_OFILES=" + objects,
+    def overrides(directory):
+        path = directory / "configuration-reuse.json"
+        if not path.is_file():
+            return []
+        return [name + "=" + value for name, value in json.loads(path.read_text())["make_overrides"].items()]
+    archive_command = ["make", *overrides(library), "CFLAGS=", "LDFLAGS=", "REQUIRED_OFILES=" + objects,
                        "EXTRA_OFILES=", "LIBOBJS=", "libiberty.a"]
     run(archive_command, libbuild, library_environment, work / "genmodes-archive.log")
     archive = libbuild / "libiberty.a"
-    command = ["make", "CFLAGS=", "LDFLAGS=", "BUILD_LIBIBERTY=" + str(archive), "build/genmodes"]
+    command = ["make", *overrides(work), "CFLAGS=", "LDFLAGS=", "BUILD_LIBIBERTY=" + str(archive), "build/genmodes"]
     run(command, build, environment, work / "genmodes-make.log")
     traces = [json.loads(path.read_text()) for path in (work / "probes").glob("*/invocation.json")]
     compiles = [t for t in traces if "-c" in t["arguments"] and t["returncode"] == 0
@@ -117,6 +133,8 @@ def main():
     save(work / "genmodes-inputs.json", inputs)
     report = {"scope": "Original genmodes/errors with selected original-member BUILD_LIBIBERTY archive and explicit C_alloca target adapter",
               "configuration": "provisional until independent probe audit", "output_acceptance": "pending independent full-byte oracle",
+              "configuration_reuse": {str(w): json.loads((w / "configuration-reuse.json").read_text())
+                                       for w in (work, library) if (w / "configuration-reuse.json").is_file()},
               "archive_command": archive_command, "generator_command": command,
               "archive_members": list(members), "archive_sha256": sha(archive),
               "archive_objects": {n: sha(libbuild / (n + ".o")) for n in members},
@@ -125,7 +143,8 @@ def main():
               "target_definition": {"path": "gcc/config/i386/i386-modes.def", "sha256": sha(target), "markers_consumed": target_markers},
               "output": output, "full_libiberty_build": False, "host_target_tools_used": False}
     save(work / "genmodes-report.json", report)
-    print(json.dumps(report, indent=2, sort_keys=True))
+    print("PASS: original genmodes executes through the selected Forth archive; output audit remains separate")
+    print(work / "genmodes-report.json")
 
 
 if __name__ == "__main__":

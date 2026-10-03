@@ -125,7 +125,7 @@ def verify_source(source, archive):
 def snapshot(work):
     names = ["000-seed.hex0", "seed-forth", "010-lib.fth", "tools/gcc-direct-cc.py",
              "gcc-direct/configure.py"]
-    names += [name for name in ("141-archive.fth", "tools/gcc-direct-ar.py") if (ROOT / name).is_file()]
+    names += [name for name in ("141-archive.fth", "tools/gcc-direct-ar.py", "gcc-direct/replay.py") if (ROOT / name).is_file()]
     names += [str(path.relative_to(ROOT)) for path in (ROOT / "gcc-direct/patches").glob("alloca-frame.*")]
     names += [p.name for p in ROOT.glob("[0-9][0-9][0-9]-cc-*.fth") if p.name != "120-cc-main.fth"]
     names += [str(p.relative_to(ROOT)) for p in (ROOT / "runtime/gcc-seed").rglob("*")
