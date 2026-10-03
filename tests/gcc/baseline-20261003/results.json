@@ -1,0 +1,744 @@
+{
+  "source": {
+    "source_commit": "0f7ce3cff412dcea8f0571a9984a426c56091ef4",
+    "tree": "e73be4d1d1195f5799c53f4e948660404601f2dd",
+    "created_utc": "2026-10-03T13:10:24.311452+00:00",
+    "method": "git archive exact commit recursively at gitlink commits; no shared source symlinks",
+    "submodules": [
+      {
+        "path": "vendor/M2-Planet",
+        "commit": "0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb"
+      },
+      {
+        "path": "vendor/M2-Planet/M2libc",
+        "commit": "eee5091e7a1af90b7b87389153647be9a24a8cdd"
+      },
+      {
+        "path": "vendor/mescc-tools",
+        "commit": "9b1375115f9175d876c360dbbfd7e231dd9f2a2f"
+      },
+      {
+        "path": "vendor/mescc-tools/M2libc",
+        "commit": "5a7c12a7be39cbce113c5459d77467b829a1ecc5"
+      },
+      {
+        "path": "vendor/pnut",
+        "commit": "abc34a5207b1373d0a4e3dcb3d3d6df6e22ae23d"
+      },
+      {
+        "path": "vendor/stage0-posix",
+        "commit": "45d90f5955b6907dc6cdea9ebafce558359edcd3"
+      },
+      {
+        "path": "vendor/stage0-posix/AArch64",
+        "commit": "9015b9e048bd969ffc7884399a17952f21d7a039"
+      },
+      {
+        "path": "vendor/stage0-posix/AMD64",
+        "commit": "82efa0d6be1c9bb993a7a62af1cccd8d2cda91f6"
+      },
+      {
+        "path": "vendor/stage0-posix/M2-Mesoplanet",
+        "commit": "4b011a85da73a7c97212468d41f17e806ba99547"
+      },
+      {
+        "path": "vendor/stage0-posix/M2-Mesoplanet/M2libc",
+        "commit": "68a23cfd05d5a355ba7a30c770d684cbe86fcc4e"
+      },
+      {
+        "path": "vendor/stage0-posix/M2-Planet",
+        "commit": "bd2fe4b0659fd0ad3f476a5ad0ef801bd134665d"
+      },
+      {
+        "path": "vendor/stage0-posix/M2-Planet/M2libc",
+        "commit": "68a23cfd05d5a355ba7a30c770d684cbe86fcc4e"
+      },
+      {
+        "path": "vendor/stage0-posix/M2libc",
+        "commit": "68a23cfd05d5a355ba7a30c770d684cbe86fcc4e"
+      },
+      {
+        "path": "vendor/stage0-posix/armv7l",
+        "commit": "4b1ff94cec0341375c788f73901f25fc1edc3ac3"
+      },
+      {
+        "path": "vendor/stage0-posix/bootstrap-seeds",
+        "commit": "cedec6b8066d1db229b6c77d42d120a23c6980ed"
+      },
+      {
+        "path": "vendor/stage0-posix/mescc-tools",
+        "commit": "5adfbf3364261a77109878a56b100aeeb6ef9ac4"
+      },
+      {
+        "path": "vendor/stage0-posix/mescc-tools/M2libc",
+        "commit": "5a7c12a7be39cbce113c5459d77467b829a1ecc5"
+      },
+      {
+        "path": "vendor/stage0-posix/mescc-tools-extra",
+        "commit": "a151c245e512076971a3c85bb1502cf92cfa83b6"
+      },
+      {
+        "path": "vendor/stage0-posix/mescc-tools-extra/M2libc",
+        "commit": "5a7c12a7be39cbce113c5459d77467b829a1ecc5"
+      },
+      {
+        "path": "vendor/stage0-posix/riscv32",
+        "commit": "261c67274cbc396dc211b06c933335c09cc35138"
+      },
+      {
+        "path": "vendor/stage0-posix/riscv64",
+        "commit": "4688bc66bdfd00efd5964350c9d76bdb90a0f72e"
+      },
+      {
+        "path": "vendor/stage0-posix/x86",
+        "commit": "3b9c2bb6d4155e4f2e5f642b5e0f59255dfc5934"
+      }
+    ],
+    "files": 3160,
+    "inputs_sha256": "a9568bc274a01b341712ce8a8df57160b03d0088eb866b5a38e6a78bdde70ced"
+  },
+  "validation_root": "fresh private archive of source commit, excluding all later working-tree edits",
+  "results": [
+    {
+      "check": "build",
+      "command": [
+        "./build.sh"
+      ],
+      "started_utc": "2026-10-03T13:10:39.368270+00:00",
+      "elapsed_seconds": 0.032,
+      "exit_status": 0,
+      "output": {
+        "capture": "stdout and stderr combined (stderr redirected to stdout)",
+        "sha256": "a78b7d27d12f067130855ddd0b18d48b5b66f5f9c28d7fca4c91ded99eecbfe5",
+        "bytes": 94,
+        "local_path": "build-out/evidence/baseline-20261003/build.log"
+      }
+    },
+    {
+      "check": "smoke",
+      "command": [
+        "./test.sh"
+      ],
+      "started_utc": "2026-10-03T13:10:39.402820+00:00",
+      "elapsed_seconds": 0.667,
+      "exit_status": 0,
+      "output": {
+        "capture": "stdout and stderr combined (stderr redirected to stdout)",
+        "sha256": "7d15c3d09badd4778bddd1c3bd847e96501c09cadb4edba066e7d0e85ea1f26d",
+        "bytes": 1150,
+        "local_path": "build-out/evidence/baseline-20261003/smoke.log"
+      }
+    },
+    {
+      "check": "native",
+      "command": [
+        "tests/tcc/native-check.sh"
+      ],
+      "started_utc": "2026-10-03T13:10:40.070000+00:00",
+      "elapsed_seconds": 14.554,
+      "exit_status": 0,
+      "output": {
+        "capture": "stdout and stderr combined (stderr redirected to stdout)",
+        "sha256": "be24dacdf855279c65d767c962eccb225b47575e4929d5fc10cb4373367583fe",
+        "bytes": 3068,
+        "local_path": "build-out/evidence/baseline-20261003/native.log"
+      }
+    },
+    {
+      "check": "strict-tangle",
+      "command": [
+        "tools/tangle.sh",
+        "verify",
+        "--strict"
+      ],
+      "started_utc": "2026-10-03T13:10:54.624577+00:00",
+      "elapsed_seconds": 0.165,
+      "exit_status": 0,
+      "output": {
+        "capture": "stdout and stderr combined (stderr redirected to stdout)",
+        "sha256": "5ca76fb84370520ec0051bc5ff97203d9f549038939128dd1308dcc2aa11f911",
+        "bytes": 1024,
+        "local_path": "build-out/evidence/baseline-20261003/strict-tangle.log"
+      }
+    },
+    {
+      "check": "direct-tinycc",
+      "command": [
+        "tests/tcc/kernel-route-check.sh"
+      ],
+      "started_utc": "2026-10-03T13:11:31.904247+00:00",
+      "elapsed_seconds": 49.467,
+      "exit_status": 0,
+      "output": {
+        "capture": "stdout and stderr combined (stderr redirected to stdout)",
+        "sha256": "993f5dce1f6ad64eecfc9ff3d822b27dccbf94eba38fb3cc7ada8337a9b54c26",
+        "bytes": 1359,
+        "local_path": "build-out/evidence/baseline-20261003/direct-tinycc.log"
+      }
+    }
+  ],
+  "direct_tinycc_status": "PASS",
+  "excluded": [
+    "new direct-GCC object/SysV work",
+    "GCC bootstrap ladder",
+    "Linux/QEMU guest execution"
+  ],
+  "source_integrity_after_tests": {
+    "changed_or_missing": [],
+    "result": "PASS"
+  },
+  "artifacts": {
+    "seed-forth": {
+      "sha256": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+      "bytes": 1772
+    },
+    "build-out/tcc-seed": {
+      "sha256": "7411c326d30ff5a0ebadfe36d6218b6e46d2e8357f76d3a003e74ed9aee2fc3a",
+      "bytes": 870752
+    },
+    "build-out/tcc-bootstrap/simple-patch": {
+      "sha256": "95782bd922815b1ba9df707a22feebe88e8b723010a4d960348934d00d151fc7",
+      "bytes": 27456
+    },
+    "build-out/tcc-bootstrap/bintools": {
+      "sha256": "d330f693121629b503cc9e6c8c9af1e384df320f80188986070dfa8e5475f5b4",
+      "bytes": 75024
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot0": {
+      "sha256": "0605483829e454c0a0422c28949ecec94d9b3624d294a9f65d8f16b7923b15de",
+      "bytes": 305496
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot1": {
+      "sha256": "c382b52cc298438c52d6626e9a535b17d1177d0f93e1899bd8d681c58878a886",
+      "bytes": 305496
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot2": {
+      "sha256": "514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1",
+      "bytes": 305496
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot3": {
+      "sha256": "514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1",
+      "bytes": 305496
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot0.o": {
+      "sha256": "6c69ce160d82eb474d8a04f1227fb9ef414e3450b4af410291ca158a3e7959dc",
+      "bytes": 497080
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot1.o": {
+      "sha256": "23154c80b00a3ca26122bdb29e4116e5b74510e1bf574ff2ec2f056ddf7cf167",
+      "bytes": 497080
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot2.o": {
+      "sha256": "b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61",
+      "bytes": 497080
+    },
+    "build-out/pnut-amd64/kit/build/tcc-boot3.o": {
+      "sha256": "b3730a49338b042d9a3dd3cde1aa4472841296e36f4b09e6e894f405f2648b61",
+      "bytes": 497080
+    }
+  },
+  "fixed_points": {
+    "": {
+      "left": "build-out/pnut-amd64/kit/build/tcc-boot2",
+      "right": "build-out/pnut-amd64/kit/build/tcc-boot3",
+      "byte_identical": true
+    },
+    ".o": {
+      "left": "build-out/pnut-amd64/kit/build/tcc-boot2.o",
+      "right": "build-out/pnut-amd64/kit/build/tcc-boot3.o",
+      "byte_identical": true
+    }
+  },
+  "route_output_files": [
+    {
+      "path": "build-out/tcc-bootstrap/bintools.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/tcc-bootstrap/bintools.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/tcc-bootstrap/patch.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/tcc-bootstrap/patch.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/tcc-bootstrap/ungz.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/tcc-bootstrap/ungz.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/tcc-bootstrap/untar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/tcc-bootstrap/untar.stdout",
+      "sha256": "d38db56c55c1afc3c97c70541e56b2955ab0921650d728ef2178b786322d37ec",
+      "bytes": 22047
+    },
+    {
+      "path": "build-out/pnut-amd64/bintools.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/bintools.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-crt1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-crt1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libc-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libc-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libc.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libtcc1-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libtcc1-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libtcc1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-libtcc1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-obj.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-obj.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-va-list.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0-va-list.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot0.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-crt1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-crt1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libc-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libc-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libc.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libtcc1-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libtcc1-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libtcc1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-libtcc1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-obj.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-obj.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-va-list.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1-va-list.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-crt1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-crt1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libc-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libc-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libc.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libtcc1-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libtcc1-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libtcc1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-libtcc1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-obj.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-obj.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-va-list.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2-va-list.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot2.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-crt1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-crt1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libc-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libc-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libc.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libtcc1-ar.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libtcc1-ar.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libtcc1.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-libtcc1.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-obj.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-obj.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-va-list.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3-va-list.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/boot3.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-hello.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-hello.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-printf.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-printf.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-t64.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-t64.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-test-libc.err",
+      "sha256": "225253be46e5971c1c8d03c4c04307295c5344ce5d41fe44510078063caef858",
+      "bytes": 80
+    },
+    {
+      "path": "build-out/pnut-amd64/cc-test-libc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/hello.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/hello.stdout",
+      "sha256": "a0bcb1f7472987b0085f2feef8f5a060568ea5ac17e591d130fc165eaf9b2357",
+      "bytes": 98
+    },
+    {
+      "path": "build-out/pnut-amd64/printf.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/printf.stdout",
+      "sha256": "2682e447eb3691d33856cc67a68cb5e803fa2188d960f470031e7f4396234398",
+      "bytes": 40
+    },
+    {
+      "path": "build-out/pnut-amd64/rebuilt-features-cc.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/rebuilt-features-cc.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/rebuilt-features.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/rebuilt-features.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/seed.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/seed.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/simple-patch.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/simple-patch.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/t64.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/t64.stdout",
+      "sha256": "e8d3e282fc1960da366d28bb4220b055198453794372589e2dbcf90d08c500c7",
+      "bytes": 89
+    },
+    {
+      "path": "build-out/pnut-amd64/test-libc.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-out/pnut-amd64/test-libc.stdout",
+      "sha256": "9dfbbb78bed7d57c5ccb91223987385c614fc89180e7b9786add46d0fa79cf0f",
+      "bytes": 3613
+    }
+  ]
+}
