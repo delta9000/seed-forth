@@ -1,0 +1,191 @@
+{
+  "abi_oracles": [
+    "mapped ELF -O0",
+    "mapped ELF -O2",
+    "ET_REL -O0",
+    "ET_REL -O2"
+  ],
+  "cases": [
+    {
+      "name": "oldstyle-promoted-parameters",
+      "status": "PASS"
+    },
+    {
+      "name": "oldstyle-implicit-int",
+      "status": "PASS"
+    },
+    {
+      "name": "oldstyle-eight-arguments",
+      "status": "PASS"
+    },
+    {
+      "name": "prototype-survives-unspecified",
+      "status": "PASS"
+    },
+    {
+      "name": "typedef-function-pointer-return",
+      "status": "PASS"
+    },
+    {
+      "name": "array-pointer-prototype",
+      "status": "PASS"
+    },
+    {
+      "name": "compatible-callback-prototype",
+      "status": "PASS"
+    },
+    {
+      "name": "struct-pointer-prototype",
+      "status": "PASS"
+    },
+    {
+      "name": "64-arguments",
+      "status": "PASS"
+    },
+    {
+      "code": 233,
+      "name": "void-after-parameter",
+      "status": "REJECT"
+    },
+    {
+      "code": 233,
+      "name": "duplicate-typed-parameter",
+      "status": "REJECT"
+    },
+    {
+      "code": 233,
+      "name": "oldstyle-duplicate-parameter",
+      "status": "REJECT"
+    },
+    {
+      "code": 233,
+      "name": "oldstyle-unknown-declaration",
+      "status": "REJECT"
+    },
+    {
+      "code": 233,
+      "name": "oldstyle-duplicate-declaration",
+      "status": "REJECT"
+    },
+    {
+      "code": 237,
+      "name": "unspecified-narrow-prototype",
+      "status": "REJECT"
+    },
+    {
+      "code": 235,
+      "name": "prototype-survives-for-arity",
+      "status": "REJECT"
+    },
+    {
+      "code": 233,
+      "name": "function-parameter-declarator",
+      "status": "REJECT"
+    },
+    {
+      "code": 234,
+      "name": "65-parameters",
+      "status": "REJECT"
+    },
+    {
+      "code": 234,
+      "name": "65-call-arguments",
+      "status": "REJECT"
+    },
+    {
+      "code": 235,
+      "name": "pointer-call-too-few",
+      "status": "REJECT"
+    },
+    {
+      "code": 235,
+      "name": "pointer-call-too-many",
+      "status": "REJECT"
+    },
+    {
+      "code": 237,
+      "name": "conflicting-callback-param",
+      "status": "REJECT"
+    },
+    {
+      "code": 237,
+      "name": "conflicting-param-width",
+      "status": "REJECT"
+    },
+    {
+      "code": 237,
+      "name": "conflicting-param-signedness",
+      "status": "REJECT"
+    },
+    {
+      "code": 237,
+      "name": "conflicting-varargs",
+      "status": "REJECT"
+    },
+    {
+      "code": 237,
+      "name": "conflicting-struct-pointer",
+      "status": "REJECT"
+    },
+    {
+      "code": 214,
+      "name": "floating-function-pointer",
+      "status": "REJECT"
+    },
+    {
+      "code": 232,
+      "name": "aggregate-function-pointer",
+      "status": "REJECT"
+    },
+    {
+      "code": 214,
+      "name": "floating-local",
+      "status": "REJECT"
+    }
+  ],
+  "compiler_inputs_sha256": {
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "040-cc-prep.fth": "a8564234b6d558edcf9aa95ab392efc0dd82067abe2443f1ccba2fe5ae205ba6",
+    "050-cc-lex.fth": "59f93ef42f8019566b2ff2228a11194fe1a330363b68e583d1995eeca4e95fbb",
+    "060-cc-types.fth": "b9cf251897d0e075acbb7c60cd3a93a7b9dc0e2dd118e5c097c4376f73966afe",
+    "070-cc-sym.fth": "da2d3cfbe16f33ab973c28091fab5d453e1d6837d64f2bcc34f67655643e8d20",
+    "080-cc-elf.fth": "9b354a5296c84c118a7d33c517402bb2f2b71026fa505a46e33471aedadc1e47",
+    "081-cc-object.fth": "d687029d099e16af38479ed0f91e7c8f64c96a5999a80813fdc6086ee23c0b9f",
+    "090-cc-emit.fth": "93dc589b7a2dd4ca172cce8f7b951ec7dd1d8ab95372a354cb663b35ffbe73f7",
+    "100-cc-expr.fth": "92434d49206d3ce5e9e1372e670ce96c846fa0b0fc3342bc99642607404410ce",
+    "110-cc-decl.fth": "34f926dc5c4d493993e8484bf35ded73ffa72935a1c7506c206072c54fc43d87",
+    "112-cc-stmt.fth": "be3e3bbb4bc37ad1bb9bab1de745e54bb868e92ab228429e42fd422897816b81",
+    "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
+    "115-cc-native.fth": "12547c74c73d9995b4d16ddea5bbd444b2a6392b61963f042a1b318369fd75a3",
+    "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
+    "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
+    "118-cc-native-init.fth": "f9bfdf4d6553fce79f08a8e96676be87536866825586d40a8f302917252a1817",
+    "119-cc-native-runtime.fth": "b6504df1d6eb025ed930c3ad26865f4acef646ba2cd5fa9ab7a78bf0c0af8354",
+    "121-cc-sysv.fth": "221deb7169f094096a3b4a877f7dd7de325ebccbb8a98a3ed09b4c0e59f9e656",
+    "122-cc-sysv-runtime.fth": "aeab9adcb99cc1b180212f876d5715c137199e2697b94968b1ba18ea6a6de2fa",
+    "123-cc-object-program.fth": "4e0cf10a68c80611fe5a28f903aadb380f2c3107ae2dcc1c1d8bbfdededc0606",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+    "sysv-compile.sh": "7360b3c8316cb2f4d4a0973e8f45d8a5ba072dab2e22dfca55913d94263fb8ab",
+    "sysv-object-compile.sh": "457c12d0ff1cb43ebc5ad5d8d808012094df8470e6a5255f762a01d32403f291"
+  },
+  "gcc_ffs": {
+    "comparisons": 65604,
+    "host_compiler_or_linker_used": false,
+    "object_sha256": "19485f7f1610426d4f214da8bc72a9d5678008ba6646094e9ffd4a1f4ffb1782",
+    "source_sha256": "514a4bfc11ca70e48d818c9dccfb13b3c7f502371b0b54d0b13c5dec7220ecec"
+  },
+  "observed_utc": "2026-10-03T13:37:22Z",
+  "syscall": {
+    "inputs": {
+      "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+      "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+      "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+      "081-cc-object.fth": "d687029d099e16af38479ed0f91e7c8f64c96a5999a80813fdc6086ee23c0b9f",
+      "122-cc-sysv-runtime.fth": "aeab9adcb99cc1b180212f876d5715c137199e2697b94968b1ba18ea6a6de2fa"
+    },
+    "object_bytes": 880,
+    "object_sha256": "18f80c26c4437d3ad4864c84b6c38adef0bc9b97903500643f69dfc0e2299d54"
+  }
+}

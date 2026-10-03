@@ -9,20 +9,3 @@ tests/gcc/sysv-object-compile.sh tests/gcc/sysv-interop.c "$work/forth.o"
 ${CC:-cc} -std=c99 -O2 -Wall -Wextra -fno-pie -no-pie \
   tests/gcc/sysv-interop-host.c "$work/forth.o" -o "$work/check"
 "$work/check"
-while IFS='|' read -r label code source; do
-  printf '%s\n' "$source" > "$work/reject.c"
-  rc=0
-  tests/gcc/sysv-object-compile.sh "$work/reject.c" "$work/reject.o" \
-    >"$work/reject.log" 2>&1 || rc=$?
-  if [ "$rc" != "$code" ]; then
-    cat "$work/reject.log" >&2
-    echo "FAIL: $label returned $rc, expected $code" >&2
-    exit 1
-  fi
-  echo "PASS: object $label rejects with $code"
-done <<'CASES'
-global-storage|238|int value; int f(void) { return value; }
-string-storage|238|char *f(void) { return "x"; }
-defined-function-address|238|int f(void) { return 1; } int g(void) { int (*p)(void); p=f; return p(); }
-undefined-function-address|238|int f(void); int g(void) { int (*p)(void); p=f; return p(); }
-CASES

@@ -6,6 +6,10 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 SRC=$(realpath "$1")
 OUT=$(realpath -m "$2")
 shift 2
+if [ "$SRC" = "$OUT" ] || [ "$SRC" -ef "$OUT" ]; then
+  echo "sysv-compile: source and output must be different files" >&2
+  exit 1
+fi
 for pathname in "$SRC" "$OUT"; do
   if [[ "$pathname" =~ [[:space:]] ]] || [ "${#pathname}" -gt 255 ]; then
     echo "sysv-compile: Forth driver paths must be at most255 bytes without whitespace" >&2
