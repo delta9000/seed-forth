@@ -1,0 +1,1071 @@
+{
+  "production_source_sha256": {
+    "000-seed.hex0": "ba72ed985964a3860473c614a9eee73611027dba774b4a9993b24e3fe9947148",
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "040-cc-prep.fth": "5708cccd9f44de31878d31b80b48247f573a7559f996aa06073c42f4444e6426",
+    "050-cc-lex.fth": "bf834e9c54e127db1a861b6d46baa83462a46a36d3c6f7cd5fef328209101f80",
+    "060-cc-types.fth": "ffba767989a5b2e36155ebe772886217312ad75d03a3d25defc1488b3475de52",
+    "070-cc-sym.fth": "a82876cd1e252416217e2ccb7cd7aa638ed71d78949d9e144ee03d9b384d471a",
+    "080-cc-elf.fth": "9b354a5296c84c118a7d33c517402bb2f2b71026fa505a46e33471aedadc1e47",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "090-cc-emit.fth": "b4185773610671a92df5229e6539f65dea8484351ea32606f009b228d5929a0d",
+    "100-cc-expr.fth": "a298583c8dbab87c5ba62d4bb5be59128ab99fc339710a02b8e44eb425533885",
+    "110-cc-decl.fth": "da08b940f71029cb8310f102f3ee86b8ccec067addc393b1b81f8566e5244c90",
+    "112-cc-stmt.fth": "5942ce90a33d95e00462756d09fb634f80824a9f56a7fae5ad871f2198bb52a4",
+    "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
+    "115-cc-native.fth": "19b7cc5cfe7d2b256038f41f95468ef9136a2a58a90f2a6152caccdf85ce0fea",
+    "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
+    "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
+    "118-cc-native-init.fth": "9ca34eb32219670538272159c8b24f09471ec3f5b8f097aef0605e4f3db07122",
+    "119-cc-native-runtime.fth": "b6504df1d6eb025ed930c3ad26865f4acef646ba2cd5fa9ab7a78bf0c0af8354",
+    "121-cc-sysv.fth": "4888777bdb58fc395850519166b5265c705dfc5ba6a399080f24184aabc85edf",
+    "122-cc-sysv-runtime.fth": "96c19f8c0768a6568b5859d4d2d1a17895a60e3f8d1ffb983c9d1771fce25e12",
+    "123-cc-object-program.fth": "342265a9653749d6048737e3ff47796da3dfd3e4168fe8fa2fd54df535b547bb",
+    "124-cc-target.fth": "7cc14dbb2f5405dcf94f51f6aede0bc06c841965edf8381b524689a85d28f833",
+    "125-cc-consteval.fth": "4c0a19d98c49b22c2ab58f643663db83100d9a1a1d81f125800bcc6a624493d6",
+    "126-cc-varargs.fth": "ace8d45e525afd9291a8581696cef12002356091e842ae80d778495417030b0b",
+    "127-cc-binary64.fth": "20fe2cf59d1ca7946c2e8fa05be25cb617b2f761c1e7f5b8dbbf501469c91295",
+    "128-cc-float-literal.fth": "2d8c111de63ba71cdccee2421518376c1e17da256eceb2d6b0841896f36d0c80",
+    "129-cc-bitfield.fth": "6b063611400da557cad78d6519e0b6b969c2470c119b85b1f41352f8fb2e3fac",
+    "140-cc-link.fth": "abacc3197fd03baf31d2d86b0c999ca3b63e04b806882078d7925ae55bfd4e84",
+    "141-archive.fth": "e6a544feae6a75286dab034f319da04ca5149131ebf930257fc503ca975aa674",
+    "runtime/gcc-seed/alloc.c": "e991d68e2762297a016f790c89c9100fc26356bdafb98c2b42108dc269b8d0db",
+    "runtime/gcc-seed/include/errno.h": "74bdda42ea45803c322abcd869f00797cde8e31097a00bdb86b143b2cfda8816",
+    "runtime/gcc-seed/include/limits.h": "f2816b74d907b4b807c6859c66b1d385494c7dcff9102d7e230b55f35d203df1",
+    "runtime/gcc-seed/include/seed-frame.h": "799126e8e802b1239c60387eb02a41dbd241d7a514fb8bdf98d7658f6d32733e",
+    "runtime/gcc-seed/include/seed-syscall.h": "0b48a0551ee160e293897be689972898da5b25918f13eb9832ef7c086f2ab6b1",
+    "runtime/gcc-seed/include/stdarg.h": "2e4299158bbcb93fa91312fcfec98a60abcd2a5c9e91b086a65dd81194234c51",
+    "runtime/gcc-seed/include/stddef.h": "c6b77a9f36b42741a512106d0489421e609f6298dfdcad800293d54e55905b2c",
+    "runtime/gcc-seed/include/stdio.h": "54d09244b296a579d2f705c0a047d0810feddcab77f2bfdac64869d2a75fd599",
+    "runtime/gcc-seed/include/stdlib.h": "4f65f8f3b80231bdd9e44dad358953b3c5498fc0cc96e49075140dd745fbe22d",
+    "runtime/gcc-seed/include/string.h": "f403d347b9289f42a96586592c355ca9df27821f967c557284c33f92ec45ff6c",
+    "runtime/gcc-seed/include/sys/stat.h": "7966a888e8c64e2e466bb4412f21f3542ae5278565df73ecbe7b0b7610ea0ab7",
+    "runtime/gcc-seed/include/sys/types.h": "4c6740ca362e2464acfd2834f7659a07c0d482321c4fe95abcf46c4ce51721a9",
+    "runtime/gcc-seed/memory.c": "88c67f23ce55f61b9a6179a892e7635fbc228f27f69cde5962717e8a921f945b",
+    "runtime/gcc-seed/process.c": "3616c91604a13263d2a6a6bb327085036e4fcae43a1f7a4e4a1eedaa32b1ff5a",
+    "runtime/gcc-seed/sort.c": "a4f7a6e389eff9e9b2172756e1e22a53fcaf67dd52c945202fe2dcfd7fd08a87",
+    "runtime/gcc-seed/stat.c": "3b151bb6df4d85ca13639b1563d7572f6414de2b312f5ce8e6417738b0e477e1",
+    "runtime/gcc-seed/stdio.c": "64aed2d240f69021d6d34513044ad677b6deb4f3db84496839359747d9350d87",
+    "runtime/gcc-seed/string.c": "ae960271bebcc87cf1acca7555937af0eff7e9ba8bfff3011d57db2ef607471f",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+    "tools/gcc-direct-cc.py": "96bb6c803277f58e75720da702020d517052f33b82ae7cecc9dc49be5aa285c7"
+  },
+  "baseline_040_sha256": "4510f0499c350533a1d8c8059616f8a9b270c2b6ee863db5599a61fe1d3ccfb4",
+  "script_sha256": "6eb5484532df3377db1b103a1bece59ed8640b438760ff4563e21090e3694be9",
+  "work": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84",
+  "scope": "Literal and raw-stringification LF splicing; generic outside-token phase 2 remains excluded",
+  "oracle": "Host cc -E -P tokens and independent executable values; no host products feed production",
+  "cases": [
+    {
+      "name": "string-leading-and-repeated",
+      "source_sha256": "59d28b511ab0257ebfe4f626085f2cf248af8477997e550587c48f1186c7fb92",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"\\\nA\\\n\\\nB\" 4\n5\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"AB\"\n\n\n 4\n5\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "character-after-value",
+      "source_sha256": "30fbb2c4663684cc1108464c3707b62a5e9f7350906e0d20dc93eef8b21a4300",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "'A\\\n' 2\n3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "'A'\n 2\n3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "character-before-value",
+      "source_sha256": "12ec086433e8a4f01eb9640f8e500474da4722e0c75dd7c4698e2a3c847d710e",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "'\\\nA' 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "'A'\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "empty-string",
+      "source_sha256": "66a741c31693c4dd2d2e2e17ff3a84d0e9a58e2623cf41f9406ac5d23a70830c",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"\\\n\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "adjacent-strings",
+      "source_sha256": "6003494f908fd4876f2aca8b5bdb92562210895c5b5ce2457632c7ad9b29fc9e",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\nb\" \"c\\\nd\" 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"ab\"\n \"cd\"\n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "escaped-quote",
+      "source_sha256": "29d8f8f37d01e452dc9e8b40ef1b4398f87f38299bd685015edd716dc18cbdbb",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\"\\\nb\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\\"b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "split-hex-escape",
+      "source_sha256": "c79af55c131651e79273f5b540e6e4d0854443164d6a4b0ca8295bf199125f9b",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"\\x4\\\n1\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"\\x41\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "split-octal-escape",
+      "source_sha256": "84dc9e1f7dceb6d6e090023a21f32f0319245501e1321af405b826ad506c2c3b",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"\\10\\\n1\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"\\101\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "definition-repeat",
+      "source_sha256": "93e61371880acb3620c24f24488e3dd687ac46d9645c3ae993aa6b0bf497da71",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"a\\\nb\"   \"a\\\nb\"  3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\n \"ab\"   \"ab\"  3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "definition-function",
+      "source_sha256": "0e62fd867f3a5dc4836c26e31ef56113e0e425f73cec986e1adefec0ef59ee78",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"a\\\nb\",  7    3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\n \"ab\",  7    3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "prescan",
+      "source_sha256": "52a2d37051bbd1350fd370c506175eb2363f222da75cab86958deb6dc08146e0",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n   \"a\\\nb\"    3\n4\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n   \"ab\"   \n 3\n4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "prescan-nested",
+      "source_sha256": "9e09f3959820e770f9751228ed7778caf562a925da88823d86f354f09a8d2c15",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n\n      \"a\\\nb\"     ,     \"a\\\nb\"       4\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\n      \"ab\"     ,     \"ab\"      \n 4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "prescan-arguments",
+      "source_sha256": "13782e82b3e7c815bd5e49a52b9f68548c6eee0711885c29b58defeb27b447ee",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n   \"c\\\nd\"  ,  \"a\\\nb\"  ,2  4\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n   \"cd\"  ,  \"ab\"  ,2 \n\n 4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "prescan-unused",
+      "source_sha256": "25fa66214fd02d6dde6a8bdf486f9e312be4b636b5ad7a49c29c6283d7f269c7",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n 9 \n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n 9 \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify",
+      "source_sha256": "3879359ccfbc2f66da7742ce4dd4930cb2048cf19367fc50d87c86bb348c6859",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"\\\"a\\\\ b\\\"\" \n\n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"ab\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-and-expand",
+      "source_sha256": "13bb903f594ae2c329bfceba012012e715269d52fbe2efa8a4f4a50446f12442",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n   \"a\\\nb\"  ,\"\\\"a\\\\ b\\\"\",  \"a\\\nb\"  ,\"\\\"a\\\\ b\\\"\" \n\n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n   \"ab\"  ,\"\\\"ab\\\"\",  \"ab\"  ,\"\\\"ab\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-nested",
+      "source_sha256": "051a7753a003da7843e346e5a0c8f58cef6adae91f18f5cca2dcd899187afda3",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n\n  \"\\\"a\\\\ b\\\"\"  \n\n 4\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\n  \"\\\"ab\\\"\"  \n 4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-comment-spacing",
+      "source_sha256": "54aa302f6589b4665370534d479a0cd1626c732d824913daf5b773d29bf50233",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"a \\\"b\\\\ c\\\" d\" \n\n\n 4\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"a \\\"bc\\\" d\" \n\n 4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-raw-identifier",
+      "source_sha256": "7cd3a3244eb0f707ef78ed6666017536a24bd16c55a0969da0c676362ddc4adc",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"a\\\\ b\" \n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"ab\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-trailing-splice",
+      "source_sha256": "c4823f08ccee095f7a4de6dde77e58a319b377ff24efc2469a20936030118808",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"a\\\\\" \n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"a\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-only-splice",
+      "source_sha256": "ef38bff2a6ed87196786849b99562bc0b725051724b87d91d1bc91a2113eb662",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"\\\\\" \n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-edge-splices",
+      "source_sha256": "350494d2ee8535d65096aa2fe5dcb832c15616ef72b43f682c493bcb45970abc",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"\\\\ \\\"a\\\\ b\\\" \\\\\" \n\n\n\n 5\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"ab\\\"\" \n\n\n 5\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-trailing-comment",
+      "source_sha256": "4ba8979bd97604ddf07a52f8f44890da6ba09e85ea1bf1591a8aa712593c0ac9",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"a \\\\\" \n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"a\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-nested-trailing-splice",
+      "source_sha256": "693fd1821d0ac2a545cccfc3f35b3b33eeb4dbae05cfefd99a6ab9c1b04167fd",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n\n    \"a\\\\\"    \n 4\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\n    \"a\"    \n 4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "empty-paste-string",
+      "source_sha256": "f8daa349046f703d18cee6e8b787798c443eee70f059591086d8d155082e75e8",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"a\\\nb\" \n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"ab\" \n\n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "wide-prefix-paste",
+      "source_sha256": "6006c47785aa4f0da10fd8a609240d0d99efe618c66496927641a78bf5b8dfea",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n L\"a\\\nb\" \n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n L\"ab\" \n\n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "escape-through-repeated-splices",
+      "source_sha256": "8a5a85fa644e2b15d3afb536213dcdaa3ec7f73645014b1b88bc896b928c3597",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\n\\\nb\" __LINE__\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\b\"\n\n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "character-escape-through-splice",
+      "source_sha256": "01b4e1e69203430be301901b8d65f0a6a79cdaf074f3b8c1966ebde057f6a25c",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "'\\\\\nn' __LINE__\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "'\\n'\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "skip-branch",
+      "source_sha256": "5681f322a04d7e76394b7e57f9ce2e57cc749fa5843bd3de16347076f419f935",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\n\n\n\n\n\n\n9\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\n\n\n\n\n\n\n9\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "if-character",
+      "source_sha256": "692481c1be176eb35c27ada7c82fabb3f8719ddf65c37e531d2a4d8313c5b904",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 129,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 3: error 129\n"
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\nselected 3\n\n\n\n7\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "no-final-newline",
+      "source_sha256": "f6fe37ab28f90505b47a84ba6c0dc6186d7f7feebba90b81f9036270e2a74c96",
+      "oracle_status": 0,
+      "oracle_stderr": "/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84/no-final-newline.c:1:3: warning: backslash-newline at end of file\n    1 | \"a\\\n",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\nb\"",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"ab\"\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "slash-run-1",
+      "source_sha256": "b68c1b82106fd1db17adbc4f59e1eb0ceebac6dee1b5ab5070f19b121ac80388",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\nb\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"ab\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-slash-run-1",
+      "source_sha256": "3879359ccfbc2f66da7742ce4dd4930cb2048cf19367fc50d87c86bb348c6859",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"\\\"a\\\\ b\\\"\" \n\n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"ab\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "slash-run-2",
+      "source_sha256": "02dd53ac06e54de2abbd565ca68b0f3dfa3a604c77deb56b329e12a65b7176c2",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\nb\" __LINE__\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-slash-run-2",
+      "source_sha256": "e54ca423fa954ff110e34920083c02f56e01416c16b9670fc6d55be14ca297e9",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 44,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 2: error 44\n"
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"a\\\\b\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "slash-run-3",
+      "source_sha256": "3c3fe01d07b9c7c21d242a3d65e9626c49fefb83853dbb8c825ffc4c60c22dae",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\\\nb\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\\\b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-slash-run-3",
+      "source_sha256": "45031064a9cac0e34049cd2f530502b18868fd549a367544c322917a34adae41",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"\\\"a\\\\\\\\\\\\ b\\\"\" \n\n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"a\\\\\\\\b\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "slash-run-4",
+      "source_sha256": "4139d5e29aef19861ed572648ccbdf7f2525380d0542d8854b960b23ebcbbada",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\\\\\nb\" __LINE__\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\\\\\b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-slash-run-4",
+      "source_sha256": "08acf3a3a9165c8826e3109f5cef2dcba6dd3394a19b0330f737f470ad9b2907",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 44,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 2: error 44\n"
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"a\\\\\\\\\\\\b\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "slash-run-5",
+      "source_sha256": "f447c8d9c5091363153c179ea58858cc8e84b7476d6b4f025600441bd9bea1bb",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\\\\\\\nb\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\\\\\\\b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-slash-run-5",
+      "source_sha256": "10d6103e50e7f7ca52607de4fedcbde2ad3b37fc9c69bd12d860c1ab400a40cf",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\n \"\\\"a\\\\\\\\\\\\\\\\\\\\ b\\\"\" \n\n 3\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"a\\\\\\\\\\\\\\\\b\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "slash-run-6",
+      "source_sha256": "3f97674c8b342aa616206ba82c7e9e42167c50178b8402cf5a986c878607c3a9",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\\\\\\\\\nb\" __LINE__\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\\\\\\\\\b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "stringify-slash-run-6",
+      "source_sha256": "c229f1e20a9240fef34eb8659bd0b22ede54560463ac36fa10c88311c409af41",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 44,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 2: error 44\n"
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n \"\\\"a\\\\\\\\\\\\\\\\\\\\b\\\"\" \n 3\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "splice-makes-escaped-quote-2",
+      "source_sha256": "ffb39463038a9049c4d9b0402f655e7377836d9479ce643d01efaa7bce74c57d",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\n\"b\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\\"b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "splice-makes-escaped-quote-4",
+      "source_sha256": "df6f85cda016501fa68781420d003a7166aadadbb910e98d9990ed73fb8d8bf9",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\\\\\\\n\"b\" 2\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"a\\\\\\\"b\"\n 2\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-includes",
+      "source_sha256": "6cb91abfc79204a81c94dc3f658d9b34a88fe9e01553aa39916cc3511f2405e0",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 30,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 6: error 30\n"
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\"parenttext\"\n 2 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84/parent.h\"\n\n\n\"childtext\"\n 2 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84/sub/child.h\"\n\n\n\n \"def\"  6 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84/parent.h\"\n\n\"roottext\"\n  \"def\"  3 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84/nested-includes.c\"\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "computed-function-header",
+      "source_sha256": "23b3d96efe6bd29f4a873ee2ff31152d57b30de3a750fb997e2880a50034587d",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 30,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 5: error 30\n"
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\"childtext\"\n\n 2 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84/sub/child.h\"\n\n\n\n4\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "computed-stringified-header",
+      "source_sha256": "3eb79d04a86b8c64aa45d00703ac9cf7696801e60078af54565700058eff33e2",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 30,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 2: error 30\n"
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": true,
+        "stdout": "\n\"childtext\"\n\n 2 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-literal-splice-tdbdef84/sub/child.h\"\n\n\n\n4\n",
+        "stderr": ""
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "name": "outside-identifier-splice",
+      "source_sha256": "a0572ca3d35516678f0a75e4b5b7c79861e7d0f121d5a7adfa8838f54aab219e",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "__LI\\\nNE__\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "__LI\\\nNE__\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "direct-header-splice",
+      "source_sha256": "0bcdb0009981e977756adebabdb86b608e43176ce28577cea39e084c0f779d5b",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 30,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 1: error 30\n"
+      },
+      "after": {
+        "status": 30,
+        "tokens_equal_host": false,
+        "stdout": "",
+        "stderr": "cc: line 1: error 30\n"
+      }
+    },
+    {
+      "name": "crlf-literal",
+      "source_sha256": "1bfce15d5877dc6810d5c6a47747dc224e3100c9a1f9af3d999355afce7e2daa",
+      "oracle_status": 0,
+      "oracle_stderr": "",
+      "before": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\r\nb\" __LINE__\r\n",
+        "stderr": ""
+      },
+      "after": {
+        "status": 0,
+        "tokens_equal_host": false,
+        "stdout": "\"a\\\r\nb\" __LINE__\r\n",
+        "stderr": ""
+      }
+    }
+  ],
+  "historical": [
+    {
+      "mode": "native",
+      "name": "ordinary",
+      "unchanged_bytes": true,
+      "matches_host": true,
+      "after_sha256": "2f9d51a0f2e6c66972d2a2dc7cccee97e02f3cd7e8029cf9ceaf231cf1913cce"
+    },
+    {
+      "mode": "native",
+      "name": "spliced",
+      "unchanged_bytes": false,
+      "matches_host": true,
+      "after_sha256": "05585a1ed64084d5231dce296c2a8bb84cfdf5883df4e1ea95f8ca694e3b0d17"
+    },
+    {
+      "mode": "legacy",
+      "name": "ordinary",
+      "unchanged_bytes": true,
+      "matches_host": true,
+      "after_sha256": "2f9d51a0f2e6c66972d2a2dc7cccee97e02f3cd7e8029cf9ceaf231cf1913cce"
+    },
+    {
+      "mode": "legacy",
+      "name": "spliced",
+      "unchanged_bytes": false,
+      "matches_host": true,
+      "after_sha256": "05585a1ed64084d5231dce296c2a8bb84cfdf5883df4e1ea95f8ca694e3b0d17"
+    }
+  ],
+  "execution": {
+    "host": {
+      "compile_status": 0,
+      "stderr": "",
+      "status": 0,
+      "stdout": "ab\n"
+    },
+    "forth": {
+      "compile_status": 0,
+      "stderr": "",
+      "status": 0,
+      "stdout": "ab\n"
+    }
+  },
+  "historical_execution": [
+    {
+      "mode": "native",
+      "label": "before",
+      "compile_status": 0,
+      "stderr": "",
+      "status": 0,
+      "sha256": "fcdce3acbed5d56ec8e17fa360ec8116013f2277b0d9b17190dda7e0a02d4ea1"
+    },
+    {
+      "mode": "native",
+      "label": "after",
+      "compile_status": 0,
+      "stderr": "",
+      "status": 0,
+      "sha256": "fcdce3acbed5d56ec8e17fa360ec8116013f2277b0d9b17190dda7e0a02d4ea1"
+    },
+    {
+      "mode": "native",
+      "ordinary_binary_unchanged": true
+    },
+    {
+      "mode": "legacy",
+      "label": "before",
+      "compile_status": 0,
+      "stderr": "",
+      "status": 0,
+      "sha256": "6100a69eaf86734f15cbebdb21cb1a731f0fbcb161e0001710b4861939c59fa9"
+    },
+    {
+      "mode": "legacy",
+      "label": "after",
+      "compile_status": 0,
+      "stderr": "",
+      "status": 0,
+      "sha256": "6100a69eaf86734f15cbebdb21cb1a731f0fbcb161e0001710b4861939c59fa9"
+    },
+    {
+      "mode": "legacy",
+      "ordinary_binary_unchanged": true
+    }
+  ],
+  "production_changed_during_review": [],
+  "failed_cases": [],
+  "status": "PASS"
+}
