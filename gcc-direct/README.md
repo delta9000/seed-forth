@@ -199,3 +199,38 @@ recursive lifetimes using the actual allocator and abort. A separate test
 allocator observes all13 allocations being reclaimed, rejects duplicate or
 unknown frees, and poisons freed storage to expose premature reclamation.
 That observer is never linked into production generators.
+
+## Original machine-mode generator checks
+
+Use GCC and libiberty configure directories built from the same verified
+compiler snapshot, with `--forth-ar` on both and `--alloca-frame` on libiberty:
+
+```sh
+python3 tests/gcc/driver-genmodes-check.py GCC_WORK LIBIBERTY_WORK
+python3 tests/gcc/driver-genmodes-oracle.py GCC_WORK LIBIBERTY_WORK
+```
+
+The production check uses the original libiberty Makefile rules to compile and
+archive five selected members: alloca, hashtab, xmalloc, xstrdup, and xexit.
+The sole source change is the documented target-guarded C_alloca adapter.
+The original GCC Makefile then builds `genmodes` with that actual archive as
+`BUILD_LIBIBERTY`. This is a selected-member bootstrap archive, not a complete
+libiberty build. Earlier full-library measurement built57 of75 objects; the
+remaining failures are retained separately.
+
+Before executing the generator, the checker preserves Forth preprocessing and
+verifies target definitions from the computed `EXTRA_MODES_FILE` include:
+`config/i386/i386-modes.def`, its six extra condition-code modes, extended/quad
+formats, and long-double adjustments. It hashes every original header/definition
+file, original source/recipe, generated header, compiler input, object, archive,
+executable, and output. The historical object produced while computed includes
+were skipped is quarantined as `genmodes.incomplete-include.o` and is not reused.
+
+Successful execution and marker coverage remain provisional. The independent
+host GCC/libc oracle builds unchanged original generator/library C using the
+same configured facts, with native original C_alloca behavior. Its three complete
+outputs must equal Forth production byte for byte. All oracle artifacts stay in
+`genmodes-host-oracle/` and never feed production. The first complete-target run
+exposed a real line-splicing defect: physical backslash-newline inside string
+literals became extra output newlines. That differential failure is retained;
+it does not count as accepted generator output.
