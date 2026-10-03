@@ -13,7 +13,7 @@ using one pipe: the library and the compiler exactly as they are
 written, comments and all, then M2-Planet's C source, all into
 `./seed-forth`'s stdin.  Something reads that stream, compiles
 11,508 lines of Forth (`010-lib.fth` through `120-cc-main.fth`) into
-1,003 colon definitions, and then runs the compiler it just built on
+1,008 colon definitions, and then runs the compiler it just built on
 the rest of the input.  That something is
 an 83-byte loop at `0x699` (lines 664–689), the last routine in the
 file.  It is the seed's loader, linker and command interpreter at
