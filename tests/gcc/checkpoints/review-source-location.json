@@ -1,0 +1,466 @@
+{
+  "source_sha256": {
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "040-cc-prep.fth": "62439124b461ccf6bfd4990420ac85b0237295f6f138449890ca29ffed52d49b",
+    "050-cc-lex.fth": "59f93ef42f8019566b2ff2228a11194fe1a330363b68e583d1995eeca4e95fbb",
+    "060-cc-types.fth": "b9cf251897d0e075acbb7c60cd3a93a7b9dc0e2dd118e5c097c4376f73966afe",
+    "070-cc-sym.fth": "a82876cd1e252416217e2ccb7cd7aa638ed71d78949d9e144ee03d9b384d471a",
+    "080-cc-elf.fth": "9b354a5296c84c118a7d33c517402bb2f2b71026fa505a46e33471aedadc1e47",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "090-cc-emit.fth": "e0205d8a3795adc7f142f476903b5413496203835c27fc011171b2347682d2c7",
+    "100-cc-expr.fth": "c4b6772b9a85cf7770cfd6d64cf6d4bbba60fa9880cebeaac2e122b7d9b135a5",
+    "110-cc-decl.fth": "e758872b9a3c82c18a855980066773f1fac4567aaa8325a2494ad59ad9d55449",
+    "112-cc-stmt.fth": "be3e3bbb4bc37ad1bb9bab1de745e54bb868e92ab228429e42fd422897816b81",
+    "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
+    "115-cc-native.fth": "44f2072b2935f906c04f10f3398fd09266b0960702a310224b260207b316c547",
+    "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
+    "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
+    "118-cc-native-init.fth": "c3f67efbd4d4d207f1a0fa6fa8b1cfb3de9a6b4eee82f34ab1986fc991183d0a",
+    "119-cc-native-runtime.fth": "b6504df1d6eb025ed930c3ad26865f4acef646ba2cd5fa9ab7a78bf0c0af8354",
+    "120-cc-main.fth": "2655c5e7fcc966ac1d7e6867aa6e650c21e173f714a89201e54aad416a6a4741",
+    "121-cc-sysv.fth": "077d64eb46bd8ab44608fdb9daf9d1e19663cd915cf5ac0530be03e2d85d879c",
+    "122-cc-sysv-runtime.fth": "aeab9adcb99cc1b180212f876d5715c137199e2697b94968b1ba18ea6a6de2fa",
+    "123-cc-object-program.fth": "8b6ceb6ca63fd10d995bdd97aef0363a77fcebe195f8650e17cdb3df33342879",
+    "124-cc-target.fth": "7cc14dbb2f5405dcf94f51f6aede0bc06c841965edf8381b524689a85d28f833",
+    "125-cc-consteval.fth": "4c0a19d98c49b22c2ab58f643663db83100d9a1a1d81f125800bcc6a624493d6",
+    "126-cc-varargs.fth": "ace8d45e525afd9291a8581696cef12002356091e842ae80d778495417030b0b",
+    "140-cc-link.fth": "9be639f99a6ffeef31baf456e3db765f83c9dd75c54054904c340febe81d84f8",
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "000-seed.hex0": "ba72ed985964a3860473c614a9eee73611027dba774b4a9993b24e3fe9947148",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+    "tools/gcc-direct-cc.py": "9e111c4660fca4306ea0375135cb619c7b7e8a5800fef25a1856ee2b0a07710b",
+    "tests/gcc/review-source-location-check.py": "c5141ec241a0835d933541087695d252f3d275f28f7ae25df9ed4c68b22d3529"
+  },
+  "cases": [
+    {
+      "name": "definition-versus-invocation",
+      "passed": true,
+      "actual": "\n\n\n 4   \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/definition-versus-invocation.c\" \n 5   \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/definition-versus-invocation.c\" \n",
+      "expected": "4 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/definition-versus-invocation.c\"\n5 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/definition-versus-invocation.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "definition-versus-invocation.c"
+    },
+    {
+      "name": "function-multiline",
+      "passed": true,
+      "actual": "\n 2,   3   ,2 \n\n\n",
+      "expected": "2,3,2\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "function-multiline.c"
+    },
+    {
+      "name": "nested-function-multiline",
+      "passed": true,
+      "actual": "\n\n  3,     4     ,3  \n\n\n",
+      "expected": "3,4,3\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "nested-function-multiline.c"
+    },
+    {
+      "name": "reverse-argument-prescan",
+      "passed": true,
+      "actual": "\n    3  ,   4  ,2 \n\n\n",
+      "expected": "3,4,2\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "reverse-argument-prescan.c"
+    },
+    {
+      "name": "repeated-raw-argument",
+      "passed": true,
+      "actual": "\n    3   ,   3   ,2 \n\n\n",
+      "expected": "3,3,2\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "repeated-raw-argument.c"
+    },
+    {
+      "name": "paste-builtin-name",
+      "passed": true,
+      "actual": "\n 2 \n\n\n \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/paste-builtin-name.c\" \n",
+      "expected": "2\n\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/paste-builtin-name.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "paste-builtin-name.c"
+    },
+    {
+      "name": "paste-empty",
+      "passed": true,
+      "actual": "\n 2 \n\n\n",
+      "expected": "2\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "paste-empty.c"
+    },
+    {
+      "name": "stringify-direct-and-expanded",
+      "passed": true,
+      "actual": "\n\n \"__LINE__\" \n \"__FILE__\" \n  \"6\"  \n\n\n  \"\\\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/stringify-direct-and-expanded.c\\\"\"  \n",
+      "expected": "\"__LINE__\"\n\"__FILE__\"\n\"6\"\n\"\\\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/stringify-direct-and-expanded.c\\\"\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "stringify-direct-and-expanded.c"
+    },
+    {
+      "name": "comments-and-blank-lines",
+      "passed": true,
+      "actual": "/* one\n two\n three */ 3\n// four\n5\n\n7\n",
+      "expected": "          3\n5\n7\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "comments-and-blank-lines.c"
+    },
+    {
+      "name": "comments-in-arguments",
+      "passed": true,
+      "actual": "\n 2,    3   ,2 \n\n\n",
+      "expected": "2,3,2\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "comments-in-arguments.c"
+    },
+    {
+      "name": "conditional-locations",
+      "passed": true,
+      "actual": "\n2\n\n\n\n6\n\n",
+      "expected": "2\n6\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "conditional-locations.c"
+    },
+    {
+      "name": "crlf",
+      "passed": true,
+      "actual": "\r\n2\r\n3\r\n",
+      "expected": "2\n3\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "crlf.c"
+    },
+    {
+      "name": "continued-definition",
+      "passed": true,
+      "actual": "\n\n 3 , 3 \n",
+      "expected": "3 , 3\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "continued-definition.c"
+    },
+    {
+      "name": "object-alias-multiline",
+      "passed": true,
+      "actual": "\n\n  3,   3    \n\n\n\n7\n",
+      "expected": "3,3\n7\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "object-alias-multiline.c"
+    },
+    {
+      "name": "nested-object-alias",
+      "passed": true,
+      "actual": "\n\n\n   4,   4    \n\n\n\n",
+      "expected": "4,4\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "nested-object-alias.c"
+    },
+    {
+      "name": "function-returns-name",
+      "passed": true,
+      "actual": "\n\n  3,   5    \n\n\n\n",
+      "expected": "3,5\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "function-returns-name.c"
+    },
+    {
+      "name": "paste-returns-name",
+      "passed": true,
+      "actual": "\n\n  3,   5    \n\n\n\n",
+      "expected": "3,5\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "paste-returns-name.c"
+    },
+    {
+      "name": "function-returns-alias",
+      "passed": true,
+      "actual": "\n\n\n   4,   6    \n\n\n\n",
+      "expected": "4,6\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "function-returns-alias.c"
+    },
+    {
+      "name": "object-returns-function",
+      "passed": true,
+      "actual": "\n\n\n   4,   4    \n\n\n\n",
+      "expected": "4,4\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "object-returns-function.c"
+    },
+    {
+      "name": "argument-returns-alias",
+      "passed": true,
+      "actual": "\n\n\n     4,   6    \n\n\n\n",
+      "expected": "4,6\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "argument-returns-alias.c"
+    },
+    {
+      "name": "argument-returns-name",
+      "passed": true,
+      "actual": "\n\n    3,   5    \n\n\n\n",
+      "expected": "3,5\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "argument-returns-name.c"
+    },
+    {
+      "name": "nested-alias-argument",
+      "passed": true,
+      "actual": "\n\n\n     4,   5       \n\n\n",
+      "expected": "4,5\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "nested-alias-argument.c"
+    },
+    {
+      "name": "object-prefix",
+      "passed": true,
+      "actual": "\n\n 3, 3,   3    \n\n\n\n",
+      "expected": "3,3,3\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "object-prefix.c"
+    },
+    {
+      "name": "undef-redefine",
+      "passed": true,
+      "actual": "\n\n\n\n\n\n\n\n 71 \n\n\n \"replacement\" \n",
+      "expected": "71\n\"replacement\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "undef-redefine.c"
+    },
+    {
+      "name": "redefine-as-function",
+      "passed": true,
+      "actual": "\n\n   71   \n",
+      "expected": "71\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "redefine-as-function.c"
+    },
+    {
+      "name": "skip-line-control",
+      "passed": true,
+      "actual": "\n\n\n\n5 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/skip-line-control.c\"\n",
+      "expected": "5 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/skip-line-control.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "skip-line-control.c"
+    },
+    {
+      "name": "nested-and-sibling-includes",
+      "passed": true,
+      "actual": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"\n1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/a.h\"\n\n1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/deeper/b.h\"\n\n\n4 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/a.h\"\n\n3 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"\n1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/c.h\"\n 2,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/c.h\"   2,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/c.h\" \n\n 5,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"   5,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\" \n6 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"\n1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/a.h\"\n1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/deeper/b.h\"\n4 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/a.h\"\n3 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"\n1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/c.h\"\n2,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/c.h\" 2,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/sub/c.h\"\n5,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\" 5,\"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"\n6 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/includes.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "includes.c"
+    },
+    {
+      "name": "command-macro-injection",
+      "passed": true,
+      "actual": " 1   \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/command-macro.c\" \n\n 3   \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/command-macro.c\" \n\n\n\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/command-macro.c\"\n3 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/command-macro.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "command-macro.c"
+    },
+    {
+      "name": "escaped-source-path-0",
+      "passed": true,
+      "actual": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/quote\\\"name.c\"\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/quote\\\"name.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "quote\"name.c"
+    },
+    {
+      "name": "escaped-source-path-1",
+      "passed": true,
+      "actual": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/slash\\\\name.c\"\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/slash\\\\name.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "slash\\name.c"
+    },
+    {
+      "name": "escaped-source-path-2",
+      "passed": true,
+      "actual": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/newline\\012name.c\"\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/newline\\nname.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "newline\nname.c"
+    },
+    {
+      "name": "escaped-source-path-3",
+      "passed": true,
+      "actual": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/tab\\011name.c\"\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/tab\tname.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "tab\tname.c"
+    },
+    {
+      "name": "escaped-source-path-4",
+      "passed": true,
+      "actual": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/byte\\0017name.c\"\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/byte\u00017name.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "byte\u00017name.c"
+    },
+    {
+      "name": "escaped-source-path-5",
+      "passed": true,
+      "actual": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/unicode-\\303\\251.c\"\n",
+      "expected": "1 \"/workspace/scratch/a051dd248045/seed-forth-gcc-recovery-20261003/build-out/review-source-location-kkkqit2a/unicode-\u00e9.c\"\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "unicode-\u00e9.c"
+    },
+    {
+      "name": "driver-stdin-name",
+      "passed": true,
+      "actual": "1 \"<stdin>\"\n",
+      "expected": "1 \"<stdin>\"\n"
+    },
+    {
+      "name": "raw-no-path-native",
+      "passed": true,
+      "actual": "__LINE__ __FILE__\n",
+      "stderr": "",
+      "status": 0
+    },
+    {
+      "name": "raw-no-path-sysv",
+      "passed": true,
+      "actual": "1 \"<stdin>\"\n",
+      "stderr": "",
+      "status": 0
+    },
+    {
+      "name": "reject-line-control-0",
+      "passed": true,
+      "status": 49,
+      "stderr": "cc: line 1: error 49\nseed-forth-cc: Forth compilation/link failed\n"
+    },
+    {
+      "name": "reject-line-control-1",
+      "passed": true,
+      "status": 49,
+      "stderr": "cc: line 1: error 49\nseed-forth-cc: Forth compilation/link failed\n"
+    },
+    {
+      "name": "forth-only-source-execution",
+      "passed": true,
+      "compile_status": 0,
+      "execution_status": 0,
+      "stderr": ""
+    }
+  ],
+  "production": "seed/Forth preprocessing, compiler, runtime and linker",
+  "host_oracle": "cc -E -P token comparison only",
+  "reference": "https://gcc.gnu.org/onlinedocs/cpp/Standard-Predefined-Macros.html",
+  "preexisting_boundaries": [
+    {
+      "name": "ordinary-line-splicing",
+      "matches_host": false,
+      "actual": "1 \\\n2\n",
+      "expected": "1 2\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "ordinary-line-splicing.c"
+    },
+    {
+      "name": "identifier-line-splicing",
+      "matches_host": false,
+      "actual": "__LI\\\nNE__\n",
+      "expected": "1\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "identifier-line-splicing.c"
+    },
+    {
+      "name": "comment-before-call",
+      "matches_host": false,
+      "actual": "\nA\n/* comment\n*/(\n5\n)\n",
+      "expected": "2,5\n",
+      "status": 0,
+      "oracle_status": 0,
+      "source": "comment-before-call.c"
+    }
+  ],
+  "input_files_changed_during_review": [],
+  "fixture_sha256": {
+    "argument-returns-alias.c": "17c1b1b67eea3b91b94a066f611b08e4047e989d8cdabbf88db9662732e79de4",
+    "argument-returns-name.c": "fb7f364c8c66d251fc913d3c6c38bba0c49ebc7407b61117458a8d6705dd6c36",
+    "byte\u00017name.c": "26cb8b6260bf9906f74af5cbe9750710a42ed3b5cd329d1d62b824deb086d9e1",
+    "command-macro.c": "fa451973a8070e032a2f6feaff17267ca761c8482564d10c424aa04fd669cd30",
+    "comment-before-call.c": "7638efed644b8d6eb6eda3a972eb0818b0a48e6dfc8d5d1d4c72afc901c4b96e",
+    "comments-and-blank-lines.c": "85b545fc1b3eaea066476ea59c2d11ca3577ab05e4595022095bda7100d72f39",
+    "comments-in-arguments.c": "d2e4491e6dd74ee192919b59c14c4cfda5dab481d58c830fb9ba5101b2ac2eb9",
+    "conditional-locations.c": "24942a5fd1088cf597d37f71ccac97df039fbf3b5be874242b8946cf0e335728",
+    "continued-definition.c": "db3193d50d862c80dec52d5597d20c9a0dd6c1eb42529ade123bc47db1078b61",
+    "crlf.c": "a9445d97c95b5f3881a10486ed525281a5c3b61e09c1907515f9f128a1edf73d",
+    "definition-versus-invocation.c": "2b009d81026e9391665a6e96be351440ee6c26b67f52bfe8b6d3b0b92b05414e",
+    "execute": "79fbf8f22ca0acc67281d125b3fcdddb18064ad2aad29783050a62dc672552a9",
+    "execute.c": "e62aff492f428c9a006e256d2692621430bf6dca973da83c89244d71971c2e9a",
+    "execute.h": "390fc8fe4607b7e328d6ffa30d20c945c953fc65372c675595c076b39e99cfb7",
+    "function-multiline.c": "58746534091bbfcb828b8ff0a48a6d3f01ed2d335abda251bc85b9002df551c6",
+    "function-returns-alias.c": "630e1ddc8ded3f66d9b32c38cd0885e909fd2bbf3292784169886a4cc925d42f",
+    "function-returns-name.c": "3b84cb7e03a23f492b9d06f22facb9f0ac837f6be63779527ed2964a3220cb6b",
+    "identifier-line-splicing.c": "a0572ca3d35516678f0a75e4b5b7c79861e7d0f121d5a7adfa8838f54aab219e",
+    "includes.c": "93df62031d424b08600adb381fb58dedacc2993a47dd1fdbcc8560054d7378ed",
+    "line-control-0.c": "73d1b95e6a1b6125b0b1e49e9d20385186e333c9f37bef0860184b17866f110c",
+    "line-control-0.o": "5d09fdc8c5fab6e7698ffcf45d675850afb286a2f04fde54d3e81747080fd3ed",
+    "line-control-1.c": "2ca3db90328b1942cf48f345d42766e56bd751cffa747526eebfeecf7ec1fba6",
+    "line-control-1.o": "5d09fdc8c5fab6e7698ffcf45d675850afb286a2f04fde54d3e81747080fd3ed",
+    "nested-alias-argument.c": "8d7ff73a6042aa09d41c5ea4ae6dd1eedd0473e57e7893f900287da96d70be95",
+    "nested-function-multiline.c": "30760daf4958fa9de67702270345c9a2f8c0593606356da9a2c9fbee235288c6",
+    "nested-object-alias.c": "34cb2c8b1f19c1b667344ff08bd84e753992e0e474074825b08047de00e6def1",
+    "newline\nname.c": "26cb8b6260bf9906f74af5cbe9750710a42ed3b5cd329d1d62b824deb086d9e1",
+    "object-alias-multiline.c": "900f185e332a77be51286737d8807e64f25221581a50e80496c14e809943da27",
+    "object-prefix.c": "884faf2241170b6cfb98e723e3f5b0f511a23cb5139dc9cb41aae7a9d11d0aef",
+    "object-returns-function.c": "08e698cf61250753c508af47630073a46f4ad0bcecfb7192f338dd8c2fdbb17c",
+    "ordinary-line-splicing.c": "671a83db1af758d7a35e2ebc824385fe1c633968c1beaef62a9017c6c19ea979",
+    "paste-builtin-name.c": "c3c62d6c7dbe1668634a8d4ad8196ec8671c5687c61f94e8588040d05857d328",
+    "paste-empty.c": "760642d712176fb142901e59193b33008d7c67649ab185427a37cb90d2ebe5f7",
+    "paste-returns-name.c": "b74a06f13d1ed8bffdb488c2f814c1d1106054359f1f0fee6c3f588112a10bbb",
+    "quote\"name.c": "26cb8b6260bf9906f74af5cbe9750710a42ed3b5cd329d1d62b824deb086d9e1",
+    "redefine-as-function.c": "ea2612c8f0dde1587552a3d4b11c82d7eab40e514d664efdfaa8c4d0ca3f8c2d",
+    "repeated-raw-argument.c": "3119a4e370946f64fd8845ce3d93ebb597a4f09a7e6372d223a8c11c89c70dbc",
+    "reverse-argument-prescan.c": "9f90db2a1e65f7a57f091ccce659e7b1b080c1b5ece3f065f45d1b068e89d9d5",
+    "skip-line-control.c": "c21982d1c87e222eb4eb3eb186c81031aba0b9666af9a9cfcfa127809594de41",
+    "slash\\name.c": "26cb8b6260bf9906f74af5cbe9750710a42ed3b5cd329d1d62b824deb086d9e1",
+    "stringify-direct-and-expanded.c": "6d450103573dba6913b904f78bb9b6351bf21223738e5eca54f0b32165a74e65",
+    "sub/a.h": "88eeb93957d99067f2a3a1dc608ec9d0376c43c95ad022f2aa815327c592929a",
+    "sub/c.h": "7e4fd16697a8a70a2efb1e4e3a7b44e238893b36ccb1199dfa3b069be54e22b2",
+    "sub/deeper/b.h": "aed2b8cf9bf6141d89c90026ce0095ae5b4989c786b69d5b4642e36e96dd0c93",
+    "tab\tname.c": "26cb8b6260bf9906f74af5cbe9750710a42ed3b5cd329d1d62b824deb086d9e1",
+    "undef-redefine.c": "0cef88fe125565d22d5ed8099cf9b8cce8aa2b3f87bf23db91358b2e8179a1c5",
+    "unicode-\u00e9.c": "26cb8b6260bf9906f74af5cbe9750710a42ed3b5cd329d1d62b824deb086d9e1"
+  },
+  "status": "PASS",
+  "failures": []
+}
