@@ -1,0 +1,237 @@
+{
+  "ansi_cache_state": [
+    ""
+  ],
+  "auto_host_sha256": "988e1395e3b75944ed53a0425fb3080272f02c8c43d231fec89d81548f0b7fef",
+  "configure_invocation_count": 172,
+  "configure_report_sha256": "b4129aade544e4331340a440961ee77f041a949ba61d13ccadfd326fdae8c762",
+  "configure_returncodes": {
+    "0": 35,
+    "143": 39,
+    "2": 12,
+    "205": 2,
+    "238": 1,
+    "253": 43,
+    "30": 36,
+    "93": 4
+  },
+  "date": "2026-10-03",
+  "declaration_fallbacks": {
+    "CALLOC": {
+      "configured": "0",
+      "equivalence": "identical return and parameter types; only parameter names/whitespace differ",
+      "fallback_declaration": "extern void *calloc (size_t, size_t);",
+      "probe_returncode": 143,
+      "provided_declaration": "void *calloc(size_t count, size_t size);",
+      "runtime_header": "stdlib.h",
+      "trace": "probes/1791044262149754452-ozcdj8e3"
+    },
+    "FREE": {
+      "configured": "0",
+      "equivalence": "identical return and parameter types; only parameter names/whitespace differ",
+      "fallback_declaration": "extern void free (void *);",
+      "probe_returncode": 143,
+      "provided_declaration": "void free(void *pointer);",
+      "runtime_header": "stdlib.h",
+      "trace": "probes/1791044262958014073-bctyeop0"
+    },
+    "MALLOC": {
+      "configured": "0",
+      "equivalence": "identical return and parameter types; only parameter names/whitespace differ",
+      "fallback_declaration": "extern void *malloc (size_t);",
+      "probe_returncode": 143,
+      "provided_declaration": "void *malloc(size_t size);",
+      "runtime_header": "stdlib.h",
+      "trace": "probes/1791044260670319650-bed9l656"
+    },
+    "REALLOC": {
+      "configured": "0",
+      "equivalence": "identical return and parameter types; only parameter names/whitespace differ",
+      "fallback_declaration": "extern void *realloc (void *, size_t);",
+      "probe_returncode": 143,
+      "provided_declaration": "void *realloc(void *pointer, size_t size);",
+      "runtime_header": "stdlib.h",
+      "trace": "probes/1791044261411864697-14olytu5"
+    },
+    "SNPRINTF": {
+      "configured": "0",
+      "equivalence": "identical return and parameter types; only parameter names/whitespace differ",
+      "fallback_declaration": "extern int snprintf (char *, size_t, const char *, ...);",
+      "probe_returncode": 143,
+      "provided_declaration": "int snprintf(char *buffer, size_t size, const char *format, ...);",
+      "runtime_header": "stdio.h",
+      "trace": "probes/1791044258878080408-313ll1qk"
+    },
+    "STRSTR": {
+      "configured": "0",
+      "equivalence": "identical return and parameter types; only parameter names/whitespace differ",
+      "fallback_declaration": "extern char *strstr (const char *, const char *);",
+      "probe_returncode": 143,
+      "provided_declaration": "char *strstr(const char *haystack, const char *needle);",
+      "runtime_header": "string.h",
+      "trace": "probes/1791044257182207963-zw8l1jyx"
+    }
+  },
+  "evidence_sha256": {
+    "build-out/configure-audit-7ikptj_g/report.json": "9f307f4476f4fb4836aba823d23a5d5b37b32e5dbecde6243f408761f80f3649",
+    "build-out/configure-audit-7ikptj_g/verified-probes.json": "b5a4fa66c4f73fcc11133a854107e46afd1913a65c912db43482066d76aac59b",
+    "build-out/configure-audit-corrected-vetkv2hs/report.json": "0a51de2df9b849a1b46570088b8d57c78dfba07ba1df858afee5763a3b307029",
+    "build-out/configure-audit-gencheck-2rd8is78/report.json": "96a08e04fd27e3cefc6c61de2e9d58d1292e63ef234fd6fc8829a77eec853e05"
+  },
+  "frozen_toolchain_sha256": {
+    "000-seed.hex0": "ba72ed985964a3860473c614a9eee73611027dba774b4a9993b24e3fe9947148",
+    "010-lib.fth": "e9488d7d07f7530cfc0ddf37ed8c83dd45fd36f625af932c1557bb1f14655e86",
+    "020-cc-arena.fth": "9db9c2c9c1bab9a87dc9505b9d4001a25229393d7c7020555cffa4f95f4beb66",
+    "030-cc-io.fth": "cd25945125c4ab9e4d9f3ff1cfafd9895b87559dc996fcd574b8b280aa0c8801",
+    "040-cc-prep.fth": "e07121b05ab6fa79de6119fcc738971f3aace84f779d4dd903f40793cd980dbc",
+    "050-cc-lex.fth": "59f93ef42f8019566b2ff2228a11194fe1a330363b68e583d1995eeca4e95fbb",
+    "060-cc-types.fth": "b9cf251897d0e075acbb7c60cd3a93a7b9dc0e2dd118e5c097c4376f73966afe",
+    "070-cc-sym.fth": "a82876cd1e252416217e2ccb7cd7aa638ed71d78949d9e144ee03d9b384d471a",
+    "080-cc-elf.fth": "9b354a5296c84c118a7d33c517402bb2f2b71026fa505a46e33471aedadc1e47",
+    "081-cc-object.fth": "7c9f15eb3d0b9820ebd5282fc76269ef3a27cee8fde09b64e6397dddd4e25438",
+    "090-cc-emit.fth": "e0205d8a3795adc7f142f476903b5413496203835c27fc011171b2347682d2c7",
+    "100-cc-expr.fth": "c4b6772b9a85cf7770cfd6d64cf6d4bbba60fa9880cebeaac2e122b7d9b135a5",
+    "110-cc-decl.fth": "e758872b9a3c82c18a855980066773f1fac4567aaa8325a2494ad59ad9d55449",
+    "112-cc-stmt.fth": "be3e3bbb4bc37ad1bb9bab1de745e54bb868e92ab228429e42fd422897816b81",
+    "114-cc-func.fth": "44d3b1eb00d92f6c6b90f319152464b6a0cf7177403476d72dcf901bf6c41ecc",
+    "115-cc-native.fth": "44f2072b2935f906c04f10f3398fd09266b0960702a310224b260207b316c547",
+    "116-cc-prog.fth": "1d65aab7a2f1b34e9eed5142048b8421e072354ac99b74cc59cc0accf8b0165c",
+    "117-cc-native-program.fth": "6420fd4e778ee6c72a7c81103e7fda0625f9296bd11e5e5cdbc621875ca53bd3",
+    "118-cc-native-init.fth": "c3f67efbd4d4d207f1a0fa6fa8b1cfb3de9a6b4eee82f34ab1986fc991183d0a",
+    "119-cc-native-runtime.fth": "b6504df1d6eb025ed930c3ad26865f4acef646ba2cd5fa9ab7a78bf0c0af8354",
+    "121-cc-sysv.fth": "077d64eb46bd8ab44608fdb9daf9d1e19663cd915cf5ac0530be03e2d85d879c",
+    "122-cc-sysv-runtime.fth": "aeab9adcb99cc1b180212f876d5715c137199e2697b94968b1ba18ea6a6de2fa",
+    "123-cc-object-program.fth": "8b6ceb6ca63fd10d995bdd97aef0363a77fcebe195f8650e17cdb3df33342879",
+    "124-cc-target.fth": "7cc14dbb2f5405dcf94f51f6aede0bc06c841965edf8381b524689a85d28f833",
+    "125-cc-consteval.fth": "4c0a19d98c49b22c2ab58f643663db83100d9a1a1d81f125800bcc6a624493d6",
+    "126-cc-varargs.fth": "ace8d45e525afd9291a8581696cef12002356091e842ae80d778495417030b0b",
+    "140-cc-link.fth": "9be639f99a6ffeef31baf456e3db765f83c9dd75c54054904c340febe81d84f8",
+    "gcc-direct/configure.py": "b37eb4d4c813ce32aaa9d545bdc8e556cca08a55948bfb04f30b47bfbad08c87",
+    "runtime/gcc-seed/alloc.c": "e991d68e2762297a016f790c89c9100fc26356bdafb98c2b42108dc269b8d0db",
+    "runtime/gcc-seed/include/errno.h": "74bdda42ea45803c322abcd869f00797cde8e31097a00bdb86b143b2cfda8816",
+    "runtime/gcc-seed/include/limits.h": "f2816b74d907b4b807c6859c66b1d385494c7dcff9102d7e230b55f35d203df1",
+    "runtime/gcc-seed/include/seed-syscall.h": "0b48a0551ee160e293897be689972898da5b25918f13eb9832ef7c086f2ab6b1",
+    "runtime/gcc-seed/include/stdarg.h": "2e4299158bbcb93fa91312fcfec98a60abcd2a5c9e91b086a65dd81194234c51",
+    "runtime/gcc-seed/include/stddef.h": "c6b77a9f36b42741a512106d0489421e609f6298dfdcad800293d54e55905b2c",
+    "runtime/gcc-seed/include/stdio.h": "54d09244b296a579d2f705c0a047d0810feddcab77f2bfdac64869d2a75fd599",
+    "runtime/gcc-seed/include/stdlib.h": "d7e9cac030a0be04b08a626373f9b034e8fe1fd01d5f7a1de3bcb47a871f6fa7",
+    "runtime/gcc-seed/include/string.h": "f403d347b9289f42a96586592c355ca9df27821f967c557284c33f92ec45ff6c",
+    "runtime/gcc-seed/include/sys/stat.h": "7966a888e8c64e2e466bb4412f21f3542ae5278565df73ecbe7b0b7610ea0ab7",
+    "runtime/gcc-seed/include/sys/types.h": "4c6740ca362e2464acfd2834f7659a07c0d482321c4fe95abcf46c4ce51721a9",
+    "runtime/gcc-seed/memory.c": "88c67f23ce55f61b9a6179a892e7635fbc228f27f69cde5962717e8a921f945b",
+    "runtime/gcc-seed/process.c": "53e335f1f4e8da91f2e91af2c9cd98970895d7d8f57fc13f559bfc5b7245305a",
+    "runtime/gcc-seed/stat.c": "3b151bb6df4d85ca13639b1563d7572f6414de2b312f5ce8e6417738b0e477e1",
+    "runtime/gcc-seed/stdio.c": "64aed2d240f69021d6d34513044ad677b6deb4f3db84496839359747d9350d87",
+    "runtime/gcc-seed/string.c": "ae960271bebcc87cf1acca7555937af0eff7e9ba8bfff3011d57db2ef607471f",
+    "seed-forth": "697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e",
+    "tools/gcc-direct-cc.py": "fa6d57bd66662eef6812dab4406bec02a31d24bd4fe4beeff60b40ae95bdaf87"
+  },
+  "gcc_archive_sha256": "091f7e50fb712289632fb14d93582a6a49d731c59b8c095cc75cff01c1f40a67",
+  "gencheck": {
+    "definition_inputs": {
+      "c-common.def": {
+        "count": 12,
+        "sha256": "cbf29e1827c30c79a77f14df42691f265f09902672ecac6582821d89637819a5"
+      },
+      "tree.def": {
+        "count": 152,
+        "sha256": "c4cf2790f3968a0cf04220939ff02edf6e58eb75978552cc889cbce80aaf01a1"
+      }
+    },
+    "executable_sha256": "031ed79fb660bad03df3c168f821bdf71a1702e7cfb10357c28a670d14552e77",
+    "generated_header_sha256": {
+      "auto-host.h": "988e1395e3b75944ed53a0425fb3080272f02c8c43d231fec89d81548f0b7fef",
+      "bconfig.h": "b9b3caa0092309f5287d81c2408276ad1b194537312c70556736450c5e66bb2b",
+      "configargs.h": "c46d4fb4c4a37d39078e1d0e8d0066ff1451b810046e05a6fe5e00c362ff73ca",
+      "cs-bconfig.h": "2cd8ec3de6a07e1fd39676100db57ba62372e820c19812fee55899f65746e192",
+      "cs-tm.h": "2cd8ec3de6a07e1fd39676100db57ba62372e820c19812fee55899f65746e192",
+      "gencheck.h": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gthr-default.h": "971c63b7084d9bed32f6f82872e2ebd24f91c25b153cd065e58a025b40da49d4",
+      "tm.h": "11807ce1e2f3bddc9a377991a9eb3d7c1efa7c0a9c930227336878886b471b24"
+    },
+    "object_sha256": "eed194c7d8e7ba473130836b5bcccb2dd02e649bd496dde72830f2e36d595980",
+    "output_bytes": 9675,
+    "output_sha256": "911a211b76f293fb5c7863cfb6bd82ad71da3956d130fdf56fe9487387e062f3",
+    "scope": "Original Makefile object flags replayed; bounded runtime focused link omits BUILD_LIBIBERTY. No archive/full Makefile link/full GCC proof.",
+    "unique_tree_codes": 164
+  },
+  "original_work": "build-out/direct-configure-l0h5udxy",
+  "repaired_original_probes": {
+    "ansi": {
+      "arguments": [
+        "-c",
+        "conftest.c"
+      ],
+      "input_sha256": {
+        "input-0.c": "087a3e03967d9d5ba4869bc9d5935c4de2ee48a3c16adda79da771b5af04c7c0",
+        "input-1.h": "6cae7872e5e6fb931f2cc81797d0bbbee6aa2d50b17fb2742f28047a046809df"
+      },
+      "output_sha256": {
+        "output-0": "25594cf6b1393036b5a7f24b180aa12b78ed9f412e9969e664451a06d63a5b06"
+      },
+      "returncode": 0,
+      "trace": "probes/1791044199985880699-s_qdj5f5"
+    },
+    "endian": {
+      "arguments": [
+        "-o",
+        "conftest",
+        "conftest.c"
+      ],
+      "execution_returncode": 0,
+      "execution_stderr": "",
+      "execution_stdout": "",
+      "input_sha256": {
+        "input-0.c": "35a5aaeab3c1424ce53b084586c26ba47287d331a6afbe5fcaf2131c8ebd45ad",
+        "input-1.h": "05ed9df976c3c5c6b29dbd511b7a57ceaf1940e004a8e69ce737c33613caf9fa"
+      },
+      "output_sha256": {
+        "output-0": "de58fb3fbe25baca57bdbdf58b23c99cd542140cd7fe3c833257a929a754238b"
+      },
+      "returncode": 0,
+      "trace": "probes/1791044225653192537-9b3z1sk0"
+    },
+    "mkdir": {
+      "arguments": [
+        "-c",
+        "conftest.c"
+      ],
+      "input_sha256": {
+        "input-0.c": "d736c2fbdaefc337ea84ae7c9aea836cbfe867963d893e6b002a93bf4b8e7bcb",
+        "input-1.h": "327e3acd67404b6d647b05d20731043c6f39b509db5cca2f75d37579a056817a"
+      },
+      "output_sha256": {
+        "output-0": "01dfbf7f14608940e5346943ae54570eedcf5c9b95d6c65ade39d5b4d339f058"
+      },
+      "returncode": 0,
+      "trace": "probes/1791044285484578074-chvdeym_"
+    }
+  },
+  "scope": "bounded native C-only generator evidence; no full configuration/libiberty/archive/GCC build claim",
+  "sizeof_and_layout": "sizes 1 2 4 8 8 8\nalignments 2 4 8 8 8\nbytes 8 1 1 0\nstat 144 8 24 48 72\ntypes 4 0 8 1 4 1\n",
+  "source_location_review": "separate review; no result inferred by this audit",
+  "source_sha256": {
+    "tests/gcc/configure-audit-check.py": "b1d0e1c0da8369684903de2fef378e1cd38f920e5b50f1f0589ec36960c52204",
+    "tests/gcc/configure-audit-corrected-check.py": "398c9c432e31ba6a2d4d352222a1f8901d2ba6572f5199802b5532d410cae1f7",
+    "tests/gcc/configure-audit-corrected.md": "22a920040a832b42f542365f21434ad640cdffdd1a59d936021d886179c17d0e",
+    "tests/gcc/configure-audit-gencheck.py": "cb1ec29c3343f20bde61aada6235f22dcf17a3eb2ccfa2c22694ed9bd66366a5",
+    "tests/gcc/configure-audit-layout.c": "7825a5e32a66b49a0edd59e4c52a354ba0d5fc1ec15c44c90265b31842f2e68a"
+  },
+  "status": "original endian/ANSI/mkdir probes and exact original gencheck independently verified",
+  "tangle_strict": "passed 2026-10-03",
+  "toolchain_manifest_sha256": "7ef79af64b40defe44950837ea13ed080b7ec870acc88a3b14b532b84a9ec05a",
+  "unavailable_runtime_interfaces": {
+    "getgroups": {
+      "diagnostic": "cc: line 1: error 253\nseed-forth-cc: Forth compilation/link failed\n",
+      "returncode": 253,
+      "symbol_present_in_runtime": false,
+      "trace": "probes/1791044246081882810-zm_cfpcs"
+    },
+    "sscanf": {
+      "diagnostic": "cc: line 1: error 253\nseed-forth-cc: Forth compilation/link failed\n",
+      "returncode": 253,
+      "symbol_present_in_runtime": false,
+      "trace": "probes/1791044246518145890-d5h9xu9i"
+    }
+  }
+}
