@@ -67,6 +67,44 @@ narrow integer arguments, and callbacks returning callbacks through both
 Forth-only executable paths. Optional `SF_GCC_CAST_ORACLE=1` runs separate
 host `-O0` and `-O2` semantic oracles and a host-linked Forth object.
 
+The explicit Linux AMD64 LP64 target also defines integer/function-pointer
+representation casts. ISO C leaves the general mapping implementation-defined
+([N1570, 6.3.2.3 paragraphs 3, 5, 6 and 8](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf));
+the [AMD64 psABI scalar-type table](https://gitlab.com/x86-psABIs/x86-64-ABI/-/raw/master/x86-64-ABI/low-level-sys-info.tex)
+represents LP64 function pointers as unsigned eightbytes. This target chooses
+an explicit bit-preserving mapping, after normalizing the source integer's
+width and signedness: signed 8/16/32-bit values sign-extend, unsigned values
+zero-extend, and 64-bit values preserve all bits. Integer zero becomes the
+all-zero null function pointer. A reverse cast to 64-bit `long` or
+`unsigned long` preserves the same bits; `long` interprets them as two's
+complement. This target already represents `long long` with the same type
+as `long`. Reverse casts to narrower integer types reject with 230.
+
+This is necessary for actual source boundaries: Linux signal headers express
+`SIG_DFL`, `SIG_IGN`, and `SIG_ERR` as function-pointer casts of 0, 1, and -1
+([glibc definitions](https://raw.githubusercontent.com/bminor/glibc/master/bits/signum-generic.h)).
+Original `oyacc` passes these sentinels to `signal`; the runtime must pass
+through their representation rather than treating them as callable functions.
+The same mapping lets an ABI test export a real function address as `long`
+and restore its original signature. Arbitrary numeric values can be stored,
+passed, returned, or compared as this target's representation; this gives no
+permission to call a sentinel, a noncanonical address, or a function through
+an incompatible signature. Object/function-pointer casts remain rejected,
+including a null `void *` cast to a function pointer.
+
+The type policy in `cc-sysv-cast-types` is pure and is shared by runtime casts
+and Chapter 41's static constant evaluator. The separate `cc-cast-value-fwd`
+hook normalizes runtime integer operands and then uses the existing conversion
+emitter. Its default preserves the native target's conversion path. Constants
+normalize their integer source using the typed constant evaluator, without
+emitting instructions. Both typedef and abstract casts keep the destination
+signature descriptor, including callbacks returned from callbacks.
+`sysv-function-integer-casts-check.sh` checks all supported integer widths,
+null comparisons, static sentinels and address relocations, side effects once,
+restored typed calls, and rejection of object crossings in both output paths.
+`SF_GCC_CAST_ORACLE=1` adds host `-O0`/`-O2` semantic and cross-compiler ABI
+oracles; sentinels are never called.
+
 Together with Chapter 47's bitfield layout, the pinned-source
 `sysv-gcc-obstack-check.sh` gate compiles the unchanged original
 `libiberty/obstack.c` and its original header. Its Forth-only executable
@@ -516,12 +554,38 @@ defer cc-sysv-signature-fwd
 \ the normal ABI class checks. Object/function-pointer crossings reject.
 : cc-sysv-function-pointer? ( type -- flag )
   dup ty-base ty-func = swap ty-ptr [lit] 1 = and ;
+: cc-sysv-integral? ( type -- flag )
+  dup ty-ptr if, drop [lit] 0 exit, then,
+  ty-base
+  dup ty-char = over ty-uchar = or over ty-short = or
+  over ty-ushort = or over ty-int = or over ty-uint = or
+  over ty-long = or swap ty-ulong = or ;
+\ Explicit LP64 integer/function-pointer representation conversions use
+\ all 64 bits. Only pointer-width integral destinations preserve a function
+\ address. The policy is pure so constant and runtime casts share it.
+\ This permits signal sentinels and address round trips, not arbitrary calls.
 : cc-sysv-cast-types ( source destination -- )
   cc-target-sysv @ 0= if, 2drop exit, then,
   dup ty-void [lit] 0 ty-make = if, 2drop exit, then,
+  over cc-sysv-integral? over cc-sysv-function-pointer? and if,
+    2drop exit,
+  then,
+  over cc-sysv-function-pointer? over cc-sysv-integral? and if,
+    ty-size [lit] 8 <> if, [lit] 230 cc-die then, drop exit,
+  then,
   cc-sysv-function-pointer? swap cc-sysv-function-pointer? <>
   if, [lit] 230 cc-die then, ;
 ' cc-sysv-cast-types is cc-cast-types-fwd
+\ Normalize an integral operand before replacing its type with a pointer:
+\ signed narrow values extend their sign and unsigned ones extend zero.
+: cc-sysv-cast-value ( source destination -- )
+  cc-target-sysv @ if,
+    over cc-sysv-integral? over cc-sysv-function-pointer? and if,
+      over cc-emit-convert-rdi
+    then,
+  then,
+  cc-emit-convert-value ;
+' cc-sysv-cast-value is cc-cast-value-fwd
 
 
 \ Type identity is checked at redeclarations. Struct pointers retain tag

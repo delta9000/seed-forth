@@ -191,7 +191,7 @@ def check_symbols():
         ('1 ? chars : "dead"', (0, (1 << 16) + 1, 0, 23)),
         ('0 ? "dead" : chars', (0, (1 << 16) + 1, 0, 23)),
         ("functions", (0, (4 << 16) + 1, 7777, 37)),
-        ("(void*)functions", (0, 1, 0, 37)),
+        ("(unsigned long)functions", (0, ULONG << 16, 0, 37)),
         ('"live"+1', (1, (1 << 16) + 1, 0, 29)),
     ]
     setup = b"\ncc-sysv-enable\n[lit] 8388608 cc-arena-map\n"
@@ -222,6 +222,11 @@ constant-symbol-main
                                 input=layers() + setup + fixture + reject_driver + (expr + ";\n").encode(),
                                 capture_output=True, timeout=30)
         assert result.returncode == 240, (expr, result.returncode, result.stdout, result.stderr)
+    for expr in ("(void*)functions", "(int)functions", "(int (*)(void))ints"):
+        result = subprocess.run([str(ROOT / "seed-forth")],
+                                input=layers() + setup + fixture + reject_driver + (expr + ";\n").encode(),
+                                capture_output=True, timeout=30)
+        assert result.returncode == 230, (expr, result.returncode, result.stdout, result.stderr)
     print(f"PASS: {len(cases)} symbolic constants; dead strings allocate nothing; unsupported relocations rejected")
 
 

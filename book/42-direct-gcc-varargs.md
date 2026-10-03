@@ -2,8 +2,8 @@
 
 ## Goal
 
-Compile integer and pointer variadic callees with the same list representation
-used by other AMD64 System V compilers. The production proof compiles separate
+Compile INTEGER and binary64 variadic retrieval with the same list
+representation used by other AMD64 System V compilers. The production proof compiles separate
 C objects and constructs their executable with Forth. Host GCC and libc are
 used only by a separate interoperability test.
 
@@ -18,10 +18,11 @@ The public declarations live in `runtime/gcc-seed/include/stdarg.h`.
 **Concepts introduced:** array typedef identity, per-invocation register-save
 areas, variadic cursors, checked compiler intrinsics, and list copying.
 
-**Deferred:** floating expressions and `va_arg` results, floating named
-parameters or return values, aggregate argument values, vector types, and a
-complete GCC reconstruction. Saving opaque incoming XMM bytes for a host
-consumer does not implement those C language features.
+**Deferred:** floating call arguments and named parameters, float and
+long-double retrieval, aggregate argument values, vector types, and a complete
+GCC reconstruction. Binary64 expressions and returns use the value machinery
+in [chapter 45](45-direct-gcc-binary64.md); incoming binary64 retrieval here
+does not implement floating argument classification for calls.
 
 ## 1. The list is an array of one record
 
@@ -80,10 +81,10 @@ The resulting list can be passed to a host consumer that knows its argument
 types. That consumer can retrieve incoming doubles from the XMM slots and
 use the unchanged overflow pointer for arguments passed on the stack. This
 also lets an integer-only callee ignore unused floating arguments. It does
-not make the Forth compiler classify, evaluate, or emit floating C values: all
+not make the Forth compiler classify or emit floating call arguments: all
 named parameters must still use the supported INTEGER class. Its own
-`va_arg` accepts only the integer and pointer types described below; a caller
-and consumer must still agree on every retrieved argument type.
+`va_arg` now retrieves binary64 values as well as the integer and pointer types
+described below; a caller and consumer must still agree on every argument type.
 
 ## 3. Four intrinsics with ordinary C spelling
 
@@ -103,11 +104,30 @@ value is then loaded with its declared signedness and width. Four-byte `int`
 and `unsigned int` therefore do not expose the unused upper half of a GP slot.
 Pointers and the LP64 long types use all eight bytes.
 
+For `double`, we instead test whether `fp_offset` is below 176. A register
+value uses `reg_save_area + fp_offset`, then advances only `fp_offset` by 16.
+The low eight bytes of that XMM save slot hold the binary64 payload; its upper
+eight bytes are not another argument. After all eight XMM slots are consumed,
+the same overflow pointer supplies an eight-byte stack value and advances by
+eight. The 176 comparison uses a full immediate, avoiding the signed imm8
+encoding that would compare against a negative value.
+
+GP and XMM exhaustion are independent. A GP access never advances the FP
+cursor, and a double access never advances the GP cursor. Both classes share
+the overflow cursor in argument order once their own register bank is full.
+A System V stack double needs eight-byte alignment, already guaranteed by the
+incoming stack area and every supported overflow access. This does not claim
+the sixteen-byte alignment or special classification needed by long double.
+The existing typed load carries the double bits in RDI for chapter 45 to
+store, compute with, cast, discard, or return through XMM0.
+
 The caller already applies default promotions to unnamed arguments. Reading
 an `int` is appropriate for promoted `char` and `short` values; asking
-`va_arg` for either narrow type is rejected. Floating and aggregate requests
-also fail rather than consuming an INTEGER slot under a different ABI. Opaque
-forwarding leaves those typed retrieval operations to a host consumer.
+`va_arg` for either narrow type is rejected. Unnamed `float` is promoted to
+`double` by a conforming caller; `va_arg(list, float)` therefore stays rejected.
+Long-double and aggregate requests also fail rather than consuming a slot
+under the wrong ABI. Opaque forwarding can still leave those operations to
+a host consumer.
 
 `va_copy` copies the entire three-word record, producing an independent cursor
 that shares the immutable saved arguments. `va_end` evaluates and checks its
@@ -122,9 +142,10 @@ The intrinsic layer prefixes its diagnostics with `varargs:`. Error 246 means
 an invalid list, invocation, named-parameter reference, or start context.
 Error 247 means an unsupported requested result type. The numbers overlap
 errors in other bounded compiler components, so the prefix identifies the
-phase. Declaration-only floating types can be named, so `va_arg(list, double)`
-reaches the intrinsic's error 247, as do `float` and `long double`. The negative
-checks require exit status 247, exactly one `varargs: cc: line N: error 247`
+phase. Unsupported floating types can be named, so `va_arg(list, float)` and
+`va_arg(list, long double)` reach the intrinsic's error 247. Binary64 retrieval
+is accepted. The negative checks require exit status 247, exactly one
+`varargs: cc: line N: error 247`
 diagnostic, empty stdout, and preservation of an existing output file.
 Pointers to floating objects still belong to the INTEGER class and can be
 retrieved without loading a floating value.
@@ -155,13 +176,32 @@ the permitted upper-bound case. The formatter comparison mixes ten doubles,
 ten longs, and a long double, comparing both bytes and return length. None of
 those host-built objects enters the production proof.
 
+`varargs-binary64-check.py` independently calls Forth-built typed consumers at
+host `-O0` and `-O2`. It checks interleaved banks and both exhaustion orders,
+twelve doubles, stack-passed named parameters, host-initialized lists with
+named floating arguments, copied cursors before and after overflow, list
+restart, and nested callbacks. Signed zero, infinities, a NaN payload and a
+subnormal are compared as bits. It also verifies the existing XMM0 result
+ABI and checked rejection of floating call arguments.
+
+`varargs-vasprintf-check.py` compiles the unmodified GCC 4.0.4
+`libiberty/vasprintf.c` with the original configured headers. Its sizing pass
+contains `(void) va_arg(ap, double)` even for integer/string-only uses;
+accepting that actual source is the motivating dependency. A separate-object
+executable uses the Forth-built `abs`, `strtoul`, allocation, string and
+`vsprintf` implementations. The exercised formats cover integer/string
+generator messages, constant and star widths/precisions, copied lists and GP
+overflow. Original-source and Forth-object host executions are separate
+oracles. Floating formatting remains unsupported by this bounded runtime;
+compiling the sizing branch does not imply implementing `%f` output.
+
 ## Canonical source
 
 ```forth file=126-cc-varargs.fth
-\ 126-cc-varargs.fth — integer/pointer System V AMD64 variadic callees.
+\ 126-cc-varargs.fth — INTEGER/binary64 System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
 \ Six GP and eight XMM slots belong to each invocation below named parameters.
-\ XMM bytes may be forwarded; floating expressions and va_arg stay unsupported.
+\ Binary64 retrieval consumes XMM or overflow slots; named FP parameters remain unsupported.
 create cc-va-error-prefix s, varargs: bl c,
 : cc-va-die cc-va-error-prefix [lit] 9 cc-err-write cc-die ;
 
@@ -282,18 +322,44 @@ create cc-va-tag-name s, __seed_va_list_tag
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
   [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
   cc-emit-mov-rdi-rax r> cc-patch-rel32-to-here ;
+\ Choose the next SSE slot for double, preserving gp_offset. Only the low
+\ eight bytes of each sixteen-byte XMM save slot are the binary64 payload.
+\ A stack double requires eight-byte alignment, already maintained by every
+\ supported INTEGER/double overflow access and the incoming ABI stack area.
+: cc-va-next-double-address
+  [lit] 139 cc-emit-byte [lit] 71 cc-emit-byte [lit] 4 cc-emit-byte
+  [lit] 61 cc-emit-byte [lit] 176 cc-emit-4le        \ cmp eax, 176
+  [lit] 15 cc-emit-byte [lit] 131 cc-emit-byte        \ jae overflow
+  cc-out-pos @ [lit] 0 cc-emit-4le >r
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 16 cc-emit-byte         \ mov rcx, [rdi+16]
+  [lit] 72 cc-emit-byte [lit] 1 cc-emit-byte [lit] 193 cc-emit-byte
+  [lit] 131 cc-emit-byte [lit] 71 cc-emit-byte
+  [lit] 4 cc-emit-byte [lit] 16 cc-emit-byte         \ add dword [rdi+4],16
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 207 cc-emit-byte
+  cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 71 cc-emit-byte [lit] 8 cc-emit-byte          \ mov rax, [rdi+8]
+  [lit] 72 cc-emit-byte [lit] 141 cc-emit-byte
+  [lit] 72 cc-emit-byte [lit] 8 cc-emit-byte          \ lea rcx, [rax+8]
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
+  cc-emit-mov-rdi-rax r> cc-patch-rel32-to-here ;
 : cc-va-check-result-type ( type -- )
   dup [lit] 256 / [lit] 255 and if, [lit] 247 cc-va-die then,
   dup ty-ptr if, drop exit, then,
   ty-base dup ty-int = over ty-uint = or
-  over ty-long = or swap ty-ulong = or 0= if, [lit] 247 cc-va-die then, ;
+  over ty-long = or over ty-ulong = or swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
 : cc-va-arg
   cc-va-operand [char] , cc-va-expect
   cc-next-token-keep cc-native-type-name-fwd
   cc-type-name-array @ cc-type-name-inner @ or if, [lit] 247 cc-va-die then,
   dup cc-va-check-result-type cc-cast-desc @ >r >r
   [char] ) cc-va-expect
-  cc-va-next-address r@ cc-emit-load-typed-via-rdi
+  r@ ty-double [lit] 0 ty-make = if,
+    cc-va-next-double-address
+  else, cc-va-next-address then,
+  r@ cc-emit-load-typed-via-rdi
   r> r> cc-mark-typed-value ;
 : cc-va-copy-word ( displacement -- )
   [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
@@ -352,14 +418,14 @@ bash tests/gcc/varargs-interop-check.sh
 - **★** Trace `gp_offset` through five and then six unnamed integer arguments
   after one named parameter
 - **★★** Add a test that copies a cursor after it has entered the overflow area
-- **★★★** Describe the extra classification and typed lowering needed for
-  `va_arg(list, double)` after opaque XMM preservation already works
+- **★★★** Explain why sharing the overflow cursor still works when twelve
+  integers are followed by twelve doubles, then reverse their order
 
 ## Takeaways
 
 - The array typedef and the 24-byte record are both observable parts of the ABI
 - Register saves and cursor state belong to each active invocation
-- Opaque floating-list forwarding has a separate host proof and does not imply
-  floating C expression support
+- Typed binary64 retrieval and opaque list forwarding have distinct proofs;
+  neither implements floating call arguments or runtime floating formatting
 
 The next runtime component can consume these lists through ordinary C headers.

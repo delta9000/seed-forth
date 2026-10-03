@@ -85,3 +85,17 @@ create cc-sysrt-frame-code
   cc-obj-text cc-obj-use cc-sysrt-frame-code [lit] 5 cc-obj-bytes
   cc-sysrt-frame-name [lit] 19 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-text [lit] 0 [lit] 5 cc-obj-symbol drop ;
+
+\ Linux AMD64 signal-handler return. The kernel owns the signal frame;
+\ do not add a C/Forth frame or change RSP before rt_sigreturn.
+create cc-sysrt-sigreturn-name s, __seed_sigreturn
+create cc-sysrt-sigreturn-code
+[lit] 184 c, [lit] 15 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
+                                                 \ mov eax,15
+[lit] 15 c, [lit] 5 c,                           \ syscall rt_sigreturn
+[lit] 15 c, [lit] 11 c,                          \ ud2 if syscall returned
+: cc-sysrt-sigreturn-object
+  cc-obj-init
+  cc-obj-text cc-obj-use cc-sysrt-sigreturn-code [lit] 9 cc-obj-bytes
+  cc-sysrt-sigreturn-name [lit] 16 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-text [lit] 0 [lit] 9 cc-obj-symbol drop ;

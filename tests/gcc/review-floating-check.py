@@ -80,15 +80,15 @@ def main():
             'double-remainder':'double f(double *p,double *q){return *p % *q;}',
             'double-bitwise':'double f(double *p,double *q){return *p & *q;}',
             'double-shift':'double f(double *p){return *p << 1;}',
-            'double-va-arg':'#include <stdarg.h>\ndouble f(int n,...){va_list a;va_start(a,n);return va_arg(a,double);}',
+            'single-va-arg':'#include <stdarg.h>\ndouble f(int n,...){va_list a;va_start(a,n);return va_arg(a,float);}',
         }
         for name,source in rejects.items():
             path=work/(name+'.c'); path.write_text(source+'\n')
             rejected=work/(name+'.o')
             run([ROOT/'tests/gcc/sysv-object-compile.sh',path,rejected,
-                 ROOT/'runtime/gcc-seed/include'],247 if name=='double-va-arg' else 232)
+                 ROOT/'runtime/gcc-seed/include'],247 if name=='single-va-arg' else 232)
             if rejected.exists(): raise RuntimeError(f'{name}: rejected object was published')
-            code=247 if name=='double-va-arg' else 232
+            code=247 if name=='single-va-arg' else 232
             print('PASS:',name,'rejects with',code)
             results.append({'kind':'fail-closed','name':name,'exit':code})
 

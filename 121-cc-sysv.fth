@@ -280,12 +280,38 @@ defer cc-sysv-signature-fwd
 \ the normal ABI class checks. Object/function-pointer crossings reject.
 : cc-sysv-function-pointer? ( type -- flag )
   dup ty-base ty-func = swap ty-ptr [lit] 1 = and ;
+: cc-sysv-integral? ( type -- flag )
+  dup ty-ptr if, drop [lit] 0 exit, then,
+  ty-base
+  dup ty-char = over ty-uchar = or over ty-short = or
+  over ty-ushort = or over ty-int = or over ty-uint = or
+  over ty-long = or swap ty-ulong = or ;
+\ Explicit LP64 integer/function-pointer representation conversions use
+\ all 64 bits. Only pointer-width integral destinations preserve a function
+\ address. The policy is pure so constant and runtime casts share it.
+\ This permits signal sentinels and address round trips, not arbitrary calls.
 : cc-sysv-cast-types ( source destination -- )
   cc-target-sysv @ 0= if, 2drop exit, then,
   dup ty-void [lit] 0 ty-make = if, 2drop exit, then,
+  over cc-sysv-integral? over cc-sysv-function-pointer? and if,
+    2drop exit,
+  then,
+  over cc-sysv-function-pointer? over cc-sysv-integral? and if,
+    ty-size [lit] 8 <> if, [lit] 230 cc-die then, drop exit,
+  then,
   cc-sysv-function-pointer? swap cc-sysv-function-pointer? <>
   if, [lit] 230 cc-die then, ;
 ' cc-sysv-cast-types is cc-cast-types-fwd
+\ Normalize an integral operand before replacing its type with a pointer:
+\ signed narrow values extend their sign and unsigned ones extend zero.
+: cc-sysv-cast-value ( source destination -- )
+  cc-target-sysv @ if,
+    over cc-sysv-integral? over cc-sysv-function-pointer? and if,
+      over cc-emit-convert-rdi
+    then,
+  then,
+  cc-emit-convert-value ;
+' cc-sysv-cast-value is cc-cast-value-fwd
 
 
 \ Type identity is checked at redeclarations. Struct pointers retain tag

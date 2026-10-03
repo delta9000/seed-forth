@@ -1,7 +1,7 @@
-\ 126-cc-varargs.fth — integer/pointer System V AMD64 variadic callees.
+\ 126-cc-varargs.fth — INTEGER/binary64 System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
 \ Six GP and eight XMM slots belong to each invocation below named parameters.
-\ XMM bytes may be forwarded; floating expressions and va_arg stay unsupported.
+\ Binary64 retrieval consumes XMM or overflow slots; named FP parameters remain unsupported.
 create cc-va-error-prefix s, varargs: bl c,
 : cc-va-die cc-va-error-prefix [lit] 9 cc-err-write cc-die ;
 
@@ -122,18 +122,44 @@ create cc-va-tag-name s, __seed_va_list_tag
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
   [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
   cc-emit-mov-rdi-rax r> cc-patch-rel32-to-here ;
+\ Choose the next SSE slot for double, preserving gp_offset. Only the low
+\ eight bytes of each sixteen-byte XMM save slot are the binary64 payload.
+\ A stack double requires eight-byte alignment, already maintained by every
+\ supported INTEGER/double overflow access and the incoming ABI stack area.
+: cc-va-next-double-address
+  [lit] 139 cc-emit-byte [lit] 71 cc-emit-byte [lit] 4 cc-emit-byte
+  [lit] 61 cc-emit-byte [lit] 176 cc-emit-4le        \ cmp eax, 176
+  [lit] 15 cc-emit-byte [lit] 131 cc-emit-byte        \ jae overflow
+  cc-out-pos @ [lit] 0 cc-emit-4le >r
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 16 cc-emit-byte         \ mov rcx, [rdi+16]
+  [lit] 72 cc-emit-byte [lit] 1 cc-emit-byte [lit] 193 cc-emit-byte
+  [lit] 131 cc-emit-byte [lit] 71 cc-emit-byte
+  [lit] 4 cc-emit-byte [lit] 16 cc-emit-byte         \ add dword [rdi+4],16
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 207 cc-emit-byte
+  cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 71 cc-emit-byte [lit] 8 cc-emit-byte          \ mov rax, [rdi+8]
+  [lit] 72 cc-emit-byte [lit] 141 cc-emit-byte
+  [lit] 72 cc-emit-byte [lit] 8 cc-emit-byte          \ lea rcx, [rax+8]
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
+  cc-emit-mov-rdi-rax r> cc-patch-rel32-to-here ;
 : cc-va-check-result-type ( type -- )
   dup [lit] 256 / [lit] 255 and if, [lit] 247 cc-va-die then,
   dup ty-ptr if, drop exit, then,
   ty-base dup ty-int = over ty-uint = or
-  over ty-long = or swap ty-ulong = or 0= if, [lit] 247 cc-va-die then, ;
+  over ty-long = or over ty-ulong = or swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
 : cc-va-arg
   cc-va-operand [char] , cc-va-expect
   cc-next-token-keep cc-native-type-name-fwd
   cc-type-name-array @ cc-type-name-inner @ or if, [lit] 247 cc-va-die then,
   dup cc-va-check-result-type cc-cast-desc @ >r >r
   [char] ) cc-va-expect
-  cc-va-next-address r@ cc-emit-load-typed-via-rdi
+  r@ ty-double [lit] 0 ty-make = if,
+    cc-va-next-double-address
+  else, cc-va-next-address then,
+  r@ cc-emit-load-typed-via-rdi
   r> r> cc-mark-typed-value ;
 : cc-va-copy-word ( displacement -- )
   [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte

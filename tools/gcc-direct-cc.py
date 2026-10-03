@@ -230,7 +230,7 @@ class Toolchain:
         cache = cache_root / self.identity
         names = [Path(name).stem + ".o" for name in self.inputs
                  if name.startswith(RUNTIME + "/") and name.endswith(".c")]
-        names += ["syscall.o", "errno.o", "start.o", "frame.o"]
+        names += ["syscall.o", "errno.o", "start.o", "frame.o", "sigreturn.o"]
 
         def verified():
             try:
@@ -265,7 +265,8 @@ class Toolchain:
             for name, builder in (("syscall", "cc-sysrt-object"),
                                   ("errno", "cc-sysrt-errno-object"),
                                   ("start", "cc-sysrt-start-object"),
-                                  ("frame", "cc-sysrt-frame-object")):
+                                  ("frame", "cc-sysrt-frame-object"),
+                                  ("sigreturn", "cc-sysrt-sigreturn-object")):
                 driver += path_word(name + "-path", build / (name + ".o"))
                 driver += f"{builder} {name}-path cc-obj-write\n"
             self.forth(list(BASE) + ["081-cc-object.fth", "122-cc-sysv-runtime.fth"], driver + "bye\n")

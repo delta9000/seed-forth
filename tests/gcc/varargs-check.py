@@ -84,8 +84,7 @@ def main():
     ]
     for name, code, source in negatives:
         reject(work, name, code, source)
-    for name, typename in (("single", "float"), ("double", "double"),
-                           ("extended", "long double")):
+    for name, typename in (("single", "float"), ("extended", "long double")):
         reject(work, "floating-arg-" + name, 247,
                "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,"
                + typename + "); return 0; }")
@@ -105,7 +104,7 @@ def main():
         "host_compiler": False,
         "host_linker": False,
         "host_libc": False,
-        "negative_cases": len(negatives) + 4,
+        "negative_cases": len(negatives) + 3,
         "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                           for p in sources},
         "artifact_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()

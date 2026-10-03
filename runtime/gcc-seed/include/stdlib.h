@@ -8,6 +8,10 @@ void *calloc(size_t count, size_t size);
 void *realloc(void *pointer, size_t size);
 void qsort(void *base, size_t count, size_t size,
            int (*compare)(const void *, const void *));
+/* Fixed ASCII C locale; bases 0 and 2..36, no binary-prefix extension. */
+unsigned long strtoul(const char *text, char **end, int base);
+/* INT_MIN has no representable positive int result, as in ISO C. */
+int abs(int value);
 /* Terminates the supported single-threaded, unbuffered runtime; no atexit. */
 void exit(int status);
 void abort(void);

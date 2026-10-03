@@ -22,10 +22,7 @@ while IFS='|' read -r label code source; do
   fi
   echo "PASS: $label rejects with $code and preserves output"
 done <<'CASES'
-null-function-cast|230|int g(void){int (*p)(void)=(int (*)(void))0; return p!=0;}
-null-typedef-function-cast|230|typedef int (*F)(void); int g(void){F p=(F)0; return p!=0;}
-integer-to-function|230|int g(long p){return ((int (*)(void))p)();}
-function-to-integer|230|int f(void); long g(void){return (long)f;}
+function-to-narrow-integer|230|int f(void); int g(void){return (int)f;}
 object-to-function|230|int g(void *p){return ((int (*)(void))p)();}
 function-to-object|230|int f(void); void *g(void){return (void *)f;}
 function-to-char-double-pointer|230|int f(void); char **g(void){return (char **)f;}

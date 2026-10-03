@@ -28,7 +28,7 @@ bash tests/gcc/sysv-declaration-types-check.sh
 python3 tests/gcc/review-types-check.py
 bash tests/gcc/sysv-declarator-edges-check.sh
 python3 tests/gcc/review-declarator-check.py
-SF_GCC_CAST_ORACLE=1 bash tests/gcc/sysv-function-pointer-casts-check.sh
+SF_GCC_CAST_ORACLE=1 bash tests/gcc/sysv-function-integer-casts-check.sh
 bash tests/gcc/sysv-binary64-check.sh
 python3 tests/gcc/float-literal-check.py
 python3 tests/gcc/review-floating-literals.py
@@ -50,6 +50,7 @@ python3 tests/gcc/sort-oracle-check.py "$sort_work"
 bash tests/gcc/varargs-intrinsic-check.sh
 python3 tests/gcc/varargs-check.py
 bash tests/gcc/varargs-interop-check.sh
+python3 tests/gcc/varargs-binary64-check.py
 python3 tests/gcc/stdio-check.py
 python3 tests/gcc/stdio-oracle-check.py
 python3 tests/gcc/configure-runtime-check.py

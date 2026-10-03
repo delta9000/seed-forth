@@ -51,8 +51,9 @@ a live expression temporary across another call.
 
 This first stage accepts binary64 values and returns with integer/pointer
 parameters. Floating call arguments, floating parameter definitions,
-`va_arg(double)`, scalar float/long-double computation, and static floating
-initializers remain rejected. Double increment/decrement and ternary arms
+scalar float/long-double computation, and static floating initializers remain
+rejected. [Chapter 42](42-direct-gcc-varargs.md) supplies binary64 `va_arg`
+retrieval from incoming System V lists; it does not emit floating arguments. Double increment/decrement and ternary arms
 that mix double with another type are also rejected until their lowering is
 implemented. Integer-only operators, array subscripts and switch scrutinees
 reject floating operands. Floating type declarations, pointers and `sizeof`

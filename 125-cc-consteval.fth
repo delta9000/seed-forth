@@ -49,9 +49,13 @@ variable cc-const-used
   dup cc-const-type cc-const-scalar? r@ cc-const-scalar? and 0= if,
     cc-const-unsupported
   then,
+  dup cc-const-type r@ cc-cast-types-fwd
   dup cc-const-symbol if,
     r@ ty-size [lit] 8 <> if, cc-const-unsupported then,
   else,
+    dup cc-const-type cc-const-integer? if,
+      dup @ over cc-const-type cc-const-convert over !
+    then,
     r@ ty-ptr 0= if, dup @ r@ cc-const-convert over ! then,
   then,
   r> over [lit] 8 + ! r> over [lit] 16 + ! ;

@@ -610,6 +610,10 @@ variable cc-cast-desc                              \ struct TAG's descriptor, or
 : cc-cast-types-default ( source destination -- ) 2drop ;
 defer cc-cast-types-fwd
 ' cc-cast-types-default is cc-cast-types-fwd
+\ Runtime conversion stays separate from the pure cast-type policy.
+: cc-cast-value-default ( source destination -- ) cc-emit-convert-value ;
+defer cc-cast-value-fwd
+' cc-cast-value-default is cc-cast-value-fwd
 
 : cc-try-cast
   cc-next-token-keep
@@ -625,7 +629,7 @@ defer cc-cast-types-fwd
   r> r>                                            ( desc ty )
   cc-target-lp64 @ if,
     cc-last-expr-type @ over cc-cast-types-fwd
-    cc-last-expr-type @ over cc-emit-convert-value
+    cc-last-expr-type @ over cc-cast-value-fwd
   else,
     dup ty-base ty-char = over ty-ptr 0= and if, cc-emit-zx-byte-rdi then,
   then,

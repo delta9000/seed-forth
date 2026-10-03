@@ -41,7 +41,7 @@ REJECTIONS = {
     'floating-static-array': (232, 'float f[2]={0,0}; int main(void){return sizeof(f)!=8;}'),
     'floating-static-field': (232, 'struct S{double d;}; struct S s={0}; int main(void){return sizeof(s)!=8;}'),
     'floating-typed-constant': (240, 'enum E{n=(int)(double)1}; int main(void){return 0;}'),
-    'floating-va-arg': (247, '#include <stdarg.h>\nint f(int n,...){va_list a;va_start(a,n);va_arg(a,double);return 0;}'),
+    'floating-va-arg': (247, '#include <stdarg.h>\nint f(int n,...){va_list a;va_start(a,n);va_arg(a,float);return 0;}'),
 }
 
 
