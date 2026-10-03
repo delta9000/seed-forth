@@ -42,17 +42,21 @@ currently targets one native ABI and does not implement a virtual machine.
 
 ## Checkpoints and verification
 
-The first reconstructed components now have executable proofs: the Forth
-object writer emits separate call/data objects; the Forth linker resolves
-them into an executable; the scalar System V mode runs C programs and has
-bilateral host interoperability tests; and the Forth-emitted syscall bridge
-performs real Linux I/O and mapping calls. These are bounded, unfinished
-components. The object adapter currently rejects global storage, string
-materialization, and absolute function-address materialization. Floating and
-aggregate call classes remain unsupported. The unchanged GCC libiberty/ffs.c now compiles and runs through the Forth
-object/linker path, with independent behavioral comparisons. The bounded
-allocation, memory, and string runtime also executes through that path. A
-complete GCC bootstrap remains unfinished.
+The reconstructed Forth object writer, static linker, scalar System V mode,
+relocatable storage, typed integer constants, and source-built runtime have
+focused executable proofs. Separate C units share globals, string and function
+addresses, genuine array typedefs, and variadic argument lists. The unchanged
+GCC libiberty `ffs.c` and `hex.c` execute through the Forth object/linker path;
+`hex.c` uses the original GCC headers. Host tools supply independent behavioral
+and ABI comparisons only.
+
+The runtime currently supplies allocation, memory/string operations, unbuffered
+streams, and integer/pointer/string formatting. Historical ANSI headers use an
+explicit bounded C90-oriented target profile. Floating and aggregate value
+calling conventions remain unsupported; accepting declarations or taking
+`sizeof` does not implement those value operations. Genuine GCC configuration
+and the first generator are the next integration targets. A complete GCC build
+and self-rebuild remain unfinished.
 
 `tests/gcc/baseline-20261003/` records a fresh independent replay of the
 surviving baseline, including the actual raw-input direct TinyCC fixed point.
@@ -67,39 +71,30 @@ before considering a checkpoint durable. Preserve additional reviewed work
 manifests in the private checkpoint repository. Local build directories are
 scratch space, not backups.
 
-At this initial checkpoint, only the original baseline was checked out and its
-Git objects verified. No compiler edits, fresh bootstrap tests, or reconstructed
-GCC results have been produced. Prior unpublished hashes and test observations
-are historical evidence only; they do not validate new reconstruction bytes.
+## Verification scope at 2026-10-03 16:02 UTC
 
-Use the repository's build and test instructions in README.md and check-all.sh.
-Run focused tests during implementation, independent review at coherent gates,
-and applicable aggregate checks for the final composed source state. Report
-passed, failed, skipped, and never-run checks distinctly.
-
-## Known open component issue
-
-The ELF linker publishes its output atomically and preserves a previous output
-on write failure. The object writer still needs equivalent publication behavior:
-a forced short write can leave a partial destination file. The independent
-regression is `tests/gcc/review-elf-writer-atomicity.py`; hardening is in progress.
-This checkpoint preserves the implementation and the failure, not a claim that
-all review findings are closed.
-
-## Working checkpoint: 2026-10-03 14:16 UTC
-
-This checkpoint preserves reconstructed source before the next aggregate replay.
-Newer work includes K&R/unspecified declarations, typed integer constants,
-relocatable globals/strings/function addresses, atomic object publication, and
-the bounded C allocation/memory/string runtime. Focused owner and independent
-checks have executed; their reports identify the tested source hashes.
-
-The exact immutable commit 1a18de7e passed the combined component gate,
+The exact immutable commit `1a18de7e` passed its combined component gate,
 independent scalar ABI review, native checks, and the raw TinyCC executable
-and object fixed points; see tests/gcc/checkpoints/1a18de7e.json. Those results
-do not validate every later change in this checkpoint. Full current aggregate
-checks and book count/index refresh remain pending. Known storage-boundary
-work remains for explicit invalid array bounds and multiplication overflow.
-GCC generator/configuration closure and a complete direct GCC build remain
-unfinished. Earlier object-output atomicity findings are repaired in the
-current writer and retain their reproduction test.
+and object fixed points; see `tests/gcc/checkpoints/1a18de7e.json`. Those results
+do not validate every later change. Frozen tree `0f06514b` also passed the
+expanded component gate, native checks, and the actual raw TinyCC bootstrap,
+preserving the seed and TinyCC executable/object fixed-point hashes. Its 902
+source blobs and 2,373 copied vendor files were rehashed after execution; see
+`tests/gcc/checkpoints/composed-0f06514b.json`. This tree includes the driver,
+stdio, typed storage, and implicit-int definitions, but predates the namespace,
+configure runtime, and variadic XMM-save repairs. Later focused owner and
+independent checks record their own source hashes. Full repository aggregate
+and final book count/index checks remain pending for the current composition.
+
+The earlier object-writer short-write publication bug and invalid-array-bound
+findings are repaired and retain their reproduction tests. Current integration
+work includes genuine configure runtime contracts, separate tag/ordinary-name
+lookup, and preserving incoming variadic register data. Until their combined
+checks pass, treat the branch as an implementation checkpoint, not a release.
+
+Run the repository's applicable aggregate checks against the final composed
+source state. Report passed, failed, skipped, and never-run checks distinctly.
+No prior unpublished hash or historical test observation validates reconstructed
+source bytes. A remote commit that is not reachable from a branch is temporary
+preservation only and may be garbage-collected; verify the branch reference
+before describing any checkpoint as published.

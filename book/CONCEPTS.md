@@ -368,3 +368,7 @@ bootstrap. Their current implementation and limits are in [DIRECT-GCC.md](https:
 | [37: linking](37-direct-gcc-linker.md) | 13, 21, 35 | Separate C objects linked by Forth into a running program |
 | [38: syscall boundary](38-direct-gcc-runtime.md) | 5, 35–37 | Forth-built process entry, errno storage, and Linux calls |
 | [39: runtime](39-direct-gcc-libc.md) | 36–38 | Forth-built allocation, memory, and string execution |
+| [40: target headers](40-direct-gcc-target.md) | 22, 34, 36 | Explicit target facts and original historical ANSI declarations |
+| [41: typed constants](41-direct-gcc-constants.md) | 28, 34–36 | LP64 constant arithmetic and symbolic address initializers |
+| [42: variadic lists](42-direct-gcc-varargs.md) | 34, 36, 37 | Array-based System V lists across separately compiled units |
+| [43: streams](43-direct-gcc-stdio.md) | 35–39, 42 | Forth-built file I/O and bounded formatted generator output |

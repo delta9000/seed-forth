@@ -60,6 +60,10 @@
 - [The Forth ELF linker](37-direct-gcc-linker.md) — symbol resolution, relocation, BSS, and executable publication
 - [The runtime syscall boundary](38-direct-gcc-runtime.md) — raw Linux calls, errno storage, and process entry
 - [A bounded C runtime](39-direct-gcc-libc.md) — source-built allocation, memory, and string operations
+- [The target header dialect](40-direct-gcc-target.md) — explicit target facts and bounded historical header compatibility
+- [Typed constants](41-direct-gcc-constants.md) — integer types, checked arithmetic, and symbolic addresses
+- [System V variadic lists](42-direct-gcc-varargs.md) — array identity, saved registers, and argument cursors
+- [Streams and formatting](43-direct-gcc-stdio.md) — real files and bounded integer, pointer, and string formatting
 
 # Appendices
 
