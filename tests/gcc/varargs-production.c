@@ -3,6 +3,9 @@ int list_parameter_size(va_list list) { return sizeof(list); }
 long triple(long value) { return value * 3; }
 int main(void)
 {
+    float floating_single;
+    double floating_double;
+    long double floating_extended;
     long (*sum)(int, ...) = seed_sum;
     va_list uninitialized;
     char small = -7;
@@ -25,5 +28,7 @@ int main(void)
     if (seed_layout(0) != 0) return 13;
     if (seed_apply(0, triple, 14L) != 42) return 14;
     if (list_parameter_size(uninitialized) != 8) return 15;
+    if (!seed_float_pointers(&floating_single, &floating_double, &floating_extended,
+                             &floating_single, &floating_double, &floating_extended)) return 16;
     return 0;
 }

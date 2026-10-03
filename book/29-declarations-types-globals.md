@@ -51,6 +51,10 @@ variable cc-native-return-type
 variable cc-native-return-desc
 variable cc-type-name-array
 variable cc-type-name-inner
+\ Declaration spelling and executable value support are separate decisions.
+: cc-native-float-types-default cc-bootstrap-floatbits @ ;
+defer cc-native-float-types-fwd
+' cc-native-float-types-default is cc-native-float-types-fwd
 variable cc-native-frame-limit
 [lit] 131072 cc-native-frame-limit !
 
@@ -510,7 +514,7 @@ second look-ahead can start while one is in progress.
   while,
     cc-next-token-keep
     tok-kind @ tk-eof = if, [lit] 184 cc-die then,
-    cc-target-lp64 @ cc-bootstrap-floatbits @ 0= and if,
+    cc-target-lp64 @ cc-native-float-types-fwd 0= and if,
       kw-float cc-tok-kw? kw-double cc-tok-kw? or if, [lit] 214 cc-die then,
     then,
     tok-kind @ tk-punct = if,

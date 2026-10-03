@@ -37,6 +37,9 @@ arithmetic conversion rules. Every binary operation converts its operands to
 the common type, evaluates, then normalizes the result to that type. Shifts
 instead use the promoted left operand's type. Relational, equality, and logical
 operators produce `int`; `sizeof` produces the target's unsigned `size_t`.
+Floating type names are valid inside `sizeof`: `float`, `double`, and
+`long double` occupy four, eight, and sixteen bytes; their pointers occupy
+eight bytes. Floating values and conversions remain unsupported constants.
 Array typedefs retain their full shape in `sizeof`; a cast to an array typedef
 is rejected before its operand is evaluated. The existing type representation
 gives `long` and `long long` the same width

@@ -165,3 +165,18 @@ long seed_apply(int marker, ...)
     va_end(list);
     return function(value);
 }
+
+/* These arguments are pointers. No floating value is passed or loaded. */
+int seed_float_pointers(float *first, double *second, long double *third, ...)
+{
+    va_list list;
+    float *a;
+    double *b;
+    long double *c;
+    va_start(list, third);
+    a = va_arg(list, float *);
+    b = va_arg(list, double *);
+    c = va_arg(list, long double *);
+    va_end(list);
+    return a == first && b == second && c == third;
+}

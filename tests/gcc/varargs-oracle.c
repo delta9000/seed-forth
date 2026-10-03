@@ -40,6 +40,9 @@ static long triple(long value) { return value * 3; }
 
 int main(void)
 {
+    float floating_single;
+    double floating_double;
+    long double floating_extended;
     char actual[128];
     char expected[128];
     const char *format = "%d:%u:%ld:%s:%p:%lu";
@@ -71,5 +74,7 @@ int main(void)
                  18446744073709551615UL) != written) return 15;
     if (strcmp(actual, expected) != 0) return 16;
     if (seed_apply(0, triple, 14L) != 42) return 17;
+    if (!seed_float_pointers(&floating_single, &floating_double, &floating_extended,
+                             &floating_single, &floating_double, &floating_extended)) return 18;
     return 0;
 }

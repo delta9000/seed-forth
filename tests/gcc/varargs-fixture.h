@@ -3,6 +3,7 @@
 #include <stdarg.h>
 typedef long (*seed_unary)(long value);
 long seed_apply(int marker, ...);
+int seed_float_pointers(float *first, double *second, long double *third, ...);
 long seed_sum(int count, ...);
 long seed_vsum(int count, va_list list);
 long seed_named5(long a, long b, long c, long d, long e, ...);

@@ -116,6 +116,27 @@ def main():
                 struct S { long x; };
                 long f(struct S *p); long f(struct S *p) { return p->x; }
                 int main(void) { struct S s; s.x=42; return f(&s)!=42; }''',
+            'floating-and-aggregate-metadata': '''
+                struct S { char c; long double ld; double d; };
+                double external_double(void); struct S external_struct(void);
+                int main(void) {
+                    long (*floating)(double); long (*aggregate)(struct S);
+                    float f; double d; long double ld; struct S s;
+                    return sizeof(floating)!=8 || sizeof(aggregate)!=8
+                        || sizeof(f)!=4 || sizeof(d)!=8 || sizeof(ld)!=16
+                        || sizeof(s)!=48 || sizeof(external_double())!=8
+                        || sizeof(external_struct())!=48;
+                }''',
+            'floating-pointer-arithmetic': '''
+                int main(void) {
+                    float f[3]; double d[3]; long double ld[3];
+                    float *fp; double *dp; long double *lp;
+                    fp=&f[0]; dp=&d[0]; lp=&ld[0];
+                    return (char *)(fp+2)-(char *)fp!=8
+                        || (char *)(dp+2)-(char *)dp!=16
+                        || (char *)(lp+2)-(char *)lp!=32
+                        || sizeof(*lp)!=16;
+                }''',
         }
         args = ','.join(f'long a{i}' for i in range(64))
         values = ','.join(str(i+1) for i in range(64))
@@ -140,9 +161,9 @@ def main():
             'conflicting-param-signedness': (237, 'long f(unsigned int); long f(int x){return x;} int main(void){return 0;}'),
             'conflicting-varargs': (237, 'long f(long,...); long f(long x){return x;} int main(void){return 0;}'),
             'conflicting-struct-pointer': (237, 'struct A{int x;}; struct B{int x;}; long f(struct A*); long f(struct B*x){return 0;} int main(void){return 0;}'),
-            'floating-function-pointer': (214, 'int main(void){long (*p)(double); return 0;}'),
-            'aggregate-function-pointer': (232, 'struct S{int x;}; int main(void){long (*p)(struct S); return 0;}'),
-            'floating-local': (214, 'int main(void){double d; return 0;}'),
+            'floating-function-pointer-call': (232, 'int main(void){long (*p)(double); p=0; return p(1);}'),
+            'aggregate-function-pointer-call': (232, 'struct S{int x;}; int main(void){long (*p)(struct S); struct S s; p=0; return p(s);}'),
+            'floating-local-value': (232, 'int main(void){double d; return d;}'),
         }
         results = []
         for name, source in valid.items():
@@ -154,7 +175,10 @@ def main():
             print('PASS:',name)
         for name, (code, source) in rejections.items():
             path = work / (name+'.c'); path.write_text(source+'\n')
-            run([str(ROOT / 'tests/gcc/sysv-compile.sh'), str(path), str(work/name)], expected=code)
+            output = work / name
+            run([str(ROOT / 'tests/gcc/sysv-compile.sh'), str(path), str(output)], expected=code)
+            if output.exists():
+                raise RuntimeError(f'rejected {name} published an executable')
             results.append({'name':name,'status':'REJECT','code':code})
             print('PASS:',name,'rejects with',code)
         current = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}

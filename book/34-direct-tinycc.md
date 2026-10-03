@@ -250,7 +250,7 @@ defer cc-naggregate-fwd
   while, repeat,
   cc-putback-token drop
   over ty-float = [lit] 2 cc-npick ty-double = or
-  [lit] 2 cc-npick ty-ldouble = or cc-bootstrap-floatbits @ 0= and if,
+  [lit] 2 cc-npick ty-ldouble = or cc-native-float-types-fwd 0= and if,
     [lit] 214 cc-die
   then,
   if,
@@ -451,6 +451,11 @@ defer cc-native-init-finish-fwd
   cc-next-token-keep ;
 ' cc-native-scalar-init is cc-native-init-fwd
 
+: cc-native-local-layout-default ( -- slots slot )
+  cc-nobject-size [lit] 7 + [lit] 8 / dup cc-fn-local-count @ + 1- ;
+defer cc-native-local-layout-fwd
+' cc-native-local-layout-default is cc-native-local-layout-fwd
+
 : cc-nobject
   [char] = cc-tok-punct? if, cc-native-init-prepare-fwd then,
   nc-name @ nc-nlen @ cc-sym-find nc-id !
@@ -490,8 +495,7 @@ defer cc-native-init-finish-fwd
       nc-inner @ nc-id @ cc-sym-set-array-inner
     then,
   else,
-    cc-nobject-size [lit] 7 + [lit] 8 / dup
-    cc-fn-local-count @ + 1- dup nc-slot !
+    cc-native-local-layout-fwd dup nc-slot !
     sk-local swap cc-ninstall-symbol nc-id !
     cc-fn-add-slots
   then,

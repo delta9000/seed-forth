@@ -82,8 +82,8 @@ def main():
     ]
     for name, code, source in negatives:
         reject(work, name, code, source)
-    reject(work, "floating-arg", 214,
-           "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,double); return 0; }", b"cc: ")
+    reject(work, "floating-arg", 247,
+           "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,double); return 0; }")
     reject(work, "bad-layout", 246,
            "struct __seed_va_list_tag { unsigned long gp_offset; unsigned int fp_offset; "
            "void *overflow_arg_area; void *reg_save_area; }; "

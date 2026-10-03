@@ -5,9 +5,11 @@ These are new reconstruction checks, not recovered historical results.
 Command: `python3 tests/gcc/review-sysv-check.py`
 
 Observed result: PASS at host oracle `-O0` and `-O2` for both mapped ELF and
-ET_REL object modes, followed by nine additional executable C fixtures and
-twenty exact-code rejection cases. Final observed result: 2026-10-03 13:37 UTC.
-`review-sysv-results.json` records the complete tested compiler input hashes.
+ET_REL object modes, followed by eleven additional executable C fixtures and
+twenty exact-code rejection cases. Latest observed result: 2026-10-03 15:29 UTC.
+`review-types-results.json` records the latest complete tested compiler input
+hashes for this ABI replay and the metadata review below.
+`review-sysv-results.json` retains the earlier 13:37 UTC snapshot.
 
 The production side is the 1,772-byte seed Forth plus repository compiler
 modules. `tests/gcc/sysv-compile.sh` produces the target ELF without a host
@@ -31,6 +33,9 @@ and semantic oracles; they are not bootstrap artifacts.
 - Exactly 64 parameters and arguments, checked using distinct weighted values
 - K&R declarations with promoted narrow formals, implicit-int parameters,
   eight mixed-width arguments, and retained typed prototypes after `f()`
+- Unused floating/aggregate callback declarations and floating locals,
+  real floating sizes, aggregate padding, and unevaluated `sizeof(call)`
+- Floating-base pointer address-taking, arithmetic, and `sizeof(*pointer)`
 
 ## Fail-closed checks
 
@@ -43,26 +48,67 @@ and semantic oracles; they are not bootstrap artifacts.
 - Function-pointer calls with too few or too many arguments: 235
 - Conflicting callback parameter signature, integer parameter width,
   signedness, variadic signature, or struct-pointer identity: 237
-- Floating function-pointer parameter or floating local: 214
-- Aggregate function-pointer parameter: 232
+- Actual calls through floating/aggregate function pointers or an actual
+  floating-local value read: 232; declarations themselves are permitted
+- Every rejected translation unit leaves its executable output absent
 
 The script records SHA-256 hashes and rejects a compiler source change during
 its run. The verified SysV input was
 `121-cc-sysv.fth` SHA-256
-`221deb7169f094096a3b4a877f7dd7de325ebccbb8a98a3ed09b4c0e59f9e656`.
+`2fb916e207bc79d2a659f0fbec5f90f42a00946e7ea3c74bc977241713cdb999`.
 The JSON hash manifest is printed by the command so later runs can identify
 their exact inputs.
 
 ## Limits and pending checks
 
-This review does not claim aggregate/SSE ABI support, variadic definitions,
+This review does not claim aggregate/SSE ABI support,
 a complete C implementation, a source-built libc, or a direct GCC build.
 The independent oracle passes against the new ET_REL object adapter at
 `-O0` and `-O2` on the recorded final source snapshot. It exercises the
 object symbols and their call relocations through a host linker; it does not
 verify the production Forth linker. Subsequent source edits need affected
-checks rerun. Floating base declarations, including pointers to floating
-types, currently reject before pointer declarators are parsed.
+checks rerun. Floating and aggregate declaration metadata are preserved;
+floating value operations and floating/aggregate ABI calls remain unsupported.
+
+## Independent declaration metadata review
+
+Command: `python3 tests/gcc/review-types-check.py`
+
+Observed result: PASS on 2026-10-03 15:32 UTC, with 31 layout comparisons at
+each host optimization level, 29 rejection cases, and 116 output-preservation
+checks. Both scripts confirmed stable compiler inputs throughout their runs.
+
+The new fixture is compiled to an object by Forth. Host GCC builds only the
+independent layout/reference implementation and the test harness. At both
+`-O0` and `-O2`, 31 comparisons cover `float`, `double`, and `long double`
+sizes; mixed and nested record/union layout; array typedefs; pointer sizes,
+arithmetic and static pointer initializers; callback declarations; and
+unevaluated direct/indirect calls returning unsupported value classes.
+The generated object has no relocation for the unevaluated functions.
+
+Host code also writes actual floating values through Forth-provided local
+and global addresses. These checks prove natural alignment, including
+16-byte long-double and record alignment, non-overlapping local allocations,
+array extents, and preserved neighboring integer locals. Floating and
+aggregate function pointers are passed into and returned from Forth functions
+without calling through their unsupported ABI signatures. Six global ELF
+symbol sizes are checked independently with `readelf`.
+
+The rejection matrix covers floating/aggregate ABI definitions and direct or
+indirect calls, floating reads/writes through locals/globals/pointers/fields,
+discarded floating reads, initialization, casts, increments and comparisons.
+Each unsupported value operation rejects with 232. An explicitly typed
+floating enum constant rejects with 240; `va_arg(list,double)` rejects with
+247 and the `varargs:` diagnostic prefix. Every case runs through both the
+ELF and object compiler, first with an absent output and then with an existing
+sentinel artifact, proving no output publication or replacement on rejection.
+
+One diagnostic distinction is intentional in this review: a floating cast in
+an integer global initializer, `int n=(int)(double)1`, rejects with 232 in
+the ELF driver's expression initializer and 240 in the object driver's typed
+constant initializer. Both reject; the common typed-enum path checks 240 in
+both modes. These tests establish declaration metadata and fail-closed value
+boundaries, not floating arithmetic or an aggregate/SSE calling convention.
 
 
 ## Independent syscall-object review

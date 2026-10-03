@@ -99,8 +99,9 @@ The intrinsic layer prefixes its diagnostics with `varargs:`. Error 246 means
 an invalid list, invocation, named-parameter reference, or start context.
 Error 247 means an unsupported requested result type. The numbers overlap
 errors in other bounded compiler components, so the prefix identifies the
-phase. A floating base type may be rejected earlier by the existing type
-parser with error 214.
+phase. Declaration-only floating types can be named, so `va_arg(list, double)`
+reaches the intrinsic's error 247. Pointers to floating objects still belong
+to the INTEGER class and can be retrieved without loading a floating value.
 
 `varargs-intrinsic-check.sh` isolates lowering with a direct declaration of
 the genuine record array. Its copied list expression also calls a function,

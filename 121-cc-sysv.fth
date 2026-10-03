@@ -75,6 +75,29 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
     then,
   then, ;
 ' cc-sysv-sizeof-type is cc-sizeof-type-size-fwd
+\ Real layouts are retained even when floating/aggregate value operations
+\ are unsupported. Taking an address must not read that value first.
+: cc-sysv-float-types cc-target-sysv @ cc-bootstrap-floatbits @ or ;
+' cc-sysv-float-types is cc-native-float-types-fwd
+: cc-sysv-value-type-check ( type -- type )
+  cc-target-sysv @ cc-expr-unevaluated @ 0= and if,
+    dup cc-sysv-check-scalar
+  then, ;
+' cc-sysv-value-type-check is cc-emit-type-check-fwd
+: cc-sysv-local-load ( slot type -- )
+  cc-target-sysv @ if,
+    drop cc-emit-lea-rdi-local
+    true cc-last-ident-slot ! lv-deref cc-last-lvalue-kind !
+  else, cc-emit-load-local-typed then, ;
+' cc-sysv-local-load is cc-native-local-load-fwd
+: cc-sysv-local-layout ( -- slots slot )
+  cc-target-sysv @ 0= if, cc-native-local-layout-default exit, then,
+  cc-sysv-object-size dup 0= if, [lit] 238 cc-die then,
+  cc-fn-local-count @ [lit] 8 * +
+  nc-ty @ nc-desc @ cc-nalignment [lit] 8 cc-nmax cc-nalign
+  [lit] 8 / dup cc-fn-local-count @ - swap 1- ;
+' cc-sysv-local-layout is cc-native-local-layout-fwd
+
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
     cc-sysv-inherit-array
@@ -136,7 +159,6 @@ defer cc-sysv-signature-fwd
     then,
   again, ;
 : cc-sysv-signature ( return-type return-desc -- signature )
-  over cc-sysv-check-scalar
   [lit] 2600 cc-alloc dup >r [lit] 2600 cc-nzero
   r@ [lit] 16 + ! r@ [lit] 8 + !
   cc-sysv-signature-tag r@ !
@@ -166,7 +188,6 @@ defer cc-sysv-signature-fwd
     cc-nbase nc-sdesc ! nc-base ! cc-ndeclarator
     nc-func @ if, [lit] 233 cc-die then,
     cc-sysv-adjust-array-parameter
-    nc-ty @ cc-sysv-check-scalar
     nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
     r> r> dup >r swap >r
     nc-nlen @ if,
@@ -202,13 +223,19 @@ defer cc-sysv-compatible-signatures-fwd
   ty-struct = if, r> r> = else, r> drop r> drop true then, ;
 : cc-sysv-signature-result dup cc-sysv-sig-return swap cc-sysv-sig-desc ;
 : cc-sysv-parameter-type cc-sysv-sig-param dup @ swap [lit] 8 + @ ;
+\ Default promotions matter to prototype compatibility even for types
+\ whose executable calling convention is deliberately unsupported.
+: cc-sysv-default-type ( type -- promoted-type )
+  dup ty-ptr 0= over ty-base ty-float = and if,
+    drop ty-double [lit] 0 ty-make
+  else, cc-unary-type then, ;
 : cc-sysv-comparison-param ( sig index -- type desc )
   over cc-sysv-prototype? >r cc-sysv-parameter-type
-  r> 0= if, swap cc-unary-type swap then, ;
+  r> 0= if, swap cc-sysv-default-type swap then, ;
 : cc-sysv-default-compatible? ( sig -- flag )
   dup cc-sysv-sig-varargs [lit] 1 and if, drop [lit] 0 exit, then,
   [lit] 0 begin, over cc-sysv-sig-count over > while,
-    2dup cc-sysv-sig-param @ dup cc-unary-type <> if,
+    2dup cc-sysv-sig-param @ dup cc-sysv-default-type <> if,
       2drop [lit] 0 exit,
     then, 1+
   repeat, 2drop true ;
@@ -260,7 +287,7 @@ defer cc-sysv-compatible-signatures-fwd
     begin,
       dup cc-sysv-arg-cap >= if, [lit] 234 cc-die then,
       cc-parse-assign-fwd cc-emit-materialize
-      cc-last-expr-type @ cc-sysv-check-scalar
+      cc-expr-unevaluated @ 0= if, cc-last-expr-type @ cc-sysv-check-scalar then,
       over cc-sysv-sig-count over > [lit] 2 cc-npick cc-sysv-prototype? and if,
         2dup cc-sysv-sig-param @ cc-emit-convert-rdi
       else,
@@ -454,6 +481,7 @@ variable cc-sysv-stack-depth
     2dup cc-sysv-sig-name dup @ nc-name ! [lit] 8 + @ nc-nlen !
     nc-nlen @ 0= if, [lit] 233 cc-die then,
     2dup cc-sysv-parameter-type nc-desc ! nc-ty !
+    nc-ty @ cc-sysv-check-scalar
     [lit] 0 nc-array ! [lit] 0 nc-inner !
     sk-local over 1+ cc-ninstall-symbol drop
     [lit] 1 cc-fn-add-slots 1+
@@ -473,7 +501,6 @@ variable cc-sysv-frame-patch
 variable cc-sysv-function-signature
 : cc-sysv-function
   cc-target-sysv @ 0= if, cc-native-function exit, then,
-  nc-ty @ cc-sysv-check-scalar
   cc-lex-state-size cc-alloc dup cc-lex-mark >r
   nc-params cc-lex-reset
   nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !
@@ -501,6 +528,7 @@ variable cc-sysv-function-signature
   nc-ty @ nc-id @ cc-sym-type cell[] !
   nc-desc @ nc-id @ cc-sym-set-struct-desc
   [char] { cc-tok-punct? 0= if, exit, then,
+  nc-ty @ cc-sysv-check-scalar
   nc-id @ cc-sym-val-of if, [lit] 211 cc-die then,
   cc-here-vaddr nc-id @ cc-sym-val cell[] !
   nc-id @ cc-sym-call-fixups @ cc-here-vaddr cc-walk-and-patch-to-vaddr

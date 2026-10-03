@@ -751,6 +751,9 @@ knows whether it points to `char`.
 ```forth chunk=expr-primary-local
 \ cc-parse-local-ref ( id -- )  A local: struct, struct pointer, array or
 \ scalar, told apart by its type.
+defer cc-native-local-load-fwd
+' cc-emit-load-local-typed is cc-native-local-load-fwd
+
 : cc-parse-local-ref
   cc-target-lp64 @ if,
     cc-check-static-init
@@ -769,7 +772,7 @@ knows whether it points to `char`.
     then,
     drop
     dup cc-sym-val-of dup cc-mark-local-lvalue
-    over cc-sym-type-of cc-emit-load-local-typed
+    over cc-sym-type-of cc-native-local-load-fwd
     dup cc-sym-type-of cc-last-expr-type !
     cc-expr-symbol-desc cc-last-struct-desc !
     r> cc-last-expr-array-inner ! exit,

@@ -19,8 +19,8 @@ while IFS='|' read -r name code source; do
   echo "PASS: $name rejects with $code"
 done <<'CASES'
 aggregate-parameter|232|struct S { int x; }; int f(struct S s) { return s.x; } int main(void) { return 0; }
-aggregate-return|232|struct S { int x; }; struct S f(void); int main(void) { return 0; }
-floating-parameter|214|int f(double x); int main(void) { return 0; }
+aggregate-return|232|struct S { int x; }; struct S f(void) { struct S s={1}; return s; } int main(void) { return 0; }
+floating-parameter|232|int f(double x) { return 0; } int main(void) { return 0; }
 missing-argument|235|int f(int x) { return x; } int main(void) { return f(); }
 excess-argument|235|int f(void) { return 0; } int main(void) { return f(1); }
 conflicting-prototype|237|int f(int x); long f(int x) { return x; } int main(void) { return 0; }
