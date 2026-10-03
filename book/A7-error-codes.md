@@ -68,69 +68,69 @@ to its call site.
 | 20  | `030-cc-io.fth:72` | `cc-load-stdin`: the source fills the 1 MiB input buffer. |
 | 21  | `030-cc-io.fth:110` | `cc-emit-byte`: the output fills the 1 MiB output buffer. |
 | 22  | `030-cc-io.fth:170` | `cc-write-output`: `open(2)` on the output path returned an error. |
-| 30  | `040-cc-prep.fth:584` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
-| 31  | `040-cc-prep.fth:572` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
-| 32  | `040-cc-prep.fth:590,594` | Included file fills its legacy 256 KiB slot or direct input fills the shared 1 MiB pool. |
-| 33  | `040-cc-prep.fth:449,490,500` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
+| 30  | `040-cc-prep.fth:622` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
+| 31  | `040-cc-prep.fth:610` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
+| 32  | `040-cc-prep.fth:628,632` | Included file fills its legacy 256 KiB slot or direct input fills the shared 1 MiB pool. |
+| 33  | `040-cc-prep.fth:449,528,538` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
 | 34  | `040-cc-prep.fth:185` | Macro count exceeds 1,024 in legacy mode (11 built in) or 4,096 in direct mode. |
 | 35  | `040-cc-prep.fth:161` | Macro pool (64 KiB legacy, 256 KiB direct) full: `cc-pp-to-pool` makes it the sink with this code, and `cc-prep-emit-byte` dies when a macro name or body would overflow it. |
 | 36  | `040-cc-prep.fth:1244` | `cc-prep-emit-byte`: preprocessed source fills the 2 MiB source buffer (the sink `cc-preprocess` sets up with this code). |
 | 37  | `040-cc-prep.fth:119` | A temporary buffer fills: a macro argument, or a replacement with its arguments put in, longer than 64 KiB (the sink `cc-pp-temp-begin` sets up with this code). |
-| 38  | `040-cc-prep.fth:1198` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
-| 39  | `040-cc-prep.fth:1579` | `cc-preprocess`: an `#if` still open at the end of the program. |
-| 40  | `040-cc-prep.fth:1497` | `#error` in a group that is not dropped. |
-| 41  | `040-cc-prep.fth:1213` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
+| 38  | `040-cc-prep.fth:1287` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
+| 39  | `040-cc-prep.fth:1689` | `cc-preprocess`: an `#if` still open at the end of the program. |
+| 40  | `040-cc-prep.fth:1594` | `#error` in a group that is not dropped. |
+| 41  | `040-cc-prep.fth:1302` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
 | 42  | `040-cc-prep.fth:399` | `cc-pp-need-name`: `#ifdef`, `#ifndef` or `defined` with no name after it. |
 | 43  | `040-cc-prep.fth:113` | `cc-pp-scratch-alloc`: the 2 MiB macro scratch area is used up (about 32 macro calls nested in each other's arguments). |
-| 44  | `040-cc-prep.fth:691` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
-| 45  | `040-cc-prep.fth:965` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
-| 46  | `040-cc-prep.fth:676` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
-| 47  | `040-cc-prep.fth:406,1375` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a `#define`'s parameter list (anything but names and commas in it). |
-| 48  | `040-cc-prep.fth:1349` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
+| 44  | `040-cc-prep.fth:729` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
+| 45  | `040-cc-prep.fth:1043` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
+| 46  | `040-cc-prep.fth:714` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
+| 47  | `040-cc-prep.fth:406,1465` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a `#define`'s parameter list (anything but names and commas in it). |
+| 48  | `040-cc-prep.fth:1439` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 50  | `060-cc-types.fth:192` | `cc-sd-field-rec`: a struct with more than 16 fields. |
 | 60  | `070-cc-sym.fth:61` | `cc-sym-add`: more than 4,096 symbols. |
-| 61  | `070-cc-sym.fth:129` | `cc-scope-push`: scopes nested more than 64 deep. |
-| 62  | `070-cc-sym.fth:138` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
+| 61  | `070-cc-sym.fth:140` | `cc-scope-push`: scopes nested more than 64 deep. |
+| 62  | `070-cc-sym.fth:149` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
 | 80  | `090-cc-emit.fth:1160` | `cc-globals-alloc`: the data area of file-scope scalars (64 KiB) is full. |
 | 81  | `090-cc-emit.fth:1189` | `cc-gfixup-add`: global-fixup table (16,384 entries) full. |
 | 82  | `090-cc-emit.fth:1168` | `cc-bss-alloc`: global arrays need more than the 256 MiB bss. |
 | 90  | `100-cc-expr.fth:263` | Field name not found in the struct descriptor. |
 | 91  | `100-cc-expr.fth:302` | `name[`: array base isn't a local or a global. |
 | 92  | `100-cc-expr.fth:352` | Subscript `name[i]`: missing `]`. |
-| 93  | `100-cc-expr.fth:795` | Primary expression: identifier not in the symbol table. |
-| 94  | `100-cc-expr.fth:812` | `name(...)` where `name` is neither a function nor a function-pointer local. |
-| 95  | `100-cc-expr.fth:836` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
-| 96  | `100-cc-expr.fth:845` | Parenthesised expression: missing `)`. |
-| 97  | `100-cc-expr.fth:873` | Primary expression: token can't start one (not a literal, identifier or `(`). |
-| 98  | `100-cc-expr.fth:929` | Postfix `++`/`--`: operand isn't an lvalue. |
-| 99  | `100-cc-expr.fth:964,986` | Postfix `[` on any expression: missing `]`. |
-| 100 | `100-cc-expr.fth:1000` | `.` / `->` on an expression with no known struct descriptor. |
-| 101 | `100-cc-expr.fth:1012` | `.` / `->` not followed by an identifier (field name). |
-| 102 | `100-cc-expr.fth:1167` | `sizeof`: missing `(`. |
-| 103 | `100-cc-expr.fth:1175` | `sizeof(struct`: tag isn't an identifier. |
-| 104 | `100-cc-expr.fth:1179` | `sizeof(struct TAG`: tag not found. |
-| 105 | `100-cc-expr.fth:1182` | `sizeof(struct TAG`: name isn't a struct tag. |
-| 106 | `100-cc-expr.fth:1196` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
-| 107 | `100-cc-expr.fth:1206` | `sizeof(`: identifier not found. |
-| 108 | `100-cc-expr.fth:1235` | `sizeof(`: identifier found but neither a typedef nor a local. |
-| 109 | `100-cc-expr.fth:1239` | `sizeof(`: token is neither a keyword nor an identifier. |
-| 110 | `100-cc-expr.fth:1143,1151,1244` | `sizeof(...`: missing `)`. |
-| 113 | `100-cc-expr.fth:889,1295` | Prefix `++`/`--`: operand isn't an lvalue. |
-| 114 | `100-cc-expr.fth:1333` | Unary `&`: operand isn't an identifier. |
-| 115 | `100-cc-expr.fth:1338` | Unary `&`: identifier not found. |
-| 116 | `100-cc-expr.fth:1325,1342` | Unary `&`: identifier isn't a local. |
-| 117 | `100-cc-expr.fth:1957` | Ternary `?`: missing `:`. |
-| 118 | `100-cc-expr.fth:2014` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
-| 120 | `100-cc-expr.fth:2032,2043,2161` | Assignment: left-hand side isn't an lvalue. |
+| 93  | `100-cc-expr.fth:800` | Primary expression: identifier not in the symbol table. |
+| 94  | `100-cc-expr.fth:817` | `name(...)` where `name` is neither a function nor a function-pointer local. |
+| 95  | `100-cc-expr.fth:841` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
+| 96  | `100-cc-expr.fth:850` | Parenthesised expression: missing `)`. |
+| 97  | `100-cc-expr.fth:878` | Primary expression: token can't start one (not a literal, identifier or `(`). |
+| 98  | `100-cc-expr.fth:934` | Postfix `++`/`--`: operand isn't an lvalue. |
+| 99  | `100-cc-expr.fth:969,991` | Postfix `[` on any expression: missing `]`. |
+| 100 | `100-cc-expr.fth:1005` | `.` / `->` on an expression with no known struct descriptor. |
+| 101 | `100-cc-expr.fth:1017` | `.` / `->` not followed by an identifier (field name). |
+| 102 | `100-cc-expr.fth:1172` | `sizeof`: missing `(`. |
+| 103 | `100-cc-expr.fth:1180` | `sizeof(struct`: tag isn't an identifier. |
+| 104 | `100-cc-expr.fth:1184` | `sizeof(struct TAG`: tag not found. |
+| 105 | `100-cc-expr.fth:1187` | `sizeof(struct TAG`: name isn't a struct tag. |
+| 106 | `100-cc-expr.fth:1201` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
+| 107 | `100-cc-expr.fth:1211` | `sizeof(`: identifier not found. |
+| 108 | `100-cc-expr.fth:1240` | `sizeof(`: identifier found but neither a typedef nor a local. |
+| 109 | `100-cc-expr.fth:1244` | `sizeof(`: token is neither a keyword nor an identifier. |
+| 110 | `100-cc-expr.fth:1148,1156,1249` | `sizeof(...`: missing `)`. |
+| 113 | `100-cc-expr.fth:894,1300` | Prefix `++`/`--`: operand isn't an lvalue. |
+| 114 | `100-cc-expr.fth:1338` | Unary `&`: operand isn't an identifier. |
+| 115 | `100-cc-expr.fth:1343` | Unary `&`: identifier not found. |
+| 116 | `100-cc-expr.fth:1330,1347` | Unary `&`: identifier isn't a local. |
+| 117 | `100-cc-expr.fth:1962` | Ternary `?`: missing `:`. |
+| 118 | `100-cc-expr.fth:2019` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
+| 120 | `100-cc-expr.fth:2037,2048,2166` | Assignment: left-hand side isn't an lvalue. |
 | 121 | `100-cc-expr.fth:451,537` | Call: argument list not closed by `)`. |
 | 122 | `100-cc-expr.fth:545` | Call: more than six arguments (the register-only calling convention). |
 | 123 | `100-cc-expr.fth:585` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
-| 124 | `100-cc-expr.fth:1424` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
-| 125 | `100-cc-expr.fth:2229` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
-| 126 | `100-cc-expr.fth:2238` | Constant expression: a token that can't start an operand. |
-| 127 | `100-cc-expr.fth:2235` | Constant expression: `(` not closed by `)`. |
-| 128 | `100-cc-expr.fth:2310` | Constant expression: `?` without its `:`. |
-| 129 | `100-cc-expr.fth:2338` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
+| 124 | `100-cc-expr.fth:1429` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
+| 125 | `100-cc-expr.fth:2234` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
+| 126 | `100-cc-expr.fth:2243` | Constant expression: a token that can't start an operand. |
+| 127 | `100-cc-expr.fth:2240` | Constant expression: `(` not closed by `)`. |
+| 128 | `100-cc-expr.fth:2315` | Constant expression: `?` without its `:`. |
+| 129 | `100-cc-expr.fth:2343` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
 | 140 | `110-cc-decl.fth:67` | `cc-expect-kw-id`: next token wasn't a keyword. |
 | 141 | `110-cc-decl.fth:70` | `cc-expect-kw-id`: keyword id mismatch. |
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
@@ -203,19 +203,19 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:281` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:288` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:679` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:374`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
 | 190 | `115-cc-native.fth:102` | Native enumerator is not an identifier. |
 | 192 | `115-cc-native.fth:110` | Native enumerator followed by neither `,` nor `}`. |
 | 194 | `115-cc-native.fth:130` | Native type identifier not found. |
 | 195 | `115-cc-native.fth:131` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:418` | Native declarator is missing its name. |
-| 205 | `115-cc-native.fth:432` | Native declaration missing its final semicolon. |
+| 203 | `115-cc-native.fth:425` | Native declarator is missing its name. |
+| 205 | `115-cc-native.fth:439` | Native declaration missing its final semicolon. |
 | 210 | `115-cc-native.fth:46` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:446`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
-| 213 | `115-cc-native.fth:220` | Nested array field, outside the native field profile. |
+| 213 | `115-cc-native.fth:227` | Nested array field, outside the native field profile. |
 | 214 | `110-cc-decl.fth:376`, `115-cc-native.fth:153` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:147` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:76,77,88,96` | Invalid or empty inferred array initializer. |
@@ -242,6 +242,10 @@ the number. The object writer and standalone linker are described in
 [chapter 35](35-direct-gcc-objects.md) and
 [chapter 37](37-direct-gcc-linker.md); those chapters document their API
 checks and output-publication failures.
+
+In the direct-GCC target, preprocessor code 49 rejects a selected `#line`
+directive or numeric line marker until logical source-location control is
+implemented. It must not silently supply incorrect `__FILE__`/`__LINE__` values.
 
 The compiler's typed constant evaluator reports 240 for an unsupported
 constant form, 241 for an invalid shift count, and 242 for signed arithmetic

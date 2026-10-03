@@ -149,7 +149,7 @@ and six arguments (code 122 for a seventh argument): every argument
 travels in a register.  Variadic parameter lists (`...`) are
 **rejected** (code 182).  A function-pointer parameter must be
 spelled with a typedef; `int (*f)(int)` in a parameter list is code
-183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:384` for the local
+183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:392` for the local
 form).
 
 ## Preprocessor

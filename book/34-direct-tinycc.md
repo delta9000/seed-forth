@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (435 lines),
+This chapter owns `115-cc-native.fth` (442 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (297 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared

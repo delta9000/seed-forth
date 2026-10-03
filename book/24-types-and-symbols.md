@@ -24,7 +24,7 @@ floating storage kinds support the opt-in LP64 target.  Pointer depth
 generalises to any level (`T**`, `T***`, …).  Struct and union layouts
 live in descriptors allocated from Ch 21's arena.
 
-The 141-line file `070-cc-sym.fth` is the symbol table: nine columns
+The 152-line file `070-cc-sym.fth` is the symbol table: nine columns
 of 4096 8-byte slots each, 288 KiB in all.  Every global, local,
 function, struct tag, enum constant and typedef gets one row, and
 `cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering

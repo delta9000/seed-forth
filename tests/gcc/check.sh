@@ -14,6 +14,10 @@ python3 tests/gcc/linker-check.py
 python3 tests/gcc/linker-c-check.py
 bash tests/gcc/sysv-check.sh
 bash tests/gcc/sysv-knr-check.sh
+bash tests/gcc/sysv-namespaces-check.sh
+bash tests/gcc/sysv-abstract-callback-check.sh
+bash tests/gcc/sysv-implicit-calls-check.sh
+python3 tests/gcc/review-implicit-check.py
 bash tests/gcc/sysv-interop-check.sh
 bash tests/gcc/sysv-storage-check.sh
 python3 tests/gcc/review-storage-probe.py
@@ -22,6 +26,8 @@ bash tests/gcc/sysv-declaration-types-check.sh
 python3 tests/gcc/review-types-check.py
 bash tests/gcc/sysv-setjmp-check.sh
 python3 tests/gcc/target-macros-check.py
+python3 tests/gcc/source-location-check.py
+python3 tests/gcc/review-source-location-check.py
 python3 tests/gcc/syscall-check.py
 python3 tests/gcc/syscall-runtime-check.py
 python3 tests/gcc/runtime-check.py
@@ -31,6 +37,8 @@ python3 tests/gcc/varargs-check.py
 bash tests/gcc/varargs-interop-check.sh
 python3 tests/gcc/stdio-check.py
 python3 tests/gcc/stdio-oracle-check.py
+python3 tests/gcc/configure-runtime-check.py
+python3 tests/gcc/configure-runtime-oracle-check.py
 python3 tests/gcc/driver-check.py
 python3 tests/gcc/driver-cache-check.py
 python3 tests/gcc/review-sysv-check.py
