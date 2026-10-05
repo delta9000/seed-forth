@@ -47,7 +47,7 @@ def main(args):
     snapshot = {name: (ROOT / name).read_bytes() for name in names}
     if any((ROOT / name).read_bytes() != data for name, data in snapshot.items()):
         raise ValueError("archive tool inputs changed during snapshot; retry")
-    hexadecimal = b"".join(re.split(rb"[;#]", line, 1)[0]
+    hexadecimal = b"".join(re.split(rb"[;#]", line, maxsplit=1)[0]
                            for line in snapshot["000-seed.hex0"].splitlines())
     if bytes.fromhex(hexadecimal.decode("ascii")) != snapshot["seed-forth"]:
         raise ValueError("seed-forth does not match 000-seed.hex0; rebuild with build.sh")

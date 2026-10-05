@@ -165,7 +165,7 @@ class Toolchain:
             raise Failure("compiler inputs changed while taking the snapshot; retry")
         # Verify the existing executable against hex0 source. This comparison
         # does not generate an executable or substitute a host-built compiler.
-        hexadecimal = b"".join(re.split(rb"[;#]", line, 1)[0]
+        hexadecimal = b"".join(re.split(rb"[;#]", line, maxsplit=1)[0]
                                for line in self.inputs["000-seed.hex0"].splitlines())
         if bytes.fromhex(hexadecimal.decode("ascii")) != self.inputs["seed-forth"]:
             raise Failure("seed-forth does not match 000-seed.hex0; rebuild with build.sh")
