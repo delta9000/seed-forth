@@ -205,8 +205,8 @@ def main():
     parser.add_argument("--configure-record", type=Path, help="default: BUILD/../../configure-command.json")
     parser.add_argument("-j", "--jobs", type=int, default=6)
     args = parser.parse_args()
-    if not 1 <= args.jobs <= 6:
-        parser.error("jobs must be between 1 and 6 (5 GB memory limit)")
+    if args.jobs < 1:
+        parser.error("jobs must be at least 1")
     options = args.levels.split()
     if not options or any(not re.fullmatch(r"-O(?:[0-3sg]|fast)", option) for option in options) or len(set(options)) != len(options):
         parser.error("levels must be unique -O optimisation flags")
