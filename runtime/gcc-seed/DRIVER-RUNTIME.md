@@ -107,3 +107,16 @@ with `fork`/`execv` that see exactly the changed environment; tlink's
 `fscanf("%c ")` loop with `fgets`, numeric and `%c` mixes, mismatch
 pushback, `%%` and `EOF`. Host GCC also lints the runtime sources and the
 test against the runtime headers alone.
+
+## Consumer build
+
+Fresh `gcc-direct/configure.py` runs (`--forth-ar`, `--alloca-frame` for
+libiberty) now answer `HAVE_SYS_PARAM_H`, `HAVE_PUTENV` and `HAVE_RENAME`;
+libiberty's `LIBOBJS` loses `putenv.o` and `rename.o` (`setenv.o` is still
+built, unreferenced). The original Makefiles, driven as in the discovery
+build, then build `libiberty.a`, `libcpp.a` and `xgcc cpp collect2` with
+make exit 0. `xgcc -B./ -v` prints `gcc version 4.0.4`; with a stub `cc1`
+in its `-B` directory, `xgcc -E` runs it through pex and the stub sees
+`COLLECT_GCC`, `COLLECT_GCC_OPTIONS` and `GCC_EXEC_PREFIX` set by `putenv`.
+GCC 4.0's `-E` runs `cc1 -E`, so real preprocessing needs `cc1`.
+`collect2 -v` runs and reaches the configured `ld`.
