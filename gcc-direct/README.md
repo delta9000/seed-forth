@@ -351,3 +351,44 @@ unexpected failures exit nonzero. `report.json` retains hashes, commands,
 exit codes, policies and `.x` inventory; `report.md` lists every result;
 `results.txt` provides a compact scratch-runner-style listing. Check exception
 semantics and error reporting with `python3 tests/gcc/torture-check.py`.
+
+## Recorded parser-generator recipe
+
+`lexers.py` builds oyacc 6.6, Heirloom devtools lex 070527 and its ordinary
+five-member `libl.a`, then flex 2.5.11, sequentially with the Forth compiler,
+linker and archiver. It reuses `tests/gcc/oyacc-check.py --production-only`
+for oyacc's original configure probes and production build. Host compilers
+never produce these tools. Python, shell, sed and patch remain orchestration
+and source transformation dependencies. Processes are limited to 4 GiB.
+
+Archive names, fetch URLs and SHA-256 pins are in
+[lexer-inputs/sources.json](lexer-inputs/sources.json). Fetch/cache the three
+archives in gitignored `build-out/lexer-inputs/archives/` (or an external
+read-only cache). Copy `lexer-inputs/recipe-reference/` to that inputs
+folder's `recipe-reference/`. Archives and extracted originals never belong
+in git. An existing evidence directory with that layout can be used directly;
+the recipe never writes to it. Flex 2.6.4 is not needed for this chain.
+
+```sh
+python3 gcc-direct/lexers.py build-out/lexer-inputs build-out/lexers-run
+python3 tests/gcc/lexers-check.py --inputs build-out/lexer-inputs
+# The gate also accepts GCC_LEXER_INPUTS=/path/to/offline/inputs.
+```
+
+The work directory must be new. Sources are verified and extracted there;
+`report.json` records compiler identity, tool paths, SHA-256 of every produced
+tool/archive and generated C input, header probes and generator commands.
+`sources/source-preparation.json` records original file hashes, exact patch
+commands/output and the independent skeleton check; `oyacc/report.json`
+records the oyacc production details. `lexers-check.py` skips with status 77
+when archives are absent and otherwise checks the known-good Heirloom parser,
+ordinary `libl.a`, and flex parser/scanner hashes supplied for this recipe.
+Tool binary hashes are recorded without pinning compiler output.
+
+The exact live-bootstrap adaptations, patch provenance and licenses are in
+[lexer-inputs/PROVENANCE.md](lexer-inputs/PROVENANCE.md). In particular,
+`scan.lex.l` stays unchanged; a separate `scan-ascii.l` transliterates one
+U+0160 letter in its copyright comment to S because Heirloom's C-locale wide
+I/O rejects UTF-8. Both hashes and the rationale are recorded. The temporary
+restricted scanner is replaced by flex's own generated scanner. This recipe
+establishes the generator chain, not wide/EUC lex support or a GCC bootstrap.

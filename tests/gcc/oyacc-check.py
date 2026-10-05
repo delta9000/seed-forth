@@ -3,8 +3,8 @@
 from pathlib import Path
 import argparse,hashlib,json,os,re,shutil,signal,subprocess,sys,tempfile,time
 ROOT=Path(__file__).resolve().parents[2]
-ap=argparse.ArgumentParser();ap.add_argument('source',type=Path);ap.add_argument('--generate-only',action='store_true');args=ap.parse_args()
-PIN=json.loads((ROOT/'tests/gcc/oyacc-source.json').read_text());(ROOT/'build-out').mkdir(exist_ok=True);OUT=Path(tempfile.mkdtemp(prefix='oyacc-source-',dir=ROOT/'build-out'));COPY=OUT/'original-source';COPY.mkdir();sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+ap=argparse.ArgumentParser();ap.add_argument('source',type=Path);ap.add_argument('--generate-only',action='store_true');ap.add_argument('--production-only',action='store_true',help='build with Forth only, for the lexer recipe');ap.add_argument('--work',type=Path,help='new output directory');args=ap.parse_args()
+PIN=json.loads((ROOT/'tests/gcc/oyacc-source.json').read_text());(ROOT/'build-out').mkdir(exist_ok=True);OUT=args.work.resolve() if args.work else Path(tempfile.mkdtemp(prefix='oyacc-source-',dir=ROOT/'build-out'));OUT.mkdir(exist_ok=not bool(args.work));COPY=OUT/'original-source';COPY.mkdir();sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 for name,digest in PIN['files'].items():
  p=args.source.resolve()/name;assert sha(p)==digest,('source differs',name);shutil.copyfile(p,COPY/name)
 CC=[sys.executable,str(ROOT/'tools/gcc-direct-cc.py')]
@@ -58,11 +58,11 @@ def cleanup_check(executable,ignored):
   return {'temporary_names':len(names),'inherited_ignore':ignored,'status':child.returncode}
  finally:
   if child is not None and child.poll() is None:child.kill();child.communicate(timeout=5)
-report={'proof':'original source/configure inputs; Forth production; separate host oracle','compiler_source_identity':identity,'pinned_source':PIN,'grammar_sha256':sha(GRAMMAR),'production':build('production',CC),'consumer_execution':'not_run'}
-report['cleanup']=[cleanup_check(OUT/'production/oyacc',False),cleanup_check(OUT/'production/oyacc',True)]
-host=shutil.which('gcc')
+report={'proof':'original source/configure inputs; Forth production'+('' if args.production_only else '; separate host oracle'),'compiler_source_identity':identity,'pinned_source':PIN,'grammar_sha256':sha(GRAMMAR),'production':build('production',CC),'consumer_execution':'not_run'}
+report['cleanup']=[] if args.production_only else [cleanup_check(OUT/'production/oyacc',False),cleanup_check(OUT/'production/oyacc',True)]
+host=None if args.production_only else shutil.which('gcc')
 if host:report['host_reference']=build('host-reference',[host]);assert report['production']['generated']==report['host_reference']['generated'],'generated output mismatch';report['generated_byte_equivalence']=True
-if not args.generate_only:
+if not args.generate_only and not args.production_only:
  executable=OUT/'arithmetic-forth';run(CC+['-o',executable,OUT/'production/generated/parser.c'])
  cases=[('2+3*4\n',0,b'14\n',b''),('(2+3)*4\n',0,b'20\n',b''),('-5+2\n',0,b'-3\n',b''),('10/(2+3)\n',0,b'2\n',b''),('16/3\n',0,b'5\n',b''),('1-2-3\n',0,b'-4\n',b''),('12+-5\n',0,b'7\n',b''),('('*350+'7'+')'*350+'\n',0,b'7\n',b''),('1+\n',2,b'',b'parse error\n'),('',2,b'',b'parse error\n')]
  for text,status,stdout,stderr in cases:
@@ -73,4 +73,4 @@ if not args.generate_only:
    r=run([oracle],status=status,input=text.encode());assert (r.stdout,r.stderr)==(stdout,stderr)
  report['consumer_execution']={'cases':len(cases),'forth_executable_sha256':sha(executable),'independent_host_passed':bool(host)}
 assert identity==run(CC+['--print-source-hash']).stdout.decode().strip(),'compiler changed during test'
-report['test_source_sha256']={n:sha(ROOT/n) for n in ['tests/gcc/oyacc-check.py','tests/gcc/oyacc-source.json','tests/gcc/oyacc-arithmetic.y']};(OUT/'report.json').write_text(json.dumps(report,indent=2)+'\n');print('PASS: 13 original oyacc TUs, genuine generation, cleanup, independent host match:',bool(host));print('Consumer:',report['consumer_execution']);print(OUT/'report.json')
+report['test_source_sha256']={n:sha(ROOT/n) for n in ['tests/gcc/oyacc-check.py','tests/gcc/oyacc-source.json','tests/gcc/oyacc-arithmetic.y']};(OUT/'report.json').write_text(json.dumps(report,indent=2)+'\n');print('PASS: original oyacc production' if args.production_only else 'PASS: 13 original oyacc TUs, genuine generation, cleanup, independent host match: '+str(bool(host)));print('Consumer:',report['consumer_execution']);print(OUT/'report.json')
