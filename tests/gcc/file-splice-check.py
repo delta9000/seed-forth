@@ -7,8 +7,11 @@ backslash-newline; the walker instead emits the physical newline, which is
 equivalent whenever the bytes on either side cannot join into one token:
 whitespace (or the end of input) after the run of continuations, or
 whitespace, a whole-token punctuator or a complete block comment before it.
-Splices that would join an identifier, number, multi-byte punctuator or
-comment delimiter remain rejected49 and leave a previous output untouched.
+Inside comments, and between the bytes of a comment delimiter, phase two
+simply deletes the continuation (`*\\<newline>/` closes a comment, a `//`
+comment continues).  Splices that would join an identifier, number or
+multi-byte punctuator, or split a directive name, remain rejected49 and leave
+a previous output untouched.
 """
 from pathlib import Path
 import hashlib
@@ -57,14 +60,37 @@ ACCEPT={
   'skipped-else':'#if 1\n__LINE__\n#else\nf(a,'+S+'b);\n#endif\n__LINE__\n',
   'crlf-comma':'f(a,\\\r\n\tb)\r\n__LINE__\r\n',
   'crlf-chain':'x=\\\r\n\\\r\n y\r\n__LINE__\r\n',
+  # Phase two deletes continuations before comments are recognized.
+  'comment-banner':'/****************\\\n * gas/flonum.h  *\n ****************/\nint z;\n__LINE__\n',
+  'comment-inner':'/* a'+S+' b */ int x;\n__LINE__\n',
+  'comment-split-close':'/* a *'+S+'/ int x;\n__LINE__\n',
+  'comment-split-close-chain':'/* a *'+S+S+'/ int x; /* *'+S+'*/ int y;\n__LINE__\n',
+  'comment-star-not-close':'/* a *'+S+'x */ int x;\n__LINE__\n',
+  'comment-split-open':'x /'+S+'* c */ y\n__LINE__\n',
+  'comment-split-open-chain':'x /'+S+S+'* c *'+S+'/ y\n__LINE__\n',
+  'line-comment-split-open':'x /'+S+'/ c\ny\n__LINE__\n',
+  'line-comment-continued':'int a; // c'+S+'int b;\nint c;\n__LINE__\n',
+  'line-comment-continued-twice':'int a; // c'+S+'int b;'+S+'int d;\nint c;\n__LINE__\n',
+  'line-comment-hides-block':'int a; // c /*\nint b; /* d */ int c;\n__LINE__\n',
+  'directive-line-comment-hides-block':'#if 1 // c /*\nint b;\n#endif // e /*\nint c; /* d */ int f;\n__LINE__\n',
+  'define-comment-split-close':'#define X 1 /* q *'+S+'/ + 2\nX\n__LINE__\n',
+  'define-comment-continued':'#define X 1 /* q'+S+' r */ + 2\nX\n__LINE__\n',
+  'define-line-comment-continued':'#define X 1 // q'+S+'+ 2\nX\n__LINE__\n',
+  'define-comment-split-open':'#define X 1 /'+S+'* q */ + 2\nX\n__LINE__\n',
+  'if-comment-split-close':'#if 1 /* *'+S+'/ && 0\nno\n#else\nyes\n#endif\n__LINE__\n',
+  'skipped-comment-split':'#if 0\n/* a *'+S+'/\nno\n#else\nyes\n#endif\n__LINE__\n',
+  'prefix-comment-split':'/* a *'+S+'/ #define Q 7\nQ\n__LINE__\n',
+  'macro-argument-comment':'#define ID(x) x\nID(1 /* , *'+S+'/ + 2)\n__LINE__\n',
+  'crlf-comment-split-close':'/* a *\\\r\n/ int x;\r\n__LINE__\r\n',
+  'crlf-line-comment-continued':'int a; // c\\\r\nint b;\r\nint c;\r\n__LINE__\r\n',
 }
 # A splice whose neighbours would join: identifiers, numbers, multi-byte
 # punctuators, digraphs and comment openers.  Still explicitly unsupported.
 REJECT=[
   b'int ab'+S.encode()+b'cd;\n', b'x=1'+S.encode()+b'2;\n', b'a+'+S.encode()+b'+b;\n',
   b'p-'+S.encode()+b'>q;\n', b'x='+S.encode()+b'.5;\n', b'int a<'+S.encode()+b':1:>;\n',
-  b'x /'+S.encode()+b'* c */\n', b'x /'+S.encode()+b'/ c\n', b'x='+S.encode()+S.encode()+b'y;\n',
-  b'x,y'+S.encode()+b'z;\n', b'a=b\\\r\nc;\r\n', b'#if 0\nab'+S.encode()+b'cd\n#endif\n',
+b'x='+S.encode()+S.encode()+b'y;\n',
+  b'x,y'+S.encode()+b'z;\n', b'#def'+S.encode()+b'ine X 1\n', b'/* x */#'+S.encode()+b' 1 "v.c"\n', b'#line 5 /* unclosed'+S.encode()+b'\n', b'a=b\\\r\nc;\r\n', b'#if 0\nab'+S.encode()+b'cd\n#endif\n',
 ]
 
 
@@ -83,7 +109,10 @@ def main():
         source.write_bytes(data);out=work/'previous.i';out.write_bytes(b'previous text\n')
         p=run([DRIVER,'-E',source,'-o',out],status=49)
         assert b'error 49' in p.stderr and out.read_bytes()==b'previous text\n',(data,p.stderr)
-    source.write_text('''#define ADD(a,b) ((a)+(b))
+    source.write_text('''/*****\\
+ * banner *\\
+/
+#define ADD(a,b) ((a)+(b))
 static int table[3]={1,\\
 \t2,\\
 \t3};
@@ -93,9 +122,11 @@ int main(void){
 \t\ttable[1])+ADD(table[2],\\
 \\
  0);
+  // a continued comment hides the next line \\
+  return 4;
   if(sum!=6) return 1;
-  if(line_after!=5) return 2;
-  if(__LINE__!=13) return 3;
+  if(line_after!=8) return 2;
+  if(__LINE__!=18) return 3;
   return 0;
 }
 ''')

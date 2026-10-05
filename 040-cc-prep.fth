@@ -388,6 +388,7 @@ variable cc-pp-pending-nl
 [lit] 2 constant put-count
 variable cc-pp-put-mode
 variable cc-pp-line-control                     \ -1 operand, 2 prefix scan
+variable cc-pp-location-enabled                 \ direct profile: phase two
 
 \ cc-pp-put ( c -- )  Dispose of one walked-over byte.
 : cc-pp-put
@@ -418,27 +419,62 @@ variable cc-pp-line-control                     \ -1 operand, 2 prefix scan
   cc-prep-peek [lit] 13 = if, cc-prep-advance then,
   cc-pp-take ;
 
+\ Phase two deletes every backslash-newline before comments are found, so
+\ in the direct profile a comment delimiter may be split by continuations
+\ ("*\<newline>/" closes a comment) and a continuation inside a comment
+\ simply vanishes (a "//" comment goes on to the next line).
+
+\ cc-pp-splice-skip ( u -- u' )  The source offset past the run of LF or
+\ CRLF continuations that starts at offset u.  pos is kept.
+: cc-pp-splice-skip
+  cc-prep-src-pos @ >r cc-prep-src-pos !
+  begin, cc-pp-line-continuation? while,
+    cc-prep-advance
+    cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+    cc-prep-advance
+  repeat,
+  cc-prep-src-pos @ r> cc-prep-src-pos ! ;
+
+\ cc-pp-at-spliced? ( c1 c2 -- f )  Like cc-prep-at?, but in the direct
+\ profile continuations may stand between c1 and c2.
+: cc-pp-at-spliced?
+  cc-pp-location-enabled @ 0= if, cc-prep-at? exit, then,
+  swap cc-prep-peek <> if, drop [lit] 0 exit, then,
+  cc-prep-src-pos @ 1+ cc-pp-splice-skip
+  dup cc-prep-src-len @ >= if, 2drop [lit] 0 exit, then,
+  cc-prep-src-addr @ + c@ = ;
+
+\ cc-pp-comment-splice? ( -- f )  A continuation that phase two deletes.
+: cc-pp-comment-splice?
+  cc-pp-location-enabled @ cc-pp-line-continuation? and ;
+
+\ cc-pp-drop-splice ( -- )  Delete the continuation at pos. Its newline goes
+\ through the put mode, except that an emitted comment owes it instead:
+\ written inside the comment it could end a "//" or split a "*/".
+: cc-pp-drop-splice
+  cc-prep-advance
+  cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+  cc-pp-put-mode @ put-emit = if,
+    cc-prep-advance [lit] 1 cc-pp-pending-nl +!
+  else, cc-pp-take then, ;
+
+\ cc-pp-drop-splices ( -- )  Delete a run of continuations.
+: cc-pp-drop-splices
+  begin, cc-pp-comment-splice? while, cc-pp-drop-splice repeat, ;
+
 \ cc-pp-block-comment ( -- )  pos at "/*": walk through the closing "*/",
-\ or to EOR.
+\ or to EOR.  An unterminated comment in a directive dies with 49.
 : cc-pp-block-comment
-  cc-pp-take cc-pp-take
+  cc-pp-take cc-pp-drop-splices cc-pp-take
   begin,
     cc-prep-eor? if,
       cc-pp-line-control @ if, [lit] 49 cc-die then, exit,
     then,
-    [char] * [char] / cc-prep-at? 0=
+    [char] * [char] / cc-pp-at-spliced? 0=
   while,
-    cc-pp-line-control @ cc-pp-line-continuation? and if,
-      \ Prefix lookahead also crosses ordinary comments. A splice is
-      \ inert there unless it follows '*', which could hide a closer.
-      cc-pp-line-control @ [lit] 2 <> if, [lit] 49 cc-die then,
-      cc-prep-src-addr @ cc-prep-src-pos @ + 1- c@ [char] * = if,
-        [lit] 49 cc-die
-      then,
-    then,
-    cc-pp-take
+    cc-pp-comment-splice? if, cc-pp-drop-splice else, cc-pp-take then,
   repeat,
-  cc-pp-take cc-pp-take ;
+  cc-pp-take cc-pp-drop-splices cc-pp-take ;
 
 \ cc-pp-line-comment ( -- )  pos at "//": walk to the newline, which is
 \ left for the caller.
@@ -446,8 +482,7 @@ variable cc-pp-line-control                     \ -1 operand, 2 prefix scan
   begin,
     cc-prep-eor? 0= cc-prep-peek nl <> and
   while,
-    cc-pp-line-control @ cc-pp-line-continuation? and if, [lit] 49 cc-die then,
-    cc-pp-take
+    cc-pp-comment-splice? if, cc-pp-drop-splice else, cc-pp-take then,
   repeat, ;
 
 \ cc-pp-literal-splices ( -- )  Remove physical continuations before
@@ -478,17 +513,22 @@ variable cc-pp-line-control                     \ -1 operand, 2 prefix scan
 
 \ cc-prep-skip-to-eol ( -- )  Step to the end of the line: pos stops on the
 \ newline (or at EOR).  A /* comment */ or a backslash-newline on the way
-\ is stepped over whole, and the newlines inside it are owed.
+\ is stepped over whole, and the newlines inside it are owed.  In the
+\ direct profile a // comment is walked too, so a "/*" inside it is inert.
 : cc-prep-skip-to-eol
   put-count cc-pp-put-mode !
   begin,
     cc-prep-eor? 0= cc-prep-peek nl <> and
   while,
-    [char] / [char] * cc-prep-at? if,
+    [char] / [char] * cc-pp-at-spliced? if,
       cc-pp-block-comment
     else,
-      backslash nl cc-prep-at? if, cc-prep-advance then,
-      cc-pp-take
+      cc-pp-location-enabled @ [char] / [char] / cc-pp-at-spliced? and if,
+        cc-pp-line-comment
+      else,
+        backslash nl cc-prep-at? if, cc-prep-advance then,
+        cc-pp-take
+      then,
     then,
   repeat, ;
 
@@ -516,10 +556,10 @@ variable cc-pp-line-control                     \ -1 operand, 2 prefix scan
     cc-prep-peek dup [char] " = swap [char] ' = or if,
       cc-pp-literal
     else,
-      [char] / [char] / cc-prep-at? if,
+      [char] / [char] / cc-pp-at-spliced? if,
         cc-pp-line-comment
       else,
-        [char] / [char] * cc-prep-at? if,
+        [char] / [char] * cc-pp-at-spliced? if,
           cc-pp-block-comment
         else,
           backslash nl cc-prep-at? if,
@@ -652,7 +692,7 @@ variable cc-prep-inc-mode                         \ 1=quote, 2=angle
 \ Source provenance is separate from flattened diagnostic line numbers.
 \ Each live file caches a physical-line cursor. Macro replacement text keeps
 \ its invocation location; raw argument slices can recover their own lines.
-variable cc-pp-location-enabled
+\ (cc-pp-location-enabled is declared with the comment walkers above.)
 variable cc-pp-location-line
 variable cc-pp-location-rescan
 variable cc-pp-location-depth
@@ -912,8 +952,8 @@ variable cc-pp-ca-start                           \ where this argument began
     cc-prep-eor? if, [lit] 44 cc-die then,
     cc-prep-peek
     dup [char] " =  over [char] ' = or if, drop cc-pp-literal else,
-    [char] / [char] * cc-prep-at? if, drop cc-pp-block-comment else,
-    [char] / [char] / cc-prep-at? if, drop cc-pp-line-comment else,
+    [char] / [char] * cc-pp-at-spliced? if, drop cc-pp-block-comment else,
+    [char] / [char] / cc-pp-at-spliced? if, drop cc-pp-line-comment else,
     dup lparen = if, drop [lit] 1 cc-pp-ca-depth +! cc-prep-advance else,
     dup [char] , =  cc-pp-ca-depth @ [lit] 1 = and if,
       drop cc-pp-ca-record cc-prep-advance
@@ -1369,8 +1409,8 @@ variable cc-pp-cond-depth
 \ newlines inside it are owed.
 : cc-pp-skip-char
   put-count cc-pp-put-mode !
-  [char] / [char] * cc-prep-at? if, cc-pp-block-comment exit, then,
-  [char] / [char] / cc-prep-at? if, cc-pp-line-comment  exit, then,
+  [char] / [char] * cc-pp-at-spliced? if, cc-pp-block-comment exit, then,
+  [char] / [char] / cc-pp-at-spliced? if, cc-pp-line-comment  exit, then,
   cc-prep-peek dup [char] " = swap [char] ' = or if, cc-pp-literal exit, then,
   cc-prep-advance ;
 
@@ -1383,11 +1423,12 @@ variable cc-pp-cond-depth
     put-count cc-pp-put-mode !
     bl cc-prep-emit-byte
   then,
-  [char] / [char] * cc-prep-at? if,
+  [char] / [char] * cc-pp-at-spliced? if,
     cc-pp-block-comment
   else,
     cc-pp-line-comment
-  then, ;
+  then,
+  cc-prep-in-file @ cc-pp-location-enabled @ and if, cc-pp-flush-nl then, ;
 
 \ cc-pp-splice-next ( -- c )  The byte after the run of LF or CRLF
 \ continuations at pos: nl for a CRLF line end or at EOR.  pos is kept.
@@ -1453,7 +1494,7 @@ variable cc-pp-cond-depth
     put-emit cc-pp-put-mode ! cc-pp-literal
     cc-prep-in-file @ if, cc-pp-flush-nl then, exit,
   then,
-  [char] / [char] * cc-prep-at?  [char] / [char] / cc-prep-at? or if,
+  [char] / [char] * cc-pp-at-spliced?  [char] / [char] / cc-pp-at-spliced? or if,
     cc-pp-comment exit,
   then,
   backslash nl cc-prep-at?  cc-prep-in-file @ 0= and if,
@@ -1490,17 +1531,11 @@ variable cc-prep-isd-save-pos
     begin, cc-pp-line-continuation? while,
       cc-pp-take-continuation cc-prep-directive-blanks
     repeat,
-    \ A splice may split a comment opener before or after '#'. Do not
-    \ let that unsupported prefix look like ordinary text or vanish.
-    cc-prep-peek [char] / = if,
-      cc-prep-advance cc-pp-line-continuation?
-      [lit] 1 cc-prep-src-pos -! if, [lit] 49 cc-die then,
-    then,
-    [char] / [char] * cc-prep-at?
+    [char] / [char] * cc-pp-at-spliced?
   while,
     cc-pp-block-comment
   repeat,
-  [char] / [char] / cc-prep-at? if, cc-pp-line-comment then,
+  [char] / [char] / cc-pp-at-spliced? if, cc-pp-line-comment then,
   r> cc-pp-line-control ! r> cc-pp-put-mode ! ;
 
 : cc-prep-line-is-directive?
@@ -1958,9 +1993,9 @@ variable cc-pp-param-count
     backslash nl cc-prep-at? if,
       cc-prep-advance cc-prep-advance  [lit] 1 cc-pp-pending-nl +!
     else,
-    [char] / [char] * cc-prep-at?  [char] / [char] / cc-prep-at? or if,
+    [char] / [char] * cc-pp-at-spliced?  [char] / [char] / cc-pp-at-spliced? or if,
       put-count cc-pp-put-mode !
-      [char] / [char] * cc-prep-at? if,
+      [char] / [char] * cc-pp-at-spliced? if,
         cc-pp-block-comment
       else,
         cc-pp-line-comment

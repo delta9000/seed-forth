@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2606 names and 97 ideas.
+carry none.  2611 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1563,6 +1563,7 @@ for which chapter depends on which, the
 - `cc-pp-arg-index` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-arg-paste` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-args-max` — *compiler word (constant, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
+- `cc-pp-at-spliced?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-block-comment` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-ca-depth` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-ca-n` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
@@ -1571,6 +1572,7 @@ for which chapter depends on which, the
 - `cc-pp-ca-start` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-collect-args` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-comment` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
+- `cc-pp-comment-splice?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-cond` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-pp-cond-cap` — *compiler word (constant, `040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-pp-cond-depth` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
@@ -1588,6 +1590,8 @@ for which chapter depends on which, the
 - `cc-pp-count-raw-lines` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-defined` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-defined-name?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
+- `cc-pp-drop-splice` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
+- `cc-pp-drop-splices` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-duplicate-args` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-emit-bytes` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §1 The contract, the sink and the scratch area](22-the-preprocessor.md#1-the-contract-the-sink-and-the-scratch-area)
 - `cc-pp-eval` — *compiler word (defer, `040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
@@ -1637,7 +1641,7 @@ for which chapter depends on which, the
 - `cc-pp-location-depth` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-location-digit-count` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-location-digits` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
-- `cc-pp-location-enabled` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-pp-location-enabled` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-location-end` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-location-enter` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-location-filename` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
@@ -1702,6 +1706,7 @@ for which chapter depends on which, the
 - `cc-pp-skip-char` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-pp-skipping?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-pp-splice-next` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
+- `cc-pp-splice-skip` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-stdin-name` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-string-a` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-string-at?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
