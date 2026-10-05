@@ -161,3 +161,10 @@ The original GCC Linux host hooks use the real bounded public
 [mmap and munmap interfaces](MAPPING.md). Private file and anonymous mappings
 retain kernel ownership and errors; unsupported flags fail explicitly.
 The allocator continues to use its existing independent raw mapping calls.
+
+Original GCC 4.0.4 `xgcc`, `cpp` and `collect2` need the
+[driver runtime](DRIVER-RUNTIME.md): `sys/param.h` `MAXPATHLEN`, `dup`,
+`chdir`, `link`, the kernel's atomic `rename`, `putenv` over a runtime-owned
+`environ` vector that stores caller strings, and `fscanf` with `%c` over the
+existing integer scanner. A runtime `putenv` also removes libiberty's
+`putenv.o`, the one driver object that referenced an undefined plain `alloca`.

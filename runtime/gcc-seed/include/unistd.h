@@ -33,11 +33,15 @@ pid_t getpid(void);
 /* Caller buffer only; NULL/zero size fail EINVAL; kernel long-path bound. */
 char *getcwd(char *buffer, size_t size);
 int unlink(const char *path);
+/* Single kernel calls; see ../DRIVER-RUNTIME.md. */
+int chdir(const char *path);
+int link(const char *existing, const char *name);
 void _exit(int status);
 /* Process API; see ../PROCESS-API.md. vfork is an ordinary fork. execv and
    execvp pass the current environ; execvp searches PATH (default
    /bin:/usr/bin) and does not retry ENOEXEC files with a shell. */
 int pipe(int descriptors[2]);
+int dup(int descriptor);
 int dup2(int descriptor, int target);
 pid_t fork(void);
 pid_t vfork(void);

@@ -24,8 +24,11 @@ int abs(int value);
 int mkstemp(char *template);
 /* Basename of argv[0], initialized by the runtime-aware entry before main. */
 extern char *__progname;
-/* Points into the startup-provided environment; no mutation/copy is performed. */
+/* Searches the current environ; returns a pointer into that entry. */
 char *getenv(const char *name);
+/* Inserts STRING itself (not a copy) into a runtime-owned environ vector;
+   NAME without '=' removes NAME. See ../ENVIRONMENT.md. */
+int putenv(char *string);
 /* Terminates the supported single-threaded, unbuffered runtime; no atexit. */
 void exit(int status);
 void abort(void);

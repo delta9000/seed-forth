@@ -119,6 +119,7 @@ python3 tests/gcc/descriptor-io-check.py
 python3 tests/gcc/fcntl-check.py
 python3 tests/gcc/stdint-check.py
 python3 tests/gcc/process-api-check.py
+python3 tests/gcc/driver-runtime-check.py
 python3 tests/gcc/procfs-time-check.py
 python3 tests/gcc/mapping-check.py
 python3 tests/gcc/dirent-check.py

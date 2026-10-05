@@ -24,6 +24,12 @@ int pipe(int descriptors[2])
     return (int)seed_process_call(22, (long)descriptors, 0, 0, 0);
 }
 
+int dup(int descriptor)
+{
+    /* The lowest free descriptor; close-on-exec is clear on the copy. */
+    return (int)seed_process_call(32, descriptor, 0, 0, 0);
+}
+
 int dup2(int descriptor, int target)
 {
     return (int)seed_process_call(33, descriptor, target, 0, 0);

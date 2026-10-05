@@ -7,6 +7,8 @@ getenv searches that vector without allocating or modifying strings. It checks
 complete name boundaries, returns the first matching entry, preserves empty
 values and errno, and rejects empty names or names containing '='. environ is
 the actual replaceable process-environment pointer; no host answers are copied.
+putenv moves environ to a runtime-owned vector holding the caller's strings;
+see [the driver runtime](DRIVER-RUNTIME.md#putenv-and-environ-ownership).
 
 Heirloom lex calls setlocale(LC_CTYPE, ""). The implementation genuinely follows
 LC_ALL, then the requested category variable, then LANG, ignoring empty values.

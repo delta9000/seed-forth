@@ -10,7 +10,8 @@ numeric conversions; ordinary literal characters still match the next input
 byte exactly. scanf-percent-check.py covers this distinction, EOF, mismatch,
 and assignment counts with independent host C90 O0/O2 comparisons.
 It does not advertise width, suppression, length modifiers, other conversion
-letters, floating input or fscanf. Unsupported formats fail with EINVAL before
+letters or floating input. `%c` and `fscanf` were added later for GCC's
+driver; see [DRIVER-RUNTIME.md](DRIVER-RUNTIME.md#fscanf). Unsupported formats fail with EINVAL before
 consuming that field's argument; prior completed assignments remain counted.
 
 Empty input before the first assignment returns EOF; a nonmatching field

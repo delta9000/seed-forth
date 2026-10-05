@@ -53,8 +53,12 @@ int vsnprintf(char *buffer, size_t size, const char *format, va_list arguments);
 int snprintf(char *buffer, size_t size, const char *format, ...);
 int vsprintf(char *buffer, const char *format, va_list arguments);
 int sprintf(char *buffer, const char *format, ...);
-/* Measured integer input: plain %d/%o/%x, literals, %% and whitespace. */
+/* Measured input: plain %d/%o/%x/%c, literals, %% and whitespace.
+   fscanf leaves the first unmatched byte unread in the stream. */
 int sscanf(const char *text, const char *format, ...);
+int fscanf(FILE *stream, const char *format, ...);
 int remove(const char *path);
+/* The kernel's atomic rename; an existing target file is replaced. */
+int rename(const char *old, const char *new);
 void perror(const char *prefix);
 #endif
