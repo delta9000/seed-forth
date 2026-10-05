@@ -173,5 +173,5 @@ Original binutils 2.30 `gas`, `ld`, `ar`, `nm`, `objdump` and `readelf` need
 the [binutils runtime](FILE-METADATA.md): the `sys/stat.h` permission macros,
 `lstat`, `chmod`, `chown`, `umask`, `mkdir`, `rmdir`, `<utime.h>` `utime`,
 `rewind`, `mktemp`, `towlower`, `mbstowcs`, `gmtime`, `ctime` and a bounded
-`strftime`, plus [correctly rounded decimal `atof`](DECIMAL-INPUT.md) for
-`binutils/stabs.c`.
+`strftime`, the [`%u`, `l` and `%s` scanner conversions](INTEGER-INPUT.md#binutils-conversions),
+plus [correctly rounded decimal `atof`](DECIMAL-INPUT.md) for `binutils/stabs.c`.

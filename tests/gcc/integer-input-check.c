@@ -17,7 +17,7 @@ int main(void)
 #ifndef INTEGER_INPUT_HOST
     long mapping;
     char *edge;
-    const char *unsupported[6] = {"%u","%i","%ld","%2d","%*d","%s"};
+    const char *unsupported[6] = {"%i","%hd","%lc","%2d","%*d","%0s"};
     int i;
 #endif
     d = 17; o = 18; x = 19; errno = EDOM;

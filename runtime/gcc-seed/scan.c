@@ -51,6 +51,11 @@ static int seed_scan(struct seed_scan_input *input, const char *format, va_list 
     int digit;
     int any;
     int overflow;
+    int wide;
+    int given;
+    long width;
+    long count;
+    char *text;
     while (*format) {
         if (isspace((unsigned char)*format)) {
             while (isspace((unsigned char)*format)) format++;
@@ -65,9 +70,23 @@ static int seed_scan(struct seed_scan_input *input, const char *format, va_list 
             seed_scan_next(input);
             continue;
         }
+        /* A width is accepted only for %s; l selects long destinations
+           for d, u, o and x (see INTEGER-INPUT.md). */
+        width = 0;
+        given = *format >= '0' && *format <= '9';
+        while (*format >= '0' && *format <= '9') {
+            if (width < 100000000L) width = width * 10 + (*format - '0');
+            format++;
+        }
+        wide = *format == 'l';
+        if (wide) format++;
         conversion = (unsigned char)*format;
-        if (conversion != '%' && conversion != 'd' && conversion != 'o' &&
-            conversion != 'x' && conversion != 'c') {
+        if ((conversion != '%' && conversion != 'd' && conversion != 'u' &&
+             conversion != 'o' && conversion != 'x' && conversion != 'c' &&
+             conversion != 's')
+            || (wide && conversion != 'd' && conversion != 'u' && conversion != 'o'
+                && conversion != 'x')
+            || (given && (width == 0 || conversion != 's'))) {
             errno = EINVAL;
             return assigned ? assigned : EOF;
         }
@@ -90,13 +109,31 @@ static int seed_scan(struct seed_scan_input *input, const char *format, va_list 
             seed_scan_next(input);
             continue;
         }
-        base = conversion == 'd' ? 10 : conversion == 'o' ? 8 : 16;
+        if (conversion == 's') {
+            /* Nonblank bytes, at most WIDTH when given, then a NUL. */
+            text = va_arg(arguments, char *);
+            count = 0;
+            while (seed_scan_peek(input) != EOF && !isspace(seed_scan_peek(input))
+                   && (!given || count < width)) {
+                *text++ = (char)seed_scan_peek(input);
+                seed_scan_next(input);
+                count++;
+            }
+            *text = '\0';
+            assigned++;
+            continue;
+        }
+        base = conversion == 'd' || conversion == 'u' ? 10 : conversion == 'o' ? 8 : 16;
         negative = 0;
         if (seed_scan_peek(input) == '+' || seed_scan_peek(input) == '-') {
             negative = seed_scan_peek(input) == '-';
             seed_scan_next(input);
         }
-        limit = conversion == 'd' ? (negative ? 2147483648UL : 2147483647UL) : UINT_MAX;
+        if (wide)
+            limit = conversion == 'd' ? (negative ? (unsigned long)LONG_MAX + 1UL
+                                         : (unsigned long)LONG_MAX) : ULONG_MAX;
+        else
+            limit = conversion == 'd' ? (negative ? 2147483648UL : 2147483647UL) : UINT_MAX;
         value = 0; any = 0; overflow = 0;
         if (base == 16 && seed_scan_peek(input) == '0') {
             /* A leading zero is a digit unless a 0x prefix follows; an
@@ -118,7 +155,12 @@ static int seed_scan(struct seed_scan_input *input, const char *format, va_list 
         }
         if (!any) break;
         if (overflow) { errno = ERANGE; break; }
-        if (conversion == 'd') {
+        if (wide && conversion == 'd') {
+            *va_arg(arguments, long *) = negative
+                ? (value == (unsigned long)LONG_MAX + 1UL ? LONG_MIN : -(long)value) : (long)value;
+        } else if (wide) {
+            *va_arg(arguments, unsigned long *) = negative ? 0UL - value : value;
+        } else if (conversion == 'd') {
             *va_arg(arguments,int *) = negative ? (value == 2147483648UL ? INT_MIN : -(int)value) : (int)value;
         } else {
             *va_arg(arguments,unsigned int *) = negative ? 0U - (unsigned int)value : (unsigned int)value;

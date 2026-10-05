@@ -241,6 +241,54 @@ static void calendar(void)
     printf("gmtime and localtime share %d\n", gmtime(&stamp) == localtime(&stamp));
 }
 
+static void scanning(void)
+{
+    char header[16] = "28        `\n";
+    char text[64];
+    char more[64];
+    char format[32];
+    unsigned long value = 7;
+    long signed_value = 7;
+    unsigned int small = 7;
+    FILE *stream;
+    int count;
+    /* bfd/archive.c: the ar_size field with the fmag byte cleared. */
+    header[10] = '\0';
+    count = sscanf(header, "%lu", &value);
+    printf("ar_size %d %lu\n", count, value);
+    count = sscanf("18446744073709551615", "%lu", &value);
+    printf("lu max %d %lu\n", count, value);
+    count = sscanf("-1", "%lu", &value);
+    printf("lu negative %d %lu\n", count, value);
+    count = sscanf("-9223372036854775808 9223372036854775807", "%ld %lu", &signed_value, &value);
+    printf("ld min %d %ld %lu\n", count, signed_value, value);
+    count = sscanf("ffffffffffffffff 0x10 777", "%lx %lx %lo", &value, &value, &value);
+    printf("lx lo %d %lo\n", count, value);
+    count = sscanf("4294967295 -2", "%u %u", &small, &small);
+    printf("u %d %u\n", count, small);
+    count = sscanf("nope", "%lu", &value);
+    printf("lu mismatch %d %lu\n", count, value);
+    /* binutils/readelf.c: "%<PATH_MAX - 1>s" built with snprintf. */
+    sprintf(format, "%%%ds", 4095);
+    count = sscanf("  /lib64/ld-linux-x86-64.so.2\n", format, text);
+    printf("interp %d [%s]\n", count, text);
+    count = sscanf("abcdef ghi", "%3s%s %s", text, more, more + 10);
+    printf("width %d [%s] [%s] [%s]\n", count, text, more, more + 10);
+    count = sscanf("   ", "%s", text);
+    printf("blank %d\n", count);
+    stream = fopen("scan", "w");
+    if (!stream) return;
+    fwrite("/lib/ld.so\0\1\2 rest", 1, 20, stream);
+    fclose(stream);
+    stream = fopen("scan", "r");
+    if (!stream) return;
+    count = fscanf(stream, format, text);
+    printf("fscanf interp %d [%s] tell %ld", count, text, ftell(stream));
+    printf(" next [%c]\n", getc(stream));
+    fclose(stream);
+    remove("scan");
+}
+
 int main(void)
 {
     permission_macros();
@@ -251,6 +299,7 @@ int main(void)
     temporary_names();
     wide();
     calendar();
+    scanning();
     printf("done\n");
     return 0;
 }

@@ -11,7 +11,9 @@ byte exactly. scanf-percent-check.py covers this distinction, EOF, mismatch,
 and assignment counts with independent host C90 O0/O2 comparisons.
 It does not advertise width, suppression, length modifiers, other conversion
 letters or floating input. `%c` and `fscanf` were added later for GCC's
-driver; see [DRIVER-RUNTIME.md](DRIVER-RUNTIME.md#fscanf). Unsupported formats fail with EINVAL before
+driver; see [DRIVER-RUNTIME.md](DRIVER-RUNTIME.md#fscanf). Original binutils
+added `%u`, the `l` modifier and `%s`; see [below](#binutils-conversions).
+Unsupported formats fail with EINVAL before
 consuming that field's argument; prior completed assignments remain counted.
 
 Empty input before the first assignment returns EOF; a nonmatching field
@@ -34,3 +36,29 @@ assignment/mismatch/EOF cases, eight spilled pointer arguments, unsupported
 formats, overflow and a protected-page input boundary. Separate host C90 O0/O2
 builds compare representable results. The production compiler, runtime and
 linker remain Forth-built; host execution is only an independent oracle.
+
+## Binutils conversions
+
+Original binutils 2.30 `bfd/archive.c` reads every archive member size with
+`sscanf(hdr.ar_size, "%lu", ...)`, and `binutils/readelf.c` reads the program
+interpreter with `fscanf(file, "%4095s", ...)` (a format built from
+`PATH_MAX - 1`). Without them `ar`, `nm` and `objdump` reported every archive
+as malformed. The scanner now also accepts:
+
+- `%u`: decimal like `%d`, stored as `unsigned int`; a minus sign negates
+  modularly, as for `%o` and `%x`.
+- `l` before `d`, `u`, `o` or `x`: the same field stored as `long` or
+  `unsigned long`, with 64-bit limits; an unrepresentable magnitude sets
+  ERANGE and leaves the field unassigned, as for the 32-bit forms.
+- `%s` with an optional positive width: after skipping white space, at most
+  that many non-white-space bytes (all of them without a width) and a NUL.
+  As in C, bytes are copied without interpretation, so a stream's NUL byte
+  is stored and the C string ends there.
+
+Any other width (zero, or on another conversion), `l` with another
+conversion, `h`, `%i` and suppression remain EINVAL. `integer-input-check.py`
+now lists `%i`, `%hd`, `%lc`, `%2d`, `%*d` and `%0s` as unsupported.
+`tests/gcc/binutils-runtime-check.py` compares the archive and readelf
+patterns, `ULONG_MAX`, `LONG_MIN`, negative unsigned fields, `%3s` splitting
+and a stream with an embedded NUL with host glibc
+([FILE-METADATA.md](FILE-METADATA.md)).

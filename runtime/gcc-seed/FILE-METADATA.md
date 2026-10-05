@@ -27,6 +27,7 @@ were also called without a declaration, so a pointer result (`ctime`,
 | `ctime` | `binutils/bucomm.c` (`ar tv`), `bfd/peXXigen.c` |
 | `strftime` | `gas/listing.c` listing time stamp |
 | `atof` | `binutils/stabs.c` float constants; see [DECIMAL-INPUT.md](DECIMAL-INPUT.md) |
+| `sscanf` `%lu`, `fscanf` `%4095s` | `bfd/archive.c` member sizes, `binutils/readelf.c` interpreter; see [INTEGER-INPUT.md](INTEGER-INPUT.md#binutils-conversions) |
 
 ## Single calls
 
@@ -103,8 +104,24 @@ success and `EEXIST`, `ENOENT`, `ENOTDIR`, `ENOTEMPTY`; `chmod` (including
 set-user-ID through the link) and `chown` with unchanged and own IDs;
 `lstat` versus `stat` on the link; `utime` with explicit, pre-epoch and
 NULL times; `rewind` after EOF, after `ungetc` and after a write error;
-`mktemp` names, the binutils `mkdir` pattern and `EINVAL` templates;
+`mktemp` names, the binutils `mkdir` pattern and `EINVAL` templates; the
+binutils `sscanf`/`fscanf` conversions;
 `towlower` and `mbstowcs` boundaries; and `gmtime`, `ctime` and `strftime`
 for sixteen timestamps from year 1 to 9999 plus short buffers and gas's exact
 listing format. The same script runs the [atof gate](DECIMAL-INPUT.md) and
 lints the changed runtime sources with host GCC against the runtime headers.
+
+## Consumer build
+
+A fresh `gcc-direct/binutils.py` run (new configure, so `HAVE_GOOD_UTIME_H`
+is found) compiles every gas, ld and binutils source, including `rename.c`,
+`objcopy.c` and `nm.c` (the last needed a compiler fix, chapter 34), and
+links `elfedit` and `sysinfo`. Every other tool link still stops at the
+driver's missing `-L`/`-lz` support. Relinking the same commands with
+`zlib/libz.a` named by path builds `as-new`, `ld-new`, `ar`, `nm-new`,
+`objdump`, `readelf` and the other binutils programs with no unresolved
+symbol. All six print their 2.30 version; `as-new` and `ld-new` assemble
+and link a program that runs; `ar rcs`, `ar tv`, `nm -s` and `objdump -a`
+read archives (the `%lu` gap above was found here); `readelf -l` prints a
+host executable's interpreter; and `nm`, `objdump -d` and `readelf -h`
+read a Forth-built object. `ctime` output requires `TZ=UTC0`.
