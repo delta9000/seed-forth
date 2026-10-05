@@ -1,0 +1,3 @@
+{
+  "20030405-1.x": "set options \"-pedantic\"\nreturn 0"
+}

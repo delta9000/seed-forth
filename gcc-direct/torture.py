@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run pinned GCC 4.0.4 execute tests with a Forth-built cc1.
+"""Run pinned GCC 4.0.4 torture tests with a Forth-built cc1.
 
 Host gcc assembles/links test assembly ONLY as an oracle. No oracle output
 is used to build cc1 or any route artifact. All writes stay under --out.
@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import shutil
 import subprocess
 import sys
@@ -35,7 +36,8 @@ def active_script(text):
 def evaluate_x(name, script, target, option, inventory):
     """Exact-script evaluator, not Tcl: validate the ENTIRE active script first.
 
-    torture-x.json lists all 25 supported scripts verbatim (minus comments).
+    torture-x.json lists 25 execute scripts; compile-torture-x.json lists the
+    compile script, verbatim minus comments.
     Semantics below cover return 0/1, negated/OR istarget globs, expr return,
     additional_flags, option string-match/continue, and conditional compile/run
     XFAIL hooks. There are no compile-only markers in this pinned execute suite.
@@ -46,6 +48,9 @@ def evaluate_x(name, script, target, option, inventory):
     if name not in inventory or active_script(script) != inventory[name]:
         raise ValueError(f"unrecognised .x script: {name}; update the explicit evaluator")
     result = {"flags": [], "skip": None, "compile_xfail": None, "run_xfail": None}
+    if name == "20030405-1.x":
+        # c-torture passes $options into c-torture-compile at every level.
+        result["flags"] = ["-pedantic"]
 
     def target_is(*patterns):
         return any(fnmatch.fnmatchcase(target, p) for p in patterns)
@@ -174,16 +179,107 @@ def test_one(source, option, policy, cc1, include, oracle, out, extra):
     return dict(result, status="PASS", reason="")
 
 
+def compile_run(command, directory, log, timeout=120):
+    """Preserve signal exits and distinguish them from our own timeout kills."""
+    with log.open("wb") as stream:
+        with subprocess.Popen(command, cwd=directory, start_new_session=True,
+                              env=dict(os.environ, LC_ALL="C"),
+                              stdout=stream, stderr=subprocess.STDOUT) as process:
+            timed_out = False
+            try:
+                process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+    return {"command": command, "returncode": process.returncode,
+            "timed_out": timed_out, "timeout_seconds": timeout, "log": str(log)}
+
+
+def compile_status(step, diagnostic, assembly):
+    if step["timed_out"]:
+        return "TIMEOUT"
+    if "internal compiler error" in diagnostic.lower() or step["returncode"] < 0:
+        return "COMPILER-ERROR"
+    if step["returncode"] != 0:
+        return "DIAGNOSTIC"
+    # A successful exit without its requested output violates the cc1 contract.
+    return "PASS" if assembly.is_file() else "COMPILER-ERROR"
+
+
+def compile_one(source, option, policy, cc1, include, oracle, out, extra):
+    directory = out / option / source.stem
+    directory.mkdir(parents=True)
+    result = {"test": source.name, "option": option, "source_sha256": sha(source),
+              "policy": policy, "steps": [], "reason": ""}
+    if policy["skip"]:
+        return dict(result, status="SKIP", reason=policy["skip"])
+    assembly = directory / "t.s"
+    flags = ["-w", option, "-isystem", str(include), "-isystem",
+             "/usr/include/x86_64-linux-gnu", *extra, *policy["flags"]]
+    limit = ["prlimit", "--as=943718400", "--core=0", "--"]
+    step = compile_run([*limit, str(cc1), "-quiet", *flags, str(source), "-o", str(assembly)],
+                       directory, directory / "cc1.err")
+    result["steps"].append(dict(step, stage="cc1"))
+    diagnostic = (directory / "cc1.err").read_text(errors="replace")
+    result["first_diagnostic"] = next((line for line in diagnostic.splitlines() if line.strip()), "")
+    result["status"] = compile_status(step, diagnostic, assembly)
+    if result["status"] != "PASS":
+        termination = (f"signal {signal.Signals(-step['returncode']).name}" if step["returncode"] < 0
+                       else f"exit {step['returncode']}")
+        result["reason"] = result["first_diagnostic"] or f"no diagnostic; {termination}; assembly written: {assembly.is_file()}"
+    if result["status"] == "DIAGNOSTIC":
+        reference = compile_run([*limit, oracle, "-std=gnu89", "-fsyntax-only", *flags, str(source)],
+                                directory, directory / "reference.err")
+        result["steps"].append(dict(reference, stage="reference"))
+        result["reference_rejected"] = (not reference["timed_out"] and reference["returncode"] > 0)
+        result["reference_classification"] = (
+            "environment/legacy-test issue" if result["reference_rejected"] else
+            "reference inconclusive" if reference["timed_out"] or reference["returncode"] < 0 else
+            "possible regression: modern gcc accepts")
+        result["reference_first_diagnostic"] = next((line for line in (directory / "reference.err").read_text(errors="replace").splitlines() if line.strip()), "")
+    return result
+
+
 def reports(out, report):
     counts = Counter(r["status"] for r in report["results"])
+    if report.get("compile_only"):
+        for status in ("PASS", "COMPILER-ERROR", "DIAGNOSTIC", "TIMEOUT", "SKIP"):
+            counts.setdefault(status, 0)
     report["counts"] = dict(sorted(counts.items()))
+    if report.get("compile_only"):
+        report["diagnostic_reference_counts"] = dict(Counter(
+            r["reference_classification"] for r in report["results"] if r["status"] == "DIAGNOSTIC"))
+        report["counts_by_option"] = {
+            option: {status: sum(r["option"] == option and r["status"] == status
+                                 for r in report["results"]) for status in sorted(counts)}
+            for option in report["levels"]}
     (out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
-    lines = ["# GCC 4.0.4 execute torture", "", report["scope"], "",
+    lines = ["# GCC 4.0.4 " + ("compile" if report.get("compile_only") else "execute") + " torture", "", report["scope"], "",
              f"Target: {report.get('target', 'unknown')}; jobs: {report['jobs']}.", "",
              "; ".join(f"{status}: {count}" for status, count in sorted(counts.items())), "",
              "| Option | Test | Result | Reason |", "|---|---|---|---|"]
-    for result in report["results"]:
-        lines.append(f"| {result['option']} | {result['test']} | {result['status']} | {result['reason'].replace('|', '/')} |")
+    if report.get("compile_only"):
+        lines = lines[:-2]
+        lines += [f"{report.get('test_count', 0)} C tests (directory also contains compile.exp and one .x).",
+                  "", "| Option | PASS | COMPILER-ERROR | DIAGNOSTIC | TIMEOUT | SKIP |",
+                  "|---|---:|---:|---:|---:|---:|"]
+        for option, option_counts in report["counts_by_option"].items():
+            lines.append("| " + option + " | " + " | ".join(str(option_counts[s]) for s in
+                         ("PASS", "COMPILER-ERROR", "DIAGNOSTIC", "TIMEOUT", "SKIP")) + " |")
+        lines += ["", "## Compiler errors (first diagnostic line)", ""]
+        for r in report["results"]:
+            if r["status"] == "COMPILER-ERROR":
+                lines.append(f"- {r['option']} {r['test']}: {r['first_diagnostic'] or r['reason']}")
+        if not counts["COMPILER-ERROR"]:
+            lines.append("None.")
+        lines += ["", "## Diagnostic reference", ""]
+        for classification, count in report["diagnostic_reference_counts"].items():
+            lines.append(f"- {classification}: {count}")
+        lines += ["", "Per-test statuses, commands, hashes, reference rejections, and logs: report.json."]
+    else:
+        for result in report["results"]:
+            lines.append(f"| {result['option']} | {result['test']} | {result['status']} | {result['reason'].replace('|', '/')} |")
     lines += ["", "## .x inventory", ""]
     for entry in report["x_files"]:
         lines.append(f"- {entry['name']}: {entry.get('error', entry.get('note', 'recognised'))}")
@@ -203,10 +299,15 @@ def main():
     parser.add_argument("--levels", default="-O0 -O2", help="space-separated optimisation levels; use --levels='-O0 -O2'")
     parser.add_argument("--extra", default=os.environ.get("EXTRA", ""), help="extra cc1 flags (scratch script's EXTRA)")
     parser.add_argument("--configure-record", type=Path, help="default: BUILD/../../configure-command.json")
-    parser.add_argument("-j", "--jobs", type=int, default=6)
+    parser.add_argument("--compile-only", action="store_true", help="compile suite to assembly; modern gcc syntax reference only")
+    parser.add_argument("-j", "--jobs", type=int, help="default: 3 for compile-only, 6 for execute")
     args = parser.parse_args()
+    if args.jobs is None:
+        args.jobs = 3 if args.compile_only else 6
     if args.jobs < 1:
         parser.error("jobs must be at least 1")
+    if args.compile_only and args.jobs > 3:
+        parser.error("compile-only jobs must be at most 3 (900 MiB per process)")
     options = args.levels.split()
     if not options or any(not re.fullmatch(r"-O(?:[0-3sg]|fast)", option) for option in options) or len(set(options)) != len(options):
         parser.error("levels must be unique -O optimisation flags")
@@ -221,6 +322,10 @@ def main():
     report = {"scope": "Forth-built cc1 compiles tests; host gcc assembly/link and host execution are oracle-only. No route artifacts are produced.",
               "cc1": str(cc1), "build": str(build), "source": str(source), "jobs": args.jobs,
               "levels": options, "extra": shlex.split(args.extra), "results": [], "x_files": []}
+    report["compile_only"] = args.compile_only
+    if args.compile_only:
+        report["scope"] = "Compile-only acceptance/crash check, not generated-code correctness. Forth-built cc1 writes assembly; host gcc -std=gnu89 -fsyntax-only is only a reference for DIAGNOSTIC results. Shared rejections are environment/legacy-test issues, not evidence of regressions."
+        report["memory_limit_bytes_per_process"] = 943718400
     started = time.time()
     try:
         oracle = shutil.which("gcc")
@@ -236,11 +341,12 @@ def main():
             raise RuntimeError(f"native oracle runner supports x86_64-pc-linux-gnu, got {target}")
         report.update(target=target, cc1_sha256=sha(cc1), configure_record=str(record_path), configure=record,
                       oracle=oracle, oracle_version=subprocess.run([oracle, "--version"], capture_output=True, text=True, check=True).stdout.splitlines()[0])
-        suite = source / "gcc/testsuite/gcc.c-torture/execute"
+        suite = source / "gcc/testsuite/gcc.c-torture" / ("compile" if args.compile_only else "execute")
         tests = sorted(suite.glob("*.c"))
         if not tests:
-            raise RuntimeError(f"no execute tests found in {suite}")
-        inventory = json.loads(Path(__file__).with_name("torture-x.json").read_text())
+            raise RuntimeError(f"no tests found in {suite}")
+        report["test_count"] = len(tests)
+        inventory = json.loads(Path(__file__).with_name("compile-torture-x.json" if args.compile_only else "torture-x.json").read_text())
         scripts = {}
         errors = {}
         for path in sorted(suite.glob("*.x")):
@@ -266,7 +372,8 @@ def main():
         def one(task):
             test, option = task
             policy = evaluate_x(test.stem + ".x", scripts[test.stem], target, option, inventory) if test.stem in scripts else {"flags": [], "skip": None, "compile_xfail": None, "run_xfail": None}
-            return test_one(test, option, policy, cc1, include, oracle, out, report["extra"])
+            runner = compile_one if args.compile_only else test_one
+            return runner(test, option, policy, cc1, include, oracle, out, report["extra"])
         with ThreadPoolExecutor(args.jobs) as pool:
             report["results"] = list(pool.map(one, tasks))
         (out / "results.txt").write_text("".join(f"{r['option']} {Path(r['test']).stem} {r['status']} {r['reason']}\n" for r in report["results"]))
@@ -275,7 +382,7 @@ def main():
         print(f"torture: {error}", file=sys.stderr)
     report["seconds"] = round(time.time() - started, 1)
     reports(out, report)
-    return 1 if report.get("error") or any(r["status"].startswith("FAIL") for r in report["results"]) else 0
+    return 1 if report.get("error") or any(r["status"].startswith("FAIL") or r["status"] in ("COMPILER-ERROR", "TIMEOUT") for r in report["results"]) else 0
 
 
 if __name__ == "__main__":

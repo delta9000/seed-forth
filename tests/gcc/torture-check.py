@@ -17,6 +17,40 @@ INVENTORY = json.loads((ROOT / "gcc-direct/torture-x.json").read_text())
 
 
 class TortureChecks(unittest.TestCase):
+    def test_compile_inventory_and_status(self):
+        inventory = json.loads((ROOT / "gcc-direct/compile-torture-x.json").read_text())
+        policy = torture.evaluate_x("20030405-1.x", inventory["20030405-1.x"],
+                                    "x86_64-pc-linux-gnu", "-O2", inventory)
+        self.assertEqual(policy["flags"], ["-pedantic"])
+        with self.assertRaisesRegex(ValueError, "unrecognised"):
+            torture.evaluate_x("20030405-1.x", inventory["20030405-1.x"] + "\nunknown",
+                               "x86_64-pc-linux-gnu", "-O2", inventory)
+        with tempfile.TemporaryDirectory() as scratch:
+            assembly = Path(scratch) / "t.s"
+            step = {"returncode": 0, "timed_out": False}
+            self.assertEqual(torture.compile_status(step, "", assembly), "COMPILER-ERROR")
+            assembly.write_text(".text\n")
+            self.assertEqual(torture.compile_status(step, "", assembly), "PASS")
+            for code, timed_out, message, status in [
+                (1, False, "error: invalid type", "DIAGNOSTIC"),
+                (1, False, "internal compiler error: failure", "COMPILER-ERROR"),
+                (-11, False, "", "COMPILER-ERROR"),
+                (-9, True, "", "TIMEOUT"),
+            ]:
+                self.assertEqual(torture.compile_status({"returncode": code, "timed_out": timed_out},
+                                                       message, assembly), status)
+
+    def test_compile_process_signal_and_timeout(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            signal_exit = torture.compile_run([sys.executable, "-c", "import os,signal; os.kill(os.getpid(), signal.SIGTERM)"],
+                                               root, root / "signal.log")
+            self.assertLess(signal_exit["returncode"], 0)
+            self.assertFalse(signal_exit["timed_out"])
+            timed = torture.compile_run([sys.executable, "-c", "import time; time.sleep(10)"],
+                                         root, root / "timeout.log", timeout=0.05)
+            self.assertTrue(timed["timed_out"])
+
     def policy(self, name, target="x86_64-pc-linux-gnu", option="-O2"):
         return torture.evaluate_x(name, INVENTORY[name], target, option, INVENTORY)
 
