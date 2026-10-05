@@ -306,8 +306,8 @@ in the type word. For example, `void (**)(rtx)` has depth two and the same
 recursive signature as `void (*)(rtx)`. Its value points to a stored
 function pointer; dereferencing loads that pointer before a call. Only
 depth zero function designators and depth one function pointers are
-callable. Calling a deeper pointer object rejects230, while a depth above
-255 rejects231 instead of wrapping. The focused
+callable. Calling a deeper pointer object is rejected with error 230, while a depth above
+255 is rejected with error 231 instead of wrapping. The focused
 `tests/gcc/nested-function-pointer-check.py` gate covers those boundaries,
 object-pointer casts, load/store behavior and mixed GCC O0/O2 execution.
 

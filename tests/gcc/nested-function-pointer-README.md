@@ -17,7 +17,7 @@ objects: ordinary loads/stores and pointer arithmetic use eight-byte
 cells, and each dereference removes exactly one level. The type checker
 keeps return/parameter/aggregate identity; casting a `void *` to a pointer
 to a function-pointer object remains an object-pointer conversion.
-A direct call through depth2 or greater is invalid and rejects230,
+A direct call through depth 2 or greater is invalid and is rejected with error 230,
 including the formerly accepted typedef spelling. A function designator
 at depth0 and a function pointer at depth1 remain callable.
 
@@ -28,7 +28,7 @@ loads and replacement stores, static address relocations, single evaluation,
 typedef equivalence, callbacks returning callbacks and callbacks with callback
 parameters, object-pointer results, double/float argument and result ABI,
 eight INTEGER arguments including narrow unsigned conversion, qualifiers,
-null pointers and `sizeof`. Depth255 is accepted; depth256 rejects231.
+null pointers and `sizeof`. Depth 255 is accepted; depth 256 is rejected with error 231.
 Adversarial tests check exact diagnostics and atomic output preservation
 for both mapped ELF and relocatable object output, with existing/absent
 output destinations. Older shape tests now reject attempted calls through
