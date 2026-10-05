@@ -152,6 +152,11 @@ needs the [process API](PROCESS-API.md): `pipe`, `dup2`, `fork`, `vfork` (an
 ordinary fork), `execve`, `execv`, `execvp` with PATH search, `waitpid`, `wait`,
 `kill`, `sleep`, the Linux `sys/wait.h` status macros, and `strerror`.
 
+Original binutils 2.30 bfd's native x86-64 Linux core-file header needs
+[core-note records, gettimeofday and features.h](PROCFS.md): the Linux x86-64
+`NT_PRSTATUS`/`NT_PRPSINFO` data types in `sys/procfs.h`, a raw syscall 96
+`gettimeofday` in `sys/time.h`, and an empty `features.h` marker.
+
 The original GCC Linux host hooks use the real bounded public
 [mmap and munmap interfaces](MAPPING.md). Private file and anonymous mappings
 retain kernel ownership and errors; unsupported flags fail explicitly.

@@ -51,7 +51,8 @@ checks use the original consumer's ordinary four-digit-year domain.
 preserving `clock_t`, CLOCKS_PER_SEC and `clock()` unchanged. `sys/time.h`
 supplies the genuine LP64 `struct timeval` record (two signed long fields),
 `suseconds_t` and the existing `time_t`, with independent include guards. It
-does not declare gettimeofday, select, interval timers, or timezone APIs.
+declares no select, interval timer, or timezone record APIs; the later
+`gettimeofday` declaration is documented in [PROCFS.md](PROCFS.md).
 The headers can be included in either order. Their presence is a bounded
 record/inclusion contract, not a complete POSIX header claim.
 
