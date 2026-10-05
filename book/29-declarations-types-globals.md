@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (798 lines), the first of the
+That machinery is `110-cc-decl.fth` (808 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
@@ -158,6 +158,14 @@ can grep for in those files.
     tok-kw-id @ kw-restrict = or
   and ;
 
+\ cc-qualifier-bit ( -- bit )  The current qualifier's bit in a qualifier
+\ set: const 1, volatile 2, restrict 4.  The LP64 targets record sets, not
+\ a yes/no flag, so `const` and `volatile` rows stay distinct types.
+: cc-qualifier-bit
+  tok-kw-id @ kw-const = if, [lit] 1 exit, then,
+  tok-kw-id @ kw-volatile = if, [lit] 2 exit, then,
+  [lit] 4 ;
+
 \ cc-skip-qualifiers ( -- )  Read past any qualifiers; the first token that
 \ isn't one is left pending.
 : cc-qual-note-noop ;
@@ -206,7 +214,9 @@ variable cc-decl-storage
   [lit] 0 cc-decl-static ! [lit] 0 cc-decl-extern ! [lit] 0 cc-decl-storage !
   begin,
     cc-next-token-keep
-    cc-qualifier? if, true cc-prefix-qualified ! then,
+    cc-qualifier? if,
+      cc-qualifier-bit cc-prefix-qualified @ or cc-prefix-qualified !
+    then,
     kw-static cc-tok-kw? if, true cc-decl-static ! then,
     kw-extern cc-tok-kw? if, true cc-decl-extern ! then,
     kw-static cc-tok-kw? kw-extern cc-tok-kw? or

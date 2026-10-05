@@ -148,7 +148,7 @@ create cc-om-string-name s, .Lstring
 : cc-om-compatible-object ( record -- )
   dup om-kind @ cc-obj-object <> if, [lit] 237 cc-die then,
   dup om-type @ over om-desc @ nc-ty @ nc-desc @
-  cc-sysv-compatible-types 0= if, [lit] 237 cc-die then,
+  cc-sysv-same-types 0= if, [lit] 237 cc-die then,
   dup om-array @ 0= nc-array @ 0= <> if, [lit] 237 cc-die then,
   dup om-array @ [lit] 0 > nc-array @ [lit] 0 > and if,
     dup om-array @ nc-array @ <> if, [lit] 237 cc-die then,

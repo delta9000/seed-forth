@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (616 lines),
+This chapter owns `115-cc-native.fth` (617 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (324 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
@@ -171,7 +171,8 @@ variable cc-nctx
 : nc-base-qualified cc-nctx @ [lit] 216 + ;
 : nc-prefix-qualified cc-nctx @ [lit] 224 + ;
 : nc-storage cc-nctx @ [lit] 232 + ;
-: cc-native-qual-note cc-nctx @ if, true nc-qualified ! then, ;
+: cc-native-qual-note
+  cc-nctx @ if, cc-qualifier-bit nc-qualified @ or nc-qualified ! then, ;
 ' cc-native-qual-note is cc-qual-note
 : cc-nzero ( a n -- )
   begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;

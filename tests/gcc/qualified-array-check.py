@@ -5,7 +5,9 @@ A const or volatile array (or an array member reached through a qualified
 record) decays to a pointer to qualified elements, and `&a` points to a
 qualified array. A matrix's row node records the qualifier, so implicitly
 discarding it (`long (*p)[3] = t` for `const long t[2][3]`) still rejects
-with 238 and leaves an existing output file untouched.
+with 238 and leaves an existing output file untouched. The node records
+the qualifier set, so const and volatile rows are distinct types: changing
+the set in a redeclaration, a prototype or below a second pointer is 237.
 
 The Forth driver builds every target byte. Host GCC (-std=gnu89) is used
 only as an oracle for the fixture's printed results and to link one object.
@@ -54,6 +56,17 @@ ACCEPT = {
     'matrix-mixed-conditional': 'const long t[2][3];long u[2][3];long f(int c){const long (*p)[3]=c?u:t;return p[0][0];}',
     'middle-pointer-qualifier': 'int g(void){return sizeof(int (*const *)[2]);}',
     'sizeof': 'const long t[2][3];int f(void){return sizeof t+sizeof t[0]+sizeof &t+sizeof(const long (*)[3]);}',
+    # Row qualifiers are a set: equal sets in any spelling are one type, and
+    # an implicit conversion may add members of the set.
+    'redeclare-same-set': 'extern const long (*p)[3]; extern long const (*p)[3];',
+    'redeclare-cv-order': 'extern const volatile long (*p)[3]; extern volatile const long (*p)[3];',
+    'prototype-same-set': 'int f(const long (*)[3]); int f(long const (*p)[3]){return p!=0;}',
+    'add-volatile-to-const': 'const long t[2][3];long f(void){const volatile long (*p)[3]=t;return p[0][0];}',
+    'add-const-to-volatile': 'volatile long t[2][3];long f(void){const volatile long (*p)[3]=t;return p[0][0];}',
+    'double-pointer-same-set': 'const long (*p)[3];long f(void){const long (**q)[3]=&p;return q!=0;}',
+    'double-pointer-unqualified': 'long (*p)[3];long f(void){long (**q)[3]=&p;return q!=0;}',
+    'member-const-row': 'struct S{const long m[2][3];};long f(struct S *s){const long (*p)[3]=s->m;return p[0][0];}',
+    'cast-volatile-to-const': 'volatile long t[2][3];long f(void){const long (*p)[3]=(const long (*)[3])t;return p[0][0];}',
 }
 
 # Discarding a row qualifier without a cast keeps its diagnostic.
@@ -75,6 +88,20 @@ REJECT = {
     'discard-conditional-right': ('const long t[2][3];long u[2][3];long f(int c){long (*p)[3]=c?u:t;return p[0][0];}', 238),
     # A shape mismatch is still a shape error, whatever the qualifiers.
     'incompatible-row': ('const long t[2][3];long f(void){const long (*p)[4]=t;return p[0][0];}', 237),
+    # Row qualifiers are a set, not a flag: const and volatile rows differ.
+    'redeclare-const-volatile': ('extern const long (*p)[3]; extern volatile long (*p)[3];', 237),
+    'redeclare-const-unqualified': ('extern const long (*p)[3]; extern long (*p)[3];', 237),
+    'redeclare-cv-const': ('extern const volatile long (*p)[3]; extern const long (*p)[3];', 237),
+    'prototype-const-volatile': ('int f(const long (*)[3]); int f(volatile long (*)[3]);', 237),
+    'discard-const-to-volatile': ('const long t[2][3];long f(void){volatile long (*p)[3]=t;return p[0][0];}', 238),
+    'discard-volatile-to-const': ('volatile long t[2][3];long f(void){const long (*p)[3]=t;return p[0][0];}', 238),
+    'discard-cv-to-const': ('const volatile long t[2][3];long f(void){const long (*p)[3]=t;return p[0][0];}', 238),
+    'discard-declared-volatile': ('volatile long (*p)[3];long f(void){const long (*q)[3]=p;return q[0][0];}', 238),
+    'discard-member-const-to-volatile': ('struct S{const long m[2][3];};long f(struct S *s){volatile long (*p)[3]=s->m;return p[0][0];}', 238),
+    # Below the first pointer the sets must match exactly (C90 6.3.16.1).
+    'double-pointer-add-const': ('long (*p)[3];long f(void){const long (**q)[3]=&p;return q!=0;}', 237),
+    'double-pointer-discard-const': ('const long (*p)[3];long f(void){long (**q)[3]=&p;return q!=0;}', 237),
+    'double-pointer-const-volatile': ('const long (*p)[3];long f(void){volatile long (**q)[3]=&p;return q!=0;}', 237),
 }
 
 env = os.environ.copy()

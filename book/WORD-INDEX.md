@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2665 names and 97 ideas.
+carry none.  2668 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1889,6 +1889,7 @@ for which chapter depends on which, the
 - `cc-qual-note` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-qual-note-noop` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-qualified-fields` — *compiler word (variable, `070-cc-sym.fth`)* — [Ch 24 §2 The symbol-table parallel arrays](24-types-and-symbols.md#2-the-symbol-table-parallel-arrays)
+- `cc-qualifier-bit` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-qualifier?` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-ra-buf` — *compiler word (variable, `030-cc-io.fth`)* — [Ch 21, The input and source buffers and the reader](21-arena-and-io-buffers.md#the-input-and-source-buffers-and-the-reader)
 - `cc-ra-cap` — *compiler word (variable, `030-cc-io.fth`)* — [Ch 21, The input and source buffers and the reader](21-arena-and-io-buffers.md#the-input-and-source-buffers-and-the-reader)
@@ -2161,6 +2162,8 @@ for which chapter depends on which, the
 - `cc-sysv-return-check-default` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-return-check-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-row-qualifier-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
+- `cc-sysv-row-set` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-same-types` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-save-callee` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-save-live` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-scalar-base` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)

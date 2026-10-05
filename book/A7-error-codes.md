@@ -88,10 +88,10 @@ to its call site.
 | 47  | `040-cc-prep.fth:165,593,1985,1988,1996,2008,2079` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
 | 48  | `040-cc-prep.fth:1930,1986` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 49  | `040-cc-prep.fth` | Invalid or unsupported direct-profile directive syntax, including malformed `#line`, GNU numeric markers, unterminated comments in directives, splices splitting a directive name, and source-text continuations that would join two tokens (continuations inside or splitting comments follow phase two). See [C line control](22-the-preprocessor.md#c-line-control-for-generated-parser-sources). |
-| 50  | `060-cc-types.fth:303` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
-| 60  | `070-cc-sym.fth:73` | `cc-sym-add`: more than 8,192 live symbols. |
-| 61  | `070-cc-sym.fth:153` | `cc-scope-push`: scopes nested more than 64 deep. |
-| 62  | `070-cc-sym.fth:162` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
+| 50  | `060-cc-types.fth:304` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
+| 60  | `070-cc-sym.fth:75` | `cc-sym-add`: more than 8,192 live symbols. |
+| 61  | `070-cc-sym.fth:155` | `cc-scope-push`: scopes nested more than 64 deep. |
+| 62  | `070-cc-sym.fth:164` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
 | 80  | `090-cc-emit.fth:1186` | `cc-globals-alloc`: the data area of file-scope scalars (64 KiB) is full. |
 | 81  | `090-cc-emit.fth:1215` | `cc-gfixup-add`: selected global-fixup table full (default 16,384, direct GCC 17,920), or its mapping fails. |
 | 82  | `090-cc-emit.fth:1194` | `cc-bss-alloc`: global arrays need more than the 256 MiB bss. |
@@ -137,21 +137,21 @@ to its call site.
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
 | 143 | `110-cc-decl.fth:81` | `cc-expect-punct-c`: punctuation char mismatch. |
 | 144 | `110-cc-decl.fth:88` | `cc-expect-ident`: next token wasn't an identifier. |
-| 145 | `110-cc-decl.fth:228` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag`). |
-| 146 | `110-cc-decl.fth:233` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
-| 147 | `110-cc-decl.fth:237` | `struct TAG`: name isn't a struct tag (strict lookup). |
-| 148 | `110-cc-decl.fth:248` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag-soft`). |
-| 149 | `110-cc-decl.fth:265` | `struct` definition: tag isn't an identifier. |
-| 150 | `110-cc-decl.fth:315` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
-| 151 | `110-cc-decl.fth:321` | Struct definition: field type is neither a keyword nor an identifier. |
-| 152 | `110-cc-decl.fth:333` | Struct definition: field name missing. |
-| 153 | `110-cc-decl.fth:410` | Function-pointer declarator: expected name. |
-| 154 | `110-cc-decl.fth:434` | Function-pointer declarator: expected `=` or `;`. |
-| 156 | `110-cc-decl.fth:461` | Local array declaration: size is zero or negative. |
-| 157 | `110-cc-decl.fth:463` | Local array declaration: missing `]`. |
-| 159 | `110-cc-decl.fth:518` | Local declaration: a declarator followed by neither `,` nor `;`. |
-| 160 | `110-cc-decl.fth:690` | Struct local declaration: variable name missing. |
-| 161 | `110-cc-decl.fth:725` | Struct-pointer local not followed by `=` or `;`. |
+| 145 | `110-cc-decl.fth:238` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag`). |
+| 146 | `110-cc-decl.fth:243` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
+| 147 | `110-cc-decl.fth:247` | `struct TAG`: name isn't a struct tag (strict lookup). |
+| 148 | `110-cc-decl.fth:258` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag-soft`). |
+| 149 | `110-cc-decl.fth:275` | `struct` definition: tag isn't an identifier. |
+| 150 | `110-cc-decl.fth:325` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
+| 151 | `110-cc-decl.fth:331` | Struct definition: field type is neither a keyword nor an identifier. |
+| 152 | `110-cc-decl.fth:343` | Struct definition: field name missing. |
+| 153 | `110-cc-decl.fth:420` | Function-pointer declarator: expected name. |
+| 154 | `110-cc-decl.fth:444` | Function-pointer declarator: expected `=` or `;`. |
+| 156 | `110-cc-decl.fth:471` | Local array declaration: size is zero or negative. |
+| 157 | `110-cc-decl.fth:473` | Local array declaration: missing `]`. |
+| 159 | `110-cc-decl.fth:528` | Local declaration: a declarator followed by neither `,` nor `;`. |
+| 160 | `110-cc-decl.fth:700` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:735` | Struct-pointer local not followed by `=` or `;`. |
 | 162 | `110-cc-decl.fth:45` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
 | 170 | `112-cc-stmt.fth:466,870,874` | `case` label not followed by `:` (`cc-switch-case`, every nesting depth), or under LP64 a `case` or `default` outside any switch. |
 | 171 | `112-cc-stmt.fth:698` | `cc-label-create`: selected per-function label table full (default 64, direct GCC 1,024), or its mapping fails. |
@@ -204,20 +204,20 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:448` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:449` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:760` | Native function ends with a `goto` target still undefined. |
-| 184 | `110-cc-decl.fth:384`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
-| 190 | `115-cc-native.fth:119` | Native enumerator is not an identifier. |
-| 192 | `115-cc-native.fth:127` | Native enumerator followed by neither `,` nor `}`. |
-| 194 | `115-cc-native.fth:209` | Native type identifier not found. |
-| 195 | `115-cc-native.fth:210` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:305,598` | Native declarator is missing its name. |
-| 205 | `115-cc-native.fth:613` | Native declaration missing its final semicolon. |
-| 210 | `115-cc-native.fth:55` | Aggregate object size requested without a descriptor. |
+| 184 | `110-cc-decl.fth:394`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
+| 190 | `115-cc-native.fth:120` | Native enumerator is not an identifier. |
+| 192 | `115-cc-native.fth:128` | Native enumerator followed by neither `,` nor `}`. |
+| 194 | `115-cc-native.fth:210` | Native type identifier not found. |
+| 195 | `115-cc-native.fth:211` | Native type identifier is not a typedef. |
+| 203 | `115-cc-native.fth:306,599` | Native declarator is missing its name. |
+| 205 | `115-cc-native.fth:614` | Native declaration missing its final semicolon. |
+| 210 | `115-cc-native.fth:56` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
-| 213 | `060-cc-types.fth:326` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
-| 214 | `110-cc-decl.fth:386`, `115-cc-native.fth:225` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
+| 213 | `060-cc-types.fth:327` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
+| 214 | `110-cc-decl.fth:396`, `115-cc-native.fth:226` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:158` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:82,83,94,102` | Invalid or empty inferred array initializer. |
 | 221 | `118-cc-native-init.fth:99,106,126` | Malformed or unterminated inferred initializer. |
@@ -260,8 +260,11 @@ appear among the type specifiers in any order (`int static x`). See
 In the System V target, 238 rejects an array shape the type system cannot
 represent or that C forbids: a non-positive or excessive bound, a function
 returning an array, and an implicit conversion that would discard a row's
-qualifier, such as `long (*p)[3] = t` for a `const long t[2][3]`
-(`cc-sysv-row-qualifier-check` in `121-cc-sysv.fth`). Qualified arrays
+qualifier, such as `long (*p)[3] = t` for a `const long t[2][3]` or
+`volatile long (*p)[3] = t` for the same `t`
+(`cc-sysv-row-qualifier-check` in `121-cc-sysv.fth`). Row qualifiers are
+sets: a redeclaration or prototype whose row set differs, or a
+pointer-to-pointer-to-row conversion that changes the set, is 237. Qualified arrays
 themselves decay normally; an explicit cast or a qualified destination
 accepts the conversion. See [chapter 36](36-direct-gcc-calls.md).
 

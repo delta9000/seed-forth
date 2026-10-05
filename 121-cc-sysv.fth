@@ -123,14 +123,16 @@ defer cc-sysv-check-scalar
   r@ [lit] 32 + !
   r@ cc-ad-type r@ cc-ad-desc cc-nalignment r@ [lit] 40 + ! r> ;
 \ A new node may be born qualified. An existing one may be shared by a
-\ typedef or declaration, so qualifying it builds a qualified copy.
-: cc-sysv-qualified-node ( type descriptor count inner qualified -- descriptor )
-  >r cc-sysv-array-node r> if, true over [lit] 48 + ! then, ;
-: cc-sysv-qualify-node ( descriptor qualified -- descriptor )
-  over cc-ad-qualified 0= and if,
-    dup cc-ad-type over cc-ad-desc [lit] 2 cc-npick cc-ad-count
-    [lit] 3 cc-npick cc-ad-inner true cc-sysv-qualified-node nip
-  then, ;
+\ typedef or declaration, so qualifying it builds a qualified copy.  The
+\ cell holds the row's qualifier set (110's cc-qualifier-bit), never a
+\ flag: a const row and a volatile row are different types.
+: cc-sysv-qualified-node ( type descriptor count inner set -- descriptor )
+  >r cc-sysv-array-node r> over [lit] 48 + ! ;
+: cc-sysv-qualify-node ( descriptor set -- descriptor )
+  over cc-ad-qualified or
+  over cc-ad-qualified over = if, drop exit, then,
+  >r dup cc-ad-type over cc-ad-desc [lit] 2 cc-npick cc-ad-count
+  [lit] 3 cc-npick cc-ad-inner r> cc-sysv-qualified-node nip ;
 \ Additional fixed suffixes form real element-array types. The old outer
 \ metadata stays intact for one/two dimensions and for the native target.
 \ Depth is bounded independently of the checked 1 GiB size product.
@@ -657,6 +659,17 @@ variable cc-sysv-spec-bad
 
 \ Type identity is checked at redeclarations. Struct pointers retain tag
 \ identity; function-pointer signatures compare recursively by shape.
+\ A row reached through a pointer carries its qualifier set on its node;
+\ a nested array element's rows share the outer node's set, so only
+\ pointer-to-row types have a set of their own to compare.
+: cc-sysv-row-set ( type descriptor -- set )
+  over ty-base ty-array = [lit] 2 cc-npick ty-ptr 0= 0= and over 0= 0= and if,
+    nip cc-ad-qualified exit,
+  then, 2drop [lit] 0 ;
+\ cc-sysv-compatible-types compares shape, and below the outermost level,
+\ qualifier sets exactly: `const long (*a[2])[3]` and `long (*b[2])[3]` are
+\ incompatible.  The outermost row's set is left to the caller, since an
+\ assignment may add a qualifier there (cc-sysv-row-qualifier-check).
 defer cc-sysv-compatible-signatures-fwd
 : cc-sysv-compatible-types ( ty1 desc1 ty2 desc2 -- flag )
   >r swap >r
@@ -671,16 +684,39 @@ defer cc-sysv-compatible-signatures-fwd
     2dup cc-ad-count swap cc-ad-count <> if, 2drop [lit] 0 exit, then,
     2dup cc-ad-inner swap cc-ad-inner <> if, 2drop [lit] 0 exit, then,
     dup cc-ad-type swap cc-ad-desc >r >r
-    dup cc-ad-type swap cc-ad-desc r> r> cc-sysv-compatible-types exit,
+    dup cc-ad-type swap cc-ad-desc r> r>
+    [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-row-set
+    [lit] 2 cc-npick [lit] 2 cc-npick cc-sysv-row-set <> if,
+      2drop 2drop [lit] 0 exit,
+    then,
+    cc-sysv-compatible-types exit,
   then,
   ty-struct = if, r> r> = else, r> drop r> drop true then, ;
+\ cc-sysv-same-types also requires equal outermost row sets: redeclared
+\ objects and prototype parameters and results must match exactly, so
+\ `extern const long (*p)[3]; extern volatile long (*p)[3];` is 237.
+: cc-sysv-same-types ( ty1 desc1 ty2 desc2 -- flag )
+  [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-row-set
+  [lit] 2 cc-npick [lit] 2 cc-npick cc-sysv-row-set <> if,
+    2drop 2drop [lit] 0 exit,
+  then,
+  cc-sysv-compatible-types ;
 \ Implicit conversion may add a row qualifier but never discard one:
-\ `long (*p)[3] = t` with `const long t[2][3]` needs an explicit cast.
+\ `long (*p)[3] = t` with `const long t[2][3]` needs an explicit cast
+\ (238), and so does `const long (*q)[3] = v` from volatile rows.  Below
+\ the first pointer the sets must be equal (C90 6.3.16.1: the pointed-to
+\ types must be compatible), so `const long (**q)[3] = &p` from
+\ `long (*p)[3]` is 237.
 : cc-sysv-row-qualifier-check ( source descriptor destination descriptor -- same )
   [lit] 3 cc-npick ty-base ty-array = [lit] 2 cc-npick ty-base ty-array = and
   [lit] 3 cc-npick 0= 0= and over 0= 0= and if,
-    [lit] 2 cc-npick cc-ad-qualified over cc-ad-qualified 0= and
-    if, [lit] 238 cc-die then,
+    [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-row-set
+    [lit] 2 cc-npick [lit] 2 cc-npick cc-sysv-row-set
+    [lit] 3 cc-npick ty-ptr [lit] 1 > if,
+      <> if, [lit] 237 cc-die then,
+    else,
+      cc-invert and if, [lit] 238 cc-die then,
+    then,
   then, ;
 : cc-sysv-value-shape ( source descriptor destination descriptor -- )
   cc-target-sysv @ 0= if, 2drop 2drop exit, then,
@@ -785,7 +821,7 @@ defer cc-sysv-compatible-signatures-fwd
 : cc-sysv-compatible-signatures ( sig1 sig2 -- flag )
   2dup cc-sysv-check-signature drop cc-sysv-check-signature drop
   2dup >r cc-sysv-signature-result r> cc-sysv-signature-result
-  cc-sysv-compatible-types 0= if, 2drop [lit] 0 exit, then,
+  cc-sysv-same-types 0= if, 2drop [lit] 0 exit, then,
   over cc-sysv-known-params? 0= if,
     nip dup cc-sysv-prototype? if, cc-sysv-default-compatible?
     else, drop true then, exit,
@@ -800,7 +836,7 @@ defer cc-sysv-compatible-signatures-fwd
   [lit] 0 begin, over cc-sysv-sig-count over > while,
     [lit] 2 cc-npick over cc-sysv-comparison-param
     [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-comparison-param
-    cc-sysv-compatible-types 0= if, drop 2drop [lit] 0 exit, then,
+    cc-sysv-same-types 0= if, drop 2drop [lit] 0 exit, then,
     1+
   repeat, drop 2drop true ;
 ' cc-sysv-compatible-signatures is cc-sysv-compatible-signatures-fwd

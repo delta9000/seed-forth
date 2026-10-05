@@ -504,14 +504,16 @@ defer cc-sysv-check-scalar
   r@ [lit] 32 + !
   r@ cc-ad-type r@ cc-ad-desc cc-nalignment r@ [lit] 40 + ! r> ;
 \ A new node may be born qualified. An existing one may be shared by a
-\ typedef or declaration, so qualifying it builds a qualified copy.
-: cc-sysv-qualified-node ( type descriptor count inner qualified -- descriptor )
-  >r cc-sysv-array-node r> if, true over [lit] 48 + ! then, ;
-: cc-sysv-qualify-node ( descriptor qualified -- descriptor )
-  over cc-ad-qualified 0= and if,
-    dup cc-ad-type over cc-ad-desc [lit] 2 cc-npick cc-ad-count
-    [lit] 3 cc-npick cc-ad-inner true cc-sysv-qualified-node nip
-  then, ;
+\ typedef or declaration, so qualifying it builds a qualified copy.  The
+\ cell holds the row's qualifier set (110's cc-qualifier-bit), never a
+\ flag: a const row and a volatile row are different types.
+: cc-sysv-qualified-node ( type descriptor count inner set -- descriptor )
+  >r cc-sysv-array-node r> over [lit] 48 + ! ;
+: cc-sysv-qualify-node ( descriptor set -- descriptor )
+  over cc-ad-qualified or
+  over cc-ad-qualified over = if, drop exit, then,
+  >r dup cc-ad-type over cc-ad-desc [lit] 2 cc-npick cc-ad-count
+  [lit] 3 cc-npick cc-ad-inner r> cc-sysv-qualified-node nip ;
 \ Additional fixed suffixes form real element-array types. The old outer
 \ metadata stays intact for one/two dimensions and for the native target.
 \ Depth is bounded independently of the checked 1 GiB size product.
@@ -1038,6 +1040,17 @@ variable cc-sysv-spec-bad
 
 \ Type identity is checked at redeclarations. Struct pointers retain tag
 \ identity; function-pointer signatures compare recursively by shape.
+\ A row reached through a pointer carries its qualifier set on its node;
+\ a nested array element's rows share the outer node's set, so only
+\ pointer-to-row types have a set of their own to compare.
+: cc-sysv-row-set ( type descriptor -- set )
+  over ty-base ty-array = [lit] 2 cc-npick ty-ptr 0= 0= and over 0= 0= and if,
+    nip cc-ad-qualified exit,
+  then, 2drop [lit] 0 ;
+\ cc-sysv-compatible-types compares shape, and below the outermost level,
+\ qualifier sets exactly: `const long (*a[2])[3]` and `long (*b[2])[3]` are
+\ incompatible.  The outermost row's set is left to the caller, since an
+\ assignment may add a qualifier there (cc-sysv-row-qualifier-check).
 defer cc-sysv-compatible-signatures-fwd
 : cc-sysv-compatible-types ( ty1 desc1 ty2 desc2 -- flag )
   >r swap >r
@@ -1052,16 +1065,39 @@ defer cc-sysv-compatible-signatures-fwd
     2dup cc-ad-count swap cc-ad-count <> if, 2drop [lit] 0 exit, then,
     2dup cc-ad-inner swap cc-ad-inner <> if, 2drop [lit] 0 exit, then,
     dup cc-ad-type swap cc-ad-desc >r >r
-    dup cc-ad-type swap cc-ad-desc r> r> cc-sysv-compatible-types exit,
+    dup cc-ad-type swap cc-ad-desc r> r>
+    [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-row-set
+    [lit] 2 cc-npick [lit] 2 cc-npick cc-sysv-row-set <> if,
+      2drop 2drop [lit] 0 exit,
+    then,
+    cc-sysv-compatible-types exit,
   then,
   ty-struct = if, r> r> = else, r> drop r> drop true then, ;
+\ cc-sysv-same-types also requires equal outermost row sets: redeclared
+\ objects and prototype parameters and results must match exactly, so
+\ `extern const long (*p)[3]; extern volatile long (*p)[3];` is 237.
+: cc-sysv-same-types ( ty1 desc1 ty2 desc2 -- flag )
+  [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-row-set
+  [lit] 2 cc-npick [lit] 2 cc-npick cc-sysv-row-set <> if,
+    2drop 2drop [lit] 0 exit,
+  then,
+  cc-sysv-compatible-types ;
 \ Implicit conversion may add a row qualifier but never discard one:
-\ `long (*p)[3] = t` with `const long t[2][3]` needs an explicit cast.
+\ `long (*p)[3] = t` with `const long t[2][3]` needs an explicit cast
+\ (238), and so does `const long (*q)[3] = v` from volatile rows.  Below
+\ the first pointer the sets must be equal (C90 6.3.16.1: the pointed-to
+\ types must be compatible), so `const long (**q)[3] = &p` from
+\ `long (*p)[3]` is 237.
 : cc-sysv-row-qualifier-check ( source descriptor destination descriptor -- same )
   [lit] 3 cc-npick ty-base ty-array = [lit] 2 cc-npick ty-base ty-array = and
   [lit] 3 cc-npick 0= 0= and over 0= 0= and if,
-    [lit] 2 cc-npick cc-ad-qualified over cc-ad-qualified 0= and
-    if, [lit] 238 cc-die then,
+    [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-row-set
+    [lit] 2 cc-npick [lit] 2 cc-npick cc-sysv-row-set
+    [lit] 3 cc-npick ty-ptr [lit] 1 > if,
+      <> if, [lit] 237 cc-die then,
+    else,
+      cc-invert and if, [lit] 238 cc-die then,
+    then,
   then, ;
 : cc-sysv-value-shape ( source descriptor destination descriptor -- )
   cc-target-sysv @ 0= if, 2drop 2drop exit, then,
@@ -1166,7 +1202,7 @@ defer cc-sysv-compatible-signatures-fwd
 : cc-sysv-compatible-signatures ( sig1 sig2 -- flag )
   2dup cc-sysv-check-signature drop cc-sysv-check-signature drop
   2dup >r cc-sysv-signature-result r> cc-sysv-signature-result
-  cc-sysv-compatible-types 0= if, 2drop [lit] 0 exit, then,
+  cc-sysv-same-types 0= if, 2drop [lit] 0 exit, then,
   over cc-sysv-known-params? 0= if,
     nip dup cc-sysv-prototype? if, cc-sysv-default-compatible?
     else, drop true then, exit,
@@ -1181,7 +1217,7 @@ defer cc-sysv-compatible-signatures-fwd
   [lit] 0 begin, over cc-sysv-sig-count over > while,
     [lit] 2 cc-npick over cc-sysv-comparison-param
     [lit] 3 cc-npick [lit] 3 cc-npick cc-sysv-comparison-param
-    cc-sysv-compatible-types 0= if, drop 2drop [lit] 0 exit, then,
+    cc-sysv-same-types 0= if, drop 2drop [lit] 0 exit, then,
     1+
   repeat, drop 2drop true ;
 ' cc-sysv-compatible-signatures is cc-sysv-compatible-signatures-fwd
@@ -1831,7 +1867,7 @@ create cc-om-string-name s, .Lstring
 : cc-om-compatible-object ( record -- )
   dup om-kind @ cc-obj-object <> if, [lit] 237 cc-die then,
   dup om-type @ over om-desc @ nc-ty @ nc-desc @
-  cc-sysv-compatible-types 0= if, [lit] 237 cc-die then,
+  cc-sysv-same-types 0= if, [lit] 237 cc-die then,
   dup om-array @ 0= nc-array @ 0= <> if, [lit] 237 cc-die then,
   dup om-array @ [lit] 0 > nc-array @ [lit] 0 > and if,
     dup om-array @ nc-array @ <> if, [lit] 237 cc-die then,
@@ -2211,8 +2247,11 @@ A qualified array decays like any other (C90 6.2.2.1): the qualifier moves
 onto the pointed-to type. Scalar element types carry no qualifier bits, so a
 decay to `const T *` keeps only the expression's `cc-last-expr-qualified`
 provenance, exactly as an ordinary `const T *` variable does. A row, however,
-is an array node, and the node's last cell, `cc-ad-qualified`, records that
-its elements are qualified. `cc-sysv-array-decay` gives a qualified matrix a
+is an array node, and the node's last cell, `cc-ad-qualified`, records the
+set of qualifiers on its elements: bits for `const`, `volatile` and
+`restrict` from Ch 29's `cc-qualifier-bit`, which the declaration parser's
+qualifier notes, `cc-prefix-qualified` and field qualification (Ch 24) all
+carry instead of a yes/no flag. `cc-sysv-array-decay` gives a qualified matrix a
 qualified row node; `cc-sysv-array-address` does the same for `&a`, and a
 ranked array's existing element node is replaced by a qualified copy
 (`cc-sysv-qualify-node`), since typedefs and declarations share nodes.
@@ -2228,7 +2267,18 @@ assignments, arguments and returns, rejects `long (*p)[3] = t` for a
 `const long t[2][3]` with 238; an explicit cast or a qualified destination
 accepts. This covers binutils' elflink.c, which reads
 `&((const Elf32_External_Rel *) p)->r_offset`, and zlib's
-`(const z_crc_t FAR *)crc_table`. Element pointers follow the existing
+`(const z_crc_t FAR *)crc_table`. Because the cell is a set, a `const`
+row converts implicitly to a `const volatile` row but not to a `volatile`
+one (238), and `cc-sysv-same-types` makes redeclarations and prototypes
+compare sets exactly: `extern const long (*p)[3]; extern volatile long
+(*p)[3];` is 237. Below the first pointer the sets must be equal, as
+C90 6.3.16.1 requires compatible pointed-to types, so
+`const long (**q)[3] = &p` for `long (*p)[3]` is 237. Like GCC without
+`-pedantic`, this target lets the first level add a qualifier to an array
+row; strict C90 counts that as an incompatible conversion too, since the
+qualifier belongs to the element type, not to the pointed-to array.
+
+Element pointers follow the existing
 scalar policy: `char *q = a` from a `const char a[3]`, or a store through it,
 is not diagnosed, because nothing records whether a scalar pointer's pointee
 or the pointer itself is qualified.

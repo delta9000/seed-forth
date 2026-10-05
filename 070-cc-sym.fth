@@ -37,15 +37,17 @@ create cc-sym-inner       cc-sym-cap [lit] 8 * allot
 \ Qualification provenance is separate from the encoded C type.
 create cc-sym-qualified cc-sym-cap [lit] 8 * allot
 variable cc-qualified-fields
-: cc-field-qualified ( record -- flag )
+\ A field's qualifier set (110's cc-qualifier-bit) lives in a list of
+\ { next, record, set } nodes; the newest node for a record wins.
+: cc-field-qualified ( record -- set )
   cc-qualified-fields @ begin, dup while,
-    2dup [lit] 8 + @ = if, 2drop true exit, then, @
+    2dup [lit] 8 + @ = if, nip [lit] 16 + @ exit, then, @
   repeat, 2drop [lit] 0 ;
-: cc-field-set-qualified ( flag record -- )
-  swap if,
-    [lit] 16 cc-alloc dup >r [lit] 8 + !
+: cc-field-set-qualified ( set record -- )
+  over if,
+    [lit] 24 cc-alloc dup >r [lit] 8 + ! r@ [lit] 16 + !
     cc-qualified-fields @ r@ ! r> cc-qualified-fields !
-  else, drop then, ;
+  else, 2drop then, ;
 variable cc-sym-count
 
 [lit] 64 constant cc-scope-cap

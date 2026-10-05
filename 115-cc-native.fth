@@ -38,7 +38,8 @@ variable cc-nctx
 : nc-base-qualified cc-nctx @ [lit] 216 + ;
 : nc-prefix-qualified cc-nctx @ [lit] 224 + ;
 : nc-storage cc-nctx @ [lit] 232 + ;
-: cc-native-qual-note cc-nctx @ if, true nc-qualified ! then, ;
+: cc-native-qual-note
+  cc-nctx @ if, cc-qualifier-bit nc-qualified @ or nc-qualified ! then, ;
 ' cc-native-qual-note is cc-qual-note
 : cc-nzero ( a n -- )
   begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;

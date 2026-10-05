@@ -37,7 +37,8 @@
 [lit] 16 constant ty-ullong
 
 \ Array nodes carry element type/descriptor, dimensions, size and alignment.
-\ The last cell is true when the elements are qualified: a pointer to the
+\ The last cell is the elements' qualifier set (110's cc-qualifier-bit:
+\ const 1, volatile 2, restrict 4), 0 when unqualified: a pointer to the
 \ node then points to qualified elements, as a pointer to const T would.
 : cc-ad-type @ ;
 : cc-ad-desc [lit] 8 + @ ;

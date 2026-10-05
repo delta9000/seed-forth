@@ -27,7 +27,7 @@ type comparisons still tell `long *` from `long long *`.  Pointer depth
 generalises to any level (`T**`, `T***`, …).  Struct and union layouts
 live in descriptors allocated from Ch 21's arena.
 
-The 165-line file `070-cc-sym.fth` is the symbol table: ten columns
+The 167-line file `070-cc-sym.fth` is the symbol table: ten columns
 of 8192 8-byte slots each, 640 KiB in all.  Every global, local,
 function, struct tag, enum constant and typedef gets one row, and
 `cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering
@@ -77,7 +77,8 @@ to size locals, globals and struct fields.
 [lit] 16 constant ty-ullong
 
 \ Array nodes carry element type/descriptor, dimensions, size and alignment.
-\ The last cell is true when the elements are qualified: a pointer to the
+\ The last cell is the elements' qualifier set (110's cc-qualifier-bit:
+\ const 1, volatile 2, restrict 4), 0 when unqualified: a pointer to the
 \ node then points to qualified elements, as a pointer to const T would.
 : cc-ad-type @ ;
 : cc-ad-desc [lit] 8 + @ ;
@@ -512,15 +513,17 @@ create cc-sym-inner       cc-sym-cap [lit] 8 * allot
 \ Qualification provenance is separate from the encoded C type.
 create cc-sym-qualified cc-sym-cap [lit] 8 * allot
 variable cc-qualified-fields
-: cc-field-qualified ( record -- flag )
+\ A field's qualifier set (110's cc-qualifier-bit) lives in a list of
+\ { next, record, set } nodes; the newest node for a record wins.
+: cc-field-qualified ( record -- set )
   cc-qualified-fields @ begin, dup while,
-    2dup [lit] 8 + @ = if, 2drop true exit, then, @
+    2dup [lit] 8 + @ = if, nip [lit] 16 + @ exit, then, @
   repeat, 2drop [lit] 0 ;
-: cc-field-set-qualified ( flag record -- )
-  swap if,
-    [lit] 16 cc-alloc dup >r [lit] 8 + !
+: cc-field-set-qualified ( set record -- )
+  over if,
+    [lit] 24 cc-alloc dup >r [lit] 8 + ! r@ [lit] 16 + !
     cc-qualified-fields @ r@ ! r> cc-qualified-fields !
-  else, drop then, ;
+  else, 2drop then, ;
 variable cc-sym-count
 
 [lit] 64 constant cc-scope-cap
