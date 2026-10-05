@@ -311,7 +311,11 @@ that handles structs does that lookup explicitly and never asks
 \ Legacy records keep only the first five cells (40 bytes) and legacy
 \ code reads only the first two header cells.  The table starts with room
 \ for 8 records and doubles when an append needs more, so small structs
-\ stay small and a large one costs at most twice its exact size.  The cap
+\ stay small.  The live table holds fewer than twice the records in use,
+\ but each outgrown table stays behind in the bump arena: together they
+\ hold 8 + 16 + ... + C records for a final capacity C, under four times
+\ the member count.  513 members leave tables of 8, 16, ... 512 and the
+\ capped 1023, 2,039 records (about 4x).  The cap
 \ is policy, not storage: LP64 allows 1023 members, C99's translation
 \ limit for one struct or union (5.2.4.1).  That is over four times the
 \ largest in GCC 4.0.4 (JNINativeInterface, 232 members) and seven times
@@ -424,9 +428,14 @@ a separate table that the header points at.  `cc-sd-alloc` returns a
 zeroed header with no table; the first `cc-sd-field-rec` for index 0
 makes room for 8 records, and each later append past the end doubles
 the table (`cc-sd-grow`), copying the old records and leaving the old
-table behind in the bump arena.  A struct of n fields therefore costs
-the header plus less than 2n records in all, instead of a fixed
-worst-case block for every struct.  An LP64 record is 48 bytes, a SysV
+table behind in the bump arena.  The live table holds fewer than 2n
+records for a struct of n fields, but the arena keeps every outgrown
+table too: capacities 8, 16, ... up to the final C sum to less than
+2C, so under 4n records.  A 513-member struct ends with a 1,023-record table
+(the cap) and 2,039 records allocated in all, about four times its
+exact size; a struct of 8 or fewer fields costs just its one 8-record
+table.  That is still far less than a fixed worst-case block for every
+struct.  An LP64 record is 48 bytes, a SysV
 one 72 (Ch 47 adds bitfield and matrix cells), and a legacy one 40.
 
 Because records move when a table grows, a record address is only

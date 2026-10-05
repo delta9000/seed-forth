@@ -226,7 +226,11 @@ variable cc-literal-long
 \ Legacy records keep only the first five cells (40 bytes) and legacy
 \ code reads only the first two header cells.  The table starts with room
 \ for 8 records and doubles when an append needs more, so small structs
-\ stay small and a large one costs at most twice its exact size.  The cap
+\ stay small.  The live table holds fewer than twice the records in use,
+\ but each outgrown table stays behind in the bump arena: together they
+\ hold 8 + 16 + ... + C records for a final capacity C, under four times
+\ the member count.  513 members leave tables of 8, 16, ... 512 and the
+\ capped 1023, 2,039 records (about 4x).  The cap
 \ is policy, not storage: LP64 allows 1023 members, C99's translation
 \ limit for one struct or union (5.2.4.1).  That is over four times the
 \ largest in GCC 4.0.4 (JNINativeInterface, 232 members) and seven times
