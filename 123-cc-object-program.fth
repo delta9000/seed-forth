@@ -12,9 +12,9 @@ cc-om-default-cap cc-om-limit !
 cc-om-default-records cc-om-buffer !
 : cc-om-cap ( -- entries ) cc-om-limit @ ;
 : cc-om-records ( -- address ) cc-om-buffer @ ;
-\ Complete original c-common.c needs 9,866 stable records; round to 10,240.
+\ Complete original insn-output.c needs 10,559 stable records; round to 10,752.
 \ Keep the default table and opt in explicitly to a fixed mapped table.
-[lit] 10240 constant cc-om-direct-cap
+[lit] 10752 constant cc-om-direct-cap
 variable cc-om-direct-base
 : cc-om-default-workspace ( -- )
   cc-om-default-records cc-om-buffer ! cc-om-default-cap cc-om-limit ! ;

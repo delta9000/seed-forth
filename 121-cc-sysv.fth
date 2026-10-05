@@ -296,7 +296,7 @@ defer cc-sysv-implicit-declarator-fwd
 defer cc-sysv-signature-fwd
 : cc-sysv-fnptr
   cc-target-sysv @ 0= if, cc-nfnptr-default exit, then,
-  if, [lit] 231 cc-die then,
+  1+ dup [lit] 255 > if, [lit] 231 cc-die then, >r
   nc-base-array @ if,
     nc-ty @ nc-base @ = if, [lit] 238 cc-die then,
     cc-sysv-inherit-array
@@ -304,7 +304,7 @@ defer cc-sysv-signature-fwd
     [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
   then,
   nc-ty @ nc-desc @ cc-sysv-signature-fwd nc-desc !
-  ty-func [lit] 1 ty-make nc-ty ! ;
+  ty-func r> ty-make nc-ty ! ;
 ' cc-sysv-fnptr is cc-nfnptr-fwd
 
 : cc-sysv-find-parameter ( sig name length -- index|-1 )
@@ -432,7 +432,9 @@ variable cc-sysv-parameter-register
 ' cc-sysv-signature is cc-sysv-signature-fwd
 
 \ Abstract function-pointer type names reuse the declaration signature parser.
-\ The operand address is unchanged; the cast result carries the new signature.
+\ Each grouped star is retained in the type word beside its signature.
+\ Depth one is a function pointer; greater depths point to pointer objects.
+\ The operand address is unchanged; loads occur when those objects are read.
 : cc-sysv-type-name-raw
   cc-native-type-name
   cc-type-name-qualified @ nc-qualified !
@@ -441,7 +443,8 @@ variable cc-sysv-parameter-register
   lparen cc-tok-punct? if,
     cc-type-name-array @ if, [lit] 238 cc-die then,
     [char] * cc-expect-punct-c
-    cc-skip-qualifiers cc-count-stars 1+ >r
+    cc-skip-qualifiers cc-count-stars 1+
+    dup [lit] 255 > if, [lit] 231 cc-die then, >r
     [char] ) cc-expect-punct-c cc-next-token-keep
     [char] [ cc-tok-punct? if,
       nc-qualified @ cc-qualified-array-check
@@ -451,10 +454,9 @@ variable cc-sysv-parameter-register
       cc-cast-desc @ nc-array @ nc-inner @ cc-sysv-array-node cc-cast-desc !
       r> cc-nctx ! ty-array r> ty-make cc-putback-token
     else,
-      r> [lit] 1 <> if, [lit] 231 cc-die then,
       lparen cc-tok-punct? 0= if, [lit] 238 cc-die then,
       cc-cast-desc @ cc-sysv-signature cc-cast-desc !
-      ty-func [lit] 1 ty-make
+      ty-func r> ty-make
     then,
   else, cc-putback-token then, ;
 : cc-sysv-type-name
@@ -718,7 +720,7 @@ defer cc-sysv-implicit-declared-fwd
   dup cc-sym-kind-of sk-func = if,
     cc-sysv-signatures cell[] @
   else,
-    dup cc-sym-type-of ty-base ty-func <> if, [lit] 230 cc-die then,
+    dup cc-sym-type-of cc-sysv-function-pointer? 0= if, [lit] 230 cc-die then,
     cc-sym-struct-desc-of
   then, cc-sysv-check-signature ;
 : cc-sysv-call-qualified
@@ -886,10 +888,12 @@ defer cc-sysv-result-value-fwd
   then,
   r> cc-sysv-sig-return cc-sysv-result-value-fwd ;
 ' cc-sysv-call is cc-native-call-fwd
+: cc-sysv-check-callable ( type -- )
+  dup ty-base ty-func <> swap ty-ptr [lit] 1 > or if, [lit] 230 cc-die then, ;
 : cc-sysv-indirect-call
   cc-target-sysv @ 0= if, cc-parse-indirect-call exit, then,
   cc-check-static-init
-  cc-last-expr-type @ ty-base ty-func <> if, [lit] 230 cc-die then,
+  cc-last-expr-type @ cc-sysv-check-callable
   cc-last-struct-desc @ cc-sysv-check-signature >r
   cc-emit-materialize cc-emit-push-rdi
   r@ cc-sysv-parse-args dup true cc-sysv-prepare-call >r

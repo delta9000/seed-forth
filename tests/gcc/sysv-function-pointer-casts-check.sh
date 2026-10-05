@@ -33,7 +33,7 @@ extended-argument-call|232|int f(long double); int g(void){void (*p)()=(void (*)
 aggregate-return-call|232|struct S{double x;}; struct S f(void); int g(void){void (*p)()=(void (*)())f; ((struct S (*)(void))p)(); return 0;}
 aggregate-argument-call|232|struct S{double x;}; int f(struct S); int g(void){struct S s; void (*p)()=(void (*)())f; return ((int (*)(struct S))p)(s);}
 wrong-argument-count|235|int f(int); int g(void){void (*p)()=(void (*)())f; return ((int (*)(int))p)();}
-extra-function-pointer-indirection|231|int f(void); int g(void){return ((int (**)(void))f)();}
+extra-function-pointer-indirection|230|int f(void); int g(void){return ((int (**)(void))f)();}
 CASES
 if [ "${SF_GCC_CAST_ORACLE:-0}" = 1 ]; then
   for optimization in 0 2; do

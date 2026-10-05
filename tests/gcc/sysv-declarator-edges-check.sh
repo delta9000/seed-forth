@@ -47,7 +47,7 @@ while IFS='|' read -r label code source; do
   echo "PASS: $label rejects with $code and preserves output"
 done <<'CASES'
 array-of-pointers-to-array|238|int (*p[2])[3];
-extra-function-pointer-depth|231|int (**p[2])(int);
+function-pointer-object-array-call|230|int (**p[2])(int); int g(void){return p[0](1);}
 function-returning-array|238|int (*f(void))[3];
 function-array|238|int (f[3])(int);
 plain-function-array|238|int f[3](int);

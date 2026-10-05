@@ -11,9 +11,11 @@ Forth performs preprocessing, C compilation, object construction and linking.
 ## Fixed policy and measured maxima
 
 The measurement cohort is the complete unchanged original `c-typeck.c`,
-`expr.c`, generated `insn-recog.c`, generated `insn-attrtab.c`, and the later complete `c-common.c`. Raw,
+`expr.c`, generated `insn-recog.c`, generated `insn-attrtab.c`, the later complete
+`c-common.c`, and generated `insn-output.c`/`insn-emit.c`. Raw,
 expanded, text, output and arena byte bounds round the observed maximum up to
-whole MiB. Table bounds round observed counts up to 512 entries. The raw reader
+whole MiB. Table bounds round observed counts up to 512 entries; symbol strings round up
+to 4 KiB pages. The raw reader
 also needs its historical one-byte EOF reserve. All cap-derived arrays select
 and allocate together; every other bound is left unchanged.
 
@@ -24,22 +26,24 @@ and allocate together; every other bound is left unchanged.
 | Text payload | 512 KiB | 3,328,178 bytes | 4 MiB |
 | Output staging / complete ELF | 1 MiB | 3,901,856 bytes | 4 MiB |
 | Macro rows, six columns | 4,096 physical; legacy enforces 1,024 | 4,120 | 4,608 |
-| Stable object records, 128 bytes each | 4,096 | 9,866 | 10,240 |
-| ELF symbols, 64 bytes each, excluding reserved null | 2,048 | 6,282 | 6,656 |
+| Stable object records, 128 bytes each | 4,096 | 10,559 | 10,752 |
+| ELF symbols, 64 bytes each, excluding reserved null | 2,048 | 7,772 | 8,192 |
+| ELF symbol strings, including NULs | 65,536 bytes | 77,487 bytes | 77,824 bytes |
 | Per-function labels, five columns | 64 | 739 | 1,024 |
 | Global fixups, two columns | 16,384 | 17,502 | 17,920 |
 | ELF relocations, 40 bytes each | 4,096 | 20,568 | 20,992 |
-| Parser arena | 32 KiB slab; former GCC driver 16 MiB | 16,988,648 bytes | 17 MiB |
+| Parser arena | 32 KiB slab; former GCC driver 16 MiB | 21,103,808 bytes | 21 MiB |
 
 Text and output remain independent bounds. A future unit can exhaust output
 while its text still fits, because serialized symbols, relocations, strings,
 section bytes and headers also need output space. Failures remain explicit.
 The unchanged 256 KiB direct macro pool suffices: its cohort maximum is
-241,747 bytes. ELF strings, non-text sections, macro/include/scratch
+241,747 bytes. Non-text sections, macro/include/scratch
 pools, globals-data and bss capacities are not increased.
 
 One IO mapping contains raw, expanded and output slices. Separate mappings
-hold macros, stable records, labels, object payload plus relocations and symbols, global
+hold macros, stable records, labels, object payload plus relocations, symbols and
+strings, global
 fixups, and the arena. The new selectors cache their mappings once per process.
 They preserve cursors/counts and must run before normal subsystem initialization;
 selection does not migrate live pointers. Default selection restores every
@@ -116,7 +120,7 @@ Original input SHA256 values:
 - Existing object-writer/publication tests retain their independent ELF oracles
 - The original raw TinyCC route retains its executable/object fixed-point pins
 
-The frozen production compiler libraries plus linker/archive load with HERE at
+The earlier frozen workspace compiler libraries plus linker/archive loaded with HERE at
 17,270,537 (`0x1078709`), leaving 3,700,983 bytes below the seed mapping end
 20,971,520. The test obtains this from the actual seed rather than summing
 nominal allocations. All compiler processes are serial within each runner and
@@ -130,3 +134,10 @@ The later [c-common object-table proof](object-capacity-README.md) documents
 the independently measured stable-record and ELF-symbol additions. Its strings
 and relocation limits remain unchanged. Earlier cohort counts above retain
 their original provenance and do not substitute for the newer production replay.
+
+The [remaining cc1 capacity proof](remaining-cc1-capacity-README.md) separately
+identifies the later a535 historical configuration inputs. Its complete
+`insn-output.c` measurement sets current records/symbols/strings, and complete
+`insn-emit.c` sets the 21 MiB arena. The former 17 MiB policy came from
+`c-typeck.c`; the preserved earlier cohort measurements above are not new-epoch
+validation. Default/native limits and the seed remain unchanged.

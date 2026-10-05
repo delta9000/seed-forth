@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2561 names and 97 ideas.
+carry none.  2567 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1274,6 +1274,7 @@ for which chapter depends on which, the
 - `cc-obj-default` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-default-payload` — *compiler word (create, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-default-relocs` — *compiler word (create, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-default-strings` — *compiler word (create, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-default-symbols` — *compiler word (create, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-default-workspace` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-define` — *compiler word (`081-cc-object.fth`)* — [Ch 35 §1 The interface between compiler and linker](35-direct-gcc-objects.md#1-the-interface-between-compiler-and-linker)
@@ -1363,8 +1364,12 @@ for which chapter depends on which, the
 - `cc-obj-shoff` — *compiler word (variable, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-start-section` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-stat-buffer` — *compiler word (create, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
-- `cc-obj-string-cap` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
-- `cc-obj-strings` — *compiler word (create, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-string-cap` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-string-default-cap` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-string-direct-cap` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-string-limit` — *compiler word (variable, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-strings` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-strings-buffer` — *compiler word (variable, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-sym` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-symbol` — *compiler word (`081-cc-object.fth`)* — [Ch 35 §1 The interface between compiler and linker](35-direct-gcc-objects.md#1-the-interface-between-compiler-and-linker)
 - `cc-obj-symbol-cap` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
@@ -1999,6 +2004,7 @@ for which chapter depends on which, the
 - `cc-sysv-cast-null` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-cast-types` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
 - `cc-sysv-cast-value` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-check-callable` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-check-declarator` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-check-implicit-defined` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-check-implicit-signature` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)

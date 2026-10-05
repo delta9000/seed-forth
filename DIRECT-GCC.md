@@ -177,8 +177,9 @@ bound above that measured 10.3 MiB requirement. The old 8 MiB request failed at
 8,388,760 requested bytes. This does not raise other compiler limits or add
 automatic growth, retries, an environment override, or a runtime heap.
 The legacy 32 KiB arena, TinyCC's 8 MiB request, and original seed are unchanged.
-The later complete `c-typeck.c` measurement raises the current direct arena
-to 17 MiB; the other mapped tables and unchanged default bounds are listed in
+The later complete `c-typeck.c` measurement raised the direct arena to 17 MiB;
+the remaining original `insn-emit.c` measurement raises it to 21 MiB. The
+other mapped tables and unchanged default bounds are listed in
 [the workspace proof](tests/gcc/workspace-capacity-README.md).
 Allocation exhaustion and mapping failure still diagnose error 10 before the
 driver publishes output. The driver source participates in the runtime-cache
@@ -398,3 +399,14 @@ The reproducible test is `tests/gcc/knr-regex-check.py`. This closes the measure
 raw compilation failure and supplies a separate bounded behavior witness. It
 does not establish a complete libiberty archive, cc1 link, GCC execution or
 bootstrap; the incomplete cc1 projection does not establish regex criticality.
+
+## Remaining original object-table bounds (unreviewed)
+
+The direct-only profile selects 10,752 stable records, 8,192 non-null ELF
+symbol rows, a 77,824-byte symbol-string slice, and a 21 MiB arena. Default
+and native limits are unchanged. The original capacity candidate's author
+runs compiled raw `insn-output.c`, `insn-emit.c`, and `i386.c` with historical
+a535 configuration, with structural object checks. These outcomes belong to
+the original candidate identity, not this combined tree. See
+[publication status](PUBLICATION-STATUS.md) for identities, test scopes, and
+the missing combined behavioral validation.

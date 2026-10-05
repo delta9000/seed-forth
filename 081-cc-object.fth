@@ -42,7 +42,10 @@ cc-obj-symbol-default-cap cc-obj-symbol-limit !
 variable cc-obj-reloc-limit
 cc-obj-reloc-default-cap cc-obj-reloc-limit !
 : cc-obj-reloc-cap ( -- entries ) cc-obj-reloc-limit @ ;
-[lit] 65536 constant cc-obj-string-cap
+[lit] 65536 constant cc-obj-string-default-cap
+variable cc-obj-string-limit
+cc-obj-string-default-cap cc-obj-string-limit !
+: cc-obj-string-cap ( -- bytes ) cc-obj-string-limit @ ;
 create cc-obj-default-payload cc-obj-text-default-cap cc-obj-section-cap [lit] 2 * + allot
 variable cc-obj-payload-buffer
 cc-obj-default-payload cc-obj-payload-buffer !
@@ -55,14 +58,18 @@ create cc-obj-default-relocs cc-obj-reloc-default-cap [lit] 40 * allot
 variable cc-obj-relocs-buffer
 cc-obj-default-relocs cc-obj-relocs-buffer !
 : cc-obj-relocs ( -- address ) cc-obj-relocs-buffer @ ;
-create cc-obj-strings  cc-obj-string-cap allot
+create cc-obj-default-strings cc-obj-string-default-cap allot
+variable cc-obj-strings-buffer
+cc-obj-default-strings cc-obj-strings-buffer !
+: cc-obj-strings ( -- address ) cc-obj-strings-buffer @ ;
 \ Complete original insn-attrtab.c needs 3,328,178 text bytes and 20,568
 \ relocations. Round independently to whole MiB / 512-entry quanta.
 [lit] 4194304 constant cc-obj-text-direct-cap
 [lit] 20992 constant cc-obj-reloc-direct-cap
-\ Complete original c-common.c needs 6,282 symbols, excluding ELF symbol zero.
-\ Round named rows to 6,656; allocate the reserved null row separately.
-[lit] 6656 constant cc-obj-symbol-direct-cap
+\ Complete original insn-output.c needs 7,772 symbols, excluding row zero,
+\ and 77,487 string bytes. Round rows to 512 and string storage to 4 KiB.
+[lit] 8192 constant cc-obj-symbol-direct-cap
+[lit] 77824 constant cc-obj-string-direct-cap
 variable cc-obj-direct-base
 : cc-obj-direct-payload-bytes ( -- bytes )
   cc-obj-text-direct-cap cc-obj-section-cap [lit] 2 * + ;
@@ -72,22 +79,27 @@ variable cc-obj-direct-base
   cc-obj-text-default-cap cc-obj-text-limit !
   cc-obj-reloc-default-cap cc-obj-reloc-limit !
   cc-obj-symbol-default-cap cc-obj-symbol-limit !
+  cc-obj-string-default-cap cc-obj-string-limit !
   cc-obj-default-payload cc-obj-payload-buffer !
   cc-obj-default-relocs cc-obj-relocs-buffer !
-  cc-obj-default-symbols cc-obj-symbols-buffer ! ;
+  cc-obj-default-symbols cc-obj-symbols-buffer !
+  cc-obj-default-strings cc-obj-strings-buffer ! ;
 : cc-obj-direct-workspace ( -- )
   cc-obj-direct-base @ 0= if,
     cc-obj-direct-payload-bytes cc-obj-reloc-direct-cap [lit] 40 * +
-    cc-obj-direct-symbol-bytes +
+    cc-obj-direct-symbol-bytes + cc-obj-string-direct-cap +
     [lit] 245 cc-workspace-map cc-obj-direct-base !
   then,
   cc-obj-text-direct-cap cc-obj-text-limit !
   cc-obj-reloc-direct-cap cc-obj-reloc-limit !
   cc-obj-symbol-direct-cap cc-obj-symbol-limit !
+  cc-obj-string-direct-cap cc-obj-string-limit !
   cc-obj-direct-base @ cc-obj-payload-buffer !
   cc-obj-direct-base @ cc-obj-direct-payload-bytes +
   dup cc-obj-relocs-buffer !
-  cc-obj-reloc-direct-cap [lit] 40 * + cc-obj-symbols-buffer ! ;
+  cc-obj-reloc-direct-cap [lit] 40 * +
+  dup cc-obj-symbols-buffer !
+  cc-obj-direct-symbol-bytes + cc-obj-strings-buffer ! ;
 \ Section metadata is nine CELLS, not an in-memory Elf64_Shdr:
 \ name/type/flags/file-offset/size/link/info/alignment/entry-size.
 create cc-obj-sections  [lit] 720 allot
