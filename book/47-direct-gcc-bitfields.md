@@ -40,10 +40,10 @@ same numeric exit code.
 
 ## 2. Allocate bits without changing the old targets
 
-Descriptor-size hooks retain the legacy 16-byte header with 40-byte field
-records and native LP64's 32-byte header with 48-byte records. Only explicit
-SysV mode uses a 40-byte header and 72-byte records. Header offset 32 records
-the next bit position. Field offsets 48 and 56 hold width and shift; zero
+The record-size hook keeps legacy 40-byte and native LP64 48-byte field
+records. Only explicit SysV mode uses 72-byte records. Every descriptor
+header reserves a target cell at offset 32 (Ch 24 §1); SysV uses it to
+record the next bit position. Field offsets 48 and 56 hold width and shift; zero
 width in a stored record means an ordinary member. Anonymous aggregate
 promotion copies the complete target-selected record, including this metadata.
 The final cell at offset 64 retains an ordinary field's inner array bound;
@@ -164,11 +164,8 @@ configuration hash and exact compile command. Host C runs only with `--oracle`.
 \ perform an operand load plus the preserving RMW load.
 create cc-bf-error-prefix s, bitfield: bl c,
 : cc-bf-die cc-bf-error-prefix [lit] 10 cc-err-write [lit] 248 cc-die ;
-: cc-bf-header-bytes
-  cc-target-sysv @ if, [lit] 40 else, cc-sd-header-bytes-default then, ;
 : cc-bf-record-bytes
   cc-target-sysv @ if, [lit] 72 else, cc-sd-record-bytes-default then, ;
-' cc-bf-header-bytes is cc-sd-header-bytes
 ' cc-bf-record-bytes is cc-sd-record-bytes
 
 \ The final SysV field cell retains the second fixed array dimension.

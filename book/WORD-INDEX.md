@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2596 names and 97 ideas.
+carry none.  2605 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -403,7 +403,6 @@ for which chapter depends on which, the
 - `cc-bf-enum-desc` — *compiler word (`129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
 - `cc-bf-enum-origin` — *compiler word (create, `129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
 - `cc-bf-error-prefix` — *compiler word (create, `129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
-- `cc-bf-header-bytes` — *compiler word (`129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
 - `cc-bf-init-offset` — *compiler word (variable, `129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
 - `cc-bf-init-record` — *compiler word (variable, `129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
 - `cc-bf-initializer` — *compiler word (`129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
@@ -1241,6 +1240,9 @@ for which chapter depends on which, the
 - `cc-nmember-default` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nmember-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nminus-rot` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nmove-bytes` — *compiler word (variable, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nmove-new` — *compiler word (variable, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nmove-old` — *compiler word (variable, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nmove-tentative` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nobject` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nobject-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
@@ -1249,6 +1251,7 @@ for which chapter depends on which, the
 - `cc-npointer-array-default` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-npointer-array-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-npromote-fields` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nqualified-move` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nsize` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nspec-base` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nspec-check-default` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
@@ -1521,6 +1524,7 @@ for which chapter depends on which, the
 - `cc-parse-postfix-field` — *compiler word (`100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-parse-postfix-inc-dec` — *compiler word (`100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-parse-postfix-index` — *compiler word (`100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
+- `cc-parse-postfix-ops` — *compiler word (`100-cc-expr.fth`)* — [Ch 28, The top: operand, then postfix loop](28-expressions-part-2.md#the-top-operand-then-postfix-loop)
 - `cc-parse-prefix-inc-dec` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §5 `cc-parse-unary`: prefix operators](28-expressions-part-2.md#5-cc-parse-unary-prefix-operators)
 - `cc-parse-primary` — *compiler word (`100-cc-expr.fth`)* — [Ch 28, The top: operand, then postfix loop](28-expressions-part-2.md#the-top-operand-then-postfix-loop)
 - `cc-parse-program` — *compiler word (`116-cc-prog.fth`)* — [Ch 31 §8 The entry stub and the top-level driver](31-functions-and-scope.md#8-the-entry-stub-and-the-top-level-driver)
@@ -1858,7 +1862,6 @@ for which chapter depends on which, the
 - `cc-scope-stack` — *compiler word (create, `070-cc-sym.fth`)* — [Ch 24 §2 The symbol-table parallel arrays](24-types-and-symbols.md#2-the-symbol-table-parallel-arrays)
 - `cc-sd-align` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-alloc` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
-- `cc-sd-allocation-bytes` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-append-field` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §3 Struct definitions](29-declarations-types-globals.md#3-struct-definitions)
 - `cc-sd-bit-end` — *compiler word (`129-cc-bitfield.fth`)* — [Ch 47, Canonical source](47-direct-gcc-bitfields.md#canonical-source)
 - `cc-sd-build-desc` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §3 Struct definitions](29-declarations-types-globals.md#3-struct-definitions)
@@ -1866,12 +1869,13 @@ for which chapter depends on which, the
 - `cc-sd-build-field-ty` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §3 Struct definitions](29-declarations-types-globals.md#3-struct-definitions)
 - `cc-sd-build-fname-a` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §3 Struct definitions](29-declarations-types-globals.md#3-struct-definitions)
 - `cc-sd-build-fname-u` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §3 Struct definitions](29-declarations-types-globals.md#3-struct-definitions)
-- `cc-sd-bytes` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-field-cap` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-field-count` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-field-rec` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
-- `cc-sd-header-bytes` — *compiler word (defer, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
-- `cc-sd-header-bytes-default` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-grow` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-grow-desc` — *compiler word (variable, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-header-bytes` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-initial-fields` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-lp64-max-fields` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-max-fields` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-record-bytes` — *compiler word (defer, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
@@ -1880,6 +1884,10 @@ for which chapter depends on which, the
 - `cc-sd-set-field-count` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-set-total-size` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-set-union` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-table` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-table-cap` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-table-moved` — *compiler word (defer, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-sd-table-moved-default` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-total-size` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sd-union?` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-sf-array-inner` — *compiler word (defer, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
@@ -2232,6 +2240,7 @@ for which chapter depends on which, the
 - `cc-workspace-syscall-fwd` — *compiler word (defer, `030-cc-io.fth`)* — [Ch 21, Shared helpers](21-arena-and-io-buffers.md#shared-helpers)
 - `cc-write-output` — *compiler word (`030-cc-io.fth`)* — [Ch 21, Writing the file](21-arena-and-io-buffers.md#writing-the-file)
 - `cc-xor` — *compiler word (`100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
+- `cc-zalloc` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cell[]` — *compiler word (`030-cc-io.fth`)* — [Ch 21, Shared helpers](21-arena-and-io-buffers.md#shared-helpers)
 - `cfetch_code` — *seed label* — [Ch 14, `c@` ( addr -- byte )](14-stack-primitives.md#c--addr----byte-)
 - **Chained fixups (else,)** — [Ch 11 §6 `else,`: chained fixups](11-control-flow-combinators.md#6-else-chained-fixups)

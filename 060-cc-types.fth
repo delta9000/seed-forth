@@ -163,13 +163,18 @@ variable cc-literal-long
 \ ===========================================================================
 \ Struct descriptor accessors.
 \ ===========================================================================
-\ LP64 struct/union descriptors (allocated via cc-sd-alloc) have this layout:
+\ A struct/union descriptor (allocated via cc-sd-alloc) is a fixed header
+\ whose address never changes, plus a separately allocated field table:
 \
 \   offset  0: total-size (bytes)
 \   offset  8: field-count
 \   offset 16: aggregate alignment (LP64)
 \   offset 24: is-union flag (LP64)
-\   offset 32 + i*48: field i record (6 cells)
+\   offset 32: target cell (SysV: bitfield cursor, 129-cc-bitfield.fth)
+\   offset 40: field-table address (0 until the first field)
+\   offset 48: field-table capacity, in records
+\
+\ Field i's record is at table + i*record-bytes.  LP64 records are 6 cells:
 \     +  0: name-addr
 \     +  8: name-len
 \     + 16: field type (array element type when array-len is nonzero)
@@ -177,38 +182,41 @@ variable cc-literal-long
 \     + 32: aggregate/pointee descriptor, or 0
 \     + 40: array length (0 for a scalar)
 \
-\ Legacy descriptors retain a 16-byte header, 40-byte field records, and a
-\ 16-field limit.  Only the first two header cells and first five record
-\ cells exist there.  LP64 permits 128 fields and the additional metadata.
-\ Both the legacy compiler arena budget and its emitted layout stay intact.
+\ Legacy records keep only the first five cells (40 bytes) and legacy
+\ code reads only the first two header cells.  The table starts with room
+\ for 8 records and doubles when an append needs more, so small structs
+\ stay small and a large one costs at most twice its exact size.  The cap
+\ is policy, not storage: LP64 allows 1023 members, C99's translation
+\ limit for one struct or union (5.2.4.1).  That is over four times the
+\ largest in GCC 4.0.4 (JNINativeInterface, 232 members) and seven times
+\ bfd's (elf_backend_data, 143).  The legacy M2-Planet subset
+\ keeps its documented 16-field limit and small arena.
 
 [lit] 16 constant cc-sd-max-fields
-[lit] 128 constant cc-sd-lp64-max-fields
-cc-sd-max-fields [lit] 40 * [lit] 16 + constant cc-sd-bytes
+[lit] 1023 constant cc-sd-lp64-max-fields
+[lit] 56 constant cc-sd-header-bytes
+[lit] 8 constant cc-sd-initial-fields
 
 : cc-sd-field-cap
   cc-target-lp64 @ if, cc-sd-lp64-max-fields else, cc-sd-max-fields then, ;
 
-: cc-sd-header-bytes-default
-  cc-target-lp64 @ if, [lit] 32 else, [lit] 16 then, ;
 : cc-sd-record-bytes-default
   cc-target-lp64 @ if, [lit] 48 else, [lit] 40 then, ;
-defer cc-sd-header-bytes
 defer cc-sd-record-bytes
-' cc-sd-header-bytes-default is cc-sd-header-bytes
 ' cc-sd-record-bytes-default is cc-sd-record-bytes
 
-: cc-sd-allocation-bytes
-  cc-sd-field-cap cc-sd-record-bytes * cc-sd-header-bytes + ;
-
-\ cc-sd-alloc ( -- desc )  Clear reused arena storage, including new cells.
-: cc-sd-alloc
-  cc-sd-allocation-bytes dup cc-alloc             ( bytes desc )
-  dup >r swap over +                             ( start end ; R: desc )
+\ cc-zalloc ( bytes -- addr )  Arena storage cleared to zero, so cells a
+\ target adds read as 0 even where the arena reuses mapped memory.
+: cc-zalloc
+  dup cc-alloc                                   ( bytes addr )
+  dup >r swap over +                             ( start end ; R: addr )
   begin, over over < while,
     swap [lit] 0 over c! 1+ swap
   repeat,
   drop drop r> ;
+
+\ cc-sd-alloc ( -- desc )  A zeroed header with no field table yet.
+: cc-sd-alloc  cc-sd-header-bytes cc-zalloc ;
 
 : cc-sd-total-size      @ ;                            \ ( desc -- size )
 : cc-sd-field-count     [lit] 8 + @ ;                  \ ( desc -- n )
@@ -218,12 +226,43 @@ defer cc-sd-record-bytes
 : cc-sd-set-field-count [lit] 8 + ! ;                  \ ( v desc -- )
 : cc-sd-set-align       [lit] 16 + ! ;                 \ ( v desc -- )
 : cc-sd-set-union       [lit] 24 + ! ;                 \ ( v desc -- )
+: cc-sd-table           [lit] 40 + @ ;                 \ ( desc -- addr )
+: cc-sd-table-cap       [lit] 48 + @ ;                 \ ( desc -- n )
 
-\ cc-sd-field-rec ( desc i -- rec-addr )  Check before accessing a record.
-\ Error 50 remains the legacy 17th-field failure; LP64's limit is larger.
+\ cc-sd-grow ( desc need -- )  Replace the table with a zeroed one holding
+\ at least need records (double, at least 8, at most the field cap) and
+\ copy the old records across.  The old table stays behind in the arena,
+\ so a record address taken before an append to the same descriptor is
+\ stale afterwards; callers fetch each record after any such append.
+\ cc-sd-table-moved ( old new bytes -- ) lets side tables keyed by record
+\ address follow the records (115-cc-native.fth: field qualification).
+: cc-sd-table-moved-default  drop 2drop ;
+defer cc-sd-table-moved
+' cc-sd-table-moved-default is cc-sd-table-moved
+variable cc-sd-grow-desc
+: cc-sd-grow
+  swap cc-sd-grow-desc !                         ( need )
+  cc-sd-grow-desc @ cc-sd-table-cap [lit] 2 *    ( need cap )
+  dup cc-sd-initial-fields < if, drop cc-sd-initial-fields then,
+  begin, over over > while, [lit] 2 * repeat,
+  nip dup cc-sd-field-cap > if, drop cc-sd-field-cap then,
+  dup cc-sd-record-bytes * cc-zalloc             ( cap new )
+  cc-sd-grow-desc @ cc-sd-table over             ( cap new old new )
+  cc-sd-grow-desc @ cc-sd-table-cap cc-sd-record-bytes *
+  begin, dup while,                              ( cap new src dst n )
+    >r over c@ over c! 1+ swap 1+ swap r> 1-
+  repeat, drop 2drop                             ( cap new )
+  cc-sd-grow-desc @ cc-sd-table over
+  cc-sd-grow-desc @ cc-sd-table-cap cc-sd-record-bytes * cc-sd-table-moved
+  cc-sd-grow-desc @ [lit] 40 + !
+  cc-sd-grow-desc @ [lit] 48 + ! ;
+
+\ cc-sd-field-rec ( desc i -- rec-addr )  Error 50 if record i would exceed
+\ the target's member cap; grow the table when i is past its capacity.
 : cc-sd-field-rec
   dup 1+ cc-sd-field-cap [lit] 50 cc-check-cap
-  cc-sd-record-bytes * cc-sd-header-bytes + + ;
+  over cc-sd-table-cap over > 0= if, over over 1+ cc-sd-grow then,
+  cc-sd-record-bytes * swap cc-sd-table + ;
 
 \ Field-record accessors / mutators.  Each takes rec-addr on TOS.
 \ Alignment, union and array-length accessors are for LP64 descriptors only.

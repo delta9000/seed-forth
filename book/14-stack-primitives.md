@@ -7,7 +7,7 @@ Artifact after this chapter: the stack and memory primitives' machine code, full
 Proof link: the compiler's codegen reuses the same rdi/rbp convention; these bytes prime you for Ch 25.
 ```
 
-Outside comments, `dup` appears 1,211 times in the library and the C
+Outside comments, `dup` appears 1,217 times in the library and the C
 compiler, the Forth that Part III loads.  It duplicates the top of
 the stack, so it has to read the top of the stack.  Look for that
 read in its body and you won't

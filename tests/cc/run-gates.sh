@@ -79,7 +79,7 @@ gates=(
 # (Appendix G).  Code 22 (output file won't open) and 62 (scope pop
 # without a push, a parser bug) cannot be reached from a C program.
 die_gates=(
-  "die-10-arena-full.sh|10|cc: line 50: error 10"
+  "die-10-arena-full.sh|10|cc: line 88: error 10"
   "die-20-input-too-big.sh|20|cc: line 1: error 20"
   "die-21-output-full.sh|21|cc: line 38819: error 21"
   "die-30-include-missing.c|30|cc: line 2: error 30"

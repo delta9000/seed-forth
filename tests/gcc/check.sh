@@ -35,6 +35,8 @@ python3 tests/gcc/review-storage-probe.py
 python3 tests/gcc/constant-check.py
 python3 tests/gcc/array-pointer-check.py
 python3 tests/gcc/multidimensional-record-check.py
+python3 tests/gcc/large-record-check.py
+python3 tests/gcc/sizeof-postfix-check.py
 python3 tests/gcc/ranked-arrays-check.py
 python3 tests/gcc/pointer-array-qualifiers-check.py
 python3 tests/gcc/qualifier-order-check.py

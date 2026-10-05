@@ -241,13 +241,18 @@ that handles structs does that lookup explicitly and never asks
 \ ===========================================================================
 \ Struct descriptor accessors.
 \ ===========================================================================
-\ LP64 struct/union descriptors (allocated via cc-sd-alloc) have this layout:
+\ A struct/union descriptor (allocated via cc-sd-alloc) is a fixed header
+\ whose address never changes, plus a separately allocated field table:
 \
 \   offset  0: total-size (bytes)
 \   offset  8: field-count
 \   offset 16: aggregate alignment (LP64)
 \   offset 24: is-union flag (LP64)
-\   offset 32 + i*48: field i record (6 cells)
+\   offset 32: target cell (SysV: bitfield cursor, 129-cc-bitfield.fth)
+\   offset 40: field-table address (0 until the first field)
+\   offset 48: field-table capacity, in records
+\
+\ Field i's record is at table + i*record-bytes.  LP64 records are 6 cells:
 \     +  0: name-addr
 \     +  8: name-len
 \     + 16: field type (array element type when array-len is nonzero)
@@ -255,38 +260,41 @@ that handles structs does that lookup explicitly and never asks
 \     + 32: aggregate/pointee descriptor, or 0
 \     + 40: array length (0 for a scalar)
 \
-\ Legacy descriptors retain a 16-byte header, 40-byte field records, and a
-\ 16-field limit.  Only the first two header cells and first five record
-\ cells exist there.  LP64 permits 128 fields and the additional metadata.
-\ Both the legacy compiler arena budget and its emitted layout stay intact.
+\ Legacy records keep only the first five cells (40 bytes) and legacy
+\ code reads only the first two header cells.  The table starts with room
+\ for 8 records and doubles when an append needs more, so small structs
+\ stay small and a large one costs at most twice its exact size.  The cap
+\ is policy, not storage: LP64 allows 1023 members, C99's translation
+\ limit for one struct or union (5.2.4.1).  That is over four times the
+\ largest in GCC 4.0.4 (JNINativeInterface, 232 members) and seven times
+\ bfd's (elf_backend_data, 143).  The legacy M2-Planet subset
+\ keeps its documented 16-field limit and small arena.
 
 [lit] 16 constant cc-sd-max-fields
-[lit] 128 constant cc-sd-lp64-max-fields
-cc-sd-max-fields [lit] 40 * [lit] 16 + constant cc-sd-bytes
+[lit] 1023 constant cc-sd-lp64-max-fields
+[lit] 56 constant cc-sd-header-bytes
+[lit] 8 constant cc-sd-initial-fields
 
 : cc-sd-field-cap
   cc-target-lp64 @ if, cc-sd-lp64-max-fields else, cc-sd-max-fields then, ;
 
-: cc-sd-header-bytes-default
-  cc-target-lp64 @ if, [lit] 32 else, [lit] 16 then, ;
 : cc-sd-record-bytes-default
   cc-target-lp64 @ if, [lit] 48 else, [lit] 40 then, ;
-defer cc-sd-header-bytes
 defer cc-sd-record-bytes
-' cc-sd-header-bytes-default is cc-sd-header-bytes
 ' cc-sd-record-bytes-default is cc-sd-record-bytes
 
-: cc-sd-allocation-bytes
-  cc-sd-field-cap cc-sd-record-bytes * cc-sd-header-bytes + ;
-
-\ cc-sd-alloc ( -- desc )  Clear reused arena storage, including new cells.
-: cc-sd-alloc
-  cc-sd-allocation-bytes dup cc-alloc             ( bytes desc )
-  dup >r swap over +                             ( start end ; R: desc )
+\ cc-zalloc ( bytes -- addr )  Arena storage cleared to zero, so cells a
+\ target adds read as 0 even where the arena reuses mapped memory.
+: cc-zalloc
+  dup cc-alloc                                   ( bytes addr )
+  dup >r swap over +                             ( start end ; R: addr )
   begin, over over < while,
     swap [lit] 0 over c! 1+ swap
   repeat,
   drop drop r> ;
+
+\ cc-sd-alloc ( -- desc )  A zeroed header with no field table yet.
+: cc-sd-alloc  cc-sd-header-bytes cc-zalloc ;
 
 : cc-sd-total-size      @ ;                            \ ( desc -- size )
 : cc-sd-field-count     [lit] 8 + @ ;                  \ ( desc -- n )
@@ -296,12 +304,43 @@ defer cc-sd-record-bytes
 : cc-sd-set-field-count [lit] 8 + ! ;                  \ ( v desc -- )
 : cc-sd-set-align       [lit] 16 + ! ;                 \ ( v desc -- )
 : cc-sd-set-union       [lit] 24 + ! ;                 \ ( v desc -- )
+: cc-sd-table           [lit] 40 + @ ;                 \ ( desc -- addr )
+: cc-sd-table-cap       [lit] 48 + @ ;                 \ ( desc -- n )
 
-\ cc-sd-field-rec ( desc i -- rec-addr )  Check before accessing a record.
-\ Error 50 remains the legacy 17th-field failure; LP64's limit is larger.
+\ cc-sd-grow ( desc need -- )  Replace the table with a zeroed one holding
+\ at least need records (double, at least 8, at most the field cap) and
+\ copy the old records across.  The old table stays behind in the arena,
+\ so a record address taken before an append to the same descriptor is
+\ stale afterwards; callers fetch each record after any such append.
+\ cc-sd-table-moved ( old new bytes -- ) lets side tables keyed by record
+\ address follow the records (115-cc-native.fth: field qualification).
+: cc-sd-table-moved-default  drop 2drop ;
+defer cc-sd-table-moved
+' cc-sd-table-moved-default is cc-sd-table-moved
+variable cc-sd-grow-desc
+: cc-sd-grow
+  swap cc-sd-grow-desc !                         ( need )
+  cc-sd-grow-desc @ cc-sd-table-cap [lit] 2 *    ( need cap )
+  dup cc-sd-initial-fields < if, drop cc-sd-initial-fields then,
+  begin, over over > while, [lit] 2 * repeat,
+  nip dup cc-sd-field-cap > if, drop cc-sd-field-cap then,
+  dup cc-sd-record-bytes * cc-zalloc             ( cap new )
+  cc-sd-grow-desc @ cc-sd-table over             ( cap new old new )
+  cc-sd-grow-desc @ cc-sd-table-cap cc-sd-record-bytes *
+  begin, dup while,                              ( cap new src dst n )
+    >r over c@ over c! 1+ swap 1+ swap r> 1-
+  repeat, drop 2drop                             ( cap new )
+  cc-sd-grow-desc @ cc-sd-table over
+  cc-sd-grow-desc @ cc-sd-table-cap cc-sd-record-bytes * cc-sd-table-moved
+  cc-sd-grow-desc @ [lit] 40 + !
+  cc-sd-grow-desc @ [lit] 48 + ! ;
+
+\ cc-sd-field-rec ( desc i -- rec-addr )  Error 50 if record i would exceed
+\ the target's member cap; grow the table when i is past its capacity.
 : cc-sd-field-rec
   dup 1+ cc-sd-field-cap [lit] 50 cc-check-cap
-  cc-sd-record-bytes * cc-sd-header-bytes + + ;
+  over cc-sd-table-cap over > 0= if, over over 1+ cc-sd-grow then,
+  cc-sd-record-bytes * swap cc-sd-table + ;
 
 \ Field-record accessors / mutators.  Each takes rec-addr on TOS.
 \ Alignment, union and array-length accessors are for LP64 descriptors only.
@@ -329,19 +368,37 @@ defer cc-sf-set-array-inner
 ' cc-sf-set-array-inner-default is cc-sf-set-array-inner
 ```
 
-The struct descriptor is a chunk of arena memory from `cc-alloc`
-(Ch 21), with the layout given in the comment: a 32-byte header, then
-one 48-byte record per field in LP64 mode.  Legacy metadata keeps its
-16-byte header and 40-byte records, so `cc-sd-bytes` remains 656 bytes
-for 16 fields.  `cc-sd-allocation-bytes` chooses the larger 128-field
-LP64 capacity, and `cc-sd-alloc` clears the whole descriptor even
-when arena memory is reused.  LP64-only cells carry alignment, union
-layout, and field-array lengths; the legacy arena budget and generated
-object layouts stay unchanged.
+The struct descriptor is two pieces of arena memory from `cc-alloc`
+(Ch 21).  The 56-byte header never moves, so symbols and field
+records can hold its address while the body is still being parsed
+(`struct node *next;` inside `struct node`).  The field records live in
+a separate table that the header points at.  `cc-sd-alloc` returns a
+zeroed header with no table; the first `cc-sd-field-rec` for index 0
+makes room for 8 records, and each later append past the end doubles
+the table (`cc-sd-grow`), copying the old records and leaving the old
+table behind in the bump arena.  A struct of n fields therefore costs
+the header plus less than 2n records in all, instead of a fixed
+worst-case block for every struct.  An LP64 record is 48 bytes, a SysV
+one 72 (Ch 47 adds bitfield and matrix cells), and a legacy one 40.
 
-M2-Planet's largest struct is well under 16 fields.  The legacy
-17th-field error remains code 50 (`tests/cc/die-50-struct-fields.c`),
-checked by `cc-sd-field-rec` before it computes a record address.
+Because records move when a table grows, a record address is only
+good until the next append to the same descriptor.  Every caller
+fetches the record it is about to fill after any append, and the one
+side table keyed by record address — field qualification, Ch 34 — is
+re-keyed through the `cc-sd-table-moved` hook.
+
+The field limit is now a policy rather than a storage size.  LP64
+code accepts 1023 members per struct or union, C99's translation limit
+(§5.2.4.1); anonymous members count once flattened into their parent.
+The largest records in the sources this compiler targets are far
+below it: binutils 2.30 bfd's `struct elf_backend_data` has 143
+members and GCC 4.0.4's largest, `JNINativeInterface` in libjava, 232.
+`cc-sd-field-rec` checks the cap before it touches a record and stops
+with code 50 on the 1024th member (`tests/gcc/large-record-check.py`).
+The legacy subset keeps its 16-field limit: M2-Planet's largest struct
+has 11 fields, its eight descriptors now take about 4.3 KB of the
+32 KB legacy arena instead of 5.2 KB, and the legacy 17th-field error
+remains code 50 (`tests/cc/die-50-struct-fields.c`).
 
 The pointee descriptor at offset 32 of each field record is the
 non-obvious piece.  When the parser sees `node->next->prev`, it needs

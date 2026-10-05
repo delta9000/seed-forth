@@ -512,10 +512,9 @@ lists them in load order: a word must come after the words it calls.
   [char] [ cc-tok-punct? or
   cc-target-lp64 @ if, lparen cc-tok-punct? or then, ;
 
-\ cc-parse-primary ( -- )  An operand, then zero or more postfix operators.
-: cc-parse-primary
-  cc-mark-not-lvalue                              \ default: not an lvalue
-  cc-parse-operand
+\ cc-parse-postfix-ops ( -- )  Zero or more postfix operators applied to
+\ the operand just parsed.
+: cc-parse-postfix-ops
   begin,
     cc-next-token-keep
     cc-postfix-op?
@@ -536,6 +535,11 @@ lists them in load order: a word must come after the words it calls.
     then,
   repeat,
   cc-putback-token ;                              \ not a postfix operator
+
+\ cc-parse-primary ( -- )  An operand, then zero or more postfix operators.
+: cc-parse-primary
+  cc-mark-not-lvalue                              \ default: not an lvalue
+  cc-parse-operand cc-parse-postfix-ops ;
 
 ```
 
@@ -1274,12 +1278,14 @@ defer cc-sizeof-type-size-fwd
         [char] ] cc-tok-punct? 0= if, [lit] 110 cc-die then,
         cc-next-token-keep
       repeat,
+      [char] ) cc-tok-punct? 0= if, [lit] 110 cc-die then,
     else,
-      cc-putback-token cc-parse-assign-fwd
+      \ `(expr)` is only the primary of a unary operand: postfix operators
+      \ after it still apply, so `sizeof (a)[0]` is sizeof ((a)[0]).
+      cc-putback-token cc-mark-not-lvalue
+      cc-parse-paren cc-parse-postfix-ops
       cc-native-sizeof-expr-size
-      cc-next-token-keep
     then,
-    [char] ) cc-tok-punct? 0= if, [lit] 110 cc-die then,
   else,
     cc-putback-token cc-parse-unary-fwd
     cc-native-sizeof-expr-size
@@ -1393,6 +1399,15 @@ than on the stack, so the nested dispatch doesn't have to thread it
 through every branch.  A `*` after any type spec overrides the
 answer to 8, since a pointer is 8 bytes whatever it points to.
 Every path ends in `mov rdi, imm32`.
+
+The LP64 path, `cc-native-sizeof`, follows the C grammar more closely.
+After `sizeof (` it asks whether a type name follows.  If not, the
+parenthesis only opens a primary expression, and postfix operators
+after the `)` still belong to the operand: `sizeof (jtab)[0]` is the
+size of one element, as in binutils' `ARRAY_SIZE` macro.  So that
+branch parses the parenthesised expression with `cc-parse-paren` and
+then runs `cc-parse-postfix-ops`, the same loop `cc-parse-primary`
+uses, before measuring the result (`tests/gcc/sizeof-postfix-check.py`).
 
 ```forth chunk=expr-unary
 \ cc-parse-prefix-inc-dec ( delta -- )  delta = 1 (for ++) else dec.

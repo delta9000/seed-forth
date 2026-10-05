@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (576 lines),
+This chapter owns `115-cc-native.fth` (592 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (318 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
@@ -90,6 +90,10 @@ structs from unions. `cc-nadd-field` aligns the next struct field,
 puts each union field at offset zero, and tracks total size and
 maximum alignment. `cc-npromote-fields` copies anonymous aggregate
 members into the parent with their enclosing offset added.
+Qualification provenance for a member (Ch 24 §2) is a list keyed by
+the record's address, and a descriptor's field table moves when it
+grows (Ch 24 §1), so `cc-nqualified-move` re-keys the moved entries
+through the `cc-sd-table-moved` hook.
 
 `cc-nbase-raw` reads the base type of every native declaration and type
 name. C90 allows qualifiers between type keywords, so
@@ -467,6 +471,22 @@ defer cc-npointer-array-fwd
   cc-narray-suffix
   lparen cc-tok-punct? if, cc-nfunction-suffix then,
   cc-ndeclarator-check-fwd ;
+
+\ Field qualification (070) is keyed by record address, and a growing
+\ field table (060) moves its records: re-key the entries that moved.
+variable cc-nmove-old
+variable cc-nmove-new
+variable cc-nmove-bytes
+: cc-nqualified-move ( old new bytes -- )
+  cc-nmove-bytes ! cc-nmove-new ! cc-nmove-old !
+  cc-qualified-fields @ begin, dup while,
+    dup [lit] 8 + @ cc-nmove-old @ -             ( entry offset )
+    dup 0< 0= over cc-nmove-bytes @ < and if,
+      cc-nmove-new @ + over [lit] 8 + !
+    else, drop then,
+    @
+  repeat, drop ;
+' cc-nqualified-move is cc-sd-table-moved
 
 \ Add a field, including flattened anonymous aggregate members.
 : cc-nadd-field ( desc -- )

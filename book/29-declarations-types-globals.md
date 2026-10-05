@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (794 lines), the first of the
+That machinery is `110-cc-decl.fth` (790 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
@@ -365,12 +365,8 @@ soft lookup returns 0 instead, which lets a header mention
   \ Expect '{'.
   [char] { cc-expect-punct-c
 
-  \ Allocate descriptor: 16-byte header + room for up to 16 fields = 656 bytes.
-  cc-sd-bytes cc-alloc                            ( tag-addr tag-len desc )
-  dup cc-sd-build-desc !
-  [lit] 0 over cc-sd-set-total-size
-  [lit] 0 over cc-sd-set-field-count
-  drop                                            ( tag-addr tag-len )
+  \ Allocate a zeroed descriptor; its field table grows as fields arrive.
+  cc-sd-alloc cc-sd-build-desc !                  ( tag-addr tag-len )
 
   \ Pre-register the struct tag (with the still-empty descriptor) BEFORE
   \ parsing the body, so self-referential field types `struct T* next` can
@@ -446,7 +442,7 @@ soft lookup returns 0 instead, which lets a header mention
 ```
 
 `cc-parse-struct-def` handles `struct TAG { … };`.  It allocates a
-656-byte descriptor, then calls `cc-sym-add` for the tag *before*
+descriptor header (Ch 24 §1), then calls `cc-sym-add` for the tag *before*
 reading any field.  When a field later declares `struct T* next;`,
 `cc-lookup-struct-tag-soft` finds the tag and returns the
 still-empty descriptor pointer, which goes into the field record.

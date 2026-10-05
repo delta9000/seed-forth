@@ -343,6 +343,22 @@ defer cc-npointer-array-fwd
   lparen cc-tok-punct? if, cc-nfunction-suffix then,
   cc-ndeclarator-check-fwd ;
 
+\ Field qualification (070) is keyed by record address, and a growing
+\ field table (060) moves its records: re-key the entries that moved.
+variable cc-nmove-old
+variable cc-nmove-new
+variable cc-nmove-bytes
+: cc-nqualified-move ( old new bytes -- )
+  cc-nmove-bytes ! cc-nmove-new ! cc-nmove-old !
+  cc-qualified-fields @ begin, dup while,
+    dup [lit] 8 + @ cc-nmove-old @ -             ( entry offset )
+    dup 0< 0= over cc-nmove-bytes @ < and if,
+      cc-nmove-new @ + over [lit] 8 + !
+    else, drop then,
+    @
+  repeat, drop ;
+' cc-nqualified-move is cc-sd-table-moved
+
 \ Add a field, including flattened anonymous aggregate members.
 : cc-nadd-field ( desc -- )
   dup cc-sd-field-count over swap cc-sd-field-rec >r

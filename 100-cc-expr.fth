@@ -1166,10 +1166,9 @@ defer cc-member-base-fwd
   [char] [ cc-tok-punct? or
   cc-target-lp64 @ if, lparen cc-tok-punct? or then, ;
 
-\ cc-parse-primary ( -- )  An operand, then zero or more postfix operators.
-: cc-parse-primary
-  cc-mark-not-lvalue                              \ default: not an lvalue
-  cc-parse-operand
+\ cc-parse-postfix-ops ( -- )  Zero or more postfix operators applied to
+\ the operand just parsed.
+: cc-parse-postfix-ops
   begin,
     cc-next-token-keep
     cc-postfix-op?
@@ -1190,6 +1189,11 @@ defer cc-member-base-fwd
     then,
   repeat,
   cc-putback-token ;                              \ not a postfix operator
+
+\ cc-parse-primary ( -- )  An operand, then zero or more postfix operators.
+: cc-parse-primary
+  cc-mark-not-lvalue                              \ default: not an lvalue
+  cc-parse-operand cc-parse-postfix-ops ;
 
 \ ===========================================================================
 \ cc-parse-unary: ('&' unary | '*' unary | primary)
@@ -1268,12 +1272,14 @@ defer cc-sizeof-type-size-fwd
         [char] ] cc-tok-punct? 0= if, [lit] 110 cc-die then,
         cc-next-token-keep
       repeat,
+      [char] ) cc-tok-punct? 0= if, [lit] 110 cc-die then,
     else,
-      cc-putback-token cc-parse-assign-fwd
+      \ `(expr)` is only the primary of a unary operand: postfix operators
+      \ after it still apply, so `sizeof (a)[0]` is sizeof ((a)[0]).
+      cc-putback-token cc-mark-not-lvalue
+      cc-parse-paren cc-parse-postfix-ops
       cc-native-sizeof-expr-size
-      cc-next-token-keep
     then,
-    [char] ) cc-tok-punct? 0= if, [lit] 110 cc-die then,
   else,
     cc-putback-token cc-parse-unary-fwd
     cc-native-sizeof-expr-size

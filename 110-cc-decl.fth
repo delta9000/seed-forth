@@ -263,12 +263,8 @@ variable cc-sd-build-field-desc                   \ pointee desc for struct-ptr 
   \ Expect '{'.
   [char] { cc-expect-punct-c
 
-  \ Allocate descriptor: 16-byte header + room for up to 16 fields = 656 bytes.
-  cc-sd-bytes cc-alloc                            ( tag-addr tag-len desc )
-  dup cc-sd-build-desc !
-  [lit] 0 over cc-sd-set-total-size
-  [lit] 0 over cc-sd-set-field-count
-  drop                                            ( tag-addr tag-len )
+  \ Allocate a zeroed descriptor; its field table grows as fields arrive.
+  cc-sd-alloc cc-sd-build-desc !                  ( tag-addr tag-len )
 
   \ Pre-register the struct tag (with the still-empty descriptor) BEFORE
   \ parsing the body, so self-referential field types `struct T* next` can

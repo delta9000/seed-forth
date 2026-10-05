@@ -7,11 +7,8 @@
 \ perform an operand load plus the preserving RMW load.
 create cc-bf-error-prefix s, bitfield: bl c,
 : cc-bf-die cc-bf-error-prefix [lit] 10 cc-err-write [lit] 248 cc-die ;
-: cc-bf-header-bytes
-  cc-target-sysv @ if, [lit] 40 else, cc-sd-header-bytes-default then, ;
 : cc-bf-record-bytes
   cc-target-sysv @ if, [lit] 72 else, cc-sd-record-bytes-default then, ;
-' cc-bf-header-bytes is cc-sd-header-bytes
 ' cc-bf-record-bytes is cc-sd-record-bytes
 
 \ The final SysV field cell retains the second fixed array dimension.

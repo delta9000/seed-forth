@@ -149,7 +149,7 @@ and six arguments (code 122 for a seventh argument): every argument
 travels in a register.  Variadic parameter lists (`...`) are
 **rejected** (code 182).  A function-pointer parameter must be
 spelled with a typedef; `int (*f)(int)` in a parameter list is code
-183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:400` for the local
+183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:396` for the local
 form).
 
 ## Preprocessor
@@ -186,8 +186,8 @@ works.
 
 Structs are storage and field-naming.
 
-- Up to **16 fields** per struct (Ch 24 §1; descriptors are 656
-  bytes each).
+- Up to **16 fields** per struct (Ch 24 §1; a 56-byte header plus a
+  field table of 40-byte records that grows 8, then 16).
 - Every field occupies an **8-byte slot**, regardless of declared
   type.  `char` and `int` fields are equally 8 bytes wide inside a
   struct, and `sizeof(struct T)` is `8 * field-count`.
