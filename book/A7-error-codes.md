@@ -264,7 +264,10 @@ qualifier, such as `long (*p)[3] = t` for a `const long t[2][3]` or
 `volatile long (*p)[3] = t` for the same `t`
 (`cc-sysv-row-qualifier-check` in `121-cc-sysv.fth`). Row qualifiers are
 sets: a redeclaration or prototype whose row set differs, or a
-pointer-to-pointer-to-row conversion that changes the set, is 237. Qualified arrays
+pointer-to-pointer-to-row conversion that changes the set, is 237.
+Grouped abstract object-pointer types such as `char *(*)` are representable
+and must not report 238 merely because they have no array or function
+suffix. Their total pointer depth is checked with 231. Qualified arrays
 themselves decay normally; an explicit cast or a qualified destination
 accepts the conversion. See [chapter 36](36-direct-gcc-calls.md).
 

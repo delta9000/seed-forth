@@ -379,6 +379,14 @@ callable. Calling a deeper pointer object is rejected with error 230, while a de
 `tests/gcc/nested-function-pointer-check.py` gate covers those boundaries,
 object-pointer casts, load/store behavior and mixed GCC O0/O2 execution.
 
+Grouped abstract pointer types without a suffix retain the base type and
+add the grouped stars: `char *(*)` is `char **`, while `int (**)` is
+`int **`. GCC 4.0.4 uses `(char *(*)) malloc` in its declaration probes.
+This is an explicit function-to-object pointer cast, not a call through a
+function pointer. Array and function suffixes still select their respective
+descriptors. `tests/gcc/grouped-pointer-type-check.py` compares declaration
+probes, pointer depth, and dereferences with host GCC.
+
 ```forth file=121-cc-sysv.fth
 \ 121-cc-sysv.fth — explicit scalar System V AMD64 target.
 \ Loading this file changes no target. cc-sysv-enable opts in to LP64 and
@@ -944,6 +952,7 @@ variable cc-sysv-spec-bad
   again, ;
 ' cc-sysv-signature is cc-sysv-signature-fwd
 
+\ Grouped object-pointer type names add their stars to the base type.
 \ Abstract function-pointer type names reuse the declaration signature parser.
 \ Each grouped star is retained in the type word beside its signature.
 \ Depth one is a function pointer; greater depths point to pointer objects.
@@ -954,12 +963,12 @@ variable cc-sysv-spec-bad
   cc-target-sysv @ 0= if, exit, then,
   cc-next-token-keep
   lparen cc-tok-punct? if,
-    cc-type-name-array @ if, [lit] 238 cc-die then,
     [char] * cc-expect-punct-c
     cc-skip-qualifiers cc-count-stars 1+
     dup [lit] 255 > if, [lit] 231 cc-die then, >r
     [char] ) cc-expect-punct-c cc-next-token-keep
     [char] [ cc-tok-punct? if,
+      cc-type-name-array @ if, [lit] 238 cc-die then,
       cc-type-name-qualified @ cc-nctx @ >r cc-ncontext >r
       cc-narray-suffix
       nc-bound-mask @ [lit] 2 and nc-inner @ [lit] 0 <= and if, [lit] 238 cc-die then,
@@ -967,9 +976,20 @@ variable cc-sysv-spec-bad
       cc-cast-desc !
       r> cc-nctx ! ty-array r> ty-make cc-putback-token
     else,
-      lparen cc-tok-punct? 0= if, [lit] 238 cc-die then,
-      cc-cast-desc @ cc-sysv-signature cc-cast-desc !
-      ty-func r> ty-make
+      lparen cc-tok-punct? if,
+        cc-type-name-array @ if, [lit] 238 cc-die then,
+        cc-cast-desc @ cc-sysv-signature cc-cast-desc !
+        ty-func r> ty-make
+      else,
+        r@ over ty-ptr + [lit] 255 > if, [lit] 231 cc-die then,
+        cc-type-name-array @ if,
+          cc-cast-desc @ cc-type-name-array @ cc-type-name-inner @
+          cc-type-name-qualified @ cc-sysv-qualified-node cc-cast-desc !
+          [lit] 0 cc-type-name-array ! [lit] 0 cc-type-name-inner !
+          ty-array [lit] 0 ty-make
+        then,
+        r> + cc-putback-token
+      then,
     then,
   else, cc-putback-token then, ;
 \ A type name shares its enclosing declaration's context but is never a
