@@ -65,25 +65,44 @@ ty-float [lit] 0 ty-make ty-size test-result
 ty-double [lit] 0 ty-make ty-size test-result
 ty-ldouble [lit] 0 ty-make ty-align test-result
 [lit] 0 cc-bootstrap-floatbits !
-[lit] 0 cc-target-lp64 ! cc-sd-allocation-bytes test-result
-[lit] 1 cc-target-lp64 ! cc-sd-allocation-bytes test-result
-cc-arena-ptr @ dup [lit] 99 swap ! [lit] 99 over [lit] 6175 + c!
-cc-sd-alloc dup test-cell ! swap = test-result
- test-cell @ cc-sd-total-size test-result
- test-cell @ [lit] 6175 + c@ test-result
-[lit] 16 test-cell @ cc-sd-set-align
- test-cell @ cc-sd-align test-result
-[lit] 1 test-cell @ cc-sd-set-union
- test-cell @ cc-sd-union? test-result
-[lit] 9 test-cell @ [lit] 127 cc-sd-field-rec cc-sf-set-array-len
- test-cell @ [lit] 127 cc-sd-field-rec cc-sf-array-len test-result
- test-cell @ [lit] 127 cc-sd-field-rec test-cell @ - test-result
+[lit] 0 cc-target-lp64 ! cc-sd-header-bytes test-result
+[lit] 1 cc-target-lp64 ! cc-sd-header-bytes test-result
+variable test-desc
+cc-arena-ptr @ dup [lit] 99 swap ! [lit] 99 over [lit] 56 + c!
+cc-sd-alloc dup test-desc ! swap = test-result
+ test-desc @ cc-sd-total-size test-result
+ test-desc @ [lit] 56 + c@ test-result
+ test-desc @ cc-sd-table test-result
+ test-desc @ cc-sd-table-cap test-result
+[lit] 16 test-desc @ cc-sd-set-align
+ test-desc @ cc-sd-align test-result
+[lit] 1 test-desc @ cc-sd-set-union
+ test-desc @ cc-sd-union? test-result
+\\ Append 12 fields: the first touches an 8-record table at the arena top,
+\\ the ninth moves the records into a 16-record table.
+: test-fields
+  [lit] 0 begin, dup [lit] 12 < while,
+    dup [lit] 100 + over test-desc @ swap cc-sd-field-rec cc-sf-set-array-len
+    dup 1+ test-desc @ cc-sd-set-field-count
+    dup [lit] 0 = if, test-desc @ cc-sd-table test-desc @ - test-result then,
+    1+
+  repeat, drop ;
+test-fields
+ test-desc @ cc-sd-table-cap test-result
+ test-desc @ cc-sd-table test-desc @ - test-result
+ test-desc @ [lit] 3 cc-sd-field-rec cc-sf-array-len test-result
+ test-desc @ [lit] 11 cc-sd-field-rec cc-sf-array-len test-result
+ test-desc @ [lit] 11 cc-sd-field-rec test-desc @ [lit] 10 cc-sd-field-rec - test-result
+ test-desc @ [lit] 0 cc-sd-field-rec test-desc @ cc-sd-table - test-result
+ test-desc @ cc-sd-field-count test-result
+ test-desc @ cc-sd-align test-result
+ test-desc @ cc-sd-union? test-result
 """
-# test-result uses test-cell, so preserve descriptor in a separate variable.
-source = source.replace("cc-arena-ptr @ dup", "variable test-desc\ncc-arena-ptr @ dup")
-source = source.replace("dup test-cell ! swap", "dup test-desc ! swap")
-source = source.replace("test-cell @", "test-desc @")
-expected += [0, 8, 8, 8, 656, 6176, MASK, 0, 0, 16, 1, 9, 6128]
+# Fixed 56-byte header for both settings; allocation stops at its canary;
+# the first table follows the header; growth doubles to 16 records after
+# the abandoned 8 x 48-byte table, copying records contiguously.
+expected += [0, 8, 8, 8, 56, 56, MASK, 0, 99, 0, 0, 16, 1, 56,
+             16, 56 + 8 * 48, 103, 111, 48, 0, 12, 16, 1]
 result = run_forth(source)
 assert len(result) == len(expected) * 8, result
 actual = list(struct.unpack("<" + "Q" * len(expected), result))
