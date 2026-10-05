@@ -153,10 +153,10 @@ to its call site.
 | 160 | `110-cc-decl.fth:684` | Struct local declaration: variable name missing. |
 | 161 | `110-cc-decl.fth:719` | Struct-pointer local not followed by `=` or `;`. |
 | 162 | `110-cc-decl.fth:45` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
-| 170 | `112-cc-stmt.fth:535,861,866` | `case` label not followed by `:`. |
-| 171 | `112-cc-stmt.fth:689` | `cc-label-create`: selected per-function label table full (default 64, direct GCC 1,024), or its mapping fails. |
-| 172 | `112-cc-stmt.fth:719` | Label defined twice in one function. |
-| 173 | `112-cc-stmt.fth:764` | `goto` not followed by an identifier. |
+| 170 | `112-cc-stmt.fth:466,870,874` | `case` label not followed by `:` (`cc-switch-case`, every nesting depth), or under LP64 a `case` or `default` outside any switch. |
+| 171 | `112-cc-stmt.fth:698` | `cc-label-create`: selected per-function label table full (default 64, direct GCC 1,024), or its mapping fails. |
+| 172 | `112-cc-stmt.fth:728` | Label defined twice in one function. |
+| 173 | `112-cc-stmt.fth:773` | `goto` not followed by an identifier. |
 | 180 | `114-cc-func.fth:78` | Parameter type is an identifier that isn't in the symbol table. |
 | 181 | `114-cc-func.fth:81` | Parameter type is an identifier that isn't a typedef. |
 | 182 | `114-cc-func.fth:87` | Parameter type is neither a keyword nor an identifier. |
@@ -205,7 +205,7 @@ native parser; the file distinguishes its implementation.
 | Code | File:line(s) | Triggered by |
 |---|---|---|
 | 58 | `115-cc-native.fth:438` | Aggregate field declaration missing its semicolon. |
-| 174 | `112-cc-stmt.fth:751` | Native function ends with a `goto` target still undefined. |
+| 174 | `112-cc-stmt.fth:760` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:378`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
 | 190 | `115-cc-native.fth:118` | Native enumerator is not an identifier. |
 | 192 | `115-cc-native.fth:126` | Native enumerator followed by neither `,` nor `}`. |

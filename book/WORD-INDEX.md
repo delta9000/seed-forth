@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2647 names and 97 ideas.
+carry none.  2649 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1973,7 +1973,9 @@ for which chapter depends on which, the
 - `cc-src-line` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, The lexer's state block](21-arena-and-io-buffers.md#the-lexers-state-block)
 - `cc-src-pos` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, The lexer's state block](21-arena-and-io-buffers.md#the-lexers-state-block)
 - `cc-struct-def-ahead?` — *compiler word (`116-cc-prog.fth`)* — [Ch 31 §7 File-scope globals](31-functions-and-scope.md#7-file-scope-globals)
+- `cc-switch-case` — *compiler word (`112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-switch-cases-head` — *compiler word (variable, `112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
+- `cc-switch-default` — *compiler word (`112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-switch-default-vaddr` — *compiler word (variable, `112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-switch-depth` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §7 `cc-parse-return`](29-declarations-types-globals.md#7-cc-parse-return)
 - `cc-switch-label` — *compiler word (`112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)

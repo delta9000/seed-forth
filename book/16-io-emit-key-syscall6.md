@@ -13,7 +13,7 @@ one sitting.  Four of them are in this chapter's four primitives;
 the other two belong to the token reader's error path, which writes
 an unknown or malformed token back out and, if it is fatal, exits
 (Ch 17).  Everything the seed ever reads arrives one byte per system
-call: feeding it the library and the C compiler, 513,215 bytes of
+call: feeding it the library and the C compiler, 513,653 bytes of
 Forth (`010-lib.fth` through `120-cc-main.fth`, comments and all),
 costs one `read` call per byte, plus one that returns EOF
 (`strace -c` will count them for

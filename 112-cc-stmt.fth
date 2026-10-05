@@ -455,6 +455,23 @@ variable cc-switch-type           \ LP64: promoted controlling type
     then,
   then, ;
 
+\ cc-switch-case ( -- )  `case` has been consumed inside an open switch.
+\ This is the one entry point for every label, whether it sits at the top
+\ of the switch body or nested in a statement within it (C90 6.6.4.2 lets
+\ a label appear anywhere in the body): read the constant, convert it to
+\ the promoted controlling type, require ':' (170), and record it here.
+: cc-switch-case                                  ( -- )
+  cc-parse-const cc-switch-label                  ( K )
+  cc-next-token-keep
+  [char] : cc-tok-punct? 0= if, [lit] 170 cc-die then,
+  cc-here-vaddr cc-add-switch-case ;
+
+\ cc-switch-default ( -- )  `default` has been consumed: require ':' and
+\ record the current vaddr as the switch's default.
+: cc-switch-default                               ( -- )
+  [char] : cc-expect-punct-c
+  cc-here-vaddr cc-switch-default-vaddr ! ;
+
 \ A label outside signed-32 range needs all 64 bits: load it into rdi,
 \ which is free during dispatch, and compare registers (48 39 FB is
 \ cmp rbx, rdi).  Every other label keeps the imm32 form.
@@ -529,19 +546,11 @@ variable cc-switch-type           \ LP64: promoted controlling type
     tok-kind @ tk-kw = tok-kw-id @ kw-case = and if,
       \ 'case' has been consumed; the label is a constant expression
       \ (cc-parse-const): a number, a character, an enum constant, -1 ...
-      cc-parse-const cc-switch-label              ( K )
-      cc-next-token-keep
-      [char] : cc-tok-punct? 0= if,
-        [lit] 170 cc-die
-      then,
-      cc-here-vaddr                               ( K body-vaddr )
-      cc-add-switch-case
+      cc-switch-case
     else,
       tok-kind @ tk-kw = tok-kw-id @ kw-default = and if,
         \ 'default' has been consumed.
-        [char] : cc-expect-punct-c
-        cc-here-vaddr
-        cc-switch-default-vaddr !
+        cc-switch-default
       else,
         \ Generic statement — put back, parse it as one.
         cc-putback-token
@@ -859,13 +868,11 @@ variable cc-label-count
   cc-target-lp64 @ if,
     kw-case cc-tok-kw? if,
       cc-switch-depth @ 0= if, [lit] 170 cc-die then,
-      cc-parse-const [char] : cc-expect-punct-c
-      cc-here-vaddr cc-add-switch-case cc-parse-stmt-fwd exit,
+      cc-switch-case cc-parse-stmt-fwd exit,
     then,
     kw-default cc-tok-kw? if,
       cc-switch-depth @ 0= if, [lit] 170 cc-die then,
-      [char] : cc-expect-punct-c
-      cc-here-vaddr cc-switch-default-vaddr ! cc-parse-stmt-fwd exit,
+      cc-switch-default cc-parse-stmt-fwd exit,
     then,
     cc-native-type-start-fwd kw-typedef cc-tok-kw? or if,
       cc-native-decl-fwd exit,
