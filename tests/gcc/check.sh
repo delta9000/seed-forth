@@ -25,6 +25,7 @@ bash tests/gcc/sysv-knr-check.sh
 python3 tests/gcc/parameter-storage-check.py
 python3 tests/gcc/function-parameter-check.py
 python3 tests/gcc/nested-function-pointer-check.py
+python3 tests/gcc/grouped-declarator-check.py
 python3 tests/gcc/function-object-cast-check.py
 python3 tests/gcc/grouped-pointer-type-check.py
 bash tests/gcc/sysv-namespaces-check.sh

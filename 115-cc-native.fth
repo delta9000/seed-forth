@@ -298,9 +298,30 @@ defer cc-narray-extra-fwd
 : cc-npointer-array-default drop [lit] 238 cc-die ;
 defer cc-npointer-array-fwd
 ' cc-npointer-array-default is cc-npointer-array-fwd
+\ Parentheses around a starless direct declarator only group: (*(s[2]))()
+\ declares what (*s[2])() does.  The name and its array suffixes are read
+\ here; the outer group sees the token after the inner ')' as if it had
+\ followed the name.  Pointer groups nested inside a group stay outside.
+: cc-ngroup-name
+  cc-next-token-keep
+  lparen cc-tok-punct? 0= if, cc-putback-token cc-nfnptr-name-fwd exit, then,
+  cc-next-token-keep
+  [char] * cc-tok-punct? if, [lit] 238 cc-die then,
+  tok-kind @ tk-ident <> if, [lit] 203 cc-die then,
+  tok-str-addr @ tok-str-len @ cc-sym-find
+  dup 0< 0= if,
+    cc-sym-kind-of sk-typedef = if, [lit] 203 cc-die then,
+  else, drop then,
+  tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
+  cc-next-token-keep
+  cc-narray-suffix
+  [char] ) cc-tok-punct? 0= if, [lit] 143 cc-die then,
+  cc-next-token-keep
+  [char] [ cc-tok-punct? nc-array @ and if, [lit] 238 cc-die then,
+  cc-putback-token ;
 : cc-ngrouped-declarator
   cc-count-stars >r
-  cc-nfnptr-name-fwd
+  cc-ngroup-name
   cc-next-token-keep
   lparen cc-tok-punct? if,
     nc-nlen @ 0= if, [lit] 203 cc-die then,

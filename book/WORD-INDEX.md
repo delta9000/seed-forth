@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2675 names and 97 ideas.
+carry none.  2676 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1232,6 +1232,7 @@ for which chapter depends on which, the
 - `cc-nfnptr-name-default` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nfnptr-name-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nfunction-suffix` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-ngroup-name` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-ngrouped-declarator` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-ngstore` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-ni-address` — *compiler word (`118-cc-native-init.fth`)* — [Ch 34 §4 Initializers reuse expression fixups](34-direct-tinycc.md#4-initializers-reuse-expression-fixups)

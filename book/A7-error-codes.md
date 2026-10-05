@@ -204,15 +204,15 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:449` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:470` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:760` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:394`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
 | 190 | `115-cc-native.fth:120` | Native enumerator is not an identifier. |
 | 192 | `115-cc-native.fth:128` | Native enumerator followed by neither `,` nor `}`. |
 | 194 | `115-cc-native.fth:210` | Native type identifier not found. |
 | 195 | `115-cc-native.fth:211` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:306,599` | Native declarator is missing its name. |
-| 205 | `115-cc-native.fth:614` | Native declaration missing its final semicolon. |
+| 203 | `115-cc-native.fth:310,313,327,620` | Native declarator is missing its name, or a parenthesized inner name is not an identifier or names a typedef. |
+| 205 | `115-cc-native.fth:635` | Native declaration missing its final semicolon. |
 | 210 | `115-cc-native.fth:56` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
@@ -270,6 +270,11 @@ and must not report 238 merely because they have no array or function
 suffix. Their total pointer depth is checked with 231. Qualified arrays
 themselves decay normally; an explicit cast or a qualified destination
 accepts the conversion. See [chapter 36](36-direct-gcc-calls.md).
+Inside a grouped declarator, `cc-ngroup-name` (`115-cc-native.fth`) accepts
+redundant parentheses around a name and its array suffixes but gives 238 for
+a pointer group nested in a group, `int (*(*p))(void)`, and for array suffixes
+split around the inner group, `int (*(s[2])[3])(void)`
+([chapter 34](34-direct-tinycc.md)).
 
 The compiler's typed constant evaluator reports 240 for an unsupported
 constant form, 241 for an invalid shift count, and 242 for signed arithmetic

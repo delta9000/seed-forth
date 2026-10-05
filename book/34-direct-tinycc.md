@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (617 lines),
+This chapter owns `115-cc-native.fth` (638 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (324 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
@@ -119,6 +119,12 @@ as an opaque sixteen-byte record (Chapter 36).
 needs: pointers, function pointers, arrays, and function parameter
 lists. Grouped declarations distinguish a function returning a pointer
 from an array of function pointers, retaining each callback signature.
+`cc-ngroup-name` lets parentheses wrap the name and its array suffixes
+inside a group, as binutils `nm.c` writes its sorter table:
+`static int (*(sorters[2][2])) (const void *, const void *)` declares
+exactly what `(*sorters[2][2])(...)` does, because parentheses without a
+star only group. A star inside that inner group is a different type and
+stays outside the profile (code 238).
 A lexer mark preserves the parameter tokens so a function
 definition can revisit them after it is classified. Two-dimensional
 objects are supported, but nested array fields and general
@@ -431,9 +437,30 @@ defer cc-narray-extra-fwd
 : cc-npointer-array-default drop [lit] 238 cc-die ;
 defer cc-npointer-array-fwd
 ' cc-npointer-array-default is cc-npointer-array-fwd
+\ Parentheses around a starless direct declarator only group: (*(s[2]))()
+\ declares what (*s[2])() does.  The name and its array suffixes are read
+\ here; the outer group sees the token after the inner ')' as if it had
+\ followed the name.  Pointer groups nested inside a group stay outside.
+: cc-ngroup-name
+  cc-next-token-keep
+  lparen cc-tok-punct? 0= if, cc-putback-token cc-nfnptr-name-fwd exit, then,
+  cc-next-token-keep
+  [char] * cc-tok-punct? if, [lit] 238 cc-die then,
+  tok-kind @ tk-ident <> if, [lit] 203 cc-die then,
+  tok-str-addr @ tok-str-len @ cc-sym-find
+  dup 0< 0= if,
+    cc-sym-kind-of sk-typedef = if, [lit] 203 cc-die then,
+  else, drop then,
+  tok-str-addr @ nc-name ! tok-str-len @ nc-nlen !
+  cc-next-token-keep
+  cc-narray-suffix
+  [char] ) cc-tok-punct? 0= if, [lit] 143 cc-die then,
+  cc-next-token-keep
+  [char] [ cc-tok-punct? nc-array @ and if, [lit] 238 cc-die then,
+  cc-putback-token ;
 : cc-ngrouped-declarator
   cc-count-stars >r
-  cc-nfnptr-name-fwd
+  cc-ngroup-name
   cc-next-token-keep
   lparen cc-tok-punct? if,
     nc-nlen @ 0= if, [lit] 203 cc-die then,
