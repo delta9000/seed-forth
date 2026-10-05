@@ -15,6 +15,7 @@ void *bsearch(const void *key, const void *base, size_t count, size_t size,
               int (*compare)(const void *, const void *));
 /* Fixed ASCII C locale; bases 0 and 2..36, no binary-prefix extension. */
 unsigned long strtoul(const char *text, char **end, int base);
+long strtol(const char *text, char **end, int base);
 int atoi(const char *text);
 long atol(const char *text);
 /* INT_MIN has no representable positive int result, as in ISO C. */

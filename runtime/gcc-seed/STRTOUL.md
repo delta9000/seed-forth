@@ -31,3 +31,14 @@ conversion tables. The executable, parser, runtime, and linker are Forth-built.
 A separately built host C90 version using host headers/libc at `-O0` and `-O2`
 is an optional differential oracle. Its outputs are never bootstrap inputs.
 Reports and input/output hashes are retained under a unique build directory.
+
+## Signed conversion
+
+`strtol`, beside `strtoul` in the same file, exists because binutils'
+generated `sysinfo` parser (from `binutils/sysinfo.y`) converts numbers with
+it. It shares every parsing rule above. The magnitude limit is `LONG_MAX`,
+or `LONG_MAX + 1` for a negative result, so `LONG_MIN` converts exactly;
+overflow consumes the complete valid digit sequence and returns `LONG_MAX`
+or `LONG_MIN` with `ERANGE`. `python3 tests/gcc/strtol-check.py` compares
+value, end offset and errno with host libc over boundary, prefix, whitespace,
+sign, base and overflow cases.
