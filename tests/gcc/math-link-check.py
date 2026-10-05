@@ -17,12 +17,14 @@ source=OUT/'main.c';source.write_text('#include <math.h>\nint main(void) { retur
 output=OUT/'program'
 run(CC+[source,'-lm','-o',output]);run([output])
 # Omitting the explicit library and placing it before its consumer both fail.
-for args in ([source],['-lm',source],['-lfoo',source],['-l',source],['-l','m',source],
-             ['-L.',source,'-lm'],['-c',source,'-lm'],['-E',source,'-lm'],
+for args in ([source],['-lm',source],['-lfoo',source],['-l',source],
              ['--print-source-hash','-lm'],['-lm']):
     output.write_bytes(b'preserve-output');run(CC+args+['-o',output],False)
     assert output.read_bytes()==b'preserve-output'
-run(CC+[source,'-lm','-lm','-o',output]);run([output])
+for args in ([source,'-lm','-lm'], [source,'-l','m'], ['-L.',source,'-lm']):
+    run(CC+args+['-o',output]);run([output])
+run(CC+['-c',source,'-lm','-o',OUT/'compile.o'])
+run(CC+['-E',source,'-lm','-o',OUT/'preprocessed.i'])
 # Inspect the actual archive emitter without a host assembler/archive producer.
 spec=importlib.util.spec_from_file_location('seed_math_driver',ROOT/'tools/gcc-direct-cc.py')
 mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
@@ -53,5 +55,5 @@ report={'compiler_source_identity':toolchain.identity,'archive_sha256':hashlib.s
         'runtime_math_member':False,'nostdlib_explicit_math':True,'ordered_archive':True,
         'atomic_failure':True,'commands':len(commands)}
 (OUT/'report.json').write_text(json.dumps(report,indent=2)+'\n')
-print('PASS literal -lm: genuine math.o archive, ordered lazy selection, explicit nostdlib, rejected unsupported options, atomic failures')
+print('PASS literal -lm: genuine math.o archive, ordered lazy selection, explicit nostdlib, missing-library failures, atomic failures')
 print(OUT/'report.json')

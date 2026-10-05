@@ -3,6 +3,9 @@
 
 Python handles arguments, byte-preserving snapshots, hashes and publication.
 The seed runs all preprocessing, compilation, object writing and linking.
+Joined/separate -L DIR and -l NAME search only explicit directories for
+libNAME.a, at the library's input position. -lm falls back to Forth-built
+math when no explicit directory provides libm.a. -c/-E ignore -L/-l.
 """
 from __future__ import annotations
 
@@ -57,7 +60,7 @@ def checked_path(path, directory=False):
 
 def parse(arguments):
     options = {"mode": "link", "output": None, "includes": [], "macros": [],
-               "inputs": [], "verbose": False, "nostdinc": False,
+               "inputs": [], "libraries": [], "verbose": False, "nostdinc": False,
                "nostdlib": False, "query": None}
     mode = None
     language = None
@@ -95,7 +98,7 @@ def parse(arguments):
                 raise Failure(f"unsupported language: {language}", 2)
             if language == "none":
                 language = None
-        elif arg[:2] in ("-o", "-I", "-D", "-U"):
+        elif arg[:2] in ("-o", "-I", "-D", "-U", "-L", "-l"):
             flag, value = arg[:2], arg[2:]
             if not value:
                 if index == len(arguments):
@@ -112,6 +115,10 @@ def parse(arguments):
                 if value == "-":
                     raise Failure("-I- is unsupported", 2)
                 options["includes"].append(checked_path(Path(value).absolute(), True))
+            elif flag == "-L":
+                options["libraries"].append(Path(value).absolute())
+            elif flag == "-l":
+                options["inputs"].append((value, "library"))
             else:
                 name, separator, body = value.partition("=")
                 if flag == "-U":
@@ -123,8 +130,6 @@ def parse(arguments):
                         raise Failure(f"unsupported -D macro spelling: {name}", 2)
                     directive = "#define " + name + " " + (body if separator else "1") + "\n"
                 options["macros"].append(directive)
-        elif arg == "-lm":
-            options["inputs"].append((arg, "seed-library"))
         elif arg.startswith("-") and arg != "-":
             raise Failure(f"unsupported option: {arg}", 2)
         else:
@@ -133,12 +138,13 @@ def parse(arguments):
         if options["inputs"]:
             raise Failure("information options cannot be combined with inputs", 2)
         return options
+    if options["mode"] != "link":
+        options["inputs"] = [(name, kind) for name, kind in options["inputs"]
+                             if kind != "library"]
     if not options["inputs"]:
         if options["verbose"]:
             return options
         raise Failure("no input files", 2)
-    if options["mode"] != "link" and any(kind == "seed-library" for _, kind in options["inputs"]):
-        raise Failure("-lm requires link mode", 2)
     if options["mode"] != "link" and options["output"] and len(options["inputs"]) != 1:
         raise Failure("a single -o requires one input with -c or -E", 2)
     if options["mode"] != "preprocess" and options["output"] == "-":
@@ -315,8 +321,8 @@ class Toolchain:
         return output
 
     def math_archive(self):
-        # This exact builtin library is source-built, never found in host
-        # search paths. Explicit -lm remains explicit even with -nostdlib.
+        # Fallback after explicit -L search; never search host directories.
+        # Explicit -lm remains explicit even with -nostdlib.
         archive = self.work / "libm.a"
         if archive.exists():
             return archive
@@ -373,8 +379,17 @@ def main(arguments):
     inputs = []
     stdin_seen = False
     for spelling, language in options["inputs"]:
-        if language == "seed-library":
-            inputs.append((ROOT / RUNTIME / "math.c", "math", b""))
+        if language == "library":
+            path = next((directory / ("lib" + spelling + ".a")
+                         for directory in options["libraries"]
+                         if (directory / ("lib" + spelling + ".a")).is_file()), None)
+            if path is None:
+                if spelling == "m":
+                    inputs.append((ROOT / RUNTIME / "math.c", "math", b""))
+                    continue
+                searched = ", ".join(str(directory) for directory in options["libraries"]) or "(none)"
+                raise Failure(f"library -l{spelling} (lib{spelling}.a) not found; searched directories: {searched}", 2)
+            inputs.append((path, "a", path.read_bytes()))
         elif spelling == "-":
             if stdin_seen or (language != "c" and options["mode"] != "preprocess"):
                 raise Failure("stdin requires -x c (or -E), and can occur only once", 2)

@@ -91,7 +91,7 @@ int main(void) {
         assert len(identity) == 64
         manifest = json.loads((ROOT / "build-out/gcc-direct-cache" / identity / "manifest.json").read_text())
         assert not manifest["host_compiler"] and not manifest["host_linker"]
-        for flag in ("-g", "-O2", "-shared", "-fPIC", "-std=c99", "-lfoo", "-I-", "-traditional-cpp"):
+        for flag in ("-g", "-O2", "-shared", "-fPIC", "-std=c99", "-I-", "-traditional-cpp"):
             result = run(flag, str(source), cwd=work, success=False)
             assert b"unsupported" in result.stderr
         protected = work / "protected.c"

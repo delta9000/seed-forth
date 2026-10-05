@@ -21,7 +21,7 @@ directory. Multiple sources and objects can be linked, or multiple sources
 compiled with `-c` and no `-o`. For stdin use `-x c -`; `-E -` also accepts
 stdin. Its presumed source filename is `<stdin>` and quoted includes start
 from the current directory. Preprocessing writes stdout unless `-o` names a file. The driver
-recognizes joined and separate `-o`, `-I`, `-D`, and `-U` arguments. `-x c`
+recognizes joined and separate `-o`, `-I`, `-D`, `-U`, `-L`, and `-l` arguments. `-x c`
 and `-x none` select/reset the language for following inputs.
 
 Command-line `-D` and `-U` directives are processed in order by the Forth
@@ -44,16 +44,25 @@ granularity: replacing one symbol while requiring another from the same
 member still diagnoses duplicate definitions. Explicit `.a` inputs use the Forth
 archive layer's lazy extraction at their command-line position, including
 member rescans for newly selected dependencies. The default startup precedes
-archive scanning so an archive may provide `main`. `-l`/`-L` library search is
-not implemented; pass an explicit archive pathname. The exact `-lm` option is
-a bounded exception: it creates and searches a genuine Forth-built math archive
-at that input position. See [math linkage](../runtime/gcc-seed/MATH-LINKING.md).
+archive scanning so an archive may provide `main`. `-lNAME` or `-l NAME`
+searches only `libNAME.a` in the explicit `-L DIR` / `-LDIR` directories,
+in their supplied order. All `-L` directories apply to all `-l` options,
+even when a directory follows the library option. No host system or environment
+library directories are searched, and shared libraries are never selected.
+The found archive is extracted at the `-l` input position: place libraries
+after their consumers. Member rescans resolve dependencies within that archive;
+earlier archives are not revisited for references introduced by later inputs.
+Repeat a library option to search it again. Missing libraries diagnose the name
+and searched directories. `-L` alone is harmless; `-c` and `-E` accept and ignore
+`-L` / `-l` without searching. For `-lm` (also `-l m`), an explicit directory's
+`libm.a` takes precedence; otherwise the driver creates and searches a genuine
+Forth-built math archive at that input position. See [math linkage](../runtime/gcc-seed/MATH-LINKING.md).
 `-nostdlib` omits all runtime/startup objects; the caller must supply `_start`.
 Inputs ending in `.o` must satisfy the Forth linker's object contract.
 
 `-static`, `-O0`, and `-g0` describe the actual output and are accepted.
 Optimization/debug flags including `-O2` and `-g`, other language standards,
-assembly, shared libraries, other `-l` spellings, `-L`, dependency files, forced
+assembly, shared libraries, dependency files, forced
 includes, and unknown flags fail explicitly. This matters to configure:
 its `-g` probe should fail, and its non-GNU fallback can select empty CFLAGS.
 Use `CFLAGS= LDFLAGS=` when explicitly testing a clean bootstrap configuration.
@@ -82,7 +91,9 @@ aliasing a direct input or compiler/runtime source, including symlinks and
 hardlinks, are rejected. Compile mode also rejects duplicate default output
 names. Scratch paths are private to each invocation.
 
-Run `python3 tests/gcc/driver-check.py` for targeted production checks and
+Run `python3 tests/gcc/driver-libsearch-check.py` for static library lookup,
+ordering and math precedence checks, `python3 tests/gcc/driver-check.py` for
+targeted production checks, and
 `python3 tests/gcc/driver-cache-check.py` for cold-cache concurrency, corruption,
 invalidation, and runtime isolation checks in an isolated source-copy fixture.
 These are evidence for this driver contract, not proof that original GCC configure,

@@ -1,13 +1,17 @@
 # Explicit bootstrap math archive
 
-The direct driver accepts the exact `-lm` spelling in link mode. At that input
-position it compiles the snapshotted `math.c` with Forth, writes `math.o`, and
-uses the Forth archive writer to create a real `libm.a`. Archive selection is
+The direct driver accepts `-lm` and `-l m` in link mode. It first searches
+all explicit `-L DIR` / `-LDIR` directories in their supplied order for `libm.a`.
+A found static archive takes precedence over the builtin math implementation.
+If none is found, at that input position it compiles the snapshotted `math.c`
+with Forth, writes `math.o`, and uses the Forth archive writer to create a real `libm.a`. Archive selection is
 ordered and lazy: place `-lm` after the objects that need `exp` or `log`.
 Repeated `-lm` reuses the private archive but rescans it at each input position.
-No host library, archive writer, object file or search path supplies production
-code. General `-lNAME`, separated `-l m`, and `-L` options remain unsupported.
-Compile-only and preprocess-only invocations reject `-lm` explicitly.
+Rescans are confined to the current archive; later inputs do not cause earlier
+archives to be revisited. General `-lNAME` / `-l NAME` searches only explicit
+`-L` directories for static `libNAME.a` files, with no host system or environment
+search paths. Compile-only and preprocess-only invocations accept and ignore
+`-L` and `-l`, including `-lm`, without lookup or building math.
 
 `math.c` remains part of the compiler snapshot and its content-derived identity,
 but it is excluded from the implicit runtime object's cache and libc archive.
@@ -19,7 +23,7 @@ workspace; output publication retains the driver's atomic replacement checks.
 
 Run `python3 tests/gcc/math-check.py` for Forth numerical production, then the
 separate oracle command it prints. Run `python3 tests/gcc/math-link-check.py`
-for archive membership, ordering, negative-option, missing-source, nostdlib
+for archive membership, ordering, missing-library, missing-source, nostdlib
 and existing-output preservation checks. Host `ar` in that fixture only inspects
 Forth-produced archive bytes. MATH.md retains the numerical contract, observed
 near-integer disagreements and the original GCC optional-split reachability
