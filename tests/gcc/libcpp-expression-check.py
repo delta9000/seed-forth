@@ -92,7 +92,7 @@ int main(void){struct reader r={{0,31},{0,47}};struct cset_converter a=choose(&r
 ''')
  exe=W/'original-derived';run('original-derived-forth',[CC,reduction,'-o',exe]);run('original-derived-forth-execute',[exe])
  for opt in ('-O0','-O2'):
-  exe=W/('original-derived'+opt);run('original-derived'+opt,['cc',opt,reduction,'-o',exe]);run('original-derived'+opt+'-execute',[exe])
+  exe=W/('original-derived'+opt);run('original-derived'+opt,['cc','-std=gnu89',opt,reduction,'-o',exe]);run('original-derived'+opt+'-execute',[exe])
  report['original_reductions']={'pins':pins,'reduction_sha256':sha(reduction),'selection_occurrences':3,'scope':'Exact descriptor, three identical selection statements and record-copy/for sequence; surrounding harness is synthetic'}
  assert {name:sha(srcroot/name) for name in pins}==pins
  print('PASS: original-derived libcpp descriptor/conditional and record-copy/for reductions',flush=True)
