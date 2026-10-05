@@ -245,6 +245,16 @@ assert cli.read_bytes() == before
 for flags in ("rcs", "q", "rcsx", "rrc", "r", "cru"):
     assert subprocess.run([wrapper, flags, cli, objects["foo.o"]], capture_output=True).returncode == 2
 assert cli.read_bytes() == before
+for flags in ("ru", "cu", "su", "uu"):
+    fresh = OUT / f"rejected-{flags}.a"
+    fresh.unlink(missing_ok=True)
+    assert subprocess.run([wrapper, flags, fresh, objects["foo.o"]], capture_output=True).returncode == 2
+    assert not fresh.exists()
+plain, update = OUT / "fresh-rc.a", OUT / "fresh-cru.a"
+for path, flags in ((plain, "rc"), (update, "cru")):
+    path.unlink(missing_ok=True)
+    subprocess.run([wrapper, flags, path, objects["foo.o"]], check=True)
+assert plain.read_bytes() == update.read_bytes()
 record("bounded-wrapper-and-existing-output-preservation")
 assert not list(OUT.glob("*.lnk-*"))
 

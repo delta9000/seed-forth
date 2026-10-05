@@ -4,6 +4,9 @@
 Bounded build adapter, not an incremental ar replacement. rc/rcs (optional D)
 create a fresh archive; s validates its already-present GNU index. Existing
 archives are never silently recreated by rc. Remove them explicitly first.
+Automake's `cru` is accepted on the same terms: `u` replaces only members
+newer than the archive's copies, and a nonexistent archive has none, so
+`cru` on a fresh output requests exactly what `rc` does.
 """
 import os
 import re
@@ -31,8 +34,8 @@ def main(args):
     if len(args) < 2:
         raise ValueError("usage: gcc-direct-ar.py rc[s][D] ARCHIVE OBJECT... | s[D] ARCHIVE")
     flags = args[0].removeprefix("-")
-    if len(set(flags)) != len(flags) or set(flags) - set("rcsD"):
-        raise ValueError("supported operations: rc[s][D] fresh creation, s[D] index validation")
+    if len(set(flags)) != len(flags) or set(flags) - set("rcsuD") or ("u" in flags and not {"r", "c"} <= set(flags)):
+        raise ValueError("supported operations: rc[u][s][D] fresh creation, s[D] index validation")
     create = "r" in flags and "c" in flags
     check = "s" in flags and not (set(flags) & set("rc"))
     if not create and not check:

@@ -43,7 +43,9 @@ cannot be replaced. `arc-write` can be repeated on a writer collection.
 `tools/gcc-direct-ar.py` is a deliberately small build adapter. It accepts
 `rc`, `rcs`, and optional `D` for fresh creation, with an optional leading dash.
 It refuses an existing output instead of guessing incremental replacement
-semantics. `s` or `sD` validates an already-indexed archive without rewriting
+semantics. Automake's `cru` is accepted on the same terms: `u` only skips
+members older than the archive's copies, and a fresh archive has none, so
+`cru` produces the same bytes as `rc`. `s` or `sD` validates an already-indexed archive without rewriting
 it. Python only transports paths and Forth source, launches the seed, and
 sets the resulting file mode; it does not construct or interpret ar bytes.
 It verifies the seed against its hex0 source, snapshots all archive-tool layers
