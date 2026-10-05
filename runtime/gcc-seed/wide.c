@@ -6,6 +6,23 @@
 #include <limits.h>
 int iswprint(wint_t value) { return value >= 32 && value <= 126; }
 int iswspace(wint_t value) { return value == 32 || (value >= 9 && value <= 13); }
+/* C locale case mapping: only ASCII A-Z change; WEOF maps to itself. */
+wint_t towlower(wint_t value) { return value >= 'A' && value <= 'Z' ? value + 32 : value; }
+/* ASCII multibyte strings: every byte below 128 is one wide character.
+   With a NULL destination the count is returned and COUNT is ignored. */
+size_t mbstowcs(wchar_t *wide, const char *bytes, size_t count)
+{
+    size_t done = 0;
+    unsigned char value;
+    while (wide == NULL || done < count) {
+        value = (unsigned char)bytes[done];
+        if (value > 127) { errno = EILSEQ; return (size_t)-1; }
+        if (wide) wide[done] = value;
+        if (value == 0) break;
+        done++;
+    }
+    return done;
+}
 int mbtowc(wchar_t *wide, const char *bytes, size_t count)
 {
     unsigned char value;

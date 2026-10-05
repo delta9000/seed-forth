@@ -36,6 +36,10 @@ int unlink(const char *path);
 /* Single kernel calls; see ../DRIVER-RUNTIME.md. */
 int chdir(const char *path);
 int link(const char *existing, const char *name);
+/* Single kernel calls; see ../FILE-METADATA.md. chown follows a final
+   symbolic link; (uid_t)-1 or (gid_t)-1 leaves that ID unchanged. */
+int chown(const char *path, uid_t owner, gid_t group);
+int rmdir(const char *path);
 void _exit(int status);
 /* Process API; see ../PROCESS-API.md. vfork is an ordinary fork. execv and
    execvp pass the current environ; execvp searches PATH (default

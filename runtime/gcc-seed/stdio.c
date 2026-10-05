@@ -389,6 +389,13 @@ int fseek(FILE *stream, long offset, int whence)
     return 0;
 }
 
+void rewind(FILE *stream)
+{
+    /* A failed seek keeps its errno; both indicators are cleared anyway. */
+    (void)fseek(stream, 0L, SEEK_SET);
+    if (stream != NULL) clearerr(stream);
+}
+
 int fileno(FILE *stream)
 {
     if (stream == NULL || stream->descriptor < 0) { errno = EBADF; return -1; }

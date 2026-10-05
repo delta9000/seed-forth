@@ -4,6 +4,8 @@
 #define MB_CUR_MAX ((size_t)1)
 int mbtowc(wchar_t *wide, const char *bytes, size_t count);
 int wctomb(char *bytes, wchar_t wide);
+/* ASCII only: a byte above 127 fails with EILSEQ and (size_t)-1. */
+size_t mbstowcs(wchar_t *wide, const char *bytes, size_t count);
 /* Only implemented interfaces are declared; this is not a complete libc. */
 void *malloc(size_t size);
 void free(void *pointer);
@@ -22,6 +24,11 @@ long atol(const char *text);
 int abs(int value);
 /* Create a 0600 exclusive read/write file by replacing six trailing Xs. */
 int mkstemp(char *template);
+/* Replace six trailing Xs with a name that does not exist now; on failure
+   the template becomes "" (EINVAL or EEXIST). Racy by design: prefer mkstemp. */
+char *mktemp(char *template);
+/* Correctly rounded decimal input; see ../DECIMAL-INPUT.md for the syntax. */
+double atof(const char *text);
 /* Basename of argv[0], initialized by the runtime-aware entry before main. */
 extern char *__progname;
 /* Searches the current environ; returns a pointer into that entry. */

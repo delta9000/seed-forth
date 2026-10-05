@@ -20,4 +20,10 @@ struct tm {
 time_t time(time_t *result);
 /* Requires explicit TZ=UTC0; unsupported/missing zones fail with EINVAL. */
 struct tm *localtime(const time_t *timer);
+/* UTC for any zone; shares localtime's static record. See ../CALENDAR.md. */
+struct tm *gmtime(const time_t *timer);
+/* asctime text of localtime(timer) in a static buffer; NULL when it fails. */
+char *ctime(const time_t *timer);
+/* Bounded C-locale subset: %Y %m %d %e %H %M %S %j %y %F %T %z %%. */
+size_t strftime(char *out, size_t size, const char *format, const struct tm *time);
 #endif

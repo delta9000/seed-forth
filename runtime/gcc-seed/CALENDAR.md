@@ -5,6 +5,9 @@ six standard `struct tm` fields for its cached `__DATE__` and `__TIME__` text.
 This original MIT implementation adds those real operations without changing
 `clock()` or its process-CPU accounting contract.
 
+Original binutils 2.30 adds `gmtime`, `ctime` and a bounded `strftime` over
+the same conversion; see [FILE-METADATA.md](FILE-METADATA.md).
+
 ## Explicit timezone and representation boundary
 
 Run configure, build and programs with `TZ=UTC0`. `localtime` accepts exactly

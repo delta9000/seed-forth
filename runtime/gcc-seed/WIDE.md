@@ -23,3 +23,5 @@ wide-check.py tests every byte plus boundary/reset cases and356 independently
 constructed numeric cases. Separate host C90 O0/O2 builds compare the shared
 contract; the explicit zero-count errno choice is checked only for this runtime.
 Wide stream I/O and wide printf formatting are a separate successor stage.
+Original binutils adds ASCII `mbstowcs` and C-locale `towlower`; see
+[FILE-METADATA.md](FILE-METADATA.md).

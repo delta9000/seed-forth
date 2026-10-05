@@ -33,8 +33,8 @@ allocator is not safe for concurrent or signal-handler allocation.
 
 As with ordinary C allocation APIs, freeing an invalid pointer, double-freeing,
 or accessing an allocation after its lifetime has ended is undefined. The
-runtime provides no threads, floating input parsing, dynamic loader, or
-whole-libc compatibility promise. Signal handling and the fixed C/POSIX locale
+runtime provides no threads, floating input parsing beyond
+[`atof`](DECIMAL-INPUT.md), dynamic loader, or whole-libc compatibility promise. Signal handling and the fixed C/POSIX locale
 have separate bounded contracts below. Add interfaces when an original source
 consumer on the documented bootstrap path and a corresponding test establish
 the need.
@@ -168,3 +168,10 @@ Original GCC 4.0.4 `xgcc`, `cpp` and `collect2` need the
 `environ` vector that stores caller strings, and `fscanf` with `%c` over the
 existing integer scanner. A runtime `putenv` also removes libiberty's
 `putenv.o`, the one driver object that referenced an undefined plain `alloca`.
+
+Original binutils 2.30 `gas`, `ld`, `ar`, `nm`, `objdump` and `readelf` need
+the [binutils runtime](FILE-METADATA.md): the `sys/stat.h` permission macros,
+`lstat`, `chmod`, `chown`, `umask`, `mkdir`, `rmdir`, `<utime.h>` `utime`,
+`rewind`, `mktemp`, `towlower`, `mbstowcs`, `gmtime`, `ctime` and a bounded
+`strftime`, plus [correctly rounded decimal `atof`](DECIMAL-INPUT.md) for
+`binutils/stabs.c`.

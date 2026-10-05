@@ -124,6 +124,7 @@ python3 tests/gcc/fcntl-check.py
 python3 tests/gcc/stdint-check.py
 python3 tests/gcc/process-api-check.py
 python3 tests/gcc/driver-runtime-check.py
+python3 tests/gcc/binutils-runtime-check.py
 python3 tests/gcc/procfs-time-check.py
 python3 tests/gcc/mapping-check.py
 python3 tests/gcc/dirent-check.py

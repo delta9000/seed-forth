@@ -44,6 +44,8 @@ char *fgets(char *buffer, int count, FILE *stream);
 int ungetc(int byte, FILE *stream);
 long ftell(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
+/* fseek to offset 0, then clear the error and end-of-file indicators. */
+void rewind(FILE *stream);
 int fileno(FILE *stream);
 int vfprintf(FILE *stream, const char *format, va_list arguments);
 int fprintf(FILE *stream, const char *format, ...);
