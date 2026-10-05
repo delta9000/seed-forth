@@ -53,7 +53,10 @@ The lexer preserves a numeric token's spelling while accumulating its value
 modulo the machine word. The typed evaluator checks that spelling again. It
 rejects a value beyond the unsigned range, malformed suffixes, invalid octal
 digits, and floating spellings before an integer prefix can become a result.
-The old lexer and constant evaluator keep their original behavior.
+Suffixes are read by Ch 24's `cc-integer-suffix`, the same parser that types
+every LP64 literal, so `1LLL`, `1lL`, `1LUL` and `1uu` are 240 in a runtime
+expression or an `#if` line just as they are here. The legacy target's lexer
+and constant evaluator keep their original behavior.
 
 ## 2. Keep the numeric boundary explicit
 
@@ -229,14 +232,10 @@ variable cc-const-used
 \ spellings instead of accepting their integer prefix as a constant.
 variable cc-const-literal-base
 variable cc-const-literal-value
-variable cc-const-literal-u
-variable cc-const-literal-l
 variable cc-const-literal-digit
-variable cc-const-literal-lchar
 : cc-const-literal-check
   [lit] 10 cc-const-literal-base ! [lit] 0 cc-const-literal-value !
-  [lit] 0 cc-const-literal-u ! [lit] 0 cc-const-literal-l !
-  [lit] 0 cc-const-literal-digit ! [lit] 0 cc-const-literal-lchar !
+  [lit] 0 cc-const-literal-digit !
   tok-str-addr @ tok-str-len @
   over c@ [char] 0 = if,
     [lit] 8 cc-const-literal-base !
@@ -254,22 +253,11 @@ variable cc-const-literal-lchar
       cc-const-literal-value @ cc-const-literal-base @ * + cc-const-literal-value !
       true cc-const-literal-digit !
     else,
-      dup [char] u = over [char] U = or if,
-        cc-const-literal-u @ if, cc-const-unsupported then,
-        true cc-const-literal-u !
-        cc-const-literal-l @ if, [lit] 3 cc-const-literal-l ! then,
-      else,
-        dup [char] l = over [char] L = or 0= if, cc-const-unsupported then,
-        cc-const-literal-l @ dup [lit] 2 >= if, cc-const-unsupported then,
-        1+ cc-const-literal-l !
-        cc-const-literal-lchar @ if,
-          dup cc-const-literal-lchar @ <> if, cc-const-unsupported then,
-        else, dup cc-const-literal-lchar ! then,
-      then, drop
-      \ Digits cannot resume after a suffix; suffixes are U, L, LL and
-      \ their combinations. Their spelling cannot exceed three letters.
-      dup [lit] 3 > if, cc-const-unsupported then,
-      over 1+ c@ digit? if, cc-const-unsupported then,
+      \ The rest of the spelling must be exactly one suffix, read by the
+      \ same parser that types the literal (060's cc-integer-suffix).
+      \ Leave the last letter for the step below, which ends the loop.
+      drop 2dup cc-integer-suffix 0= if, cc-const-unsupported then,
+      + 1- [lit] 1                                  ( last 1 )
     then,
     swap 1+ swap 1-
   repeat, drop

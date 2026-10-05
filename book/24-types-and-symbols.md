@@ -152,6 +152,56 @@ variable cc-bootstrap-floatbits
 \ Struct/union alignment is cc-sd-align, not the type word's fallback.
 : ty-align  ty-size dup 0= if, drop [lit] 1 then, ;
 
+\ cc-integer-suffix ( addr len -- flag )  The one integer-suffix parser,
+\ shared by literal typing below and the constant evaluator (125).  The
+\ text addr len starts at the suffix's first letter; flag is true only if
+\ all of it is one C suffix: an optional U on either side of an optional
+\ l, L, ll or LL (C90 6.1.3.2 plus long long).  So 1LLL, 1lL, 1LUL and
+\ 1uu are false.  cc-literal-unsigned and cc-literal-long (0, 1 or 2)
+\ record what was read.
+variable cc-literal-unsigned
+variable cc-literal-long
+: cc-integer-suffix-u ( addr len -- addr' len' )
+  dup 0= if, exit, then,
+  cc-literal-unsigned @ if, exit, then,
+  over c@ dup [char] u = swap [char] U = or if,
+    true cc-literal-unsigned ! swap 1+ swap 1-
+  then, ;
+: cc-integer-suffix-l ( addr len -- addr' len' )
+  dup 0= if, exit, then,
+  over c@ dup [char] l = swap [char] L = or 0= if, exit, then,
+  [lit] 1 cc-literal-long !
+  over c@ >r swap 1+ swap 1-                      ( addr' len' ; R: letter )
+  dup if,
+    over c@ r@ = if, [lit] 2 cc-literal-long ! swap 1+ swap 1- then,
+  then,
+  r> drop ;
+: cc-integer-suffix ( addr len -- flag )
+  [lit] 0 cc-literal-unsigned ! [lit] 0 cc-literal-long !
+  cc-integer-suffix-u cc-integer-suffix-l cc-integer-suffix-u
+  nip 0= ;
+
+\ cc-integer-suffix-letter? ( c -- flag )  u, U, l or L.
+: cc-integer-suffix-letter?
+  dup [char] u = over [char] U = or
+  over [char] l = or swap [char] L = or ;
+
+\ cc-integer-suffix-start ( addr len -- addr' len' )  Step over the
+\ digits to the first suffix letter, or to the end.
+: cc-integer-suffix-start
+  begin, dup while,
+    over c@ cc-integer-suffix-letter? if, exit, then,
+    swap 1+ swap 1-
+  repeat, ;
+
+\ cc-integer-literal-check ( -- )  Parse the current tk-num token's
+\ suffix, the letters the lexer (050) kept after the digits; no hex digit
+\ is one of them.  A malformed suffix is 240, the constant evaluator's
+\ code for an unsupported constant form, in every expression context.
+: cc-integer-literal-check
+  tok-str-addr @ tok-str-len @ cc-integer-suffix-start
+  cc-integer-suffix 0= if, [lit] 240 cc-die then, ;
+
 \ cc-integer-literal-type ( -- ty )  Type of the current tk-num token.
 \ The original spelling (050) distinguishes decimal from hex/octal and
 \ preserves U/L/LL suffixes without expanding the lexer's snapshot state.
@@ -159,22 +209,9 @@ variable cc-bootstrap-floatbits
 \ two-letter LL suffix selects long long; its value picks the signedness.
 \ As a bootstrap extension, a decimal value beyond signed long uses ulong.
 \ Range tests use unsigned division, so bit-63-set constants stay correct.
-variable cc-literal-unsigned
-variable cc-literal-long
 : cc-integer-literal-type
   cc-target-lp64 @ 0= if, ty-int [lit] 0 ty-make exit, then,
-  [lit] 0 cc-literal-unsigned ! [lit] 0 cc-literal-long !
-  tok-str-addr @ tok-str-len @                    ( addr len )
-  begin, dup [lit] 0 > while,
-    over c@
-    dup [char] u = over [char] U = or if,
-      true cc-literal-unsigned !
-    then,
-    dup [char] l = swap [char] L = or if,
-      [lit] 1 cc-literal-long +!
-    then,
-    swap 1+ swap 1-
-  repeat, drop drop
+  cc-integer-literal-check
   cc-literal-long @ [lit] 1 > if,
     cc-literal-unsigned @ tok-num @ 2^63 / or if,
       ty-ullong
@@ -232,6 +269,13 @@ arithmetic.  A separate, default-off `cc-bootstrap-floatbits` flag
 lets the restricted first bootstrap stage transport all three floating
 kinds in 8-byte integer cells.  That approximation is not IEEE
 arithmetic and does not change standard LP64 mode.
+
+An LP64 integer literal's type comes from its spelling.
+`cc-integer-suffix` is the only reader of its `U`/`L` suffix: an
+optional `U` on either side of `l`, `L`, `ll` or `LL`.  Literal typing,
+Ch 41's constant evaluator and `#if` (Ch 28's `cc-cx-operand`) all call
+it, so `1LLL`, `1lL`, `1LUL` and `1uu` are error 240 wherever they
+appear rather than being typed by a count of letters.
 
 The 8 for a struct is deliberately wrong.  `ty-size` sees only the
 type word, not the struct descriptor.  When codegen needs

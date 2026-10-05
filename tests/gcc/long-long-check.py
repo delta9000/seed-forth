@@ -37,6 +37,18 @@ NEGATIVE={
  'constant-suffix-lll':('char a[1LLL];',240),
  'constant-suffix-mixed-case':('char a[1lL];',240),
  'constant-suffix-ulul':('char a[1ULUL];',240),
+ # Runtime literals and #if share the constant evaluator's suffix parser.
+ 'runtime-suffix-lll':('long long f(void){return 1LLL;}',240),
+ 'runtime-suffix-mixed-case':('long f(long a){return a+1lL;}',240),
+ 'runtime-suffix-lul':('long f(void){long x;x=1LUL;return x;}',240),
+ 'runtime-suffix-uu':('unsigned f(void){return 1uu;}',240),
+ 'runtime-suffix-lll-lower':('long f(void){return 0x1lll;}',240),
+ 'runtime-suffix-ulu':('unsigned long f(void){return 1uLu;}',240),
+ 'initializer-suffix-lll':('long long x = 1LLL;',240),
+ 'constant-suffix-uu':('char a[1uu];',240),
+ 'constant-suffix-lul':('char a[1lul];',240),
+ 'pp-suffix-lll':('#if 1LLL\n#endif',240),
+ 'pp-suffix-uu':('#if 1uu\n#endif',240),
 }
 def main():
  ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--work',type=Path);a=ap.parse_args()

@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2649 names and 97 ideas.
+carry none.  2652 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -508,9 +508,6 @@ for which chapter depends on which, the
 - `cc-const-literal-base` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-literal-check` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-literal-digit` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
-- `cc-const-literal-l` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
-- `cc-const-literal-lchar` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
-- `cc-const-literal-u` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-literal-value` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-logical-and` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-logical-or` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
@@ -930,7 +927,13 @@ for which chapter depends on which, the
 - `cc-in-len` — *compiler word (variable, `030-cc-io.fth`)* — [Ch 21, The input and source buffers and the reader](21-arena-and-io-buffers.md#the-input-and-source-buffers-and-the-reader)
 - `cc-in-limit` — *compiler word (variable, `030-cc-io.fth`)* — [Ch 21, The input and source buffers and the reader](21-arena-and-io-buffers.md#the-input-and-source-buffers-and-the-reader)
 - `cc-index-base-fwd` — *compiler word (defer, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
+- `cc-integer-literal-check` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-integer-literal-type` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-integer-suffix` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-integer-suffix-l` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-integer-suffix-letter?` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-integer-suffix-start` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-integer-suffix-u` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-invert` — *compiler word (`100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
 - `cc-io-default-workspace` — *compiler word (`030-cc-io.fth`)* — [Ch 21, Shared helpers](21-arena-and-io-buffers.md#shared-helpers)
 - `cc-io-direct-base` — *compiler word (variable, `030-cc-io.fth`)* — [Ch 21, Shared helpers](21-arena-and-io-buffers.md#shared-helpers)

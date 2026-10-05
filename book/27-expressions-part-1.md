@@ -12,7 +12,7 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(2578 lines total) solves this with a *precedence cascade*: plain
+(2580 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a

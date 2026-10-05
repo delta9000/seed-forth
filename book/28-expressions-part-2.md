@@ -2104,9 +2104,11 @@ defer cc-const-string-fwd
 ' cc-const-unsupported is cc-const-address-fwd
 ' cc-const-unsupported is cc-const-string-fwd
 
-\ cc-cx-operand ( -- v )
+\ cc-cx-operand ( -- v )  Under LP64 a number's suffix is checked by
+\ the same parser that types runtime literals (060), so #if 1LLL is 240.
 : cc-cx-operand
   cc-next-token-keep
+  tok-kind @ tk-num = cc-target-lp64 @ and if, cc-integer-literal-check then,
   tok-kind @ tk-num =  tok-kind @ tk-chr = or if, tok-num @ exit, then,
   tok-kind @ tk-ident = if,
     cc-cx-pp @ if, [lit] 0 exit, then,

@@ -38,5 +38,17 @@ int main(void)
     if (sizeof(cv + 1u) != 8 || sizeof((char)1 + 1LL) != 8) return 10;
     if (!(r > -1LL) || (u > 0LL) != 1 || (-1LL > 0ULL) == 0) return 11;
     if (-LLONG_MAX - 1 != LLONG_MIN || (LLONG_MAX >> 62) != 1) return 12;
+    /* Every valid suffix spelling, typed by the shared suffix parser. */
+    if (sizeof(1u) != 4 || sizeof(1U) != 4 || sizeof(1l) != 8 || sizeof(1Lu) != 8
+        || sizeof(1lU) != 8 || sizeof(1uL) != 8 || sizeof(1ll) != 8 || sizeof(1LLU) != 8
+        || sizeof(1uLL) != 8 || sizeof(1Ull) != 8 || sizeof(1llu) != 8) return 13;
+    if (-1lu < 0 || -1uLL < 0 || -1ll > 0 || -1L > 0 || -1LLu < 0 || -1U < 0) return 14;
+    {
+        char a[(-1ll < 0) + (-1Ull > 0) + (0x10uL == 16) + (-1lU > 0)];
+        if (sizeof a != 4) return 15;
+    }
+#if -1ll >= 0 || 1uLL != 1 || 0x10Lu != 16
+    return 16;
+#endif
     return 42;
 }

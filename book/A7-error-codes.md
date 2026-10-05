@@ -88,7 +88,7 @@ to its call site.
 | 47  | `040-cc-prep.fth:165,593,1985,1988,1996,2008,2079` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
 | 48  | `040-cc-prep.fth:1930,1986` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 49  | `040-cc-prep.fth` | Invalid or unsupported direct-profile directive syntax, including malformed `#line`, GNU numeric markers, unterminated comments in directives, splices splitting a directive name, and source-text continuations that would join two tokens (continuations inside or splitting comments follow phase two). See [C line control](22-the-preprocessor.md#c-line-control-for-generated-parser-sources). |
-| 50  | `060-cc-types.fth:266` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
+| 50  | `060-cc-types.fth:303` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
 | 60  | `070-cc-sym.fth:73` | `cc-sym-add`: more than 8,192 live symbols. |
 | 61  | `070-cc-sym.fth:153` | `cc-scope-push`: scopes nested more than 64 deep. |
 | 62  | `070-cc-sym.fth:162` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
@@ -127,11 +127,11 @@ to its call site.
 | 122 | `100-cc-expr.fth:621` | Call: more than six arguments (the register-only calling convention). |
 | 123 | `100-cc-expr.fth:661` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
 | 124 | `100-cc-expr.fth:1573` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
-| 125 | `100-cc-expr.fth:2457` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
-| 126 | `100-cc-expr.fth:2466` | Constant expression: a token that can't start an operand. |
-| 127 | `100-cc-expr.fth:2463` | Constant expression: `(` not closed by `)`. |
-| 128 | `100-cc-expr.fth:2538` | Constant expression: `?` without its `:`. |
-| 129 | `100-cc-expr.fth:2567` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
+| 125 | `100-cc-expr.fth:2459` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
+| 126 | `100-cc-expr.fth:2468` | Constant expression: a token that can't start an operand. |
+| 127 | `100-cc-expr.fth:2465` | Constant expression: `(` not closed by `)`. |
+| 128 | `100-cc-expr.fth:2540` | Constant expression: `?` without its `:`. |
+| 129 | `100-cc-expr.fth:2569` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
 | 140 | `110-cc-decl.fth:67` | `cc-expect-kw-id`: next token wasn't a keyword. |
 | 141 | `110-cc-decl.fth:70` | `cc-expect-kw-id`: keyword id mismatch. |
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
@@ -216,7 +216,7 @@ native parser; the file distinguishes its implementation.
 | 210 | `115-cc-native.fth:54` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
-| 213 | `060-cc-types.fth:289` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
+| 213 | `060-cc-types.fth:326` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
 | 214 | `110-cc-decl.fth:380`, `115-cc-native.fth:220` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:158` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:82,83,94,102` | Invalid or empty inferred array initializer. |
@@ -258,7 +258,10 @@ accepts the conversion. See [chapter 36](36-direct-gcc-calls.md).
 
 The compiler's typed constant evaluator reports 240 for an unsupported
 constant form, 241 for an invalid shift count, and 242 for signed arithmetic
-overflow. Division by zero retains 124. Constant evaluation never executes
+overflow. Under LP64, 240 also rejects a malformed integer suffix, such as
+`1LLL`, `1lL`, `1LUL` or `1uu`, in every context: runtime expressions, constant
+expressions and `#if` lines all read suffixes through `cc-integer-suffix` in
+`060-cc-types.fth`. Division by zero retains 124. Constant evaluation never executes
 generated target code; see [chapter 41](41-direct-gcc-constants.md).
 
 The variadic parser prints a `varargs: ` prefix before the usual compiler
