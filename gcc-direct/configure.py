@@ -3,6 +3,20 @@
 
 Configuration is provisional: the retained probe sources and outcomes must be
 audited before feature answers are treated as compiler/runtime evidence.
+
+Host target tools (as, ld, nm, ...) are guarded by default: GCC is configured
+with --with-as/--with-ld naming the guards, so no host binutils answers a probe.
+That default also bakes the guard paths into the driver as DEFAULT_ASSEMBLER
+and DEFAULT_LINKER (auto-host.h), which gcc.c and collect2.c prefer over any
+-B directory, so such a driver can never assemble or link.  --with-binutils DIR
+instead names a directory of Forth-built binutils (as and ld required; nm,
+objdump, ar, ranlib optional) as the target tools: --with-as=DIR/as and
+--with-ld=DIR/ld, *_FOR_TARGET for each present tool, and, for the gcc
+component, ./nm and ./objdump links in the build directory, which is how GCC
+4.0.4's configure and Makefile find in-tree target nm/objdump (there is no
+configure option for them).  Assembler/linker feature probes then run our
+tools, and the driver runs DIR/as and DIR/ld.  Every other host tool, including
+the host-side AS/LD/NM variables, stays guarded.
 """
 from __future__ import annotations
 
@@ -46,6 +60,10 @@ PACKAGES = {
 }
 ARCHIVE = PACKAGES["gcc"]["archive"]
 TRIPLE = "x86_64-pc-linux-gnu"
+# --with-binutils: tools the directory may supply, mapped to GCC's variables.
+TARGET_TOOLS = {"as": "AS_FOR_TARGET", "ld": "LD_FOR_TARGET", "nm": "NM_FOR_TARGET",
+                "objdump": "OBJDUMP_FOR_TARGET", "ar": "AR_FOR_TARGET",
+                "ranlib": "RANLIB_FOR_TARGET"}
 
 
 def sha(data):
@@ -303,14 +321,25 @@ def main():
     parser.add_argument("--gencheck", action="store_true", help="also compile/link/verify original gencheck; configuration remains provisional")
     parser.add_argument("--forth-ar", action="store_true", help="use the frozen Forth archive/index adapter for AR and RANLIB")
     parser.add_argument("--alloca-frame", action="store_true", help="apply the exact target-guarded C_alloca stable-frame adapter in a private source view")
+    parser.add_argument("--with-binutils", type=Path, metavar="DIR",
+                        help="GCC only: use DIR/as and DIR/ld (Forth-built binutils) as the target assembler/linker instead of the guards")
     arguments = parser.parse_args()
     if arguments.gencheck and arguments.component != "gcc":
         parser.error("--gencheck requires --component gcc")
     package = PACKAGES[arguments.package]
     if arguments.package != "gcc":
-        if arguments.gencheck or arguments.alloca_frame:
-            parser.error("--gencheck and --alloca-frame apply to GCC only")
+        if arguments.gencheck or arguments.alloca_frame or arguments.with_binutils:
+            parser.error("--gencheck, --alloca-frame and --with-binutils apply to GCC only")
         arguments.component = "top"
+    target_tools = {}
+    if arguments.with_binutils:
+        binutils = arguments.with_binutils.resolve()
+        for name in TARGET_TOOLS:
+            path = binutils / name
+            if path.is_file() and os.access(path, os.X_OK):
+                target_tools[name] = path
+            elif name in ("as", "ld"):
+                parser.error(f"--with-binutils needs an executable {path}")
     source = (arguments.source or ROOT / package["inputs"] / package["source"]).resolve()
     archive = (arguments.archive or ROOT / package["inputs"] / package["archive"]).resolve()
     source_proof = verify_source(source, archive, arguments.package)
@@ -358,18 +387,30 @@ def main():
     if arguments.forth_ar:
         environment["AR"] = shlex.join([sys.executable, str(archive_driver)])
         environment["RANLIB"] = environment["AR"] + " s"
+    if target_tools:
+        environment.update({TARGET_TOOLS[name]: str(path) for name, path in target_tools.items()})
+    target_as = target_tools.get("as", guards / "as")
+    target_ld = target_tools.get("ld", guards / "ld")
     build = work / "build" / ("top" if arguments.component == "top" else arguments.component)
     build.mkdir(parents=True)
+    if arguments.component == "gcc":
+        # gcc/configure takes `test -x nm` / `test -x objdump` in its build
+        # directory first (the combined-tree route); the Makefile's
+        # NM_FOR_TARGET likewise prefers ./nm.
+        for name in ("nm", "objdump"):
+            if name in target_tools:
+                (build / name).symlink_to(target_tools[name])
     configure = source / ("" if arguments.component == "top" else arguments.component) / "configure"
     command = ["/bin/sh", str(configure), "--build=" + TRIPLE, "--host=" + TRIPLE,
                "--target=" + TRIPLE, "--prefix=" + str(work / "install"),
                "--disable-shared", "--disable-nls", "--disable-multilib", "--enable-languages=c",
-               "--cache-file=/dev/null", "--with-as=" + str(guards / "as"),
-               "--with-ld=" + str(guards / "ld"), "--program-transform-name="]
+               "--cache-file=/dev/null", "--with-as=" + str(target_as),
+               "--with-ld=" + str(target_ld), "--program-transform-name="]
     command += package.get("options", [])
     write_json(work / "configure-command.json", {"command": command, "cwd": str(build),
                "environment": {key: environment[key] for key in ("CC", "CPP", "CXX", "CXXCPP", "CC_FOR_BUILD",
-                 "CFLAGS", "CPPFLAGS", "LDFLAGS", "LIBS", "CONFIG_SITE", "PATH", "AS", "LD", "AR", "RANLIB", "NM")}})
+                 "CFLAGS", "CPPFLAGS", "LDFLAGS", "LIBS", "CONFIG_SITE", "PATH", "AS", "LD", "AR", "RANLIB", "NM")},
+               "target_tools": {name: str(path) for name, path in target_tools.items()}})
     print(work, flush=True)
     with (work / "configure.log").open("wb") as log:
         result = subprocess.run(command, cwd=build, env=environment, stdout=log, stderr=subprocess.STDOUT)
@@ -377,6 +418,8 @@ def main():
               "component": arguments.component, "returncode": result.returncode,
               "gcc_source_sha256": source_proof["archive_sha256"], "work": str(work),
               "compiler": "frozen Forth source snapshot", "host_target_tools": "guarded; attempts retained",
+              "target_binutils": {name: {"path": str(path), "sha256": sha(path.read_bytes())}
+                                  for name, path in target_tools.items()} or "guarded, unavailable",
               "archive_adapter": "Forth fresh indexed archives" if arguments.forth_ar else "guarded, unavailable",
               "alloca_adapter": "explicit Forth caller-frame depth" if arguments.alloca_frame else "unmodified original C_alloca",
               "probes": summarize(work)}
