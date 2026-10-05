@@ -125,3 +125,10 @@ and link a program that runs; `ar rcs`, `ar tv`, `nm -s` and `objdump -a`
 read archives (the `%lu` gap above was found here); `readelf -l` prints a
 host executable's interpreter; and `nm`, `objdump -d` and `readelf -h`
 read a Forth-built object. `ctime` output requires `TZ=UTC0`.
+
+Four undefined references remain in `libiberty.a` and are deliberately not
+supplied: `alloca` (`regex.o`), `creat` (`simple-object.o`) and `frexp`/
+`ldexp` (`floatformat.o`). No gas, ld, binutils, bfd or opcodes object
+refers to `regex`, `simple_object` or `floatformat` symbols, so the Forth
+linker never selects those members, and every link above completes without
+them. A consumer that selects one would be the motivation to add it.
