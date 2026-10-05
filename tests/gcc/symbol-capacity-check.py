@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PATHS = [ROOT / '010-lib.fth'] + sorted(
     p for p in ROOT.glob('[0-9][0-9][0-9]-cc-*.fth')
     if p.name not in ('120-cc-main.fth', '140-cc-link.fth'))
-OLD_HASH = '8a9e30febd1e922d953395beca49aec0b59204dde36cd948891b626181d2cb8d'
+OLD_HASH = '5e7d272da7528b271a24b210af30559fe65c9b75e480dd0431339b9da5ffdb02'
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
