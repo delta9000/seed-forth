@@ -167,6 +167,7 @@ defer cc-nspec-check-fwd
 \ The base comes from the counted keywords. In native mode an invalid set
 \ still selects one base: the first of void, float, double, char, short and
 \ long that occurs, otherwise int. Long double is double with a long.
+\ Two longs name long long only under LP64; the legacy model has one long.
 : cc-nspec-base ( -- base )
   kw-void cc-nspec-count if, ty-void exit, then,
   [lit] 7 cc-nspec-count if, ty-float exit, then,
@@ -175,7 +176,11 @@ defer cc-nspec-check-fwd
   then,
   kw-char cc-nspec-count if, ty-char exit, then,
   kw-short cc-nspec-count if, ty-short exit, then,
-  kw-long cc-nspec-count if, ty-long exit, then,
+  kw-long cc-nspec-count if,
+    kw-long cc-nspec-count [lit] 1 > cc-target-lp64 @ and if,
+      ty-llong
+    else, ty-long then, exit,
+  then,
   ty-int ;
 
 \ The current token is a base type. Return encoded type and descriptor.
@@ -212,7 +217,8 @@ defer cc-nspec-check-fwd
     dup ty-char = if, drop ty-uchar else,
     dup ty-short = if, drop ty-ushort else,
     dup ty-long = if, drop ty-ulong else,
-    drop ty-uint then, then, then,
+    dup ty-llong = if, drop ty-ullong else,
+    drop ty-uint then, then, then, then,
   then,
   [lit] 0 ty-make [lit] 0 ;
  : cc-nbase

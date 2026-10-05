@@ -104,7 +104,8 @@ invocation's saved registers and incoming stack slots.
 uses `overflow_arg_area` and advances that pointer by eight. The requested
 value is then loaded with its declared signedness and width. Four-byte `int`
 and `unsigned int` therefore do not expose the unused upper half of a GP slot.
-Pointers and the LP64 long types use all eight bytes.
+Pointers and the LP64 `long` and `long long` types, signed or unsigned, use
+all eight bytes.
 
 For `double`, we instead test whether `fp_offset` is below 176. A register
 value uses `reg_save_area + fp_offset`, then advances only `fp_offset` by 16.
@@ -356,7 +357,8 @@ defer cc-va-layout-fwd
   dup [lit] 256 / [lit] 255 and if, [lit] 247 cc-va-die then,
   dup ty-ptr if, drop exit, then,
   ty-base dup ty-int = over ty-uint = or
-  over ty-long = or over ty-ulong = or swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
+  over ty-long = or over ty-ulong = or over ty-llong = or over ty-ullong = or
+  swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
 : cc-va-arg
   cc-va-operand [char] , cc-va-expect
   cc-next-token-keep cc-native-type-name-fwd

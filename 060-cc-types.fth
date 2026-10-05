@@ -31,6 +31,10 @@
 [lit] 12 constant ty-ulong
 [lit] 13 constant ty-ldouble
 [lit] 14 constant ty-array
+\ LP64 long long kinds share long's representation but not its identity:
+\ only the LP64 data model spells them, and they rank above long.
+[lit] 15 constant ty-llong
+[lit] 16 constant ty-ullong
 
 \ Array nodes carry element type/descriptor, dimensions, size and alignment.
 : cc-ad-type @ ;
@@ -65,6 +69,7 @@ variable cc-bootstrap-floatbits
 \ ty-size ( ty -- bytes )  Scalar/pointer storage size, not aggregate size.
 \ The caller resolves struct descriptors before asking their size/alignment.
 \ LP64 is the AMD64 System V model: int=4, long/pointer=8, long double=16.
+\ Both long long kinds take the final eight-byte answer, exactly as long.
 \ The default retains the original char=1 and other non-void scalars=8.
 : ty-size
   dup ty-ptr [lit] 0 > if, drop [lit] 8 exit, then,
@@ -92,8 +97,13 @@ variable cc-bootstrap-floatbits
   dup ty-ptr [lit] 0 > if, drop true exit, then,
   ty-base
   dup ty-uchar = over ty-ushort = or
-  over ty-uint = or over ty-ulong = or
+  over ty-uint = or over ty-ulong = or over ty-ullong = or
   swap ty-char = cc-target-lp64 @ 0= and or ;
+
+\ ty-long-long? ( ty -- flag )  Scalar long long, signed or unsigned.
+: ty-long-long?
+  dup ty-ptr if, drop [lit] 0 exit, then,
+  ty-base dup ty-llong = swap ty-ullong = or ;
 
 \ ty-align ( ty -- bytes )  Scalar/pointer alignment; void uses 1.
 \ Struct/union alignment is cc-sd-align, not the type word's fallback.
@@ -102,8 +112,9 @@ variable cc-bootstrap-floatbits
 \ cc-integer-literal-type ( -- ty )  Type of the current tk-num token.
 \ The original spelling (050) distinguishes decimal from hex/octal and
 \ preserves U/L/LL suffixes without expanding the lexer's snapshot state.
-\ LP64 treats long and long long as the same 64-bit representation.  As a
-\ bootstrap extension, a decimal value beyond signed long uses ulong.
+\ LP64 long and long long share one 64-bit representation, so only a
+\ two-letter LL suffix selects long long; its value picks the signedness.
+\ As a bootstrap extension, a decimal value beyond signed long uses ulong.
 \ Range tests use unsigned division, so bit-63-set constants stay correct.
 variable cc-literal-unsigned
 variable cc-literal-long
@@ -117,10 +128,16 @@ variable cc-literal-long
       true cc-literal-unsigned !
     then,
     dup [char] l = swap [char] L = or if,
-      true cc-literal-long !
+      [lit] 1 cc-literal-long +!
     then,
     swap 1+ swap 1-
   repeat, drop drop
+  cc-literal-long @ [lit] 1 > if,
+    cc-literal-unsigned @ tok-num @ 2^63 / or if,
+      ty-ullong
+    else, ty-llong then,
+    [lit] 0 ty-make exit,
+  then,
   cc-literal-long @ if,
     cc-literal-unsigned @ tok-num @ 2^63 / or if,
       ty-ulong

@@ -23,8 +23,9 @@ The configured `ENUM_BITFIELD` macro in GCC's `system.h` expands to unsigned
 int for this compiler. `rtl.h` and `tree.h` add widths such as 2, 7, 8, 9,
 16, and 30. None of these inputs is rewritten to ordinary integer fields.
 
-Supported underlying types are int, unsigned int, long, and unsigned long,
-including typedef aliases. Int fields accept widths 1–32. Long fields accept
+Supported underlying types are int, unsigned int, long, unsigned long,
+long long, and unsigned long long, including typedef aliases. Int fields
+accept widths 1–32. Long and long long fields accept
 widths 1–32 and 64. An unnamed zero-width declaration is also supported.
 Long widths 33–63 are rejected: GCC gives those fields extended-precision
 expression types, and using a plain 64-bit expression would silently change
@@ -193,7 +194,8 @@ create cc-bf-enum-origin [lit] 0 ,
 
 : cc-bf-type? ( ty -- flag )
   dup ty-ptr if, drop [lit] 0 exit, then,
-  ty-base dup ty-int = over ty-uint = or over ty-long = or swap ty-ulong = or ;
+  ty-base dup ty-int = over ty-uint = or over ty-long = or over ty-ulong = or
+  over ty-llong = or swap ty-ullong = or ;
 
 variable cc-bf-desc
 variable cc-bf-width

@@ -37,7 +37,8 @@ create cc-bf-enum-origin [lit] 0 ,
 
 : cc-bf-type? ( ty -- flag )
   dup ty-ptr if, drop [lit] 0 exit, then,
-  ty-base dup ty-int = over ty-uint = or over ty-long = or swap ty-ulong = or ;
+  ty-base dup ty-int = over ty-uint = or over ty-long = or over ty-ulong = or
+  over ty-llong = or swap ty-ullong = or ;
 
 variable cc-bf-desc
 variable cc-bf-width

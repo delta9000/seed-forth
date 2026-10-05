@@ -97,8 +97,9 @@ width and signedness: signed 8/16/32-bit values sign-extend, unsigned values
 zero-extend, and 64-bit values preserve all bits. Integer zero becomes the
 all-zero null function pointer. A reverse cast to 64-bit `long` or
 `unsigned long` preserves the same bits; `long` interprets them as two's
-complement. This target already represents `long long` with the same type
-as `long`. Reverse casts to narrower integer types reject with 230.
+complement. `long long` and `unsigned long long` share that 64-bit
+representation as distinct types, so they behave the same way.
+Reverse casts to narrower integer types reject with 230.
 
 This is necessary for actual source boundaries: Linux signal headers express
 `SIG_DFL`, `SIG_IGN`, and `SIG_ERR` as function-pointer casts of 0, 1, and -1
@@ -206,6 +207,19 @@ reject with error 233. A context guard keeps this policy out of aggregate
 member declarations and ordinary type names. Qualifiers keep the shared
 parser's existing behavior; they do not replace or weaken the recorded
 base type, signedness, pointer depth, aggregate identity or callback signature.
+
+`long long` and `unsigned long long` are LP64 eightbytes in the INTEGER
+class, passed and returned exactly as `long` is. They remain distinct
+types: redeclaring a `long` object or parameter as `long long`, or
+selecting between `long *` and `long long *` arms of a conditional,
+rejects with 237 like any other pair of distinct integer types.
+
+GNU C's `__extension__` only suppresses pedantic diagnostics, which this
+compiler never issues. The target's lexer seam, `cc-sysv-lex-extra`,
+skips the reserved word wherever a token may begin, so original sources
+may place it before declarations, `typedef`s, members and operands.
+The preprocessed text keeps the word; Ch 45's number scanner plugs in
+behind the seam through `cc-sysv-lex-number-fwd`.
 
 The executable ABI admits integer and pointer values. Declarations may
 record floating or aggregate parameter and return types without generating
@@ -353,6 +367,29 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   cc-target-sysv @ if, cc-nfind-tag else, cc-sym-find-default then, ;
 ' cc-sysv-find-ordinary is cc-sym-find
 ' cc-sysv-find-tag is cc-sym-find-tag
+
+\ GNU C's __extension__ only silences pedantic diagnostics, which this
+\ compiler never issues. The SysV lexer drops the reserved word between
+\ tokens, so it may precede declarations, members and operands alike;
+\ the preprocessed text keeps it. Number scanning (127) plugs in behind.
+create cc-sysv-extension-name s, __extension__
+: cc-sysv-extension? ( -- flag )
+  cc-src-pos @ [lit] 13 + dup cc-src-len @ > if, drop [lit] 0 exit, then,
+  dup cc-src-len @ < if,
+    cc-src-buf + c@ ident-cont? if, [lit] 0 exit, then,
+  else, drop then,
+  cc-src-buf cc-src-pos @ + cc-sysv-extension-name [lit] 13 bytes-eq ;
+: cc-sysv-skip-extensions
+  begin,
+    cc-target-sysv @ cc-eof? 0= and if, cc-sysv-extension? else, [lit] 0 then,
+  while,
+    cc-src-pos @ [lit] 13 + cc-src-pos ! cc-skip-ws-and-comments
+  repeat, ;
+defer cc-sysv-lex-number-fwd
+' cc-lex-extra-default is cc-sysv-lex-number-fwd
+: cc-sysv-lex-extra ( -- handled? )
+  cc-sysv-skip-extensions cc-sysv-lex-number-fwd ;
+' cc-sysv-lex-extra is cc-lex-extra-fwd
 
 \ Signature: tag, return type, return descriptor, count, variadic flag,
 \ then 64 (type, descriptor) pairs and 64 (name, length, declared) records.
@@ -842,7 +879,8 @@ variable cc-sysv-spec-bad
   ty-base
   dup ty-char = over ty-uchar = or over ty-short = or
   over ty-ushort = or over ty-int = or over ty-uint = or
-  over ty-long = or swap ty-ulong = or ;
+  over ty-long = or over ty-ulong = or
+  over ty-llong = or swap ty-ullong = or ;
 \ Explicit LP64 integer/function-pointer representation conversions use
 \ all 64 bits. Only pointer-width integral destinations preserve a function
 \ address. The policy is pure so constant and runtime casts share it.

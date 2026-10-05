@@ -23,7 +23,8 @@ variable cc-const-used
   ty-base
   dup ty-char = over ty-uchar = or over ty-short = or
   over ty-ushort = or over ty-int = or over ty-uint = or
-  over ty-long = or swap ty-ulong = or ;
+  over ty-long = or over ty-ulong = or
+  over ty-llong = or swap ty-ullong = or ;
 : cc-const-check-integer ( record -- )
   dup cc-const-symbol swap cc-const-type cc-const-integer? 0= or if,
     cc-const-unsupported

@@ -1706,12 +1706,22 @@ variable cc-expr-op-row
   dup ty-ptr if, exit, then,
   dup ty-size [lit] 4 < if, drop ty-int [lit] 0 ty-make then, ;
 
+\ Equal-size operands differ only in rank and signedness. Long long ranks
+\ above every other eight-byte kind, so either long long operand makes the
+\ result long long, unsigned when either operand is unsigned (C99 6.3.1.8).
+: cc-expr-long-long-common                       ( left right -- ty )
+  ty-unsigned? swap ty-unsigned? or if, ty-ullong else, ty-llong then,
+  [lit] 0 ty-make ;
+
 : cc-expr-common-type-default                            ( left right -- ty )
   cc-expr-promote swap cc-expr-promote swap
   over ty-ptr if, drop exit, then,
   dup ty-ptr if, nip exit, then,
   2dup ty-size swap ty-size > if, nip exit, then,
   2dup ty-size swap ty-size < if, drop exit, then,
+  over ty-long-long? over ty-long-long? or if,
+    cc-expr-long-long-common exit,
+  then,
   dup ty-unsigned? if, nip else, drop then, ;
 
 defer cc-expr-common-type

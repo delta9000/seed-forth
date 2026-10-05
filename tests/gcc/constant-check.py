@@ -10,6 +10,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 MASK = (1 << 64) - 1
 INT, LONG, UCHAR, SHORT, USHORT, UINT, ULONG = 2, 6, 9, 5, 10, 11, 12
+LLONG, ULLONG = 15, 16
 
 # Each golden records expression, unsigned 64-bit representation, base kind.
 GOLDENS = [
@@ -17,7 +18,10 @@ GOLDENS = [
     ("2147483648", 2147483648, LONG), ("0xffffffff", 0xffffffff, UINT),
     ("0x8000000000000000", 1 << 63, ULONG),
     ("4294967295U", 0xffffffff, UINT), ("4294967296U", 1 << 32, ULONG),
-    ("1LL", 1, LONG), ("1ULL", 1, ULONG),
+    ("1LL", 1, LLONG), ("1ULL", 1, ULLONG),
+    ("0x8000000000000000LL", 1 << 63, ULLONG), ("1LL + 1UL", 2, ULLONG),
+    ("-1LL < 1UL", 0, INT), ("1L + 1LL", 2, LLONG),
+    ("sizeof(long long)", 8, ULONG), ("(unsigned long long)-1", MASK, ULLONG),
     ("0xffffffffU + 2U", 1, UINT), ("0U - 1", 0xffffffff, UINT),
     ("0xffffffffU * 2U", 0xfffffffe, UINT), ("~0U", 0xffffffff, UINT),
     ("-1U", 0xffffffff, UINT), ("(unsigned char)257", 1, UCHAR),
@@ -62,7 +66,8 @@ REJECTIONS = {
     "1 / 0": 124, "1 % 0": 124,
     "1 << -1": 241, "1U << 32": 241, "1UL >> 64": 241,
     "2147483647 + 1": 242, "(-2147483647-1) - 1": 242,
-    "9223372036854775807L + 1L": 242,
+    "9223372036854775807L + 1L": 242, "9223372036854775807LL + 1": 242,
+    "1LL << 64": 241, "(-9223372036854775807LL-1) / -1": 242,
     "(-9223372036854775807L-1) - 1L": 242,
     "2147483647 * 2": 242, "9223372036854775807L * 2L": 242,
     "(-2147483647-1) / -1": 242, "(-2147483647-1) % -1": 242,
@@ -144,7 +149,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="sf-constant-oracle.") as tmp:
         work = Path(tmp)
         code = '#include <stdio.h>\n#include <stdint.h>\n'
-        code += '#define KIND(x) _Generic((x), char:1, signed char:1, unsigned char:9, short:5, unsigned short:10, int:2, unsigned int:11, long:6, unsigned long:12, long long:6, unsigned long long:12)\n'
+        code += '#define KIND(x) _Generic((x), char:1, signed char:1, unsigned char:9, short:5, unsigned short:10, int:2, unsigned int:11, long:6, unsigned long:12, long long:15, unsigned long long:16)\n'
         code += 'int main(void) { uint64_t item[2];\n'
         for expr in expressions:
             code += f'item[0]=(uint64_t)({expr}); item[1]=(uint64_t)KIND({expr})<<16; fwrite(item,8,2,stdout);\n'

@@ -21,7 +21,7 @@ Sources of truth, in case this appendix drifts:
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `112-cc-stmt.fth` `cc-parse-stmt`
-  (lines 828–867).
+  (lines 856–895).
 - The gates in `tests/cc/`, run by `tests/cc/run-gates.sh`: each
   `P*.c` file exercises one family of the features below, and each
   `die-*` file one of the rejections (Appendix G).
@@ -105,7 +105,7 @@ stands for `c` (so `\\`, `\'` and `\"` work).
 
 ## Statements
 
-`cc-parse-stmt` in `112-cc-stmt.fth:828` dispatches the following
+`cc-parse-stmt` in `112-cc-stmt.fth:856` dispatches the following
 forms.  Anything not listed here is rejected by the parser with one
 of the parser's codes (`100-cc-expr.fth` through `116-cc-prog.fth`; Appendix G).
 
@@ -261,7 +261,7 @@ not. The shared expression and statement code dispatches on that mode.
 
 | Area | Native contract |
 |---|---|
-| Integer storage | `char`/`unsigned char` 1 byte, `short`/`unsigned short` 2, `int`/`unsigned int` 4, `long`/`long long` and unsigned variants 8, pointers 8; typed loads, stores, casts, and signed/unsigned operations |
+| Integer storage | `char`/`unsigned char` 1 byte, `short`/`unsigned short` 2, `int`/`unsigned int` 4, `long` and the distinct `long long`, with unsigned variants, 8, pointers 8; typed loads, stores, casts, and signed/unsigned operations |
 | Calls | Private all-stack ABI, every argument in an eight-byte slot, scalar return in `rax`; direct calls, function pointers, and portable-libc stack varargs; aggregate-by-value parameters, returns and arguments rejected with 212 |
 | Local storage | Frame size calculated from declarations and patched after each function body, aligned to sixteen bytes |
 | Aggregates | Structs/unions with aligned offsets, nested aggregates, forward tags in a separate namespace, typedef descriptors, anonymous member promotion, array members, value copy/assignment |

@@ -182,7 +182,7 @@ variable cc-f64-scan-hex
   cc-src-buf cc-f64-scan-start @ + tok-str-addr !
   cc-src-pos @ cc-f64-scan-start @ - tok-str-len !
   tk-float tok-kind ! [lit] 0 tok-num ! true ;
-' cc-f64-lex is cc-lex-extra-fwd
+' cc-f64-lex is cc-sysv-lex-number-fwd
 : cc-f64-literal ( -- handled? )
   cc-target-sysv @ tok-kind @ tk-float = and 0= if, [lit] 0 exit, then,
   tok-str-addr @ tok-str-len @ cc-f64-parse-fwd cc-emit-movabs-rdi-imm64

@@ -28,6 +28,29 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
 ' cc-sysv-find-ordinary is cc-sym-find
 ' cc-sysv-find-tag is cc-sym-find-tag
 
+\ GNU C's __extension__ only silences pedantic diagnostics, which this
+\ compiler never issues. The SysV lexer drops the reserved word between
+\ tokens, so it may precede declarations, members and operands alike;
+\ the preprocessed text keeps it. Number scanning (127) plugs in behind.
+create cc-sysv-extension-name s, __extension__
+: cc-sysv-extension? ( -- flag )
+  cc-src-pos @ [lit] 13 + dup cc-src-len @ > if, drop [lit] 0 exit, then,
+  dup cc-src-len @ < if,
+    cc-src-buf + c@ ident-cont? if, [lit] 0 exit, then,
+  else, drop then,
+  cc-src-buf cc-src-pos @ + cc-sysv-extension-name [lit] 13 bytes-eq ;
+: cc-sysv-skip-extensions
+  begin,
+    cc-target-sysv @ cc-eof? 0= and if, cc-sysv-extension? else, [lit] 0 then,
+  while,
+    cc-src-pos @ [lit] 13 + cc-src-pos ! cc-skip-ws-and-comments
+  repeat, ;
+defer cc-sysv-lex-number-fwd
+' cc-lex-extra-default is cc-sysv-lex-number-fwd
+: cc-sysv-lex-extra ( -- handled? )
+  cc-sysv-skip-extensions cc-sysv-lex-number-fwd ;
+' cc-sysv-lex-extra is cc-lex-extra-fwd
+
 \ Signature: tag, return type, return descriptor, count, variadic flag,
 \ then 64 (type, descriptor) pairs and 64 (name, length, declared) records.
 \ Flags: 1 variadic, 2 unspecified prototype, 4 identifier-list definition.
@@ -516,7 +539,8 @@ variable cc-sysv-spec-bad
   ty-base
   dup ty-char = over ty-uchar = or over ty-short = or
   over ty-ushort = or over ty-int = or over ty-uint = or
-  over ty-long = or swap ty-ulong = or ;
+  over ty-long = or over ty-ulong = or
+  over ty-llong = or swap ty-ullong = or ;
 \ Explicit LP64 integer/function-pointer representation conversions use
 \ all 64 bits. Only pointer-width integral destinations preserve a function
 \ address. The policy is pure so constant and runtime casts share it.

@@ -61,6 +61,7 @@ fi
 python3 tests/gcc/binary64-arguments-check.py
 python3 tests/gcc/binary32-values-check.py
 python3 tests/gcc/conditional-values-check.py
+python3 tests/gcc/long-long-check.py
 python3 tests/gcc/conditional-qualified-null-check.py
 bash tests/gcc/sysv-binary64-check.sh
 python3 tests/gcc/float-literal-check.py

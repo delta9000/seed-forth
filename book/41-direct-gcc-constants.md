@@ -41,10 +41,13 @@ Floating type names are valid inside `sizeof`: `float`, `double`, and
 `long double` occupy four, eight, and sixteen bytes; their pointers occupy
 eight bytes. Floating values and conversions remain unsupported constants.
 Array typedefs retain their full shape in `sizeof`; a cast to an array typedef
-is rejected before its operand is evaluated. The existing type representation
-gives `long` and `long long` the same width
-and signedness. Decimal literals beyond signed `long` retain the documented
-unsigned extension, provided the value fits in an unsigned machine word.
+is rejected before its operand is evaluated. `long long` and
+`unsigned long long` have the width and signedness of `long`, but rank
+above it: `1L + 1LL` is `long long` and `-1LL < 1UL` compares as
+`unsigned long long`. An `LL` suffix makes a literal `long long`, or
+`unsigned long long` with `U` or when its value needs bit 63. Decimal
+literals beyond signed `long` retain the documented unsigned extension,
+provided the value fits in an unsigned machine word.
 
 The lexer preserves a numeric token's spelling while accumulating its value
 modulo the machine word. The typed evaluator checks that spelling again. It
@@ -174,7 +177,8 @@ variable cc-const-used
   ty-base
   dup ty-char = over ty-uchar = or over ty-short = or
   over ty-ushort = or over ty-int = or over ty-uint = or
-  over ty-long = or swap ty-ulong = or ;
+  over ty-long = or over ty-ulong = or
+  over ty-llong = or swap ty-ullong = or ;
 : cc-const-check-integer ( record -- )
   dup cc-const-symbol swap cc-const-type cc-const-integer? 0= or if,
     cc-const-unsupported

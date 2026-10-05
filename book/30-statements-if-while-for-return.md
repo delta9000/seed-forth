@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-all of `112-cc-stmt.fth` (870 lines): the `cc-parse-stmt` dispatcher
+all of `112-cc-stmt.fth` (898 lines): the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -632,6 +632,7 @@ layout comment and the case list come first:
 
 variable cc-switch-cases-head     \ linked list of { K (8), vaddr (8), next (8) }
 variable cc-switch-default-vaddr  \ 0 if no default seen
+variable cc-switch-type           \ LP64: promoted controlling type
 
 \ cc-add-switch-case ( K body-vaddr -- )  Allocate a 24-byte node and prepend
 \ it to cc-switch-cases-head.  The list is built in reverse source order;
@@ -645,6 +646,30 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   cc-switch-cases-head @ r@ [lit] 16 + !          \ node[16] = old head
   r> cc-switch-cases-head ! ;                     \ head := node
 
+\ LP64 labels are converted to the promoted controlling type (C90 6.6.4.2),
+\ so a 32-bit label is sign- or zero-extended exactly as the scrutinee is.
+: cc-switch-label                                 ( K -- K' )
+  cc-target-lp64 @ 0= if, exit, then,
+  cc-switch-type @ ty-size [lit] 4 = if,
+    [lit] 4294967295 and
+    cc-switch-type @ ty-unsigned? 0= if,
+      dup [lit] 2147483648 and if, [lit] 4294967296 - then,
+    then,
+  then, ;
+
+\ A label outside signed-32 range needs all 64 bits: load it into rdi,
+\ which is free during dispatch, and compare registers (48 39 FB is
+\ cmp rbx, rdi).  Every other label keeps the imm32 form.
+: cc-emit-switch-compare                          ( K -- )
+  cc-target-lp64 @ if,
+    dup [lit] 2147483648 + [lit] 4294967296 / if,
+      cc-emit-movabs-rdi-imm64
+      [lit] 72 cc-emit-byte [lit] 57 cc-emit-byte [lit] 251 cc-emit-byte
+      exit,
+    then,
+  then,
+  cc-emit-cmp-rbx-imm32 ;
+
 \ cc-emit-switch-dispatch ( -- )  Walk cc-switch-cases-head, emitting
 \ `cmp rbx, K; je <body-vaddr>` for each entry.  Order is reverse of source,
 \ which is semantically irrelevant for switch/case.
@@ -654,7 +679,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
     dup [lit] 0 <>
   while,
     dup @                                         ( node K )
-    cc-emit-cmp-rbx-imm32                         \ cmp rbx, K
+    cc-emit-switch-compare                        \ cmp rbx, K
     dup [lit] 8 + @                               ( node body-vaddr )
     cc-emit-je-vaddr                              \ je <body-vaddr>
     [lit] 16 + @                                  \ next
@@ -666,7 +691,12 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
 Each `case` prepends a 24-byte node `{ K, body-vaddr, next }`, so
 `cc-emit-switch-dispatch` emits its `cmp rbx, K ; je body` pairs in
 reverse source order.  The order doesn't matter: C forbids two
-cases with the same `K`.
+cases with the same `K`.  The legacy profile always uses the imm32
+compare.  Under LP64 (the native and direct System V targets, Chs 34 and 36) `cc-switch-label`
+first converts each label to the promoted controlling type, so
+`case -1:` in a `switch` on an `unsigned` matches `0xffffffff`, and
+`cc-emit-switch-compare` loads a label beyond signed-32 range, such
+as a `long long` case `0x100000000LL`, with `movabs` before comparing.
 
 `cc-parse-switch` then runs in seven steps:
 
@@ -700,6 +730,7 @@ cases with the same `K`.
   cc-switch-cases-head    @ >r
   cc-switch-default-vaddr @ >r
   cc-break-stack-head     @ >r
+  cc-switch-type          @ >r
   [lit] 0 cc-switch-cases-head    !
   [lit] 0 cc-switch-default-vaddr !
   [lit] 0 cc-break-stack-head     !
@@ -708,6 +739,7 @@ cases with the same `K`.
   lparen cc-expect-punct-c
   cc-parse-expr                                   \ rdi = scrutinee
   cc-last-expr-type @ cc-value-integer-use-fwd
+  cc-last-expr-type @ cc-unary-type cc-switch-type !
   [char] ) cc-expect-punct-c
 
   \ Save outer rbx, then move scrutinee into rbx.  Mark the switch open so
@@ -734,7 +766,7 @@ cases with the same `K`.
     tok-kind @ tk-kw = tok-kw-id @ kw-case = and if,
       \ 'case' has been consumed; the label is a constant expression
       \ (cc-parse-const): a number, a character, an enum constant, -1 ...
-      cc-parse-const                              ( K )
+      cc-parse-const cc-switch-label              ( K )
       cc-next-token-keep
       [char] : cc-tok-punct? 0= if,
         [lit] 170 cc-die
@@ -785,6 +817,7 @@ cases with the same `K`.
   cc-switch-depth @ 1- cc-switch-depth !
 
   \ Restore outer state.
+  r> cc-switch-type          !
   r> cc-break-stack-head     !
   r> cc-switch-default-vaddr !
   r> cc-switch-cases-head    !

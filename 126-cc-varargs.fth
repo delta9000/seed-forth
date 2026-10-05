@@ -152,7 +152,8 @@ defer cc-va-layout-fwd
   dup [lit] 256 / [lit] 255 and if, [lit] 247 cc-va-die then,
   dup ty-ptr if, drop exit, then,
   ty-base dup ty-int = over ty-uint = or
-  over ty-long = or over ty-ulong = or swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
+  over ty-long = or over ty-ulong = or over ty-llong = or over ty-ullong = or
+  swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
 : cc-va-arg
   cc-va-operand [char] , cc-va-expect
   cc-next-token-keep cc-native-type-name-fwd

@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2582 names and 97 ideas.
+carry none.  2594 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -681,6 +681,7 @@ for which chapter depends on which, the
 - `cc-emit-strlen-shim` — *compiler word (`090-cc-emit.fth`)* — [Ch 26 §3 The libc shims: write/read/open/close/mmap](26-codegen-part-2.md#3-the-libc-shims-writereadopenclosemmap)
 - `cc-emit-strrchr-shim` — *compiler word (`090-cc-emit.fth`)* — [Ch 26 §3 The libc shims: write/read/open/close/mmap](26-codegen-part-2.md#3-the-libc-shims-writereadopenclosemmap)
 - `cc-emit-sub-rdi-rcx` — *compiler word (`090-cc-emit.fth`)* — [Ch 25 §5 Register-to-register moves, ALU, and prologue/epilogue](25-elf-and-codegen-part-1.md#5-register-to-register-moves-alu-and-prologueepilogue)
+- `cc-emit-switch-compare` — *compiler word (`112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-emit-switch-dispatch` — *compiler word (`112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-emit-switch-unwind` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §7 `cc-parse-return`](29-declarations-types-globals.md#7-cc-parse-return)
 - `cc-emit-syscall-shim` — *compiler word (`090-cc-emit.fth`)* — [Ch 26 §3 The libc shims: write/read/open/close/mmap](26-codegen-part-2.md#3-the-libc-shims-writereadopenclosemmap)
@@ -721,6 +722,7 @@ for which chapter depends on which, the
 - `cc-expr-left-qualified` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
 - `cc-expr-left-step` — *compiler word (`100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
 - `cc-expr-left-type` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
+- `cc-expr-long-long-common` — *compiler word (`100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
 - `cc-expr-op-row` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
 - `cc-expr-pointee-size` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §1 Lvalue tracking: four globals, four kinds](28-expressions-part-2.md#1-lvalue-tracking-four-globals-four-kinds)
 - `cc-expr-pointee-type` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §1 Lvalue tracking: four globals, four kinds](28-expressions-part-2.md#1-lvalue-tracking-four-globals-four-kinds)
@@ -1928,6 +1930,8 @@ for which chapter depends on which, the
 - `cc-switch-cases-head` — *compiler word (variable, `112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-switch-default-vaddr` — *compiler word (variable, `112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-switch-depth` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §7 `cc-parse-return`](29-declarations-types-globals.md#7-cc-parse-return)
+- `cc-switch-label` — *compiler word (`112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
+- `cc-switch-type` — *compiler word (variable, `112-cc-stmt.fth`)* — [Ch 30 §6 `switch` with deferred dispatch](30-statements-if-while-for-return.md#6-switch-with-deferred-dispatch)
 - `cc-sym-add` — *compiler word (`070-cc-sym.fth`)* — [Ch 24 §3 Adding and finding symbols](24-types-and-symbols.md#3-adding-and-finding-symbols)
 - `cc-sym-addr-fixups` — *compiler word (defer, `070-cc-sym.fth`)* — [Ch 24 §3 Adding and finding symbols](24-types-and-symbols.md#3-adding-and-finding-symbols)
 - `cc-sym-addr-fixups-default` — *compiler word (`070-cc-sym.fth`)* — [Ch 24 §3 Adding and finding symbols](24-types-and-symbols.md#3-adding-and-finding-symbols)
@@ -2029,6 +2033,8 @@ for which chapter depends on which, the
 - `cc-sysv-default-type` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-enable` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Goal](36-direct-gcc-calls.md#goal)
 - `cc-sysv-entry` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-extension-name` — *compiler word (create, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-extension?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-find-ordinary` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-find-parameter` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-find-tag` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -2059,6 +2065,8 @@ for which chapter depends on which, the
 - `cc-sysv-inherit-array` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-integral?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-known-params?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-lex-extra` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
+- `cc-sysv-lex-number-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
 - `cc-sysv-load-gp` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-load-staged` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-local-layout` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -2106,6 +2114,7 @@ for which chapter depends on which, the
 - `cc-sysv-signatures` — *compiler word (create, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-size-product` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-sizeof-type` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-skip-extensions` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-spec-bad` — *compiler word (variable, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-spec-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
 - `cc-sysv-spec-fail` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -2744,7 +2753,9 @@ for which chapter depends on which, the
 - `ty-func` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-int` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-ldouble` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `ty-llong` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-long` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `ty-long-long?` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-make` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-ptr` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-short` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
@@ -2752,6 +2763,7 @@ for which chapter depends on which, the
 - `ty-struct` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-uchar` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-uint` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `ty-ullong` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-ulong` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-unsigned?` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-ushort` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)

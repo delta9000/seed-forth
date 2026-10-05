@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (570 lines),
+This chapter owns `115-cc-native.fth` (576 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (318 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
@@ -99,7 +99,10 @@ usual) to reach the next keyword: `unsigned const char` and
 `volatile long int`. The keywords are counted in `cc-nspec-counts`
 rather than folded as they arrive, and `cc-nspec-base` derives the
 base from the counts, so their order cannot matter either
-(`double long` is `long double`). A target may check the counted set
+(`double long` is `long double`). Two `long`s select `long long` under
+LP64, whatever their order: `long unsigned long` and
+`unsigned long long int` are one type; the legacy data model has only
+one `long`. A target may check the counted set
 through `cc-nspec-check-fwd`; the native profile keeps its permissive
 keyword sequence, while the System V target rejects invalid sets
 (Chapter 36).
@@ -289,6 +292,7 @@ defer cc-nspec-check-fwd
 \ The base comes from the counted keywords. In native mode an invalid set
 \ still selects one base: the first of void, float, double, char, short and
 \ long that occurs, otherwise int. Long double is double with a long.
+\ Two longs name long long only under LP64; the legacy model has one long.
 : cc-nspec-base ( -- base )
   kw-void cc-nspec-count if, ty-void exit, then,
   [lit] 7 cc-nspec-count if, ty-float exit, then,
@@ -297,7 +301,11 @@ defer cc-nspec-check-fwd
   then,
   kw-char cc-nspec-count if, ty-char exit, then,
   kw-short cc-nspec-count if, ty-short exit, then,
-  kw-long cc-nspec-count if, ty-long exit, then,
+  kw-long cc-nspec-count if,
+    kw-long cc-nspec-count [lit] 1 > cc-target-lp64 @ and if,
+      ty-llong
+    else, ty-long then, exit,
+  then,
   ty-int ;
 
 \ The current token is a base type. Return encoded type and descriptor.
@@ -334,7 +342,8 @@ defer cc-nspec-check-fwd
     dup ty-char = if, drop ty-uchar else,
     dup ty-short = if, drop ty-ushort else,
     dup ty-long = if, drop ty-ulong else,
-    drop ty-uint then, then, then,
+    dup ty-llong = if, drop ty-ullong else,
+    drop ty-uint then, then, then, then,
   then,
   [lit] 0 ty-make [lit] 0 ;
  : cc-nbase

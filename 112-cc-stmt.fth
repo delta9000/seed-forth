@@ -430,6 +430,7 @@ variable cc-for-step-end
 
 variable cc-switch-cases-head     \ linked list of { K (8), vaddr (8), next (8) }
 variable cc-switch-default-vaddr  \ 0 if no default seen
+variable cc-switch-type           \ LP64: promoted controlling type
 
 \ cc-add-switch-case ( K body-vaddr -- )  Allocate a 24-byte node and prepend
 \ it to cc-switch-cases-head.  The list is built in reverse source order;
@@ -443,6 +444,30 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   cc-switch-cases-head @ r@ [lit] 16 + !          \ node[16] = old head
   r> cc-switch-cases-head ! ;                     \ head := node
 
+\ LP64 labels are converted to the promoted controlling type (C90 6.6.4.2),
+\ so a 32-bit label is sign- or zero-extended exactly as the scrutinee is.
+: cc-switch-label                                 ( K -- K' )
+  cc-target-lp64 @ 0= if, exit, then,
+  cc-switch-type @ ty-size [lit] 4 = if,
+    [lit] 4294967295 and
+    cc-switch-type @ ty-unsigned? 0= if,
+      dup [lit] 2147483648 and if, [lit] 4294967296 - then,
+    then,
+  then, ;
+
+\ A label outside signed-32 range needs all 64 bits: load it into rdi,
+\ which is free during dispatch, and compare registers (48 39 FB is
+\ cmp rbx, rdi).  Every other label keeps the imm32 form.
+: cc-emit-switch-compare                          ( K -- )
+  cc-target-lp64 @ if,
+    dup [lit] 2147483648 + [lit] 4294967296 / if,
+      cc-emit-movabs-rdi-imm64
+      [lit] 72 cc-emit-byte [lit] 57 cc-emit-byte [lit] 251 cc-emit-byte
+      exit,
+    then,
+  then,
+  cc-emit-cmp-rbx-imm32 ;
+
 \ cc-emit-switch-dispatch ( -- )  Walk cc-switch-cases-head, emitting
 \ `cmp rbx, K; je <body-vaddr>` for each entry.  Order is reverse of source,
 \ which is semantically irrelevant for switch/case.
@@ -452,7 +477,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
     dup [lit] 0 <>
   while,
     dup @                                         ( node K )
-    cc-emit-cmp-rbx-imm32                         \ cmp rbx, K
+    cc-emit-switch-compare                        \ cmp rbx, K
     dup [lit] 8 + @                               ( node body-vaddr )
     cc-emit-je-vaddr                              \ je <body-vaddr>
     [lit] 16 + @                                  \ next
@@ -468,6 +493,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   cc-switch-cases-head    @ >r
   cc-switch-default-vaddr @ >r
   cc-break-stack-head     @ >r
+  cc-switch-type          @ >r
   [lit] 0 cc-switch-cases-head    !
   [lit] 0 cc-switch-default-vaddr !
   [lit] 0 cc-break-stack-head     !
@@ -476,6 +502,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   lparen cc-expect-punct-c
   cc-parse-expr                                   \ rdi = scrutinee
   cc-last-expr-type @ cc-value-integer-use-fwd
+  cc-last-expr-type @ cc-unary-type cc-switch-type !
   [char] ) cc-expect-punct-c
 
   \ Save outer rbx, then move scrutinee into rbx.  Mark the switch open so
@@ -502,7 +529,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
     tok-kind @ tk-kw = tok-kw-id @ kw-case = and if,
       \ 'case' has been consumed; the label is a constant expression
       \ (cc-parse-const): a number, a character, an enum constant, -1 ...
-      cc-parse-const                              ( K )
+      cc-parse-const cc-switch-label              ( K )
       cc-next-token-keep
       [char] : cc-tok-punct? 0= if,
         [lit] 170 cc-die
@@ -553,6 +580,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
   cc-switch-depth @ 1- cc-switch-depth !
 
   \ Restore outer state.
+  r> cc-switch-type          !
   r> cc-break-stack-head     !
   r> cc-switch-default-vaddr !
   r> cc-switch-cases-head    !

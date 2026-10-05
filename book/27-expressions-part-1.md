@@ -12,7 +12,7 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(2555 lines total) solves this with a *precedence cascade*: plain
+(2565 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a
@@ -412,12 +412,22 @@ variable cc-expr-op-row
   dup ty-ptr if, exit, then,
   dup ty-size [lit] 4 < if, drop ty-int [lit] 0 ty-make then, ;
 
+\ Equal-size operands differ only in rank and signedness. Long long ranks
+\ above every other eight-byte kind, so either long long operand makes the
+\ result long long, unsigned when either operand is unsigned (C99 6.3.1.8).
+: cc-expr-long-long-common                       ( left right -- ty )
+  ty-unsigned? swap ty-unsigned? or if, ty-ullong else, ty-llong then,
+  [lit] 0 ty-make ;
+
 : cc-expr-common-type-default                            ( left right -- ty )
   cc-expr-promote swap cc-expr-promote swap
   over ty-ptr if, drop exit, then,
   dup ty-ptr if, nip exit, then,
   2dup ty-size swap ty-size > if, nip exit, then,
   2dup ty-size swap ty-size < if, drop exit, then,
+  over ty-long-long? over ty-long-long? or if,
+    cc-expr-long-long-common exit,
+  then,
   dup ty-unsigned? if, nip else, drop then, ;
 
 defer cc-expr-common-type
