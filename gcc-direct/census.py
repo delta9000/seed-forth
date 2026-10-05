@@ -24,6 +24,13 @@ failures the compiler's own diagnostic.  Results go to WORK/census/.
 With --link it also archives libcpp and lets the Makefile link cc1 with the
 Forth linker.  A successful census means objects compiled (and, with --link,
 that cc1 linked).  It does not show that cc1 behaves correctly.
+
+When host GCC is available it is used as a lint oracle only: every unit is
+syntax-checked against the runtime headers for implicit function
+declarations.  Under C90 an undeclared function returns int, so a pointer
+result is silently truncated even though the link succeeds (this is how
+undeclared bsearch crashed the first cc1 on every VLA).  Any implicit
+declaration fails the census and is listed in census/implicit-decls.json.
 """
 from pathlib import Path
 import argparse
@@ -32,7 +39,9 @@ import json
 import os
 import subprocess
 import sys
+import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 
 def sha(path):
@@ -85,6 +94,30 @@ def compile_traces(probes):
         if target:
             traces[str((cwd / target).resolve())] = (invocation.parent, record)
     return traces
+
+
+def implicit_declarations(work, traces, objects, jobs):
+    """Names of functions each unit calls without a declaration (host GCC lint)."""
+    if shutil.which("gcc") is None:
+        return None
+    headers = work / "gcc/toolchain/runtime/gcc-seed/include"
+    environment = dict(os.environ, LC_ALL="C")
+
+    def lint(name):
+        trace = traces.get(str((work / "gcc/build/gcc" / name).resolve()))
+        if trace is None:
+            return name, []
+        record = trace[1]
+        arguments = [a for a in record["arguments"] if a.startswith(("-D", "-I", "-U")) or a.endswith(".c")]
+        result = subprocess.run(["gcc", "-std=gnu89", "-fsyntax-only", "-nostdinc", "-isystem", str(headers),
+                                 "-Wimplicit-function-declaration", *arguments],
+                                cwd=record["cwd"], env=environment, capture_output=True, text=True)
+        marker = "implicit declaration of function '"
+        names = {line.split(marker, 1)[1].split("'", 1)[0] for line in result.stderr.splitlines() if marker in line}
+        return name, sorted(names)
+
+    with ThreadPoolExecutor(jobs) as pool:
+        return {name: found for name, found in pool.map(lint, objects) if found}
 
 
 def main():
@@ -146,6 +179,9 @@ def main():
             unit["note"] = "never compiled (a prerequisite failed; see make.log)"
         units.append(unit)
 
+    implicit = implicit_declarations(work, traces, objects, args.jobs)
+    (out / "implicit-decls.json").write_text(json.dumps(implicit, indent=2) + "\n")
+
     built = [u for u in units if u["built"]]
     failed = [u for u in units if not u["built"]]
     toolchain = json.loads((work / "gcc/toolchain-inputs.json").read_text())
@@ -158,6 +194,7 @@ def main():
         "objects": len(units), "built": len(built), "failed": len(failed),
         "cc1": {"sha256": sha(gcc_build / "cc1"), "bytes": (gcc_build / "cc1").stat().st_size}
                if (gcc_build / "cc1").is_file() else None,
+        "implicit_declarations": implicit,
         "steps": steps, "units": units,
     }
     (out / "census.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -167,11 +204,16 @@ def main():
     for unit in failed:
         said = [line for line in unit.get("stderr", "").splitlines() if " error " in line]
         lines.append(f"| {unit['object']} | {said[-1] if said else unit.get('note', '')} |")
+    if implicit is None:
+        lines += ["", "Implicit-declaration lint: skipped (no host gcc)."]
+    else:
+        lines += ["", f"Implicit-declaration lint: {sum(len(v) for v in implicit.values())} found"
+                  + "".join(f"; {name}: {', '.join(v)}" for name, v in sorted(implicit.items()))]
     if args.link:
         lines += ["", f"cc1 link: {'linked, ' + str(summary['cc1']['bytes']) + ' bytes' if summary['cc1'] else 'not linked (see make.log)'}"]
     (out / "census.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
-    return 0 if not failed and (not args.link or summary["cc1"]) else 1
+    return 0 if not failed and not implicit and (not args.link or summary["cc1"]) else 1
 
 
 if __name__ == "__main__":

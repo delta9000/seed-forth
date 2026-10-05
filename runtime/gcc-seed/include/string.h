@@ -21,4 +21,6 @@ char *strrchr(const char *string, int value);
 char *strstr(const char *haystack, const char *needle);
 /* POSIX helper needed by libiberty consumers. */
 char *strdup(const char *string);
+/* Fixed English messages for the errno values in <errno.h>. */
+char *strerror(int error);
 #endif

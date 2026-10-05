@@ -11,6 +11,8 @@ void *calloc(size_t count, size_t size);
 void *realloc(void *pointer, size_t size);
 void qsort(void *base, size_t count, size_t size,
            int (*compare)(const void *, const void *));
+void *bsearch(const void *key, const void *base, size_t count, size_t size,
+              int (*compare)(const void *, const void *));
 /* Fixed ASCII C locale; bases 0 and 2..36, no binary-prefix extension. */
 unsigned long strtoul(const char *text, char **end, int base);
 int atoi(const char *text);
