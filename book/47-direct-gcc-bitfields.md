@@ -63,20 +63,27 @@ without raising aggregate alignment. Ordinary members resume at the next byte
 with their usual alignment. Union members start at zero and contribute to the
 maximum size. The aggregate parser rounds final size to aggregate alignment.
 
+LP64 modes allow 1,023 struct or union members, including flattened anonymous members;
+the next member rejects with error 50. `tests/gcc/large-record-check.py`
+checks acceptance at the cap and rejection beyond it.
+
 Two-dimensional inline arrays use the same element type and descriptor as
 ordinary array fields, with both fixed bounds retained. Member expressions
 carry those bounds into subscripting and `sizeof`: the first subscript scales
 by one complete row and the second by one element. Direct subscripting keeps
 qualification provenance without constructing a pointer-to-row. Qualified
-array-pointer decay and address construction remain conservative errors;
-this does not implement full C qualifier semantics. The initializer recursively
+array-pointer decay and address construction preserve qualifiers and are
+supported (`tests/gcc/qualified-array-check.py`); full C qualifier semantics
+remain a separate boundary. The initializer recursively
 visits each row, including row strings and padded record elements. Static
 addresses preserve both bounds and use actual ELF relocation addends.
 
 The direct target checks each array product against its one-GiB object limit.
 It also checks the enclosing record sum and tail alignment after each ordinary field
 or bitfield, so individually valid fields cannot overflow the combined layout.
-An incomplete outer matrix bound and dimensions beyond two remain unsupported.
+An incomplete outer matrix bound remains unsupported. The direct SysV
+profile now supports checked array ranks through 64 dimensions
+(`tests/gcc/ranked-arrays-check.py`).
 Static member-array initializers use explicit addresses; implicit member-array
 decay and extra nested braces around flattened anonymous aggregates retain their
 existing rejection boundary.
@@ -134,9 +141,10 @@ braces, and enabled binary64 conversions. The original heap object also runs
 against the host runtime as an interoperability check. Host C provides no
 production artifact.
 
-This is one bounded original GCC component proof. Obstack passes its field
-declarations, but its full implementation also needs function-pointer casts.
-The chapter does not claim a complete GCC bootstrap or C bitfield dialect.
+This is one bounded original GCC component proof. Function-pointer casts
+are implemented: `tests/gcc/sysv-gcc-obstack-check.sh` compiles and executes
+unchanged original obstack with the Forth runtime. The chapter does not claim
+a complete GCC bootstrap or C bitfield dialect.
 
 ## Try it
 

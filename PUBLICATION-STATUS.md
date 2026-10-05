@@ -1,8 +1,16 @@
 # Direct GCC branch publication status
 
-**This tree includes two unreviewed candidates.** They were published by request
-without independent acceptance. No behavioral validation of the combined tree
-has been performed. Mechanical source/book checks are recorded separately below.
+**Current state (2026-10-05).** The direct route builds all 220/220 GCC 4.0.4
+cc1 objects in a coherent census (`gcc-direct/census.py`) and links cc1 with
+the Forth linker. `gcc-direct/torture.py` records 1,692 PASS and four IRIX-only
+SKIP across `-O0` and `-O2` in `gcc.c-torture/execute`. Host assembly, linking,
+and libc are execution oracles only. GCC driver programs `xgcc`, `cpp`, and
+`collect2` also build. This establishes cc1 compilation, linking, and the
+applicable execute-suite behavior; source-closed build tools, full bootstrap,
+and self-rebuild remain separate.
+
+The prerequisite and candidate records below are historical. Their identities
+and validation limits describe the earlier publication, not the current tree.
 
 ## Accepted prerequisite snapshot
 
@@ -52,7 +60,7 @@ is retained; the finished author results above supersede its pending-run text.
   configuration. This is an object result, not GCC execution
 - Independent acceptance is absent; no broad suite was run for this candidate
 
-## Combined publication tree
+## Earlier combined publication tree (historical)
 
 Compiler/runtime input identity: `4c36494169f28d20410bfc5e4464dcb32b437704ebbd1865c49f85d7c6c8740d` (100 inputs).
 Fingerprints use SHA-256 of the sorted JSON mapping from relative input path to
@@ -80,7 +88,8 @@ this source publication.
 
 ## Remaining limits
 
-This publication does not establish a complete cc1 object cohort, same-epoch
-configuration/generation, linked or executed GCC, source-closed build tools,
-bootstrap, or self-rebuild. Structural object checks and individually tested
-components are insufficient to establish those outcomes.
+The current census establishes the complete cc1 object cohort with coherent
+configuration/generation; cc1 links with Forth and executes the applicable
+torture suite at both optimization levels. Source-closed build tools, full
+bootstrap, and self-rebuild remain unestablished. The earlier candidate records
+do not independently validate these later milestones.

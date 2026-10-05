@@ -152,20 +152,21 @@ API boundary are restored to their actual definitions before invocation.
 The fixture therefore tests the original allocator's control flow without
 relying on incompatible function calls or a replacement allocator body.
 
-The explicit-cast hook in Chapter 29 defaults to doing nothing. This target
-rejects crossings between a function pointer and any other value type with
-230, except a cast to `void` that discards the value. In particular,
-function/object-pointer conversion remains unsupported: the configure
-probe that casts a function address to `char **` still takes its
-conservative false branch. A cast from an integer null
-pointer constant, such as `(int (*)(void))0` or `(Callback)0`, is valid C
-but is not implemented by this bounded restoration stage: it also rejects
-with230. General integer/function-address casts remain outside this stage.
-The original obstack unit does not need these conversions, and the negative
-gate records their rejection explicitly. Supported function-pointer casts
-do not skip call checks. Later chapters add scalar binary32/binary64 arguments and
-INTEGER/MEMORY record values through the shared plan. Long-double values
-and records containing floating members still reject with232; the negative
+The explicit-cast hook in Chapter 29 defaults to doing nothing; SysV installs
+the representation policy above. Explicit function/object-pointer casts
+preserve all 64 bits, so the configure probe that casts a function address
+to `char **` can compile. Integral values convert to function pointers after
+width and signedness normalization; integer zero becomes a null function
+pointer, including `(int (*)(void))0` and `(Callback)0`. Reverse conversions
+to eight-byte integers preserve the bits. The acceptance gates exercise
+these conversions; the negative gates retain narrow reverse casts, floating
+partners, and invalid calls as rejection boundaries. A cast to `void`
+discards the value. Supported casts still enforce call checks.
+
+Later chapters add scalar binary32/binary64 arguments and INTEGER/MEMORY
+record values through the shared plan. Chapter 48 adds long double X87 data
+transport; its arithmetic rejects with 249. Records containing binary32 or
+binary64 members still reject with 232 at the call boundary. Negative
 fixtures verify that rejected compilation preserves an existing output file.
 
 A call to an undeclared ordinary identifier creates C90's implicit

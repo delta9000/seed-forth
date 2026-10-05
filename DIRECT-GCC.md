@@ -2,17 +2,21 @@
 
 This branch develops an optional direct route from the repository's Forth C
 compiler to GCC 4.0.4. The starting point is the merged, tested TinyCC route at
-`550a0c58013de600f2bc2a7347baf16cd5d7b536` (PR #9). This branch does not yet build
-GCC. Work below is a reconstruction; the earlier unpublished implementation is
-not present in this checkout.
+`550a0c58013de600f2bc2a7347baf16cd5d7b536` (PR #9). The direct route now builds
+all 220 GCC 4.0.4 cc1 objects in one census and links cc1 with the Forth linker. `gcc-direct/torture.py` records
+1,692 PASS and four IRIX-only SKIP across `-O0` and `-O2` in
+`gcc.c-torture/execute`; host assembly, linking, and libc serve only as an
+execution oracle. Full bootstrap and self-rebuild remain separate. Work below
+is a reconstruction; the earlier unpublished implementation is not present
+in this checkout.
 
 ## Goal and boundary
 
 A reader should be able to follow each step from the annotated seed and a bag
 of pinned source archives to a working GCC, then use the existing kernel ladder.
 The machine boundary remains AMD64 Linux and the existing 229-byte hex0
-assembler plus the 1,772-byte Forth seed. The new route will implement C parsing,
-code generation, object emission, and linking in Forth. Host C compilers may
+assembler plus the 1,772-byte Forth seed. C parsing, code generation, object
+emission, and static linking are implemented in Forth. Host C compilers may
 provide independent test oracles; they must not provide bootstrap artifacts.
 
 The first GCC source target is the original 4.0.4 tree at
@@ -37,9 +41,9 @@ tools. Closing that dependency chain is part of the source-only route.
    require them. Unsupported cases must diagnose rather than silently degrade.
 3. Supply a bounded, source-built runtime with true headers and implementations.
    Compile original GCC generators and regenerate their inputs from sources.
-4. Execute genuine configuration probes and original build recipes. Compile the
-   complete cc1 translation-unit cohort under one compiler/runtime epoch,
-   inspect unresolved symbols, link, and execute real compiler tests.
+4. Completed: genuine configuration probes and original build recipes, the
+   coherent 220/220 cc1 object census (`gcc-direct/census.py`), the Forth cc1
+   link, and applicable execute-suite tests at `-O0` and `-O2`.
 5. Close the assembler, linker, runtime, and driver dependencies, rebuild GCC,
    and run integration and bootstrap comparisons. Document the later handoff.
 
@@ -64,10 +68,10 @@ storage, returns and named/outgoing scalar arguments have executable proofs. Int
 now cross the System V INTEGER/MEMORY boundary with checked identities,
 register rollback, independent copies and hidden result pointers. GP and XMM
 banks share an explicit call plan with independent exhaustion and one stack
-argument order. Long-double arguments, floating-member record values
-and aggregate variadic calls remain
-unsupported; accepting declarations or taking `sizeof` does not implement those
-value operations. The original GCC configure
+argument order. Long double has X87 data transport, including arguments and
+returns; arithmetic diagnoses with code 249. Floating-member record values
+and aggregate variadic calls remain unsupported; accepting declarations or
+taking `sizeof` does not implement those value operations. The original GCC configure
 probes now support a bounded, independently audited generator configuration.
 Original `gencheck.c`, `gengenrtl.c`, and `errors.c` compile through actual
 Makefile object rules and run with the Forth-built runtime. `gencheck` emits
@@ -79,8 +83,9 @@ archive, and links with the Forth runtime. It consumes the complete i386 mode
 definitions; all three outputs match the independently host-built original
 generator byte-for-byte. Its source-closure review and later integration replay
 identify their exact compiler and configuration inputs. This selected archive
-does not claim the full 75-member library. A complete GCC build and self-rebuild
-remain unfinished.
+does not claim the full 75-member library. The complete cc1 census and link
+now work; source-closed toolchain construction and self-rebuild remain
+unfinished.
 
 `tests/gcc/baseline-20261003/` records a fresh independent replay of the
 surviving baseline, including the actual raw-input direct TinyCC fixed point.
@@ -94,6 +99,19 @@ lengthy validation, then commit the measured results. Verify the remote commit
 before considering a checkpoint durable. Preserve additional reviewed work
 manifests in the private checkpoint repository. Local build directories are
 scratch space, not backups.
+
+The direct LP64 profile supports `long long` and `unsigned long long`.
+Structs and unions allow 1,023 members in LP64 modes; the next member
+diagnoses error 50 (`tests/gcc/large-record-check.py`). The Forth linker
+allows 1,024 objects. GCC driver programs `xgcc`, `cpp`, and `collect2` build.
+Binutils 2.30 configures through `gcc-direct/configure.py --package binutils`
+and builds through `gcc-direct/binutils.py`: bfd, opcodes, libiberty, zlib,
+and gas compile; tool links are in progress.
+
+**Current-state note (2026-10-05).** The dated checkpoint and focused evidence
+below retain their original scope and identities. Their pending cc1 and
+execution statements describe those earlier proofs; the current milestones
+are recorded above and in [publication status](PUBLICATION-STATUS.md).
 
 ## Runtime and parser-generator recovery at 2026-10-03 20:53 UTC
 
@@ -218,10 +236,12 @@ Legacy/native field layouts and the original seed remain unchanged.
 The focused [matrix gate](tests/gcc/multidimensional-record-README.md) includes
 Forth-only execution, independent O0/O2 layout and bidirectional ABI tests,
 rejected shapes and initializer bounds, and optional exact original-declaration
-and legacy/native byte-preservation proofs. Qualified array-pointer formation
-and dimensions beyond two remain unsupported; full qualifier enforcement and
-floating-value support are not introduced here. General pointer constraints
-remain incomplete, including the inherited unary-plus-on-pointer gap.
+and legacy/native byte-preservation proofs. Qualified arrays now decay and
+support array-address construction while preserving qualifiers
+(`tests/gcc/qualified-array-check.py`). The direct SysV profile supports
+checked ranks through 64 dimensions (`tests/gcc/ranked-arrays-check.py`);
+full qualifier enforcement and floating-value support are separate boundaries.
+General pointer constraints remain incomplete, including the inherited unary-plus-on-pointer gap.
 A declaration proof does not establish successful compilation or linking of
 the complete GCC translation
 unit. Final composed component and bootstrap gates remain separate checks.
@@ -356,9 +376,10 @@ long-path limit are explicit boundaries. Non-NULL setbuf requests terminate
 immediately and silently with status 127 rather than pretend to enable buffering. See
 [the bounded contract](runtime/gcc-seed/DIRECTORY-BUFFERING.md) and
 `tests/gcc/directory-buffering-check.py` for focused production, host and ABI
-checks. Genuine configure selection is separate pending work; the historical
-fallback is not removed by forced macros. Compiler layers and the seed remain
-unchanged. No full cc1 link, execution or bootstrap is claimed.
+checks. Genuine configure selection detects getcwd in the current census
+configuration; the old fallback comparison remains historical evidence.
+The coherent cc1 census links with Forth and passes all applicable torture
+execute programs at `-O0` and `-O2`. Bootstrap remains unclaimed.
 
 The final silent-exit implementation passed owner and independent focused
 checks on identity c70c6ebcaf673a277880a439fadc04d1bded98b2d62784a4715583b84868336a.
@@ -372,8 +393,9 @@ its fallback from the effective 72-member selection. The original getpwd and
 three allocation/exit support objects compile through their Makefile rules,
 link with the runtime, and return the exact cwd with false PWD. The retained
 old-configuration fallback comparison still exposes getwd; no forced macro or
-original source replacement removes it. The full archive and coherent GCC
-pipeline remain separate pending work.
+original source replacement removes it. The coherent 220-object census and
+linked, tested cc1 pipeline now work. Source-closed build tools and the
+remaining assembler/linker toolchain closure are separate work.
 
 ## C90 record-definition entry
 
@@ -401,7 +423,7 @@ raw compilation failure and supplies a separate bounded behavior witness. It
 does not establish a complete libiberty archive, cc1 link, GCC execution or
 bootstrap; the incomplete cc1 projection does not establish regex criticality.
 
-## Remaining original object-table bounds (unreviewed)
+## Original object-table capacity candidate (historical)
 
 The direct-only profile selects 10,752 stable records, 8,192 non-null ELF
 symbol rows, a 77,824-byte symbol-string slice, and a 21 MiB arena. Default
@@ -410,7 +432,8 @@ runs compiled raw `insn-output.c`, `insn-emit.c`, and `i386.c` with historical
 a535 configuration, with structural object checks. These outcomes belong to
 the original candidate identity, not this combined tree. See
 [publication status](PUBLICATION-STATUS.md) for identities, test scopes, and
-the missing combined behavioral validation.
+the historical candidate validation scopes and the current census, Forth
+cc1 link, and execute-suite evidence.
 
 ## Long double data movement
 

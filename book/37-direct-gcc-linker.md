@@ -13,7 +13,8 @@ and Chapter 36's System V scalar calls. Concepts introduced: global symbol
 resolution, input-specific section placement, checked relocation arithmetic,
 separate memory and file extents, and publishing a completed executable.
 Chapter 44 adds indexed archive member selection. Deferred: arbitrary external ELF sections, COMMON,
-TLS, GOT relocations, COMDAT, dynamic linking, and GCC-scale compilation.
+TLS, GOT relocations, COMDAT, and dynamic linking. GCC 4.0.4 cc1
+compilation and Forth linking now work within the 1,024-object cap.
 
 ## 1. The public boundary
 
@@ -37,8 +38,9 @@ mapping, then applies the same object validation and symbol registration.
 The limits are explicit: 1,024 objects, 65,536 symbols per object, 65,536 global
 names, 256 MiB per input and output image, and section alignments through
 1 MiB. They are policy constants, not implicit limits imposed by the seed's
-original output buffer. This gate proves a bounded object boundary, not that
-these bounds or the compiler cover GCC's full source tree.
+original output buffer. The focused gate proves this bounded object boundary;
+`gcc-direct/census.py` additionally builds the complete GCC 4.0.4 cc1 cohort
+and links cc1 with this linker. Full bootstrap remains separate.
 
 ## 2. Validate before dereferencing
 

@@ -97,8 +97,19 @@ Use `--forth-ar` when the frozen Forth archive layer is available to select
 its genuine AR command and `AR s` index validation as RANLIB. Other host target
 tools remain guarded. The archive adapter currently creates fresh indexed
 archives; it explicitly rejects incremental replacement of an existing file.
-The default source/archive paths are under `build-out/direct-gcc-inputs/`;
-explicit paths can be passed with `--source` and `--archive`.
+Those GCC source/archive defaults are under `build-out/direct-gcc-inputs/`.
+`--package binutils` selects pinned binutils 2.30 and always runs its top-level
+configure; its defaults are `build-out/stage-b-inputs/binutils-source` and
+`build-out/stage-b-inputs/binutils-2.30.tar.xz`. Explicit paths can be passed
+with `--source` and `--archive`.
+
+After configuring with `--package binutils --forth-ar --work WORK`, run
+`python3 gcc-direct/binutils.py WORK --oyacc OYACC --flex FLEX` with the
+Forth-built parser generators. The original Makefiles regenerate parser and
+scanner inputs and build bfd, opcodes, libiberty, zlib, and gas with the frozen
+Forth toolchain. These components compile; tool links are in progress.
+`WORK/stage-b/report.json` and `report.md` retain successes and failed
+compile/link invocations. This is an ongoing build, not a binutils bootstrap.
 
 The recipe checks the archive against `gcc64/SOURCES` and compares every
 source file and symlink against that archive. It rejects extra source files
