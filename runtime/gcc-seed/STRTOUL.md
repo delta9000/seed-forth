@@ -36,7 +36,12 @@ Reports and input/output hashes are retained under a unique build directory.
 
 `strtol`, beside `strtoul` in the same file, exists because binutils'
 generated `sysinfo` parser (from `binutils/sysinfo.y`) converts numbers with
-it. It shares every parsing rule above. The magnitude limit is `LONG_MAX`,
+it. Both public functions use one static scanner, `seed_scan`, for base
+validation, whitespace, sign, prefixes, digit accumulation, overflow tracking,
+and the end pointer. The scanner selects a caller-supplied positive or negative
+magnitude limit after reading the sign; the public functions handle range errors
+and signed or unsigned result conversion. It shares every parsing rule above.
+The signed magnitude limit is `LONG_MAX`,
 or `LONG_MAX + 1` for a negative result, so `LONG_MIN` converts exactly;
 overflow consumes the complete valid digit sequence and returns `LONG_MAX`
 or `LONG_MIN` with `ERANGE`. `python3 tests/gcc/strtol-check.py` compares
