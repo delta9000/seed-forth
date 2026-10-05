@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2668 names and 97 ideas.
+carry none.  2675 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -541,12 +541,19 @@ for which chapter depends on which, the
 - `cc-cspace?` — *compiler word (`050-cc-lex.fth`)* — [Ch 23 §3 Whitespace and comments](23-the-lexer.md#3-whitespace-and-comments)
 - `cc-cx-and` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-cx-binary` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
+- `cc-cx-comparison` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
+- `cc-cx-eval` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
+- `cc-cx-lt` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
+- `cc-cx-op` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-cx-operand` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-cx-or` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-cx-pp` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-cx-save` — *compiler word (create, `100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-cx-skip` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
+- `cc-cx-typed?` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
+- `cc-cx-ult` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-cx-unary` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
+- `cc-cx-unsigned` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
 - `cc-decl-base` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §4 Function pointers and the declaration engine](29-declarations-types-globals.md#4-function-pointers-and-the-declaration-engine)
 - `cc-decl-extern` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-decl-static` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)

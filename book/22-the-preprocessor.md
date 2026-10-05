@@ -2034,7 +2034,13 @@ fills in the deferred word from §5.
 `#if` and `#elif` evaluate an integer constant expression.  The
 parser has the same need for array sizes and case labels, so there is
 one evaluator, `cc-parse-const` in Ch 28, reached through a deferred
-word that `100-cc-expr.fth` fills in.
+word that `100-cc-expr.fth` fills in. In the direct LP64 profile,
+C99 6.10.1 makes signed operands act as 64-bit `intmax_t` and unsigned
+operands as `uintmax_t`. An explicit `U` suffix or a value above
+`INTMAX_MAX` makes a literal unsigned; otherwise it is signed at this
+width. Mixed arithmetic and comparisons convert to unsigned, so
+`#if -1ULL < 0` is false and `#if (0u - 1) > 0` is true. Legacy profiles retain their existing evaluator behaviour. The native
+LP64 profile shares these rules through the same parser.
 
 ```forth file=040-cc-prep.fth
 \ ===========================================================================
@@ -2045,7 +2051,8 @@ word that `100-cc-expr.fth` fills in.
 
 \ cc-pp-eval ( a u -- n )  The value of the constant expression a u, which
 \ has no macros left in it.  100-cc-expr.fth fills it in: #if uses the
-\ same evaluator as array sizes and case labels.
+\ same grammar as array sizes and case labels, with intmax_t/uintmax_t
+\ signedness and conversions in the LP64 profile.
 defer cc-pp-eval
 
 \ cc-pp-if-value ( -- f )  Expand the rest of the #if / #elif line into a

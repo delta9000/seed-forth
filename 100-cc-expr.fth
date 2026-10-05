@@ -2433,6 +2433,47 @@ defer cc-aggregate-compound-fwd
 
 variable cc-cx-pp
 variable cc-cx-skip                              \ true in an unevaluated constant arm
+variable cc-cx-unsigned                          \ signedness of the current value
+: cc-cx-typed?  cc-cx-pp @ cc-target-lp64 @ and ;
+
+\ Comparisons must also work across opposite signs, where 010's < wraps.
+: cc-cx-lt ( a b -- flag )
+  2dup cc-xor 0< if, drop 0< else, < then, ;
+: cc-cx-ult ( a b -- flag )
+  2dup cc-xor 0< if, swap drop 0< else, < then, ;
+
+\ cc-cx-eval ( a b row left-unsigned -- v )  The recursive caller
+\ saved the left flag; the right flag is current. Shifts use only the
+\ left type. All other arithmetic uses uintmax_t if either is unsigned.
+variable cc-cx-op
+variable cc-cx-comparison
+: cc-cx-eval
+  over bo-level + @ level-shift = if,
+    cc-cx-unsigned !
+  else, cc-cx-unsigned @ or cc-cx-unsigned ! then,
+  dup bo-op + @ cc-cx-op !
+  dup bo-level + @ dup level-rel = swap level-eq = or cc-cx-comparison !
+  cc-cx-skip @ if,
+    drop 2drop [lit] 0
+  else,
+    cc-cx-comparison @ if,
+      cc-cx-op @ [char] < = if, drop cc-cx-unsigned @ if, cc-cx-ult else, cc-cx-lt then, cc-flag else,
+      cc-cx-op @ [char] > = if, drop swap cc-cx-unsigned @ if, cc-cx-ult else, cc-cx-lt then, cc-flag else,
+      cc-cx-op @ pt-le = if, drop swap cc-cx-unsigned @ if, cc-cx-ult else, cc-cx-lt then, 0= cc-flag else,
+      cc-cx-op @ pt-ge = if, drop cc-cx-unsigned @ if, cc-cx-ult else, cc-cx-lt then, 0= cc-flag else,
+        bo-eval + @ execute
+      then, then, then, then,
+    else,
+      cc-cx-unsigned @ if,
+        cc-cx-op @ [char] / = if, drop cc-divisor / else,
+        cc-cx-op @ [char] % = if, drop cc-divisor 2dup / * - else,
+        cc-cx-op @ pt-shr = if, drop cc-pow2 / else,
+          bo-eval + @ execute
+        then, then, then,
+      else, bo-eval + @ execute then,
+    then,
+  then,
+  cc-cx-comparison @ if, [lit] 0 cc-cx-unsigned ! then, ;
 
 \ The object target supplies symbolic leaves; other targets never enter
 \ them. The typed evaluator binds the parser after all compiler layers load.
@@ -2449,9 +2490,16 @@ defer cc-const-string-fwd
 \ cc-cx-operand ( -- v )  Under LP64 a number's suffix is checked by
 \ the same parser that types runtime literals (060), so #if 1LLL is 240.
 : cc-cx-operand
+  [lit] 0 cc-cx-unsigned !
   cc-next-token-keep
   tok-kind @ tk-num = cc-target-lp64 @ and if, cc-integer-literal-check then,
-  tok-kind @ tk-num =  tok-kind @ tk-chr = or if, tok-num @ exit, then,
+  tok-kind @ tk-num = if,
+    cc-cx-typed? if,
+      cc-literal-unsigned @ tok-num @ 0< or cc-cx-unsigned !
+    then,
+    tok-num @ exit,
+  then,
+  tok-kind @ tk-chr = if, tok-num @ exit, then,
   tok-kind @ tk-ident = if,
     cc-cx-pp @ if, [lit] 0 exit, then,
     tok-str-addr @ tok-str-len @ cc-sym-find                ( id )
@@ -2475,7 +2523,7 @@ defer cc-const-string-fwd
   then,
   [char] - cc-tok-punct? if, cc-cx-unary cc-negate       exit, then,
   [char] + cc-tok-punct? if, cc-cx-unary                 exit, then,
-  [char] ! cc-tok-punct? if, cc-cx-unary 0= cc-flag      exit, then,
+  [char] ! cc-tok-punct? if, cc-cx-unary 0= cc-flag [lit] 0 cc-cx-unsigned ! exit, then,
   [char] ~ cc-tok-punct? if, cc-cx-unary cc-invert       exit, then,
   cc-putback-token
   cc-cx-operand ;
@@ -2489,13 +2537,16 @@ defer cc-const-string-fwd
   begin,
     over cc-binop? dup                              ( level v row row | .. 0 0 )
   while,
-    >r  over 1- cc-cx-binary                        ( level v w ; R: row )
-    r> cc-cx-skip @ if,
+    >r cc-cx-unsigned @ >r
+    over 1- cc-cx-binary                            ( level v w ; R: row left-u )
+    r> r> swap                                     ( level v w row left-u )
+    cc-cx-typed? if, cc-cx-eval else,
+    drop cc-cx-skip @ if,
       \ Still consume/check every operand, but do not execute a dead arm.
       drop 2drop [lit] 0
     else,
       bo-eval + @ execute
-    then,                                          ( level v' )
+    then, then,                                    ( level v' )
   repeat,
   drop cc-putback-token nip ;
 
@@ -2509,7 +2560,7 @@ defer cc-const-string-fwd
     dup 0= if, true cc-cx-skip ! then,
     level-bit-or cc-cx-binary
     r> cc-cx-skip !
-    0= 0= swap 0= 0= and cc-flag
+    0= 0= swap 0= 0= and cc-flag [lit] 0 cc-cx-unsigned !
   repeat,
   cc-putback-token ;
 
@@ -2522,7 +2573,7 @@ defer cc-const-string-fwd
     dup if, true cc-cx-skip ! then,
     cc-cx-and
     r> cc-cx-skip !
-    0= 0= swap 0= 0= or cc-flag
+    0= 0= swap 0= 0= or cc-flag [lit] 0 cc-cx-unsigned !
   repeat,
   cc-putback-token ;
 
@@ -2535,12 +2586,14 @@ defer cc-const-string-fwd
     dup 0= if, true cc-cx-skip ! then,
     cc-parse-const-default                                  ( c a ; R: outer-skip )
     r@ cc-cx-skip !
-    >r                                              ( c ; R: outer-skip a )
+    cc-cx-unsigned @ >r
+    >r                                              ( c ; R: outer-skip a-u a )
     cc-next-token-keep
     [char] : cc-tok-punct? 0= if, [lit] 128 cc-die then,
     dup if, true cc-cx-skip ! then,
-    cc-parse-const-default                                  ( c b ; R: outer-skip a )
+    cc-parse-const-default                                  ( c b ; R: outer-skip a-u a )
     swap if, drop r> else, r> drop then,
+    r> cc-cx-unsigned @ or cc-cx-unsigned !
     r> cc-cx-skip !
   else,
     cc-putback-token
@@ -2565,6 +2618,7 @@ create cc-cx-save  cc-lex-state-size allot
   cc-src-buf - cc-src-pos !
   [lit] 0 cc-tok-pending !
   true cc-cx-pp !
+  [lit] 0 cc-cx-skip !
   cc-parse-const
   cc-next-token-keep  tok-kind @ tk-eof <> if, [lit] 129 cc-die then,
   [lit] 0 cc-cx-pp !

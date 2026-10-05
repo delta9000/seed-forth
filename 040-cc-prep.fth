@@ -1610,7 +1610,8 @@ variable cc-prep-isd-save-pos
 
 \ cc-pp-eval ( a u -- n )  The value of the constant expression a u, which
 \ has no macros left in it.  100-cc-expr.fth fills it in: #if uses the
-\ same evaluator as array sizes and case labels.
+\ same grammar as array sizes and case labels, with intmax_t/uintmax_t
+\ signedness and conversions in the LP64 profile.
 defer cc-pp-eval
 
 \ cc-pp-if-value ( -- f )  Expand the rest of the #if / #elif line into a
