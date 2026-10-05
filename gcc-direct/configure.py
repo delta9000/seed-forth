@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run unmodified pinned GCC configure with a frozen Forth toolchain.
+"""Run unmodified pinned GCC or binutils configure with a frozen Forth toolchain.
 
 Configuration is provisional: the retained probe sources and outcomes must be
 audited before feature answers are treated as compiler/runtime evidence.
@@ -20,7 +20,31 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-ARCHIVE = "gcc-4.0.4-git-944765863e.tar"
+# Pinned source archives (hashes in gcc64/SOURCES) and their top directories.
+PACKAGES = {
+    "gcc": {"archive": "gcc-4.0.4-git-944765863e.tar", "top": "gcc-4.0.4",
+            "inputs": "build-out/direct-gcc-inputs", "source": "gcc-source"},
+    "binutils": {"archive": "binutils-2.30.tar.xz", "top": "binutils-2.30",
+                 "inputs": "build-out/stage-b-inputs", "source": "binutils-source",
+            # Only the assembler, linker and archive tools are in scope.
+            "options": ["--disable-gold", "--disable-gprof", "--disable-plugins", "--disable-werror"],
+            # No C++ compiler exists on this route.  ld's configure runs AC_PROG_CXX and
+            # libtool then sanity-checks a C++ preprocessor unless CXX is exactly "no".
+            "environment": {"CXX": "no"},
+            # Parser/scanner C shipped in the release tarball.  The source view omits
+            # them so make must regenerate each from its .y/.l with the Forth-built
+            # oyacc and flex; hand-written ldlex.h, itbl-lex.h, m68k-parse.h remain.
+            "generated": [
+                "binutils/arlex.c", "binutils/arparse.c", "binutils/arparse.h",
+                "binutils/deflex.c", "binutils/defparse.c", "binutils/defparse.h",
+                "binutils/mcparse.c", "binutils/mcparse.h", "binutils/nlmheader.c",
+                "binutils/nlmheader.h", "binutils/rcparse.c", "binutils/rcparse.h",
+                "binutils/sysinfo.c", "binutils/sysinfo.h", "binutils/syslex.c",
+                "gas/itbl-lex.c", "gas/itbl-parse.c", "gas/itbl-parse.h",
+                "intl/plural.c", "ld/deffilep.c", "ld/deffilep.h",
+                "ld/ldgram.c", "ld/ldgram.h", "ld/ldlex.c"]},
+}
+ARCHIVE = PACKAGES["gcc"]["archive"]
 TRIPLE = "x86_64-pc-linux-gnu"
 
 
@@ -92,15 +116,16 @@ def guard(log, name, arguments):
     return 127
 
 
-def verify_source(source, archive):
+def verify_source(source, archive, package="gcc"):
     pins = (ROOT / "gcc64/SOURCES").read_text().splitlines()
-    expected = next(line.split()[1] for line in pins if line.startswith(ARCHIVE + " "))
+    name = PACKAGES[package]["archive"]
+    expected = next(line.split()[1] for line in pins if line.startswith(name + " "))
     if sha(archive.read_bytes()) != expected:
-        raise RuntimeError("GCC archive differs from gcc64/SOURCES")
+        raise RuntimeError(f"{package} archive differs from gcc64/SOURCES")
     hashes = {}
     with tarfile.open(archive) as tape:
         for member in tape:
-            relative = Path(member.name).relative_to("gcc-4.0.4")
+            relative = Path(member.name).relative_to(PACKAGES[package]["top"])
             if ".." in relative.parts:
                 raise RuntimeError("unexpected archive pathname")
             path = source / relative
@@ -143,6 +168,31 @@ def snapshot(work):
         hashes[name] = sha(value)
     write_json(work / "toolchain-inputs.json", hashes)
     return toolchain
+
+
+def prepare_generated_free_source(source, work, omitted):
+    """Symlink view of SOURCE without the shipped generated files in OMITTED."""
+    view = work / "source-view"
+
+    def mirror(directory, target, prefix):
+        target.mkdir()
+        for entry in sorted(directory.iterdir()):
+            relative = prefix + entry.name
+            if relative in omitted:
+                continue
+            if entry.is_dir() and not entry.is_symlink() and any(o.startswith(relative + "/") for o in omitted):
+                mirror(entry, target / entry.name, relative + "/")
+            else:
+                (target / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+
+    missing = [name for name in omitted if not (source / name).is_file()]
+    if missing:
+        raise RuntimeError("listed generated files are absent: " + ", ".join(missing))
+    mirror(source, view, "")
+    write_json(work / "source-view.json", {"original_source": str(source), "prepared_source": str(view),
+               "omitted_generated_files": {name: sha((source / name).read_bytes()) for name in sorted(omitted)},
+               "scope": "Shipped generated parsers/scanners removed; make regenerates them from .y/.l"})
+    return view
 
 
 def prepare_alloca_source(source, work):
@@ -244,9 +294,11 @@ def gencheck(work, source, environment):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, default=ROOT / "build-out/direct-gcc-inputs/gcc-source")
-    parser.add_argument("--archive", type=Path, default=ROOT / "build-out/direct-gcc-inputs" / ARCHIVE)
-    parser.add_argument("--component", choices=("gcc", "libiberty", "libcpp", "top"), default="gcc")
+    parser.add_argument("--package", choices=sorted(PACKAGES), default="gcc")
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--archive", type=Path)
+    parser.add_argument("--component", choices=("gcc", "libiberty", "libcpp", "top"), default="gcc",
+                        help="GCC subdirectory to configure; binutils always configures its top level")
     parser.add_argument("--work", type=Path, help="new directory; existing directories are rejected")
     parser.add_argument("--gencheck", action="store_true", help="also compile/link/verify original gencheck; configuration remains provisional")
     parser.add_argument("--forth-ar", action="store_true", help="use the frozen Forth archive/index adapter for AR and RANLIB")
@@ -254,8 +306,14 @@ def main():
     arguments = parser.parse_args()
     if arguments.gencheck and arguments.component != "gcc":
         parser.error("--gencheck requires --component gcc")
-    source = arguments.source.resolve()
-    source_proof = verify_source(source, arguments.archive.resolve())
+    package = PACKAGES[arguments.package]
+    if arguments.package != "gcc":
+        if arguments.gencheck or arguments.alloca_frame:
+            parser.error("--gencheck and --alloca-frame apply to GCC only")
+        arguments.component = "top"
+    source = (arguments.source or ROOT / package["inputs"] / package["source"]).resolve()
+    archive = (arguments.archive or ROOT / package["inputs"] / package["archive"]).resolve()
+    source_proof = verify_source(source, archive, arguments.package)
     if arguments.work:
         work = arguments.work.absolute()
         work.mkdir(parents=True, exist_ok=False)
@@ -263,6 +321,8 @@ def main():
         (ROOT / "build-out").mkdir(exist_ok=True)
         work = Path(tempfile.mkdtemp(prefix="direct-configure-", dir=ROOT / "build-out"))
     write_json(work / "gcc-source-inputs.json", source_proof)
+    if package.get("generated"):
+        source = prepare_generated_free_source(source, work, set(package["generated"]))
     if arguments.alloca_frame:
         source = prepare_alloca_source(source, work)
     toolchain = snapshot(work)
@@ -294,6 +354,7 @@ def main():
                         "LD": str(guards / "ld"), "AR": str(guards / "ar"), "RANLIB": str(guards / "ranlib"),
                         "NM": str(guards / "nm"), "AS_FOR_TARGET": str(guards / "as"),
                         "LD_FOR_TARGET": str(guards / "ld")})
+    environment.update(package.get("environment", {}))
     if arguments.forth_ar:
         environment["AR"] = shlex.join([sys.executable, str(archive_driver)])
         environment["RANLIB"] = environment["AR"] + " s"
@@ -305,6 +366,7 @@ def main():
                "--disable-shared", "--disable-nls", "--disable-multilib", "--enable-languages=c",
                "--cache-file=/dev/null", "--with-as=" + str(guards / "as"),
                "--with-ld=" + str(guards / "ld"), "--program-transform-name="]
+    command += package.get("options", [])
     write_json(work / "configure-command.json", {"command": command, "cwd": str(build),
                "environment": {key: environment[key] for key in ("CC", "CPP", "CXX", "CXXCPP", "CC_FOR_BUILD",
                  "CFLAGS", "CPPFLAGS", "LDFLAGS", "LIBS", "CONFIG_SITE", "PATH", "AS", "LD", "AR", "RANLIB", "NM")}})
