@@ -19,7 +19,9 @@ WARN_WRITE_STRINGS suppress unsupported GCC warnings: bfd/warning.m4 (near line
 OYACC and LEX/FLEX both name FLEX to cover the original Makefiles' variable
 spellings without falling back to host parser generators.
 
-make -k builds all-gas, all-ld and all-binutils, keeping going after failures;
+make -k builds all-gas, all-ld and all-binutils, keeping going after failures,
+then makes gas, ld and binutils directly (the top level's MAKEOVERRIDES= drops
+the WARN_* overrides on the way down);
 jobs default to six (each Forth compile can use a few hundred MiB).  WORK must be new, as configure.py
 rejects existing directories.  No host compiler produces route artifacts.
 
@@ -176,6 +178,18 @@ def main():
         print(f"Building binutils with {args.jobs} jobs; log: {work / 'make.log'}", flush=True)
         steps.append(run(command, work / "build/top", environment, work / "make.log"))
         print(f"Make exit {steps[-1]['returncode']}", flush=True)
+        # The top-level Makefile sets MAKEOVERRIDES= and forwards only its
+        # FLAGS_TO_PASS lists, so the WARN_* overrides never reach the tool
+        # directories.  Their libraries are built and their Makefiles configured
+        # by now; make each tool directory directly with the same overrides.
+        for directory in ("gas", "ld", "binutils"):
+            if not (work / "build/top" / directory / "Makefile").is_file():
+                print(f"{directory} not configured; skipped", flush=True)
+                continue
+            command = ["make", "-k", "-j", str(args.jobs), *overrides]
+            steps.append(run(command, work / "build/top" / directory, environment,
+                             work / f"make-{directory}.log"))
+            print(f"Make {directory} exit {steps[-1]['returncode']}", flush=True)
     return report(work, args, steps)
 
 
