@@ -61,8 +61,9 @@ transfers close ownership only on success; subsequent `fclose` closes that
 descriptor. After a failed `fdopen`, the caller still owns the descriptor.
 Callers must not separately close a successfully adopted stream descriptor.
 The raw syscall calls inside stdio remain unchanged. The bounded public
-`fcntl` is documented separately in [FCNTL.md](FCNTL.md); no `openat`, `dup`,
-`pipe`, or general POSIX surface is implied.
+`fcntl` is documented separately in [FCNTL.md](FCNTL.md), and `pipe`/`dup2`
+in [PROCESS-API.md](PROCESS-API.md); no `openat`, `dup`, or general POSIX
+surface is implied.
 
 ## Focused gate
 

@@ -27,8 +27,9 @@ so index arithmetic cannot overflow. The comparator receives the key first,
 as ISO C specifies; only the sign of its result matters. It returns some
 matching element, or a null pointer when none matches or `count` is zero.
 
-`strerror` (in `strerror.c`) returns the Linux wording for each error
-number that `<errno.h>` declares, and "Success" for zero. Any other value
+`strerror` (in `strerror.c`, shared with the [process API](PROCESS-API.md),
+which also needs it) returns the Linux wording for each error number that
+`<errno.h>` declares, and "Success" for zero; it preserves `errno`. Any other value
 produces "Unknown error N" in a single static buffer that the next such call
 overwrites, as ISO C permits. The returned text must not be modified.
 

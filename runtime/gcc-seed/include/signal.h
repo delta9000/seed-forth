@@ -3,6 +3,7 @@
 /* Original seed-forth interface; see LICENSE. Linux AMD64, single-threaded.
    signal() uses persistent BSD-style handlers, blocks the delivered signal
    during the handler, and requests restart of eligible interrupted calls. */
+#include <sys/types.h>
 typedef int sig_atomic_t;
 typedef void (*__seed_sighandler_t)(int);
 #define SIG_DFL ((__seed_sighandler_t)0)
@@ -20,4 +21,6 @@ typedef void (*__seed_sighandler_t)(int);
 #define SIGTERM 15
 #define SIGSTOP 19
 __seed_sighandler_t signal(int number, __seed_sighandler_t handler);
+/* A single Linux kill call; see ../PROCESS-API.md. */
+int kill(pid_t process, int number);
 #endif

@@ -19,8 +19,8 @@ char *strncat(char *destination, const char *source, size_t count);
 char *strchr(const char *string, int value);
 char *strrchr(const char *string, int value);
 char *strstr(const char *haystack, const char *needle);
+/* Fixed C-locale text; unlisted numbers give "Unknown error N". */
+char *strerror(int number);
 /* POSIX helper needed by libiberty consumers. */
 char *strdup(const char *string);
-/* Fixed English messages for the errno values in <errno.h>. */
-char *strerror(int error);
 #endif

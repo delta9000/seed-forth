@@ -1,6 +1,6 @@
 /* The same public fcntl contract program is compiled by Forth and host GCC/libc.
    Process creation is test scaffolding: raw Linux fork/execve/wait4 here,
-   libc under FCNTL_HOST_ORACLE. The runtime itself supplies no exec. */
+   libc under FCNTL_HOST_ORACLE, independent of the runtime process API. */
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>

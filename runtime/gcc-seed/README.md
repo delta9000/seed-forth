@@ -147,6 +147,10 @@ Original binutils 2.30 libiberty needs [exact-width integer types](STDINT.md)
 [bounded descriptor control](FCNTL.md) for `pex-unix.c`: `fcntl` supports only
 the close-on-exec, status-flag and duplication commands binutils uses, and
 fails with EINVAL for every other command.
+Original libiberty `pex-unix.c`, the subprocess layer GCC's driver also uses,
+needs the [process API](PROCESS-API.md): `pipe`, `dup2`, `fork`, `vfork` (an
+ordinary fork), `execve`, `execv`, `execvp` with PATH search, `waitpid`, `wait`,
+`kill`, `sleep`, the Linux `sys/wait.h` status macros, and `strerror`.
 
 The original GCC Linux host hooks use the real bounded public
 [mmap and munmap interfaces](MAPPING.md). Private file and anonymous mappings

@@ -34,4 +34,16 @@ pid_t getpid(void);
 char *getcwd(char *buffer, size_t size);
 int unlink(const char *path);
 void _exit(int status);
+/* Process API; see ../PROCESS-API.md. vfork is an ordinary fork. execv and
+   execvp pass the current environ; execvp searches PATH (default
+   /bin:/usr/bin) and does not retry ENOEXEC files with a shell. */
+int pipe(int descriptors[2]);
+int dup2(int descriptor, int target);
+pid_t fork(void);
+pid_t vfork(void);
+int execve(const char *path, char *const arguments[], char *const environment[]);
+int execv(const char *path, char *const arguments[]);
+int execvp(const char *file, char *const arguments[]);
+/* Returns unslept whole seconds (a partial second rounds up) after EINTR. */
+unsigned int sleep(unsigned int seconds);
 #endif

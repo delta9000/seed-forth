@@ -39,8 +39,9 @@ with a misread argument. Add a command only with a consumer and a test.
 
 ## Close-on-exec and processes
 
-The runtime provides no `fork`, `exec`, `pipe`, or `dup2`. The focused test
-creates its child with raw Linux fork/execve/wait4 test scaffolding, then
+The focused test keeps its own raw Linux pipe/fork/execve/wait4 scaffolding,
+so it does not depend on the public
+[process API](PROCESS-API.md), which is checked separately. It
 shows that a pipe descriptor marked with `FD_CLOEXEC` is absent in an executed
 `/bin/sh`, and present again after the flag is cleared.
 
