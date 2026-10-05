@@ -149,7 +149,7 @@ return 0; }
       'bitfield': 'struct X {unsigned x:3;}; unsigned long a=(unsigned long)&((struct X*)0)->x;',
       'pointer-load': 'struct X {long x;}; struct X *p; long *a=&(p->x);',
       'automatic': 'long *f(void) {long x; static long *p=&(x); return p;}',
-      'incompatible-function': 'int f(void); long *a=&((long*)f)[1];',
+      'narrow-function': 'int f(void); int *a=(int*)(int)f;',
       'increment': DECLS + 'long *a=&((struct Leaf*)0)->n++;',
       'assignment': DECLS + 'long *a=&((struct Leaf*)0)->n=1;',
       'call': 'long f(void); long *a=&(f());',

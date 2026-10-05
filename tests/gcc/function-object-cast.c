@@ -22,6 +22,7 @@ static unary *static_slot = (unary *) twice;
 static stinst_type static_object = (stinst_type) &target;
 static int (*static_null)() = (int (*)()) (void *) 0;
 static stinst_type static_table[2] = { (stinst_type) &target, (stinst_type) add_one };
+static long *static_offset = &((long *) add_one)[1];
 
 /* A miniature chew.c: pc walks an array of stinst_type words. */
 typedef struct dict_struct {
@@ -77,7 +78,8 @@ int main(void) {
   printf("object %d %d %s %d\n", back == (void *) &target, ((struct record *) s)->value,
          ((struct record *) static_object)->name, (struct record *) static_table[0] == &target);
   printf("table %d null %d\n", ((unary) static_table[1])(99), static_null == 0);
-  printf("width %d %d\n", (int) sizeof(void *), (int) sizeof(stinst_type));
+  printf("width %d %d offset %ld\n", (int) sizeof(void *), (int) sizeof(stinst_type),
+         (long) ((char *) static_offset - (char *) add_one));
   if ((unsigned long) (void *) add_one != (unsigned long) add_one) failures++;
   if ((unsigned long) (stinst_type) &target != (unsigned long) &target) failures++;
 
