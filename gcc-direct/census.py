@@ -21,7 +21,9 @@ WORK/gcc/probes/ (argv, inputs, stdout, stderr, return code, outputs).
 This script records, per cc1 object: built or not, its hash and size, and for
 failures the compiler's own diagnostic.  Results go to WORK/census/.
 
-A successful census means objects compiled.  It does not mean cc1 links or runs.
+With --link it also archives libcpp and lets the Makefile link cc1 with the
+Forth linker.  A successful census means objects compiled (and, with --link,
+that cc1 linked).  It does not show that cc1 behaves correctly.
 """
 from pathlib import Path
 import argparse
@@ -91,6 +93,7 @@ def main():
     parser.add_argument("--oyacc", type=Path, required=True)
     parser.add_argument("--flex", type=Path, required=True)
     parser.add_argument("-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 4))
+    parser.add_argument("--link", action="store_true", help="also archive libcpp and link cc1")
     args = parser.parse_args()
     work = args.work.resolve()
     out = work / "census"
@@ -115,6 +118,17 @@ def main():
     started = time.time()
     steps.append(make(gcc_build, environment, ["-k", "-j", str(args.jobs), *overrides, *objects], log))
     elapsed = round(time.time() - started, 1)
+
+    if args.link:
+        # libcpp's 4.0.4 Makefile hardcodes `AR = ar` with `cru`; the archive is
+        # removed just before, so `rc` with the Forth archiver is the same request.
+        libcpp_build = work / "libcpp/build/libcpp"
+        libcpp_environment = environment_for(work / "libcpp")
+        steps.append(make(libcpp_build, libcpp_environment,
+                          ["-j", str(args.jobs), "CFLAGS=", "LDFLAGS=",
+                           f"AR={libcpp_environment['AR']}", "ARFLAGS=rc", "libcpp.a"], log))
+        steps.append(make(gcc_build, environment,
+                          [*overrides, f"CPPLIB={libcpp_build / 'libcpp.a'}", "cc1"], log))
 
     traces = compile_traces(work / "gcc/probes")
     units = []
@@ -142,6 +156,8 @@ def main():
         "oyacc_sha256": sha(args.oyacc), "flex_sha256": sha(args.flex),
         "jobs": args.jobs, "compile_seconds": elapsed,
         "objects": len(units), "built": len(built), "failed": len(failed),
+        "cc1": {"sha256": sha(gcc_build / "cc1"), "bytes": (gcc_build / "cc1").stat().st_size}
+               if (gcc_build / "cc1").is_file() else None,
         "steps": steps, "units": units,
     }
     (out / "census.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -151,9 +167,11 @@ def main():
     for unit in failed:
         said = [line for line in unit.get("stderr", "").splitlines() if " error " in line]
         lines.append(f"| {unit['object']} | {said[-1] if said else unit.get('note', '')} |")
+    if args.link:
+        lines += ["", f"cc1 link: {'linked, ' + str(summary['cc1']['bytes']) + ' bytes' if summary['cc1'] else 'not linked (see make.log)'}"]
     (out / "census.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
-    return 0 if not failed else 1
+    return 0 if not failed and (not args.link or summary["cc1"]) else 1
 
 
 if __name__ == "__main__":

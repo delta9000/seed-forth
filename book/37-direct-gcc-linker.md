@@ -34,7 +34,7 @@ selected members, so publication cannot overwrite an input archive.
 `lnk-add-buffer (address length --)` copies a selected member into an owned
 mapping, then applies the same object validation and symbol registration.
 
-The limits are explicit: 256 objects, 65,536 symbols per object, 65,536 global
+The limits are explicit: 1,024 objects, 65,536 symbols per object, 65,536 global
 names, 256 MiB per input and output image, and section alignments through
 1 MiB. They are policy constants, not implicit limits imposed by the seed's
 original output buffer. This gate proves a bounded object boundary, not that
@@ -122,7 +122,7 @@ range, and 255 for file I/O or an input/output alias.
 \ Errors: 250 metadata, 251 capacity, 252 duplicate strong definition,
 \ 253 unresolved symbol/entry, 254 relocation/range, 255 file I/O.
 
-[lit] 256 constant lnk-object-cap
+[lit] 1024 constant lnk-object-cap
 [lit] 65536 constant lnk-symbol-cap
 [lit] 65536 constant lnk-global-cap
 [lit] 131072 constant lnk-hash-cap

@@ -6,7 +6,7 @@
 \ Errors: 250 metadata, 251 capacity, 252 duplicate strong definition,
 \ 253 unresolved symbol/entry, 254 relocation/range, 255 file I/O.
 
-[lit] 256 constant lnk-object-cap
+[lit] 1024 constant lnk-object-cap
 [lit] 65536 constant lnk-symbol-cap
 [lit] 65536 constant lnk-global-cap
 [lit] 131072 constant lnk-hash-cap
