@@ -37,9 +37,14 @@ REJECT = {
     'static-outer-bound': ('struct S {int m[2][3];}s;int(*p)[3]=&s.m[3];', 240),
     'static-inner-bound': ('struct S {int m[2][3];}s;int*p=&s.m[1][4];', 240),
     'qualified-decay': ('struct S {const int m[2][3];};void f(struct S*p){int(*q)[3]=p->m;}', 238),
-    'qualified-address': ('struct S {const int m[2][3];}s;const int(*p)[2][3]=&s.m;', 238),
-    'qualified-record-address': ('struct S {int m[2][3];};void f(const struct S*p){sizeof(&p->m);}', 238),
-    'qualified-row-address': ('struct S {volatile int m[2][3];};void f(struct S*p){sizeof(&p->m[1]);}', 238),
+    'qualified-address-discard': ('struct S {const int m[2][3];}s;int(*p)[2][3]=&s.m;', 238),
+}
+# Qualified matrix members decay and take addresses as qualified rows.
+ACCEPT = {
+    'qualified-decay': 'struct S {const int m[2][3];};void f(struct S*p){const int(*q)[3]=p->m;}',
+    'qualified-address': 'struct S {const int m[2][3];}s;const int(*p)[2][3]=&s.m;',
+    'qualified-record-address': 'struct S {int m[2][3];};void f(const struct S*p){sizeof(&p->m);}',
+    'qualified-row-address': 'struct S {volatile int m[2][3];};void f(struct S*p){sizeof(&p->m[1]);}',
 }
 
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -86,6 +91,9 @@ def main():
     run(cc+[boundary,'-o',work/'exact-size-boundary']);run([work/'exact-size-boundary'])
     for opt in ('-O0','-O2'):
         run(['gcc',opt,boundary,'-o',work/('exact-size-boundary'+opt)]);run([work/('exact-size-boundary'+opt)])
+    for name, source in ACCEPT.items():
+        path=work/(name+'.c');path.write_text(source+'\n')
+        run(cc+['-c',path,'-o',work/(name+'.o')])
     for name, (source, status) in REJECT.items():
         path=work/(name+'.c');path.write_text(source+'\n');obj=work/(name+'.o')
         original=b'preserve-existing-output\n';obj.write_bytes(original)

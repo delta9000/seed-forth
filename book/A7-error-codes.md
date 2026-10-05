@@ -88,7 +88,7 @@ to its call site.
 | 47  | `040-cc-prep.fth:165,574,1924,1927,1935,1947,2018` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
 | 48  | `040-cc-prep.fth:1869,1925` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 49  | `040-cc-prep.fth` | Invalid or unsupported direct-profile directive syntax, including malformed `#line`, GNU numeric markers, unsupported prefix/comment splices, and source-text continuations that would join two tokens. See [C line control](22-the-preprocessor.md#c-line-control-for-generated-parser-sources). |
-| 50  | `060-cc-types.fth:263` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
+| 50  | `060-cc-types.fth:266` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
 | 60  | `070-cc-sym.fth:73` | `cc-sym-add`: more than 8,192 live symbols. |
 | 61  | `070-cc-sym.fth:153` | `cc-scope-push`: scopes nested more than 64 deep. |
 | 62  | `070-cc-sym.fth:162` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
@@ -150,8 +150,8 @@ to its call site.
 | 156 | `110-cc-decl.fth:455` | Local array declaration: size is zero or negative. |
 | 157 | `110-cc-decl.fth:457` | Local array declaration: missing `]`. |
 | 159 | `110-cc-decl.fth:512` | Local declaration: a declarator followed by neither `,` nor `;`. |
-| 160 | `110-cc-decl.fth:688` | Struct local declaration: variable name missing. |
-| 161 | `110-cc-decl.fth:723` | Struct-pointer local not followed by `=` or `;`. |
+| 160 | `110-cc-decl.fth:683` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:718` | Struct-pointer local not followed by `=` or `;`. |
 | 162 | `110-cc-decl.fth:45` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
 | 170 | `112-cc-stmt.fth:535,861,866` | `case` label not followed by `:`. |
 | 171 | `112-cc-stmt.fth:689` | `cc-label-create`: selected per-function label table full (default 64, direct GCC 1,024), or its mapping fails. |
@@ -216,7 +216,7 @@ native parser; the file distinguishes its implementation.
 | 210 | `115-cc-native.fth:54` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
-| 213 | `060-cc-types.fth:286` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
+| 213 | `060-cc-types.fth:289` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
 | 214 | `110-cc-decl.fth:380`, `115-cc-native.fth:214` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:152` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:76,77,88,96` | Invalid or empty inferred array initializer. |
@@ -247,6 +247,14 @@ checks and output-publication failures.
 In the direct-GCC target, preprocessor code 49 rejects a selected `#line`
 directive or numeric line marker until logical source-location control is
 implemented. It must not silently supply incorrect `__FILE__`/`__LINE__` values.
+
+In the System V target, 238 rejects an array shape the type system cannot
+represent or that C forbids: a non-positive or excessive bound, a function
+returning an array, and an implicit conversion that would discard a row's
+qualifier, such as `long (*p)[3] = t` for a `const long t[2][3]`
+(`cc-sysv-row-qualifier-check` in `121-cc-sysv.fth`). Qualified arrays
+themselves decay normally; an explicit cast or a qualified destination
+accepts the conversion. See [chapter 36](36-direct-gcc-calls.md).
 
 The compiler's typed constant evaluator reports 240 for an unsupported
 constant form, 241 for an invalid shift count, and 242 for signed arithmetic

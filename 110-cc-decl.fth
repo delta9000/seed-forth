@@ -622,10 +622,6 @@ defer cc-cast-value-fwd
 : cc-cast-null-default ( source destination null qualified -- null ) 2drop 2drop [lit] 0 ;
 defer cc-cast-null-fwd
 ' cc-cast-null-default is cc-cast-null-fwd
-\ The operand's own decay happens while this flag is set. Its type is then
-\ replaced by the type name, so no shape built for that decay survives.
-variable cc-cast-operand-decay
-[lit] 0 cc-cast-operand-decay !
 
 : cc-try-cast
   cc-next-token-keep
@@ -638,8 +634,7 @@ variable cc-cast-operand-decay
   cc-type-name-qualified @ >r
   cc-cast-desc @ >r                                ( ; R: ty qualification desc )
   cc-parse-unary
-  true cc-cast-operand-decay ! cc-emit-materialize
-  [lit] 0 cc-cast-operand-decay !
+  cc-emit-materialize
   r> r> r> swap >r                                 ( desc ty ; R: qualification )
   cc-target-lp64 @ if,
     cc-last-expr-type @ over cc-cast-types-fwd

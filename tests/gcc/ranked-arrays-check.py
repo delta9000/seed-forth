@@ -24,6 +24,7 @@ POSITIVE={
 'one-past-static': '''int a[2][3][4];int (*p)[3][4]=&a[2];int (*q)[4]=&a[1][3];int *r=&a[1][2][4];int main(void){return p-a!=2||q-a[1]!=3||r-a[1][2]!=4;}''',
 'composed-rank64': 'typedef char A'+'[1]'*63+';A b[1];int main(void){b'+'[0]'*64+'=23;return sizeof b!=1||b'+'[0]'*64+'!=23;}',
 'rank64': 'char a'+'[1]'*64+';int main(void){a'+'[0]'*64+'=37;return sizeof a!=1||a'+'[0]'*64+'!=37;}',
+'qualified-parameters': '''typedef int A[2][3][4];int sum(const int a[][2][3]){return a[0][0][0]+a[1][1][2];}int vsum(volatile int a[][2][3][4]){return a[1][1][2][3];}int tsum(const A a){return a[1][2][3];}const int c[2][2][3]={{{1,2,3},{4,5,6}},{{7,8,9},{10,11,12}}};volatile int v[2][2][3][4];const A t={{{0}},{{0},{0},{0,0,0,9}}};int main(void){const int (*p)[2][3]=c;const int (*q)[2][2][3]=&c;v[1][1][2][3]=5;return sum(c)!=13||sum(p+0)!=13||(*q)[1][1][2]!=12||vsum(v)!=5||tsum(t)!=9||p+1!=&c[1];}''',
 }
 REJECT={
 'float-record-value':('struct F{float a[1][1][1];};struct F f(struct F a){return a;}',232),
@@ -38,10 +39,6 @@ REJECT={
 'zero-first':('int a[0][2][3];',238),'zero-second':('int a[2][0][3];',238),
 'huge-third':('long a[2][3][9223372036854775807L];',245),
 'product-overflow':('long a[1024][1024][1024];',245),
-'const-parameter':('int f(const int a[][2][3]){return a[0][0][0];}',238),
-'volatile-parameter':('int f(volatile int a[][2][3][4]){return a[0][0][0][0];}',238),
-'const-typedef-parameter':('typedef int A[2][3][4];int f(const A a){return a[0][0][0];}',238),
-'volatile-typedef-parameter':('typedef int A[2][3][4];int f(volatile A a){return a[0][0][0];}',238),
 'qualified-decay':('const int a[2][3][4];int (*p)[3][4]=a;',238),
 'qualified-address':('const int a[2][3][4];int (*p)[2][3][4]=&a;',238),
 'array-assign':('int a[2][3][4],b[2][3][4];void f(void){a=b;}',120),

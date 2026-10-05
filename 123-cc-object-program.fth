@@ -254,16 +254,15 @@ create cc-om-string-name s, .Lstring
   dup cc-sym-kind-of sk-global <> if, cc-const-unsupported then,
   dup cc-sym-array-len-of 0= if, cc-const-unsupported then,
   dup cc-om-from-symbol >r
-  dup cc-sym-type-of ty-base ty-array = if,
-    dup cc-sym-qualified cell[] @ cc-qualified-array-check
-  then,
   dup cc-sym-array-inner-of if,
-    dup cc-sym-qualified cell[] @ cc-qualified-array-check
     dup cc-sym-type-of over cc-expr-symbol-desc
-    rot cc-sym-array-inner-of [lit] 0 cc-sysv-array-node
-    ty-array [lit] 1 ty-make swap
+    [lit] 2 cc-npick cc-sym-array-inner-of [lit] 0
+    [lit] 4 cc-npick cc-sym-qualified cell[] @ cc-sysv-qualified-node
+    nip ty-array [lit] 1 ty-make swap
   else,
-    dup cc-sym-type-of 1+ swap cc-expr-symbol-desc
+    dup cc-sym-type-of 1+ swap
+    dup cc-sym-qualified cell[] @ >r cc-expr-symbol-desc
+    over ty-base ty-array = if, r@ cc-sysv-qualify-node then, r> drop
   then, [lit] 0 rot rot r> ;
 : cc-om-const-string
   cc-sysv-object-mode @ 0= if, cc-const-unsupported then,
@@ -402,8 +401,8 @@ defer cc-om-address-index-fwd
   oa-lvalue @ 0= if, cc-const-unsupported then,
   oa-value @
   oa-array @ if,
-    oa-qualified @ cc-qualified-array-check
-    oa-type @ oa-desc @ oa-array @ oa-inner @ cc-sysv-array-node
+    oa-type @ oa-desc @ oa-array @ oa-inner @ oa-qualified @
+    cc-sysv-qualified-node
     ty-array [lit] 1 ty-make swap
   else, oa-type @ 1+ oa-desc @ then,
   oa-record @

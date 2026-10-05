@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Scoped qualification provenance guards; no host target compiler."""
+"""Qualified array-pointer shapes and their discard guard; no host target compiler.
+
+Array nodes record whether their elements are qualified, so qualified
+array-pointer declarations, type names, addresses and decays are accepted.
+Implicitly discarding a row qualifier still rejects with 238.
+"""
 from pathlib import Path
 import json, os, subprocess, sys
 ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'build-out/qualifier-check';OUT.mkdir(parents=True,exist_ok=True)
-REJECT={}
+ACCEPT={}
 for q in ['const','volatile','restrict']:
  for label,src in {
   'prefix':f'{q} long (*p)[2];',
@@ -31,12 +36,25 @@ for q in ['const','volatile','restrict']:
   'prefix-expression':f'struct S{{long a[2];}};long f({q} struct S *p){{return sizeof(&(++p)->a);}}',
   'nested-signature':f'void f(void (*g)({q} long (*)[2]));',
   'two-dimensional-parameter':f'void f({q} long a[2][3]);',
- }.items():REJECT[q+'-'+label]=src
-REJECT.update({
+ }.items():
+  # restrict qualifies only pointers; its misplacement is not this check's concern.
+  if q!='restrict' or label in ('pointer','descriptor-type-name','descriptor-alias','abstract-pointer'):
+   ACCEPT[q+'-'+label]=src
+ACCEPT.update({
+ 'constant-record-qualified':'struct S{long a[2];};const long (*p)[2]=&(*(const struct S*)0).a;',
+ 'constant-nested-qualified':'struct S{long a[2];};const long (*p)[2]=&(*(1?(const struct S*)0:(struct S*)0)).a;',
+ 'multidimensional-qualified':'long f(void){const long a[2][3]={{1,2,3},{4,5,6}};const long (*p)[3]=a;return (*p)[0];}',
+})
+# Each discards a row qualifier without a cast.
+REJECT={
+ 'volatile-discard':'long f(void){volatile long a[2][3];long (*p)[3]=a;return (*p)[0];}',
+ 'typedef-discard':'typedef long A[2];const A *p;long f(void){A *q=p;return (*q)[0];}',
+ 'alias-discard':'typedef const long A[2];A *p;long f(void){long (*q)[2]=p;return (*q)[0];}',
+ 'field-discard':'struct S{const long a[2];};long f(struct S *s){long (*q)[2]=&s->a;return (*q)[0];}',
  'constant-record-cast':'struct S{long a[2];};long (*p)[2]=&(*(const struct S*)0).a;',
  'constant-nested-cast':'struct S{long a[2];};long (*p)[2]=&(*(1?(const struct S*)0:(struct S*)0)).a;',
  'multidimensional-decay':'long f(void){const long a[2][3]={{1,2,3},{4,5,6}};long (*p)[3]=a;return (*p)[0];}',
-})
+}
 CONTROLS={
  'constant-record-control':'struct S{long a[2];};long (*p)[2]=&(*(struct S*)0).a;int main(void){return (long)p!=0;}',
 
@@ -62,6 +80,10 @@ for name,src in REJECT.items():
  c=OUT/(name+'.c');o=OUT/(name+'.o');c.write_text(src);o.write_bytes(b'preserve-existing-output\n')
  p=run([sys.executable,ROOT/'tools/gcc-direct-cc.py','-c',c,'-o',o]);ok=p.returncode==238 and o.read_bytes()==b'preserve-existing-output\n'
  results.append({'name':name,'expected':238,'actual':p.returncode,'pass':ok,'stderr':p.stderr.decode()})
+for name,src in ACCEPT.items():
+ c=OUT/(name+'.c');o=OUT/(name+'.o');c.write_text(src);o.unlink(missing_ok=True)
+ p=run([sys.executable,ROOT/'tools/gcc-direct-cc.py','-c',c,'-o',o])
+ results.append({'name':name,'expected':0,'actual':p.returncode,'pass':p.returncode==0 and o.exists(),'stderr':p.stderr.decode()})
 for name,src in CONTROLS.items():
  c=OUT/(name+'.c');exe=OUT/(name+'.elf');c.write_text(src)
  p=run([ROOT/'tests/gcc/sysv-compile.sh',c,exe]);q=run([exe]) if p.returncode==0 else None

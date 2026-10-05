@@ -61,7 +61,6 @@ def main():
   'incompatible-function-pointers':('void f(int c,int (*p)(int),int (*q)(double)){c?p:q;}',237,False),
   'incompatible-record-values':('struct A{int x;};struct B{int x;};void f(int c,struct A a,struct B b){c?a:b;}',232,False),
   'void-integer-mixed':('int f(int c){return c?(void)0:1;}',237,False),
-  'qualified-array-boundary':('int f(int c,const int (*p)[3],const int (*q)[3]){return (c?p:q)[0][0];}',238,True),
   'general-zero-ice-left':('int *f(int c,int *p){return c?(1-1):p;}',237,True),
   'general-zero-ice-right':('int *f(int c,int *p){return c?p:(2-2);}',237,True),
   'general-zero-ice-void':(prefix+'int f(int c,struct S *p){return (c?(void*)(1-1):p)->value;}',238,True),

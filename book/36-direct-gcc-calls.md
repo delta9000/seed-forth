@@ -3,8 +3,8 @@
 Descriptor-backed fixed-array pointers preserve their element layout behind
 pointer objects and function signatures. `sizeof(*p)`, row stepping, array
 addressing and a genuine `va_list *` callback use the array's complete shape.
-Unsupported qualified array-pointee shapes fail closed with retained qualifier
-provenance. The source document `tests/gcc/array-pointer-README.md`
+Qualified arrays decay to pointers to qualified rows, and implicitly
+discarding a row qualifier fails closed. The source document `tests/gcc/array-pointer-README.md`
 describes grouped declarators, null constants, supported aliases and rejection
 checks. This extension does not establish a complete libcpp build.
 
@@ -453,14 +453,13 @@ defer cc-sysv-check-scalar
 ' cc-sysv-typedef-check is cc-ntypedef-check-fwd
 \ Preserve array typedef shape through aliases and ordinary declarations.
 \ Two bounded dimensions can also be retained behind pointer constructors.
-: cc-qualified-array-check if, [lit] 238 cc-die then, ;
 [lit] 64 constant cc-sysv-array-rank-limit
 : cc-sysv-array-rank ( type descriptor -- dimensions )
   over ty-base ty-array = [lit] 2 cc-npick ty-ptr 0= and if,
     nip dup cc-ad-type swap cc-ad-desc cc-sysv-array-rank 1+
   else, 2drop [lit] 0 then, ;
 : cc-sysv-array-node ( type descriptor count inner -- descriptor )
-  [lit] 48 cc-alloc >r
+  [lit] 56 cc-alloc >r [lit] 0 r@ [lit] 48 + !
   r@ [lit] 24 + ! r@ [lit] 16 + ! r@ [lit] 8 + ! r@ !
   \ Canonical nodes hold one dimension, including legacy matrix pointers.
   \ Equivalent row shapes must not depend on how the declarator was spelled.
@@ -480,6 +479,15 @@ defer cc-sysv-check-scalar
   r@ cc-ad-inner if, r@ cc-ad-inner cc-sysv-size-product then,
   r@ [lit] 32 + !
   r@ cc-ad-type r@ cc-ad-desc cc-nalignment r@ [lit] 40 + ! r> ;
+\ A new node may be born qualified. An existing one may be shared by a
+\ typedef or declaration, so qualifying it builds a qualified copy.
+: cc-sysv-qualified-node ( type descriptor count inner qualified -- descriptor )
+  >r cc-sysv-array-node r> if, true over [lit] 48 + ! then, ;
+: cc-sysv-qualify-node ( descriptor qualified -- descriptor )
+  over cc-ad-qualified 0= and if,
+    dup cc-ad-type over cc-ad-desc [lit] 2 cc-npick cc-ad-count
+    [lit] 3 cc-npick cc-ad-inner true cc-sysv-qualified-node nip
+  then, ;
 \ Additional fixed suffixes form real element-array types. The old outer
 \ metadata stays intact for one/two dimensions and for the native target.
 \ Depth is bounded independently of the checked 1 GiB size product.
@@ -501,44 +509,47 @@ defer cc-sysv-check-scalar
     [lit] 0 nc-inner ! nc-bound-mask @ [lit] 1 and nc-bound-mask !
   then, ;
 ' cc-sysv-array-extra is cc-narray-extra-fwd
-\ An explicit cast's operand may decay although its rows are qualified:
-\ the cast's type name replaces the row descriptor before any later use.
-: cc-sysv-decay-qualified ( -- flag )
-  cc-last-expr-qualified @ cc-cast-operand-decay @ 0= and ;
+\ A qualified array decays like any other (C90 6.2.2.1): the qualifier moves
+\ onto the pointed-to type. A matrix's row node records it, and the value
+\ keeps the expression's qualified flag, so `const T t[2][3]` gives a
+\ pointer to qualified rows. A ranked array already points at its element
+\ node; a qualified one points at a qualified copy.
 : cc-sysv-array-decay
   cc-target-sysv @ cc-last-expr-array-len @ 0= 0= and
   cc-last-expr-type @ ty-base ty-array = and if,
-    cc-sysv-decay-qualified cc-qualified-array-check
+    cc-last-struct-desc @ cc-last-expr-qualified @ cc-sysv-qualify-node
+    cc-last-struct-desc !
   then,
   cc-target-sysv @ cc-last-expr-array-inner @ 0= 0= and if,
-    cc-sysv-decay-qualified cc-qualified-array-check
+    cc-last-expr-qualified @ >r
     cc-last-expr-type @ [lit] 1 - cc-last-struct-desc @
-    cc-last-expr-array-inner @ [lit] 0 cc-sysv-array-node
+    cc-last-expr-array-inner @ [lit] 0 r@ cc-sysv-qualified-node
     ty-array [lit] 1 ty-make swap cc-mark-typed-value
+    r> cc-last-expr-qualified !
   then, ;
 ' cc-sysv-array-decay is cc-array-decay-fwd
+\ Declared array pointers take the base type's qualifiers: in
+\ `const long (*p)[3]` the rows are qualified, in `long (*const p)[3]` only p.
 : cc-sysv-grouped-array ( stars -- )
   cc-target-sysv @ 0= if, cc-npointer-array-default exit, then,
-  nc-qualified @ cc-qualified-array-check
   nc-array @ nc-inner @ or nc-base-array @ or if, [lit] 238 cc-die then,
   >r cc-narray-suffix
   nc-bound-mask @ [lit] 2 and nc-inner @ [lit] 0 <= and if, [lit] 238 cc-die then,
-  nc-ty @ nc-desc @ nc-array @ nc-inner @ cc-sysv-array-node nc-desc !
+  nc-ty @ nc-desc @ nc-array @ nc-inner @ nc-base-qualified @
+  cc-sysv-qualified-node nc-desc !
   ty-array r> ty-make nc-ty !
   [lit] 0 nc-array ! [lit] 0 nc-inner ! [lit] 0 nc-bound-mask ! ;
 ' cc-sysv-grouped-array is cc-npointer-array-fwd
 : cc-sysv-array-address ( type descriptor count inner -- type descriptor )
   cc-target-sysv @ 0= if, cc-array-address-default exit, then,
-  cc-last-expr-qualified @ cc-qualified-array-check
-  >r >r swap [lit] 1 - swap r> r> cc-sysv-array-node
-  ty-array [lit] 1 ty-make swap ;
+  >r >r swap [lit] 1 - swap r> r> cc-last-expr-qualified @
+  cc-sysv-qualified-node ty-array [lit] 1 ty-make swap ;
 ' cc-sysv-array-address is cc-array-address-fwd
 : cc-sysv-inherit-array
   nc-base-array @ if,
     nc-ty @ nc-base @ <> if,
-      nc-qualified @ cc-qualified-array-check
       nc-base @ nc-sdesc @ nc-base-array @ nc-base-inner @
-      cc-sysv-array-node nc-desc !
+      nc-base-qualified @ cc-sysv-qualified-node nc-desc !
       ty-array nc-ty @ nc-base @ - ty-make nc-ty ! exit,
     then,
     nc-func @ if, [lit] 238 cc-die then,
@@ -554,9 +565,8 @@ defer cc-sysv-check-scalar
 : cc-sysv-type-shape ( base-type stars -- type )
   cc-target-sysv @ 0= if, + exit, then,
   dup 0= 0= nc-base-array @ 0= 0= and if,
-    nc-qualified @ cc-qualified-array-check
     >r cc-cast-desc @ nc-base-array @ nc-base-inner @
-    cc-sysv-array-node cc-cast-desc !
+    nc-base-qualified @ cc-sysv-qualified-node cc-cast-desc !
     ty-array r> ty-make exit,
   then,
   nc-base-array @ cc-type-name-array ! nc-base-inner @ cc-type-name-inner ! + ;
@@ -637,9 +647,6 @@ defer cc-sysv-implicit-declarator-fwd
     nc-ty @ nc-desc @ cc-sysv-array-rank
     nc-array @ if, 1+ then, nc-inner @ if, 1+ then,
     cc-sysv-array-rank-limit > if, [lit] 238 cc-die then,
-    nc-ty @ ty-base ty-array = nc-ty @ ty-ptr 0= 0= and if,
-      nc-qualified @ cc-qualified-array-check
-    then,
     nc-ty @ [lit] 256 / [lit] 255 and if, [lit] 231 cc-die then,
     nc-bound-mask @ [lit] 1 and if,
       nc-array @ [lit] 0 <= if, [lit] 238 cc-die then,
@@ -657,11 +664,11 @@ defer cc-sysv-implicit-declarator-fwd
   nc-array @ if,
     \ Ranked element nodes also construct a pointer-to-array at adjustment.
     nc-ty @ ty-base ty-array = nc-ty @ ty-ptr 0= and if,
-      nc-qualified @ cc-qualified-array-check
+      nc-desc @ nc-base-qualified @ cc-sysv-qualify-node nc-desc !
     then,
     nc-inner @ if,
-      nc-qualified @ cc-qualified-array-check
-      nc-ty @ nc-desc @ nc-inner @ [lit] 0 cc-sysv-array-node nc-desc !
+      nc-ty @ nc-desc @ nc-inner @ [lit] 0 nc-base-qualified @
+      cc-sysv-qualified-node nc-desc !
       ty-array [lit] 1 ty-make nc-ty !
       [lit] 0 nc-array ! [lit] 0 nc-inner ! exit,
     then,
@@ -684,7 +691,6 @@ defer cc-sysv-signature-fwd
   nc-base-array @ if,
     nc-ty @ nc-base @ = if, [lit] 238 cc-die then,
     cc-sysv-inherit-array
-    nc-ty @ ty-base ty-array = if, nc-qualified @ cc-qualified-array-check then,
     [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
   then,
   nc-ty @ nc-desc @ cc-sysv-signature-fwd nc-desc !
@@ -865,11 +871,11 @@ variable cc-sysv-spec-bad
     dup [lit] 255 > if, [lit] 231 cc-die then, >r
     [char] ) cc-expect-punct-c cc-next-token-keep
     [char] [ cc-tok-punct? if,
-      nc-qualified @ cc-qualified-array-check
-      cc-nctx @ >r cc-ncontext
+      cc-type-name-qualified @ cc-nctx @ >r cc-ncontext >r
       cc-narray-suffix
       nc-bound-mask @ [lit] 2 and nc-inner @ [lit] 0 <= and if, [lit] 238 cc-die then,
-      cc-cast-desc @ nc-array @ nc-inner @ cc-sysv-array-node cc-cast-desc !
+      cc-cast-desc @ nc-array @ nc-inner @ r> cc-sysv-qualified-node
+      cc-cast-desc !
       r> cc-nctx ! ty-array r> ty-make cc-putback-token
     else,
       lparen cc-tok-punct? 0= if, [lit] 238 cc-die then,
@@ -881,7 +887,6 @@ variable cc-sysv-spec-bad
   cc-nctx @ 0= if, cc-ncontext then,
   nc-qualified @ >r nc-base-qualified @ >r nc-prefix-qualified @ >r
   [lit] 0 nc-prefix-qualified ! cc-sysv-type-name-raw
-  dup ty-base ty-array = if, nc-qualified @ cc-qualified-array-check then,
   nc-qualified @ cc-type-name-qualified !
   r> nc-prefix-qualified ! r> nc-base-qualified ! r> nc-qualified ! ;
 ' cc-sysv-type-name is cc-native-type-name-fwd
@@ -959,6 +964,14 @@ defer cc-sysv-compatible-signatures-fwd
     dup cc-ad-type swap cc-ad-desc r> r> cc-sysv-compatible-types exit,
   then,
   ty-struct = if, r> r> = else, r> drop r> drop true then, ;
+\ Implicit conversion may add a row qualifier but never discard one:
+\ `long (*p)[3] = t` with `const long t[2][3]` needs an explicit cast.
+: cc-sysv-row-qualifier-check ( source descriptor destination descriptor -- same )
+  [lit] 3 cc-npick ty-base ty-array = [lit] 2 cc-npick ty-base ty-array = and
+  [lit] 3 cc-npick 0= 0= and over 0= 0= and if,
+    [lit] 2 cc-npick cc-ad-qualified over cc-ad-qualified 0= and
+    if, [lit] 238 cc-die then,
+  then, ;
 : cc-sysv-value-shape ( source descriptor destination descriptor -- )
   cc-target-sysv @ 0= if, 2drop 2drop exit, then,
   [lit] 3 cc-npick ty-base ty-array = [lit] 2 cc-npick ty-base ty-array = or
@@ -969,7 +982,9 @@ defer cc-sysv-compatible-signatures-fwd
     then,
     [lit] 3 cc-npick ty-void [lit] 1 ty-make =
     [lit] 2 cc-npick ty-void [lit] 1 ty-make = or if, 2drop 2drop exit, then,
+    [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick
     cc-sysv-compatible-types 0= if, [lit] 237 cc-die then,
+    cc-sysv-row-qualifier-check 2drop 2drop
   else, 2drop 2drop then, ;
 ' cc-sysv-value-shape is cc-value-shape-fwd
 : cc-sysv-array-operands?
@@ -1031,7 +1046,13 @@ defer cc-sysv-compatible-signatures-fwd
     cc-expr-right-type @ cc-sysv-function-pointer? or if, [lit] 237 cc-die then,
     ty-void [lit] 1 ty-make cc-expr-common ! exit,
   then,
-  cc-sysv-array-pair-check ;
+  cc-sysv-array-pair-check
+  \ Either arm's row qualifier qualifies the result, which takes the left
+  \ arm's node.
+  cc-expr-left-type @ ty-base ty-array = if,
+    cc-expr-left-desc @ cc-expr-right-desc @ cc-ad-qualified
+    cc-sysv-qualify-node cc-expr-left-desc !
+  then, ;
 ' cc-sysv-array-ternary is cc-array-ternary-fwd
 : cc-sysv-signature-result dup cc-sysv-sig-return swap cc-sysv-sig-desc ;
 : cc-sysv-parameter-type cc-sysv-sig-param dup @ swap [lit] 8 + @ ;
@@ -1825,16 +1846,15 @@ create cc-om-string-name s, .Lstring
   dup cc-sym-kind-of sk-global <> if, cc-const-unsupported then,
   dup cc-sym-array-len-of 0= if, cc-const-unsupported then,
   dup cc-om-from-symbol >r
-  dup cc-sym-type-of ty-base ty-array = if,
-    dup cc-sym-qualified cell[] @ cc-qualified-array-check
-  then,
   dup cc-sym-array-inner-of if,
-    dup cc-sym-qualified cell[] @ cc-qualified-array-check
     dup cc-sym-type-of over cc-expr-symbol-desc
-    rot cc-sym-array-inner-of [lit] 0 cc-sysv-array-node
-    ty-array [lit] 1 ty-make swap
+    [lit] 2 cc-npick cc-sym-array-inner-of [lit] 0
+    [lit] 4 cc-npick cc-sym-qualified cell[] @ cc-sysv-qualified-node
+    nip ty-array [lit] 1 ty-make swap
   else,
-    dup cc-sym-type-of 1+ swap cc-expr-symbol-desc
+    dup cc-sym-type-of 1+ swap
+    dup cc-sym-qualified cell[] @ >r cc-expr-symbol-desc
+    over ty-base ty-array = if, r@ cc-sysv-qualify-node then, r> drop
   then, [lit] 0 rot rot r> ;
 : cc-om-const-string
   cc-sysv-object-mode @ 0= if, cc-const-unsupported then,
@@ -1973,8 +1993,8 @@ defer cc-om-address-index-fwd
   oa-lvalue @ 0= if, cc-const-unsupported then,
   oa-value @
   oa-array @ if,
-    oa-qualified @ cc-qualified-array-check
-    oa-type @ oa-desc @ oa-array @ oa-inner @ cc-sysv-array-node
+    oa-type @ oa-desc @ oa-array @ oa-inner @ oa-qualified @
+    cc-sysv-qualified-node
     ty-array [lit] 1 ty-make swap
   else, oa-type @ 1+ oa-desc @ then,
   oa-record @
@@ -2094,16 +2114,33 @@ the same single-dimension nodes, so spelling does not change type identity.
 Indexing consumes one real dimension at a time. Array `sizeof`, static address
 addends and recursive initializer descent follow those same element types.
 Record ABI classification descends to the leaf, preserving unsupported
-floating-member rejection and integer-record transport. Qualified direct
-indexing remains valid without manufacturing a qualified array pointer;
-constructed qualified array pointers retain the existing explicit rejection.
-One decay is exempt: the operand of an explicit cast, such as zlib's
-`(const z_crc_t FAR *)crc_table` of a `const` two-dimensional table.
-`cc-sysv-decay-qualified` admits it only while `cc-cast-operand-decay`
-is set (Chapter 29); the cast's type name then replaces the row
-descriptor, so no qualified row shape outlives the conversion. Arithmetic,
-`&t[0]`, an initializer, a return, and a static-initializer cast still
-reject with 238.
+floating-member rejection and integer-record transport.
+
+A qualified array decays like any other (C90 6.2.2.1): the qualifier moves
+onto the pointed-to type. Scalar element types carry no qualifier bits, so a
+decay to `const T *` keeps only the expression's `cc-last-expr-qualified`
+provenance, exactly as an ordinary `const T *` variable does. A row, however,
+is an array node, and the node's last cell, `cc-ad-qualified`, records that
+its elements are qualified. `cc-sysv-array-decay` gives a qualified matrix a
+qualified row node; `cc-sysv-array-address` does the same for `&a`, and a
+ranked array's existing element node is replaced by a qualified copy
+(`cc-sysv-qualify-node`), since typedefs and declarations share nodes.
+Declared array pointers take the base type's qualifiers (`nc-base-qualified`):
+`const long (*p)[3]` points at qualified rows, `long (*const p)[3]` does not.
+Static address constants, parameters adjusted from `const long a[2][3]`, and
+abstract type names such as `(const long (*)[3])` build their nodes the same
+way, and a conditional's result row is qualified when either arm's is.
+
+Implicit conversion may add that qualifier but never discard it.
+`cc-sysv-row-qualifier-check`, run by `cc-sysv-value-shape` for initializers,
+assignments, arguments and returns, rejects `long (*p)[3] = t` for a
+`const long t[2][3]` with 238; an explicit cast or a qualified destination
+accepts. This covers binutils' elflink.c, which reads
+`&((const Elf32_External_Rel *) p)->r_offset`, and zlib's
+`(const z_crc_t FAR *)crc_table`. Element pointers follow the existing
+scalar policy: `char *q = a` from a `const char a[3]`, or a store through it,
+is not diagnosed, because nothing records whether a scalar pointer's pointee
+or the pointer itself is qualified.
 
 The direct profile checks a maximum of 64 written suffixes and a total rank of
 64 after typedef composition. It also checks the existing 1 GiB complete-object

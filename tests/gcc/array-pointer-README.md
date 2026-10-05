@@ -1,8 +1,8 @@
 # Fixed-array pointer semantics
 
 The direct System V target retains array element type, descriptor, dimensions,
-size and alignment behind an explicit array type node. Each node consumes 48
-bytes from the existing checked compiler arena; it does not enlarge the arena
+size, alignment and element qualification behind an explicit array type
+node. Each node consumes 56 bytes from the existing checked compiler arena; it does not enlarge the arena
 or the seed mapping. Ordinary pointer objects remain eight bytes. Function
 signatures, object declarations and callback members preserve structural array
 identity, including independently declared aliases and arrays of row pointers.
@@ -35,16 +35,24 @@ function-pointer typedef plus an ordinary pointer declarator. See
 Function type typedef declarations themselves remain unsupported and now reject instead of
 being mistaken for scalar typedefs.
 
-Qualification is a conservative boundary: newly constructed array-pointee
-shapes involving `const`, `volatile` or `restrict` reject238. Provenance is
-retained through typedefs, symbols, members, parameters, result signatures,
-casts, pointer expressions and static address parsing so these qualifiers
-cannot silently disappear. Existing ordinary qualified scalar/pointer/array
-paths retain their previous behavior. This does not claim full C qualifier
-semantics. Some otherwise valid qualified array-pointer programs are rejected.
-A qualified array may decay as the direct operand of a runtime explicit cast
-(`(const T *)table`), whose type name replaces the row shape; see
-`tests/gcc/qualifier-order-check.py`.
+Qualified arrays decay in every value context, as in C90 6.2.2.1: a
+`const` or `volatile` array, or an array member reached through a qualified
+record (binutils elflink.c's `&((const Elf32_External_Rel *) p)->r_offset`),
+yields a pointer to qualified elements, and `&a` a pointer to a qualified
+array. A row node records the qualifier (`cc-ad-qualified`), so qualified
+array-pointer declarations, parameters, type names, arithmetic, comparisons,
+conditionals and static addresses are accepted. Declared array pointers take
+the base type's qualifiers: `const long (*p)[3]` points to qualified rows,
+`long (*const p)[3]` does not. Implicitly discarding a row qualifier
+(`long (*p)[3] = t` for `const long t[2][3]`, in an initializer, assignment,
+argument or return) rejects with 238 before output publication; an explicit
+cast or a qualified destination accepts. Element pointers follow the existing
+scalar policy: a decay to `const T *` keeps only the expression's qualifier
+provenance flag, so neither `T *q = a` nor a store through such a pointer is
+diagnosed. A provenance flag that also covers top-level qualifiers can make a
+row qualified conservatively, e.g. a matrix member reached through
+`struct S *const s`. `restrict` placement is not checked. See
+`tests/gcc/qualified-array-check.py`.
 
 Implicit integer-to-array-pointer conversion accepts runtime zero literals
 (including integer suffixes and parenthesized literals), and zero-valued static
@@ -55,8 +63,9 @@ conservatively rejected rather than presumed null. Explicit pointer casts and
 Run `python3 tests/gcc/array-pointer-check.py --baseline-root PATH` and
 `python3 tests/gcc/pointer-array-qualifiers-check.py`. The first checks actual
 Forth execution, host GCC O0/O2 results, bounded rejections and optional ten-case
-legacy/native ELF byte identity. The second exercises qualifier provenance,
-publication guards and unqualified controls. The gate also compiles separate caller/provider translation units and checks
+legacy/native ELF byte identity. The second exercises qualified array-pointer
+shapes, the row-qualifier discard guard, publication guards and unqualified
+controls. The gate also compiles separate caller/provider translation units and checks
 function and array pointers passed through ellipsis or unprototyped calls,
 including stack arguments and mixed SSE use. Both host/Forth directions execute
 at O0/O2. Independent ABI checks remain in the integration review evidence.

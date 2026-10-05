@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2605 names and 97 ideas.
+carry none.  2606 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -311,6 +311,7 @@ for which chapter depends on which, the
 - `cc-ad-count` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-ad-desc` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-ad-inner` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `cc-ad-qualified` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-ad-size` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-ad-type` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-add-break-fixup` — *compiler word (`112-cc-stmt.fth`)* — [Ch 30 §3 Break/continue fixup lists](30-statements-if-while-for-return.md#3-breakcontinue-fixup-lists)
@@ -454,7 +455,6 @@ for which chapter depends on which, the
 - `cc-cast-desc` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-null-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-null-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
-- `cc-cast-operand-decay` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-types-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-types-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-value-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
@@ -1843,7 +1843,6 @@ for which chapter depends on which, the
 - `cc-putback-token` — *compiler word (`050-cc-lex.fth`)* — [Ch 23 §7 The parser's interface: putback, mark and reset](23-the-lexer.md#7-the-parsers-interface-putback-mark-and-reset)
 - `cc-qual-note` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-qual-note-noop` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
-- `cc-qualified-array-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-qualified-fields` — *compiler word (variable, `070-cc-sym.fth`)* — [Ch 24 §2 The symbol-table parallel arrays](24-types-and-symbols.md#2-the-symbol-table-parallel-arrays)
 - `cc-qualifier?` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-ra-buf` — *compiler word (variable, `030-cc-io.fth`)* — [Ch 21, The input and source buffers and the reader](21-arena-and-io-buffers.md#the-input-and-source-buffers-and-the-reader)
@@ -2007,10 +2006,10 @@ for which chapter depends on which, the
 - `cc-sysv-arg-cap` — *compiler word (constant, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-argument-check-default` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-argument-check-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
-- `cc-sysv-array-address` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-array-address` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-array-binop` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-array-compound` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
-- `cc-sysv-array-decay` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-array-decay` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-array-extra` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-array-node` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-array-operands?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -2038,7 +2037,6 @@ for which chapter depends on which, the
 - `cc-sysv-compatible-signatures` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-compatible-signatures-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-compatible-types` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
-- `cc-sysv-decay-qualified` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-default-compatible?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-default-type` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-enable` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Goal](36-direct-gcc-calls.md#goal)
@@ -2104,11 +2102,14 @@ for which chapter depends on which, the
 - `cc-sysv-prepare-call` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-program` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-prototype?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-qualified-node` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-qualify-node` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-restore-callee` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-restore-live` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-result-value-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-return-check-default` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-return-check-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-row-qualifier-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-save-callee` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-save-live` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-sig-count` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -2146,7 +2147,7 @@ for which chapter depends on which, the
 - `cc-sysv-type-shape` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-typedef-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-unknown-ident` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
-- `cc-sysv-value-shape` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-value-shape` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-value-type-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-varargs-prepare-default` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-varargs-prepare-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)

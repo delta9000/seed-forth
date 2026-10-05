@@ -40,6 +40,7 @@ python3 tests/gcc/sizeof-postfix-check.py
 python3 tests/gcc/ranked-arrays-check.py
 python3 tests/gcc/pointer-array-qualifiers-check.py
 python3 tests/gcc/qualifier-order-check.py
+python3 tests/gcc/qualified-array-check.py
 python3 tests/gcc/constant-address-check.py
 bash tests/gcc/sysv-declaration-types-check.sh
 python3 tests/gcc/review-types-check.py

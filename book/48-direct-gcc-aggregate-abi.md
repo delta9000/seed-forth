@@ -382,7 +382,7 @@ variable cc-ag-plan
       cc-last-expr-type @ cc-sysv-check-scalar
       cc-last-expr-type @ cc-sysv-default-type cc-last-struct-desc @
     then,
-    2dup cc-last-expr-type @ cc-last-struct-desc @ cc-value-shape-fwd
+    2dup >r >r cc-last-expr-type @ cc-last-struct-desc @ r> r> cc-value-shape-fwd
     ag-count @ cc-ag-locate
     ag-count @ ag-arg >r
     r@ ag-type cc-ag-type? if,
@@ -621,7 +621,7 @@ variable cc-ag-sret-slot
 : cc-ag-argument-check ( signature index -- )
   over cc-sysv-sig-count over > [lit] 2 cc-npick cc-sysv-prototype? and if,
     cc-sysv-parameter-type
-    2dup cc-last-expr-type @ cc-last-struct-desc @ cc-value-shape-fwd
+    2dup >r >r cc-last-expr-type @ cc-last-struct-desc @ r> r> cc-value-shape-fwd
     over cc-ag-type? cc-last-expr-type @ cc-ag-type? or if,
       cc-last-expr-type @ cc-last-struct-desc @
       cc-sysv-compatible-types 0= if, cc-ag-die then,

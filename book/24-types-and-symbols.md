@@ -77,12 +77,15 @@ to size locals, globals and struct fields.
 [lit] 16 constant ty-ullong
 
 \ Array nodes carry element type/descriptor, dimensions, size and alignment.
+\ The last cell is true when the elements are qualified: a pointer to the
+\ node then points to qualified elements, as a pointer to const T would.
 : cc-ad-type @ ;
 : cc-ad-desc [lit] 8 + @ ;
 : cc-ad-count [lit] 16 + @ ;
 : cc-ad-inner [lit] 24 + @ ;
 : cc-ad-size [lit] 32 + @ ;
 : cc-ad-align [lit] 40 + @ ;
+: cc-ad-qualified [lit] 48 + @ ;
 
 \ The pinned M2/pnut route keeps the original data model unless opted in.
 variable cc-target-lp64

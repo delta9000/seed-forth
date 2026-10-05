@@ -43,6 +43,14 @@ ACCEPT = {
     'cast-qualified-row-typedef': 'typedef const int Row[2];Row t[2];const int *f(void){return (const int *)t;}',
     'cast-qualified-matrix-explicit-row': 'const long t[2][3];long f(void){long (*p)[3]=(long (*)[3])t;return p[1][2];}',
     'qualified-matrix-index': 'const long t[2][3];long f(void){return t[1][2]+*t[1];}',
+    # Qualified arrays decay in every value context, not only under a cast;
+    # see tests/gcc/qualified-array-check.py.
+    'qualified-matrix-const-initializer': 'const long t[2][3];long f(void){const long (*p)[3]=t;return p[0][0];}',
+    'qualified-matrix-return': 'const long t[2][3];void *f(void){return t;}',
+    'qualified-matrix-arithmetic': 'const long t[2][3];void *f(void){return (void *)(t+1);}',
+    'qualified-matrix-address': 'const long t[2][3];void *f(void){return (void *)&t[0];}',
+    'qualified-array-pointer-type': 'const long t[2][3];void *f(void){return (const long (*)[3])t;}',
+    'qualified-matrix-static-cast': 'typedef unsigned T;static const T t[2][2];static const T *p=(const T *)t;',
 }
 
 # Rejections keep their existing diagnostics.
@@ -70,14 +78,9 @@ REJECT = {
     'typedef-then-keyword': ('typedef int T; T int x;', 203),
     'unsigned-aggregate': ('struct s{int a;}; unsigned struct s x;', 203),
     'unsigned-typedef': ('typedef int T; unsigned T x;', 237),
-    # A qualified matrix still cannot decay into a stored or computed
-    # array pointer; only an explicit cast operand may consume it.
+    # A qualified matrix decays to a pointer to qualified rows; storing it
+    # in an unqualified row pointer would discard the qualifier.
     'qualified-matrix-initializer': ('const long t[2][3];long f(void){long (*p)[3]=t;return p[0][0];}', 238),
-    'qualified-matrix-return': ('const long t[2][3];void *f(void){return t;}', 238),
-    'qualified-matrix-arithmetic': ('const long t[2][3];void *f(void){return (void *)(t+1);}', 238),
-    'qualified-matrix-address': ('const long t[2][3];void *f(void){return (void *)&t[0];}', 238),
-    'qualified-array-pointer-type': ('const long t[2][3];void *f(void){return (const long (*)[3])t;}', 238),
-    'qualified-matrix-static-cast': ('typedef unsigned T;static const T t[2][2];static const T *p=(const T *)t;', 238),
 }
 
 env = os.environ.copy()

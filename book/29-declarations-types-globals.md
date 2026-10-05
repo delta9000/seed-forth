@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (790 lines), the first of the
+That machinery is `110-cc-decl.fth` (785 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
@@ -823,10 +823,6 @@ defer cc-cast-value-fwd
 : cc-cast-null-default ( source destination null qualified -- null ) 2drop 2drop [lit] 0 ;
 defer cc-cast-null-fwd
 ' cc-cast-null-default is cc-cast-null-fwd
-\ The operand's own decay happens while this flag is set. Its type is then
-\ replaced by the type name, so no shape built for that decay survives.
-variable cc-cast-operand-decay
-[lit] 0 cc-cast-operand-decay !
 
 : cc-try-cast
   cc-next-token-keep
@@ -839,8 +835,7 @@ variable cc-cast-operand-decay
   cc-type-name-qualified @ >r
   cc-cast-desc @ >r                                ( ; R: ty qualification desc )
   cc-parse-unary
-  true cc-cast-operand-decay ! cc-emit-materialize
-  [lit] 0 cc-cast-operand-decay !
+  cc-emit-materialize
   r> r> r> swap >r                                 ( desc ty ; R: qualification )
   cc-target-lp64 @ if,
     cc-last-expr-type @ over cc-cast-types-fwd
@@ -867,10 +862,6 @@ type into one type word (Ch 24), keeping a struct's descriptor aside
 in `cc-cast-desc`.  `cc-try-cast` then parses the operand as a unary
 expression, since a cast binds tighter than any binary operator
 (`(char) x + 1` is `((char) x) + 1`), and materializes it.
-`cc-cast-operand-decay` is set only around that last materialization,
-so a target can tell an array decaying as the cast's own operand
-(whose type the cast immediately replaces) from any other decay;
-Chapter 36 uses it for qualified arrays.
 
 A cast changes no bits, except `(char)`, which keeps the low byte
 (`movzx edi, dil`, Ch 25), so `(char) 321` is 65.  What it changes is

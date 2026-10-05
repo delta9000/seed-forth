@@ -89,7 +89,6 @@ reject = {
     'function-return-array': (238, 'int (*f(void))[3];'),
     'array-of-functions': (238, 'int f[3](int);'),
     'unsupported-grouped-return': (238, 'int (**f(void))(int);'),
-    'qualified-array': (238, 'int g(void*d){return sizeof(int (*const *)[2]);}'),
     'named-depth-overflow': (231, 'int (' + '*'*256 + 'p)(int);'),
     'cast-depth-overflow': (231, 'int g(void*d){return sizeof(int (' + '*'*256 + ')(int));}'),
 }
