@@ -137,21 +137,21 @@ to its call site.
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
 | 143 | `110-cc-decl.fth:81` | `cc-expect-punct-c`: punctuation char mismatch. |
 | 144 | `110-cc-decl.fth:88` | `cc-expect-ident`: next token wasn't an identifier. |
-| 145 | `110-cc-decl.fth:222` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag`). |
-| 146 | `110-cc-decl.fth:227` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
-| 147 | `110-cc-decl.fth:231` | `struct TAG`: name isn't a struct tag (strict lookup). |
-| 148 | `110-cc-decl.fth:242` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag-soft`). |
-| 149 | `110-cc-decl.fth:259` | `struct` definition: tag isn't an identifier. |
-| 150 | `110-cc-decl.fth:309` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
-| 151 | `110-cc-decl.fth:315` | Struct definition: field type is neither a keyword nor an identifier. |
-| 152 | `110-cc-decl.fth:327` | Struct definition: field name missing. |
-| 153 | `110-cc-decl.fth:404` | Function-pointer declarator: expected name. |
-| 154 | `110-cc-decl.fth:428` | Function-pointer declarator: expected `=` or `;`. |
-| 156 | `110-cc-decl.fth:455` | Local array declaration: size is zero or negative. |
-| 157 | `110-cc-decl.fth:457` | Local array declaration: missing `]`. |
-| 159 | `110-cc-decl.fth:512` | Local declaration: a declarator followed by neither `,` nor `;`. |
-| 160 | `110-cc-decl.fth:684` | Struct local declaration: variable name missing. |
-| 161 | `110-cc-decl.fth:719` | Struct-pointer local not followed by `=` or `;`. |
+| 145 | `110-cc-decl.fth:228` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag`). |
+| 146 | `110-cc-decl.fth:233` | `struct TAG`: tag not found (strict lookup: locals, parameters, typedefs). |
+| 147 | `110-cc-decl.fth:237` | `struct TAG`: name isn't a struct tag (strict lookup). |
+| 148 | `110-cc-decl.fth:248` | `struct` (in a local, parameter, typedef, field or global) not followed by a tag identifier (`cc-lookup-struct-tag-soft`). |
+| 149 | `110-cc-decl.fth:265` | `struct` definition: tag isn't an identifier. |
+| 150 | `110-cc-decl.fth:315` | Struct definition: field type is a keyword other than `int`, `char`, `void` or `struct`. |
+| 151 | `110-cc-decl.fth:321` | Struct definition: field type is neither a keyword nor an identifier. |
+| 152 | `110-cc-decl.fth:333` | Struct definition: field name missing. |
+| 153 | `110-cc-decl.fth:410` | Function-pointer declarator: expected name. |
+| 154 | `110-cc-decl.fth:434` | Function-pointer declarator: expected `=` or `;`. |
+| 156 | `110-cc-decl.fth:461` | Local array declaration: size is zero or negative. |
+| 157 | `110-cc-decl.fth:463` | Local array declaration: missing `]`. |
+| 159 | `110-cc-decl.fth:518` | Local declaration: a declarator followed by neither `,` nor `;`. |
+| 160 | `110-cc-decl.fth:690` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:725` | Struct-pointer local not followed by `=` or `;`. |
 | 162 | `110-cc-decl.fth:45` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
 | 170 | `112-cc-stmt.fth:466,870,874` | `case` label not followed by `:` (`cc-switch-case`, every nesting depth), or under LP64 a `case` or `default` outside any switch. |
 | 171 | `112-cc-stmt.fth:698` | `cc-label-create`: selected per-function label table full (default 64, direct GCC 1,024), or its mapping fails. |
@@ -204,20 +204,20 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:438` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:448` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:760` | Native function ends with a `goto` target still undefined. |
-| 184 | `110-cc-decl.fth:378`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
-| 190 | `115-cc-native.fth:118` | Native enumerator is not an identifier. |
-| 192 | `115-cc-native.fth:126` | Native enumerator followed by neither `,` nor `}`. |
-| 194 | `115-cc-native.fth:204` | Native type identifier not found. |
-| 195 | `115-cc-native.fth:205` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:295,580` | Native declarator is missing its name. |
-| 205 | `115-cc-native.fth:595` | Native declaration missing its final semicolon. |
-| 210 | `115-cc-native.fth:54` | Aggregate object size requested without a descriptor. |
+| 184 | `110-cc-decl.fth:384`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
+| 190 | `115-cc-native.fth:119` | Native enumerator is not an identifier. |
+| 192 | `115-cc-native.fth:127` | Native enumerator followed by neither `,` nor `}`. |
+| 194 | `115-cc-native.fth:209` | Native type identifier not found. |
+| 195 | `115-cc-native.fth:210` | Native type identifier is not a typedef. |
+| 203 | `115-cc-native.fth:305,598` | Native declarator is missing its name. |
+| 205 | `115-cc-native.fth:613` | Native declaration missing its final semicolon. |
+| 210 | `115-cc-native.fth:55` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
 | 213 | `060-cc-types.fth:326` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
-| 214 | `110-cc-decl.fth:380`, `115-cc-native.fth:220` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
+| 214 | `110-cc-decl.fth:386`, `115-cc-native.fth:225` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:158` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:82,83,94,102` | Invalid or empty inferred array initializer. |
 | 221 | `118-cc-native-init.fth:99,106,126` | Malformed or unterminated inferred initializer. |
@@ -247,6 +247,15 @@ checks and output-publication failures.
 In the direct-GCC target, preprocessor code 49 rejects a selected `#line`
 directive or numeric line marker until logical source-location control is
 implemented. It must not silently supply incorrect `__FILE__`/`__LINE__` values.
+
+In the System V target, 233 rejects an invalid set of declaration
+specifiers (`cc-sysv-spec-check` and its neighbours in `121-cc-sysv.fth`): a
+type-keyword set C90 forbids, such as `long char` or a third `long`; a second
+storage class anywhere in one declaration, such as `static extern int x` or
+`int static static x`; and a storage class in an aggregate member, a type name,
+or a parameter other than its one `register`. Storage classes may otherwise
+appear among the type specifiers in any order (`int static x`). See
+[chapter 36](36-direct-gcc-calls.md).
 
 In the System V target, 238 rejects an array shape the type system cannot
 represent or that C forbids: a non-positive or excessive bound, a function

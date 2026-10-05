@@ -139,18 +139,24 @@ variable cc-type-name-qualified
 \
 \ Only `static` matters: cc-decl-static records whether it was seen, and a
 \ local declared static gets file-scope storage instead of a frame slot
-\ (cc-parse-local-declarator).  The rest are no-ops.
+\ (cc-parse-local-declarator).  The rest are no-ops.  cc-decl-storage
+\ counts the storage-class keywords read, for targets that reject two.
 variable cc-decl-static
 variable cc-decl-extern
+variable cc-decl-storage
 
 : cc-skip-storage-quals
   [lit] 0 cc-prefix-qualified !
-  [lit] 0 cc-decl-static ! [lit] 0 cc-decl-extern !
+  [lit] 0 cc-decl-static ! [lit] 0 cc-decl-extern ! [lit] 0 cc-decl-storage !
   begin,
     cc-next-token-keep
     cc-qualifier? if, true cc-prefix-qualified ! then,
     kw-static cc-tok-kw? if, true cc-decl-static ! then,
     kw-extern cc-tok-kw? if, true cc-decl-extern ! then,
+    kw-static cc-tok-kw? kw-extern cc-tok-kw? or
+    kw-auto cc-tok-kw? or kw-register cc-tok-kw? or if,
+      [lit] 1 cc-decl-storage +!
+    then,
     tok-kind @ tk-kw =
       tok-kw-id @ kw-static    =
       tok-kw-id @ kw-extern    = or

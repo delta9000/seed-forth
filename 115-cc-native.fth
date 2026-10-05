@@ -14,7 +14,7 @@
   repeat, drop 2drop ;
 
 variable cc-nctx
-[lit] 232 constant cc-nctx-bytes
+[lit] 240 constant cc-nctx-bytes
 : nc-ty     cc-nctx @ ;
 : nc-desc   cc-nctx @ [lit] 8 + ;
 : nc-name   cc-nctx @ [lit] 16 + ;
@@ -37,6 +37,7 @@ variable cc-nctx
 : nc-qualified cc-nctx @ [lit] 208 + ;
 : nc-base-qualified cc-nctx @ [lit] 216 + ;
 : nc-prefix-qualified cc-nctx @ [lit] 224 + ;
+: nc-storage cc-nctx @ [lit] 232 + ;
 : cc-native-qual-note cc-nctx @ if, true nc-qualified ! then, ;
 ' cc-native-qual-note is cc-qual-note
 : cc-nzero ( a n -- )
@@ -148,17 +149,21 @@ defer cc-nbase-specifiers-fwd
   repeat, ;
 
 \ Type keywords are counted per spelling: int .. signed use their keyword
-\ numbers 0-6, float is 7 and double 8. A target may check the multiset;
-\ native mode keeps its permissive keyword sequence.
-create cc-nspec-counts [lit] 72 allot
+\ numbers 0-6 as slots; float and double have the named slots after them.
+\ A target may check the multiset; native mode keeps its permissive
+\ keyword sequence.
+[lit] 7 constant cc-nspec-float
+[lit] 8 constant cc-nspec-double
+[lit] 9 constant cc-nspec-slots
+create cc-nspec-counts cc-nspec-slots [lit] 8 * allot
 : cc-nspec-count ( slot -- n ) cc-nspec-counts cell[] @ ;
 : cc-nspec-keyword? ( -- flag )
   cc-tok-is-basic-type-kw? kw-float cc-tok-kw? or kw-double cc-tok-kw? or ;
 : cc-nspec-note
   cc-nspec-keyword? 0= if, exit, then,
   tok-kw-id @
-  dup kw-float = if, drop [lit] 7 then,
-  dup kw-double = if, drop [lit] 8 then,
+  dup kw-float = if, drop cc-nspec-float then,
+  dup kw-double = if, drop cc-nspec-double then,
   cc-nspec-counts cell[] dup @ 1+ swap ! ;
 : cc-nspec-check-default ;
 defer cc-nspec-check-fwd
@@ -170,8 +175,8 @@ defer cc-nspec-check-fwd
 \ Two longs name long long only under LP64; the legacy model has one long.
 : cc-nspec-base ( -- base )
   kw-void cc-nspec-count if, ty-void exit, then,
-  [lit] 7 cc-nspec-count if, ty-float exit, then,
-  [lit] 8 cc-nspec-count if,
+  cc-nspec-float cc-nspec-count if, ty-float exit, then,
+  cc-nspec-double cc-nspec-count if,
     kw-long cc-nspec-count if, ty-ldouble else, ty-double then, exit,
   then,
   kw-char cc-nspec-count if, ty-char exit, then,
@@ -207,7 +212,7 @@ defer cc-nbase-scalar-fwd
     dup cc-sym-val-of swap cc-sym-struct-desc-of exit,
   then,
   \ Count every keyword first, so the spelling order cannot matter.
-  cc-nspec-counts [lit] 72 cc-nzero
+  cc-nspec-counts cc-nspec-slots [lit] 8 * cc-nzero
   begin,
     cc-nspec-note
     cc-next-token-keep cc-nbase-next-specifier
@@ -227,10 +232,15 @@ defer cc-nbase-scalar-fwd
     drop ty-uint then, then, then, then,
   then,
   [lit] 0 ty-make [lit] 0 cc-nbase-scalar-fwd ;
+\ A target may also read specifiers after a typedef name, tag or implicit
+\ int, as in `struct S static s;`; native mode leaves them to the declarator.
+: cc-nbase-trailing-default ;
+defer cc-nbase-trailing-fwd
+' cc-nbase-trailing-default is cc-nbase-trailing-fwd
  : cc-nbase
   cc-nctx @ 0= if, cc-ncontext then,
   nc-prefix-qualified @ nc-qualified ! [lit] 0 nc-prefix-qualified !
-  cc-nbase-raw nc-qualified @ nc-base-qualified ! ;
+  cc-nbase-raw cc-nbase-trailing-fwd nc-qualified @ nc-base-qualified ! ;
 ' cc-nbase is cc-nbase-fwd
 
 \ The optional ABI layer records function-pointer signatures at this seam.
@@ -564,14 +574,22 @@ defer cc-native-local-layout-fwd
 defer cc-nobject-fwd
 ' cc-nobject is cc-nobject-fwd
 
+\ cc-nstorage-context is the declaration context whose own base may hold
+\ storage-class keywords among its type specifiers (C90 6.5 sets no order);
+\ a target reads them through cc-nbase-specifiers-fwd.  nc-storage starts
+\ with the count already read before the base, including a leading typedef.
+variable cc-nstorage-context
 : cc-native-declaration ( top? -- )
   cc-nctx @ >r cc-ncontext nc-top !
   cc-prefix-qualified @ nc-prefix-qualified ! [lit] 0 cc-prefix-qualified !
   cc-decl-static @ nc-static ! cc-decl-extern @ nc-extern !
+  cc-decl-storage @ nc-storage !
   kw-typedef cc-tok-kw? if,
-    true nc-td ! cc-next-token-keep
+    true nc-td ! [lit] 1 nc-storage +! cc-next-token-keep
   then,
+  cc-nstorage-context @ >r cc-nctx @ cc-nstorage-context !
   cc-nbase nc-sdesc ! nc-base !
+  r> cc-nstorage-context !
   cc-next-token-keep
   [char] ; cc-tok-punct? if, r> cc-nctx ! exit, then,
   cc-putback-token

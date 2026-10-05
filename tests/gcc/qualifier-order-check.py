@@ -51,6 +51,27 @@ ACCEPT = {
     'qualified-matrix-address': 'const long t[2][3];void *f(void){return (void *)&t[0];}',
     'qualified-array-pointer-type': 'const long t[2][3];void *f(void){return (const long (*)[3])t;}',
     'qualified-matrix-static-cast': 'typedef unsigned T;static const T t[2][2];static const T *p=(const T *)t;',
+    # Storage-class specifiers interleaved with type specifiers (C90 6.5).
+    'file-int-static': 'int static x;',
+    'file-long-static-int': 'long static int y;',
+    'file-char-const-static-pointer': 'char const static *p;',
+    'file-unsigned-extern-long': 'unsigned extern long z;',
+    'file-const-extern-trailing': 'int const extern volatile w;',
+    'file-int-typedef': 'int typedef T; T t;',
+    'file-unsigned-typedef-long': 'unsigned typedef long U; U u;',
+    'file-typedef-name-static': 'typedef int T; T static t;',
+    'file-typedef-name-const-static': 'typedef int T; T const static t = 1;',
+    'file-struct-static': 'struct S{int a;}; struct S static s;',
+    'file-struct-definition-static': 'struct S{int a;} static s;',
+    'file-enum-static': 'enum E{A} static e;',
+    'file-function-static': 'int static f(void){return 0;}',
+    'file-function-inline-static': 'int inline static f(void){return 0;}',
+    'file-function-extern': 'long extern f(void);',
+    'block-int-static': 'int f(void){int static n;return ++n;}',
+    'block-long-register-int': 'int f(void){long register int r=1;return r;}',
+    'block-unsigned-auto': 'int f(void){unsigned auto a=2;return a;}',
+    'block-int-extern': 'int f(void){int extern g;return g;}',
+    'block-short-typedef': 'int f(void){short typedef T;T t=1;return t;}',
 }
 
 # Rejections keep their existing diagnostics.
@@ -81,6 +102,28 @@ REJECT = {
     # A qualified matrix decays to a pointer to qualified rows; storing it
     # in an unqualified row pointer would discard the qualifier.
     'qualified-matrix-initializer': ('const long t[2][3];long f(void){long (*p)[3]=t;return p[0][0];}', 238),
+    # One storage class per declaration, wherever written; none in a
+    # member or a type name.
+    'static-static': ('static static int x;', 233),
+    'static-extern': ('static extern int x;', 233),
+    'int-static-extern': ('int static extern x;', 233),
+    'int-static-static': ('int static static x;', 233),
+    'extern-int-extern': ('extern int extern x;', 233),
+    'typedef-static': ('typedef static int x;', 233),
+    'static-typedef': ('static typedef int x;', 233),
+    'int-typedef-static': ('int typedef static x;', 233),
+    'typedef-name-static-extern': ('typedef int T; T static extern t;', 233),
+    'struct-static-extern': ('struct S{int a;}; struct S static extern s;', 233),
+    'block-static-auto': ('int f(void){int static auto x;return 0;}', 233),
+    'block-static-register': ('int f(void){static int register x;return 0;}', 233),
+    'member-static-prefix': ('struct S{static int a;};', 233),
+    'member-static-between': ('struct S{int static a;};', 233),
+    'member-register': ('struct S{int a; long register b;};', 233),
+    'parameter-int-static': ('int f(int static a);', 233),
+    'parameter-int-typedef': ('int f(int typedef a);', 233),
+    'sizeof-type-name-static': ('int f(void){return sizeof(int static);}', 233),
+    'cast-type-name-static': ('int f(void){return (int static)1;}', 233),
+    'enumerator-type-name-static': ('enum {A = sizeof(int static)} x;', 233),
 }
 
 env = os.environ.copy()

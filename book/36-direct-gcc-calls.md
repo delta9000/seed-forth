@@ -221,7 +221,20 @@ original Flex headers. Named parameters, abstract parameters and nested
 callback signatures use the same parser as function definitions and K&R
 parameter declarations. Other storage classes and repeated `register`
 reject with error 233. A context guard keeps this policy out of aggregate
-member declarations and ordinary type names. Qualifiers keep the shared
+member declarations and ordinary type names.
+
+File- and block-scope declarations accept their storage class anywhere
+among the other specifiers too, as C90 6.5 sets no order: `int static x`,
+`long static int y`, `char const static *p`, `unsigned extern long z`,
+`int typedef T`, and after a typedef name or tag, `struct S static s`. 115's
+`cc-native-declaration` names its own context in `cc-nstorage-context` while
+it reads the base, and `cc-sysv-storage-specifier?` sets the same
+`nc-static`, `nc-extern` and `nc-td` cells a leading keyword would. The
+context's `nc-storage` counts every storage class, those read before the
+base by `cc-skip-storage-quals` included, so `static extern int x` and
+`int static static x` reject with 233. A storage class in a member or a type
+name, even one nested in a declaration's enumerator, is 233 as well.
+Qualifiers keep the shared
 parser's existing behavior; they do not replace or weaken the recorded
 base type, signedness, pointer depth, aggregate identity or callback signature.
 
@@ -773,9 +786,35 @@ defer cc-sysv-signature-fwd
 \ type, signedness, pointer depth and descriptor still come from cc-nbase.
 variable cc-sysv-parameter-context
 variable cc-sysv-parameter-register
+\ A file- or block-scope declaration's own base (cc-nstorage-context, 115)
+\ also reads storage-class keywords between its type keywords and
+\ qualifiers: `int static x`, `long static int y`, `char const static *p`,
+\ `unsigned extern long z`, `int typedef T`.  They set the same nc-static,
+\ nc-extern and nc-td cells as a leading keyword.  One storage class per
+\ declaration, wherever it is written; a second is 233.  So is one in a
+\ member or a type name, neither of which declares storage.
+: cc-sysv-storage-note
+  [lit] 1 nc-storage +! nc-storage @ [lit] 1 > if, [lit] 233 cc-die then, ;
+: cc-sysv-storage-specifier? ( -- flag )
+  kw-static cc-tok-kw? if, cc-sysv-storage-note true nc-static ! true exit, then,
+  kw-extern cc-tok-kw? if, cc-sysv-storage-note true nc-extern ! true exit, then,
+  kw-typedef cc-tok-kw? if, cc-sysv-storage-note true nc-td ! true exit, then,
+  kw-auto cc-tok-kw? kw-register cc-tok-kw? or if,
+    cc-sysv-storage-note true exit,
+  then,
+  kw-inline cc-tok-kw? ;
+: cc-sysv-declaration-specifiers
+  nc-storage @ [lit] 1 > if, [lit] 233 cc-die then,
+  begin, cc-sysv-storage-specifier? while, cc-next-token-keep repeat, ;
+: cc-sysv-storage-keyword? ( -- flag )
+  kw-static cc-tok-kw? kw-extern cc-tok-kw? or kw-typedef cc-tok-kw? or
+  kw-auto cc-tok-kw? or kw-register cc-tok-kw? or ;
 : cc-sysv-parameter-specifiers
   cc-target-sysv @ 0= if, exit, then,
-  cc-nctx @ cc-sysv-parameter-context @ <> if, exit, then,
+  cc-nctx @ cc-nstorage-context @ = if, cc-sysv-declaration-specifiers exit, then,
+  cc-nctx @ cc-sysv-parameter-context @ <> if,
+    cc-sysv-storage-keyword? if, [lit] 233 cc-die then, exit,
+  then,
   begin,
     kw-static cc-tok-kw? kw-extern cc-tok-kw? or
     kw-auto cc-tok-kw? or kw-typedef cc-tok-kw? or
@@ -786,6 +825,12 @@ variable cc-sysv-parameter-register
     else, cc-qualifier? dup if, cc-qual-note then, then,
   while, cc-next-token-keep repeat, ;
 ' cc-sysv-parameter-specifiers is cc-nbase-specifiers-fwd
+\ After a typedef name, tag or implicit int, the same specifiers and
+\ qualifiers may follow before the declarator: `struct S static s`.
+: cc-sysv-base-trailing
+  cc-target-sysv @ 0= if, exit, then,
+  cc-next-token-keep cc-nbase-next-specifier cc-putback-token ;
+' cc-sysv-base-trailing is cc-nbase-trailing-fwd
 \ C90 constrains the multiset of type keywords, whatever their order and
 \ any qualifiers between them. Only long may repeat (long long); one sign;
 \ void and float stand alone; double admits one long; char admits a sign;
@@ -794,24 +839,26 @@ variable cc-sysv-spec-bad
 : cc-sysv-spec-fail ( flag -- ) cc-sysv-spec-bad @ or cc-sysv-spec-bad ! ;
 : cc-sysv-spec-total ( -- n )
   [lit] 0 [lit] 0
-  begin, dup [lit] 9 < while, dup cc-nspec-count rot + swap 1+ repeat, drop ;
+  begin, dup cc-nspec-slots < while, dup cc-nspec-count rot + swap 1+ repeat, drop ;
 \ Fail when any keyword outside the named slots' total is present.
 : cc-sysv-spec-only ( allowed -- ) cc-sysv-spec-total swap - [lit] 0 > cc-sysv-spec-fail ;
 : cc-sysv-spec-check
   cc-target-sysv @ 0= if, exit, then,
   [lit] 0 cc-sysv-spec-bad !
   [lit] 0
-  begin, dup [lit] 9 < while,
+  begin, dup cc-nspec-slots < while,
     dup cc-nspec-count over kw-long = if, [lit] 2 else, [lit] 1 then, >
     cc-sysv-spec-fail 1+
   repeat, drop
   kw-unsigned cc-nspec-count kw-signed cc-nspec-count + dup >r
   [lit] 1 > cc-sysv-spec-fail
   kw-void cc-nspec-count if, kw-void cc-nspec-count cc-sysv-spec-only then,
-  [lit] 7 cc-nspec-count if, [lit] 7 cc-nspec-count cc-sysv-spec-only then,
-  [lit] 8 cc-nspec-count if,
+  cc-nspec-float cc-nspec-count if,
+    cc-nspec-float cc-nspec-count cc-sysv-spec-only
+  then,
+  cc-nspec-double cc-nspec-count if,
     kw-long cc-nspec-count [lit] 1 > cc-sysv-spec-fail
-    [lit] 8 cc-nspec-count kw-long cc-nspec-count + cc-sysv-spec-only
+    cc-nspec-double cc-nspec-count kw-long cc-nspec-count + cc-sysv-spec-only
   then,
   kw-char cc-nspec-count if, kw-char cc-nspec-count r@ + cc-sysv-spec-only then,
   kw-short cc-nspec-count if,
@@ -922,12 +969,17 @@ variable cc-sysv-spec-bad
       ty-func r> ty-make
     then,
   else, cc-putback-token then, ;
+\ A type name shares its enclosing declaration's context but is never a
+\ declaration: a storage class inside one, as in an enumerator's
+\ sizeof (int static), is 233 (cc-sysv-parameter-specifiers).
 : cc-sysv-type-name
   cc-nctx @ 0= if, cc-ncontext then,
+  cc-nstorage-context @ >r [lit] 0 cc-nstorage-context !
   nc-qualified @ >r nc-base-qualified @ >r nc-prefix-qualified @ >r
   [lit] 0 nc-prefix-qualified ! cc-sysv-type-name-raw
   nc-qualified @ cc-type-name-qualified !
-  r> nc-prefix-qualified ! r> nc-base-qualified ! r> nc-qualified ! ;
+  r> nc-prefix-qualified ! r> nc-base-qualified ! r> nc-qualified !
+  r> cc-nstorage-context ! ;
 ' cc-sysv-type-name is cc-native-type-name-fwd
 
 \ C permits function-pointer conversions and a round trip back to the

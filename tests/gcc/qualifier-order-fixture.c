@@ -40,6 +40,25 @@ struct record {
   short const unsigned narrow;
 };
 
+/* Storage classes among the type specifiers: C90 6.5 sets no order.  */
+int static file_static_int = 21;
+long static int file_static_long = -22;
+char const static *file_static_text = "order";
+unsigned extern long file_extern_ulong;
+unsigned long file_extern_ulong = 23;
+int typedef file_int_t;
+file_int_t const static file_typedef_value = 24;
+struct record static file_record = { 7, 0, 0, 0, 8 };
+word_t static file_word = 25;
+
+static unsigned long
+next_id(void)
+{
+  unsigned long static id;
+  long register int step = 1;
+  return id += step;
+}
+
 /* Parameters, including register in between.  */
 static unsigned long
 sum(unsigned const char *p, register unsigned const n, word_t const bias,
@@ -108,6 +127,17 @@ main(void)
          (int) (signed const char) 200, (unsigned long) (long const unsigned) -1,
          (unsigned) *(volatile word_t *) &table[1][1]);
   printf("pointers %d %d\n", file_ptr == 0, (char const *) 0 == 0);
+  {
+    short typedef local_t;
+    local_t const static local_value = 26;
+    unsigned auto int local_auto = 27;
+    next_id();
+    printf("storage %d %ld %s %lu %d %u %u %u %lu %d %u\n", file_static_int,
+           file_static_long, file_static_text, file_extern_ulong,
+           (int) file_typedef_value, (unsigned) file_record.tag,
+           (unsigned) file_record.narrow, file_word, next_id(),
+           (int) local_value, local_auto);
+  }
   return 0;
 }
 
