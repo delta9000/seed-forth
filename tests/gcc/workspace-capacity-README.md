@@ -22,9 +22,11 @@ and allocate together; every other bound is left unchanged.
 | Workspace | Existing default | Measured requirement | Direct-GCC bound |
 |---|---:|---:|---:|
 | Raw source | 1 MiB | 2,782,995 bytes plus EOF reserve | 3 MiB |
-| Expanded source | 2 MiB | 2,747,955 bytes | 3 MiB |
+| Expanded source | 2 MiB | 5,415,887 bytes (binutils `i386-opc.c`) | 7 MiB |
+| Direct live include stack | 1 MiB dictionary pool | 5,334,945 bytes plus EOF reserve (`i386-tbl.h`) | 7 MiB, shared with expanded source |
 | Text payload | 512 KiB | 3,328,178 bytes | 4 MiB |
 | Output staging / complete ELF | 1 MiB | 3,901,856 bytes | 4 MiB |
+| Rodata, data (each) | 256 KiB | 841,448 data bytes (binutils `i386-dis.c`) | 2 MiB |
 | Macro rows, six columns | 4,096 physical; legacy enforces 1,024 | 4,120 | 4,608 |
 | Stable object records, 128 bytes each | 4,096 | 10,559 | 10,752 |
 | ELF symbols, 64 bytes each, excluding reserved null | 2,048 | 7,772 | 8,192 |
@@ -52,6 +54,32 @@ resets logical state, and creation overwrites every reused macro/label/record ro
 `cc-workspace-round` validates positivity and addition overflow before page
 rounding; `cc-workspace-map` checks one mmap result before publishing active
 pointers. There is no user-supplied growth knob or retry loop.
+
+## Binutils 2.30 source-text and section bounds
+
+Binutils' x86 opcodes library exceeded two bounds the GCC cohort never
+reached. `opcodes/i386-opc.c` includes the generated 5,334,945-byte
+`i386-tbl.h` (error 32 against the 1 MiB direct include pool) and expands to
+5,415,887 bytes. `opcodes/i386-dis.c` fills its 256 KiB `.data` (error 245
+from `cc-obj-room`); diagnostic-only codes per 245 site and generous caps
+measured 841,448 data bytes, 22,268 rodata, 9,291 relocations, 3,032
+symbols and 27,801 string bytes. `i386-opc.c` needs 513,632 data bytes.
+
+These three bounds follow one rule: the measured cohort maximum plus 25%,
+rounded up to whole MiB. The cohort is all 453 units of the binutils 2.30 and
+GCC 4.0.4 `gcc` builds that preprocess (gas stops earlier at error 49); the
+largest live include stack outside `i386-opc.c` is 453,505 bytes
+(`ld/ldlex-wrapper.c`) and the largest expansion 2,748,789 (`insn-attrtab.c`).
+Direct mode keeps comments, so every live byte outside directives and skipped
+groups also reaches the expanded source: the include pool is defined as
+`cc-src-direct-cap` rather than a second number. The earlier rows keep their
+whole-MiB rounding. The pool is a separate cached anonymous mapping selected
+by `cc-prep-direct-workspace` (mapping failure: 32); `cc-obj-section-cap`
+became a selected limit like the text capacity. Address space reserved by the
+direct profile grows by 18.5 MiB (IO 4, suppression shadow 4, include pool 7,
+object payload 3.5); only touched pages become resident.
+`source-capacity-check.py` drives the real driver at each exact bound and one
+byte past it, checking the code and that absent or existing output is kept.
 
 ## What changed the diagnosis
 
@@ -110,6 +138,9 @@ Original input SHA256 values:
   buffer/table, six macro and five label columns, record ID bounds, page-rounding
   edge cases, mmap errors, selection/default/reset behavior, disjoint slices,
   and actual full dictionary HERE including linker and archive against the seed map
+- `source-capacity-check.py`: real-driver exact/one-past include pool (single,
+  nested live stack, sequential reuse), expanded source and `.data` bounds,
+  with output preservation
 - `workspace-label-check.py`: forward/backward gotos, per-function reuse,
   duplicate/undefined diagnostics, and 65/1,024/1,025-label C functions
 - `workspace-preservation-check.py --baseline PATH`: byte comparisons against an

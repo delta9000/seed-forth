@@ -29,7 +29,7 @@ def pathword(name,path):return f'create {name} s, {path} [lit] 0 c,\n'
 forth('layout-cache-default-reset','''
 cc-obj-symbol-cap [lit] 2048 = assert cc-om-cap [lit] 4096 = assert
 variable calls : map-count [lit] 1 calls +!
-  calls @ [lit] 1 = if, dup [lit] 6164480 = assert
+  calls @ [lit] 1 = if, dup [lit] 9834496 = assert
   else, dup [lit] 1376256 = assert then, cc-workspace-syscall ;
 ' map-count is cc-workspace-syscall-fwd
 [lit] 71 cc-obj-default-symbols ! [lit] 72 cc-om-default-records ! [lit] 73 cc-obj-default-strings c!

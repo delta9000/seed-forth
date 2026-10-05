@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2638 names and 97 ideas.
+carry none.  2647 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1388,7 +1388,10 @@ for which chapter depends on which, the
 - `cc-obj-s-value` — *compiler word (variable, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-s-vis` — *compiler word (variable, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-section` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
-- `cc-obj-section-cap` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-section-cap` — *compiler word (`081-cc-object.fth`)* — [Ch 35 §3 Bounds and failures](35-direct-gcc-objects.md#3-bounds-and-failures)
+- `cc-obj-section-default-cap` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-section-direct-cap` — *compiler word (constant, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
+- `cc-obj-section-limit` — *compiler word (variable, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-sections` — *compiler word (create, `081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-sh` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
 - `cc-obj-sh-init` — *compiler word (`081-cc-object.fth`)* — [Ch 35, Canonical source](35-direct-gcc-objects.md#canonical-source)
@@ -1780,10 +1783,10 @@ for which chapter depends on which, the
 - `cc-prep-config-reset` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-copy-path` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-current-path` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
-- `cc-prep-default-workspace` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §2 The macro table](22-the-preprocessor.md#2-the-macro-table)
+- `cc-prep-default-workspace` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-direct` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §1 The contract, the sink and the scratch area](22-the-preprocessor.md#1-the-contract-the-sink-and-the-scratch-area)
 - `cc-prep-direct-depth` — *compiler word (constant, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
-- `cc-prep-direct-workspace` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §2 The macro table](22-the-preprocessor.md#2-the-macro-table)
+- `cc-prep-direct-workspace` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-directive-blanks` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-prep-directive-prefix` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-prep-directory` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
@@ -1801,9 +1804,15 @@ for which chapter depends on which, the
 - `cc-prep-ident-len` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-prep-ident=` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-prep-in-file` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
+- `cc-prep-inc-buf` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-prep-inc-buffer` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-prep-inc-cap` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-depth` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-prep-inc-direct-base` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-prep-inc-direct-cap` — *compiler word (constant, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-end` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, `#include`](22-the-preprocessor.md#include)
 - `cc-prep-inc-expanded` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, `#include`](22-the-preprocessor.md#include)
+- `cc-prep-inc-limit` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-mode` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-pool` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-slot-addr` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)

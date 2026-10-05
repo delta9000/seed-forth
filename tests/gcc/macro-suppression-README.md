@@ -8,8 +8,9 @@ copied member name again.
 
 ## Representation and limits
 
-`040-cc-prep.fth` uses a direct-mode, per-process mapping of 5 MiB: one shadow
-byte for each byte of the 2 MiB scratch area, then a 3 MiB final-source shadow.
+`040-cc-prep.fth` uses a direct-mode, per-process mapping of 9 MiB: one shadow
+byte for each byte of the 2 MiB scratch area, then a 7 MiB final-source shadow
+(the direct expanded-source bound; it was 3 MiB before binutils' i386-opc.c).
 The active source interval is restricted to its selected capacity. Native direct
 preprocessing with the default 2 MiB source buffer leaves the remaining source
 shadow inactive. Legacy mode neither allocates nor selects shadow storage.

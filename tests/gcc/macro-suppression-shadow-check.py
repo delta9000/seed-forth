@@ -47,7 +47,7 @@ cc-pp-scratch cc-pp-flag-address 0= assert cc-src-buf cc-pp-flag-address 0= asse
 ''')
 forth('allocation-layout-cache', '''
 cc-io-direct-workspace true cc-prep-direct ! variable calls
-: counted-map [lit] 1 calls +! dup [lit] 5242880 = assert cc-workspace-syscall ;
+: counted-map [lit] 1 calls +! dup [lit] 9437184 = assert cc-workspace-syscall ;
 ' counted-map is cc-workspace-syscall-fwd
 cc-src-buf cc-pp-out ! cc-pp-flags-init
 cc-pp-flags-base @ [lit] 0 > assert calls @ [lit] 1 = assert
@@ -60,7 +60,7 @@ for label, addr, expr in [
     ('scratch-before','cc-pp-scratch 1-','[lit] 0'),
     ('scratch-onepast','cc-pp-scratch cc-pp-scratch-cap +','[lit] 0'),
     ('source-first','cc-src-buf','cc-pp-flags-base @ cc-pp-scratch-cap +'),
-    ('source-last','cc-src-buf cc-src-cap + 1-','cc-pp-flags-base @ [lit] 5242880 + 1-'),
+    ('source-last','cc-src-buf cc-src-cap + 1-','cc-pp-flags-base @ [lit] 9437184 + 1-'),
     ('source-before','cc-src-buf 1-','[lit] 0'),
     ('source-onepast','cc-src-buf cc-src-cap +','[lit] 0'),
     ('raw','cc-in-buf','[lit] 0'), ('macro-pool','cc-macro-pool','[lit] 0')]:

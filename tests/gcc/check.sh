@@ -13,6 +13,7 @@ python3 tests/gcc/symbol-capacity-check.py
 python3 tests/gcc/arena-capacity-check.py
 python3 tests/gcc/workspace-capacity-check.py
 python3 tests/gcc/object-capacity-check.py
+python3 tests/gcc/source-capacity-check.py
 python3 tests/gcc/workspace-label-check.py
 python3 tests/gcc/object-writer-check.py
 python3 tests/gcc/linker-check.py

@@ -341,28 +341,7 @@ variable cc-macro-pool-pos
 \ Fixed opt-in policy; changing one array never changes legacy macro limits.
 [lit] 4608 constant cc-macro-direct-cap
 variable cc-macro-direct-base
-: cc-prep-default-workspace ( -- )
-  cc-macro-default-cap cc-macro-limit !
-  cc-macro-default-name-addr cc-macro-name-addr-buffer !
-  cc-macro-default-name-len cc-macro-name-len-buffer !
-  cc-macro-default-body-addr cc-macro-body-addr-buffer !
-  cc-macro-default-body-len cc-macro-body-len-buffer !
-  cc-macro-default-params cc-macro-params-buffer !
-  cc-macro-default-busy cc-macro-busy-buffer !
-;
-: cc-prep-direct-workspace ( -- )
-  cc-macro-direct-base @ 0= if,
-    cc-macro-direct-cap [lit] 48 *
-    [lit] 34 cc-workspace-map cc-macro-direct-base !
-  then,
-  cc-macro-direct-cap cc-macro-limit !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 0 * + cc-macro-name-addr-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 8 * + cc-macro-name-len-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 16 * + cc-macro-body-addr-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 24 * + cc-macro-body-len-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 32 * + cc-macro-params-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 40 * + cc-macro-busy-buffer !
-;
+\ The selectors that switch these arrays follow the include pool below.
 
 \ cc-pp-to-pool ( -- )  Make the macro pool the sink (die 35 when full).
 : cc-pp-to-pool
@@ -840,7 +819,83 @@ variable cc-prep-inc-top                         \ direct-mode bytes in use
 : cc-prep-inc-slot-addr
   cc-prep-inc-slot-cap *  cc-prep-inc-pool + ;
 
+\ Direct mode packs the live include stack at cc-prep-inc-top into a
+\ selected pool: by default the dictionary pool above, 1 MiB.  The
+\ direct-GCC workspace maps a separate pool instead.  Every live byte
+\ outside a directive or skipped group is also copied into the expanded
+\ source, so the pool shares that buffer's bound (030): 7 MiB, from the
+\ binutils 2.30 i386-opc.c measurement (5,334,945 bytes live in i386-tbl.h,
+\ 5,415,887 expanded) plus 25%, rounded up to whole MiB.
+cc-src-direct-cap constant cc-prep-inc-direct-cap
+variable cc-prep-inc-buffer
+variable cc-prep-inc-limit
+variable cc-prep-inc-direct-base
+: cc-prep-inc-buf ( -- address ) cc-prep-inc-buffer @ ;
+: cc-prep-inc-cap ( -- bytes ) cc-prep-inc-limit @ ;
+
+\ Workspace selection for the macro arrays above and the packed include
+\ pool.  Neither selector migrates live data or resets a count.
+: cc-prep-default-workspace ( -- )
+  cc-macro-default-cap cc-macro-limit !
+  cc-macro-default-name-addr cc-macro-name-addr-buffer !
+  cc-macro-default-name-len cc-macro-name-len-buffer !
+  cc-macro-default-body-addr cc-macro-body-addr-buffer !
+  cc-macro-default-body-len cc-macro-body-len-buffer !
+  cc-macro-default-params cc-macro-params-buffer !
+  cc-macro-default-busy cc-macro-busy-buffer !
+  cc-prep-inc-pool cc-prep-inc-buffer !
+  cc-prep-inc-slot-cap cc-prep-inc-slot-count * cc-prep-inc-limit !
+;
+cc-prep-default-workspace
+: cc-prep-direct-workspace ( -- )
+  cc-macro-direct-base @ 0= if,
+    cc-macro-direct-cap [lit] 48 *
+    [lit] 34 cc-workspace-map cc-macro-direct-base !
+  then,
+  cc-prep-inc-direct-base @ 0= if,
+    cc-prep-inc-direct-cap [lit] 32 cc-workspace-map cc-prep-inc-direct-base !
+  then,
+  cc-macro-direct-cap cc-macro-limit !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 0 * + cc-macro-name-addr-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 8 * + cc-macro-name-len-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 16 * + cc-macro-body-addr-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 24 * + cc-macro-body-len-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 32 * + cc-macro-params-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 40 * + cc-macro-busy-buffer !
+  cc-prep-inc-direct-base @ cc-prep-inc-buffer !
+  cc-prep-inc-direct-cap cc-prep-inc-limit !
+;
+
 ```
+
+Direct mode does not use slots.  It packs each newly opened file at
+`cc-prep-inc-top`, just past the files still open beneath it, and gives
+the bytes back when the file ends, so the pool must hold the *live*
+include stack, not every header the unit ever reads.  `cc-prep-inc-buf`
+and `cc-prep-inc-cap` answer the selected pool, the same address and
+capacity indirection Ch 21 uses for its buffers.  By default that is the
+dictionary pool above, so native direct preprocessing keeps 1 MiB.  The
+two workspace selectors, which also switch the macro arrays of §2, live
+here because they must name both tables.  `cc-prep-direct-workspace`
+maps a separate pool once per process and points the words at it;
+neither selector moves live data or resets a count.
+
+The direct-GCC pool's bound is a measurement.  Preprocessing every unit
+of the binutils 2.30 build (opcodes, bfd, libiberty, ld, binutils, zlib;
+gas stops earlier at a `#line` marker) and GCC 4.0.4's `gcc` directory,
+453 units, the largest live stack is 5,334,945 bytes: `opcodes/i386-opc.c`
+includes `i386-tbl.h`, a generated table of every x86 instruction
+template.  The next largest is 453,505 bytes (`ld/ldlex-wrapper.c`).
+Its expanded text is 5,415,887 bytes, nearly twice GCC's largest
+(`insn-attrtab.c`, 2,748,789).  Direct mode keeps comments, and every
+byte outside a directive or a skipped group reaches the expanded
+source, so a pool larger than that buffer could never be filled
+usefully.  The two share one bound, `cc-src-direct-cap`: the measured
+maximum plus a quarter, rounded up to a whole MiB, 7 MiB.  The raw
+reader keeps one byte free to see end of file, so a live stack of
+7 MiB less one byte fits and one more byte is code 32, as is a failed
+mapping.  Only touched pages of an anonymous mapping become resident,
+so the bound costs address space, not memory, for smaller units.
 
 A header is looked up under two names, so the file needs a small path
 builder.
@@ -1011,8 +1066,8 @@ variable cc-prep-load-name-u
 \ cc-prep-load-file ( path-a path-u -- buf-a buf-u )
 \ Legacy mode tries the literal name then tests/cc/<name>, using a slot
 \ per depth.  Direct mode uses the includer and explicit directories,
-\ packing live files into the pool.  Dies with 31 at the depth limit,
-\ 30 if no path opens, and 32 when the include pool is full.
+\ packing live files into the selected pool.  Dies with 31 at the depth
+\ limit, 30 if no path opens, and 32 when the slot or pool is full.
 : cc-prep-open-include
   \ Absolute names are already complete in either include form.
   cc-prep-load-name-u @ if,
@@ -1057,8 +1112,8 @@ variable cc-prep-load-name-u
   >r
   cc-prep-direct @ if,
     cc-prep-record-path
-    cc-prep-inc-pool cc-prep-inc-top @ +
-    r@ over cc-prep-inc-slot-cap cc-prep-inc-slot-count *
+    cc-prep-inc-buf cc-prep-inc-top @ +
+    r@ over cc-prep-inc-cap
     cc-prep-inc-top @ - [lit] 32 cc-read-all
     dup cc-prep-inc-top +!
   else,
@@ -1314,7 +1369,7 @@ Argument and replacement copies retain that mark; ordinary identifier lookup
 and the tail rescan both check it before trying another expansion.
 
 The mark is stored outside the C spelling. One fixed mapping contains a
-2 MiB scratch shadow followed by a 3 MiB source shadow. The active source
+2 MiB scratch shadow followed by a 7 MiB source shadow. The active source
 interval uses its selected capacity, so native direct mode with the default
 2 MiB source does not expose the spare part of that shadow. Raw input,
 include storage and saved replacement text have no shadow. The mapping is
@@ -2913,7 +2968,8 @@ depth, so a header's own relative include does not depend on the shell's
 working directory. Direct mode packs the live file contents into the
 same 1 MiB include pool, with a depth limit of 32, and raises the macro
 limits to 4,096 definitions and a 256 KiB text pool. The direct-GCC driver
-selects a separately mapped 4,608-entry table; its text-pool bound is unchanged. Legacy limits and
+selects a separately mapped 4,608-entry table and a mapped 7 MiB include
+pool (§4); its text-pool bound is unchanged. Legacy limits and
 diagnostic codes are retained.
 
 A direct function-macro call keeps both raw and expanded arguments.

@@ -242,28 +242,7 @@ variable cc-macro-pool-pos
 \ Fixed opt-in policy; changing one array never changes legacy macro limits.
 [lit] 4608 constant cc-macro-direct-cap
 variable cc-macro-direct-base
-: cc-prep-default-workspace ( -- )
-  cc-macro-default-cap cc-macro-limit !
-  cc-macro-default-name-addr cc-macro-name-addr-buffer !
-  cc-macro-default-name-len cc-macro-name-len-buffer !
-  cc-macro-default-body-addr cc-macro-body-addr-buffer !
-  cc-macro-default-body-len cc-macro-body-len-buffer !
-  cc-macro-default-params cc-macro-params-buffer !
-  cc-macro-default-busy cc-macro-busy-buffer !
-;
-: cc-prep-direct-workspace ( -- )
-  cc-macro-direct-base @ 0= if,
-    cc-macro-direct-cap [lit] 48 *
-    [lit] 34 cc-workspace-map cc-macro-direct-base !
-  then,
-  cc-macro-direct-cap cc-macro-limit !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 0 * + cc-macro-name-addr-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 8 * + cc-macro-name-len-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 16 * + cc-macro-body-addr-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 24 * + cc-macro-body-len-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 32 * + cc-macro-params-buffer !
-  cc-macro-direct-base @ cc-macro-direct-cap [lit] 40 * + cc-macro-busy-buffer !
-;
+\ The selectors that switch these arrays follow the include pool below.
 
 \ cc-pp-to-pool ( -- )  Make the macro pool the sink (die 35 when full).
 : cc-pp-to-pool
@@ -639,6 +618,53 @@ variable cc-prep-inc-top                         \ direct-mode bytes in use
 : cc-prep-inc-slot-addr
   cc-prep-inc-slot-cap *  cc-prep-inc-pool + ;
 
+\ Direct mode packs the live include stack at cc-prep-inc-top into a
+\ selected pool: by default the dictionary pool above, 1 MiB.  The
+\ direct-GCC workspace maps a separate pool instead.  Every live byte
+\ outside a directive or skipped group is also copied into the expanded
+\ source, so the pool shares that buffer's bound (030): 7 MiB, from the
+\ binutils 2.30 i386-opc.c measurement (5,334,945 bytes live in i386-tbl.h,
+\ 5,415,887 expanded) plus 25%, rounded up to whole MiB.
+cc-src-direct-cap constant cc-prep-inc-direct-cap
+variable cc-prep-inc-buffer
+variable cc-prep-inc-limit
+variable cc-prep-inc-direct-base
+: cc-prep-inc-buf ( -- address ) cc-prep-inc-buffer @ ;
+: cc-prep-inc-cap ( -- bytes ) cc-prep-inc-limit @ ;
+
+\ Workspace selection for the macro arrays above and the packed include
+\ pool.  Neither selector migrates live data or resets a count.
+: cc-prep-default-workspace ( -- )
+  cc-macro-default-cap cc-macro-limit !
+  cc-macro-default-name-addr cc-macro-name-addr-buffer !
+  cc-macro-default-name-len cc-macro-name-len-buffer !
+  cc-macro-default-body-addr cc-macro-body-addr-buffer !
+  cc-macro-default-body-len cc-macro-body-len-buffer !
+  cc-macro-default-params cc-macro-params-buffer !
+  cc-macro-default-busy cc-macro-busy-buffer !
+  cc-prep-inc-pool cc-prep-inc-buffer !
+  cc-prep-inc-slot-cap cc-prep-inc-slot-count * cc-prep-inc-limit !
+;
+cc-prep-default-workspace
+: cc-prep-direct-workspace ( -- )
+  cc-macro-direct-base @ 0= if,
+    cc-macro-direct-cap [lit] 48 *
+    [lit] 34 cc-workspace-map cc-macro-direct-base !
+  then,
+  cc-prep-inc-direct-base @ 0= if,
+    cc-prep-inc-direct-cap [lit] 32 cc-workspace-map cc-prep-inc-direct-base !
+  then,
+  cc-macro-direct-cap cc-macro-limit !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 0 * + cc-macro-name-addr-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 8 * + cc-macro-name-len-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 16 * + cc-macro-body-addr-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 24 * + cc-macro-body-len-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 32 * + cc-macro-params-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 40 * + cc-macro-busy-buffer !
+  cc-prep-inc-direct-base @ cc-prep-inc-buffer !
+  cc-prep-inc-direct-cap cc-prep-inc-limit !
+;
+
 \ ===========================================================================
 \ Path building.  Concat prefix + name + NUL into cc-prep-path-buf.
 \ ===========================================================================
@@ -796,8 +822,8 @@ variable cc-prep-load-name-u
 \ cc-prep-load-file ( path-a path-u -- buf-a buf-u )
 \ Legacy mode tries the literal name then tests/cc/<name>, using a slot
 \ per depth.  Direct mode uses the includer and explicit directories,
-\ packing live files into the pool.  Dies with 31 at the depth limit,
-\ 30 if no path opens, and 32 when the include pool is full.
+\ packing live files into the selected pool.  Dies with 31 at the depth
+\ limit, 30 if no path opens, and 32 when the slot or pool is full.
 : cc-prep-open-include
   \ Absolute names are already complete in either include form.
   cc-prep-load-name-u @ if,
@@ -842,8 +868,8 @@ variable cc-prep-load-name-u
   >r
   cc-prep-direct @ if,
     cc-prep-record-path
-    cc-prep-inc-pool cc-prep-inc-top @ +
-    r@ over cc-prep-inc-slot-cap cc-prep-inc-slot-count *
+    cc-prep-inc-buf cc-prep-inc-top @ +
+    r@ over cc-prep-inc-cap
     cc-prep-inc-top @ - [lit] 32 cc-read-all
     dup cc-prep-inc-top +!
   else,

@@ -132,8 +132,10 @@ macros and a 64 KiB macro text limit; direct mode permits 4,096 and
 256 KiB slots; direct mode packs live file contents into that same
 pool and tracks up to thirty-two nested include levels. These default buffers are `create … allot` data inside the existing seed
 segment. The direct-GCC driver explicitly switches its macro arrays to a
-4,608-entry anonymous mapping; the pool, includes and scratch stay at the
-existing sizes.
+4,608-entry anonymous mapping and its packed include stack to a separate
+7 MiB mapping (Ch 22 §4); the macro text pool and scratch stay at the
+existing sizes, and the dictionary include pool stays in place for the
+default and native profiles.
 
 A compiled program's global *arrays* do not occupy the compiler's
 globals-data buffer: their zero-initialized storage is represented
@@ -163,13 +165,14 @@ requirement of 16,988,648 bytes up to a whole MiB. Neither driver grows the mapp
 
 ## Bounded direct-GCC translation storage
 
-IO selection maps one 10 MiB region split into 3 MiB raw, 3 MiB expanded,
-and 4 MiB output slices. The macro mapping is 221,184 bytes: six arrays of 4,608 cells, eight
+IO selection maps one 14 MiB region split into 3 MiB raw, 7 MiB expanded,
+and 4 MiB output slices. The packed include stack has its own 7 MiB mapping
+and the suppression shadow a 9 MiB one (Ch 22). The macro mapping is 221,184 bytes: six arrays of 4,608 cells, eight
 bytes each. Stable object records use a separate 655,360-byte mapping for 5,120 records,
 selected by `cc-om-direct-workspace`; the 128-byte layout is unchanged.
 Five label arrays hold 1,024 entries each. Two global-fixup arrays hold 17,920
-each. The object mapping holds a 4 MiB text slice, the original two 256 KiB
-non-text slices, and 20,992 forty-byte relocation records. These
+each. The object mapping holds a 4 MiB text slice, two 2 MiB rodata/data slices
+(the default keeps 256 KiB each), and 20,992 forty-byte relocation records. These
 workspaces belong to the compiler, not to any generated program.
 
 The original `c-typeck.c` failure at stable record 4,097 is distinct from the

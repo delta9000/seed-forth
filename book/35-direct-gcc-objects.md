@@ -112,6 +112,24 @@ runtime and original link dependencies still require separate validation.
 Exact-limit, one-past, disjoint-section and combined-output tests enforce
 these bounds without silently truncating an object.
 
+The direct-GCC payload mapping holds 4 MiB of text and, since binutils, 2 MiB
+each of rodata and data. Binutils 2.30's x86 disassembler `opcodes/i386-dis.c`
+initializes tables of `struct dis386` records (a name pointer plus operand
+handler pointers) totalling 841,448 bytes of `.data`, past the 256 KiB the
+section bound shared with the default writer. Its other needs were small:
+22,268 rodata bytes, 9,291 relocations, 3,032 symbols and 27,801 string bytes.
+`opcodes/i386-opc.c` needs 513,632 data bytes. The largest GCC 4.0.4
+values in the cohort are 170,344 data bytes (`insn-output.c`) and 120,874
+rodata bytes (`c-common.c`). The policy is the one the source buffers use
+(Ch 21): the measured maximum plus a quarter, rounded up to a whole MiB, so
+1,051,810 needed bytes become 2 MiB. `cc-obj-section-cap` now loads the
+selected limit, like the text, symbol, relocation and string capacities;
+the default stays 256 KiB in the dictionary. The mapped object workspace
+request grows from 6,164,480 to 9,834,496 bytes; untouched pages of an
+anonymous mapping are never made resident. The section bounds remain
+independent of the 4 MiB output buffer, so one object that filled both
+would still fail with error 21 before publication.
+
 Every public size is checked for a negative/high-bit value before signed
 comparison; growth checks use remaining capacity to avoid wrapping an
 addition. Symbol extents must fit their section. Relocation and patch
@@ -200,7 +218,10 @@ through the same pathname, hard links, and symlinks before compilation.
 variable cc-obj-text-limit
 cc-obj-text-default-cap cc-obj-text-limit !
 : cc-obj-text-cap ( -- bytes ) cc-obj-text-limit @ ;
-[lit] 262144 constant cc-obj-section-cap
+[lit] 262144 constant cc-obj-section-default-cap
+variable cc-obj-section-limit
+cc-obj-section-default-cap cc-obj-section-limit !
+: cc-obj-section-cap ( -- bytes ) cc-obj-section-limit @ ;
 [lit] 1073741824 constant cc-obj-bss-cap
 [lit] 2048 constant cc-obj-symbol-default-cap
 variable cc-obj-symbol-limit
@@ -214,7 +235,7 @@ cc-obj-reloc-default-cap cc-obj-reloc-limit !
 variable cc-obj-string-limit
 cc-obj-string-default-cap cc-obj-string-limit !
 : cc-obj-string-cap ( -- bytes ) cc-obj-string-limit @ ;
-create cc-obj-default-payload cc-obj-text-default-cap cc-obj-section-cap [lit] 2 * + allot
+create cc-obj-default-payload cc-obj-text-default-cap cc-obj-section-default-cap [lit] 2 * + allot
 variable cc-obj-payload-buffer
 cc-obj-default-payload cc-obj-payload-buffer !
 : cc-obj-payload ( -- address ) cc-obj-payload-buffer @ ;
@@ -238,13 +259,18 @@ cc-obj-default-strings cc-obj-strings-buffer !
 \ and 77,487 string bytes. Round rows to 512 and string storage to 4 KiB.
 [lit] 8192 constant cc-obj-symbol-direct-cap
 [lit] 77824 constant cc-obj-string-direct-cap
+\ Complete binutils 2.30 i386-dis.c needs 841,448 .data bytes (its opcode
+\ tables); GCC's largest .rodata is 120,874. Rodata and data each get the
+\ measured maximum plus 25%, rounded up to whole MiB: 2 MiB.
+[lit] 2097152 constant cc-obj-section-direct-cap
 variable cc-obj-direct-base
 : cc-obj-direct-payload-bytes ( -- bytes )
-  cc-obj-text-direct-cap cc-obj-section-cap [lit] 2 * + ;
+  cc-obj-text-direct-cap cc-obj-section-direct-cap [lit] 2 * + ;
 : cc-obj-direct-symbol-bytes ( -- bytes )
   cc-obj-symbol-direct-cap 1+ [lit] 64 * ;
 : cc-obj-default-workspace ( -- )
   cc-obj-text-default-cap cc-obj-text-limit !
+  cc-obj-section-default-cap cc-obj-section-limit !
   cc-obj-reloc-default-cap cc-obj-reloc-limit !
   cc-obj-symbol-default-cap cc-obj-symbol-limit !
   cc-obj-string-default-cap cc-obj-string-limit !
@@ -259,6 +285,7 @@ variable cc-obj-direct-base
     [lit] 245 cc-workspace-map cc-obj-direct-base !
   then,
   cc-obj-text-direct-cap cc-obj-text-limit !
+  cc-obj-section-direct-cap cc-obj-section-limit !
   cc-obj-reloc-direct-cap cc-obj-reloc-limit !
   cc-obj-symbol-direct-cap cc-obj-symbol-limit !
   cc-obj-string-direct-cap cc-obj-string-limit !

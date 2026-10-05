@@ -32,7 +32,10 @@
 variable cc-obj-text-limit
 cc-obj-text-default-cap cc-obj-text-limit !
 : cc-obj-text-cap ( -- bytes ) cc-obj-text-limit @ ;
-[lit] 262144 constant cc-obj-section-cap
+[lit] 262144 constant cc-obj-section-default-cap
+variable cc-obj-section-limit
+cc-obj-section-default-cap cc-obj-section-limit !
+: cc-obj-section-cap ( -- bytes ) cc-obj-section-limit @ ;
 [lit] 1073741824 constant cc-obj-bss-cap
 [lit] 2048 constant cc-obj-symbol-default-cap
 variable cc-obj-symbol-limit
@@ -46,7 +49,7 @@ cc-obj-reloc-default-cap cc-obj-reloc-limit !
 variable cc-obj-string-limit
 cc-obj-string-default-cap cc-obj-string-limit !
 : cc-obj-string-cap ( -- bytes ) cc-obj-string-limit @ ;
-create cc-obj-default-payload cc-obj-text-default-cap cc-obj-section-cap [lit] 2 * + allot
+create cc-obj-default-payload cc-obj-text-default-cap cc-obj-section-default-cap [lit] 2 * + allot
 variable cc-obj-payload-buffer
 cc-obj-default-payload cc-obj-payload-buffer !
 : cc-obj-payload ( -- address ) cc-obj-payload-buffer @ ;
@@ -70,13 +73,18 @@ cc-obj-default-strings cc-obj-strings-buffer !
 \ and 77,487 string bytes. Round rows to 512 and string storage to 4 KiB.
 [lit] 8192 constant cc-obj-symbol-direct-cap
 [lit] 77824 constant cc-obj-string-direct-cap
+\ Complete binutils 2.30 i386-dis.c needs 841,448 .data bytes (its opcode
+\ tables); GCC's largest .rodata is 120,874. Rodata and data each get the
+\ measured maximum plus 25%, rounded up to whole MiB: 2 MiB.
+[lit] 2097152 constant cc-obj-section-direct-cap
 variable cc-obj-direct-base
 : cc-obj-direct-payload-bytes ( -- bytes )
-  cc-obj-text-direct-cap cc-obj-section-cap [lit] 2 * + ;
+  cc-obj-text-direct-cap cc-obj-section-direct-cap [lit] 2 * + ;
 : cc-obj-direct-symbol-bytes ( -- bytes )
   cc-obj-symbol-direct-cap 1+ [lit] 64 * ;
 : cc-obj-default-workspace ( -- )
   cc-obj-text-default-cap cc-obj-text-limit !
+  cc-obj-section-default-cap cc-obj-section-limit !
   cc-obj-reloc-default-cap cc-obj-reloc-limit !
   cc-obj-symbol-default-cap cc-obj-symbol-limit !
   cc-obj-string-default-cap cc-obj-string-limit !
@@ -91,6 +99,7 @@ variable cc-obj-direct-base
     [lit] 245 cc-workspace-map cc-obj-direct-base !
   then,
   cc-obj-text-direct-cap cc-obj-text-limit !
+  cc-obj-section-direct-cap cc-obj-section-limit !
   cc-obj-reloc-direct-cap cc-obj-reloc-limit !
   cc-obj-symbol-direct-cap cc-obj-symbol-limit !
   cc-obj-string-direct-cap cc-obj-string-limit !

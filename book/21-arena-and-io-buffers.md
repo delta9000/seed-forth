@@ -318,7 +318,7 @@ leaks are all impossible.
 
 ## 2. The source reader and output writer
 
-The 267-line file `030-cc-io.fth` has four sections: A, the input and
+The 269-line file `030-cc-io.fth` has four sections: A, the input and
 source buffers and the reader; B, the output buffer and emitters; C,
 the final file write; D, three helpers the next files share.
 
@@ -651,10 +651,12 @@ variable cc-nf-lens
   repeat, ;                                      \ not found: i = -1
 
 \ Direct GCC source workspace is opt-in; default buffers stay dictionary-backed.
-\ Measured raw/expanded/output maxima are 2,782,995/2,747,955/3,901,856 bytes.
-\ Round each independently to whole MiB: fixed 3/3/4 MiB, never growth/retry.
+\ Measured raw/expanded/output maxima are 2,782,995/5,415,887/3,901,856 bytes.
+\ Raw and output round to whole MiB. Expanded text splices in every included
+\ byte, so it and the direct include pool (040) share one bound: the measured
+\ maximum (binutils i386-opc.c) plus 25%, rounded up to whole MiB. 3/7/4 MiB.
 [lit] 3145728 constant cc-in-direct-cap
-[lit] 3145728 constant cc-src-direct-cap
+[lit] 7340032 constant cc-src-direct-cap
 [lit] 4194304 constant cc-out-direct-cap
 variable cc-io-direct-base
 
@@ -869,10 +871,23 @@ Next: Chapter 22 — The Preprocessor.
 The default raw and expanded buffers remain 1 MiB and 2 MiB dictionary
 allocations. Their public words now load a selected address or capacity, so
 callers keep exactly the same stack effects. Only the direct-GCC driver opts
-into raw/expanded/output slices of 3/3/4 MiB in one anonymous mapping. The unchanged original
+into raw/expanded/output slices of 3/7/4 MiB in one anonymous mapping. The unchanged original
 `insn-attrtab.c` input is 2,782,995 bytes; its expanded text is 2,747,955 bytes.
 The other measured generated unit, `insn-recog.c`, expands to 2,469,308 bytes.
-Each direct byte capacity is rounded up independently to a whole MiB.
+The raw and output capacities are those maxima rounded up to a whole MiB.
+
+The expanded slice was 3 MiB until binutils. Its `opcodes/i386-opc.c` is a
+small file that includes `i386-tbl.h`, 5,334,945 bytes of generated
+instruction templates, and expands to 5,415,887 bytes. Expanded text holds
+every included byte outside directives and skipped groups, so it shares one
+bound with the direct include pool (Ch 22 §4): the largest measured
+requirement in the binutils 2.30 and GCC 4.0.4 cohort plus a quarter,
+rounded up to a whole MiB, 7 MiB. The same rule sizes the object writer's
+rodata and data (Ch 35). The suppression shadow (Ch 22) covers the 2 MiB
+scratch area and this slice, so it grows from 5 to 9 MiB; with the mapped
+include pool and object sections the direct profile reserves 18.5 MiB more
+address space. An anonymous mapping costs memory only for the pages a unit
+touches.
 
 `cc-workspace-round` rejects zero, negative and overflowing requests before
 rounding to Linux pages. `cc-workspace-map` makes one private read/write mapping

@@ -68,25 +68,25 @@ to its call site.
 | 20  | `030-cc-io.fth:84` | `cc-load-stdin`: the source fills the selected input buffer (default 1 MiB, direct GCC 3 MiB), or its workspace mapping fails. |
 | 21  | `030-cc-io.fth:128` | `cc-emit-byte`: the output fills its selected buffer (default 1 MiB, direct GCC 4 MiB). |
 | 22  | `030-cc-io.fth:188` | `cc-write-output`: `open(2)` on the output path returned an error. |
-| 30  | `040-cc-prep.fth:841,1725,1730,1735,1775` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
-| 31  | `040-cc-prep.fth:829` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
-| 32  | `040-cc-prep.fth:847,851` | Included file fills its legacy 256 KiB slot or direct input fills the shared 1 MiB pool. |
-| 33  | `040-cc-prep.fth:657,747,757` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
-| 34  | `040-cc-prep.fth:292` | Macro count exceeds 1,024 in legacy mode (11 built in) or 4,096 in native/direct mode with default storage; the direct-GCC workspace permits 4,608. Mapping failure uses this code too. |
+| 30  | `040-cc-prep.fth:867,1751,1756,1761,1801` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
+| 31  | `040-cc-prep.fth:855` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
+| 32  | `040-cc-prep.fth:873,877` | Included file fills its legacy 256 KiB slot, or the live include stack fills the selected direct pool (default 1 MiB; the direct-GCC workspace maps 7 MiB, the same bound as its expanded source). The raw reader keeps one byte free, so the largest live stack is the capacity minus one. A failed mapping of the direct pool uses this code too. |
+| 33  | `040-cc-prep.fth:683,773,783` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
+| 34  | `040-cc-prep.fth:271` | Macro count exceeds 1,024 in legacy mode (11 built in) or 4,096 in native/direct mode with default storage; the direct-GCC workspace permits 4,608. Mapping failure uses this code too. |
 | 35  | `040-cc-prep.fth:271` | Macro pool (64 KiB legacy, 256 KiB direct) full: `cc-pp-to-pool` makes it the sink with this code, and `cc-prep-emit-byte` dies when a macro name or body would overflow it. |
-| 36  | `040-cc-prep.fth:2145` | `cc-prep-emit-byte`: preprocessed source fills the selected source buffer (default 2 MiB, direct GCC 3 MiB) (the sink `cc-preprocess` sets up with this code). |
+| 36  | `040-cc-prep.fth:2145` | `cc-prep-emit-byte`: preprocessed source fills the selected source buffer (default 2 MiB, direct GCC 7 MiB) (the sink `cc-preprocess` sets up with this code). |
 | 37  | `040-cc-prep.fth:179` | A temporary buffer fills: a macro argument, or a replacement with its arguments put in, longer than 64 KiB (the sink `cc-pp-temp-begin` sets up with this code). |
-| 38  | `040-cc-prep.fth:1604` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
-| 39  | `040-cc-prep.fth:2226` | `cc-preprocess`: an `#if` still open at the end of the program. |
-| 40  | `040-cc-prep.fth:2130` | `#error` in a group that is not dropped. |
-| 41  | `040-cc-prep.fth:1619` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
-| 42  | `040-cc-prep.fth:607` | `cc-pp-need-name`: `#ifdef`, `#ifndef` or `defined` with no name after it. |
+| 38  | `040-cc-prep.fth:1630` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
+| 39  | `040-cc-prep.fth:2252` | `cc-preprocess`: an `#if` still open at the end of the program. |
+| 40  | `040-cc-prep.fth:2156` | `#error` in a group that is not dropped. |
+| 41  | `040-cc-prep.fth:1645` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
+| 42  | `040-cc-prep.fth:586` | `cc-pp-need-name`: `#ifdef`, `#ifndef` or `defined` with no name after it. |
 | 43  | `040-cc-prep.fth:153,173` | `cc-pp-scratch-alloc`: the 2 MiB macro scratch area is used up (about 32 macro calls nested in each other's arguments), the direct suppression-shadow mapping fails, or the selected source capacity exceeds its fixed shadow. |
-| 44  | `040-cc-prep.fth:952` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
-| 45  | `040-cc-prep.fth:1274` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
-| 46  | `040-cc-prep.fth:937` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
-| 47  | `040-cc-prep.fth:165,614,1959,1962,1970,1982,2053` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
-| 48  | `040-cc-prep.fth:1904,1960` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
+| 44  | `040-cc-prep.fth:978` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
+| 45  | `040-cc-prep.fth:1300` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
+| 46  | `040-cc-prep.fth:963` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
+| 47  | `040-cc-prep.fth:165,593,1985,1988,1996,2008,2079` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
+| 48  | `040-cc-prep.fth:1930,1986` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 49  | `040-cc-prep.fth` | Invalid or unsupported direct-profile directive syntax, including malformed `#line`, GNU numeric markers, unterminated comments in directives, splices splitting a directive name, and source-text continuations that would join two tokens (continuations inside or splitting comments follow phase two). See [C line control](22-the-preprocessor.md#c-line-control-for-generated-parser-sources). |
 | 50  | `060-cc-types.fth:266` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
 | 60  | `070-cc-sym.fth:73` | `cc-sym-add`: more than 8,192 live symbols. |

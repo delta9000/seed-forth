@@ -232,10 +232,12 @@ variable cc-nf-lens
   repeat, ;                                      \ not found: i = -1
 
 \ Direct GCC source workspace is opt-in; default buffers stay dictionary-backed.
-\ Measured raw/expanded/output maxima are 2,782,995/2,747,955/3,901,856 bytes.
-\ Round each independently to whole MiB: fixed 3/3/4 MiB, never growth/retry.
+\ Measured raw/expanded/output maxima are 2,782,995/5,415,887/3,901,856 bytes.
+\ Raw and output round to whole MiB. Expanded text splices in every included
+\ byte, so it and the direct include pool (040) share one bound: the measured
+\ maximum (binutils i386-opc.c) plus 25%, rounded up to whole MiB. 3/7/4 MiB.
 [lit] 3145728 constant cc-in-direct-cap
-[lit] 3145728 constant cc-src-direct-cap
+[lit] 7340032 constant cc-src-direct-cap
 [lit] 4194304 constant cc-out-direct-cap
 variable cc-io-direct-base
 

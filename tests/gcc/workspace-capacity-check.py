@@ -20,7 +20,10 @@ assert p.returncode==0 and p.stdout==b'' and p.stderr.isdigit(),p
 end=int(p.stderr);assert end<0x1400000
 records.append({'case':'full-load-here','address':end,'mapping_start':0x400000,'mapping_end':0x1400000,'headroom':0x1400000-end})
 # All compiler libraries, archive and linker load within the unchanged seed map.
-forth('full-load-mapping-headroom',out('here [lit] 20971520 < assert cc-in-cap [lit] 1048576 = assert cc-src-cap [lit] 2097152 = assert cc-macro-cap [lit] 4096 = assert cc-om-cap [lit] 4096 = assert'))
+forth('full-load-mapping-headroom',out('here [lit] 20971520 < assert cc-in-cap [lit] 1048576 = assert cc-src-cap [lit] 2097152 = assert cc-macro-cap [lit] 4096 = assert cc-om-cap [lit] 4096 = assert cc-prep-inc-cap [lit] 1048576 = assert cc-prep-inc-buf cc-prep-inc-pool = assert cc-obj-section-cap [lit] 262144 = assert'))
+# Policy constants: source/include and rodata/data bounds (measured maximum
+# plus 25%, rounded up to whole MiB); the other direct bounds are unchanged.
+forth('direct-policy-constants',out('cc-in-direct-cap [lit] 3145728 = assert cc-src-direct-cap [lit] 7340032 = assert cc-out-direct-cap [lit] 4194304 = assert cc-prep-inc-direct-cap [lit] 7340032 = assert cc-obj-section-direct-cap [lit] 2097152 = assert cc-obj-text-direct-cap [lit] 4194304 = assert'))
 # Rounded request sizes reject sign-bit values and n+4095 wrap before a syscall.
 for n,want in [(1,4096),(4095,4096),(4096,4096),(4097,8192),(9223372036854771712,9223372036854771712)]:
  forth('round-'+str(n),out(f'[lit] {n} [lit] 20 cc-workspace-round [lit] {want} = assert'))
@@ -29,6 +32,10 @@ for n in [0,9223372036854771713,9223372036854775807,9223372036854775808,18446744
 # Failure through the only mmap gate, for each independent workspace.
 for name,word,code in [('io','cc-io-direct-workspace',20),('prep','cc-prep-direct-workspace',34),('objects','cc-om-direct-workspace',245),('labels','cc-label-direct-workspace',171),('elf','cc-obj-direct-workspace',245),('global-fixups','cc-gfixup-direct-workspace',81)]:
  forth('mmap-failure-'+name,out(": fail-map drop [lit] 0 [lit] 12 - ; ' fail-map is cc-workspace-syscall-fwd "+word),code)
+# The prep selector maps macros first, then the include pool: fail only the
+# second request, which must die with the include pool's code 32.
+forth('mmap-failure-prep-include-pool',out("variable maps : fail-second [lit] 1 maps +! maps @ [lit] 2 = if, drop [lit] 0 [lit] 12 - else, cc-workspace-syscall then, ; ' fail-second is cc-workspace-syscall-fwd cc-prep-direct-workspace"),32)
+forth('prep-mapping-requests',out("variable maps : count-map [lit] 1 maps +! maps @ [lit] 2 = if, dup cc-prep-inc-direct-cap = assert then, cc-workspace-syscall ; ' count-map is cc-workspace-syscall-fwd cc-prep-direct-workspace cc-prep-direct-workspace maps @ [lit] 2 = assert"))
 # Cache is per-process, bounded and idempotent. Selection preserves default storage.
 forth('mapped-slices-idempotence-defaults',out('''
 cc-io-direct-workspace cc-prep-direct-workspace cc-om-direct-workspace cc-label-direct-workspace cc-obj-direct-workspace cc-gfixup-direct-workspace
@@ -37,6 +44,8 @@ cc-src-buf cc-in-buf - cc-in-cap = assert
 cc-out-buf cc-src-buf - cc-src-cap = assert cc-out-cap cc-out-direct-cap = assert
 cc-io-direct-base @ cc-in-buf = assert
 cc-macro-cap cc-macro-direct-cap = assert cc-om-cap cc-om-direct-cap = assert
+cc-prep-inc-cap cc-prep-inc-direct-cap = assert cc-prep-inc-buf cc-prep-inc-direct-base @ = assert
+cc-obj-section-cap cc-obj-section-direct-cap = assert
 cc-gfixup-slot cc-gfixup-out-pos - cc-gfixup-cap [lit] 8 * = assert
 cc-label-name-len cc-label-name-addr - cc-label-cap [lit] 8 * = assert
 cc-label-vaddr cc-label-name-len - cc-label-cap [lit] 8 * = assert
@@ -49,9 +58,9 @@ cc-macro-body-len cc-macro-body-addr - cc-macro-cap [lit] 8 * = assert
 cc-macro-params cc-macro-body-len - cc-macro-cap [lit] 8 * = assert
 cc-macro-busy cc-macro-params - cc-macro-cap [lit] 8 * = assert
 cc-out-buf cc-label-name-addr cc-obj-payload cc-obj-relocs cc-gfixup-out-pos
-cc-in-buf cc-src-buf cc-macro-name-addr cc-om-records
+cc-in-buf cc-src-buf cc-macro-name-addr cc-om-records cc-prep-inc-buf
 cc-io-direct-workspace cc-prep-direct-workspace cc-om-direct-workspace cc-label-direct-workspace cc-obj-direct-workspace cc-gfixup-direct-workspace
-cc-om-records = assert cc-macro-name-addr = assert cc-src-buf = assert cc-in-buf = assert
+cc-prep-inc-buf = assert cc-om-records = assert cc-macro-name-addr = assert cc-src-buf = assert cc-in-buf = assert
 cc-gfixup-out-pos = assert cc-obj-relocs = assert cc-obj-payload = assert cc-label-name-addr = assert cc-out-buf = assert
 cc-io-default-workspace cc-prep-default-workspace cc-om-default-workspace cc-label-default-workspace cc-obj-default-workspace cc-gfixup-default-workspace
 cc-in-buf cc-in-default-buf = assert cc-src-buf cc-src-default-buf = assert
@@ -60,6 +69,8 @@ cc-in-cap cc-in-default-cap = assert cc-src-cap cc-src-default-cap = assert
 cc-macro-cap cc-macro-default-cap = assert cc-om-cap cc-om-default-cap = assert
 cc-out-cap cc-out-default-cap = assert cc-label-cap cc-label-default-cap = assert
 cc-gfixup-cap cc-gfixup-default-cap = assert
+cc-prep-inc-buf cc-prep-inc-pool = assert cc-prep-inc-cap [lit] 1048576 = assert
+cc-obj-section-cap cc-obj-section-default-cap = assert
 cc-obj-text-cap cc-obj-text-default-cap = assert cc-obj-reloc-cap cc-obj-reloc-default-cap = assert
 cc-obj-payload cc-obj-default-payload = assert cc-obj-relocs cc-obj-default-relocs = assert
 cc-label-name-addr cc-label-default-name-addr = assert cc-gfixup-out-pos cc-gfixup-default-out-pos = assert
