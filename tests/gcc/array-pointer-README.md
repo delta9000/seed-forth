@@ -27,9 +27,11 @@ at an output path survive rejection. An array of grouped pointers to arrays
 with an array-typedef base, such as `row *(*p)[2]`, also remain unsupported;
 a `typedef row *slots[2]` followed by `slots *p` retains that type. For these
 bounded declarator forms, equivalent supported
-pointer typedefs can describe these object/signature types. Grouped multiple-star function-pointer declarators such as
-`long (**slot)(long)` also remain unsupported; a function-pointer typedef plus
-an ordinary pointer declarator expresses a pointer to that pointer object.
+pointer typedefs can describe these object/signature types. Grouped multiple-star
+function-pointer declarators and abstract casts, such as `long (**slot)(long)`
+and `long (**)(long)`, retain the same depth and signature as the equivalent
+function-pointer typedef plus an ordinary pointer declarator. See
+[nested function-pointer coverage](nested-function-pointer-README.md).
 Function type typedef declarations themselves remain unsupported and now reject instead of
 being mistaken for scalar typedefs.
 

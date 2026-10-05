@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Direct-only record/ELF symbol bounds; host tools are independent oracles."""
+"""Direct-only record/ELF symbol/string bounds; host tools are independent oracles."""
 from pathlib import Path
 import hashlib,json,os,resource,signal,struct,subprocess,tempfile
 ROOT=Path(__file__).resolve().parents[2]
@@ -29,13 +29,18 @@ def pathword(name,path):return f'create {name} s, {path} [lit] 0 c,\n'
 forth('layout-cache-default-reset','''
 cc-obj-symbol-cap [lit] 2048 = assert cc-om-cap [lit] 4096 = assert
 variable calls : map-count [lit] 1 calls +!
-  calls @ [lit] 1 = if, dup [lit] 5988352 = assert
-  else, dup [lit] 1310720 = assert then, cc-workspace-syscall ;
+  calls @ [lit] 1 = if, dup [lit] 6164480 = assert
+  else, dup [lit] 1376256 = assert then, cc-workspace-syscall ;
 ' map-count is cc-workspace-syscall-fwd
-[lit] 71 cc-obj-default-symbols ! [lit] 72 cc-om-default-records !
+[lit] 71 cc-obj-default-symbols ! [lit] 72 cc-om-default-records ! [lit] 73 cc-obj-default-strings c!
 cc-obj-direct-workspace cc-om-direct-workspace
-calls @ [lit] 2 = assert cc-obj-symbol-cap [lit] 6656 = assert cc-om-cap [lit] 10240 = assert
+calls @ [lit] 2 = assert cc-obj-symbol-cap [lit] 8192 = assert cc-om-cap [lit] 10752 = assert
 cc-obj-symbols cc-obj-relocs - cc-obj-reloc-cap [lit] 40 * = assert
+cc-obj-strings cc-obj-symbols - cc-obj-direct-symbol-bytes = assert
+cc-obj-string-cap [lit] 77824 = assert
+[lit] 74 cc-obj-strings c! [lit] 75 cc-obj-strings cc-obj-string-cap + 1- c!
+cc-obj-symbol-cap cc-obj-sym [lit] 56 + [lit] 0 swap !
+cc-obj-strings c@ [lit] 74 = assert cc-obj-strings cc-obj-string-cap + 1- c@ [lit] 75 = assert
 cc-obj-relocs cc-obj-payload - cc-obj-direct-payload-bytes = assert
 cc-obj-direct-symbol-bytes cc-obj-symbol-cap 1+ [lit] 64 * = assert
 [lit] 0 cc-obj-sym cc-obj-symbols = assert
@@ -43,25 +48,29 @@ cc-obj-symbol-cap cc-obj-sym [lit] 64 + cc-obj-symbols - cc-obj-direct-symbol-by
 cc-om-cap cc-om-record [lit] 128 + cc-om-records - cc-om-cap [lit] 128 * = assert
 cc-obj-symbols cc-om-records cc-obj-direct-workspace cc-om-direct-workspace
 cc-om-records = assert cc-obj-symbols = assert calls @ [lit] 2 = assert
-[lit] 17 cc-obj-nsym ! [lit] 19 cc-om-count !
+[lit] 17 cc-obj-nsym ! [lit] 19 cc-om-count ! [lit] 23 cc-obj-nstr !
 cc-obj-default-workspace cc-om-default-workspace
-cc-obj-nsym @ [lit] 17 = assert cc-om-count @ [lit] 19 = assert
+cc-obj-nsym @ [lit] 17 = assert cc-om-count @ [lit] 19 = assert cc-obj-nstr @ [lit] 23 = assert
+cc-obj-strings cc-obj-default-strings = assert cc-obj-strings c@ [lit] 73 = assert
+cc-obj-string-cap [lit] 65536 = assert
 cc-obj-symbols cc-obj-default-symbols = assert cc-obj-symbols @ [lit] 71 = assert
 cc-om-records cc-om-default-records = assert cc-om-records @ [lit] 72 = assert
 cc-obj-symbol-cap [lit] 2048 = assert cc-om-cap [lit] 4096 = assert
 cc-obj-direct-workspace cc-om-direct-workspace calls @ [lit] 2 = assert
+cc-obj-nstr @ [lit] 23 = assert cc-obj-strings c@ [lit] 74 = assert
+cc-obj-strings cc-obj-string-cap + 1- c@ [lit] 75 = assert
 cc-obj-init cc-obj-nsym @ 0= assert cc-obj-nstr @ [lit] 1 = assert
-cc-obj-nrel @ 0= assert cc-obj-string-cap [lit] 65536 = assert
+cc-obj-nrel @ 0= assert cc-obj-string-cap [lit] 77824 = assert
 cc-obj-reloc-cap [lit] 20992 = assert
 [lit] 123 cc-om-count ! [lit] 456 cc-om-relocations ! cc-sysv-object-enable
-cc-om-count @ 0= assert cc-om-relocations @ 0= assert cc-om-cap [lit] 10240 = assert
+cc-om-count @ 0= assert cc-om-relocations @ 0= assert cc-om-cap [lit] 10752 = assert
 ''')
 # Real mmap failure must not publish new pointers, caps, counts, or output.
 needle=b': cc-die\n';assert BASE.count(needle)==1
 hookbase=BASE.replace(needle,b"defer inspect-error\n: noop ; ' noop is inspect-error\n: cc-die\n inspect-error\n")
 for word,prefix,oldcap in [('cc-obj-direct-workspace','cc-obj',2048),('cc-om-direct-workspace','cc-om',4096)]:
  for err in [0,-1,-12,-4095]:
-  checks=('cc-obj-symbols cc-obj-default-symbols = assert cc-obj-symbol-cap [lit] 2048 = assert cc-obj-direct-base @ 0= assert' if prefix=='cc-obj' else 'cc-om-records cc-om-default-records = assert cc-om-cap [lit] 4096 = assert cc-om-direct-base @ 0= assert')
+  checks=('cc-obj-symbols cc-obj-default-symbols = assert cc-obj-symbol-cap [lit] 2048 = assert cc-obj-direct-base @ 0= assert cc-obj-strings cc-obj-default-strings = assert cc-obj-string-cap [lit] 65536 = assert' if prefix=='cc-obj' else 'cc-om-records cc-om-default-records = assert cc-om-cap [lit] 4096 = assert cc-om-direct-base @ 0= assert')
   forth(word+'-map-'+str(err),f": inspect {checks} ; ' inspect is inspect-error\n: fail-map drop [lit] {err%2**64} ; ' fail-map is cc-workspace-syscall-fwd\n{word}",245,hookbase)
 for direct in (False,True):
  setup='cc-obj-direct-workspace cc-om-direct-workspace\n' if direct else ''
@@ -94,13 +103,22 @@ cc-om-cap 1- cc-om-count ! [lit] 123 [lit] 7 cc-obj-global cc-obj-func cc-om-new
  for offset in [32,40,48,64,72,80,88,96,104,112,120]:checks+=f'dup cc-om-record [lit] {offset} + @ 0= assert\n'
  forth(tag+'-record-last-sixteen-cells',om+checks+'drop')
  forth(tag+'-record-one-past',om+'drop [lit] 0 [lit] 0 [lit] 0 [lit] 0 cc-om-new drop',245)
- # String bound is unchanged, including both leading and trailing NULs.
- strings=setup+'''cc-obj-init create long-name [lit] 65534 allot
-: fill-name [lit] 0 begin, dup [lit] 65534 < while, [lit] 120 over long-name + c! 1+ repeat, drop ; fill-name
-long-name [lit] 65534 cc-obj-local cc-obj-notype cc-obj-default cc-obj-abs [lit] 0 [lit] 0 cc-obj-symbol drop
+ # Both selected string bounds include leading and trailing NULs.
+ strings=setup+'''cc-obj-init cc-obj-string-cap [lit] 2 - constant long-name-size
+create long-name long-name-size allot
+: fill-name [lit] 0 begin, dup long-name-size < while, [lit] 120 over long-name + c! 1+ repeat, drop ; fill-name
+long-name long-name-size cc-obj-local cc-obj-notype cc-obj-default cc-obj-abs [lit] 0 [lit] 0 cc-obj-symbol drop
 '''
  forth(tag+'-string-exact',strings+'cc-obj-nstr @ cc-obj-string-cap = assert cc-obj-strings c@ 0= assert cc-obj-strings cc-obj-string-cap + 1- c@ 0= assert')
  forth(tag+'-string-one-past',strings+'long-name [lit] 1 cc-obj-local cc-obj-notype cc-obj-default cc-obj-abs [lit] 0 [lit] 0 cc-obj-symbol drop',245)
+ forth(tag+'-string-nul-reserve',strings+'[lit] 0 [lit] 0 cc-obj-local cc-obj-notype cc-obj-default cc-obj-abs [lit] 0 [lit] 0 cc-obj-symbol drop',245)
+ for exists in (False,True):
+  output=WORK/(tag+'-string-publication-'+str(exists)+'.o')
+  if exists:output.write_bytes(b'old object')
+  forth(tag+'-string-publication-'+str(exists),strings+pathword('output',output)+'long-name [lit] 1 cc-obj-local cc-obj-notype cc-obj-default cc-obj-abs [lit] 0 [lit] 0 cc-obj-symbol drop output cc-obj-write',245)
+  assert output.exists()==exists
+  if exists:assert output.read_bytes()==b'old object'
+  assert not list(WORK.glob(output.name+'.obj-*'))
 # Fill the REAL public API. Globals inserted first/last, locals must serialize first.
 large='''
 cc-obj-direct-workspace cc-obj-init
@@ -118,11 +136,11 @@ cc-obj-text [lit] 1 cc-obj-r32 cc-obj-symbol-cap [lit] 0 cc-obj-reloc
 obj=WORK/'large.o';forth('full-direct-object',large+pathword('output',obj)+'output cc-obj-write')
 data=obj.read_bytes();shoff=struct.unpack_from('<Q',data,40)[0];rows=[struct.unpack_from('<IIQQQQIIQQ',data,shoff+i*64) for i in range(10)]
 sym=rows[7];strs=rows[8];symbols=[struct.unpack_from('<IBBHQQ',data,sym[4]+i*24) for i in range(sym[5]//24)]
-assert len(symbols)==6657 and symbols[0]==(0,)*6
-assert sym[7]==6655 and all(s[1]>>4==0 for s in symbols[:6655])
-assert all(s[1]>>4==1 for s in symbols[6655:])
+assert len(symbols)==8193 and symbols[0]==(0,)*6
+assert sym[7]==8191 and all(s[1]>>4==0 for s in symbols[:8191])
+assert all(s[1]>>4==1 for s in symbols[8191:])
 assert symbols[-1][-2:]==(42,0)
-off,info,addend=struct.unpack_from('<QQq',data,rows[5][4]);assert (off,info>>32,info&0xffffffff,addend)==(1,6656,10,0)
+off,info,addend=struct.unpack_from('<QQq',data,rows[5][4]);assert (off,info>>32,info&0xffffffff,addend)==(1,8192,10,0)
 for cmd in [['readelf','-aW',str(obj)],['ld','-e','_start','-o',str(WORK/'host-linked'),str(obj)]]:
  p=run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE);assert p.returncode==0 and not p.stderr,(cmd,p)
  if cmd[0]=='readelf':(WORK/'large.readelf.txt').write_bytes(p.stdout)

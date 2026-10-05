@@ -20,10 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = "seed-forth direct C compiler (experimental)"
 TARGET = "x86_64-pc-linux-gnu"
 RUNTIME = "runtime/gcc-seed"
-# Fixed per-translation-unit arena: complete original c-typeck.c measures
-# 16,988,648 bytes. Round up to whole MiB, keeping the legacy 32 KiB slab
+# Fixed per-translation-unit arena: complete original insn-emit.c measures
+# 21,103,808 bytes. Round up to 21 MiB, keeping the legacy 32 KiB slab
 # and native TinyCC 8 MiB driver unchanged. Never grow or retry on exhaustion.
-ARENA_BYTES = 17 * 1024 * 1024
+ARENA_BYTES = 21 * 1024 * 1024
 BASE = ("010-lib.fth", "020-cc-arena.fth", "030-cc-io.fth")
 IDENT = r"[A-Za-z_][A-Za-z_0-9]*"
 MACRO = re.compile(IDENT + r"(?:\(\s*(?:" + IDENT + r"(?:\s*,\s*" + IDENT + r")*)?\s*\))?\Z")

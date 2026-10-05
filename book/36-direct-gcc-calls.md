@@ -301,6 +301,16 @@ reference must never become a production bootstrap input.
 
 ## Canonical source
 
+Grouped function-pointer declarators and abstract casts retain each star
+in the type word. For example, `void (**)(rtx)` has depth two and the same
+recursive signature as `void (*)(rtx)`. Its value points to a stored
+function pointer; dereferencing loads that pointer before a call. Only
+depth zero function designators and depth one function pointers are
+callable. Calling a deeper pointer object rejects230, while a depth above
+255 rejects231 instead of wrapping. The focused
+`tests/gcc/nested-function-pointer-check.py` gate covers those boundaries,
+object-pointer casts, load/store behavior and mixed GCC O0/O2 execution.
+
 ```forth file=121-cc-sysv.fth
 \ 121-cc-sysv.fth — explicit scalar System V AMD64 target.
 \ Loading this file changes no target. cc-sysv-enable opts in to LP64 and
@@ -600,7 +610,7 @@ defer cc-sysv-implicit-declarator-fwd
 defer cc-sysv-signature-fwd
 : cc-sysv-fnptr
   cc-target-sysv @ 0= if, cc-nfnptr-default exit, then,
-  if, [lit] 231 cc-die then,
+  1+ dup [lit] 255 > if, [lit] 231 cc-die then, >r
   nc-base-array @ if,
     nc-ty @ nc-base @ = if, [lit] 238 cc-die then,
     cc-sysv-inherit-array
@@ -608,7 +618,7 @@ defer cc-sysv-signature-fwd
     [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
   then,
   nc-ty @ nc-desc @ cc-sysv-signature-fwd nc-desc !
-  ty-func [lit] 1 ty-make nc-ty ! ;
+  ty-func r> ty-make nc-ty ! ;
 ' cc-sysv-fnptr is cc-nfnptr-fwd
 
 : cc-sysv-find-parameter ( sig name length -- index|-1 )
@@ -736,7 +746,9 @@ variable cc-sysv-parameter-register
 ' cc-sysv-signature is cc-sysv-signature-fwd
 
 \ Abstract function-pointer type names reuse the declaration signature parser.
-\ The operand address is unchanged; the cast result carries the new signature.
+\ Each grouped star is retained in the type word beside its signature.
+\ Depth one is a function pointer; greater depths point to pointer objects.
+\ The operand address is unchanged; loads occur when those objects are read.
 : cc-sysv-type-name-raw
   cc-native-type-name
   cc-type-name-qualified @ nc-qualified !
@@ -745,7 +757,8 @@ variable cc-sysv-parameter-register
   lparen cc-tok-punct? if,
     cc-type-name-array @ if, [lit] 238 cc-die then,
     [char] * cc-expect-punct-c
-    cc-skip-qualifiers cc-count-stars 1+ >r
+    cc-skip-qualifiers cc-count-stars 1+
+    dup [lit] 255 > if, [lit] 231 cc-die then, >r
     [char] ) cc-expect-punct-c cc-next-token-keep
     [char] [ cc-tok-punct? if,
       nc-qualified @ cc-qualified-array-check
@@ -755,10 +768,9 @@ variable cc-sysv-parameter-register
       cc-cast-desc @ nc-array @ nc-inner @ cc-sysv-array-node cc-cast-desc !
       r> cc-nctx ! ty-array r> ty-make cc-putback-token
     else,
-      r> [lit] 1 <> if, [lit] 231 cc-die then,
       lparen cc-tok-punct? 0= if, [lit] 238 cc-die then,
       cc-cast-desc @ cc-sysv-signature cc-cast-desc !
-      ty-func [lit] 1 ty-make
+      ty-func r> ty-make
     then,
   else, cc-putback-token then, ;
 : cc-sysv-type-name
@@ -1022,7 +1034,7 @@ defer cc-sysv-implicit-declared-fwd
   dup cc-sym-kind-of sk-func = if,
     cc-sysv-signatures cell[] @
   else,
-    dup cc-sym-type-of ty-base ty-func <> if, [lit] 230 cc-die then,
+    dup cc-sym-type-of cc-sysv-function-pointer? 0= if, [lit] 230 cc-die then,
     cc-sym-struct-desc-of
   then, cc-sysv-check-signature ;
 : cc-sysv-call-qualified
@@ -1190,10 +1202,12 @@ defer cc-sysv-result-value-fwd
   then,
   r> cc-sysv-sig-return cc-sysv-result-value-fwd ;
 ' cc-sysv-call is cc-native-call-fwd
+: cc-sysv-check-callable ( type -- )
+  dup ty-base ty-func <> swap ty-ptr [lit] 1 > or if, [lit] 230 cc-die then, ;
 : cc-sysv-indirect-call
   cc-target-sysv @ 0= if, cc-parse-indirect-call exit, then,
   cc-check-static-init
-  cc-last-expr-type @ ty-base ty-func <> if, [lit] 230 cc-die then,
+  cc-last-expr-type @ cc-sysv-check-callable
   cc-last-struct-desc @ cc-sysv-check-signature >r
   cc-emit-materialize cc-emit-push-rdi
   r@ cc-sysv-parse-args dup true cc-sysv-prepare-call >r
@@ -1460,9 +1474,9 @@ cc-om-default-cap cc-om-limit !
 cc-om-default-records cc-om-buffer !
 : cc-om-cap ( -- entries ) cc-om-limit @ ;
 : cc-om-records ( -- address ) cc-om-buffer @ ;
-\ Complete original c-common.c needs 9,866 stable records; round to 10,240.
+\ Complete original insn-output.c needs 10,559 stable records; round to 10,752.
 \ Keep the default table and opt in explicitly to a fixed mapped table.
-[lit] 10240 constant cc-om-direct-cap
+[lit] 10752 constant cc-om-direct-cap
 variable cc-om-direct-base
 : cc-om-default-workspace ( -- )
   cc-om-default-records cc-om-buffer ! cc-om-default-cap cc-om-limit ! ;

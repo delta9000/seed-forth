@@ -1,8 +1,13 @@
 # Measured c-common object capacities
 
+This records the preceding c-common capacity stage and its frozen evidence.
+The later [remaining cc1 proof](remaining-cc1-capacity-README.md) raises current
+direct bounds to 10,752 records, 8,192 non-null symbols and 77,824 string bytes;
+the historical numbers and object hashes below retain their original scope.
+
 The complete unchanged GCC 4.0.4 `gcc/c-common.c` needs 9,866 stable parser
 records and 6,282 emitted ELF symbols, excluding the mandatory null symbol.
-Direct-GCC rounds these independent row counts up to 512-row quanta: 10,240
+That stage rounded these independent row counts up to 512-row quanta: 10,240
 stable records and 6,656 ELF symbols. This is a fixed opt-in policy. It does
 not grow, retry, rewrite source, change the seed, or change native/default
 compiler entry points. Default capacities remain 4,096 records and 2,048

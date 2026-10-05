@@ -288,6 +288,7 @@ variable cc-ag-plan
 ' cc-ag-call is cc-native-call-fwd
 : cc-ag-indirect-call
   cc-target-sysv @ 0= cc-expr-unevaluated @ or if, cc-sysv-indirect-call exit, then,
+  cc-last-expr-type @ cc-sysv-check-callable
   cc-last-struct-desc @ cc-sysv-check-signature
   cc-check-static-init cc-ag-plan @ >r cc-ag-call-begin
   cc-emit-materialize cc-ag-save-target cc-ag-emit-call

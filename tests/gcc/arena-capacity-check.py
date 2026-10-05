@@ -15,7 +15,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-CAP = 17 * 1024 * 1024
+CAP = 21 * 1024 * 1024
 SEED_SHA = '697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e'
 
 
@@ -53,7 +53,7 @@ def main():
         records.append({'case': name, 'status': p.returncode})
 
     # Static arena still has its old exact bound. Each mapping is separate.
-    for cap in (32768, 8 * 1024 * 1024, 16 * 1024 * 1024, CAP):
+    for cap in (32768, 8 * 1024 * 1024, 16 * 1024 * 1024, 17 * 1024 * 1024, 20 * 1024 * 1024, CAP):
         setup = b'[lit] 77 cc-src-line !\n'
         if cap != 32768:
             setup += f'[lit] {cap} cc-arena-map\n'.encode()
@@ -110,9 +110,9 @@ def main():
     fits = work / 'fits-new.c'
     fits.write_text('int arena_probe(void);\n' * 3000)
     exceeds = work / 'exceeds-new.c'
-    exceeds.write_text('int arena_probe(void);\n' * 7000)
+    exceeds.write_text('int arena_probe(void);\n' * 9000)
     cc(ROOT/'tools/gcc-direct-cc.py', '-c', fits, '-o', work/'fits-new.o')
-    records.append({'case': 'real-C-over-8MiB-under-17MiB', 'status': 0,
+    records.append({'case': 'real-C-over-8MiB-under-21MiB', 'status': 0,
                     'object_sha256': sha((work/'fits-new.o').read_bytes())})
     for existing in (False, True):
         out = work / ('overflow-existing.o' if existing else 'overflow-absent.o')
@@ -133,8 +133,8 @@ def main():
         shutil.copy2(ROOT / name, dest)
     path = fixture / 'tools/gcc-direct-cc.py'
     current = path.read_bytes()
-    assert current.count(b'ARENA_BYTES = 17 * 1024 * 1024') == 1
-    path.write_bytes(current.replace(b'ARENA_BYTES = 17 * 1024 * 1024', b'ARENA_BYTES = 8 * 1024 * 1024'))
+    assert current.count(b'ARENA_BYTES = 21 * 1024 * 1024') == 1
+    path.write_bytes(current.replace(b'ARENA_BYTES = 21 * 1024 * 1024', b'ARENA_BYTES = 8 * 1024 * 1024'))
     old = load(path)
     old_work = work / 'old-identity'; old_work.mkdir()
     old_identity = old.Toolchain(old_work).identity
