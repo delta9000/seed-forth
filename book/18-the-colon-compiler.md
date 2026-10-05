@@ -8,7 +8,7 @@ Proof link: the C compiler's calls mirror this shape — call plus inline operan
 ```
 
 Ch 17's dictionary is fixed at assembly time: 32 hand-laid entries
-and no way to add a 33rd.  The library and the compiler need 1,356
+and no way to add a 33rd.  The library and the compiler need 1,358
 colon definitions, and more entries still for their variables and
 constants.  And there is a second gap: a compiled call is `E8` plus a
 4-byte displacement, with no field for an argument, so a definition

@@ -862,11 +862,15 @@ create cc-pp-n-defined  s, defined
 \ ---------------------------------------------------------------------------
 
 \ cc-pp-paren-ahead? ( -- f )  After a function-like macro's name: true,
-\ with pos past it, if the next thing (blanks and newlines skipped) is '('.
-\ Otherwise pos is left where it was, and the name is not a call.
+\ with pos past it, if the next thing (blanks, newlines and LF or CRLF
+\ continuations skipped) is '('.  Otherwise pos is left where it was, and
+\ the name is not a call.
 : cc-pp-paren-ahead?
   cc-prep-src-pos @ [lit] 0                        ( pos0 nls )
   begin,
+    cc-pp-line-continuation? if,                   \ leave pos at its nl
+      cc-prep-advance cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+    then,
     cc-prep-peek bl =  cc-prep-peek tab = or  cc-prep-peek nl = or
   while,
     cc-prep-peek nl = if, 1+ then,
@@ -1385,13 +1389,40 @@ variable cc-pp-cond-depth
     cc-pp-line-comment
   then, ;
 
-\ In source text, only continuations at a whitespace/comment boundary
-\ are supported. They cannot join an identifier, number or delimiter.
+\ cc-pp-splice-next ( -- c )  The byte after the run of LF or CRLF
+\ continuations at pos: nl for a CRLF line end or at EOR.  pos is kept.
+: cc-pp-splice-next
+  cc-prep-src-pos @ >r
+  begin, cc-pp-line-continuation? while,
+    cc-prep-advance
+    cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+    cc-prep-advance
+  repeat,
+  cc-prep-eor? if, nl else,
+    [lit] 13 nl cc-prep-at? if, nl else, cc-prep-peek then,
+  then,
+  r> cc-prep-src-pos ! ;
+
+\ cc-pp-whole-punct? ( c -- f )  c is a punctuator that is always a whole
+\ token, never the first byte of a longer one: , ; ( ) [ ] { } ~
+: cc-pp-whole-punct?
+  dup [lit] 44 = over [lit] 59 = or over [lit] 40 = or
+  over [lit] 41 = or over [lit] 91 = or over [lit] 93 = or
+  over [lit] 123 = or over [lit] 125 = or swap [lit] 126 = or ;
+
+\ In source text a continuation becomes its newline, which is only safe
+\ where a separator cannot change the tokens: at the start of the input,
+\ before whitespace or EOR, after whitespace, a whole-token punctuator or
+\ a complete block comment. It cannot join an identifier, number or
+\ delimiter.
 : cc-pp-file-splice-safe?
   cc-prep-src-pos @ 0= if, true exit, then,
+  cc-pp-splice-next dup bl = over tab = or over nl = or
+  over [lit] 11 = or swap [lit] 12 = or if, true exit, then,
   cc-prep-src-addr @ cc-prep-src-pos @ + 1- dup c@ space? if,
     drop true exit,
   then,
+  dup c@ cc-pp-whole-punct? if, drop true exit, then,
   cc-prep-src-pos @ [lit] 2 < if, drop [lit] 0 exit, then,
   dup c@ [char] / = swap 1- c@ [char] * = and ;
 

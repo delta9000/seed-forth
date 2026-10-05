@@ -86,6 +86,7 @@ fi
 python3 tests/gcc/computed-include-check.py
 python3 tests/gcc/review-computed-include-check.py
 python3 tests/gcc/literal-splice-check.py
+python3 tests/gcc/file-splice-check.py
 python3 tests/gcc/review-literal-splice-check.py
 python3 tests/gcc/syscall-check.py
 python3 tests/gcc/syscall-runtime-check.py

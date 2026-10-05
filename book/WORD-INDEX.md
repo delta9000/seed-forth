@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2594 names and 97 ideas.
+carry none.  2596 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1697,6 +1697,7 @@ for which chapter depends on which, the
 - `cc-pp-sinks-cap` — *compiler word (constant, `040-cc-prep.fth`)* — [Ch 22 §1 The contract, the sink and the scratch area](22-the-preprocessor.md#1-the-contract-the-sink-and-the-scratch-area)
 - `cc-pp-skip-char` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-pp-skipping?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
+- `cc-pp-splice-next` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-pp-stdin-name` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-string-a` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-string-at?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
@@ -1736,6 +1737,7 @@ for which chapter depends on which, the
 - `cc-pp-trim` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#define` and `#undef`](22-the-preprocessor.md#define-and-undef)
 - `cc-pp-trim-slice` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-unavailable?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §1 The contract, the sink and the scratch area](22-the-preprocessor.md#1-the-contract-the-sink-and-the-scratch-area)
+- `cc-pp-whole-punct?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §6 Conditional groups and the walker](22-the-preprocessor.md#6-conditional-groups-and-the-walker)
 - `cc-prefix-qualified` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §2 Expectation helpers and ignored specifiers](29-declarations-types-globals.md#2-expectation-helpers-and-ignored-specifiers)
 - `cc-prep-add-include` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-advance` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)

@@ -1122,11 +1122,15 @@ possibly on a later line; otherwise it stays a plain name, as in C.
 
 ```forth file=040-cc-prep.fth
 \ cc-pp-paren-ahead? ( -- f )  After a function-like macro's name: true,
-\ with pos past it, if the next thing (blanks and newlines skipped) is '('.
-\ Otherwise pos is left where it was, and the name is not a call.
+\ with pos past it, if the next thing (blanks, newlines and LF or CRLF
+\ continuations skipped) is '('.  Otherwise pos is left where it was, and
+\ the name is not a call.
 : cc-pp-paren-ahead?
   cc-prep-src-pos @ [lit] 0                        ( pos0 nls )
   begin,
+    cc-pp-line-continuation? if,                   \ leave pos at its nl
+      cc-prep-advance cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+    then,
     cc-prep-peek bl =  cc-prep-peek tab = or  cc-prep-peek nl = or
   while,
     cc-prep-peek nl = if, 1+ then,
@@ -1750,13 +1754,40 @@ construct starts there.
     cc-pp-line-comment
   then, ;
 
-\ In source text, only continuations at a whitespace/comment boundary
-\ are supported. They cannot join an identifier, number or delimiter.
+\ cc-pp-splice-next ( -- c )  The byte after the run of LF or CRLF
+\ continuations at pos: nl for a CRLF line end or at EOR.  pos is kept.
+: cc-pp-splice-next
+  cc-prep-src-pos @ >r
+  begin, cc-pp-line-continuation? while,
+    cc-prep-advance
+    cc-prep-peek [lit] 13 = if, cc-prep-advance then,
+    cc-prep-advance
+  repeat,
+  cc-prep-eor? if, nl else,
+    [lit] 13 nl cc-prep-at? if, nl else, cc-prep-peek then,
+  then,
+  r> cc-prep-src-pos ! ;
+
+\ cc-pp-whole-punct? ( c -- f )  c is a punctuator that is always a whole
+\ token, never the first byte of a longer one: , ; ( ) [ ] { } ~
+: cc-pp-whole-punct?
+  dup [lit] 44 = over [lit] 59 = or over [lit] 40 = or
+  over [lit] 41 = or over [lit] 91 = or over [lit] 93 = or
+  over [lit] 123 = or over [lit] 125 = or swap [lit] 126 = or ;
+
+\ In source text a continuation becomes its newline, which is only safe
+\ where a separator cannot change the tokens: at the start of the input,
+\ before whitespace or EOR, after whitespace, a whole-token punctuator or
+\ a complete block comment. It cannot join an identifier, number or
+\ delimiter.
 : cc-pp-file-splice-safe?
   cc-prep-src-pos @ 0= if, true exit, then,
+  cc-pp-splice-next dup bl = over tab = or over nl = or
+  over [lit] 11 = or swap [lit] 12 = or if, true exit, then,
   cc-prep-src-addr @ cc-prep-src-pos @ + 1- dup c@ space? if,
     drop true exit,
   then,
+  dup c@ cc-pp-whole-punct? if, drop true exit, then,
   cc-prep-src-pos @ [lit] 2 < if, drop [lit] 0 exit, then,
   dup c@ [char] / = swap 1- c@ [char] * = and ;
 
@@ -2917,13 +2948,22 @@ walker; this does not add another macro or comment parser.
 Continuations between prefix whitespace and complete comments are consumed
 with the same newline disposal operation in lookahead and dispatch. This also
 handles a continuation immediately after a complete source comment, as emitted
-by the unchanged Flex scanner skeleton. In ordinary file text, continuations
-are accepted only at the start of the input, after whitespace, or immediately
-after a complete block comment. Their physical newline is emitted without
-turning the next byte into a new directive line. Location macros still count
-the original source bytes. Other nonliteral source continuations and splices
-splitting a directive name or comment delimiter fail49; the shared engine
-does not yet join those phase-two tokens.
+by the unchanged Flex scanner skeleton. In ordinary file text a continuation
+is replaced by its physical newline, which phase two would have deleted. That
+is the same token sequence wherever the bytes on either side could not have
+joined: at the start of the input; before whitespace or the end of input,
+looking past any further continuations; or after whitespace, a complete block
+comment, or a punctuator that is always a whole token (`, ; ( ) [ ] { } ~`).
+The unchanged binutils 2.30 `bfd/cofflink.c` continues a call's argument
+list as `addend,\` followed by indentation, which needs the last two rules.
+The newline is emitted without turning the next byte into a new directive
+line, and location macros still count the original source bytes. The lookahead
+for a function-like macro's `(` skips continuations like other blanks, so
+`F \` followed by `(1,2)` on the next line is still a call. Other nonliteral
+source continuations — those that would join an identifier, number,
+multi-byte punctuator or comment delimiter — and splices splitting a directive
+name fail49; the shared engine does not yet join those phase-two tokens
+(`tests/gcc/file-splice-check.py`).
 Legacy/native and TinyCC directive dispatch retain their previous bytes.
 
 The unchanged ordinary string-literal copier still preserves a backslash followed
