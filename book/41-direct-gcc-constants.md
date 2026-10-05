@@ -9,7 +9,7 @@ path runs generated target code or calls a host compiler for production work.
 
 **Source coverage:** `125-cc-consteval.fth`, whose canonical source appears
 below. Its deferred entry points live with the original expression parser in
-chapter 28; the object adapter supplies address leaves from chapter 35.
+chapter 28; the object adapter supplies address leaves from chapter 36.
 
 **Concepts carried in:** the operator table and constant grammar from
 [chapter 28](28-expressions-part-2.md), LP64 types and unevaluated `sizeof` from
@@ -95,6 +95,35 @@ arithmetic, pointer comparison, and multiplication of a symbolic value also
 reject because one ELF address relocation cannot represent those expressions.
 Pointer conditionals currently accept matching types and descriptors or an
 integer null arm. Other pointer combinations remain an explicit boundary.
+
+The object adapter keeps an address operand's value category alongside its
+type. Parenthesized objects remain lvalues; a cast produces a constant pointer
+value. Member selection, array subscripts, and explicit dereference can then
+calculate an address from static storage or from that constant pointer without
+loading target memory. Nested records and scalar array elements add their byte
+offsets to the same symbol. A pointer object such as `global_pointer` cannot be
+loaded to evaluate `&global_pointer->member`; that form rejects even if the
+object has an initializer. Taking a bitfield's address also rejects.
+
+The direct target accepts the traditional null-base `offsetof` spelling as a
+compile-time extension: `(size_t)&(((struct S *)0)->member)` adds the member's
+layout offset to zero. This is compiler arithmetic, never a target null-pointer
+dereference. The runtime header keeps its original macro, and GCC's unchanged
+`rtl.c` can use it when initializing the `rtx_size` table. Constant pointer
+subscripting scales by element size; casting the completed address to an integer
+changes subsequent addition to byte arithmetic, just as for symbolic addresses.
+
+This grammar remains bounded. It accepts parenthesized lvalues, typed constant
+pointer bases, `*`, `.`, `->`, and scalar-element subscripts. It rejects value
+loads, calls, assignments, address-of-array results whose pointer shape is not
+represented, and incompatible member bases. Known arrays retain their bounds
+check; pointers carry no inferred allocation bound. The integer-index callback
+inherits the enclosing dead-arm state, so a discarded subscript such as `1/0`
+is parsed without evaluating the division. Nested address frames restore their
+parent, and the enclosing public constant parse restores all temporary records.
+`tests/gcc/constant-address-check.py` checks these boundaries against independent
+GCC objects and executions, preserves legacy/native output bytes, and can replay
+the retained original `rtl.c` Makefile invocation.
 
 Internally, the parser uses four-cell records in a bounded private pool.
 Combining an expression overwrites its left record. Each public call restores
@@ -269,6 +298,7 @@ defer cc-const-conditional-fwd
     cc-next-token-keep
     cc-type-start? if,
       cc-parse-type-name
+      cc-type-name-qualified @ cc-const-qualified @ or cc-const-qualified !
       cc-type-name-array @ if, cc-const-unsupported then,
       >r cc-cast-desc @ >r
       [char] ) cc-expect-punct-c
@@ -492,8 +522,9 @@ variable cc-const-b
       over cc-const-type over [lit] 8 + !
       over cc-const-desc over [lit] 16 + !
     then,
-    2dup cc-const-type swap cc-const-type <> if, cc-const-unsupported then,
-    2dup cc-const-desc swap cc-const-desc <> if, cc-const-unsupported then,
+    over cc-const-type [lit] 2 cc-npick cc-const-desc
+    [lit] 2 cc-npick cc-const-type [lit] 3 cc-npick cc-const-desc
+    cc-sysv-compatible-types 0= if, cc-const-unsupported then,
     rot @ if, drop else, nip then, exit,
   then,
   2dup cc-const-type swap cc-const-type cc-expr-common-type >r
@@ -516,13 +547,28 @@ variable cc-const-b
   else, cc-putback-token then, ;
 ' cc-const-conditional is cc-const-conditional-fwd
 
+\ The object adapter parses address operands without emitting or loading
+\ target memory. These callbacks share this evaluator's casts, unary
+\ precedence and integer checks, including the current dead-arm state.
+: cc-const-address-cast ( type descriptor -- value type descriptor symbol )
+  cc-type-name-qualified @ cc-const-qualified @ or cc-const-qualified !
+  >r >r cc-const-unary r> r> cc-const-cast cc-const-cells ;
+: cc-const-address-unary ( -- value type descriptor symbol )
+  cc-const-unary cc-const-cells ;
+: cc-const-address-index ( -- value )
+  cc-const-conditional dup cc-const-check-integer @ ;
+' cc-const-address-cast is cc-om-address-cast-fwd
+' cc-const-address-unary is cc-om-address-unary-fwd
+' cc-const-address-index is cc-om-address-index-fwd
+
 \ Each public parse restores its pool watermark. Nested sizeof array bounds
 \ can therefore call the same API without corrupting their outer operands.
 : cc-parse-static-const ( -- value type descriptor symbol )
-  cc-const-used @ >r cc-cx-skip @ >r
+  cc-const-used @ >r cc-cx-skip @ >r cc-const-qualified @ >r
+  [lit] 0 cc-const-qualified !
   [lit] 0 cc-cx-skip !
   cc-const-conditional cc-const-cells
-  r> cc-cx-skip ! r> cc-const-used ! ;
+  r> cc-const-qualified ! r> cc-cx-skip ! r> cc-const-used ! ;
 : cc-parse-integer-const ( -- value type )
   cc-parse-static-const
   swap drop if, cc-const-unsupported then,

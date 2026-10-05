@@ -74,6 +74,11 @@ def main():
             print(run([str(oracle)]).stdout.decode().strip(), 'ET_REL', optimization)
 
         valid = {
+            'function-parameter-declarator': '''
+                int f(int (*)(int));
+                int f(int cb(int)){return cb(39);}
+                int add(int x){return x+3;}
+                int main(void){return f(add)!=42;}''',
             'oldstyle-promoted-parameters': '''
                 long f(int,int);
                 long f(a,b) signed char a; unsigned short b; { return a+b; }
@@ -151,7 +156,6 @@ def main():
             'oldstyle-duplicate-declaration': (233, 'int f(a) int a; int a; {return a;} int main(void){return 0;}'),
             'unspecified-narrow-prototype': (237, 'int f(); int f(char x){return x;} int main(void){return 0;}'),
             'prototype-survives-for-arity': (235, 'long f(long); long f(); long f(long x){return x;} int main(void){return f();}'),
-            'function-parameter-declarator': (233, 'int f(int cb(int)){return 0;} int main(void){return 0;}'),
             '65-parameters': (234, 'long f(' + ','.join(f'long a{i}' for i in range(65)) + '); int main(void){return 0;}'),
             '65-call-arguments': (234, 'long f(long x,...); int main(void){return f(' + ','.join('1' for _ in range(65)) + ');}'),
             'pointer-call-too-few': (235, 'long f(long x){return x;} int main(void){long (*p)(long); p=f; return p();}'),
@@ -161,9 +165,9 @@ def main():
             'conflicting-param-signedness': (237, 'long f(unsigned int); long f(int x){return x;} int main(void){return 0;}'),
             'conflicting-varargs': (237, 'long f(long,...); long f(long x){return x;} int main(void){return 0;}'),
             'conflicting-struct-pointer': (237, 'struct A{int x;}; struct B{int x;}; long f(struct A*); long f(struct B*x){return 0;} int main(void){return 0;}'),
-            'floating-function-pointer-call': (232, 'int main(void){long (*p)(double); p=0; return p(1);}'),
+            'extended-function-pointer-call': (232, 'int main(void){long (*p)(long double); p=0; return p(1);}'),
             'aggregate-function-pointer-call': (232, 'struct S{double x;}; int main(void){long (*p)(struct S); struct S s; p=0; return p(s);}'),
-            'floating-local-value': (232, 'int main(void){float d; return d;}'),
+            'extended-local-value': (232, 'int main(void){long double d; return d;}'),
         }
         results = []
         for name, source in valid.items():

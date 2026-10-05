@@ -1,5 +1,5 @@
-/* Host libc supplies setjmp/longjmp only for this ABI oracle. The bounded
-   production runtime does not yet claim a source-built implementation. */
+/* Shared returns-twice fixture: the standalone ABI check uses host libc.
+   nonlocal-runtime-check.py also links it to the Forth-built leaf objects. */
 int setjmp(long *state);
 void longjmp(long *state, int value);
 typedef void (*JumpCallback)(long *, int);

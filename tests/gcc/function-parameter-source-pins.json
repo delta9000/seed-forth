@@ -1,0 +1,12 @@
+{
+  "source_commit": "944765863eec87a9f37e297994fd2af960397138",
+  "original_source": "gcc/cfgloopanal.c",
+  "original_source_sha256": "757e6eea54dd0ebc7c2c4a8d15d167e0cc03a87201c3cbb71b2a0433a07b5667",
+  "source_line": 226,
+  "construct": "void (callback) (struct graph *, struct edge *)",
+  "preprocessed_sha256": "7638a682c2604b77efae3e27f2d2fb6d42b5b42569ee25b538fc87b90401e57d",
+  "preprocessed_line": 37209,
+  "frozen_compiler_identity": "a5356f3b73523539aeb0a6581d1df054493d7690986d7b0c47aa973ee44e5fb0",
+  "baseline_compiler_identity": "a09c9cd3526f061c3cc1255030378f426532db17b985184e08326922903815d8",
+  "source_rewritten": false
+}

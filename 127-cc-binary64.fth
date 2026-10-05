@@ -1,14 +1,25 @@
-\ 127-cc-binary64.fth — binary64 values in the existing System V target.
-\ Double payloads occupy RDI/RCX and eight-byte expression/frame slots.
+\ 127-cc-binary64.fth — binary32/binary64 scalar System V values.
+\ Raw payloads occupy RDI/RCX and eight-byte expression/frame slots.
+\ Binary32 storage is four bytes; arithmetic rounds at its own precision.
 \ XMM0/XMM1 are transient arithmetic registers; XMM0 carries ABI results.
-\ Float, long double, floating parameters and static initializers remain
-\ checked boundaries in this first stage. No native/TinyCC mode is changed.
+\ Long double and static floating initializers remain checked boundaries.
+\ No native/TinyCC mode is changed.
 
 : cc-f64-type? ( type -- flag )
   dup ty-ptr 0= swap ty-base ty-double = and cc-target-sysv @ and ;
-: cc-f64-scalar-check ( type -- )
-  dup cc-f64-type? if, drop else, cc-sysv-check-scalar-default then, ;
-' cc-f64-scalar-check is cc-sysv-check-scalar
+: cc-f32-type? ( type -- flag )
+  dup ty-ptr 0= swap ty-base ty-float = and cc-target-sysv @ and ;
+: cc-fp-type? ( type -- flag ) dup cc-f32-type? swap cc-f64-type? or ;
+: cc-fp-scalar-check ( type -- )
+  dup cc-fp-type? if, drop else, cc-sysv-check-scalar-default then, ;
+' cc-fp-scalar-check is cc-sysv-check-scalar
+
+\ The integer storage emitter sees binary32 as an unsigned four-byte
+\ payload. This hook changes no expression type and does no conversion.
+: cc-fp-storage-type ( type -- storage-type )
+  cc-sysv-value-type-check
+  dup cc-f32-type? if, drop ty-uint [lit] 0 ty-make then, ;
+' cc-fp-storage-type is cc-emit-type-check-fwd
 
 : cc-f64-parse-unavailable ( address length -- bits ) 2drop [lit] 248 cc-die ;
 defer cc-f64-parse-fwd
@@ -56,104 +67,122 @@ variable cc-f64-scan-hex
   ty-double [lit] 0 ty-make [lit] 0 cc-mark-typed-value true ;
 ' cc-f64-literal is cc-value-literal-fwd
 
-: cc-f64-xmm0-from-rdi
+: cc-fp-xmm0-from-rdi
   [lit] 102 cc-emit-byte [lit] 72 cc-emit-byte
   [lit] 15 cc-emit-byte [lit] 110 cc-emit-byte [lit] 199 cc-emit-byte ;
-: cc-f64-xmm1-from-rcx
+: cc-fp-xmm1-from-rcx
   [lit] 102 cc-emit-byte [lit] 72 cc-emit-byte
   [lit] 15 cc-emit-byte [lit] 110 cc-emit-byte [lit] 201 cc-emit-byte ;
-: cc-f64-xmm1-from-rax
+: cc-fp-xmm1-from-rax
   [lit] 102 cc-emit-byte [lit] 72 cc-emit-byte
   [lit] 15 cc-emit-byte [lit] 110 cc-emit-byte [lit] 200 cc-emit-byte ;
-: cc-f64-rdi-from-xmm0
+: cc-fp-rdi-from-xmm0
   [lit] 102 cc-emit-byte [lit] 72 cc-emit-byte
   [lit] 15 cc-emit-byte [lit] 126 cc-emit-byte [lit] 199 cc-emit-byte ;
-: cc-f64-signed-from-rdi
-  [lit] 242 cc-emit-byte [lit] 72 cc-emit-byte
+: cc-fp-prefix ( type -- )
+  cc-f32-type? if, [lit] 243 else, [lit] 242 then, cc-emit-byte ;
+: cc-fp-signed-from-rdi ( type -- )
+  cc-fp-prefix [lit] 72 cc-emit-byte
   [lit] 15 cc-emit-byte [lit] 42 cc-emit-byte [lit] 199 cc-emit-byte ;
-: cc-f64-truncate-rdi
-  [lit] 242 cc-emit-byte [lit] 72 cc-emit-byte
+: cc-fp-truncate-rdi ( type -- )
+  cc-fp-prefix [lit] 72 cc-emit-byte
   [lit] 15 cc-emit-byte [lit] 44 cc-emit-byte [lit] 248 cc-emit-byte ;
-: cc-f64-sse ( opcode -- )
-  [lit] 242 cc-emit-byte [lit] 15 cc-emit-byte cc-emit-byte [lit] 193 cc-emit-byte ;
-: cc-f64-jcc ( opcode -- patch )
+: cc-fp-sse ( opcode type -- )
+  cc-fp-prefix [lit] 15 cc-emit-byte cc-emit-byte [lit] 193 cc-emit-byte ;
+: cc-fp-jcc ( opcode -- patch )
   [lit] 15 cc-emit-byte cc-emit-byte cc-out-pos @ [lit] 0 cc-emit-4le ;
-: cc-f64-flip-sign
+: cc-fp-flip-sign ( type -- )
   [lit] 72 cc-emit-byte [lit] 15 cc-emit-byte [lit] 186 cc-emit-byte
-  [lit] 255 cc-emit-byte [lit] 63 cc-emit-byte ;
-: cc-f64-u64-to-double
-  cc-emit-test-rdi [lit] 137 cc-f64-jcc >r
+  [lit] 255 cc-emit-byte
+  cc-f32-type? if, [lit] 31 else, [lit] 63 then, cc-emit-byte ;
+: cc-fp-u64-to-value ( type -- )
+  >r
+  cc-emit-test-rdi [lit] 137 cc-fp-jcc
+  r> swap >r >r
   \ High unsigned half: round the sticky half, then double exactly.
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 248 cc-emit-byte
   [lit] 72 cc-emit-byte [lit] 209 cc-emit-byte [lit] 232 cc-emit-byte
   [lit] 131 cc-emit-byte [lit] 231 cc-emit-byte [lit] 1 cc-emit-byte
   [lit] 72 cc-emit-byte [lit] 9 cc-emit-byte [lit] 248 cc-emit-byte
-  [lit] 242 cc-emit-byte [lit] 72 cc-emit-byte
+  r@ cc-fp-prefix [lit] 72 cc-emit-byte
   [lit] 15 cc-emit-byte [lit] 42 cc-emit-byte [lit] 192 cc-emit-byte
-  [lit] 242 cc-emit-byte [lit] 15 cc-emit-byte
+  r@ cc-fp-prefix [lit] 15 cc-emit-byte
   [lit] 88 cc-emit-byte [lit] 192 cc-emit-byte
-  cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
-  cc-f64-signed-from-rdi r> cc-patch-rel32-to-here ;
-: cc-f64-double-to-u64
+  r> cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
+  cc-fp-signed-from-rdi r> cc-patch-rel32-to-here ;
+: cc-fp-double-to-u64
   [lit] 72 cc-emit-byte [lit] 184 cc-emit-byte
-  [lit] 4890909195324358656 cc-emit-8le cc-f64-xmm1-from-rax
+  [lit] 4890909195324358656 cc-emit-8le cc-fp-xmm1-from-rax
   [lit] 102 cc-emit-byte [lit] 15 cc-emit-byte
   [lit] 46 cc-emit-byte [lit] 193 cc-emit-byte
-  [lit] 130 cc-f64-jcc >r
-  [lit] 92 cc-f64-sse cc-f64-truncate-rdi cc-f64-flip-sign
+  [lit] 130 cc-fp-jcc >r
+  ty-double [lit] 0 ty-make dup >r
+  [lit] 92 swap cc-fp-sse r@ cc-fp-truncate-rdi r> cc-fp-flip-sign
   cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
-  cc-f64-truncate-rdi r> cc-patch-rel32-to-here ;
+  ty-double [lit] 0 ty-make cc-fp-truncate-rdi r> cc-patch-rel32-to-here ;
 
-: cc-f64-convert ( source destination -- )
-  2dup cc-f64-type? swap cc-f64-type? or 0= if,
+: cc-fp-width-convert ( source destination -- )
+  2dup = if, 2drop exit, then,
+  swap cc-fp-prefix [lit] 15 cc-emit-byte [lit] 90 cc-emit-byte
+  [lit] 192 cc-emit-byte drop ;
+: cc-fp-convert ( source destination -- )
+  2dup cc-fp-type? swap cc-fp-type? or 0= if,
     cc-emit-convert-value-default exit,
   then,
-  dup cc-f64-type? if,
-    swap dup cc-f64-type? if, 2drop exit, then,
-    dup cc-const-integer? 0= if, [lit] 232 cc-die then,
-    dup cc-emit-convert-rdi
-    dup ty-unsigned? swap ty-size [lit] 8 = and if,
-      cc-f64-u64-to-double
-    else, cc-f64-signed-from-rdi then,
-    drop cc-f64-rdi-from-xmm0
+  dup cc-fp-type? if,
+    over cc-fp-type? if,
+      cc-fp-xmm0-from-rdi 2dup cc-fp-width-convert
+      cc-fp-rdi-from-xmm0 nip cc-emit-convert-rdi exit,
+    then,
+    over cc-const-integer? 0= if, [lit] 232 cc-die then,
+    over cc-emit-convert-rdi
+    over ty-unsigned? [lit] 2 cc-npick ty-size [lit] 8 = and if,
+      dup cc-fp-u64-to-value
+    else, dup cc-fp-signed-from-rdi then,
+    cc-fp-rdi-from-xmm0 nip cc-emit-convert-rdi
   else,
-    nip dup ty-base ty-void = over ty-ptr 0= and if, drop exit, then,
+    dup ty-base ty-void = over ty-ptr 0= and if, 2drop exit, then,
     dup cc-const-integer? 0= if, [lit] 232 cc-die then,
-    cc-f64-xmm0-from-rdi
+    cc-fp-xmm0-from-rdi
     dup ty-unsigned? over ty-size [lit] 8 = and if,
-      cc-f64-double-to-u64
-    else, cc-f64-truncate-rdi then,
+      swap ty-double [lit] 0 ty-make cc-fp-width-convert
+      cc-fp-double-to-u64
+    else, swap cc-fp-truncate-rdi then,
     cc-emit-convert-rdi
   then, ;
-' cc-f64-convert is cc-emit-convert-value
-: cc-f64-convert-right ( source destination -- )
-  2dup cc-f64-type? swap cc-f64-type? or 0= if,
+' cc-fp-convert is cc-emit-convert-value
+: cc-fp-convert-right ( source destination -- )
+  2dup cc-fp-type? swap cc-fp-type? or 0= if,
     cc-emit-convert-right-default exit,
   then,
   [lit] 72 cc-emit-byte [lit] 135 cc-emit-byte [lit] 207 cc-emit-byte
-  cc-f64-convert
+  cc-fp-convert
   [lit] 72 cc-emit-byte [lit] 135 cc-emit-byte [lit] 207 cc-emit-byte ;
-' cc-f64-convert-right is cc-emit-convert-right
-: cc-f64-initialize ( source destination -- )
-  2dup cc-f64-type? swap cc-f64-type? or if, cc-f64-convert else, 2drop then, ;
-' cc-f64-initialize is cc-value-init-fwd
-: cc-f64-return
-  cc-native-return-type @ cc-f64-type? if,
-    cc-f64-xmm0-from-rdi
+' cc-fp-convert-right is cc-emit-convert-right
+: cc-fp-initialize ( source destination -- )
+  2dup cc-fp-type? swap cc-fp-type? or if, cc-fp-convert else, 2drop then, ;
+' cc-fp-initialize is cc-value-init-fwd
+: cc-fp-return
+  cc-native-return-type @ cc-fp-type? if,
+    cc-fp-xmm0-from-rdi
   else, cc-emit-mov-rax-rdi then, ;
-' cc-f64-return is cc-value-return-fwd
-: cc-f64-result ( type -- )
-  dup cc-f64-type? if, drop cc-f64-rdi-from-xmm0 else, cc-emit-convert-rdi then, ;
-' cc-f64-result is cc-sysv-result-value-fwd
+' cc-fp-return is cc-value-return-fwd
+: cc-fp-result ( type -- )
+  dup cc-fp-type? if, cc-fp-rdi-from-xmm0 then, cc-emit-convert-rdi ;
+' cc-fp-result is cc-sysv-result-value-fwd
 
-: cc-f64-common-type ( left right -- type )
-  2dup cc-f64-type? swap cc-f64-type? or if,
-    over ty-ptr over ty-ptr or if, [lit] 232 cc-die then,
-    2drop ty-double [lit] 0 ty-make
+: cc-fp-common-type ( left right -- type )
+  2dup cc-fp-type? swap cc-fp-type? or if,
+    over cc-fp-type? over cc-fp-type? and 0= if,
+      over cc-fp-type? if, dup else, over then,
+      cc-const-integer? 0= if, [lit] 232 cc-die then,
+    then,
+    cc-f64-type? swap cc-f64-type? or if, ty-double else, ty-float then,
+    [lit] 0 ty-make
   else, cc-expr-common-type-default then, ;
-' cc-f64-common-type is cc-expr-common-type
-: cc-f64-comparison ( op -- )
-  [lit] 102 cc-emit-byte [lit] 15 cc-emit-byte
+' cc-fp-common-type is cc-expr-common-type
+: cc-fp-comparison ( op -- )
+  cc-expr-common @ cc-f64-type? if, [lit] 102 cc-emit-byte then, [lit] 15 cc-emit-byte
   [lit] 46 cc-emit-byte [lit] 193 cc-emit-byte
   dup [char] > = if, drop [lit] 151 else,
   dup pt-ge = if, drop [lit] 147 else,
@@ -172,49 +201,50 @@ variable cc-f64-scan-hex
     [lit] 8 cc-emit-byte [lit] 208 cc-emit-byte
   then,
   [lit] 15 cc-emit-byte [lit] 182 cc-emit-byte [lit] 248 cc-emit-byte ;
-: cc-f64-binop
-  cc-expr-left-type @ cc-f64-type? cc-expr-right-type @ cc-f64-type? or 0= if,
+: cc-fp-binop
+  cc-expr-left-type @ cc-fp-type? cc-expr-right-type @ cc-fp-type? or 0= if,
     cc-native-binop-emit-default exit,
   then,
-  cc-f64-xmm0-from-rdi cc-f64-xmm1-from-rcx
+  cc-fp-xmm0-from-rdi cc-fp-xmm1-from-rcx
   cc-expr-op-row @ bo-op + @
   dup [char] + = if, drop [lit] 88 else,
   dup [char] - = if, drop [lit] 92 else,
   dup [char] * = if, drop [lit] 89 else,
   dup [char] / = if, drop [lit] 94 else,
-    cc-f64-comparison exit,
+    cc-fp-comparison exit,
   then, then, then, then,
-  cc-f64-sse cc-f64-rdi-from-xmm0 ;
-' cc-f64-binop is cc-native-binop-emit
+  cc-expr-common @ cc-fp-sse cc-fp-rdi-from-xmm0 ;
+' cc-fp-binop is cc-native-binop-emit
 
-: cc-f64-test
-  cc-last-expr-type @ cc-f64-type? if,
+: cc-fp-test
+  cc-last-expr-type @ cc-fp-type? if,
     \ Clear only the sign in a scratch value; both signed zeros are false.
-    [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 248 cc-emit-byte
-    [lit] 72 cc-emit-byte [lit] 209 cc-emit-byte [lit] 224 cc-emit-byte
-    [lit] 72 cc-emit-byte [lit] 133 cc-emit-byte [lit] 192 cc-emit-byte
+    cc-last-expr-type @ cc-f64-type? if, [lit] 72 cc-emit-byte then,
+    [lit] 137 cc-emit-byte [lit] 248 cc-emit-byte
+    cc-last-expr-type @ cc-f64-type? if, [lit] 72 cc-emit-byte then,
+    [lit] 209 cc-emit-byte [lit] 224 cc-emit-byte
+    cc-last-expr-type @ cc-f64-type? if, [lit] 72 cc-emit-byte then,
+    [lit] 133 cc-emit-byte [lit] 192 cc-emit-byte
   else, cc-emit-test-rdi then, ;
-' cc-f64-test is cc-value-test-fwd
-: cc-f64-not
-  cc-last-expr-type @ cc-f64-type? if,
-    cc-f64-test
+' cc-fp-test is cc-value-test-fwd
+: cc-fp-not
+  cc-last-expr-type @ cc-fp-type? if,
+    cc-fp-test
     [lit] 15 cc-emit-byte [lit] 148 cc-emit-byte [lit] 192 cc-emit-byte
     [lit] 15 cc-emit-byte [lit] 182 cc-emit-byte [lit] 248 cc-emit-byte
   else, cc-emit-not-zero-flag then, ;
-' cc-f64-not is cc-value-not-fwd
-: cc-f64-negate
-  cc-last-expr-type @ cc-f64-type? if, cc-f64-flip-sign else, cc-emit-neg-rdi then, ;
-' cc-f64-negate is cc-value-negate-fwd
-: cc-f64-complement
-  cc-last-expr-type @ cc-f64-type? if, [lit] 232 cc-die then, cc-emit-not-rdi ;
-' cc-f64-complement is cc-value-complement-fwd
-: cc-f64-ternary
-  cc-expr-left-type @ cc-f64-type? cc-expr-right-type @ cc-f64-type? <> if,
-    [lit] 232 cc-die
-  then, ;
-' cc-f64-ternary is cc-value-ternary-fwd
+' cc-fp-not is cc-value-not-fwd
+: cc-fp-negate
+  cc-last-expr-type @ cc-fp-type? if, cc-last-expr-type @ cc-fp-flip-sign else, cc-emit-neg-rdi then, ;
+' cc-fp-negate is cc-value-negate-fwd
+: cc-fp-complement
+  cc-last-expr-type @ cc-fp-type? if, [lit] 232 cc-die then, cc-emit-not-rdi ;
+' cc-fp-complement is cc-value-complement-fwd
+\ Conditional arms use cc-fp-common-type and selected-arm conversions in100.
+: cc-fp-ternary ;
+' cc-fp-ternary is cc-value-ternary-fwd
 
-: cc-f64-integer-use ( type -- )
-  cc-f64-type? if, [lit] 232 cc-die then, ;
-' cc-f64-integer-use is cc-value-integer-use-fwd
-' cc-f64-integer-use is cc-value-static-init-fwd
+: cc-fp-integer-use ( type -- )
+  cc-fp-type? if, [lit] 232 cc-die then, ;
+' cc-fp-integer-use is cc-value-integer-use-fwd
+' cc-fp-integer-use is cc-value-static-init-fwd

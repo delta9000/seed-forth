@@ -7,8 +7,8 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = ROOT / "runtime/gcc-seed"
-NAMES = ("fopen fdopen fclose fflush ferror feof clearerr fwrite fread fputc putc putchar "
-         "fputs puts fgetc getc getchar ungetc ftell vfprintf fprintf vprintf printf "
+NAMES = ("fopen fdopen freopen fclose fflush ferror feof clearerr fwrite fread fputc putc putchar "
+         "fputs puts fgetc getc getwc getchar fgets ungetc ftell fseek fileno vfprintf fprintf vprintf printf "
          "vsnprintf snprintf vsprintf sprintf perror").split()
 
 

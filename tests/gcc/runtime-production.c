@@ -189,15 +189,22 @@ int runtime_allocations(void)
     if (p == NULL || q == NULL || p == q)
         return 65;
     free(p); free(q);
-    p = realloc(NULL, 23);
+    p = realloc(NULL, 2049);
     if (p == NULL)
         return 66;
-    /* The bootstrap allocator header precedes a page-aligned mapping.
+    /* Large allocations retain individual page-aligned mappings.
        mincore must find no mapping after free; no allocation intervenes. */
     mapping = (long)p - 16;
     free(p);
     if (__seed_syscall6(27, mapping, 4096, (long)&residency, 0, 0, 0) != -ENOMEM)
         return 67;
+    p = malloc(23);
+    if (p == NULL) return 68;
+    mapping = (long)p;
+    free(p);
+    q = malloc(23);
+    if (q == NULL || (long)q != mapping) return 69;
+    free(q);
     return 0;
 }
 

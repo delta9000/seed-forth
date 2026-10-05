@@ -192,7 +192,9 @@ bad = [
     ("alignment-three", "[lit] 3 cc-obj-align", 244),
     ("alignment-large", "[lit] 8192 cc-obj-align", 244),
     ("negative-reserve", "true cc-obj-reserve", 245),
-    ("section-cap", "cc-obj-section-cap cc-obj-reserve drop [lit] 1 cc-obj-byte", 245),
+    ("text-cap", "cc-obj-text-cap cc-obj-reserve drop [lit] 1 cc-obj-byte", 245),
+    ("rodata-cap", "cc-obj-rodata cc-obj-use cc-obj-section-cap cc-obj-reserve drop [lit] 1 cc-obj-byte", 245),
+    ("data-cap", "cc-obj-data cc-obj-use cc-obj-section-cap cc-obj-reserve drop [lit] 1 cc-obj-byte", 245),
     ("bss-cap", "cc-obj-bss cc-obj-use cc-obj-bss-cap cc-obj-reserve drop [lit] 1 cc-obj-reserve", 245),
     ("bss-emission", "cc-obj-bss cc-obj-use [lit] 1 cc-obj-byte", 244),
     ("empty-patch", "[lit] 0 cc-obj-text [lit] 0 cc-obj-patch-4le", 244),
@@ -268,18 +270,86 @@ long-name [lit] 65534 cc-obj-global cc-obj-notype cc-obj-default cc-obj-undef [l
 name_limit = write_object("name-limit", name_fill)
 assert read_object(name_limit)[0][".strtab"][1][5] == 65536
 forth("name-one-past", name_fill + symbol, 245)
-section_limit = write_object("section-limit", """
-cc-obj-init
-cc-obj-section-cap cc-obj-reserve drop
+# Independent exact-limit objects also prove the three payload bases do not overlap.
+for section, capacity in (("text", 524288), ("rodata", 262144), ("data", 262144)):
+    body = "cc-obj-init\n"
+    for other, marker in (("text", 17), ("rodata", 34), ("data", 51)):
+        count = capacity if other == section else 16
+        body += (f"cc-obj-{other} cc-obj-use [lit] {marker} cc-obj-byte "
+                 f"[lit] {count - 2} cc-obj-reserve drop [lit] {marker + 1} cc-obj-byte\n")
+    obj = write_object("section-limit-" + section, body)
+    rows = read_object(obj)[0]
+    for other, marker in (("text", 17), ("rodata", 34), ("data", 51)):
+        count = capacity if other == section else 16
+        assert rows["." + other][2] == bytes([marker]) + bytes(count - 2) + bytes([marker + 1])
+
+# All section capacities together exceed the unchanged output buffer once ELF
+# metadata is included. Rejection must preserve an existing destination.
+combined = OUT / "combined-output-limit.o"
+combined.write_bytes(b"preserve existing object")
+forth("combined-output-limit", f"""
+cc-obj-init cc-obj-text-cap cc-obj-reserve drop
 cc-obj-rodata cc-obj-use cc-obj-section-cap cc-obj-reserve drop
 cc-obj-data cc-obj-use cc-obj-section-cap cc-obj-reserve drop
-cc-obj-bss cc-obj-use cc-obj-bss-cap cc-obj-reserve drop
-""")
-limit_sections = read_object(section_limit)[0]
-for name in (".text", ".rodata", ".data"):
-    assert limit_sections[name][1][5] == 262144
-assert limit_sections[".bss"][1][5] == 1073741824
-assert 786432 <= section_limit.stat().st_size < 800000
+create combined-path s, {combined} [lit] 0 c,
+combined-path cc-obj-write
+""", 21)
+assert combined.read_bytes() == b"preserve existing object"
+
+bss_limit = write_object("bss-limit", "cc-obj-init cc-obj-bss cc-obj-use cc-obj-bss-cap cc-obj-reserve drop")
+assert read_object(bss_limit)[0][".bss"][1][5] == 1073741824
+
+# Exercise the compiler-to-writer handoff with real C, not only direct writer
+# calls. The former 256 KiB text limit rejected this unrolled program.
+large_c = OUT / "large-driver.c"
+large_c.write_text("int main(void) { int x=0;\n" + "x=x+1;\n" * 9000 +
+                   "return x==9000 ? 0 : 1; }\n")
+large_o = OUT / "large-driver.o"
+driver = [sys.executable, str(ROOT / "tools/gcc-direct-cc.py")]
+def driver_run(arguments, status=0):
+    result = subprocess.run(driver + list(map(str, arguments)), capture_output=True, timeout=180)
+    assert result.returncode == status, (arguments, result.returncode, result.stderr)
+    return result
+
+driver_run(["-c", large_c, "-o", large_o])
+assert 262144 < read_object(large_o)[0][".text"][1][5] <= 524288
+large_exe = OUT / "large-driver"
+driver_run([large_o, "-o", large_exe])
+large_execution = subprocess.run([str(large_exe)], capture_output=True, timeout=30)
+assert large_execution.returncode == 0 and not large_execution.stdout and not large_execution.stderr
+large_c.write_text("int main(void) { int x=0;\n" + "x=x+1;\n" * 13000 +
+                   "return x==13000 ? 0 : 1; }\n")
+# The direct workspace now accepts this former 512 KiB text overflow; the
+# ordinary writer's unchanged 512 KiB boundary is tested above without opt-in.
+driver_run(["-c", large_c, "-o", large_o])
+assert 524288 < read_object(large_o)[0][".text"][1][5] <= 4194304
+# Emission first exhausts the independent 4 MiB output staging bound. Preserve
+# the earlier destination just as the old text-bound test required.
+large_c.write_text("int main(void) { int x=0;\n" + "x=x+1;\n" * 110000 +
+                   "return x==110000 ? 0 : 1; }\n")
+large_o.write_bytes(b"preserve object beyond new limit")
+driver_run(["-c", large_c, "-o", large_o], 21)
+assert large_o.read_bytes() == b"preserve object beyond new limit"
+
+# Load the complete compiler and archive vocabulary within the seed's actual
+# ELF mapping, rather than assuming that a larger payload has spare memory.
+seed_bytes = (ROOT / "seed-forth").read_bytes()
+seed_header = struct.unpack_from("<16sHHIQQQIHHHHHH", seed_bytes)
+programs = [struct.unpack_from("<IIQQQQQQ", seed_bytes, seed_header[5] + i * seed_header[9])
+            for i in range(seed_header[10])]
+writable_end = max(row[3] + row[6] for row in programs if row[0] == 1 and row[1] & 2)
+layers = [ROOT / "010-lib.fth"] + [p for p in sorted(ROOT.glob("[0-9][0-9][0-9]-cc-*.fth"))
+                                  if p.name != "120-cc-main.fth"] + [ROOT / "141-archive.fth"]
+vocabulary = b"\n".join(p.read_bytes() for p in layers)
+measurement = subprocess.run([str(ROOT / "seed-forth")], input=vocabulary +
+    b"\ncreate capacity-here here , [lit] 1 capacity-here [lit] 8 write drop bye\n",
+    capture_output=True, timeout=30)
+assert measurement.returncode == 0 and len(measurement.stdout) == 8 and not measurement.stderr
+loaded_end = struct.unpack("<Q", measurement.stdout)[0] + 8
+assert loaded_end < writable_end, (loaded_end, writable_end)
+(OUT / "dictionary-capacity.txt").write_text(
+    f"Loaded compiler dictionary end: {loaded_end}\nWritable mapping end: {writable_end}\n"
+    f"Remaining bytes: {writable_end - loaded_end}\n")
 
 print(f"object-writer: cross-object executable exits 42; metadata/reset/capacities and {len(bad) + 6} rejection cases pass")
 print(f"object-writer: inspectable evidence: {OUT}")

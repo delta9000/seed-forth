@@ -26,16 +26,28 @@
 skip-vm-pages                                     \ HERE = 0x414000
 
 \ cc-in-buf holds stdin exactly as read; nothing but the preprocessor reads it.
-[lit] 1048576 constant cc-in-cap                  \ 1 MiB of raw C source
-create cc-in-buf  cc-in-cap allot
+[lit] 1048576 constant cc-in-default-cap
+create cc-in-default-buf cc-in-default-cap allot
+variable cc-in-buffer
+variable cc-in-limit
+cc-in-default-buf cc-in-buffer !
+cc-in-default-cap cc-in-limit !
+: cc-in-buf ( -- address ) cc-in-buffer @ ;
+: cc-in-cap ( -- bytes ) cc-in-limit @ ;
 variable cc-in-len
 
 \ cc-src-buf holds the preprocessed source the lexer reads: #include'd files
-\ spliced in, directives blanked.  Twice cc-in-cap, since includes can grow
-\ it.  The reader's cursor, cc-src-pos and cc-src-line, is in the lexer's
+\ spliced in, directives blanked. The default is twice the raw capacity;
+\ direct GCC selects separately measured limits. The reader's cursor is in the lexer's
 \ state block (020-cc-arena.fth).
-[lit] 2097152 constant cc-src-cap                 \ 2 MiB
-create cc-src-buf  cc-src-cap allot
+[lit] 2097152 constant cc-src-default-cap
+create cc-src-default-buf cc-src-default-cap allot
+variable cc-src-buffer
+variable cc-src-limit
+cc-src-default-buf cc-src-buffer !
+cc-src-default-cap cc-src-limit !
+: cc-src-buf ( -- address ) cc-src-buffer @ ;
+: cc-src-cap ( -- bytes ) cc-src-limit @ ;
 variable cc-src-len
 
 \ cc-src-init ( -- )  Empty the source buffer and rewind the reader.
@@ -97,8 +109,14 @@ variable cc-ra-n
 \ ===========================================================================
 
 \ 1 MiB output cap — fits any reasonable ELF the C-subset compiler emits.
-[lit] 1048576 constant cc-out-cap
-create cc-out-buf  cc-out-cap allot
+[lit] 1048576 constant cc-out-default-cap
+create cc-out-default-buf cc-out-default-cap allot
+variable cc-out-buffer
+variable cc-out-limit
+cc-out-default-buf cc-out-buffer !
+cc-out-default-cap cc-out-limit !
+: cc-out-buf ( -- address ) cc-out-buffer @ ;
+: cc-out-cap ( -- bytes ) cc-out-limit @ ;
 variable cc-out-pos
 
 \ cc-out-init ( -- )
@@ -212,3 +230,38 @@ variable cc-nf-lens
     then,
     1-                                           \ i--
   repeat, ;                                      \ not found: i = -1
+
+\ Direct GCC source workspace is opt-in; default buffers stay dictionary-backed.
+\ Measured raw/expanded/output maxima are 2,782,995/2,747,955/3,901,856 bytes.
+\ Round each independently to whole MiB: fixed 3/3/4 MiB, never growth/retry.
+[lit] 3145728 constant cc-in-direct-cap
+[lit] 3145728 constant cc-src-direct-cap
+[lit] 4194304 constant cc-out-direct-cap
+variable cc-io-direct-base
+
+\ Round before mmap only after rejecting zero, negative and overflowing sizes.
+\ Requests are policy constants at callers; this helper never grows a buffer.
+: cc-workspace-round ( bytes code -- page-bytes )
+  >r dup [lit] 0 <= if, r@ cc-die then,
+  dup [lit] 9223372036854771712 > if, r@ cc-die then,
+  [lit] 4095 + [lit] 4096 / [lit] 4096 * r> drop ;
+: cc-workspace-syscall ( page-bytes -- address )
+  [lit] 0 swap [lit] 3 [lit] 34 true [lit] 0 [lit] 9 syscall6 ;
+defer cc-workspace-syscall-fwd
+' cc-workspace-syscall is cc-workspace-syscall-fwd
+: cc-workspace-map ( bytes code -- address )
+  >r r@ cc-workspace-round cc-workspace-syscall-fwd
+  dup [lit] 0 <= if, r@ cc-die then, r> drop ;
+: cc-io-default-workspace ( -- )
+  cc-in-default-buf cc-in-buffer ! cc-in-default-cap cc-in-limit !
+  cc-src-default-buf cc-src-buffer ! cc-src-default-cap cc-src-limit !
+  cc-out-default-buf cc-out-buffer ! cc-out-default-cap cc-out-limit ! ;
+: cc-io-direct-workspace ( -- )
+  cc-io-direct-base @ 0= if,
+    cc-in-direct-cap cc-src-direct-cap + cc-out-direct-cap + [lit] 20 cc-workspace-map
+    cc-io-direct-base !
+  then,
+  cc-io-direct-base @ cc-in-buffer ! cc-in-direct-cap cc-in-limit !
+  cc-io-direct-base @ cc-in-direct-cap + cc-src-buffer !
+  cc-src-direct-cap cc-src-limit !
+  cc-src-buf cc-src-direct-cap + cc-out-buffer ! cc-out-direct-cap cc-out-limit ! ;

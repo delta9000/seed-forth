@@ -1,0 +1,17 @@
+struct conditional_record { int value; long guard; };
+double choose_di(int, double, int);
+double choose_id(int, int, double);
+double choose_fd(int, float, double);
+double choose_df(int, double, float);
+float choose_fi(int, float, int);
+float choose_if(int, int, float);
+float choose_fu(int, float, unsigned long);
+float choose_uf(int, unsigned long, float);
+double choose_du(int, double, unsigned long);
+double choose_ud(int, unsigned long, double);
+unsigned long choose_iu(int, int, unsigned int);
+long choose_li(int, long, unsigned int);
+double choose_nested(int, int, float, int, double);
+int conditional_lazy(void);
+int conditional_pointers(void);
+int conditional_aggregates(void);

@@ -4,10 +4,32 @@
 \ records until081 assigns its own stable symbol IDs at serialization.
 variable cc-sysv-object-mode
 [lit] 0 cc-sysv-object-mode !
-[lit] 4096 constant cc-om-cap
-create cc-om-records cc-om-cap [lit] 128 * allot
+[lit] 4096 constant cc-om-default-cap
+create cc-om-default-records cc-om-default-cap [lit] 128 * allot
+variable cc-om-limit
+variable cc-om-buffer
+cc-om-default-cap cc-om-limit !
+cc-om-default-records cc-om-buffer !
+: cc-om-cap ( -- entries ) cc-om-limit @ ;
+: cc-om-records ( -- address ) cc-om-buffer @ ;
+\ Complete original c-common.c needs 9,866 stable records; round to 10,240.
+\ Keep the default table and opt in explicitly to a fixed mapped table.
+[lit] 10240 constant cc-om-direct-cap
+variable cc-om-direct-base
+: cc-om-default-workspace ( -- )
+  cc-om-default-records cc-om-buffer ! cc-om-default-cap cc-om-limit ! ;
+: cc-om-direct-workspace ( -- )
+  cc-om-direct-base @ 0= if,
+    cc-om-direct-cap [lit] 128 * [lit] 245 cc-workspace-map
+    cc-om-direct-base !
+  then,
+  cc-om-direct-base @ cc-om-buffer ! cc-om-direct-cap cc-om-limit ! ;
 variable cc-om-count
-: cc-om-record 1- [lit] 128 * cc-om-records + ;
+\ Reject invalid IDs before subtraction or multiplication in either workspace.
+: cc-om-record ( id -- address )
+  dup [lit] 1 < if, [lit] 245 cc-die then,
+  dup cc-om-cap [lit] 245 cc-check-cap
+  1- [lit] 128 * cc-om-records + ;
 : om-name cc-om-record ;
 : om-nlen cc-om-record [lit] 8 + ;
 : om-bind cc-om-record [lit] 16 + ;
@@ -147,6 +169,7 @@ create cc-om-string-name s, .Lstring
     drop sk-global over cc-ninstall-symbol
   else,
     dup cc-sym-kind-of sk-global <> if, [lit] 237 cc-die then,
+    nc-qualified @ over cc-sym-qualified cell[] !
     nc-ty @ over cc-sym-type cell[] !
     nc-desc @ over cc-sym-set-struct-desc
     nc-array @ over cc-sym-set-array-len nc-inner @ over cc-sym-set-array-inner
@@ -187,6 +210,8 @@ create cc-om-string-name s, .Lstring
   cc-ni-aggregate? if, [lit] 219 cc-die then,
   ni-type @ cc-sysv-check-scalar-default
   cc-putback-token cc-parse-static-const-fwd
+  dup 0= [lit] 4 cc-npick 0= and cc-last-expr-null !
+  >r 2dup ni-type @ ni-desc @ cc-value-shape-fwd r>
   dup if,
     ni-type @ ty-size [lit] 8 <> if, [lit] 238 cc-die then,
     >r 2drop
@@ -227,11 +252,19 @@ create cc-om-string-name s, .Lstring
     [lit] 0 ty-func [lit] 1 ty-make r> r> swap exit,
   then,
   dup cc-sym-kind-of sk-global <> if, cc-const-unsupported then,
-  dup cc-sym-array-len-of 0= over cc-sym-array-inner-of 0= 0= or if,
-    cc-const-unsupported
+  dup cc-sym-array-len-of 0= if, cc-const-unsupported then,
+  dup cc-om-from-symbol >r
+  dup cc-sym-type-of ty-base ty-array = if,
+    dup cc-sym-qualified cell[] @ cc-qualified-array-check
   then,
-  dup cc-om-from-symbol >r dup cc-sym-type-of 1+
-  swap cc-expr-symbol-desc [lit] 0 rot rot r> ;
+  dup cc-sym-array-inner-of if,
+    dup cc-sym-qualified cell[] @ cc-qualified-array-check
+    dup cc-sym-type-of over cc-expr-symbol-desc
+    rot cc-sym-array-inner-of [lit] 0 cc-sysv-array-node
+    ty-array [lit] 1 ty-make swap
+  else,
+    dup cc-sym-type-of 1+ swap cc-expr-symbol-desc
+  then, [lit] 0 rot rot r> ;
 : cc-om-const-string
   cc-sysv-object-mode @ 0= if, cc-const-unsupported then,
   cc-cx-skip @ if,
@@ -239,6 +272,10 @@ create cc-om-string-name s, .Lstring
     [lit] 0
   else, cc-om-string then,
   >r cc-putback-token [lit] 0 ty-char [lit] 1 ty-make [lit] 0 r> ;
+\ An address operand carries an lvalue category separately from its type.
+\ Parentheses preserve it; casts produce values. Arrow and subscripting may
+\ consume a constant pointer value, but must never load a pointer object.
+variable cc-const-qualified
 variable cc-om-address-frame
 : oa-value cc-om-address-frame @ ;
 : oa-type cc-om-address-frame @ [lit] 8 + ;
@@ -246,13 +283,22 @@ variable cc-om-address-frame
 : oa-record cc-om-address-frame @ [lit] 24 + ;
 : oa-array cc-om-address-frame @ [lit] 32 + ;
 : oa-inner cc-om-address-frame @ [lit] 40 + ;
-: cc-om-const-address
-  cc-sysv-object-mode @ 0= if, cc-const-unsupported then,
-  cc-om-address-frame @ >r
-  [lit] 48 cc-alloc dup cc-om-address-frame ! [lit] 48 cc-nzero
-  cc-next-token-keep tok-kind @ tk-ident <> if, cc-const-unsupported then,
+: oa-lvalue cc-om-address-frame @ [lit] 48 + ;
+: oa-qualified cc-om-address-frame @ [lit] 56 + ;
+defer cc-om-address-cast-fwd
+defer cc-om-address-unary-fwd
+defer cc-om-address-index-fwd
+' cc-const-unsupported is cc-om-address-cast-fwd
+' cc-const-unsupported is cc-om-address-unary-fwd
+' cc-const-unsupported is cc-om-address-index-fwd
+: cc-om-address-value ( value type descriptor symbol -- )
+  oa-record ! oa-desc ! oa-type ! oa-value !
+  [lit] 0 oa-array ! [lit] 0 oa-inner ! [lit] 0 oa-lvalue !
+  cc-const-qualified @ oa-qualified ! ;
+: cc-om-address-ident
   tok-str-addr @ tok-str-len @ cc-sym-find
   dup 0< if, cc-const-unsupported then,
+  dup cc-sym-qualified cell[] @ oa-qualified !
   dup cc-sym-kind-of sk-func = if,
     dup cc-sysv-symbol-signature oa-desc ! cc-om-from-symbol oa-record !
     ty-func [lit] 0 ty-make oa-type !
@@ -262,33 +308,106 @@ variable cc-om-address-frame
     dup cc-expr-symbol-desc oa-desc !
     dup cc-sym-array-len-of oa-array ! cc-sym-array-inner-of oa-inner !
   then,
+  true oa-lvalue ! ;
+: cc-om-address-array
+  oa-array @ 0= oa-type @ ty-base ty-array = and
+  oa-type @ ty-ptr 0= and if,
+    oa-desc @ dup cc-ad-type oa-type !
+    dup cc-ad-count oa-array ! dup cc-ad-inner oa-inner !
+    cc-ad-desc oa-desc !
+  then, ;
+: cc-om-address-deref
+  oa-lvalue @ oa-type @ ty-ptr 0= or if, cc-const-unsupported then,
+  oa-type @ 1- oa-type ! true oa-lvalue !
+  oa-type @ ty-base ty-array = oa-type @ ty-ptr 0= and if,
+    oa-desc @ dup cc-ad-type oa-type !
+    dup cc-ad-count oa-array ! dup cc-ad-inner oa-inner !
+    cc-ad-desc oa-desc ! exit,
+  then,
+  oa-type @ ty-ptr 0= oa-type @ ty-base ty-void = and if,
+    cc-const-unsupported
+  then, ;
+: cc-om-address-member
+  oa-lvalue @ 0= oa-array @ or oa-type @ ty-ptr or if,
+    cc-const-unsupported
+  then,
+  oa-type @ ty-base ty-struct <> oa-desc @ 0= or if,
+    cc-const-unsupported
+  then,
+  cc-expect-ident
+  tok-str-addr @ tok-str-len @ oa-desc @ cc-find-field oa-value +!
+  cc-ff-result-record @ cc-field-qualified oa-qualified @ or oa-qualified !
+  cc-ff-result-record @ cc-field-use-fwd
+  cc-ff-result-type @ oa-type ! cc-ff-result-desc @ oa-desc !
+  cc-ff-result-array @ oa-array !
+  cc-ff-result-record @ cc-sf-array-inner oa-inner ! ;
+: cc-om-address-index
+  oa-array @ if,
+    cc-om-address-index-fwd
+    dup 0< over oa-array @ > or if, cc-const-unsupported then,
+    oa-type @ oa-desc @ cc-nsize
+    oa-inner @ if, oa-inner @ * then, * oa-value +!
+    oa-inner @ oa-array ! [lit] 0 oa-inner ! cc-om-address-array
+  else,
+    oa-type @ oa-desc @ cc-expr-pointee-size >r
+    cc-om-address-deref
+    oa-type @ ty-ptr 0= oa-type @ ty-base ty-func = and if,
+      cc-const-unsupported
+    then,
+    cc-om-address-index-fwd r> * oa-value +!
+  then,
+  [char] ] cc-expect-punct-c ;
+: cc-om-address-operand
+  cc-next-token-keep
+  tok-kind @ tk-ident = if,
+    cc-om-address-ident
+  else,
+    lparen cc-tok-punct? if,
+      cc-next-token-keep
+      cc-type-start? if,
+        cc-parse-type-name
+        cc-type-name-array @ if, cc-const-unsupported then,
+        cc-type-name-qualified @ >r
+        cc-cast-desc @ >r >r [char] ) cc-expect-punct-c
+        r> r> cc-om-address-cast-fwd cc-om-address-value
+        r> oa-qualified ! exit,
+      then,
+      cc-putback-token cc-om-address-operand [char] ) cc-expect-punct-c
+    else,
+      [char] * cc-tok-punct? if,
+        cc-om-address-unary-fwd cc-om-address-value cc-om-address-deref exit,
+      then,
+      cc-const-unsupported
+    then,
+  then,
   begin,
     cc-next-token-keep
     [char] [ cc-tok-punct? if,
-      oa-array @ 0= if, cc-const-unsupported then,
-      cc-parse-const
-      dup 0< over oa-array @ > or if, cc-const-unsupported then,
-      oa-type @ oa-desc @ cc-nsize
-      oa-inner @ if, oa-inner @ * then, * oa-value +!
-      [char] ] cc-expect-punct-c
-      oa-inner @ oa-array ! [lit] 0 oa-inner !
+      cc-om-address-index
     else,
       [char] . cc-tok-punct? if,
-        oa-array @ oa-type @ ty-ptr or if, cc-const-unsupported then,
-        oa-type @ ty-base ty-struct <> if, cc-const-unsupported then,
-        cc-expect-ident
-        tok-str-addr @ tok-str-len @ oa-desc @ cc-find-field oa-value +!
-        cc-ff-result-record @ cc-field-use-fwd
-        cc-ff-result-type @ oa-type ! cc-ff-result-desc @ oa-desc !
-        cc-ff-result-array @ oa-array !
+        cc-om-address-member
       else,
-        cc-putback-token
-        oa-array @ if, cc-const-unsupported then,
-        oa-value @ oa-type @ 1+ oa-desc @ oa-record @
-        r> cc-om-address-frame ! exit,
+        pt-arrow cc-tok-punct? if,
+          cc-om-address-deref cc-om-address-member
+        else, cc-putback-token exit, then,
       then,
     then,
   again, ;
+: cc-om-const-address
+  cc-sysv-object-mode @ 0= if, cc-const-unsupported then,
+  cc-om-address-frame @ >r
+  [lit] 64 cc-alloc dup cc-om-address-frame ! [lit] 64 cc-nzero
+  cc-om-address-operand
+  oa-lvalue @ 0= if, cc-const-unsupported then,
+  oa-value @
+  oa-array @ if,
+    oa-qualified @ cc-qualified-array-check
+    oa-type @ oa-desc @ oa-array @ oa-inner @ cc-sysv-array-node
+    ty-array [lit] 1 ty-make swap
+  else, oa-type @ 1+ oa-desc @ then,
+  oa-record @
+  r> cc-om-address-frame ! ;
 ' cc-om-const-ident is cc-const-ident-fwd
 ' cc-om-const-address is cc-const-address-fwd
 ' cc-om-const-string is cc-const-string-fwd

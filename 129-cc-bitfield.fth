@@ -10,9 +10,18 @@ create cc-bf-error-prefix s, bitfield: bl c,
 : cc-bf-header-bytes
   cc-target-sysv @ if, [lit] 40 else, cc-sd-header-bytes-default then, ;
 : cc-bf-record-bytes
-  cc-target-sysv @ if, [lit] 64 else, cc-sd-record-bytes-default then, ;
+  cc-target-sysv @ if, [lit] 72 else, cc-sd-record-bytes-default then, ;
 ' cc-bf-header-bytes is cc-sd-header-bytes
 ' cc-bf-record-bytes is cc-sd-record-bytes
+
+\ The final SysV field cell retains the second fixed array dimension.
+\ Bitfield slots stay at48/56; anonymous promotion copies the entire record.
+: cc-bf-array-inner ( rec -- n )
+  cc-target-sysv @ if, [lit] 64 + @ else, cc-sf-array-inner-default then, ;
+: cc-bf-set-array-inner ( n rec -- )
+  cc-target-sysv @ if, [lit] 64 + ! else, cc-sf-set-array-inner-default then, ;
+' cc-bf-array-inner is cc-sf-array-inner
+' cc-bf-set-array-inner is cc-sf-set-array-inner
 
 : cc-sd-bit-end [lit] 32 + ;
 : cc-sf-bit-width [lit] 48 + @ ;
@@ -71,10 +80,18 @@ variable cc-bf-record
   cc-bf-desc @ cc-sd-total-size cc-nmax cc-bf-desc @ cc-sd-set-total-size
   cc-bf-position @ cc-bf-desc @ cc-sd-bit-end !
   cc-next-token-keep ;
+\ Products are checked by the declarator; sums and final tail padding
+\ must also fit, including when a bitfield follows a maximal matrix.
+: cc-bf-layout-check ( desc -- )
+  dup cc-sd-total-size swap cc-sd-align cc-nalign
+  cc-sysv-object-size-limit > if, [lit] 245 cc-die then, ;
 : cc-bf-member ( desc -- )
   cc-target-sysv @ 0= if, cc-nmember-default exit, then,
-  [char] : cc-tok-punct? if, cc-bf-add exit, then,
+  [char] : cc-tok-punct? if, dup >r cc-bf-add r> cc-bf-layout-check exit, then,
+  \ An incomplete outer dimension cannot describe an inline matrix.
+  nc-inner @ nc-array @ [lit] 0 <= and if, [lit] 238 cc-die then,
   dup >r cc-nmember-default
+  r@ cc-bf-layout-check
   r@ cc-sd-total-size [lit] 8 * r> cc-sd-bit-end ! ;
 ' cc-bf-member is cc-nmember-fwd
 

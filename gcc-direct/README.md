@@ -34,7 +34,7 @@ implicitly added. Paths containing spaces are byte-encoded safely for Forth;
 the bounded preprocessor still limits source/include path lengths.
 
 Links are static Linux AMD64 LP64 executables. The default runtime consists
-of the current original C files under `runtime/gcc-seed/` and Forth-built
+of the current original C files under `runtime/gcc-seed/` except `math.c`, and Forth-built
 syscall, errno, and startup objects. User `-D`, `-U`, and `-I` options do not
 affect that runtime build. Startup is linked first; all other runtime objects
 form a deterministic Forth-built archive searched after user inputs. An
@@ -45,13 +45,15 @@ member still diagnoses duplicate definitions. Explicit `.a` inputs use the Forth
 archive layer's lazy extraction at their command-line position, including
 member rescans for newly selected dependencies. The default startup precedes
 archive scanning so an archive may provide `main`. `-l`/`-L` library search is
-not implemented; pass an explicit archive pathname.
+not implemented; pass an explicit archive pathname. The exact `-lm` option is
+a bounded exception: it creates and searches a genuine Forth-built math archive
+at that input position. See [math linkage](../runtime/gcc-seed/MATH-LINKING.md).
 `-nostdlib` omits all runtime/startup objects; the caller must supply `_start`.
 Inputs ending in `.o` must satisfy the Forth linker's object contract.
 
 `-static`, `-O0`, and `-g0` describe the actual output and are accepted.
 Optimization/debug flags including `-O2` and `-g`, other language standards,
-assembly, shared libraries, `-l`, `-L`, dependency files, forced
+assembly, shared libraries, other `-l` spellings, `-L`, dependency files, forced
 includes, and unknown flags fail explicitly. This matters to configure:
 its `-g` probe should fail, and its non-GNU fallback can select empty CFLAGS.
 Use `CFLAGS= LDFLAGS=` when explicitly testing a clean bootstrap configuration.

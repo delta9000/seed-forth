@@ -58,16 +58,37 @@ def main():
             results.append({'kind':'binary64-ABI-oracle','optimization':opt,'output':output})
         object_hash=sha(obj)
 
-        rejects={
+        accepted_arguments={
             'double-parameter':'double f(double x){return x;}',
             'double-fixed-call':'extern double f(double); double g(void){return f(1);}',
             'double-unprototyped-call':'extern double f(); double g(double *p){return f(*p);}',
             'double-variadic-call':'extern int f(int,...); int g(double *p){return f(1,*p);}',
             'double-indirect-call':'double g(double (*f)(double),double *p){return f(*p);}',
-            'float-value':'float f(float *p){return *p;}',
-            'long-double-value':'long double f(long double *p){return *p;}',
+        }
+        for name,source in accepted_arguments.items():
+            path=work/(name+'.c');path.write_text(source+'\n')
+            accepted=work/(name+'.o')
+            run([ROOT/'tests/gcc/sysv-object-compile.sh',path,accepted,
+                 ROOT/'runtime/gcc-seed/include'])
+            if not accepted.is_file(): raise RuntimeError(f'{name}: accepted object missing')
+            print('PASS:',name,'uses shared binary64 argument ABI')
+            results.append({'kind':'binary64-argument-accepted','name':name,'exit':0})
+
+        for name,source in {
             'mixed-ternary':'double f(int n,double *p){return n ? *p : 1;}',
             'mixed-ternary-reversed':'double f(int n,double *p){return n ? 1 : *p;}',
+        }.items():
+            path=work/(name+'.c');path.write_text(source+'\n')
+            accepted=work/(name+'.o')
+            run([ROOT/'tests/gcc/sysv-object-compile.sh',path,accepted,
+                 ROOT/'runtime/gcc-seed/include'])
+            if not accepted.is_file(): raise RuntimeError(f'{name}: accepted object missing')
+            results.append({'kind':'conditional-accepted','name':name,'exit':0})
+            print('PASS:',name,'uses selected-arm conversion')
+
+        rejects={
+            'extended-value':'long double f(long double *p){return *p;}',
+            'long-double-value':'long double f(long double *p){return *p;}',
             'prefix-increment':'double f(double *p){return ++*p;}',
             'postfix-increment':'double f(double *p){return (*p)++;}',
             'prefix-decrement':'double f(double *p){return --*p;}',

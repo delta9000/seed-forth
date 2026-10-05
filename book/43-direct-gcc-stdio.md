@@ -193,3 +193,20 @@ oracle; the production check does not call a host compiler or linker.
 
 Next, compile original generator translation units against these contracts
 and let their remaining source requirements determine the next extension.
+
+## The observed setbuf request
+
+Original `gcc/gcov-io.c` calls `setbuf(stream, NULL)` immediately after opening
+its stream. The new bounded interface validates the live stream through
+`fileno` and preserves its actual unbuffered operation, errno, descriptor and
+position. Nothing needs flushing or copying, and no private FILE layout is
+exposed to the separate implementation unit.
+
+The non-NULL form would request real buffering. A void function cannot return
+a normal unsupported-operation error, so that form terminates immediately
+with status 127. It does no diagnostic I/O and changes no signal state: a
+closed pipe or file-size limit could otherwise deliver a signal, and a full
+stderr pipe could block before termination. Tests check silent status 127 and
+that no later write is reached under each of those real conditions.
+This explicit boundary is not a claim of full setbuf support. See the
+[NULL-buffer contract and focused proof](https://github.com/delta9000/seed-forth/blob/bootstrap/forth-direct-gcc/runtime/gcc-seed/DIRECTORY-BUFFERING.md).

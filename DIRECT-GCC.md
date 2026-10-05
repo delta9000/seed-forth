@@ -60,10 +60,12 @@ and ABI comparisons only.
 The runtime currently supplies allocation, memory/string operations, unbuffered
 streams, and integer/pointer/string formatting. Historical ANSI headers use an
 explicit bounded C90-oriented target profile. Binary64 literals, expressions,
-storage and return values have executable proofs. Integer/pointer record values
+storage, returns and named/outgoing scalar arguments have executable proofs. Integer/pointer record values
 now cross the System V INTEGER/MEMORY boundary with checked identities,
-register rollback, independent copies and hidden result pointers. Floating
-arguments, floating-member record values and aggregate variadic calls remain
+register rollback, independent copies and hidden result pointers. GP and XMM
+banks share an explicit call plan with independent exhaustion and one stack
+argument order. Long-double arguments, floating-member record values
+and aggregate variadic calls remain
 unsupported; accepting declarations or taking `sizeof` does not implement those
 value operations. The original GCC configure
 probes now support a bounded, independently audited generator configuration.
@@ -165,3 +167,234 @@ No prior unpublished hash or historical test observation validates reconstructed
 source bytes. A remote commit that is not reachable from a branch is temporary
 preservation only and may be garbage-collected; verify the branch reference
 before describing any checkpoint as published.
+
+## Initial direct compiler arena bound
+
+The initial direct-GCC Python driver requested a fixed 16 MiB anonymous compiler
+arena per translation unit. The original generated GCC 4.0.4 `c-parse.c` consumed
+10,802,584 bytes in a diagnostic-only measurement; 16 MiB is the next power-of-two
+bound above that measured 10.3 MiB requirement. The old 8 MiB request failed at
+8,388,760 requested bytes. This does not raise other compiler limits or add
+automatic growth, retries, an environment override, or a runtime heap.
+The legacy 32 KiB arena, TinyCC's 8 MiB request, and original seed are unchanged.
+The later complete `c-typeck.c` measurement raises the current direct arena
+to 17 MiB; the other mapped tables and unchanged default bounds are listed in
+[the workspace proof](tests/gcc/workspace-capacity-README.md).
+Allocation exhaustion and mapping failure still diagnose error 10 before the
+driver publishes output. The driver source participates in the runtime-cache
+identity, so this policy change selects a new source cache.
+
+`tests/gcc/arena-capacity-check.py` checks the bound, alignment, overflow,
+mapping failure, publication, cache identity, and small legacy/native outputs
+serially. The original-source replay and input provenance are described in
+`tests/gcc/arena-capacity-README.md`; a successful parser object is not evidence
+of a linked GCC compiler or a full same-epoch bootstrap.
+
+## Public Linux mapping boundary
+
+The bounded runtime now declares and implements private `mmap` and `munmap`
+in `sys/mman.h` and supplies the existing signed-long `SSIZE_MAX`. This closes
+the measured missing-header surface in complete original GCC `host-linux.c`.
+Its original configuration remains a distinct historical input; supplying a
+new header does not silently flip its recorded configure answers. See
+`runtime/gcc-seed/MAPPING.md` and `tests/gcc/mapping-check.py` for the supported
+flags, real syscall ownership, complete kernel-error interval, source pins,
+and separate Forth production/host oracle proof. This does not establish a
+linked GCC PCH implementation or a full compiler bootstrap.
+
+## Two-dimensional inline record fields
+
+The explicit direct target now retains both fixed dimensions of scalar and
+record array fields, as required by the original `convert_optab.handlers`
+declaration in GCC 4.0.4 `optabs.h`. Member expressions, row strides, padded
+record layout, initialization, `sizeof`, and static relocatable addresses use
+the complete shape. The existing one-GiB object bound covers array products,
+enclosing record sums and final padding, including trailing bitfields. Treating
+an entire matrix as a record, or further subscripting a scalar element, now
+diagnoses.
+Legacy/native field layouts and the original seed remain unchanged.
+
+The focused [matrix gate](tests/gcc/multidimensional-record-README.md) includes
+Forth-only execution, independent O0/O2 layout and bidirectional ABI tests,
+rejected shapes and initializer bounds, and optional exact original-declaration
+and legacy/native byte-preservation proofs. Qualified array-pointer formation
+and dimensions beyond two remain unsupported; full qualifier enforcement and
+floating-value support are not introduced here. General pointer constraints
+remain incomplete, including the inherited unary-plus-on-pointer gap.
+A declaration proof does not establish successful compilation or linking of
+the complete GCC translation
+unit. Final composed component and bootstrap gates remain separate checks.
+
+## Scalar binary32 value stage
+
+The direct SysV target now carries binary32 scalar values with their actual
+four-byte storage and SSE single-precision arithmetic. Integer conversions,
+float/double conversions, usual arithmetic types, scalar parameters/returns,
+and outgoing default argument promotion are implemented. The independent
+O0/O2 gate is `tests/gcc/binary32-values-check.py`. Decimal f/F literals,
+long double, K&R float parameter definitions, static floating initializers,
+floating ++/-- and floating-member record ABI values remain checked boundaries.
+Mixed-floating conditionals use the later selected-arm stage described below.
+The unchanged full GCC 4.0.4 `ggc-page.c` translation unit compiles with this
+stage using the separately identified earlier configuration. This removes
+one source-measured blocker; it does not establish a GCC executable, a
+same-epoch configure replay, or a full bootstrap. Native/TinyCC defaults and
+the 1,772-byte seed are unchanged.
+
+## Continued macro parameter lists
+
+The explicit SysV preprocessor now reads LF/CRLF continuations inside bounded
+macro parameter lists, including joined parameter names, without rewriting
+physical source or losing newline provenance. This repairs original GCC
+`c-common.c:3237`'s `DEF_BUILTIN` failure; malformed and duplicate names diagnose
+47, the existing 16-name limit diagnoses 48, and temporary logical-name storage
+is bounded at 64 KiB. Native and default readers remain on their prior path.
+See [the focused proof](tests/gcc/macro-parameter-splices-README.md) for exact
+source pins, independent host comparisons, and remaining lexical boundaries.
+A replay against an earlier configuration is a distinct compiler/config pair,
+not a same-epoch cohort or a complete compiler bootstrap.
+
+## Measured c-common object tables
+
+Complete original `c-common.c` now compiles under the separately retained a535
+configuration with fixed direct-only mappings for 10,240 stable records and
+6,656 ELF symbols plus the reserved null row. Diagnostic serialization measured
+9,866 records and 6,282 non-null symbols before those 512-row-rounded policies
+were selected. Its 60,259 string bytes and 13,556 relocations fit the unchanged
+bounds. Default/native capacities and the seed remain unchanged. See the
+[object-capacity proof](tests/gcc/object-capacity-README.md) for measurement,
+independent ELF/linker checks and exact source/configuration distinctions.
+Successful compilation of this unit does not establish a same-epoch cohort,
+linked cc1, compiler execution or self-rebuild.
+
+## Selected-arm conditional values
+
+The direct SysV scalar join computes a common type and converts only the
+selected arm. This removes the mixed double/integer MIN blocker measured in
+unchanged GCC 4.0.4 `ggc-common.c`. It also preserves the pointer type and record
+descriptor of `condition ? (void *)0 : pointer`, in either operand order,
+removing the corresponding measured `tree-ssa-loop-im.c` blocker. Runtime
+void* values still yield a void* common type; runtime integers and comma-zero
+expressions are not null pointer constants.
+
+`tests/gcc/conditional-values-check.py` checks arithmetic common types, both
+arm orders, nested binary32 rounding, signed/unsigned boundaries, signed-zero
+and quiet-NaN payload preservation, one condition evaluation, lazy branches,
+array/record/function pointer descriptors and aggregate copy joins. Host C90
+O0/O2, bidirectional mixed-ABI and Forth-only tests are independent checks.
+The native/TinyCC path retains its prior join layout and a focused native
+expression executable remains byte-identical to the immutable a09 baseline.
+
+Null provenance is deliberately bounded to numeric/character zero literals,
+grouping, and integral zero casts optionally ending in unqualified void*. General zero
+integer constant-expression folding (such as 1-1) and general scalar const-write
+enforcement remain unsupported in the runtime parser. This is a source-driven
+component repair, not a claim of full C conditional conformance or a same-epoch
+GCC census. See `tests/gcc/conditional-values-README.md` and its source pins.
+
+A subsequent provenance correction excludes qualified void-pointee zero casts
+from null-pointer-constant recognition. It passes the saved cast target's
+qualifier flag across nested operand parsing. Qualified integer zero casts
+remain accepted. Because the qualifier representation is flattened, top-level-
+qualified void-pointer zero casts conservatively retain a documented host-valid
+rejection boundary. The dedicated qualified-null gate distinguishes those
+boundaries from invalid record/array/function-pointer provenance.
+
+## Ranked array repair at 2026-10-04
+
+The unchanged original `tree-ssa-loop-ivopts.c` now compiles through the direct
+Forth object path. Its four-dimensional local static `costs` declaration had
+reached a two-suffix declarator boundary (205). Checked recursive array element
+types retain each dimension, alignment, initializer traversal, static address
+and pointer shape without adapting GCC source. The direct profile checks
+64 written/typedef-composed dimensions and the existing 1 GiB object limit.
+Qualified array-pointer construction and grouped ranked-array declarators fail
+closed at their documented boundaries. Inferred nested arrays retain their
+existing requirement for braced outer elements.
+
+Focused host O0/O2, mixed caller/provider and Forth-only tests cover ranked
+integer/pointer arrays and 3/16/64-byte by-value records; unsupported floating
+record leaves remain explicit errors. Independent review found and closed
+aggregate-leaf classification, qualified parameter adjustment, inferred-row
+counting and grouped function-pointer shape gaps. See
+`tests/gcc/ranked-arrays-README.md` for the bounded profile and executable
+checks. This is translation-unit compilation and language/ABI evidence, not
+a linked or executed GCC compiler, full cohort replay or bootstrap.
+
+## Four measured runtime symbols
+
+The incomplete historical a535 cc1 object inventory identified absent access,
+getpid, strpbrk and strspn implementations. The bounded runtime now supplies
+real Linux AMD64 permission/PID syscalls and unsigned-byte prefix/search loops,
+with exact public types and errno semantics. The focused
+[contract and proof](runtime/gcc-seed/MEASURED-INTERFACES.md) separates Forth-only
+production from independent host libc/source and bidirectional ABI oracles.
+The focused owner gate passed 68,010 string vectors, real permission/PID
+contracts, all kernel errno values, and independent O0/O2 bidirectional ABI
+checks on source identity 80667d6474e2fd7e0b703ed1f00db2be929e2bf3d4a8bc8cf9600c2d4c38a05c.
+Independent review additionally passed dual read-only string guards and real
+fork-child PID checks. All 38 prior runtime objects and the ordinary runtime
+executable remain byte-identical to frozen07ff. The initial reverse-ABI harness
+link failure and test-only stdout correction are retained separately. This does not establish a complete cc1 link, new
+configure epoch, GCC execution or bootstrap. setbuf remains a separate
+stream-contract decision; compiler layers and the seed are unchanged.
+
+The focused gate's serial supervisor additionally records failing launch and
+timeout attempts before propagating errors, including exact limits, timing,
+outputs and owned-process-group termination/reaping. Its controlled failure
+proof remains separate from runtime successes. This verification-only repair
+does not alter the runtime identity or the original seed.
+
+## Measured working-directory and NULL-buffer interfaces
+
+The runtime now implements caller-buffer getcwd with real Linux AMD64 path,
+termination and errno behavior, and the measured NULL-buffer setbuf operation
+with truly unbuffered streams. GNU allocating getcwd forms and the kernel's
+long-path limit are explicit boundaries. Non-NULL setbuf requests terminate
+immediately and silently with status 127 rather than pretend to enable buffering. See
+[the bounded contract](runtime/gcc-seed/DIRECTORY-BUFFERING.md) and
+`tests/gcc/directory-buffering-check.py` for focused production, host and ABI
+checks. Genuine configure selection is separate pending work; the historical
+fallback is not removed by forced macros. Compiler layers and the seed remain
+unchanged. No full cc1 link, execution or bootstrap is claimed.
+
+The final silent-exit implementation passed owner and independent focused
+checks on identity c70c6ebcaf673a277880a439fadc04d1bded98b2d62784a4715583b84868336a.
+An earlier diagnostic-writing design failed real SIGPIPE/SIGXFSZ tests and
+was replaced rather than accepted. Full blocking stderr, exact kernel path
+bounds and public-call ABI cases now pass; all 42 previous runtime objects
+and the ordinary runtime executable remain byte-identical to frozen 80667.
+
+A fresh genuine libiberty configure run on c70c6e now detects getcwd and removes
+its fallback from the effective 72-member selection. The original getpwd and
+three allocation/exit support objects compile through their Makefile rules,
+link with the runtime, and return the exact cwd with false PWD. The retained
+old-configuration fallback comparison still exposes getwd; no forced macro or
+original source replacement removes it. The full archive and coherent GCC
+pipeline remain separate pending work.
+
+## C90 record-definition entry
+
+Identifier-list definitions now use their refined record types with the existing
+INTEGER/MEMORY entry transport. Compatible prior prototypes remain visible;
+aggregate calls without a prototype, aggregate variadics, floating-member records,
+long double and K&R float-entry conversion remain unsupported. Empty-list record
+result definitions retain their previous rejection. The focused gate is
+`tests/gcc/knr-record-check.py`.
+The source demand is original libiberty `regex.c`'s `group_in_compile_stack`.
+The focused owner and independent gates pass on compiler/runtime identity
+12c19135a6fb7d91825762009da56a887f34859fc78b107e68ae7c88758b6100. Owner coverage
+includes record byte sizes 1--33, ninety-nine argument layouts, bidirectional
+host O0/O2 calls and twelve byte-identical prior object/default/native controls.
+The independent fixtures add padded/nested/union records, following prototypes,
+register rollback and raw hidden-result address/canary guards.
+
+The complete original `regex.c` compiles unchanged under both the retained
+historical and genuine c70 libiberty configurations, yielding identical objects.
+Its raw alloca integration remains unresolved. A separate, explicitly configured
+upstream `REGEX_MALLOC` build runs thirty bounded behavior cases against host
+O0/O2 original-source builds using the same mode; no source/config is rewritten.
+The reproducible test is `tests/gcc/knr-regex-check.py`. This closes the measured
+raw compilation failure and supplies a separate bounded behavior witness. It
+does not establish a complete libiberty archive, cc1 link, GCC execution or
+bootstrap; the incomplete cc1 projection does not establish regex criticality.

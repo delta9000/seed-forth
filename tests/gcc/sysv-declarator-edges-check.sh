@@ -18,6 +18,22 @@ for opt in -O0 -O2; do
   "$work/reference"
 done
 echo 'PASS: independent strict C90 O0/O2 behavior oracles and host-linked object'
+cat > "$work/array-pointer.c" <<'SOURCE'
+int main(void) {
+  int values[2][3]={{1,2,3},{4,5,6}};
+  int (*p)[3]=values;
+  return sizeof(*p)==12 && p[1][2]==6 && (p+1)-p==1 ? 0 : 1;
+}
+SOURCE
+tests/gcc/sysv-compile.sh "$work/array-pointer.c" "$work/array-mapped"
+"$work/array-mapped"
+tools/gcc-direct-cc.py "$work/array-pointer.c" -o "$work/array-linked"
+"$work/array-linked"
+for opt in -O0 -O2; do
+  ${CC:-cc} -std=c90 -pedantic-errors "$opt" "$work/array-pointer.c" -o "$work/array-reference"
+  "$work/array-reference"
+done
+echo 'PASS: grouped array-pointer sizeof, indexing and stride through Forth and host executions'
 while IFS='|' read -r label code source; do
   printf '%s\n' "$source" > "$work/reject.c"
   printf 'previous artifact\n' > "$work/reject.o"
@@ -30,7 +46,6 @@ while IFS='|' read -r label code source; do
   fi
   echo "PASS: $label rejects with $code and preserves output"
 done <<'CASES'
-pointer-to-array|238|int (*p)[3];
 array-of-pointers-to-array|238|int (*p[2])[3];
 extra-function-pointer-depth|231|int (**p[2])(int);
 function-returning-array|238|int (*f(void))[3];

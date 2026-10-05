@@ -102,7 +102,7 @@ die_gates=(
   "die-47-define-params.c|47|cc: line 3: error 47"
   "die-48-define-params-max.c|48|cc: line 2: error 48"
   "die-50-struct-fields.c|50|cc: line 19: error 50"
-  "die-60-symbols-full.sh|60|cc: line 4066: error 60"
+  "die-60-symbols-full.sh|60|cc: line 8162: error 60"
   "die-61-scopes-deep.c|61|cc: line 66: error 61"
   "die-80-globals-full.sh|80|cc: line 515: error 80"
   "die-81-global-refs-full.sh|81|cc: line 16387: error 81"

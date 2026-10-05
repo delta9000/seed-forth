@@ -66,15 +66,98 @@ defer cc-sysv-check-scalar
   nc-inner @ [lit] 0 > if, nc-inner @ cc-sysv-size-product then, ;
 : cc-sysv-typedef-check
   cc-target-sysv @ if,
+    dup cc-sym-qualified cell[] @ nc-qualified @ or nc-qualified !
     dup cc-sym-array-len-of nc-base-array !
     dup cc-sym-array-inner-of nc-base-inner !
   then, ;
 ' cc-sysv-typedef-check is cc-ntypedef-check-fwd
 \ Preserve array typedef shape through aliases and ordinary declarations.
-\ The existing representation admits two dimensions, not pointers to arrays.
+\ Two bounded dimensions can also be retained behind pointer constructors.
+: cc-qualified-array-check if, [lit] 238 cc-die then, ;
+[lit] 64 constant cc-sysv-array-rank-limit
+: cc-sysv-array-rank ( type descriptor -- dimensions )
+  over ty-base ty-array = [lit] 2 cc-npick ty-ptr 0= and if,
+    nip dup cc-ad-type swap cc-ad-desc cc-sysv-array-rank 1+
+  else, 2drop [lit] 0 then, ;
+: cc-sysv-array-node ( type descriptor count inner -- descriptor )
+  [lit] 48 cc-alloc >r
+  r@ [lit] 24 + ! r@ [lit] 16 + ! r@ [lit] 8 + ! r@ !
+  \ Canonical nodes hold one dimension, including legacy matrix pointers.
+  \ Equivalent row shapes must not depend on how the declarator was spelled.
+  r@ cc-ad-inner if,
+    r@ cc-ad-type r@ cc-ad-desc r@ cc-ad-inner [lit] 0
+    cc-sysv-array-node r@ [lit] 8 + !
+    ty-array [lit] 0 ty-make r@ ! [lit] 0 r@ [lit] 24 + !
+  then,
+  r@ cc-ad-type r@ cc-ad-desc cc-sysv-array-rank
+  cc-sysv-array-rank-limit >= if, [lit] 238 cc-die then,
+  r@ cc-ad-count [lit] 0 <= if, [lit] 238 cc-die then,
+  r@ cc-ad-type ty-ptr 0= if,
+    r@ cc-ad-type ty-base dup ty-void = swap ty-func = or if, [lit] 238 cc-die then,
+  then,
+  r@ cc-ad-type r@ cc-ad-desc cc-expr-type-size
+  r@ cc-ad-count cc-sysv-size-product
+  r@ cc-ad-inner if, r@ cc-ad-inner cc-sysv-size-product then,
+  r@ [lit] 32 + !
+  r@ cc-ad-type r@ cc-ad-desc cc-nalignment r@ [lit] 40 + ! r> ;
+\ Additional fixed suffixes form real element-array types. The old outer
+\ metadata stays intact for one/two dimensions and for the native target.
+\ Depth is bounded independently of the checked 1 GiB size product.
+: cc-sysv-array-tail ( depth -- descriptor )
+  dup cc-sysv-array-rank-limit > if, [lit] 238 cc-die then,
+  cc-parse-const dup [lit] 0 <= if, [lit] 238 cc-die then, >r
+  [char] ] cc-expect-punct-c cc-next-token-keep
+  [char] [ cc-tok-punct? if,
+    1+ cc-sysv-array-tail ty-array [lit] 0 ty-make swap
+  else, drop nc-ty @ nc-desc @ then,
+  r> [lit] 0 cc-sysv-array-node ;
+: cc-sysv-array-extra
+  cc-target-sysv @ [char] [ cc-tok-punct? and if,
+    nc-base-array @ if, [lit] 238 cc-die then,
+    nc-inner @ [lit] 0 <= if, [lit] 238 cc-die then,
+    [lit] 3 cc-sysv-array-tail
+    ty-array [lit] 0 ty-make swap nc-inner @ [lit] 0
+    cc-sysv-array-node nc-desc ! ty-array [lit] 0 ty-make nc-ty !
+    [lit] 0 nc-inner ! nc-bound-mask @ [lit] 1 and nc-bound-mask !
+  then, ;
+' cc-sysv-array-extra is cc-narray-extra-fwd
+: cc-sysv-array-decay
+  cc-target-sysv @ cc-last-expr-array-len @ 0= 0= and
+  cc-last-expr-type @ ty-base ty-array = and if,
+    cc-last-expr-qualified @ cc-qualified-array-check
+  then,
+  cc-target-sysv @ cc-last-expr-array-inner @ 0= 0= and if,
+    cc-last-expr-qualified @ cc-qualified-array-check
+    cc-last-expr-type @ [lit] 1 - cc-last-struct-desc @
+    cc-last-expr-array-inner @ [lit] 0 cc-sysv-array-node
+    ty-array [lit] 1 ty-make swap cc-mark-typed-value
+  then, ;
+' cc-sysv-array-decay is cc-array-decay-fwd
+: cc-sysv-grouped-array ( stars -- )
+  cc-target-sysv @ 0= if, cc-npointer-array-default exit, then,
+  nc-qualified @ cc-qualified-array-check
+  nc-array @ nc-inner @ or nc-base-array @ or if, [lit] 238 cc-die then,
+  >r cc-narray-suffix
+  nc-bound-mask @ [lit] 2 and nc-inner @ [lit] 0 <= and if, [lit] 238 cc-die then,
+  nc-ty @ nc-desc @ nc-array @ nc-inner @ cc-sysv-array-node nc-desc !
+  ty-array r> ty-make nc-ty !
+  [lit] 0 nc-array ! [lit] 0 nc-inner ! [lit] 0 nc-bound-mask ! ;
+' cc-sysv-grouped-array is cc-npointer-array-fwd
+: cc-sysv-array-address ( type descriptor count inner -- type descriptor )
+  cc-target-sysv @ 0= if, cc-array-address-default exit, then,
+  cc-last-expr-qualified @ cc-qualified-array-check
+  >r >r swap [lit] 1 - swap r> r> cc-sysv-array-node
+  ty-array [lit] 1 ty-make swap ;
+' cc-sysv-array-address is cc-array-address-fwd
 : cc-sysv-inherit-array
   nc-base-array @ if,
-    nc-ty @ nc-base @ <> nc-func @ or if, [lit] 238 cc-die then,
+    nc-ty @ nc-base @ <> if,
+      nc-qualified @ cc-qualified-array-check
+      nc-base @ nc-sdesc @ nc-base-array @ nc-base-inner @
+      cc-sysv-array-node nc-desc !
+      ty-array nc-ty @ nc-base @ - ty-make nc-ty ! exit,
+    then,
+    nc-func @ if, [lit] 238 cc-die then,
     nc-array @ if,
       nc-inner @ nc-base-inner @ or nc-base-array @ [lit] 0 < or if,
         [lit] 238 cc-die
@@ -86,7 +169,12 @@ defer cc-sysv-check-scalar
   then, ;
 : cc-sysv-type-shape ( base-type stars -- type )
   cc-target-sysv @ 0= if, + exit, then,
-  dup 0= 0= nc-base-array @ 0= 0= and if, [lit] 238 cc-die then,
+  dup 0= 0= nc-base-array @ 0= 0= and if,
+    nc-qualified @ cc-qualified-array-check
+    >r cc-cast-desc @ nc-base-array @ nc-base-inner @
+    cc-sysv-array-node cc-cast-desc !
+    ty-array r> ty-make exit,
+  then,
   nc-base-array @ cc-type-name-array ! nc-base-inner @ cc-type-name-inner ! + ;
 ' cc-sysv-type-shape is cc-native-type-shape-fwd
 : cc-sysv-sizeof-type ( type descriptor -- bytes )
@@ -99,6 +187,25 @@ defer cc-sysv-check-scalar
     then,
   then, ;
 ' cc-sysv-sizeof-type is cc-sizeof-type-size-fwd
+\ Array expressions carry a pointer-shaped type before decay. A whole
+\ matrix is not a record, and another subscript needs a pointer operand.
+: cc-sysv-index-base
+  cc-target-sysv @ if,
+    cc-last-expr-type @ ty-ptr 0= if, [lit] 238 cc-die then,
+  then, ;
+' cc-sysv-index-base is cc-index-base-fwd
+: cc-sysv-member-base ( op -- op )
+  cc-target-sysv @ if,
+    cc-last-expr-type @ ty-base ty-struct <> if, [lit] 238 cc-die then,
+    dup [char] . = if,
+      cc-last-expr-array-len @ cc-last-expr-type @ ty-ptr or if, [lit] 238 cc-die then,
+    else,
+      cc-last-expr-type @ ty-ptr [lit] 1 <>
+      cc-last-expr-array-inner @ or if, [lit] 238 cc-die then,
+    then,
+  then, ;
+' cc-sysv-member-base is cc-member-base-fwd
+
 \ Real layouts are retained even when floating/aggregate value operations
 \ are unsupported. Taking an address must not read that value first.
 : cc-sysv-float-types cc-target-sysv @ cc-bootstrap-floatbits @ or ;
@@ -140,8 +247,15 @@ defer cc-sysv-implicit-declarator-fwd
 
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
+    nc-td @ nc-func @ and if, [lit] 238 cc-die then,
     cc-sysv-implicit-declarator-fwd
     cc-sysv-inherit-array
+    nc-ty @ nc-desc @ cc-sysv-array-rank
+    nc-array @ if, 1+ then, nc-inner @ if, 1+ then,
+    cc-sysv-array-rank-limit > if, [lit] 238 cc-die then,
+    nc-ty @ ty-base ty-array = nc-ty @ ty-ptr 0= 0= and if,
+      nc-qualified @ cc-qualified-array-check
+    then,
     nc-ty @ [lit] 256 / [lit] 255 and if, [lit] 231 cc-die then,
     nc-bound-mask @ [lit] 1 and if,
       nc-array @ [lit] 0 <= if, [lit] 238 cc-die then,
@@ -157,7 +271,16 @@ defer cc-sysv-implicit-declarator-fwd
 
 : cc-sysv-adjust-array-parameter
   nc-array @ if,
-    nc-inner @ if, [lit] 238 cc-die then,
+    \ Ranked element nodes also construct a pointer-to-array at adjustment.
+    nc-ty @ ty-base ty-array = nc-ty @ ty-ptr 0= and if,
+      nc-qualified @ cc-qualified-array-check
+    then,
+    nc-inner @ if,
+      nc-qualified @ cc-qualified-array-check
+      nc-ty @ nc-desc @ nc-inner @ [lit] 0 cc-sysv-array-node nc-desc !
+      ty-array [lit] 1 ty-make nc-ty !
+      [lit] 0 nc-array ! [lit] 0 nc-inner ! exit,
+    then,
     [lit] 1 nc-ty +! [lit] 0 nc-array !
   then, ;
 
@@ -174,6 +297,12 @@ defer cc-sysv-signature-fwd
 : cc-sysv-fnptr
   cc-target-sysv @ 0= if, cc-nfnptr-default exit, then,
   if, [lit] 231 cc-die then,
+  nc-base-array @ if,
+    nc-ty @ nc-base @ = if, [lit] 238 cc-die then,
+    cc-sysv-inherit-array
+    nc-ty @ ty-base ty-array = if, nc-qualified @ cc-qualified-array-check then,
+    [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
+  then,
   nc-ty @ nc-desc @ cc-sysv-signature-fwd nc-desc !
   ty-func [lit] 1 ty-make nc-ty ! ;
 ' cc-sysv-fnptr is cc-nfnptr-fwd
@@ -208,10 +337,52 @@ defer cc-sysv-signature-fwd
       [char] ) cc-tok-punct? 0= if, [lit] 233 cc-die then, exit,
     then,
   again, ;
+\ C90 parameter declarations allow one register specifier, interleaved
+\ with type keywords and qualifiers. Keep this policy in the parameter's
+\ own declaration context: an aggregate member uses a different context.
+\ Qualifiers retain the shared parser's existing representation; the base
+\ type, signedness, pointer depth and descriptor still come from cc-nbase.
+variable cc-sysv-parameter-context
+variable cc-sysv-parameter-register
+: cc-sysv-parameter-specifiers
+  cc-target-sysv @ 0= if, exit, then,
+  cc-nctx @ cc-sysv-parameter-context @ <> if, exit, then,
+  begin,
+    kw-static cc-tok-kw? kw-extern cc-tok-kw? or
+    kw-auto cc-tok-kw? or kw-typedef cc-tok-kw? or
+    kw-inline cc-tok-kw? or if, [lit] 233 cc-die then,
+    kw-register cc-tok-kw? if,
+      cc-sysv-parameter-register @ if, [lit] 233 cc-die then,
+      true cc-sysv-parameter-register ! true
+    else, cc-qualifier? dup if, cc-qual-note then, then,
+  while, cc-next-token-keep repeat, ;
+' cc-sysv-parameter-specifiers is cc-nbase-specifiers-fwd
+: cc-sysv-parameter-base ( -- type descriptor )
+  cc-sysv-parameter-context @ >r cc-sysv-parameter-register @ >r
+  cc-nctx @ cc-sysv-parameter-context !
+  [lit] 0 cc-sysv-parameter-register !
+  cc-nbase
+  \ Aggregate, enum and typedef bases return before trailing specifiers.
+  cc-next-token-keep cc-sysv-parameter-specifiers cc-putback-token
+  r> cc-sysv-parameter-register ! r> cc-sysv-parameter-context ! ;
+
+\ C adjusts a function-declared parameter to a pointer to that function.
+\ Reparse its saved suffix through the same recursive signature parser as
+\ an explicit (*callback) declarator, then restore the enclosing delimiter.
+: cc-sysv-adjust-function-parameter
+  nc-func @ if,
+    cc-lex-state-size cc-alloc dup cc-lex-mark >r
+    nc-params cc-lex-reset
+    nc-ty @ nc-desc @ cc-sysv-signature-fwd nc-desc !
+    r> cc-lex-reset
+    ty-func [lit] 1 ty-make nc-ty ! [lit] 0 nc-func !
+  then, ;
+
 : cc-sysv-signature ( return-type return-desc -- signature )
   [lit] 2600 cc-alloc dup >r [lit] 2600 cc-nzero
   r@ [lit] 16 + ! r@ [lit] 8 + !
   cc-sysv-signature-tag r@ !
+  nc-qualified @ r@ cc-field-set-qualified
   cc-nctx @ >r cc-ncontext
   begin,
     cc-next-token-keep
@@ -235,8 +406,8 @@ defer cc-sysv-signature-fwd
     tok-kind @ tk-ident = cc-native-type-start 0= and if,
       r> cc-nctx ! r> cc-sysv-identifier-list exit,
     then,
-    cc-nbase nc-sdesc ! nc-base ! cc-ndeclarator
-    nc-func @ if, [lit] 233 cc-die then,
+    cc-sysv-parameter-base nc-sdesc ! nc-base ! cc-ndeclarator
+    cc-sysv-adjust-function-parameter
     cc-sysv-adjust-array-parameter
     nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
     r> r> dup >r swap >r
@@ -247,6 +418,7 @@ defer cc-sysv-signature-fwd
     then,
     dup cc-sysv-sig-count dup cc-sysv-arg-cap >= if, [lit] 234 cc-die then,
     over swap cc-sysv-sig-param
+    nc-qualified @ over cc-field-set-qualified
     nc-ty @ over ! nc-desc @ swap [lit] 8 + !
     dup dup cc-sysv-sig-count cc-sysv-sig-name
     nc-name @ over ! nc-nlen @ over [lit] 8 + !
@@ -261,18 +433,37 @@ defer cc-sysv-signature-fwd
 
 \ Abstract function-pointer type names reuse the declaration signature parser.
 \ The operand address is unchanged; the cast result carries the new signature.
-: cc-sysv-type-name
+: cc-sysv-type-name-raw
   cc-native-type-name
+  cc-type-name-qualified @ nc-qualified !
   cc-target-sysv @ 0= if, exit, then,
   cc-next-token-keep
   lparen cc-tok-punct? if,
     cc-type-name-array @ if, [lit] 238 cc-die then,
     [char] * cc-expect-punct-c
-    cc-skip-qualifiers cc-count-stars if, [lit] 231 cc-die then,
-    [char] ) cc-expect-punct-c lparen cc-expect-punct-c
-    cc-cast-desc @ cc-sysv-signature cc-cast-desc !
-    ty-func [lit] 1 ty-make
+    cc-skip-qualifiers cc-count-stars 1+ >r
+    [char] ) cc-expect-punct-c cc-next-token-keep
+    [char] [ cc-tok-punct? if,
+      nc-qualified @ cc-qualified-array-check
+      cc-nctx @ >r cc-ncontext
+      cc-narray-suffix
+      nc-bound-mask @ [lit] 2 and nc-inner @ [lit] 0 <= and if, [lit] 238 cc-die then,
+      cc-cast-desc @ nc-array @ nc-inner @ cc-sysv-array-node cc-cast-desc !
+      r> cc-nctx ! ty-array r> ty-make cc-putback-token
+    else,
+      r> [lit] 1 <> if, [lit] 231 cc-die then,
+      lparen cc-tok-punct? 0= if, [lit] 238 cc-die then,
+      cc-cast-desc @ cc-sysv-signature cc-cast-desc !
+      ty-func [lit] 1 ty-make
+    then,
   else, cc-putback-token then, ;
+: cc-sysv-type-name
+  cc-nctx @ 0= if, cc-ncontext then,
+  nc-qualified @ >r nc-base-qualified @ >r nc-prefix-qualified @ >r
+  [lit] 0 nc-prefix-qualified ! cc-sysv-type-name-raw
+  dup ty-base ty-array = if, nc-qualified @ cc-qualified-array-check then,
+  nc-qualified @ cc-type-name-qualified !
+  r> nc-prefix-qualified ! r> nc-base-qualified ! r> nc-qualified ! ;
 ' cc-sysv-type-name is cc-native-type-name-fwd
 
 \ C permits function-pointer conversions and a round trip back to the
@@ -312,6 +503,16 @@ defer cc-sysv-signature-fwd
   then,
   cc-emit-convert-value ;
 ' cc-sysv-cast-value is cc-cast-value-fwd
+\ Qualified void pointees do not form null pointer constants. The flattened
+\ qualifier flag also conservatively excludes top-level-qualified void*.
+\ Read the cast target's saved flag, never metadata left by a nested cast.
+: cc-sysv-cast-null ( source destination null qualified -- null )
+  swap >r >r
+  dup cc-sysv-integral? swap ty-void [lit] 1 ty-make = r> 0= and or
+  swap cc-sysv-integral? and r> and cc-target-sysv @ and ;
+' cc-sysv-cast-null is cc-cast-null-fwd
+: cc-sysv-ternary-split cc-target-sysv @ ;
+' cc-sysv-ternary-split is cc-value-ternary-split-fwd
 
 
 \ Type identity is checked at redeclarations. Struct pointers retain tag
@@ -324,7 +525,89 @@ defer cc-sysv-compatible-signatures-fwd
   dup ty-func = if,
     drop r> r> cc-sysv-compatible-signatures-fwd exit,
   then,
+  dup ty-array = if,
+    drop r> r>
+    2dup 0= swap 0= or if, [lit] 237 cc-die then,
+    2dup cc-ad-count swap cc-ad-count <> if, 2drop [lit] 0 exit, then,
+    2dup cc-ad-inner swap cc-ad-inner <> if, 2drop [lit] 0 exit, then,
+    dup cc-ad-type swap cc-ad-desc >r >r
+    dup cc-ad-type swap cc-ad-desc r> r> cc-sysv-compatible-types exit,
+  then,
   ty-struct = if, r> r> = else, r> drop r> drop true then, ;
+: cc-sysv-value-shape ( source descriptor destination descriptor -- )
+  cc-target-sysv @ 0= if, 2drop 2drop exit, then,
+  [lit] 3 cc-npick ty-base ty-array = [lit] 2 cc-npick ty-base ty-array = or
+  [lit] 4 cc-npick ty-base ty-func = [lit] 3 cc-npick ty-base ty-func = or or if,
+    [lit] 3 cc-npick ty-ptr 0= [lit] 2 cc-npick ty-ptr 0= or if,
+      cc-last-expr-null @ 0= if, [lit] 237 cc-die then,
+      2drop 2drop exit,
+    then,
+    [lit] 3 cc-npick ty-void [lit] 1 ty-make =
+    [lit] 2 cc-npick ty-void [lit] 1 ty-make = or if, 2drop 2drop exit, then,
+    cc-sysv-compatible-types 0= if, [lit] 237 cc-die then,
+  else, 2drop 2drop then, ;
+' cc-sysv-value-shape is cc-value-shape-fwd
+: cc-sysv-array-operands?
+  cc-target-sysv @ if,
+    cc-expr-left-type @ ty-base ty-array = cc-expr-right-type @ ty-base ty-array = or
+  else, [lit] 0 then, ;
+: cc-sysv-array-pair-check
+  cc-expr-left-type @ cc-expr-left-desc @ cc-expr-right-type @ cc-expr-right-desc @
+  cc-sysv-compatible-types 0= if, [lit] 237 cc-die then, ;
+: cc-sysv-array-binop
+  cc-sysv-array-operands? 0= if, exit, then,
+  cc-expr-left-type @ ty-ptr cc-expr-right-type @ ty-ptr and if,
+    cc-expr-op-row @ bo-op + @ [char] - =
+    cc-expr-op-row @ bo-level + @ dup level-rel = swap level-eq = or or
+    0= if, [lit] 237 cc-die then,
+    cc-sysv-array-pair-check exit,
+  then,
+  cc-expr-op-row @ bo-level + @ level-add = if,
+    cc-expr-left-type @ ty-ptr if,
+      cc-expr-right-type @ cc-sysv-integral? 0= if, [lit] 237 cc-die then,
+    else,
+      cc-expr-op-row @ bo-op + @ [char] + <>
+      cc-expr-left-type @ cc-sysv-integral? 0= or if, [lit] 237 cc-die then,
+    then, exit,
+  then,
+  cc-expr-op-row @ bo-level + @ level-eq = if,
+    cc-expr-left-type @ ty-ptr if, cc-expr-right-null @ else, cc-expr-left-null @ then,
+    if, exit, then,
+  then,
+  [lit] 237 cc-die ;
+' cc-sysv-array-binop is cc-array-binop-fwd
+: cc-sysv-array-compound
+  cc-sysv-array-operands? if,
+    cc-expr-left-type @ ty-ptr 0= cc-expr-right-type @ cc-sysv-integral? 0= or
+    if, [lit] 237 cc-die then,
+  then, ;
+' cc-sysv-array-compound is cc-array-compound-fwd
+: cc-sysv-array-ternary
+  cc-target-sysv @ 0= if, exit, then,
+  cc-expr-left-type @ ty-void [lit] 0 ty-make =
+  cc-expr-right-type @ ty-void [lit] 0 ty-make = or if,
+    cc-expr-left-type @ cc-expr-right-type @ <> if, [lit] 237 cc-die then,
+    ty-void [lit] 0 ty-make cc-expr-common ! exit,
+  then,
+  cc-expr-left-type @ ty-ptr cc-expr-right-type @ ty-ptr or 0= if, exit, then,
+  \ A null pointer constant adopts the other arm's pointer type. A void*
+  \ variable, including one whose runtime value is zero, is not such a constant.
+  cc-expr-left-null @ cc-expr-right-type @ ty-ptr and if,
+    cc-expr-right-type @ cc-expr-common ! exit,
+  then,
+  cc-expr-right-null @ cc-expr-left-type @ ty-ptr and if,
+    cc-expr-left-type @ cc-expr-common ! exit,
+  then,
+  cc-expr-left-type @ ty-ptr 0= cc-expr-right-type @ ty-ptr 0= or
+  if, [lit] 237 cc-die then,
+  cc-expr-left-type @ ty-void [lit] 1 ty-make =
+  cc-expr-right-type @ ty-void [lit] 1 ty-make = or if,
+    cc-expr-left-type @ cc-sysv-function-pointer?
+    cc-expr-right-type @ cc-sysv-function-pointer? or if, [lit] 237 cc-die then,
+    ty-void [lit] 1 ty-make cc-expr-common ! exit,
+  then,
+  cc-sysv-array-pair-check ;
+' cc-sysv-array-ternary is cc-array-ternary-fwd
 : cc-sysv-signature-result dup cc-sysv-sig-return swap cc-sysv-sig-desc ;
 : cc-sysv-parameter-type cc-sysv-sig-param dup @ swap [lit] 8 + @ ;
 \ Default promotions matter to prototype compatibility even for types
@@ -344,6 +627,7 @@ defer cc-sysv-compatible-signatures-fwd
     then, 1+
   repeat, 2drop true ;
 : cc-sysv-compatible-signatures ( sig1 sig2 -- flag )
+  2dup cc-sysv-check-signature drop cc-sysv-check-signature drop
   2dup >r cc-sysv-signature-result r> cc-sysv-signature-result
   cc-sysv-compatible-types 0= if, 2drop [lit] 0 exit, then,
   over cc-sysv-known-params? 0= if,
@@ -437,6 +721,11 @@ defer cc-sysv-implicit-declared-fwd
     dup cc-sym-type-of ty-base ty-func <> if, [lit] 230 cc-die then,
     cc-sym-struct-desc-of
   then, cc-sysv-check-signature ;
+: cc-sysv-call-qualified
+  cc-target-sysv @ if, cc-sysv-symbol-signature cc-field-qualified
+  else, drop [lit] 0 then, ;
+' cc-sysv-call-qualified is cc-native-call-qualified-fwd
+
 : cc-sysv-function-desc
   cc-target-sysv @ if, cc-sysv-symbol-signature
   else, cc-native-function-desc then, ;
@@ -606,7 +895,8 @@ defer cc-sysv-result-value-fwd
   r@ cc-sysv-parse-args dup true cc-sysv-prepare-call >r
   dup cc-sysv-call-staged-target true r> cc-sysv-finish-call
   r@ cc-sysv-sig-return dup cc-sysv-result-value-fwd
-  r> cc-sysv-sig-desc cc-mark-typed-value ;
+  r> dup cc-field-qualified >r cc-sysv-sig-desc cc-mark-typed-value
+  r> cc-last-expr-qualified ! ;
 ' cc-sysv-indirect-call is cc-native-indirect-fwd
 
 \ RBX is the only callee-saved expression register. RBP is saved by090;
@@ -637,11 +927,10 @@ defer cc-sysv-abi-type-fwd
 : cc-sysv-old-parameters ( sig -- )
   cc-nctx @ >r cc-ncontext
   begin, [char] { cc-tok-punct? 0= while,
-    kw-register cc-tok-kw? if, cc-next-token-keep then,
-    cc-nbase nc-sdesc ! nc-base !
+    cc-sysv-parameter-base nc-sdesc ! nc-base !
     begin,
       cc-ndeclarator
-      nc-func @ if, [lit] 233 cc-die then,
+      cc-sysv-adjust-function-parameter
       cc-sysv-adjust-array-parameter
       nc-ty @ nc-desc @ cc-sysv-abi-type-fwd
       nc-ty @ ty-size 0= if, [lit] 233 cc-die then,
@@ -650,7 +939,8 @@ defer cc-sysv-abi-type-fwd
       2dup cc-sysv-sig-name dup [lit] 16 + @ if, [lit] 233 cc-die then,
       true swap [lit] 16 + !
       over swap cc-sysv-sig-param
-      nc-ty @ over ! nc-desc @ swap [lit] 8 + !
+      nc-qualified @ over cc-field-set-qualified
+    nc-ty @ over ! nc-desc @ swap [lit] 8 + !
       [char] , cc-tok-punct?
     while, repeat,
     [char] ; cc-tok-punct? 0= if, [lit] 233 cc-die then,
@@ -661,6 +951,7 @@ defer cc-sysv-abi-type-fwd
   [lit] 0 begin, over cc-sysv-sig-count over > while,
     2dup cc-sysv-sig-name dup @ nc-name ! [lit] 8 + @ nc-nlen !
     nc-nlen @ 0= if, [lit] 233 cc-die then,
+    2dup cc-sysv-sig-param cc-field-qualified nc-qualified !
     2dup cc-sysv-parameter-type nc-desc ! nc-ty !
     nc-ty @ cc-sysv-check-scalar-default
     [lit] 0 nc-array ! [lit] 0 nc-inner !
@@ -757,6 +1048,7 @@ variable cc-sysv-function-signature
 ' cc-sysv-function is cc-native-function-fwd
 
 : cc-sysv-enable
+  [lit] 0 cc-qualified-fields !
   [lit] 0 cc-sysv-implicit-head ! [lit] 0 cc-sysv-implicit-count !
   true cc-target-sysv ! true cc-target-lp64 ! true cc-prep-direct !
   [lit] 0 cc-bootstrap-floatbits ! ;

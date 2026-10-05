@@ -288,30 +288,26 @@ cc-arena-cap cc-arena-limit !
   cc-arena-ptr ! ;                               ( -- old-top )
 ```
 
-`[lit] 32768 constant cc-arena-cap` fixes the total budget at 32 KiB.
+`[lit] 32768 constant cc-arena-cap` fixes the default budget at 32 KiB.
 `create cc-arena-base cc-arena-cap allot` reserves that storage
 directly inside the dictionary: `create` makes a header for the name
 and `allot` extends its data area by 32 768 bytes.  Forth's own
 defining words serve as the compiler's `malloc`.  `cc-arena-ptr` is
 the bump pointer.
 
-The line `cc-arena-base cc-arena-ptr !
-variable cc-arena-start
-variable cc-arena-limit
-cc-arena-base cc-arena-start !
-cc-arena-cap cc-arena-limit !
-\ Opt-in workspace for larger translation units; the seed itself is unchanged.
-: cc-arena-map ( bytes -- )
-  dup cc-arena-limit !
-  [lit] 0 swap [lit] 3 [lit] 34 true [lit] 0 [lit] 9 syscall6
-  dup 0< if, [lit] 10 cc-die then,
-  dup cc-arena-start ! cc-arena-ptr ! ;` runs at load time, so the
-pointer starts at the buffer's first byte.
+The line `cc-arena-base cc-arena-ptr !` runs at load time, so the
+pointer starts at the buffer's first byte. `cc-arena-start` and
+`cc-arena-limit` initially describe that same 32 KiB buffer. An
+explicit `cc-arena-map` call replaces the active base, limit, and
+bump pointer with an anonymous mapping: the direct TinyCC driver
+requests 8 MiB, while the direct-GCC driver requests a fixed 17 MiB.
+The original slab and seed bytes remain unchanged.
 
 `cc-alloc` rounds the request up to a multiple of 8 (`(n+7)/8*8`
 keeps every allocation cell-aligned; later passes assume it).  It
 reads the current top, computes the new top, and hands the bytes in
-use to `cc-check-cap`: past 32 KiB, the compiler dies with code 10.
+use to `cc-check-cap`: past the active limit (32 KiB by default), the
+compiler dies with code 10. Mapping failure uses that same error.
 Otherwise it stores the new top and leaves the old top on the stack
 as the address just allocated.
 
@@ -322,7 +318,7 @@ leaks are all impossible.
 
 ## 2. The source reader and output writer
 
-The 214-line file `030-cc-io.fth` has four sections: A, the input and
+The 267-line file `030-cc-io.fth` has four sections: A, the input and
 source buffers and the reader; B, the output buffer and emitters; C,
 the final file write; D, three helpers the next files share.
 
@@ -364,22 +360,34 @@ starts by placing the buffers.
 skip-vm-pages                                     \ HERE = 0x414000
 
 \ cc-in-buf holds stdin exactly as read; nothing but the preprocessor reads it.
-[lit] 1048576 constant cc-in-cap                  \ 1 MiB of raw C source
-create cc-in-buf  cc-in-cap allot
+[lit] 1048576 constant cc-in-default-cap
+create cc-in-default-buf cc-in-default-cap allot
+variable cc-in-buffer
+variable cc-in-limit
+cc-in-default-buf cc-in-buffer !
+cc-in-default-cap cc-in-limit !
+: cc-in-buf ( -- address ) cc-in-buffer @ ;
+: cc-in-cap ( -- bytes ) cc-in-limit @ ;
 variable cc-in-len
 
 \ cc-src-buf holds the preprocessed source the lexer reads: #include'd files
-\ spliced in, directives blanked.  Twice cc-in-cap, since includes can grow
-\ it.  The reader's cursor, cc-src-pos and cc-src-line, is in the lexer's
+\ spliced in, directives blanked. The default is twice the raw capacity;
+\ direct GCC selects separately measured limits. The reader's cursor is in the lexer's
 \ state block (020-cc-arena.fth).
-[lit] 2097152 constant cc-src-cap                 \ 2 MiB
-create cc-src-buf  cc-src-cap allot
+[lit] 2097152 constant cc-src-default-cap
+create cc-src-default-buf cc-src-default-cap allot
+variable cc-src-buffer
+variable cc-src-limit
+cc-src-default-buf cc-src-buffer !
+cc-src-default-cap cc-src-limit !
+: cc-src-buf ( -- address ) cc-src-buffer @ ;
+: cc-src-cap ( -- bytes ) cc-src-limit @ ;
 variable cc-src-len
 
 ```
 
 `skip-vm-pages` is the one trick in the file.  Before
-`create cc-in-buf cc-in-cap allot` reserves a megabyte of dictionary
+`create cc-in-default-buf cc-in-default-cap allot` reserves a megabyte of dictionary
 space, it slides HERE (the dictionary's next-byte pointer, Ch 2)
 forward to `0x414000`, one page above the start of the sysvar page
 (Ch 12 defines it), so the buffer lives clear of the seed's reserved
@@ -482,8 +490,14 @@ to it.
 \ ===========================================================================
 
 \ 1 MiB output cap — fits any reasonable ELF the C-subset compiler emits.
-[lit] 1048576 constant cc-out-cap
-create cc-out-buf  cc-out-cap allot
+[lit] 1048576 constant cc-out-default-cap
+create cc-out-default-buf cc-out-default-cap allot
+variable cc-out-buffer
+variable cc-out-limit
+cc-out-default-buf cc-out-buffer !
+cc-out-default-cap cc-out-limit !
+: cc-out-buf ( -- address ) cc-out-buffer @ ;
+: cc-out-cap ( -- bytes ) cc-out-limit @ ;
 variable cc-out-pos
 
 \ cc-out-init ( -- )
@@ -635,6 +649,41 @@ variable cc-nf-lens
     then,
     1-                                           \ i--
   repeat, ;                                      \ not found: i = -1
+
+\ Direct GCC source workspace is opt-in; default buffers stay dictionary-backed.
+\ Measured raw/expanded/output maxima are 2,782,995/2,747,955/3,901,856 bytes.
+\ Round each independently to whole MiB: fixed 3/3/4 MiB, never growth/retry.
+[lit] 3145728 constant cc-in-direct-cap
+[lit] 3145728 constant cc-src-direct-cap
+[lit] 4194304 constant cc-out-direct-cap
+variable cc-io-direct-base
+
+\ Round before mmap only after rejecting zero, negative and overflowing sizes.
+\ Requests are policy constants at callers; this helper never grows a buffer.
+: cc-workspace-round ( bytes code -- page-bytes )
+  >r dup [lit] 0 <= if, r@ cc-die then,
+  dup [lit] 9223372036854771712 > if, r@ cc-die then,
+  [lit] 4095 + [lit] 4096 / [lit] 4096 * r> drop ;
+: cc-workspace-syscall ( page-bytes -- address )
+  [lit] 0 swap [lit] 3 [lit] 34 true [lit] 0 [lit] 9 syscall6 ;
+defer cc-workspace-syscall-fwd
+' cc-workspace-syscall is cc-workspace-syscall-fwd
+: cc-workspace-map ( bytes code -- address )
+  >r r@ cc-workspace-round cc-workspace-syscall-fwd
+  dup [lit] 0 <= if, r@ cc-die then, r> drop ;
+: cc-io-default-workspace ( -- )
+  cc-in-default-buf cc-in-buffer ! cc-in-default-cap cc-in-limit !
+  cc-src-default-buf cc-src-buffer ! cc-src-default-cap cc-src-limit !
+  cc-out-default-buf cc-out-buffer ! cc-out-default-cap cc-out-limit ! ;
+: cc-io-direct-workspace ( -- )
+  cc-io-direct-base @ 0= if,
+    cc-in-direct-cap cc-src-direct-cap + cc-out-direct-cap + [lit] 20 cc-workspace-map
+    cc-io-direct-base !
+  then,
+  cc-io-direct-base @ cc-in-buffer ! cc-in-direct-cap cc-in-limit !
+  cc-io-direct-base @ cc-in-direct-cap + cc-src-buffer !
+  cc-src-direct-cap cc-src-limit !
+  cc-src-buf cc-src-direct-cap + cc-out-buffer ! cc-out-direct-cap cc-out-limit ! ;
 ```
 
 `ident-start?` and `ident-cont?` classify identifier bytes: a letter
@@ -807,9 +856,30 @@ and Ch 22 has to decide what to do with it.
 
 ## Takeaways
 
-- The C compiler's memory model is three big in-memory buffers (input, source, output) plus a small overflow arena, all inside the 16 MiB segment from the ELF program header (Ch 13), with no `malloc` or `mmap`.
+- The default compiler keeps three big buffers (input, source, output) and a 32 KiB arena inside the seed's 16 MiB segment (Ch 13). Optional direct drivers map a separate bounded arena without changing the seed.
 - Reading and writing are batched: stdin arrives in one loop, and the output leaves in one `write` after the whole ELF is laid out.
 - Every capacity is checked with `cc-check-cap`, and every failure ends in `cc-die`, which prints the source line and exits with a code from the owning file's range (Appendix G).
 - Back-patching through `cc-out-patch-4le` and `cc-out-patch-8le` handles forward references inside the emitted ELF, the same trick `if,` uses for Forth-level control flow in Ch 11.
 
 Next: Chapter 22 — The Preprocessor.
+
+### Optional direct-GCC source storage
+
+The default raw and expanded buffers remain 1 MiB and 2 MiB dictionary
+allocations. Their public words now load a selected address or capacity, so
+callers keep exactly the same stack effects. Only the direct-GCC driver opts
+into raw/expanded/output slices of 3/3/4 MiB in one anonymous mapping. The unchanged original
+`insn-attrtab.c` input is 2,782,995 bytes; its expanded text is 2,747,955 bytes.
+The other measured generated unit, `insn-recog.c`, expands to 2,469,308 bytes.
+Each direct byte capacity is rounded up independently to a whole MiB.
+
+`cc-workspace-round` rejects zero, negative and overflowing requests before
+rounding to Linux pages. `cc-workspace-map` makes one private read/write mapping
+request and fails through the existing caller-selected diagnostic. The mapping
+is cached within this compiler process; selecting it repeatedly does not grow
+it. Selecting default storage again restores the original buffers. The selectors preserve cursors and counts; selection
+belongs before loading a new source and normal initialization, and `cc-src-init` and `cc-out-init` retain
+their existing cursor-reset roles. The raw reader still reserves one byte to
+distinguish end-of-file: its largest accepted payload is capacity minus one.
+Neither an allocation failure nor a later capacity error is retried at a larger
+size. The seed itself and its 16 MiB segment are unchanged.

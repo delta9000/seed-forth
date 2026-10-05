@@ -276,8 +276,8 @@ variable cc-for-step-end
   \ --- Cond (optional) ---
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [char] ; = and if,
-    \ ';' — empty cond; emit `mov rdi, 1` for unconditional truth.
-    [lit] 1 cc-emit-mov-rdi-imm32
+    \ ';' — empty cond; synthesize an integer value, including its metadata.
+    [lit] 1 cc-emit-mov-rdi-imm32 cc-mark-int-value
   else,
     cc-putback-token
     cc-parse-expr
@@ -586,7 +586,7 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
 \ Label table (per-function) + goto / label definition
 \ ===========================================================================
 \ Labels are function-local.  We use parallel arrays similar to cc-sym, sized
-\ small (64 labels max per function).  cc-label-count is reset to 0 on
+\ with a 64-label default and a measured direct-GCC workspace. The count resets on
 \ function entry.
 \
 \ Each label tracks:
@@ -595,12 +595,54 @@ variable cc-switch-default-vaddr  \ 0 if no default seen
 \   cc-label-vaddr     [id] : 0 if undefined, else absolute vaddr of the label
 \   cc-label-fixup     [id] : head-pointer of forward-jmp fixup list (0 = none)
 
-[lit] 64 constant cc-label-cap
-create cc-label-name-addr  cc-label-cap [lit] 8 * allot
-create cc-label-name-len   cc-label-cap [lit] 8 * allot
-create cc-label-vaddr      cc-label-cap [lit] 8 * allot
-create cc-label-fixup      cc-label-cap [lit] 8 * allot
-create cc-label-switch-depth cc-label-cap [lit] 8 * allot
+[lit] 64 constant cc-label-default-cap
+variable cc-label-limit
+cc-label-default-cap cc-label-limit !
+: cc-label-cap ( -- entries ) cc-label-limit @ ;
+create cc-label-default-name-addr cc-label-default-cap [lit] 8 * allot
+variable cc-label-name-addr-buffer
+cc-label-default-name-addr cc-label-name-addr-buffer !
+: cc-label-name-addr ( -- address ) cc-label-name-addr-buffer @ ;
+create cc-label-default-name-len cc-label-default-cap [lit] 8 * allot
+variable cc-label-name-len-buffer
+cc-label-default-name-len cc-label-name-len-buffer !
+: cc-label-name-len ( -- address ) cc-label-name-len-buffer @ ;
+create cc-label-default-vaddr cc-label-default-cap [lit] 8 * allot
+variable cc-label-vaddr-buffer
+cc-label-default-vaddr cc-label-vaddr-buffer !
+: cc-label-vaddr ( -- address ) cc-label-vaddr-buffer @ ;
+create cc-label-default-fixup cc-label-default-cap [lit] 8 * allot
+variable cc-label-fixup-buffer
+cc-label-default-fixup cc-label-fixup-buffer !
+: cc-label-fixup ( -- address ) cc-label-fixup-buffer @ ;
+create cc-label-default-switch-depth cc-label-default-cap [lit] 8 * allot
+variable cc-label-switch-depth-buffer
+cc-label-default-switch-depth cc-label-switch-depth-buffer !
+: cc-label-switch-depth ( -- address ) cc-label-switch-depth-buffer @ ;
+\ Original insn-recog.c has at most 739 labels in one function (recog_20).
+\ Five disjoint, page-sized arrays support the fixed 1,024-label direct bound.
+[lit] 1024 constant cc-label-direct-cap
+variable cc-label-direct-base
+: cc-label-default-workspace ( -- )
+  cc-label-default-cap cc-label-limit !
+  cc-label-default-name-addr cc-label-name-addr-buffer !
+  cc-label-default-name-len cc-label-name-len-buffer !
+  cc-label-default-vaddr cc-label-vaddr-buffer !
+  cc-label-default-fixup cc-label-fixup-buffer !
+  cc-label-default-switch-depth cc-label-switch-depth-buffer !
+;
+: cc-label-direct-workspace ( -- )
+  cc-label-direct-base @ 0= if,
+    cc-label-direct-cap [lit] 40 * [lit] 171 cc-workspace-map
+    cc-label-direct-base !
+  then,
+  cc-label-direct-cap cc-label-limit !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 0 * + cc-label-name-addr-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 8 * + cc-label-name-len-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 16 * + cc-label-vaddr-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 24 * + cc-label-fixup-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 32 * + cc-label-switch-depth-buffer !
+;
 variable cc-label-count
 
 \ Each table is indexed with cell[] (030).

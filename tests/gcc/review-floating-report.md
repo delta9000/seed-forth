@@ -1,5 +1,11 @@
 # Independent scalar binary64 review
 
+This is the historical binary64-stage report, retained alongside its original
+results. Later named/variadic argument and binary32 stages supersede several
+boundaries listed below. The conditional-values stage also supersedes both
+mixed-ternary rejections; the current runner accepts those forms and the
+[conditional gate](conditional-values-README.md) checks their execution.
+
 The measured scalar extension passes its independent host interoperability and
 exact-literal oracles. The unchanged full GCC 4.0.4 `libiberty/hashtab.c` compiles
 with the Forth compiler, and its original `htab_collisions` returns the same

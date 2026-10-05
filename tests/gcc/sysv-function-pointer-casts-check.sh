@@ -28,8 +28,8 @@ function-to-object|230|int f(void); void *g(void){return (void *)f;}
 function-to-char-double-pointer|230|int f(void); char **g(void){return (char **)f;}
 object-to-typedef-function|230|typedef int (*F)(void); int g(char **p){return ((F)p)();}
 function-to-function-pointer-object|230|typedef int (*F)(void); int f(void); F *g(void){return (F *)f;}
-float-return-call|232|float f(void); int g(void){void (*p)()=(void (*)())f; ((float (*)(void))p)(); return 0;}
-double-argument-call|232|int f(double); int g(void){void (*p)()=(void (*)())f; return ((int (*)(double))p)(1);}
+extended-return-call|232|long double f(void); int g(void){void (*p)()=(void (*)())f; ((long double (*)(void))p)(); return 0;}
+extended-argument-call|232|int f(long double); int g(void){void (*p)()=(void (*)())f; return ((int (*)(long double))p)(1);}
 aggregate-return-call|232|struct S{double x;}; struct S f(void); int g(void){void (*p)()=(void (*)())f; ((struct S (*)(void))p)(); return 0;}
 aggregate-argument-call|232|struct S{double x;}; int f(struct S); int g(void){struct S s; void (*p)()=(void (*)())f; return ((int (*)(struct S))p)(s);}
 wrong-argument-count|235|int f(int); int g(void){void (*p)()=(void (*)())f; return ((int (*)(int))p)();}

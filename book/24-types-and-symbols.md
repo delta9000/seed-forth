@@ -24,8 +24,8 @@ floating storage kinds support the opt-in LP64 target.  Pointer depth
 generalises to any level (`T**`, `T***`, …).  Struct and union layouts
 live in descriptors allocated from Ch 21's arena.
 
-The 152-line file `070-cc-sym.fth` is the symbol table: nine columns
-of 4096 8-byte slots each, 288 KiB in all.  Every global, local,
+The 165-line file `070-cc-sym.fth` is the symbol table: ten columns
+of 8192 8-byte slots each, 640 KiB in all.  Every global, local,
 function, struct tag, enum constant and typedef gets one row, and
 `cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering
 and restoring the row count.  Types are *consumed* later: Ch 28 reads
@@ -67,6 +67,15 @@ to size locals, globals and struct fields.
 [lit] 11 constant ty-uint
 [lit] 12 constant ty-ulong
 [lit] 13 constant ty-ldouble
+[lit] 14 constant ty-array
+
+\ Array nodes carry element type/descriptor, dimensions, size and alignment.
+: cc-ad-type @ ;
+: cc-ad-desc [lit] 8 + @ ;
+: cc-ad-count [lit] 16 + @ ;
+: cc-ad-inner [lit] 24 + @ ;
+: cc-ad-size [lit] 32 + @ ;
+: cc-ad-align [lit] 40 + @ ;
 
 \ The pinned M2/pnut route keeps the original data model unless opted in.
 variable cc-target-lp64
@@ -289,6 +298,15 @@ defer cc-sd-record-bytes
 : cc-sf-set-offset      [lit] 24 + ! ;                 \ ( off rec -- )
 : cc-sf-set-desc        [lit] 32 + ! ;                 \ ( desc rec -- )
 : cc-sf-set-array-len   [lit] 40 + ! ;                 \ ( n rec -- )
+
+\ Targets may extend field shape without changing legacy/native records.
+: cc-sf-array-inner-default ( rec -- n ) drop [lit] 0 ;
+: cc-sf-set-array-inner-default ( n rec -- )
+  drop if, [lit] 213 cc-die then, ;
+defer cc-sf-array-inner
+defer cc-sf-set-array-inner
+' cc-sf-array-inner-default is cc-sf-array-inner
+' cc-sf-set-array-inner-default is cc-sf-set-array-inner
 ```
 
 The struct descriptor is a chunk of arena memory from `cc-alloc`
@@ -314,10 +332,26 @@ by name.
 
 ## 2. The symbol-table parallel arrays
 
+The live-row limit is 8192. Scope pops recover rows, so this bounds
+simultaneously visible declarations rather than all declarations ever seen.
+`cc-sym-add` checks the next count before touching any column and keeps
+error 60 for the first excess row. Reusing a row clears all five auxiliary
+columns, including qualification provenance.
+
+The original GCC 4.0.4 `c-parse.c` compilation reached the earlier 4096-row
+limit before it exhausted its separately mapped arena. Doubling the row
+limit adds 320 KiB across these ten columns. The direct System V signature
+column also follows `cc-sym-cap`, adding another 32 KiB. The focused
+`tests/gcc/symbol-capacity-check.py` gate verifies both boundary behavior
+and that loading the compiler plus linker still fits the unchanged seed's
+16 MiB mapping. Other limits remain independent: object records and ELF
+symbols have their own capacities, and function signatures use arena bytes.
+A larger symbol table alone does not establish a complete GCC build.
+
 ```forth file=070-cc-sym.fth
 \ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
-\ Nine parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
+\ Ten parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins
 \   cc-sym-name-len  [id] : length of the name in bytes
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
@@ -340,7 +374,7 @@ by name.
 \   0=, 1+, !, @, +!, -!, drop, swap, >r, r@, r>), 020-cc-arena.fth (cc-die,
 \   cc-check-cap) and 030-cc-io.fth (cell[], cc-name-find).
 
-[lit] 4096 constant cc-sym-cap
+[lit] 8192 constant cc-sym-cap
 
 create cc-sym-name-addr  cc-sym-cap [lit] 8 * allot
 create cc-sym-name-len   cc-sym-cap [lit] 8 * allot
@@ -351,6 +385,18 @@ create cc-sym-extra      cc-sym-cap [lit] 8 * allot
 create cc-sym-extra2     cc-sym-cap [lit] 8 * allot
 create cc-sym-desc        cc-sym-cap [lit] 8 * allot
 create cc-sym-inner       cc-sym-cap [lit] 8 * allot
+\ Qualification provenance is separate from the encoded C type.
+create cc-sym-qualified cc-sym-cap [lit] 8 * allot
+variable cc-qualified-fields
+: cc-field-qualified ( record -- flag )
+  cc-qualified-fields @ begin, dup while,
+    2dup [lit] 8 + @ = if, 2drop true exit, then, @
+  repeat, 2drop [lit] 0 ;
+: cc-field-set-qualified ( flag record -- )
+  swap if,
+    [lit] 16 cc-alloc dup >r [lit] 8 + !
+    cc-qualified-fields @ r@ ! r> cc-qualified-fields !
+  else, drop then, ;
 variable cc-sym-count
 
 [lit] 64 constant cc-scope-cap
@@ -368,10 +414,10 @@ variable cc-scope-depth
 \ ===========================================================================
 ```
 
-Nine columns × 4096 rows × 8 bytes = 288 KiB, plus a 512-byte scope
+Ten columns × 8192 rows × 8 bytes = 640 KiB, plus a 512-byte scope
 stack (64 entries × 8 bytes).  That is the entire memory budget for
 global declarations, function definitions, every local variable in
-every function, every struct tag and every typedef.  The nine columns
+every function, every struct tag and every typedef.  The ten columns
 are the union of the metadata any symbol kind needs.
 
 `name-addr` and `name-len` point back into `cc-src-buf`.  There is no
@@ -419,6 +465,7 @@ accessors name each meaning instead.
   [lit] 0 r@ cc-sym-extra2 cell[] !
   [lit] 0 r@ cc-sym-desc cell[] !
   [lit] 0 r@ cc-sym-inner cell[] !
+  [lit] 0 r@ cc-sym-qualified cell[] !
   [lit] 1 cc-sym-count +!
   r> ;
 

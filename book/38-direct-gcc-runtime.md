@@ -23,6 +23,22 @@ The instruction listing is original project source under the repository license.
 This bridge deliberately makes the architecture and operating-system boundary
 visible; an internal compiler representation does not make those disappear.
 
+The source-built directory wrapper uses this bridge for the original
+`libcpp/files.c` precompiled-header search. Each stream owns a directory
+descriptor and a 32 KiB record buffer; checked record lengths protect the
+variable-length names returned by Linux. EOF preserves errno, and closing
+releases the stream even if the kernel reports an error. See
+`runtime/gcc-seed/DIRECTORIES.md` for the bounded interface and independent
+tests. This runtime prerequisite alone does not establish compiler type
+semantics or a complete libcpp build.
+
+The separate source-built math archive supplies bounded approximate `exp` and
+`log` implementations for the original GCC optional automaton-splitting
+heuristic. Literal `-lm` selects that genuine Forth archive at its command-line
+position. The numerical contract and its rounding limitations are documented
+in `runtime/gcc-seed/MATH.md`; library ordering and the unsupported general
+search options are documented in `runtime/gcc-seed/MATH-LINKING.md`.
+
 ```forth file=122-cc-sysv-runtime.fth
 \ 122-cc-sysv-runtime.fth -- raw Linux syscall bridge for a source-built runtime.
 \ Load after 010, 020, 030, and 081. Loading this file emits no target code.
@@ -128,7 +144,7 @@ create cc-sysrt-sigreturn-code
 
 \ Runtime-aware process entry. Keep argc/argv across initialization and
 \ keep the minimal raw _start builder independent of the C runtime.
-create cc-sysrt-init-name s, __seed_init_program_name
+create cc-sysrt-init-name s, __seed_init_runtime
 create cc-sysrt-runtime-start-code
 [lit] 72 c, [lit] 139 c, [lit] 60 c, [lit] 36 c, \ mov rdi,[rsp]
 [lit] 72 c, [lit] 141 c, [lit] 116 c, [lit] 36 c, [lit] 8 c,
@@ -149,7 +165,7 @@ create cc-sysrt-runtime-start-code
 : cc-sysrt-runtime-start-object
   cc-obj-init
   cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 41 cc-obj-bytes
-  cc-sysrt-init-name [lit] 24 cc-obj-global cc-obj-func cc-obj-default
+  cc-sysrt-init-name [lit] 19 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
   cc-obj-text [lit] 16 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-main-name [lit] 4 cc-obj-global cc-obj-func cc-obj-default
@@ -204,3 +220,64 @@ guarded by the compiler identity and kept as a provenance patch to the original
 source; it does not change ordinary C calls or replace allocation with a leak.
 The primitive frame test and original allocator lifetime test are separate
 proofs, and the latter must pass before accepting the adapted consumer.
+
+
+## Nonlocal return for the original Flex source
+
+`setjmp` saves six callee-saved integer registers plus the caller stack pointer
+and continuation address. `longjmp` restores these and resumes that continuation
+with the exact `int` argument, mapping zero to one. Both are independent leaf
+objects; Forth writes every byte into ET_REL without an assembler. The complete
+C90 usage boundary and independent checks are in
+the nonlocal-return contract in `runtime/gcc-seed/NONLOCAL.md`.
+
+```forth file=122-cc-sysv-runtime.fth
+
+\ Ordinary C90 nonlocal return. Layout: RBX,RBP,R12,R13,R14,R15,RSP,RIP.
+\ The saved RSP is the caller's value after this leaf would return.
+\ No signal mask, floating-point environment, or shadow stack is saved.
+create cc-sysrt-setjmp-name s, setjmp
+create cc-sysrt-setjmp-code
+[lit] 72 c, [lit] 137 c, [lit] 31 c,             \ mov [rdi],rbx
+[lit] 72 c, [lit] 137 c, [lit] 111 c, [lit] 8 c, \ mov [rdi+8],rbp
+[lit] 76 c, [lit] 137 c, [lit] 103 c, [lit] 16 c, \ mov [rdi+16],r12
+[lit] 76 c, [lit] 137 c, [lit] 111 c, [lit] 24 c, \ mov [rdi+24],r13
+[lit] 76 c, [lit] 137 c, [lit] 119 c, [lit] 32 c, \ mov [rdi+32],r14
+[lit] 76 c, [lit] 137 c, [lit] 127 c, [lit] 40 c, \ mov [rdi+40],r15
+[lit] 72 c, [lit] 141 c, [lit] 68 c, [lit] 36 c, [lit] 8 c,
+                                                \ lea rax,[rsp+8]
+[lit] 72 c, [lit] 137 c, [lit] 71 c, [lit] 48 c, \ mov [rdi+48],rax
+[lit] 72 c, [lit] 139 c, [lit] 4 c, [lit] 36 c,  \ mov rax,[rsp]
+[lit] 72 c, [lit] 137 c, [lit] 71 c, [lit] 56 c, \ mov [rdi+56],rax
+[lit] 49 c, [lit] 192 c,                         \ xor eax,eax
+[lit] 195 c,                                    \ ret
+: cc-sysrt-setjmp-object
+  cc-obj-init
+  cc-obj-text cc-obj-use cc-sysrt-setjmp-code [lit] 43 cc-obj-bytes
+  cc-sysrt-setjmp-name [lit] 6 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-text [lit] 0 [lit] 43 cc-obj-symbol drop ;
+
+\ Only ESI is the C int argument. Do not depend on its undefined upper bits.
+\ Sign-extension is harmless for host int callers and matches Forth C values.
+create cc-sysrt-longjmp-name s, longjmp
+create cc-sysrt-longjmp-code
+[lit] 137 c, [lit] 240 c,                         \ mov eax,esi
+[lit] 133 c, [lit] 192 c,                         \ test eax,eax
+[lit] 117 c, [lit] 5 c,                           \ jnz normalized
+[lit] 184 c, [lit] 1 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
+                                                 \ mov eax,1
+[lit] 72 c, [lit] 152 c,                          \ cdqe
+[lit] 72 c, [lit] 139 c, [lit] 31 c,              \ mov rbx,[rdi]
+[lit] 72 c, [lit] 139 c, [lit] 111 c, [lit] 8 c,  \ mov rbp,[rdi+8]
+[lit] 76 c, [lit] 139 c, [lit] 103 c, [lit] 16 c, \ mov r12,[rdi+16]
+[lit] 76 c, [lit] 139 c, [lit] 111 c, [lit] 24 c, \ mov r13,[rdi+24]
+[lit] 76 c, [lit] 139 c, [lit] 119 c, [lit] 32 c, \ mov r14,[rdi+32]
+[lit] 76 c, [lit] 139 c, [lit] 127 c, [lit] 40 c, \ mov r15,[rdi+40]
+[lit] 72 c, [lit] 139 c, [lit] 103 c, [lit] 48 c, \ mov rsp,[rdi+48]
+[lit] 255 c, [lit] 103 c, [lit] 56 c,            \ jmp [rdi+56]
+: cc-sysrt-longjmp-object
+  cc-obj-init
+  cc-obj-text cc-obj-use cc-sysrt-longjmp-code [lit] 43 cc-obj-bytes
+  cc-sysrt-longjmp-name [lit] 7 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-text [lit] 0 [lit] 43 cc-obj-symbol drop ;
+```

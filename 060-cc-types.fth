@@ -30,6 +30,15 @@
 [lit] 11 constant ty-uint
 [lit] 12 constant ty-ulong
 [lit] 13 constant ty-ldouble
+[lit] 14 constant ty-array
+
+\ Array nodes carry element type/descriptor, dimensions, size and alignment.
+: cc-ad-type @ ;
+: cc-ad-desc [lit] 8 + @ ;
+: cc-ad-count [lit] 16 + @ ;
+: cc-ad-inner [lit] 24 + @ ;
+: cc-ad-size [lit] 32 + @ ;
+: cc-ad-align [lit] 40 + @ ;
 
 \ The pinned M2/pnut route keeps the original data model unless opted in.
 variable cc-target-lp64
@@ -214,3 +223,12 @@ defer cc-sd-record-bytes
 : cc-sf-set-offset      [lit] 24 + ! ;                 \ ( off rec -- )
 : cc-sf-set-desc        [lit] 32 + ! ;                 \ ( desc rec -- )
 : cc-sf-set-array-len   [lit] 40 + ! ;                 \ ( n rec -- )
+
+\ Targets may extend field shape without changing legacy/native records.
+: cc-sf-array-inner-default ( rec -- n ) drop [lit] 0 ;
+: cc-sf-set-array-inner-default ( n rec -- )
+  drop if, [lit] 213 cc-die then, ;
+defer cc-sf-array-inner
+defer cc-sf-set-array-inner
+' cc-sf-array-inner-default is cc-sf-array-inner
+' cc-sf-set-array-inner-default is cc-sf-set-array-inner

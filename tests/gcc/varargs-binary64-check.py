@@ -48,9 +48,9 @@ def main():
     rejects = {
         "single": (247, "int f(int n,...){va_list a;va_start(a,n);va_arg(a,float);return 0;}"),
         "extended": (247, "int f(int n,...){va_list a;va_start(a,n);va_arg(a,long double);return 0;}"),
-        "named-double": (232, "double f(double n,...){return n;}"),
-        "variadic-double-call": (232, "extern int f(int,...);int g(double *p){return f(0,*p);}"),
-        "indirect-double-call": (232, "int g(int (*f)(int,...),double *p){return f(0,*p);}"),
+        "named-extended": (232, "long double f(long double n,...){return n;}"),
+        "variadic-extended-call": (232, "extern int f(int,...);int g(long double *p){return f(0,*p);}"),
+        "indirect-extended-call": (232, "int g(int (*f)(int,...),long double *p){return f(0,*p);}"),
     }
     for name, (status, code) in rejects.items():
         source = work / (name + ".c")
@@ -65,7 +65,7 @@ def main():
     assert hashes == {str(p.relative_to(ROOT)): sha(p) for p in sources}, "source changed during check"
     report = {"compiler_sha256": hashes, "callee_sha256": sha(obj),
               "host_executions": executions, "checked_rejections": list(rejects),
-              "scope": "Incoming binary64 retrieval only; no floating argument emission or formatting"}
+              "scope": "Incoming binary64 retrieval; shared binary64 argument emission is tested separately"}
     (work / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print("PASS: float/long-double retrieval and floating argument boundaries preserve existing outputs")
     print(work / "report.json")

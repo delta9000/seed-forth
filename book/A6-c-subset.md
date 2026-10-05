@@ -21,7 +21,7 @@ Sources of truth, in case this appendix drifts:
   comment) and the `cc-parse-*` ladder.
 - Type encoding: `060-cc-types.fth`.
 - Statement forms: `112-cc-stmt.fth` `cc-parse-stmt`
-  (lines 786–825).
+  (lines 828–867).
 - The gates in `tests/cc/`, run by `tests/cc/run-gates.sh`: each
   `P*.c` file exercises one family of the features below, and each
   `die-*` file one of the rejections (Appendix G).
@@ -105,7 +105,7 @@ stands for `c` (so `\\`, `\'` and `\"` work).
 
 ## Statements
 
-`cc-parse-stmt` in `112-cc-stmt.fth:786` dispatches the following
+`cc-parse-stmt` in `112-cc-stmt.fth:828` dispatches the following
 forms.  Anything not listed here is rejected by the parser with one
 of the parser's codes (`100-cc-expr.fth` through `116-cc-prog.fth`; Appendix G).
 
@@ -149,7 +149,7 @@ and six arguments (code 122 for a seventh argument): every argument
 travels in a register.  Variadic parameter lists (`...`) are
 **rejected** (code 182).  A function-pointer parameter must be
 spelled with a typedef; `int (*f)(int)` in a parameter list is code
-183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:392` for the local
+183 (see `cc-parse-fnptr-decl` in `110-cc-decl.fth:400` for the local
 form).
 
 ## Preprocessor

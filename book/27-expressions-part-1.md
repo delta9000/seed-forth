@@ -12,7 +12,7 @@ the right order.  Given `a*b + c << d == e & f | g && h || i`, the
 compiler has to emit code that applies each operator in C's precedence order, and it
 has no expression tree to lean on: the lexer hands over one token at
 a time and the emitters write bytes immediately.  `100-cc-expr.fth`
-(2425 lines total) solves this with a *precedence cascade*: plain
+(2555 lines total) solves this with a *precedence cascade*: plain
 recursive descent with one word per precedence level.  Each word
 asks the next-tighter level for its operands, then loops over its
 own operators.  (This is not *precedence climbing*, which uses a
@@ -395,11 +395,15 @@ Three words read it:
 
 \ Native arithmetic preserves type information and applies pointer scaling.
 \ These temporary cells are only used after recursive operand parsing ends.
+variable cc-expr-left-qualified
+variable cc-expr-right-qualified
 variable cc-expr-left-type
 variable cc-expr-left-desc
 variable cc-expr-right-type
 variable cc-expr-right-desc
 variable cc-expr-left-inner
+variable cc-expr-left-null
+variable cc-expr-right-null
 variable cc-expr-right-inner
 variable cc-expr-common
 variable cc-expr-op-row
@@ -424,7 +428,10 @@ defer cc-expr-common-type
   cc-expr-left-desc ! cc-expr-left-type !
   cc-expr-left-type @ cc-expr-right-type @ cc-expr-common-type cc-expr-common ! ;
 
-: cc-expr-save-native-types                      ( left-ty left-desc left-inner -- )
+: cc-expr-save-native-types ( left-ty left-desc left-inner left-null qualified -- )
+  cc-expr-left-qualified !
+  cc-last-expr-qualified @ cc-expr-right-qualified !
+  cc-expr-left-null ! cc-last-expr-null @ cc-expr-right-null !
   cc-expr-left-inner !
   cc-last-expr-array-inner @ cc-expr-right-inner !
   cc-last-expr-type @ cc-last-struct-desc @ cc-expr-save-types ;
@@ -444,7 +451,7 @@ defer cc-expr-common-type
   cc-expr-right-inner @ if, cc-expr-right-inner @ * then, ;
 
 : cc-expr-common-desc                            ( -- desc )
-  cc-expr-common @ ty-base ty-struct = if,
+  cc-expr-common @ ty-base dup ty-struct = over ty-func = or swap ty-array = or if,
     cc-expr-left-type @ cc-expr-common @ = if,
       cc-expr-left-desc @
     else, cc-expr-right-desc @ then,
@@ -467,10 +474,19 @@ defer cc-expr-common-type
 defer cc-native-binop-emit
 ' cc-native-binop-emit-default is cc-native-binop-emit
 
-: cc-native-binop-apply                          ( left-ty left-desc left-inner row -- )
+: cc-array-binop-default ;
+defer cc-array-binop-fwd
+' cc-array-binop-default is cc-array-binop-fwd
+: cc-array-compound-default ;
+defer cc-array-compound-fwd
+' cc-array-compound-default is cc-array-compound-fwd
+: cc-array-ternary-default ;
+defer cc-array-ternary-fwd
+' cc-array-ternary-default is cc-array-ternary-fwd
+: cc-native-binop-apply                          ( left-ty left-desc left-inner left-null row -- )
   cc-expr-op-row !
   cc-emit-materialize
-  cc-expr-save-native-types
+  cc-expr-save-native-types cc-array-binop-fwd
   cc-expr-op-row @ bo-level + @ level-shift = if,
     cc-expr-left-type @ cc-expr-promote cc-expr-common !
   then,
@@ -506,6 +522,9 @@ defer cc-native-binop-emit
   then,
   cc-expr-common @ cc-emit-convert-rdi
   cc-expr-common @ cc-expr-common-desc cc-mark-typed-value
+  cc-expr-common @ ty-ptr if,
+    cc-expr-left-qualified @ cc-expr-right-qualified @ or cc-last-expr-qualified !
+  then,
   cc-expr-common-inner cc-last-expr-array-inner ! ;
 
 \ cc-binop-apply ( row -- )  The left operand is pushed and the right one
@@ -544,7 +563,7 @@ the fold, which the next section walks through.
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-unary                                \ rdi = right
@@ -600,7 +619,7 @@ intermediate values.
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-mul                                  \ rdi = right
@@ -640,7 +659,7 @@ nothing, and costs one call.
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-add                                  \ rdi = right
@@ -674,7 +693,7 @@ C puts shifts between additive and relational operators, so
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-shift                                \ rdi = right
@@ -702,7 +721,7 @@ C puts shifts between additive and relational operators, so
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-rel                                  \ rdi = right
@@ -731,7 +750,7 @@ C puts shifts between additive and relational operators, so
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-eq                                   \ rdi = right
@@ -753,7 +772,7 @@ C puts shifts between additive and relational operators, so
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-bit-and                              \ rdi = right
@@ -775,7 +794,7 @@ C puts shifts between additive and relational operators, so
     >r                                            ( ; R: row )
     cc-emit-materialize                           \ left must be a value
     cc-target-lp64 @ if,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-last-expr-array-inner @ cc-last-expr-null @ cc-last-expr-qualified @
     then,
     cc-emit-push-rdi                              \ save left
     cc-parse-bit-xor                              \ rdi = right

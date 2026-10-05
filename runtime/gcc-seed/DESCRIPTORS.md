@@ -34,3 +34,7 @@ Host C90/libc builds at O0/O2 independently check shared public behavior;
 host mode/O_PATH extensions, failed-template bytes, and buffered _exit output
 are kept separate from this runtime's explicit bounded choices. Fresh replay
 reports supersede all artifacts lost in the workspace replacement.
+
+Public open/read/close/lseek wrappers and their bounded Linux flag surface are
+covered separately in [DESCRIPTOR-IO.md](DESCRIPTOR-IO.md). They do not alter
+the FILE ownership rules described above.

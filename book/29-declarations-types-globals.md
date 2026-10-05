@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (773 lines), the first of the
+That machinery is `110-cc-decl.fth` (789 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
@@ -160,10 +160,16 @@ can grep for in those files.
 
 \ cc-skip-qualifiers ( -- )  Read past any qualifiers; the first token that
 \ isn't one is left pending.
+: cc-qual-note-noop ;
+defer cc-qual-note
+' cc-qual-note-noop is cc-qual-note
+variable cc-prefix-qualified
+variable cc-type-name-qualified
+
 : cc-skip-qualifiers
   begin,
     cc-next-token-keep cc-qualifier?
-  while,
+  while, cc-qual-note
   repeat,
   cc-putback-token ;
 
@@ -194,9 +200,11 @@ variable cc-decl-static
 variable cc-decl-extern
 
 : cc-skip-storage-quals
+  [lit] 0 cc-prefix-qualified !
   [lit] 0 cc-decl-static ! [lit] 0 cc-decl-extern !
   begin,
     cc-next-token-keep
+    cc-qualifier? if, true cc-prefix-qualified ! then,
     kw-static cc-tok-kw? if, true cc-decl-static ! then,
     kw-extern cc-tok-kw? if, true cc-decl-extern ! then,
     tok-kind @ tk-kw =
@@ -815,6 +823,10 @@ defer cc-cast-types-fwd
 : cc-cast-value-default ( source destination -- ) cc-emit-convert-value ;
 defer cc-cast-value-fwd
 ' cc-cast-value-default is cc-cast-value-fwd
+\ Only target-approved integer constant zero casts retain null provenance.
+: cc-cast-null-default ( source destination null qualified -- null ) 2drop 2drop [lit] 0 ;
+defer cc-cast-null-fwd
+' cc-cast-null-default is cc-cast-null-fwd
 
 : cc-try-cast
   cc-next-token-keep
@@ -824,19 +836,23 @@ defer cc-cast-value-fwd
   cc-parse-type-name >r                            ( ; R: ty )
   cc-target-lp64 @ if, cc-type-name-array @ if, [lit] 238 cc-die then, then,
   [char] ) cc-expect-punct-c
-  cc-cast-desc @ >r                                ( ; R: ty desc )
+  cc-type-name-qualified @ >r
+  cc-cast-desc @ >r                                ( ; R: ty qualification desc )
   cc-parse-unary
   cc-emit-materialize
-  r> r>                                            ( desc ty )
+  r> r> r> swap >r                                 ( desc ty ; R: qualification )
   cc-target-lp64 @ if,
     cc-last-expr-type @ over cc-cast-types-fwd
     cc-last-expr-type @ over cc-cast-value-fwd
   else,
     dup ty-base ty-char = over ty-ptr 0= and if, cc-emit-zx-byte-rdi then,
   then,
+  cc-last-expr-type @ over cc-last-expr-null @ r@ cc-cast-null-fwd >r
   cc-mark-not-lvalue
   cc-last-expr-type !
   cc-last-struct-desc !
+  r> cc-last-expr-null !
+  r> cc-last-expr-qualified !
   true ;
 
 ' cc-try-cast is cc-try-cast-fwd

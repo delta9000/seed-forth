@@ -38,20 +38,19 @@ CASES = {
  if(sizeof(local_alias_first)!=12||local_alias_first[0]!=20||sizeof(local_alias_after)!=12||local_alias_after[2]!=18)return 7;
  return a[2]==42?0:8;
  }''',
- 'typedef-array-pointer': 'typedef int A[3]; A *p;',
- 'typedef-multidim-parameter': 'typedef int A[2][3]; int f(A p){return 0;}',
+ 'typedef-array-pointer': 'typedef int A[3]; A values[2]={{1,2,3},{4,5,6}}; A *p=values; int review(void){return sizeof(*p)==12 && p[1][2]==6 && (p+1)-p==1 ? 0 : 1;}',
+ 'typedef-multidim-parameter': 'typedef int A[2][3]; int f(A p){return sizeof(p)==8 && sizeof(*p)==12 && p[1][2]==6 ? 0 : 1;} int review(void){A values={{1,2,3},{4,5,6}};return f(values);}',
  'typedef-three-dimensions': 'typedef int A[3]; A m[2][2];',
  'scalar-array-redecl': 'int a; extern int a[3]; int review(void){return sizeof(a)==12?0:1;}',
  'array-scalar-redecl': 'int a[3]={1,2,3}; extern int a; int review(void){return sizeof(a)==4?0:1;}',
 }
 expected_rejections = {
  'zero-bound':238, 'negative-bound':238, 'overflow-bound':245,
- 'typedef-array-pointer':238, 'typedef-multidim-parameter':238,
  'typedef-three-dimensions':238, 'scalar-array-redecl':237, 'array-scalar-redecl':237,
 }
 work=Path(tempfile.mkdtemp(prefix='sf-review-storage-'))
 print('Artifacts:',work,flush=True)
-positives = {'extern-order','array-redecl','static-collision','pointer-aggregates','function-pointer-array','static-local-addresses','typedef-array'}
+positives = {'extern-order','array-redecl','static-collision','pointer-aggregates','function-pointer-array','static-local-addresses','typedef-array','typedef-array-pointer','typedef-multidim-parameter'}
 def forth_driver(files,driver):
  data=b''.join((ROOT/f).read_bytes() for f in files)+driver.encode()
  return subprocess.run([str(ROOT/'seed-forth')],input=data,capture_output=True,timeout=15)

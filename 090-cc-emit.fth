@@ -1131,9 +1131,35 @@ variable cc-bss-pos
 
 \ Capacity for deferred global-vaddr fixups (each use of a global's name
 \ is one).  M2-Planet's source has about 1,600, and so has pnut's.
-[lit] 16384 constant cc-gfixup-cap
-create cc-gfixup-out-pos  cc-gfixup-cap [lit] 8 * allot
-create cc-gfixup-slot     cc-gfixup-cap [lit] 8 * allot
+[lit] 16384 constant cc-gfixup-default-cap
+variable cc-gfixup-limit
+cc-gfixup-default-cap cc-gfixup-limit !
+: cc-gfixup-cap ( -- entries ) cc-gfixup-limit @ ;
+create cc-gfixup-default-out-pos cc-gfixup-default-cap [lit] 8 * allot
+variable cc-gfixup-out-pos-buffer
+cc-gfixup-default-out-pos cc-gfixup-out-pos-buffer !
+: cc-gfixup-out-pos ( -- address ) cc-gfixup-out-pos-buffer @ ;
+create cc-gfixup-default-slot cc-gfixup-default-cap [lit] 8 * allot
+variable cc-gfixup-slot-buffer
+cc-gfixup-default-slot cc-gfixup-slot-buffer !
+: cc-gfixup-slot ( -- address ) cc-gfixup-slot-buffer @ ;
+\ Complete original insn-attrtab.c needs 17,502 deferred global references.
+\ Round the direct bound up to a 512-entry quantum; keep the default intact.
+\ Both columns select one fixed, disjoint pair of mapped arrays.
+[lit] 17920 constant cc-gfixup-direct-cap
+variable cc-gfixup-direct-base
+: cc-gfixup-default-workspace ( -- )
+  cc-gfixup-default-cap cc-gfixup-limit !
+  cc-gfixup-default-out-pos cc-gfixup-out-pos-buffer !
+  cc-gfixup-default-slot cc-gfixup-slot-buffer ! ;
+: cc-gfixup-direct-workspace ( -- )
+  cc-gfixup-direct-base @ 0= if,
+    cc-gfixup-direct-cap [lit] 16 * [lit] 81 cc-workspace-map
+    cc-gfixup-direct-base !
+  then,
+  cc-gfixup-direct-cap cc-gfixup-limit !
+  cc-gfixup-direct-base @ cc-gfixup-out-pos-buffer !
+  cc-gfixup-direct-base @ cc-gfixup-direct-cap [lit] 8 * + cc-gfixup-slot-buffer ! ;
 variable cc-gfixup-count
 
 variable cc-globals-base-vaddr                   \ set by cc-finalize-globals

@@ -28,15 +28,66 @@
 [lit] 10 constant cc-obj-r32
 [lit] 11 constant cc-obj-r32s
 
+[lit] 524288 constant cc-obj-text-default-cap
+variable cc-obj-text-limit
+cc-obj-text-default-cap cc-obj-text-limit !
+: cc-obj-text-cap ( -- bytes ) cc-obj-text-limit @ ;
 [lit] 262144 constant cc-obj-section-cap
 [lit] 1073741824 constant cc-obj-bss-cap
-[lit] 2048 constant cc-obj-symbol-cap
-[lit] 4096 constant cc-obj-reloc-cap
+[lit] 2048 constant cc-obj-symbol-default-cap
+variable cc-obj-symbol-limit
+cc-obj-symbol-default-cap cc-obj-symbol-limit !
+: cc-obj-symbol-cap ( -- entries ) cc-obj-symbol-limit @ ;
+[lit] 4096 constant cc-obj-reloc-default-cap
+variable cc-obj-reloc-limit
+cc-obj-reloc-default-cap cc-obj-reloc-limit !
+: cc-obj-reloc-cap ( -- entries ) cc-obj-reloc-limit @ ;
 [lit] 65536 constant cc-obj-string-cap
-create cc-obj-payload  cc-obj-section-cap [lit] 3 * allot
-create cc-obj-symbols  cc-obj-symbol-cap 1+ [lit] 64 * allot
-create cc-obj-relocs  cc-obj-reloc-cap [lit] 40 * allot
+create cc-obj-default-payload cc-obj-text-default-cap cc-obj-section-cap [lit] 2 * + allot
+variable cc-obj-payload-buffer
+cc-obj-default-payload cc-obj-payload-buffer !
+: cc-obj-payload ( -- address ) cc-obj-payload-buffer @ ;
+create cc-obj-default-symbols cc-obj-symbol-default-cap 1+ [lit] 64 * allot
+variable cc-obj-symbols-buffer
+cc-obj-default-symbols cc-obj-symbols-buffer !
+: cc-obj-symbols ( -- address ) cc-obj-symbols-buffer @ ;
+create cc-obj-default-relocs cc-obj-reloc-default-cap [lit] 40 * allot
+variable cc-obj-relocs-buffer
+cc-obj-default-relocs cc-obj-relocs-buffer !
+: cc-obj-relocs ( -- address ) cc-obj-relocs-buffer @ ;
 create cc-obj-strings  cc-obj-string-cap allot
+\ Complete original insn-attrtab.c needs 3,328,178 text bytes and 20,568
+\ relocations. Round independently to whole MiB / 512-entry quanta.
+[lit] 4194304 constant cc-obj-text-direct-cap
+[lit] 20992 constant cc-obj-reloc-direct-cap
+\ Complete original c-common.c needs 6,282 symbols, excluding ELF symbol zero.
+\ Round named rows to 6,656; allocate the reserved null row separately.
+[lit] 6656 constant cc-obj-symbol-direct-cap
+variable cc-obj-direct-base
+: cc-obj-direct-payload-bytes ( -- bytes )
+  cc-obj-text-direct-cap cc-obj-section-cap [lit] 2 * + ;
+: cc-obj-direct-symbol-bytes ( -- bytes )
+  cc-obj-symbol-direct-cap 1+ [lit] 64 * ;
+: cc-obj-default-workspace ( -- )
+  cc-obj-text-default-cap cc-obj-text-limit !
+  cc-obj-reloc-default-cap cc-obj-reloc-limit !
+  cc-obj-symbol-default-cap cc-obj-symbol-limit !
+  cc-obj-default-payload cc-obj-payload-buffer !
+  cc-obj-default-relocs cc-obj-relocs-buffer !
+  cc-obj-default-symbols cc-obj-symbols-buffer ! ;
+: cc-obj-direct-workspace ( -- )
+  cc-obj-direct-base @ 0= if,
+    cc-obj-direct-payload-bytes cc-obj-reloc-direct-cap [lit] 40 * +
+    cc-obj-direct-symbol-bytes +
+    [lit] 245 cc-workspace-map cc-obj-direct-base !
+  then,
+  cc-obj-text-direct-cap cc-obj-text-limit !
+  cc-obj-reloc-direct-cap cc-obj-reloc-limit !
+  cc-obj-symbol-direct-cap cc-obj-symbol-limit !
+  cc-obj-direct-base @ cc-obj-payload-buffer !
+  cc-obj-direct-base @ cc-obj-direct-payload-bytes +
+  dup cc-obj-relocs-buffer !
+  cc-obj-reloc-direct-cap [lit] 40 * + cc-obj-symbols-buffer ! ;
 \ Section metadata is nine CELLS, not an in-memory Elf64_Shdr:
 \ name/type/flags/file-offset/size/link/info/alignment/entry-size.
 create cc-obj-sections  [lit] 720 allot
@@ -65,9 +116,10 @@ variable cc-obj-ti
   [lit] 0 cc-obj-pid ! [lit] 0 cc-obj-ti ! [lit] 0 cc-obj-temp-path c! ;
 
 : cc-obj-sh ( section -- a )  [lit] 72 * cc-obj-sections + ;
-: cc-obj-sym ( id -- a )  [lit] 64 * cc-obj-symbols + ;
 : cc-obj-rel ( index -- a )  [lit] 40 * cc-obj-relocs + ;
-: cc-obj-base ( section -- a )  1- cc-obj-section-cap * cc-obj-payload + ;
+: cc-obj-base ( section -- a )
+  dup cc-obj-text = if, drop cc-obj-payload exit, then,
+  [lit] 2 - cc-obj-section-cap * cc-obj-text-cap + cc-obj-payload + ;
 : cc-obj-length ( section -- n )  cc-obj-sh [lit] 32 + @ ;
 : cc-obj-zero ( a n -- )
   begin, dup while,
@@ -78,6 +130,10 @@ variable cc-obj-ti
 : cc-obj-bound ( n maximum code -- )
   >r over 0< if, r@ cc-die then,
   > if, r@ cc-die then, r> drop ;
+\ IDs include reserved row zero. Check before multiplying, in either workspace.
+: cc-obj-sym ( id -- a )
+  dup cc-obj-symbol-cap [lit] 246 cc-obj-bound
+  [lit] 64 * cc-obj-symbols + ;
 : cc-obj-check-section ( section -- )
   dup [lit] 4 [lit] 244 cc-obj-bound
   0= if, [lit] 244 cc-die then, ;
@@ -94,7 +150,8 @@ variable cc-obj-ti
 : cc-obj-room ( count -- )
   cc-obj-current @ cc-obj-bss = if,
     cc-obj-bss-cap
-  else, cc-obj-section-cap then,
+  else, cc-obj-current @ cc-obj-text = if,
+    cc-obj-text-cap else, cc-obj-section-cap then, then,
   cc-obj-here - [lit] 245 cc-obj-bound ;
 
 \ Reserve zeroed bytes; .bss grows in memory without backing file bytes.

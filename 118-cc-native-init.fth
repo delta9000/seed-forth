@@ -101,7 +101,8 @@ variable cc-ni-scan-brace
         [lit] 1 cc-ni-scan-count +! [lit] 0 cc-ni-scan-have !
       else,
         cc-ni-scan-have @ 0= if,
-          nc-ty @ ty-base ty-struct = nc-ty @ ty-ptr 0= and if,
+          nc-ty @ ty-base dup ty-struct = swap ty-array = or
+          nc-ty @ ty-ptr 0= and if,
             [char] { cc-tok-punct? 0= if, [lit] 222 cc-die then,
           then,
           nc-inner @ if,
@@ -161,6 +162,7 @@ defer cc-value-static-init-fwd
     ni-type @ ni-desc @ cc-nsize cc-ni-copy-bytes
   else,
     cc-emit-materialize
+    cc-last-expr-type @ cc-last-struct-desc @ ni-type @ ni-desc @ cc-value-shape-fwd
     cc-last-expr-type @ ni-type @ cc-value-init-fwd
     cc-emit-pop-rcx ni-type @ cc-emit-store-typed-via-rcx
   then,
@@ -189,7 +191,8 @@ defer cc-ni-field-fwd
     ni-desc @ ni-index @ cc-sd-field-rec
     dup cc-ni-field-fwd if, drop exit, then,
     dup cc-sf-type over cc-sf-desc
-    [lit] 2 cc-npick cc-sf-array-len [lit] 0
+    [lit] 2 cc-npick cc-sf-array-len
+    [lit] 3 cc-npick cc-sf-array-inner
     [lit] 4 cc-npick cc-sf-offset ni-offset @ +
     true cc-ni-value-fwd drop
   then, ;
@@ -239,6 +242,13 @@ defer cc-ni-field-fwd
   cc-ni-frame @ >r
   [lit] 64 cc-alloc dup cc-ni-frame ! [lit] 64 cc-nzero
   ni-nested ! ni-offset ! ni-inner ! ni-array ! ni-desc ! ni-type !
+  \ Re-enter the existing array traversal for a recursively typed element.
+  ni-array @ 0= ni-type @ ty-base ty-array = and
+  ni-type @ ty-ptr 0= and if,
+    ni-desc @ dup cc-ad-type ni-type !
+    dup cc-ad-count ni-array ! dup cc-ad-inner ni-inner !
+    cc-ad-desc ni-desc !
+  then,
   ni-array @ [lit] 0 > if,
     ni-inner @ 0= ni-type @ ty-ptr 0= and
     ni-type @ ty-size [lit] 1 = and if,

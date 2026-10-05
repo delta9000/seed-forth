@@ -51,7 +51,7 @@ shows what the artifact can *do* at each step.
 | 25 | emit a valid 120-byte ELF prologue and the core x86-64 instruction encoders |
 | 26 | emit function calls with forward fixups, libc shims, string literals, and global-address placeholders |
 | 27 | lower binary expressions (arithmetic, comparison, bitwise, logical) through one repeated fold |
-| 28 | lower primary, unary, postfix, ternary, and assignment with four-kind lvalue tracking |
+| 28 | lower primary, unary, postfix, ternary, and assignment with lvalue tracking and a non-lvalue record temporary marker |
 | 29 | parse declarations: scalar, pointer, and array locals, structs (self-referential), function-pointer locals, struct locals, and `return` |
 | 30 | lower every C control statement: `if`/`else`, `while`, `for`, `do`/`while`, `switch`, `break`, `continue`, `goto` |
 | 31 | assemble whole translation units: functions with parameters, scopes, enums, typedefs, file-scope globals, entry stub.  Output is now a runnable ELF. |
@@ -373,7 +373,7 @@ bootstrap. Their current implementation and limits are in [DIRECT-GCC.md](https:
 | [42: variadic lists](42-direct-gcc-varargs.md) | 34, 36, 37 | Array-based System V lists across separately compiled units |
 | [43: streams](43-direct-gcc-stdio.md) | 35–39, 42 | Forth-built file I/O and bounded formatted generator output |
 | [44: archives](44-direct-gcc-archives.md) | 35, 37 | Indexed archives and selection driven by unresolved symbols |
-| [45: binary64 values](45-direct-gcc-binary64.md) | 24, 28, 36 | Typed floating operations and the scalar return boundary |
+| [45: binary32/binary64 values](45-direct-gcc-binary64.md) | 24, 28, 36 | Typed floating operations and the scalar return boundary |
 | [46: floating literals](46-direct-gcc-float-literals.md) | 1–12, 45 | Exact integer ratios rounded to binary64 without a host parser |
 | [47: bitfields](47-direct-gcc-bitfields.md) | 24, 28, 36, 45 | Record layout, integer promotions, and preserving bitfield stores |
 | [48: aggregate ABI](48-direct-gcc-aggregate-abi.md) | 28, 36, 45, 47 | Record byte transport, argument locations, register rollback, and result lifetimes |

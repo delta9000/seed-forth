@@ -18,11 +18,11 @@ The public declarations live in `runtime/gcc-seed/include/stdarg.h`.
 **Concepts introduced:** array typedef identity, per-invocation register-save
 areas, variadic cursors, checked compiler intrinsics, and list copying.
 
-**Deferred:** floating call arguments and named parameters, float and
-long-double retrieval, aggregate argument values, vector types, and a complete
-GCC reconstruction. Binary64 expressions and returns use the value machinery
-in [chapter 45](45-direct-gcc-binary64.md); incoming binary64 retrieval here
-does not implement floating argument classification for calls.
+**Deferred:** float and long-double retrieval, aggregate variadic argument
+values, vector types, and a complete GCC reconstruction. Binary64 expressions
+and returns use [chapter 45](45-direct-gcc-binary64.md). The shared argument
+plan in [chapter 48](48-direct-gcc-aggregate-abi.md) classifies named and
+outgoing doubles and supplies this chapter's named-register/stack offsets.
 
 ## 1. The list is an array of one record
 
@@ -63,12 +63,16 @@ buffer stores arguments. The compiler's `cc-va-signature` is compile-time
 metadata; it captures the definition's signature even when a block-scope
 function declaration later changes other parser state.
 
-If a function has `n` named INTEGER arguments, `va_start` sets `gp_offset` to
-`min(n,6)*8`. The first unnamed stack argument is at
-`rbp + 16 + max(n-6,0)*8`: eight bytes account for the saved frame pointer and
-eight for the return address. `reg_save_area` addresses the saved RDI slot.
-`fp_offset` is initialized to 48, the start of the saved XMM region. This is
-the register layout specified by the [AMD64 System V ABI](https://gitlab.com/x86-psABIs/x86-64-ABI/-/blob/master/x86-64-ABI/low-level-sys-info.tex).
+`va_start` gets its initial offsets from the same plan that assigned the
+named parameters. It sets `gp_offset` to eight times the number of consumed
+GP registers and `fp_offset` to 48 plus sixteen times the number of consumed
+XMM registers. The banks exhaust independently at six and eight. The first
+unnamed stack argument begins at `rbp + 16 + named_stack_bytes`, after all
+named stack arguments in source order. `reg_save_area` addresses saved RDI.
+This is the register layout specified by the
+[AMD64 System V ABI](https://gitlab.com/x86-psABIs/x86-64-ABI/-/blob/master/x86-64-ABI/low-level-sys-info.tex).
+The earlier INTEGER-only formula remains the default hook for this layer;
+chapter 48 binds the complete supported scalar layout.
 
 Each XMM store uses `movups` to copy all 128 bits without interpreting them
 as floating values. The allocator also preserves 16-byte save-area alignment
@@ -80,11 +84,9 @@ of actual vector arguments. No AL-dependent branch or runtime trap is needed.
 The resulting list can be passed to a host consumer that knows its argument
 types. That consumer can retrieve incoming doubles from the XMM slots and
 use the unchanged overflow pointer for arguments passed on the stack. This
-also lets an integer-only callee ignore unused floating arguments. It does
-not make the Forth compiler classify or emit floating call arguments: all
-named parameters must still use the supported INTEGER class. Its own
-`va_arg` now retrieves binary64 values as well as the integer and pointer types
-described below; a caller and consumer must still agree on every argument type.
+also lets an integer-only callee ignore unused floating arguments. The shared
+argument plan admits named binary64 parameters and emits binary64 call
+arguments. A caller and consumer must still agree on every argument type.
 
 ## 3. Four intrinsics with ordinary C spelling
 
@@ -182,7 +184,9 @@ twelve doubles, stack-passed named parameters, host-initialized lists with
 named floating arguments, copied cursors before and after overflow, list
 restart, and nested callbacks. Signed zero, infinities, a NaN payload and a
 subnormal are compared as bits. It also verifies the existing XMM0 result
-ABI and checked rejection of floating call arguments.
+ABI and checked rejection of float/long-double argument values. The shared
+argument-plan gate additionally tests named double offsets, Forth-produced
+variadic calls, actual outgoing AL counts and mixed named stack overflow.
 
 `varargs-vasprintf-check.py` compiles the unmodified GCC 4.0.4
 `libiberty/vasprintf.c` with the original configured headers. Its sizing pass
@@ -201,7 +205,7 @@ compiling the sizing branch does not imply implementing `%f` output.
 \ 126-cc-varargs.fth — INTEGER/binary64 System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
 \ Six GP and eight XMM slots belong to each invocation below named parameters.
-\ Binary64 retrieval consumes XMM or overflow slots; named FP parameters remain unsupported.
+\ Binary64 retrieval consumes XMM or overflow slots; 131 supplies named ABI offsets.
 create cc-va-error-prefix s, varargs: bl c,
 : cc-va-die cc-va-error-prefix [lit] 9 cc-err-write cc-die ;
 
@@ -289,15 +293,18 @@ create cc-va-tag-name s, __seed_va_list_tag
   cc-sym-val-of cc-va-signature @ cc-sysv-sig-count <> if,
     [lit] 246 cc-va-die
   then, ;
+: cc-va-layout-default ( -- gp-offset fp-offset overflow-offset )
+  cc-va-signature @ cc-sysv-sig-count dup [lit] 6 > if,
+    drop [lit] 6
+  then, [lit] 8 * [lit] 48
+  cc-va-signature @ cc-sysv-sig-count cc-sysv-stack-count [lit] 8 * [lit] 16 + ;
+defer cc-va-layout-fwd
+' cc-va-layout-default is cc-va-layout-fwd
 : cc-va-start
   cc-va-operand [char] , cc-va-expect
   cc-va-last-named [char] ) cc-va-expect
-  cc-va-signature @ cc-sysv-sig-count dup [lit] 6 > if,
-    drop [lit] 6
-  then, [lit] 8 * [lit] 0 cc-va-store-u32
-  [lit] 48 [lit] 4 cc-va-store-u32
-  cc-va-signature @ cc-sysv-sig-count cc-sysv-stack-count
-  [lit] 8 * [lit] 16 + [lit] 8 cc-va-store-frame-address
+  cc-va-layout-fwd >r swap [lit] 0 cc-va-store-u32
+  [lit] 4 cc-va-store-u32 r> [lit] 8 cc-va-store-frame-address
   [lit] 0 cc-va-register-slot @ 1+ [lit] 8 * -
   [lit] 16 cc-va-store-frame-address
   cc-va-void-result ;
@@ -425,7 +432,7 @@ bash tests/gcc/varargs-interop-check.sh
 
 - The array typedef and the 24-byte record are both observable parts of the ABI
 - Register saves and cursor state belong to each active invocation
-- Typed binary64 retrieval and opaque list forwarding have distinct proofs;
-  neither implements floating call arguments or runtime floating formatting
+- Typed retrieval, opaque list forwarding and shared argument emission have
+  distinct proofs; runtime floating formatting remains outside these layers
 
 The next runtime component can consume these lists through ordinary C headers.

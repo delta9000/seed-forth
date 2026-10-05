@@ -2,12 +2,20 @@
 #define SEED_GCC_CTYPE_H
 /* Original seed-forth interface; see LICENSE. Fixed ASCII C locale.
    The supported argument domain is EOF (-1) or an unsigned-char value.
-   These seven functions are the surface used by original oyacc 6.6. */
+   isascii additionally accepts every int. This measured surface serves
+   original oyacc/Heirloom/Flex sources and their ANSI-header probe. */
+int isascii(int value);
 int isalpha(int value);
 int isalnum(int value);
 int isdigit(int value);
 int isprint(int value);
+int iscntrl(int value);
+int isgraph(int value);
+int ispunct(int value);
 int isspace(int value);
 int isupper(int value);
+int islower(int value);
+int isxdigit(int value);
 int tolower(int value);
+int toupper(int value);
 #endif

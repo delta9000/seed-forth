@@ -28,9 +28,10 @@ def main():
     (ROOT / "build-out").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="runtime-oracle-", dir=ROOT / "build-out") as tmp:
         work = Path(tmp)
-        # Namespace the Forth-built copies so the host's libc stays independent.
-        prefix = "".join(f"#define {name} seed_{name}\n" for name in NAMES)
-        prefix += "#define __errno_location seed_errno_location\n"
+        # Use a test-only namespace distinct from both host libc and runtime
+        # implementation helpers such as alloc.c's static seed_free array.
+        prefix = "".join(f"#define {name} oracle_{name}\n" for name in NAMES)
+        prefix += "#define __errno_location oracle_errno_location\n"
         objects = []
         for name in ("memory", "string", "alloc"):
             source = work / (name + ".c")

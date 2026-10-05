@@ -15,9 +15,9 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (490 lines),
+This chapter owns `115-cc-native.fth` (537 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
-(308 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
+(318 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
 preprocessor, types, expressions, and statement code they extend.
 The compiler files still load in numerical order: the native words
@@ -123,7 +123,7 @@ not keep pointing at the obsolete allocation.
   repeat, drop 2drop ;
 
 variable cc-nctx
-[lit] 208 constant cc-nctx-bytes
+[lit] 232 constant cc-nctx-bytes
 : nc-ty     cc-nctx @ ;
 : nc-desc   cc-nctx @ [lit] 8 + ;
 : nc-name   cc-nctx @ [lit] 16 + ;
@@ -143,6 +143,11 @@ variable cc-nctx
 : nc-bound-mask cc-nctx @ [lit] 184 + ;
 : nc-base-array cc-nctx @ [lit] 192 + ;
 : nc-base-inner cc-nctx @ [lit] 200 + ;
+: nc-qualified cc-nctx @ [lit] 208 + ;
+: nc-base-qualified cc-nctx @ [lit] 216 + ;
+: nc-prefix-qualified cc-nctx @ [lit] 224 + ;
+: cc-native-qual-note cc-nctx @ if, true nc-qualified ! then, ;
+' cc-native-qual-note is cc-qual-note
 : cc-nzero ( a n -- )
   begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;
 : cc-ncontext
@@ -151,10 +156,16 @@ variable cc-nctx
   dup [lit] 0 <= if, drop [lit] 1 then,
   dup >r 1- + r@ / r> * ;
 : cc-nsize ( ty desc -- n )
+  over ty-base ty-array = over [lit] 0 <> and if,
+    over ty-ptr 0= if, nip cc-ad-size exit, then,
+  then,
   over ty-base ty-struct = [lit] 2 cc-npick ty-ptr 0= and if,
     dup 0= if, [lit] 210 cc-die then, nip cc-sd-total-size
   else, drop ty-size then, ;
 : cc-nalignment ( ty desc -- n )
+  over ty-base ty-array = over [lit] 0 <> and if,
+    over ty-ptr 0= if, nip cc-ad-align exit, then,
+  then,
   over ty-base ty-struct = [lit] 2 cc-npick ty-ptr 0= and if,
     nip cc-sd-align
   else, drop ty-align then, ;
@@ -229,11 +240,18 @@ defer cc-nenum-desc-fwd
   else, cc-putback-token then,
   ty-int [lit] 0 ty-make cc-nenum-desc-fwd ;
 
+\ A target may consume context-specific declaration specifiers around base
+\ keywords. Native mode keeps its existing token and qualifier handling.
+: cc-nbase-specifiers-default ;
+defer cc-nbase-specifiers-fwd
+' cc-nbase-specifiers-default is cc-nbase-specifiers-fwd
+
 \ The current token is a base type. Return encoded type and descriptor.
-: cc-nbase
+: cc-nbase-raw
   cc-nctx @ 0= if, cc-ncontext then,
   [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
-  begin, cc-qualifier? while, cc-next-token-keep repeat,
+  cc-nbase-specifiers-fwd
+  begin, cc-qualifier? while, cc-qual-note cc-next-token-keep repeat,
   cc-native-implicit-base-fwd if, exit, then,
   kw-struct cc-tok-kw? kw-union cc-tok-kw? or if,
     cc-naggregate-fwd exit,
@@ -258,7 +276,7 @@ defer cc-nenum-desc-fwd
       dup if, rot drop ty-ldouble cc-nminus-rot else, rot drop ty-double cc-nminus-rot then,
     then,
     kw-unsigned cc-tok-kw? if, swap drop true swap then,
-    cc-next-token-keep
+    cc-next-token-keep cc-nbase-specifiers-fwd
     cc-tok-is-basic-type-kw? kw-float cc-tok-kw? or kw-double cc-tok-kw? or
   while, repeat,
   cc-putback-token drop
@@ -273,6 +291,10 @@ defer cc-nenum-desc-fwd
     drop ty-uint then, then, then,
   then,
   [lit] 0 ty-make [lit] 0 ;
+ : cc-nbase
+  cc-nctx @ 0= if, cc-ncontext then,
+  nc-prefix-qualified @ nc-qualified ! [lit] 0 nc-prefix-qualified !
+  cc-nbase-raw nc-qualified @ nc-base-qualified ! ;
 ' cc-nbase is cc-nbase-fwd
 
 \ The optional ABI layer records function-pointer signatures at this seam.
@@ -292,6 +314,10 @@ defer cc-ndeclarator-check-fwd
 defer cc-nfnptr-name-fwd
 ' cc-nfnptr-name-default is cc-nfnptr-name-fwd
 
+: cc-narray-extra-default ;
+defer cc-narray-extra-fwd
+' cc-narray-extra-default is cc-narray-extra-fwd
+
 \ Parse array suffixes with the current '[' already read. The count and
 \ element type are independent, including arrays of function pointers.
 : cc-narray-suffix
@@ -307,6 +333,7 @@ defer cc-nfnptr-name-fwd
       cc-parse-const nc-inner ! [char] ] cc-expect-punct-c
       cc-next-token-keep
     then,
+    cc-narray-extra-fwd
   then, ;
 
 : cc-nfunction-suffix
@@ -321,6 +348,9 @@ defer cc-nfnptr-name-fwd
 \ from (*f)() and (*f[N])() (a pointer or array of pointers to functions).
 \ Stars inside the group belong to the object only when no outer function
 \ suffix follows. General pointers to arrays still lack a representation.
+: cc-npointer-array-default drop [lit] 238 cc-die ;
+defer cc-npointer-array-fwd
+' cc-npointer-array-default is cc-npointer-array-fwd
 : cc-ngrouped-declarator
   cc-count-stars >r
   cc-nfnptr-name-fwd
@@ -335,6 +365,10 @@ defer cc-nfnptr-name-fwd
     exit,
   then,
   cc-narray-suffix
+  \ A later grouped pointer/function constructor cannot replace ranked
+  \ element metadata. Keep that complex declarator outside this profile.
+  nc-array @ nc-ty @ ty-base ty-array = and
+  nc-ty @ ty-ptr 0= and if, [lit] 238 cc-die then,
   [char] ) cc-tok-punct? 0= if, [lit] 143 cc-die then,
   cc-next-token-keep
   lparen cc-tok-punct? if,
@@ -348,14 +382,19 @@ defer cc-nfnptr-name-fwd
       lparen cc-tok-punct? [char] [ cc-tok-punct? or if, [lit] 238 cc-die then,
     then,
   else,
-    r@ nc-array @ or [char] [ cc-tok-punct? and if, [lit] 238 cc-die then,
+    r@ [char] [ cc-tok-punct? and if,
+      r> cc-npointer-array-fwd exit,
+    then,
+    nc-array @ [char] [ cc-tok-punct? and if, [lit] 238 cc-die then,
     r> nc-ty +!
   then, ;
 
 \ Declarator after nc-base/nc-sdesc. Function parameter tokens are saved
 \ so a definition can return and install parameter names after classification.
 : cc-ndeclarator
+  nc-base-qualified @ nc-qualified !
   cc-skip-qualifiers
+  nc-qualified @ nc-base-qualified !
   nc-base @ cc-count-stars + nc-ty !
   nc-sdesc @ nc-desc !
   [lit] 0 nc-name ! [lit] 0 nc-nlen !
@@ -376,13 +415,14 @@ defer cc-nfnptr-name-fwd
 
 \ Add a field, including flattened anonymous aggregate members.
 : cc-nadd-field ( desc -- )
-  nc-inner @ if, [lit] 213 cc-die then,
   dup cc-sd-field-count over swap cc-sd-field-rec >r
+  nc-qualified @ r@ cc-field-set-qualified
   nc-name @ r@ cc-sf-set-name-addr
   nc-nlen @ r@ cc-sf-set-name-len
   nc-ty @ r@ cc-sf-set-type
   nc-desc @ r@ cc-sf-set-desc
   nc-array @ r@ cc-sf-set-array-len
+  nc-inner @ r@ cc-sf-set-array-inner
   nc-ty @ nc-desc @ cc-nalignment
   over cc-sd-align over < if, dup [lit] 2 cc-npick cc-sd-set-align then,
   over cc-sd-total-size swap cc-nalign
@@ -403,6 +443,7 @@ defer cc-nfnptr-name-fwd
     dup [lit] 4 cc-npick swap cc-sd-field-rec
     [lit] 3 cc-npick dup cc-sd-field-count swap over cc-sd-field-rec
     swap drop
+    2dup swap cc-field-qualified nc-qualified @ or swap cc-field-set-qualified
     cc-sd-record-bytes cc-ncopy
     [lit] 2 cc-npick dup cc-sd-field-count cc-sd-field-rec
     dup cc-sf-offset r@ + swap cc-sf-set-offset
@@ -456,11 +497,14 @@ defer cc-native-type-shape-fwd
 ' cc-native-type-shape-default is cc-native-type-shape-fwd
 : cc-native-type-name
   cc-nctx @ 0= if, cc-ncontext then,
+  nc-base-qualified @ >r nc-qualified @ >r
   nc-base-array @ >r nc-base-inner @ >r
   [lit] 0 cc-type-name-array ! [lit] 0 cc-type-name-inner !
   cc-nbase cc-cast-desc ! cc-skip-qualifiers cc-count-stars
   cc-native-type-shape-fwd
-  r> nc-base-inner ! r> nc-base-array ! ;
+  nc-qualified @ cc-type-name-qualified !
+  r> nc-base-inner ! r> nc-base-array !
+  r> nc-qualified ! r> nc-base-qualified ! ;
 ' cc-native-type-name is cc-native-type-name-fwd
 
 defer cc-native-function-fwd
@@ -474,7 +518,8 @@ defer cc-native-function-fwd
   >r >r nc-name @ nc-nlen @ r> nc-ty @ r> cc-sym-add
   nc-desc @ over cc-sym-set-struct-desc
   nc-array @ over cc-sym-set-array-len
-  nc-inner @ over cc-sym-set-array-inner ;
+  nc-inner @ over cc-sym-set-array-inner
+  nc-qualified @ over cc-sym-qualified cell[] ! ;
 
 : cc-ngstore ( value offset bytes -- )
   >r cc-globals-buf + r>
@@ -569,6 +614,7 @@ defer cc-nobject-fwd
 
 : cc-native-declaration ( top? -- )
   cc-nctx @ >r cc-ncontext nc-top !
+  cc-prefix-qualified @ nc-prefix-qualified ! [lit] 0 cc-prefix-qualified !
   cc-decl-static @ nc-static ! cc-decl-extern @ nc-extern !
   kw-typedef cc-tok-kw? if,
     true nc-td ! cc-next-token-keep
@@ -582,6 +628,7 @@ defer cc-nobject-fwd
     nc-nlen @ 0= if, [lit] 203 cc-die then,
     nc-td @ if,
       nc-name @ nc-nlen @ sk-typedef [lit] 0 nc-ty @ cc-sym-add
+      nc-qualified @ over cc-sym-qualified cell[] !
       nc-desc @ over cc-sym-set-struct-desc
       nc-array @ over cc-sym-set-array-len
       nc-inner @ swap cc-sym-set-array-inner
@@ -868,7 +915,8 @@ variable cc-ni-scan-brace
         [lit] 1 cc-ni-scan-count +! [lit] 0 cc-ni-scan-have !
       else,
         cc-ni-scan-have @ 0= if,
-          nc-ty @ ty-base ty-struct = nc-ty @ ty-ptr 0= and if,
+          nc-ty @ ty-base dup ty-struct = swap ty-array = or
+          nc-ty @ ty-ptr 0= and if,
             [char] { cc-tok-punct? 0= if, [lit] 222 cc-die then,
           then,
           nc-inner @ if,
@@ -928,6 +976,7 @@ defer cc-value-static-init-fwd
     ni-type @ ni-desc @ cc-nsize cc-ni-copy-bytes
   else,
     cc-emit-materialize
+    cc-last-expr-type @ cc-last-struct-desc @ ni-type @ ni-desc @ cc-value-shape-fwd
     cc-last-expr-type @ ni-type @ cc-value-init-fwd
     cc-emit-pop-rcx ni-type @ cc-emit-store-typed-via-rcx
   then,
@@ -956,7 +1005,8 @@ defer cc-ni-field-fwd
     ni-desc @ ni-index @ cc-sd-field-rec
     dup cc-ni-field-fwd if, drop exit, then,
     dup cc-sf-type over cc-sf-desc
-    [lit] 2 cc-npick cc-sf-array-len [lit] 0
+    [lit] 2 cc-npick cc-sf-array-len
+    [lit] 3 cc-npick cc-sf-array-inner
     [lit] 4 cc-npick cc-sf-offset ni-offset @ +
     true cc-ni-value-fwd drop
   then, ;
@@ -1006,6 +1056,13 @@ defer cc-ni-field-fwd
   cc-ni-frame @ >r
   [lit] 64 cc-alloc dup cc-ni-frame ! [lit] 64 cc-nzero
   ni-nested ! ni-offset ! ni-inner ! ni-array ! ni-desc ! ni-type !
+  \ Re-enter the existing array traversal for a recursively typed element.
+  ni-array @ 0= ni-type @ ty-base ty-array = and
+  ni-type @ ty-ptr 0= and if,
+    ni-desc @ dup cc-ad-type ni-type !
+    dup cc-ad-count ni-array ! dup cc-ad-inner ni-inner !
+    cc-ad-desc ni-desc !
+  then,
   ni-array @ [lit] 0 > if,
     ni-inner @ 0= ni-type @ ty-ptr 0= and
     ni-type @ ty-size [lit] 1 = and if,

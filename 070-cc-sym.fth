@@ -1,6 +1,6 @@
 \ 070-cc-sym.fth — symbol table for the C-subset compiler.
 \
-\ Nine parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
+\ Ten parallel arrays indexed by symbol id (cell[], 030-cc-io.fth):
 \   cc-sym-name-addr [id] : pointer into cc-src-buf where the name begins
 \   cc-sym-name-len  [id] : length of the name in bytes
 \   cc-sym-kind      [id] : sk-* (global/local/func/struct/enum/typedef)
@@ -23,7 +23,7 @@
 \   0=, 1+, !, @, +!, -!, drop, swap, >r, r@, r>), 020-cc-arena.fth (cc-die,
 \   cc-check-cap) and 030-cc-io.fth (cell[], cc-name-find).
 
-[lit] 4096 constant cc-sym-cap
+[lit] 8192 constant cc-sym-cap
 
 create cc-sym-name-addr  cc-sym-cap [lit] 8 * allot
 create cc-sym-name-len   cc-sym-cap [lit] 8 * allot
@@ -34,6 +34,18 @@ create cc-sym-extra      cc-sym-cap [lit] 8 * allot
 create cc-sym-extra2     cc-sym-cap [lit] 8 * allot
 create cc-sym-desc        cc-sym-cap [lit] 8 * allot
 create cc-sym-inner       cc-sym-cap [lit] 8 * allot
+\ Qualification provenance is separate from the encoded C type.
+create cc-sym-qualified cc-sym-cap [lit] 8 * allot
+variable cc-qualified-fields
+: cc-field-qualified ( record -- flag )
+  cc-qualified-fields @ begin, dup while,
+    2dup [lit] 8 + @ = if, 2drop true exit, then, @
+  repeat, 2drop [lit] 0 ;
+: cc-field-set-qualified ( flag record -- )
+  swap if,
+    [lit] 16 cc-alloc dup >r [lit] 8 + !
+    cc-qualified-fields @ r@ ! r> cc-qualified-fields !
+  else, drop then, ;
 variable cc-sym-count
 
 [lit] 64 constant cc-scope-cap
@@ -72,6 +84,7 @@ variable cc-scope-depth
   [lit] 0 r@ cc-sym-extra2 cell[] !
   [lit] 0 r@ cc-sym-desc cell[] !
   [lit] 0 r@ cc-sym-inner cell[] !
+  [lit] 0 r@ cc-sym-qualified cell[] !
   [lit] 1 cc-sym-count +!
   r> ;
 

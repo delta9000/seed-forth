@@ -1,7 +1,7 @@
 \ 126-cc-varargs.fth — INTEGER/binary64 System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
 \ Six GP and eight XMM slots belong to each invocation below named parameters.
-\ Binary64 retrieval consumes XMM or overflow slots; named FP parameters remain unsupported.
+\ Binary64 retrieval consumes XMM or overflow slots; 131 supplies named ABI offsets.
 create cc-va-error-prefix s, varargs: bl c,
 : cc-va-die cc-va-error-prefix [lit] 9 cc-err-write cc-die ;
 
@@ -89,15 +89,18 @@ create cc-va-tag-name s, __seed_va_list_tag
   cc-sym-val-of cc-va-signature @ cc-sysv-sig-count <> if,
     [lit] 246 cc-va-die
   then, ;
+: cc-va-layout-default ( -- gp-offset fp-offset overflow-offset )
+  cc-va-signature @ cc-sysv-sig-count dup [lit] 6 > if,
+    drop [lit] 6
+  then, [lit] 8 * [lit] 48
+  cc-va-signature @ cc-sysv-sig-count cc-sysv-stack-count [lit] 8 * [lit] 16 + ;
+defer cc-va-layout-fwd
+' cc-va-layout-default is cc-va-layout-fwd
 : cc-va-start
   cc-va-operand [char] , cc-va-expect
   cc-va-last-named [char] ) cc-va-expect
-  cc-va-signature @ cc-sysv-sig-count dup [lit] 6 > if,
-    drop [lit] 6
-  then, [lit] 8 * [lit] 0 cc-va-store-u32
-  [lit] 48 [lit] 4 cc-va-store-u32
-  cc-va-signature @ cc-sysv-sig-count cc-sysv-stack-count
-  [lit] 8 * [lit] 16 + [lit] 8 cc-va-store-frame-address
+  cc-va-layout-fwd >r swap [lit] 0 cc-va-store-u32
+  [lit] 4 cc-va-store-u32 r> [lit] 8 cc-va-store-frame-address
   [lit] 0 cc-va-register-slot @ 1+ [lit] 8 * -
   [lit] 16 cc-va-store-frame-address
   cc-va-void-result ;

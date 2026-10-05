@@ -16,7 +16,7 @@ end of whichever loop or switch encloses it.
 The answer in every case is Ch 11's emit-remember-patch pattern,
 now with x86-64 `jz` / `jmp` rel32 placeholders in `cc-out-buf`
 instead of Forth `0branch` / `branch` cells.  This chapter covers
-all of `112-cc-stmt.fth` (828 lines): the `cc-parse-stmt` dispatcher
+all of `112-cc-stmt.fth` (870 lines): the `cc-parse-stmt` dispatcher
 and the parsers it calls.  Three extensions let the pattern cover
 all of C's statements.  Per-loop `break` / `continue` fixup lists
 are saved across nested loops on the return stack.  A `for` loop
@@ -422,8 +422,8 @@ run *after* it.  The parser handles this in eight moves:
   \ --- Cond (optional) ---
   cc-next-token-keep
   tok-kind @ tk-punct = tok-num @ [char] ; = and if,
-    \ ';' — empty cond; emit `mov rdi, 1` for unconditional truth.
-    [lit] 1 cc-emit-mov-rdi-imm32
+    \ ';' — empty cond; synthesize an integer value, including its metadata.
+    [lit] 1 cc-emit-mov-rdi-imm32 cc-mark-int-value
   else,
     cc-putback-token
     cc-parse-expr
@@ -842,7 +842,7 @@ walks.  M2-Planet's source never does this.
 C labels are function-local.  The label table is four parallel
 arrays, the same shape as Ch 24's symbol table, indexed with
 `cell[]` and searched with `cc-name-find` (Ch 21) just as the symbol
-table is.  It holds 64 labels per function (a 65th dies with code
+table is.  The default holds 64 labels per function (a 65th dies with code
 171, through `cc-check-cap`) and is reset on function entry.  Each
 entry's payload is a vaddr (0 while undefined) and a list of
 pending `goto` fixups.
@@ -852,7 +852,7 @@ pending `goto` fixups.
 \ Label table (per-function) + goto / label definition
 \ ===========================================================================
 \ Labels are function-local.  We use parallel arrays similar to cc-sym, sized
-\ small (64 labels max per function).  cc-label-count is reset to 0 on
+\ with a 64-label default and a measured direct-GCC workspace. The count resets on
 \ function entry.
 \
 \ Each label tracks:
@@ -861,12 +861,54 @@ pending `goto` fixups.
 \   cc-label-vaddr     [id] : 0 if undefined, else absolute vaddr of the label
 \   cc-label-fixup     [id] : head-pointer of forward-jmp fixup list (0 = none)
 
-[lit] 64 constant cc-label-cap
-create cc-label-name-addr  cc-label-cap [lit] 8 * allot
-create cc-label-name-len   cc-label-cap [lit] 8 * allot
-create cc-label-vaddr      cc-label-cap [lit] 8 * allot
-create cc-label-fixup      cc-label-cap [lit] 8 * allot
-create cc-label-switch-depth cc-label-cap [lit] 8 * allot
+[lit] 64 constant cc-label-default-cap
+variable cc-label-limit
+cc-label-default-cap cc-label-limit !
+: cc-label-cap ( -- entries ) cc-label-limit @ ;
+create cc-label-default-name-addr cc-label-default-cap [lit] 8 * allot
+variable cc-label-name-addr-buffer
+cc-label-default-name-addr cc-label-name-addr-buffer !
+: cc-label-name-addr ( -- address ) cc-label-name-addr-buffer @ ;
+create cc-label-default-name-len cc-label-default-cap [lit] 8 * allot
+variable cc-label-name-len-buffer
+cc-label-default-name-len cc-label-name-len-buffer !
+: cc-label-name-len ( -- address ) cc-label-name-len-buffer @ ;
+create cc-label-default-vaddr cc-label-default-cap [lit] 8 * allot
+variable cc-label-vaddr-buffer
+cc-label-default-vaddr cc-label-vaddr-buffer !
+: cc-label-vaddr ( -- address ) cc-label-vaddr-buffer @ ;
+create cc-label-default-fixup cc-label-default-cap [lit] 8 * allot
+variable cc-label-fixup-buffer
+cc-label-default-fixup cc-label-fixup-buffer !
+: cc-label-fixup ( -- address ) cc-label-fixup-buffer @ ;
+create cc-label-default-switch-depth cc-label-default-cap [lit] 8 * allot
+variable cc-label-switch-depth-buffer
+cc-label-default-switch-depth cc-label-switch-depth-buffer !
+: cc-label-switch-depth ( -- address ) cc-label-switch-depth-buffer @ ;
+\ Original insn-recog.c has at most 739 labels in one function (recog_20).
+\ Five disjoint, page-sized arrays support the fixed 1,024-label direct bound.
+[lit] 1024 constant cc-label-direct-cap
+variable cc-label-direct-base
+: cc-label-default-workspace ( -- )
+  cc-label-default-cap cc-label-limit !
+  cc-label-default-name-addr cc-label-name-addr-buffer !
+  cc-label-default-name-len cc-label-name-len-buffer !
+  cc-label-default-vaddr cc-label-vaddr-buffer !
+  cc-label-default-fixup cc-label-fixup-buffer !
+  cc-label-default-switch-depth cc-label-switch-depth-buffer !
+;
+: cc-label-direct-workspace ( -- )
+  cc-label-direct-base @ 0= if,
+    cc-label-direct-cap [lit] 40 * [lit] 171 cc-workspace-map
+    cc-label-direct-base !
+  then,
+  cc-label-direct-cap cc-label-limit !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 0 * + cc-label-name-addr-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 8 * + cc-label-name-len-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 16 * + cc-label-vaddr-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 24 * + cc-label-fixup-buffer !
+  cc-label-direct-base @ cc-label-direct-cap [lit] 32 * + cc-label-switch-depth-buffer !
+;
 variable cc-label-count
 
 \ Each table is indexed with cell[] (030).
@@ -1243,3 +1285,21 @@ compiles calls, parameters, and the entry stub.
 - The `for`-step rewind is the one place the parser re-parses source it has already passed, and `switch` is the one construct that emits its body before its dispatch code.
 
 Next: Chapter 31 — Functions: Parameters, Calls, Globals, Entry Stub.
+
+### Direct-GCC label workspace
+
+The unchanged generated `insn-recog.c` contains 739 distinct labels in
+`recog_20`, the largest of its 48 functions. The direct-GCC driver therefore
+selects a fixed 1,024-entry mapping: five parallel arrays of eight-byte cells,
+including each label's switch depth. The ordinary/native default stays at 64.
+All five addresses and the count bound select together, so a capacity change
+cannot leave one column short. The compiler still diagnoses duplicate labels,
+undefined goto targets, and a one-past-capacity label independently.
+
+The per-function entry code resets `cc-label-count` as before. Creating each
+reused row clears its address, fixup head and switch-depth metadata; a spelling
+from an earlier function cannot inherit its old target. The workspace selectors
+only choose storage: they preserve cursors and counts, must run before normal
+subsystem initialization, and do not migrate live pointers. Re-selecting a
+cached mapping never allocates another one. Tests exercise forward/backward
+gotos, equal spellings in separate functions, and the exact fixed bound.

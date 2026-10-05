@@ -19,8 +19,9 @@ The source is the unmodified `gcc-mirror` release commit
 
 No C bootstrap consumer requiring `lstat` was found. The Ada implementation
 uses it, but Ada is outside this bootstrap's scope, so no `lstat` declaration
-or implementation is supplied. Permission-changing and file-creation APIs
-are also absent.
+or implementation is supplied. Permission-changing APIs remain absent;
+later [descriptor contracts](DESCRIPTORS.md) add measured file creation and
+exclusive temporary files for original oyacc.
 
 ## ABI and provenance
 
@@ -63,7 +64,8 @@ preserve `errno`. There is no narrow-field conversion or invented success.
 The real kernel supplies path following, file-descriptor validation,
 permissions, sparse file size, timestamps and file kind. The API is specific
 to Linux AMD64 LP64; other operating systems, x32 and i386 need separate
-layouts and entry points.
+layouts and entry points. Later parser/lexer stages add only their measured
+interfaces; passing a narrow configure probe does not imply full conformance.
 
 ## Process termination
 
@@ -94,8 +96,9 @@ Its private action buffer is the kernel ABI's four eight-byte words: handler,
 flags, restorer, and mask. It is not glibc's public `struct sigaction` layout.
 The [GNU C library description](https://www.gnu.org/software/libc/manual/2.30/html_node/Aborting-a-Program.html)
 describes the signal/handler contract; this implementation is original project
-code, not copied libc source. The supported runtime is still single-threaded
-and does not expose a new signal-registration API.
+code, not copied libc source. The supported runtime is still single-threaded.
+The later [signal contract](SIGNAL.md) supplies bounded persistent handler
+registration separately from this original abort increment.
 
 `python3 tests/gcc/abort-check.py` builds production objects and their executable
 with Forth, then verifies default, blocked, and ignored SIGABRT termination.

@@ -31,5 +31,4 @@ strict-void-count|235|int f(void){return 0;} int main(void){return f(1);}
 trailing-void|233|int f(int x, void); int main(void){return 0;}
 duplicate-typed-name|233|int f(int x, int x); int main(void){return 0;}
 function-pointer-extra-depth|231|int main(void){int (**p)(int); return 0;}
-parameter-function-adjustment|233|int f(int callback(int)); int main(void){return 0;}
 CASES

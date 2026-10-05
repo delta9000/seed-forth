@@ -1,6 +1,6 @@
 # Appendix B — The memory map
 
-Three distinct allocations matter here. Keep the compiler's own
+Three distinct classes of allocation matter here. Keep the compiler's own
 working memory separate from the memory of a program it generates:
 
 1. **The seed-Forth VM** has one `PT_LOAD` segment of 16 MiB starting
@@ -10,12 +10,16 @@ working memory separate from the memory of a program it generates:
    the segment past the on-disk image. Loading the compiler adds its
    fixed buffers, tables, and default 32 KiB arena inside the segment.
 
-2. **The native compiler's optional arena** is an additional 8 MiB
-   anonymous mapping requested by `tools/tcc-compile.fth` through
-   `cc-arena-map`. Native parsing allocates descriptors, recursive
+2. **The compiler's optional workspaces** are additional anonymous mappings.
+   The parser arena is
+   8 MiB for `tools/tcc-compile.fth`, or a fixed 17 MiB for the experimental
+   `tools/gcc-direct-cc.py` driver, both through `cc-arena-map`.
+   Parsing allocates descriptors, recursive
    contexts, lexer marks, and fixup nodes here. This extends the
    loaded Forth program's workspace without changing the original
-   seed image or moving its dictionary and fixed buffers.
+   seed image or moving its dictionary and default fixed buffers. The direct-GCC
+   driver also selects separately mapped source buffers, macro arrays, and
+   stable object records as described below.
 
 3. **A legacy compiled program's heap** is a 256 MiB anonymous
    mapping created by the emitted `calloc` shim. It belongs to the
@@ -31,7 +35,7 @@ which way a region fills.
 
 ```text
  mmap-chosen +--------------------------------------+ outside seed PT_LOAD
-             | native compiler scratch arena 8 MiB | cc-arena-map, opt-in
+             | compiler scratch arena: 8/17 MiB    | cc-arena-map, opt-in
              +--------------------------------------+
 
 0x1400000 +-----------------------------------------+ end of the 16 MiB PT_LOAD
@@ -39,7 +43,7 @@ which way a region fills.
           |                                         |
           | ^ compiler tables: macros, macro        |
           |   scratch, includes, symbols, scopes,   |
-          |   globals, fixups and code (~4.3 MiB)   |
+          |   globals, fixups and code (~6 MiB)     |
 0x814000  +-----------------------------------------+
           | output buffer                 1 MiB     |
 0x714000  +-----------------------------------------+
@@ -70,12 +74,11 @@ which way a region fills.
 0x400000  +-----------------------------------------+ PT_LOAD start (e_entry = 0x400078)
 ```
 
-The round addresses above `0x414000` are where each region nominally
-starts.  Every buffer is made with `create … allot`, so its data
-begins just past its own dictionary header (and past any
-definitions compiled in between): `cc-in-buf`'s first byte is at
-`0x414000 + 76`, `cc-src-buf`'s at `0x514000 + 200`, and
-`cc-out-buf`'s at `0x714000 + 1,225`.
+The round addresses above `0x414000` are nominal region starts. Dictionary
+headers and definitions occupy the gaps, so precise default buffer addresses
+are returned by `cc-in-default-buf`, `cc-src-default-buf`, and `cc-out-default-buf`.
+The public input/source words are accessors selecting either those default
+slabs or the opt-in mapped workspace; their stack effects are unchanged.
 
 The table below lists each region in address order; sizes are in
 bytes unless noted.  "Owner" is what *writes* to the region.
@@ -102,10 +105,10 @@ detail.
 | `0x413010`              | 8   | `HERE` sysvar (next-byte-to-write)     | seed init + `,`, `:`, `;`, `compile_call` (REPL and `[lit]`) | Chs 2, 13 |
 | `0x413018`              | 8   | `LAST_FOUND` sysvar (latest hit from `find`) | `find_code` | Chs 13, 17 |
 | `0x413020` — `0x413FFF` | ~4K | rest of the sysvar page, unused | — | Ch 13 |
-| `0x41404C` — `0x51404B` | 1 MiB | C compiler's **input buffer** `cc-in-buf` (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
-| `0x5140C8` — `0x7140C7` | 2 MiB | C compiler's **source buffer** `cc-src-buf` (preprocessed source, read by the lexer) | `cc-preprocess` | Chs 21, 22 |
-| `0x7144C9` — `0x8144C8` | 1 MiB | C compiler's **output buffer** `cc-out-buf` (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
-| after `0x8144C8` — *(grows up)* | ~4.3 MiB | Remaining compiler dictionary/code and tables: 4,096-entry macro table, 256 KiB macro pool, 2 MiB scratch, 1 MiB include pool, symbols/scopes, globals and fixups; allocated in load order through `119-cc-native-runtime.fth`, ending around `0xC50000` | seed dictionary compiler and `cc-*` | Chs 22, 24, 26, 31, 34 |
+| `cc-in-default-buf .. +1048575` | 1 MiB | C compiler's **input buffer** `cc-in-buf` (stdin slurped once)  | `cc-load-stdin` | Ch 21 |
+| `cc-src-default-buf .. +2097151` | 2 MiB | C compiler's **source buffer** `cc-src-buf` (preprocessed source, read by the lexer) | `cc-preprocess` | Chs 21, 22 |
+| `cc-out-default-buf .. +1048575` | 1 MiB | C compiler's **output buffer** `cc-out-buf` (ELF bytes accumulated) | `cc-emit-*` | Ch 21 |
+| after the output slab — *(grows up)* | ~6 MiB | Remaining compiler dictionary/code and tables: 4,096-entry macro table, 256 KiB macro pool, 2 MiB scratch, 1 MiB include pool, 8,192-row symbols/scopes, globals and fixups; allocated in numeric library order, with optional direct object/ABI/linker layers afterward | seed dictionary compiler and `cc-*` | Chs 22, 24, 26, 31, 34 |
 | *(end of buffers)* — `0x13FFFFF` | remainder | genuinely unused tail of the 16 MiB `PT_LOAD` | — | Ch 13 |
 
 The default arena comes from `[lit] 32768 constant cc-arena-cap`
@@ -117,8 +120,9 @@ arena is not the final object before the jump.
 After the jump to `0x414000`, dictionary headers account for the
 small gaps between the buffer ranges in the table. Every later
 fixed compiler buffer and word continues upward in load order.
-The post-output region is now roughly 4.3 MiB, including Forth code
-and dictionary headers, not just table payload. Its exact end
+The post-output region includes Forth code and dictionary headers, not just
+table payload. The workspace capacity test loads every compiler library plus
+the archive and linker and checks the final HERE against `0x1400000`. Its exact end
 changes when a definition or its name changes; it is not an ABI.
 
 Both compiler profiles reserve the larger preprocessor tables when
@@ -126,9 +130,10 @@ loaded. Their **enforced limits** differ: the default keeps 1,024
 macros and a 64 KiB macro text limit; direct mode permits 4,096 and
 256 KiB. The shared include pool is 1 MiB. The default uses four
 256 KiB slots; direct mode packs live file contents into that same
-pool and tracks up to thirty-two nested include levels. None of
-these buffers is separately mapped: they are `create … allot` data
-inside the existing seed segment.
+pool and tracks up to thirty-two nested include levels. These default buffers are `create … allot` data inside the existing seed
+segment. The direct-GCC driver explicitly switches its macro arrays to a
+4,608-entry anonymous mapping; the pool, includes and scratch stay at the
+existing sizes.
 
 A compiled program's global *arrays* do not occupy the compiler's
 globals-data buffer: their zero-initialized storage is represented
@@ -146,14 +151,41 @@ still produces error 10.
 
 | Range | Size | Region | Owner |
 |---|---|---|---|
-| `mmap`-chosen | 8 MiB in the direct TinyCC driver | Native compiler scratch arena, outside the seed `PT_LOAD` | `cc-arena-map` and `cc-alloc` |
+| `mmap`-chosen | 8 MiB in the direct TinyCC driver; 17 MiB in the direct-GCC driver | Compiler scratch arena, outside the seed `PT_LOAD` | `cc-arena-map` and `cc-alloc` |
 
 The original 32 KiB slab remains in the dictionary; it is simply no
 longer the active allocator region. The additional mapping belongs
 to the compiler process and disappears when that process exits.
 The generated ELF contains neither that scratch mapping nor the
 compiler's dictionary. Ch 34 explains the native data structures
-that need the larger workspace.
+that need the larger workspace. The direct-GCC bound rounds the complete original `c-typeck.c` arena
+requirement of 16,988,648 bytes up to a whole MiB. Neither driver grows the mapping dynamically.
+
+## Bounded direct-GCC translation storage
+
+IO selection maps one 10 MiB region split into 3 MiB raw, 3 MiB expanded,
+and 4 MiB output slices. The macro mapping is 221,184 bytes: six arrays of 4,608 cells, eight
+bytes each. Stable object records use a separate 655,360-byte mapping for 5,120 records,
+selected by `cc-om-direct-workspace`; the 128-byte layout is unchanged.
+Five label arrays hold 1,024 entries each. Two global-fixup arrays hold 17,920
+each. The object mapping holds a 4 MiB text slice, the original two 256 KiB
+non-text slices, and 20,992 forty-byte relocation records. These
+workspaces belong to the compiler, not to any generated program.
+
+The original `c-typeck.c` failure at stable record 4,097 is distinct from the
+ELF writer's text capacity. Source, macro, record, output, object-section and
+parser-arena bounds remain independent. The driver does not turn a capacity
+failure into an automatic retry with a bigger allocation. Mapping selection is
+idempotent within a process, and normal translation initialization resets
+logical counts without allocating another mapping. Default selection restores
+the old dictionary-backed buffers and capacities.
+
+The shared mapping helper checks positivity and page-rounding overflow before
+one Linux `mmap`, and checks its result before publishing a new active base.
+Allocation errors retain each workspace's existing diagnostic code. The Python
+driver only publishes successful Forth output, preserving a prior destination
+when mapping or compilation fails. See `tests/gcc/workspace-capacity-check.py`
+for exact/one-past, round, reset, layout and failure checks.
 
 ## The legacy runtime heap (compiled-program memory)
 
@@ -199,6 +231,6 @@ mapping calls.
 | Token buffer       | `000-seed.hex0:398` (`read_word`) |
 | I/O scratch        | `000-seed.hex0:267` (`emit_code`) and `:288` (`key_code`) |
 | Source buffer base | `020-cc-arena.fth` and `030-cc-io.fth` |
-| Native 8 MiB scratch mmap | `020-cc-arena.fth` `cc-arena-map`, selected by `tools/tcc-compile.fth` (Ch 34) |
+| Compiler scratch mmap: 8 MiB TinyCC / 17 MiB direct GCC | `020-cc-arena.fth` `cc-arena-map`, selected by `tools/tcc-compile.fth` (Ch 34) or `tools/gcc-direct-cc.py` |
 | Macro/include capacities | `040-cc-prep.fth` `cc-macro-cap`, `cc-macro-pool-cap`, `cc-prep-inc-pool`, and `cc-prep-direct-depth` (Ch 22) |
 | 256 MiB heap mmap  | `090-cc-emit.fth` `cc-emit-calloc-shim` (Ch 26) |

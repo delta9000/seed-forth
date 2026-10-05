@@ -3,7 +3,7 @@
 ```text
 Missing capability: C source still arrives as include-laden, macro-bearing, #if-guarded text.
 New pattern: rewrite cc-in-buf into cc-src-buf, expanding macros and dropping false groups as it goes.
-Artifact after this chapter: a flattened C stream with no directives and no macros left in it.
+Artifact after this chapter: a flattened C stream with directives removed and supported macros expanded.
 Proof link: pnut.c, exactly as shipped, comes out token for token what GCC's cpp makes of it.
 ```
 
@@ -15,8 +15,8 @@ one pass over the text, before the lexer starts.  The preprocessor file
 `040-cc-prep.fth` handles `#include "…"` (spliced in recursively),
 object-like and function-like `#define`s with any body, `#undef`, and
 conditional compilation with `#if`, `#ifdef`, `#ifndef`, `#elif`,
-`#else` and `#endif`.  What comes out is plain C: no directive and no
-macro name is left in it.
+`#else` and `#endif`. What comes out is plain C with directives removed;
+a self-referential macro can intentionally leave its own name behind.
 
 M2-Planet's own source asks little of this: two headers included
 through the `tests/cc/` fallback and one `#ifndef CC_H` include
@@ -104,19 +104,32 @@ cc-pp-sink [lit]  8 +  constant cc-pp-out-pos      \ bytes written so far
 cc-pp-sink [lit] 16 +  constant cc-pp-out-cap      \ buffer size
 cc-pp-sink [lit] 24 +  constant cc-pp-out-code     \ die code when it fills
 
+\ Direct mode keeps unavailable-token metadata outside the C byte stream.
+\ The selected sink's shadow bytes are derived from its existing buffer.
+variable cc-prep-direct                         \ explicit headers; no shim macros
+variable cc-pp-out-flags
+: cc-pp-select-flags-default ;
+defer cc-pp-select-flags-fwd
+' cc-pp-select-flags-default is cc-pp-select-flags-fwd
+
 \ cc-prep-emit-byte ( b -- )  Append b to the sink; die with the sink's
 \ code if it is full.  Counts lines as it goes, so a failure during the
 \ pass reports the line of the output it had reached.
 : cc-prep-emit-byte
   cc-pp-out-pos @ 1+ cc-pp-out-cap @ cc-pp-out-code @ cc-check-cap
+  cc-pp-out-flags @ if, [lit] 0 cc-pp-out-flags @ cc-pp-out-pos @ + c! then,
   dup cc-pp-out @ cc-pp-out-pos @ + c!
   [lit] 1 cc-pp-out-pos +!
   nl = if, [lit] 1 cc-src-line +! then, ;
 
+: cc-pp-copy-byte-default c@ cc-prep-emit-byte ;
+defer cc-pp-copy-byte-fwd
+' cc-pp-copy-byte-default is cc-pp-copy-byte-fwd
+
 \ cc-pp-emit-bytes ( a u -- )  Append u bytes from a.
 : cc-pp-emit-bytes
   begin, dup while,
-    over c@ cc-prep-emit-byte
+    over cc-pp-copy-byte-fwd
     1- swap 1+ swap
   repeat,
   2drop ;
@@ -153,12 +166,14 @@ variable cc-pp-sink-depth
 : cc-pp-sink-push
   cc-pp-sink  cc-pp-sink-depth @ [lit] 32 * cc-pp-sinks +  cc-pp-copy4
   [lit] 1 cc-pp-sink-depth +!
-  cc-pp-out-code ! cc-pp-out-cap ! cc-pp-out-pos ! cc-pp-out ! ;
+  cc-pp-out-code ! cc-pp-out-cap ! cc-pp-out-pos ! cc-pp-out !
+  cc-pp-select-flags-fwd ;
 
 \ cc-pp-sink-pop ( -- )  Resume writing to the most recently parked sink.
 : cc-pp-sink-pop
   [lit] 1 cc-pp-sink-depth -!
-  cc-pp-sink-depth @ [lit] 32 * cc-pp-sinks +  cc-pp-sink  cc-pp-copy4 ;
+  cc-pp-sink-depth @ [lit] 32 * cc-pp-sinks +  cc-pp-sink  cc-pp-copy4
+  cc-pp-select-flags-fwd ;
 
 ```
 
@@ -185,6 +200,50 @@ sinks* taken from a 2 MiB scratch area, used as a stack.
 create cc-pp-scratch  cc-pp-scratch-cap allot
 variable cc-pp-scratch-top                        \ first free byte
 [lit] 65536 constant cc-pp-temp-cap               \ one temp buffer's room
+
+\ A copied identifier that encountered a disabled macro remains unavailable
+\ during every later argument/replacement rescan. One shadow byte per text
+\ byte retains that token property without changing spelling or line counts.
+\ Only scratch and final-source sinks can contain expanded tokens; raw input,
+\ includes and stored replacement bodies have no such flags.
+variable cc-pp-flags-base
+: cc-pp-flag-address ( address -- shadow-address-or-zero )
+  cc-prep-direct @ 0= cc-pp-flags-base @ 0= or if, drop [lit] 0 exit, then,
+  dup cc-pp-scratch >= over cc-pp-scratch cc-pp-scratch-cap + < and if,
+    cc-pp-scratch - cc-pp-flags-base @ + exit,
+  then,
+  dup cc-src-buf >= over cc-src-buf cc-src-cap + < and if,
+    cc-src-buf - cc-pp-flags-base @ cc-pp-scratch-cap + + exit,
+  then, drop [lit] 0 ;
+: cc-pp-unavailable? ( address -- flag )
+  cc-pp-flag-address dup if, c@ then, ;
+: cc-pp-select-flags
+  cc-pp-out @ cc-pp-flag-address cc-pp-out-flags ! ;
+' cc-pp-select-flags is cc-pp-select-flags-fwd
+: cc-pp-copy-marked-byte ( address -- )
+  dup cc-pp-unavailable? >r c@ cc-prep-emit-byte
+  r> cc-pp-out-flags @ 0= 0= and if,
+    true cc-pp-out-flags @ cc-pp-out-pos @ + 1- c!
+  then, ;
+' cc-pp-copy-marked-byte is cc-pp-copy-byte-fwd
+: cc-pp-flags-init
+  [lit] 0 cc-pp-out-flags !
+  cc-prep-direct @ if,
+    cc-src-cap cc-src-direct-cap > if, [lit] 43 cc-die then,
+    cc-pp-flags-base @ 0= if,
+      cc-pp-scratch-cap cc-src-direct-cap + [lit] 43 cc-workspace-map
+      cc-pp-flags-base !
+    then,
+  then,
+  cc-pp-select-flags ;
+\ A paste containing an unavailable token needs token-level placemarker
+\ rules beyond this text engine. Reject it instead of re-expanding a token
+\ or leaking metadata into its spelling. Ordinary paste operands are intact.
+: cc-pp-paste-bytes ( address count -- )
+  2dup begin, dup while,
+    over cc-pp-unavailable? if, [lit] 47 cc-die then,
+    swap 1+ swap 1-
+  repeat, 2drop cc-pp-emit-bytes ;
 
 \ cc-pp-scratch-alloc ( n -- a )  Take n bytes; die 43 if they aren't
 \ there (macro calls nested some 32 deep inside each other's arguments).
@@ -221,7 +280,7 @@ each other's arguments, is 43 (`die-43-macro-scratch-deep.sh`).
 
 ## 2. The macro table
 
-The macro table is six parallel arrays of 4,096 cells and a counter,
+The default macro table is six parallel arrays of 4,096 cells and a counter,
 the same layout Ch 24 uses for the symbol table, indexed with
 `cell[]` (Ch 21). Legacy mode retains its original 1,024-definition limit.
 
@@ -243,20 +302,67 @@ the same layout Ch 24 uses for the symbol table, indexed with
 \                         scanned: a macro met inside itself is not
 \                         expanded again, so no expansion loops.
 
-variable cc-prep-direct                         \ explicit headers; no shim macros
 
-[lit] 4096 constant cc-macro-cap
-create cc-macro-name-addr  cc-macro-cap [lit] 8 * allot
-create cc-macro-name-len   cc-macro-cap [lit] 8 * allot
-create cc-macro-body-addr  cc-macro-cap [lit] 8 * allot
-create cc-macro-body-len   cc-macro-cap [lit] 8 * allot
-create cc-macro-params     cc-macro-cap [lit] 8 * allot
-create cc-macro-busy       cc-macro-cap [lit] 8 * allot
+[lit] 4096 constant cc-macro-default-cap
+variable cc-macro-limit
+cc-macro-default-cap cc-macro-limit !
+: cc-macro-cap ( -- entries ) cc-macro-limit @ ;
+create cc-macro-default-name-addr cc-macro-default-cap [lit] 8 * allot
+variable cc-macro-name-addr-buffer
+cc-macro-default-name-addr cc-macro-name-addr-buffer !
+: cc-macro-name-addr ( -- address ) cc-macro-name-addr-buffer @ ;
+create cc-macro-default-name-len cc-macro-default-cap [lit] 8 * allot
+variable cc-macro-name-len-buffer
+cc-macro-default-name-len cc-macro-name-len-buffer !
+: cc-macro-name-len ( -- address ) cc-macro-name-len-buffer @ ;
+create cc-macro-default-body-addr cc-macro-default-cap [lit] 8 * allot
+variable cc-macro-body-addr-buffer
+cc-macro-default-body-addr cc-macro-body-addr-buffer !
+: cc-macro-body-addr ( -- address ) cc-macro-body-addr-buffer @ ;
+create cc-macro-default-body-len cc-macro-default-cap [lit] 8 * allot
+variable cc-macro-body-len-buffer
+cc-macro-default-body-len cc-macro-body-len-buffer !
+: cc-macro-body-len ( -- address ) cc-macro-body-len-buffer @ ;
+create cc-macro-default-params cc-macro-default-cap [lit] 8 * allot
+variable cc-macro-params-buffer
+cc-macro-default-params cc-macro-params-buffer !
+: cc-macro-params ( -- address ) cc-macro-params-buffer @ ;
+create cc-macro-default-busy cc-macro-default-cap [lit] 8 * allot
+variable cc-macro-busy-buffer
+cc-macro-default-busy cc-macro-busy-buffer !
+: cc-macro-busy ( -- address ) cc-macro-busy-buffer @ ;
 variable cc-macro-count
 
 [lit] 262144 constant cc-macro-pool-cap           \ 256 KiB
 create cc-macro-pool  cc-macro-pool-cap allot
 variable cc-macro-pool-pos
+
+\ Direct GCC maps six equally sized parallel arrays; the text pool is unchanged.
+\ Fixed opt-in policy; changing one array never changes legacy macro limits.
+[lit] 4608 constant cc-macro-direct-cap
+variable cc-macro-direct-base
+: cc-prep-default-workspace ( -- )
+  cc-macro-default-cap cc-macro-limit !
+  cc-macro-default-name-addr cc-macro-name-addr-buffer !
+  cc-macro-default-name-len cc-macro-name-len-buffer !
+  cc-macro-default-body-addr cc-macro-body-addr-buffer !
+  cc-macro-default-body-len cc-macro-body-len-buffer !
+  cc-macro-default-params cc-macro-params-buffer !
+  cc-macro-default-busy cc-macro-busy-buffer !
+;
+: cc-prep-direct-workspace ( -- )
+  cc-macro-direct-base @ 0= if,
+    cc-macro-direct-cap [lit] 48 *
+    [lit] 34 cc-workspace-map cc-macro-direct-base !
+  then,
+  cc-macro-direct-cap cc-macro-limit !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 0 * + cc-macro-name-addr-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 8 * + cc-macro-name-len-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 16 * + cc-macro-body-addr-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 24 * + cc-macro-body-len-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 32 * + cc-macro-params-buffer !
+  cc-macro-direct-base @ cc-macro-direct-cap [lit] 40 * + cc-macro-busy-buffer !
+;
 
 \ cc-pp-to-pool ( -- )  Make the macro pool the sink (die 35 when full).
 : cc-pp-to-pool
@@ -1152,6 +1258,49 @@ variable cc-pp-sub-n
 inner `SELF` is copied as a name (`tests/cc/P2-fn-macros.c` defines
 exactly that and uses `SELF` as a variable).
 
+### Unavailable tokens across rescans
+
+A busy flag belongs to a macro definition, but suppression must also follow
+an individual token after that definition stops being busy. Consider
+`#define gen_lowpart rtl_hooks.gen_lowpart`: an identity macro around a call
+must retain `rtl_hooks.gen_lowpart(...)`, rather than expand the copied
+member name into another `rtl_hooks.gen_lowpart`. Direct preprocessing marks
+the first byte of an identifier encountered while its macro is disabled.
+Argument and replacement copies retain that mark; ordinary identifier lookup
+and the tail rescan both check it before trying another expansion.
+
+The mark is stored outside the C spelling. One fixed mapping contains a
+2 MiB scratch shadow followed by a 3 MiB source shadow. The active source
+interval uses its selected capacity, so native direct mode with the default
+2 MiB source does not expose the spare part of that shadow. Raw input,
+include storage and saved replacement text have no shadow. The mapping is
+allocated on the first direct preprocessing pass, reused without growth,
+and inactive in legacy mode. A failed mapping or a source capacity larger
+than the fixed shadow reports error 43.
+
+Sink push and pop derive the shadow address from the selected text buffer.
+Every fresh emitted byte clears its old shadow byte, preventing marks from
+an earlier scratch lifetime or preprocessing pass from escaping into new
+text. A forwarding copy captures the source mark before that clearing write,
+which also handles copying a byte to its own address. The normal sink bound
+is checked before either write. No control-byte marker enters the C stream.
+
+This is deliberately a bounded repair. If either raw operand passed to
+`##` contains an unavailable byte anywhere, `cc-pp-paste-bytes` reports
+error 47. The check includes a marked identifier away from the pasted edge,
+and an unavailable operand paired with an empty operand. These inputs were
+accepted by the previous implementation in some cases; the new rejection
+narrows support rather than implementing C's complete token and placemarker
+rules. Ordinary unmarked pastes remain supported.
+
+The suppression checks (`tests/gcc/macro-suppression-README.md`) compare
+maximal-munch preprocessing tokens, preserving punctuator boundaries and
+literal spelling. They also exercise shadow boundaries, mapping failures,
+mode transitions and output preservation. Three inherited mismatches remain:
+deferred-empty tail rescanning, stringification of inserted argument padding,
+and pp-numbers containing an exponent sign. This change does not establish
+general C-preprocessor conformance or a complete GCC build.
+
 ```forth file=040-cc-prep.fth
 \ cc-pp-trim-slice ( a u -- a' u' )  Strip argument-edge whitespace.
 : cc-pp-trim-slice
@@ -1325,7 +1474,7 @@ variable cc-pp-arg-paste
       2dup cc-pp-paste-ahead? cc-pp-sub-joining @ or >r
       over 1+ c@ r@ cc-pp-sub-argument
       r@ if,
-        cc-pp-trim-slice cc-pp-emit-bytes
+        cc-pp-trim-slice cc-pp-paste-bytes
       else,
         bl cc-prep-emit-byte cc-pp-emit-bytes bl cc-prep-emit-byte
       then,
@@ -1449,6 +1598,7 @@ variable cc-pp-tail-name
     cc-pp-out @ cc-pp-tail-name @ + 1- c@ ident-cont?
   else, [lit] 0 then, while, [lit] 1 cc-pp-tail-name -! repeat,
   cc-pp-tail-name @ cc-pp-tail-end @ = if, exit, then,
+  cc-pp-out @ cc-pp-tail-name @ + cc-pp-unavailable? if, exit, then,
   cc-pp-out @ cc-pp-tail-name @ + dup c@ ident-start? 0= if, drop exit, then,
   cc-pp-tail-end @ cc-pp-tail-name @ - cc-macro-find
   dup 0< if, drop exit, then,
@@ -1472,9 +1622,17 @@ variable cc-pp-tail-name
   cc-pp-in-if @ if,
     cc-pp-n-defined [lit] 7 cc-prep-ident= if, cc-pp-defined exit, then,
   then,
+  cc-prep-ident-addr @ cc-pp-unavailable? if,
+    cc-prep-ident-addr @ cc-prep-ident-len @ cc-pp-emit-bytes exit,
+  then,
   cc-prep-ident-addr @ cc-prep-ident-len @ cc-macro-find     ( i )
   dup 0< 0= if,
-    dup cc-macro-busy-cell @ if, drop true then,
+    dup cc-macro-busy-cell @ if,
+      drop cc-pp-out-pos @ >r
+      cc-prep-ident-addr @ cc-prep-ident-len @ cc-pp-emit-bytes
+      cc-pp-out-flags @ if, true cc-pp-out-flags @ r@ + c! then,
+      r> drop exit,
+    then,
   then,
   dup 0< if,
     drop cc-prep-ident-addr @ cc-prep-ident-len @ cc-pp-emit-bytes exit,
@@ -2159,8 +2317,9 @@ on flattened source lines.
 \ #define and #undef
 \ ---------------------------------------------------------------------------
 
-\ A function-like macro's parameter names, while its body is copied: slices
-\ of the #define line, looked up with cc-name-find.
+\ A function-like macro's parameter names, while its body is copied:
+\ legacy source slices or direct logical names in scratch, looked up
+\ with cc-name-find. Direct scratch is released after copying the body.
 [lit] 16 constant cc-pp-params-max
 create cc-pp-param-addr  cc-pp-params-max [lit] 8 * allot
 create cc-pp-param-len   cc-pp-params-max [lit] 8 * allot
@@ -2192,6 +2351,58 @@ variable cc-pp-param-count
 : cc-pp-param?
   cc-prep-ident-addr @ cc-prep-ident-len @
   cc-pp-param-addr cc-pp-param-len cc-pp-param-count @ cc-name-find ;
+
+\ Parameter-list phase two is local to the direct grammar: remove LF or
+\ CRLF continuations, retaining their physical newlines as owed. Do not
+\ turn a splice into whitespace: ab\<newline>cd is one parameter name.
+: cc-pp-param-splices
+  put-count cc-pp-put-mode !
+  begin, cc-pp-line-continuation? while,
+    cc-pp-take-continuation
+  repeat, ;
+
+: cc-pp-param-blanks
+  begin,
+    cc-prep-skip-blanks
+    cc-pp-line-continuation?
+  while, cc-pp-param-splices repeat, ;
+
+\ Logical parameter names share one bounded temporary sink (code 37).
+\ Its text survives through body encoding; the physical input is untouched.
+: cc-pp-param-ident
+  cc-pp-out @ cc-pp-out-pos @ + cc-prep-ident-addr !
+  begin,
+    cc-pp-param-splices
+    cc-prep-peek ident-cont?
+  while,
+    cc-prep-peek cc-prep-emit-byte cc-prep-advance
+  repeat,
+  cc-pp-out @ cc-pp-out-pos @ + cc-prep-ident-addr @ - cc-prep-ident-len ! ;
+
+\ Direct lists are empty or comma-separated distinct identifiers. Reject
+\ missing names, trailing commas and duplicates with 47; retain the existing
+\ 16-name limit (48). Comments and variadic forms remain unsupported (47).
+: cc-pp-read-direct-params
+  [lit] 0 cc-pp-param-count !
+  cc-pp-temp-begin cc-pp-param-blanks
+  cc-prep-peek [char] ) = if,
+    cc-prep-advance cc-pp-temp-end 2drop exit,
+  then,
+  begin,
+    cc-prep-peek ident-start? 0= if, [lit] 47 cc-die then,
+    cc-pp-param-count @ 1+ cc-pp-params-max [lit] 48 cc-check-cap
+    cc-pp-param-ident
+    cc-pp-param? 0< 0= if, [lit] 47 cc-die then,
+    cc-prep-ident-addr @ cc-pp-param-count @ cc-pp-param-addr cell[] !
+    cc-prep-ident-len @ cc-pp-param-count @ cc-pp-param-len cell[] !
+    [lit] 1 cc-pp-param-count +!
+    cc-pp-param-blanks
+    cc-prep-peek [char] ) = if,
+      cc-prep-advance cc-pp-temp-end 2drop exit,
+    then,
+    cc-prep-peek [char] , <> if, [lit] 47 cc-die then,
+    cc-prep-advance cc-pp-param-blanks
+  again, ;
 
 \ cc-pp-copy-hash ( -- )  Encode #parameter and ## outside literals.
 : cc-pp-copy-hash
@@ -2267,17 +2478,27 @@ variable cc-pp-param-count
   cc-prep-peek ident-start? 0= if, exit, then,
   cc-prep-read-ident
   cc-prep-ident-addr @ cc-prep-ident-len @ cc-pp-pool-copy   ( na nu )
+  cc-pp-scratch-top @ >r
+  cc-pp-location-enabled @ cc-pp-line-continuation? and if,
+    cc-pp-param-splices
+    \ A join before '(' preserves adjacency; split macro names are outside
+    \ this grammar and must not silently define the unjoined prefix.
+    cc-prep-peek ident-cont? if, [lit] 47 cc-die then,
+  then,
   cc-prep-peek lparen = if,
-    cc-prep-advance cc-pp-read-params  cc-pp-param-count @
+    cc-prep-advance
+    cc-pp-location-enabled @ if, cc-pp-read-direct-params else, cc-pp-read-params then,
+    cc-pp-param-count @
   else,
     [lit] 0 cc-pp-param-count !  true
   then,
-  >r                                               ( na nu ; R: params )
-  cc-prep-skip-blanks
+  >r                                               ( na nu ; R: saved-scratch params )
+  cc-pp-location-enabled @ if, cc-pp-param-blanks else, cc-prep-skip-blanks then,
   cc-macro-pool cc-macro-pool-pos @ +              ( na nu ba )
   cc-pp-to-pool  cc-pp-copy-body  cc-pp-trim  cc-pp-from-pool
   cc-macro-pool cc-macro-pool-pos @ + over -       ( na nu ba bu )
-  r> cc-macro-record ;
+  r> cc-macro-record
+  r> cc-pp-scratch-top ! ;
 
 \ cc-prep-handle-undef ( -- )  pos is just past "undef".  Forget every
 \ definition of the name (a zero length never matches).
@@ -2294,9 +2515,32 @@ variable cc-pp-param-count
 ```
 
 A `(` right after the name, with no blank between, makes the macro
-function-like; `cc-pp-read-params` records the parameter names as
-slices of the line (code 47 for anything but names and commas before
-the `)`, 48 for more than 16).  `cc-pp-copy-body` then writes the rest of the line to
+function-like. The legacy/native reader keeps source slices. In the explicit
+SysV target, `cc-pp-read-direct-params` instead joins physical continuations
+before recognizing names and punctuation. For example, `ar` followed by a
+backslash-newline and `g` names the single parameter `arg`; a join contributes
+no space. A join between an intact macro name and `(` also preserves adjacency.
+
+The SysV reader stores at most 16 distinct names in one 64 KiB temporary
+buffer: code 48 bounds the count, code 37 bounds their combined logical bytes,
+and code 47 rejects malformed or duplicate names. The temporary survives until
+the body has been encoded, then its scratch space is returned. Neither source
+bytes nor physical locations are rewritten. Each LF or CRLF continuation owes
+one output newline, preserving physical `__LINE__` calls and adding no
+continuation-related diagnostic drift. An inherited body-marker caveat remains:
+parameter index 10 is encoded as LF and can increment preprocessing diagnostic
+lines spuriously; this parser repair does not change that encoding.
+Errors inside the definition retain the established flattened start-line
+location because owed newlines have not yet been emitted.
+
+This is a bounded parameter grammar, not a general phase-two pass. Spaces and
+tabs separate names; comments, variadic lists, form feed and vertical tab remain
+unsupported here. A join inside the macro's own name diagnoses 47. Token joins
+inside replacement bodies remain a separate preexisting limitation. The
+focused proof (`tests/gcc/macro-parameter-splices-check.py`) compares host CPP
+and records these boundaries as well as unchanged legacy/native output.
+
+`cc-pp-copy-body` then writes the rest of the line to
 the pool: comments become one blank, a backslash-newline joins the
 next line (its newline is owed), literals are copied whole, and a
 name that is a parameter becomes its marker.  `cc-pp-trim` drops
@@ -2470,6 +2714,7 @@ defer cc-prep-target-fwd
   cc-pp-scratch cc-pp-scratch-top !
   cc-src-buf cc-pp-out !  [lit] 0 cc-pp-out-pos !
   cc-src-cap cc-pp-out-cap !  [lit] 36 cc-pp-out-code !
+  cc-pp-flags-init
   cc-prep-direct @ 0= if, cc-prep-builtins then,
   [lit] 0 cc-pp-location-enabled ! [lit] 1 cc-pp-location-line !
   [lit] 0 cc-pp-location-rescan ! [lit] 0 cc-pp-location-depth !
@@ -2601,7 +2846,8 @@ silently disappearing. Included file paths are kept at each nesting
 depth, so a header's own relative include does not depend on the shell's
 working directory. Direct mode packs the live file contents into the
 same 1 MiB include pool, with a depth limit of 32, and raises the macro
-limits to 4,096 definitions and a 256 KiB text pool. Legacy limits and
+limits to 4,096 definitions and a 256 KiB text pool. The direct-GCC driver
+selects a separately mapped 4,608-entry table; its text-pool bound is unchanged. Legacy limits and
 diagnostic codes are retained.
 
 A direct function-macro call keeps both raw and expanded arguments.
@@ -2786,9 +3032,22 @@ places.  Ch 23 turns it into tokens.
 
 ## Takeaways
 
-- The preprocessor is a separate pass that reads the raw input in `cc-in-buf` and writes the flattened source into `cc-src-buf`, with every macro expanded and every dropped group removed, so the lexer never sees a directive or a macro name.
+- The preprocessor is a separate pass that reads the raw input in `cc-in-buf` and writes the flattened source into `cc-src-buf`, with supported macros expanded and dropped groups removed; intentionally unavailable macro names remain ordinary tokens.
 - Expansion is walking: a macro's replacement becomes a region of its own and is walked by the same code, with the macro marked busy so it cannot expand inside itself; arguments are expanded first, in temporary sinks from a scratch stack.
 - Line numbers survive: dropped lines leave their newlines, and newlines swallowed by a directive or a multi-line macro call are paid back right after it.
 - Every limit is checked, each with its own code (30–48): include depth, path length, include size, macro count, macro pool, scratch, conditional nesting, output size, malformed directives and macro calls, and `#error`.
 
 Next: Chapter 23 — The Lexer.
+
+### Direct-GCC macro-table selection
+
+The unchanged original `expr.c` needs 4,120 recorded macro definitions,
+including records subsequently hidden or undefined. Its pool uses 238,367
+bytes, below the existing 256 KiB direct limit. The opt-in table therefore has
+4,608 entries, the next 512-entry quantum above the measured count. Each of
+its six parallel arrays occupies 36,864 bytes, an integral number of pages.
+One mapping contains all six disjoint slices. Every address and the capacity
+come from the same selected workspace. No pool, include or scratch limit is
+raised. The legacy profile still enforces 1,024 records and 64 KiB of pool text.
+`cc-preprocess` resets the count and pool cursor; recording a macro clears its
+busy cell before it can be used. A reused mapping keeps its fixed size.

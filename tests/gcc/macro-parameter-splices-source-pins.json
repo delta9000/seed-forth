@@ -1,0 +1,27 @@
+{
+  "upstream_commit": "944765863eec87a9f37e297994fd2af960397138",
+  "archive_sha256": "091f7e50fb712289632fb14d93582a6a49d731c59b8c095cc75cff01c1f40a67",
+  "files": {
+    "gcc/c-common.c": "0ac139bcacc0eca1713d610023a1739f589f4699d755d62b24e5d4e5dada092b",
+    "gcc/builtins.def": "6682c709fef16c3a4672b41ea38e0a97ba63b3a5e8f2f3f3744173613ddaa48f",
+    "gcc/df.c": "f03e87091956030c1b1b3f9fb49f8a164527f8b994f06b1f765fa02906915111"
+  },
+  "definition": {
+    "file": "gcc/c-common.c",
+    "physical_lines": [
+      3237,
+      3268
+    ],
+    "sha256": "d2efc726cb2076e8bdefd97225f658532cab9fa5696bdf0348d931fa4300b733"
+  },
+  "baseline_compiler": "a5356f3b73523539aeb0a6581d1df054493d7690986d7b0c47aa973ee44e5fb0",
+  "candidate_compiler": "d459389c0c0cfe9d531bfd99dfb0d1448f5836d09a8d514a6a0494f76c5311ee",
+  "df_witness": {
+    "file": "gcc/df.c",
+    "first_physical_line": 3806,
+    "last_physical_line": 3861,
+    "fixture_sha256": "308f3a9d192490407d50c80d6b9febccf47b0da851ea476ec2f6a57282324d75",
+    "original_slice_sha256": "aeb4ad0b008788bcbf5c75287aca252163764d718a68bca7c8ff983c2a3e575a",
+    "fixture_suffix": "__LINE__ followed by LF, after the original last LF"
+  }
+}

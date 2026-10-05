@@ -16,7 +16,8 @@ exe=OUT/'startup';run(CC+['-o',exe,ROOT/'tests/gcc/startup-check.c'])
 cases=['program','/a/b/program','relative/path','/ends/in/slash/','']
 for name in cases:
  args=[name,'left','two words','']
- r=run(args,executable=exe)
+ # Force fork/exec: Python posix_spawn rejects the intentional empty argv[0].
+ r=run(args,executable=exe,start_new_session=True)
  expected=name.rsplit('/',1)[-1]+'\n4\n'+''.join('['+arg+']\n' for arg in args)
  assert r.stdout.decode()==expected and not r.stderr,(name,r.stdout,r.stderr)
 program=b'\n'.join((ROOT/name).read_bytes() for name in ['010-lib.fth','020-cc-arena.fth','030-cc-io.fth','081-cc-object.fth','122-cc-sysv-runtime.fth'])
@@ -30,7 +31,7 @@ report={'compiler_source_identity':identity,'argv_variants':len(cases),'raw_entr
 host=shutil.which('gcc')
 if host:
  fixture=OUT/'host-abi.c';fixture.write_text('''static int saved_count; static char **saved_args; static int bad;
-void __seed_init_program_name(int count,char **args) {
+void __seed_init_runtime(int count,char **args) {
  if (((unsigned long)__builtin_frame_address(0)&15UL)!=0) bad=1;
  saved_count=count; saved_args=args;
 }

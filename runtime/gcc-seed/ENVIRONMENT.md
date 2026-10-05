@@ -1,0 +1,24 @@
+# Runtime environment and C/POSIX locale
+
+The full runtime entry now calls __seed_init_runtime. It preserves the existing
+standalone program-name helper and captures the genuine environment vector
+immediately after argv's null terminator. Raw entry remains independent.
+getenv searches that vector without allocating or modifying strings. It checks
+complete name boundaries, returns the first matching entry, preserves empty
+values and errno, and rejects empty names or names containing '='. environ is
+the actual replaceable process-environment pointer; no host answers are copied.
+
+Heirloom lex calls setlocale(LC_CTYPE, ""). The implementation genuinely follows
+LC_ALL, then the requested category variable, then LANG, ignoring empty values.
+With no selection it uses C. Queries preserve state. Explicit C and POSIX are
+supported and return canonical C; unavailable names, including C.UTF-8, fail
+without a state change. LC_ALL validates every supported category before
+succeeding. This is a fixed C/POSIX implementation, not UTF-8 or a locale database.
+See [locale selection](https://man7.org/linux/man-pages/man3/setlocale.3.html).
+
+The production test injects known environment values through actual process
+startup, checks the vector and getenv boundaries, and exercises24 precedence
+cases plus UTF-8 rejection. Separate host C90 O0/O2 builds repeat shared cases.
+The startup checks still verify argument/name behavior, raw-entry independence
+and both call-site alignments, using the new initializer symbol in the ABI
+oracle. Each report pins its exact source and executable hashes.

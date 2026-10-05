@@ -68,7 +68,10 @@ def main():
     link(common + [objects["stdio-faults"]], faults)
     run([production, work / "stream.bin"],
         expected=b"generator stdio\n#define PLUS_EXPR_CHECK(t)\tTREE_CHECK (t, PLUS_EXPR)\n!\n",
-        expected_error=b"diagnostic\nfixture: No such file or directory\n")
+        expected_error=(b"diagnostic\nfixture: No such file or directory\n"
+                        b"directory: Is a directory\nIs a directory\nIs a directory\n"
+                        b"not-directory: Not a directory\nlong-name: File name too long\n"
+                        b"symlink-loop: Too many levels of symbolic links\n"))
     if (work / "stream.bin").read_bytes() != b"abcdef\xff\nend:9":
         raise SystemExit("stream bytes differ")
     run([faults])

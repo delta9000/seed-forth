@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <seed-syscall.h>
 #include <fcntl.h>
+#include <wchar.h>
 
 #define SEED_READ 1
 #define SEED_WRITE 2
@@ -147,6 +148,52 @@ FILE *fdopen(int descriptor, const char *mode)
     return stream;
 }
 
+FILE *freopen(const char *path, const char *mode, FILE *stream)
+{
+    int flags;
+    int access;
+    int previous;
+    int owned;
+    int error;
+    long descriptor;
+    long result;
+    if (!seed_open_mode(mode, &flags, &access)) return NULL;
+    if (!seed_stream_check(stream, SEED_READ | SEED_WRITE)) return NULL;
+    previous = stream->descriptor;
+    owned = stream->flags & SEED_OWNED;
+    /* The stream is unbuffered. Linux close releases the descriptor even
+       on EINTR; freopen ignores close errors and never retries close. */
+    __seed_syscall6(3, previous, 0, 0, 0, 0, 0);
+    stream->descriptor = -1;
+    stream->flags = 0;
+    stream->error = 0;
+    stream->ended = 0;
+    stream->pushed = 0;
+    descriptor = -EINVAL;
+    /* No filename-null mode changes are supported by this implementation. */
+    if (path != NULL) {
+        do {
+            descriptor = __seed_syscall6(2, (long)path, flags, 0666, 0, 0, 0);
+        } while (descriptor == -EINTR);
+    }
+    if (descriptor >= 0 && descriptor != previous) {
+        do {
+            result = __seed_syscall6(33, descriptor, previous, 0, 0, 0, 0);
+        } while (result == -EINTR);
+        __seed_syscall6(3, descriptor, 0, 0, 0, 0, 0);
+        descriptor = result;
+    }
+    if (descriptor < 0) {
+        error = (int)-descriptor;
+        if (owned) free(stream);
+        errno = error;
+        return NULL;
+    }
+    seed_stream_init(stream, (int)descriptor, access);
+    stream->flags = access | owned;
+    return stream;
+}
+
 int fclose(FILE *stream)
 {
     long result;
@@ -277,6 +324,30 @@ int fgetc(FILE *stream)
 }
 int getc(FILE *stream) { return fgetc(stream); }
 int getchar(void) { return fgetc(stdin); }
+char *fgets(char *buffer, int count, FILE *stream)
+{
+    int used = 0;
+    int byte;
+    int previous_error;
+    int failed;
+    if (count <= 0) { errno = EINVAL; return NULL; }
+    if (!seed_stream_check(stream, SEED_READ)) return NULL;
+    if (count == 1) { buffer[0] = 0; return buffer; }
+    /* Distinguish a new read failure from a previously sticky indicator. */
+    previous_error = stream->error;
+    stream->error = 0;
+    while (used < count - 1) {
+        byte = fgetc(stream);
+        if (byte == EOF) break;
+        buffer[used++] = (char)byte;
+        if (byte == '\n') break;
+    }
+    failed = stream->error;
+    stream->error = previous_error || failed;
+    if (failed || used == 0) return NULL;
+    buffer[used] = 0;
+    return buffer;
+}
 int ungetc(int byte, FILE *stream)
 {
     if (byte == EOF) return EOF;
@@ -295,6 +366,45 @@ long ftell(FILE *stream)
     } while (result == -EINTR);
     if (result < 0) { errno = (int)-result; return -1; }
     return result - stream->pushed;
+}
+
+int fseek(FILE *stream, long offset, int whence)
+{
+    long result;
+    if (!seed_stream_check(stream, SEED_READ | SEED_WRITE)) return -1;
+    if (whence != SEEK_SET && whence != SEEK_CUR && whence != SEEK_END) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (whence == SEEK_CUR && stream->pushed) {
+        if (offset == LONG_MIN) { errno = EOVERFLOW; return -1; }
+        offset--;
+    }
+    do {
+        result = __seed_syscall6(8, stream->descriptor, offset, whence, 0, 0, 0);
+    } while (result == -EINTR);
+    if (result < 0) { errno = (int)-result; return -1; }
+    stream->pushed = 0;
+    stream->ended = 0;
+    return 0;
+}
+
+int fileno(FILE *stream)
+{
+    if (stream == NULL || stream->descriptor < 0) { errno = EBADF; return -1; }
+    return stream->descriptor;
+}
+
+wint_t getwc(FILE *stream)
+{
+    int byte = fgetc(stream);
+    if (byte == EOF) return WEOF;
+    if (byte > 127) {
+        errno = EILSEQ;
+        stream->error = 1;
+        return WEOF;
+    }
+    return (wint_t)byte;
 }
 
 struct seed_print {
@@ -372,11 +482,36 @@ static int seed_print_decimal(const char **format, int *value)
     return 1;
 }
 
+static int seed_print_wide(struct seed_print *output, const wchar_t *text,
+                           int width, int precision, int left)
+{
+    static const wchar_t missing[] = {'(', 'n', 'u', 'l', 'l', ')', 0};
+    size_t size = 0;
+    size_t index;
+    int padding;
+    char byte;
+    if (text == NULL) text = missing;
+    while ((precision < 0 || size < (size_t)precision) && text[size]) {
+        if ((unsigned int)text[size] > 127) return seed_print_error(output, EILSEQ);
+        size++;
+    }
+    if (size > INT_MAX) return seed_print_error(output, SEED_EOVERFLOW);
+    padding = width > (int)size ? width - (int)size : 0;
+    if (!left && !seed_print_padding(output, ' ', padding)) return 0;
+    for (index = 0; index < size; index++) {
+        byte = (char)text[index];
+        if (!seed_print_bytes(output, &byte, 1)) return 0;
+    }
+    return !left || seed_print_padding(output, ' ', padding);
+}
+
 static int seed_format(struct seed_print *output, const char *format, va_list arguments)
 {
     const char *begin;
     const char *text;
     const char *digits;
+    const wchar_t *wide_text;
+    wint_t wide_character;
     char number[32];
     char prefix[3];
     char character;
@@ -388,6 +523,7 @@ static int seed_format(struct seed_print *output, const char *format, va_list ar
     int width;
     int precision;
     int length;
+    int wide_length;
     int conversion;
     int base;
     int used;
@@ -434,11 +570,12 @@ static int seed_format(struct seed_print *output, const char *format, va_list ar
             }
         }
         length = 0;
+        wide_length = 0;
         if (*format == 'h') {
             format = format + 1; length = 1;
             if (*format == 'h') { format = format + 1; length = 2; }
         } else if (*format == 'l') {
-            format = format + 1; length = 3;
+            format = format + 1; length = 3; wide_length = 1;
             if (*format == 'l') { format = format + 1; length = 4; }
         } else if (*format == 'z' || *format == 't' || *format == 'j') {
             length = 3; format = format + 1;
@@ -454,8 +591,21 @@ static int seed_format(struct seed_print *output, const char *format, va_list ar
             continue;
         }
         if (conversion == 's' || conversion == 'c' || conversion == '%') {
-            if (length) { seed_print_error(output, EINVAL); break; }
-            if (conversion == 's') {
+            if (length) {
+                if (!wide_length || length != 3 || conversion == '%') {
+                    seed_print_error(output, EINVAL); break;
+                }
+                if (conversion == 's') {
+                    wide_text = va_arg(arguments, const wchar_t *);
+                    if (!seed_print_wide(output, wide_text, width, precision, left)) break;
+                    continue;
+                }
+                wide_character = va_arg(arguments, wint_t);
+                if (wide_character > 127) { seed_print_error(output, EILSEQ); break; }
+                character = (char)wide_character;
+                text = &character;
+                size = 1;
+            } else if (conversion == 's') {
                 text = va_arg(arguments, char *);
                 if (text == NULL) text = "(null)";
                 size = 0;
@@ -615,6 +765,10 @@ void perror(const char *prefix)
     else if (saved == EINVAL) message = "Invalid argument";
     else if (saved == EINTR) message = "Interrupted system call";
     else if (saved == EEXIST) message = "File exists";
+    else if (saved == ENOTDIR) message = "Not a directory";
+    else if (saved == EISDIR) message = "Is a directory";
+    else if (saved == ENAMETOOLONG) message = "File name too long";
+    else if (saved == ELOOP) message = "Too many levels of symbolic links";
     else if (saved == ENOSPC) message = "No space left on device";
     else if (saved == EPIPE) message = "Broken pipe";
     if (prefix != NULL && *prefix) fprintf(stderr, "%s: ", prefix);

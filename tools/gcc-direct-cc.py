@@ -20,6 +20,10 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = "seed-forth direct C compiler (experimental)"
 TARGET = "x86_64-pc-linux-gnu"
 RUNTIME = "runtime/gcc-seed"
+# Fixed per-translation-unit arena: complete original c-typeck.c measures
+# 16,988,648 bytes. Round up to whole MiB, keeping the legacy 32 KiB slab
+# and native TinyCC 8 MiB driver unchanged. Never grow or retry on exhaustion.
+ARENA_BYTES = 17 * 1024 * 1024
 BASE = ("010-lib.fth", "020-cc-arena.fth", "030-cc-io.fth")
 IDENT = r"[A-Za-z_][A-Za-z_0-9]*"
 MACRO = re.compile(IDENT + r"(?:\(\s*(?:" + IDENT + r"(?:\s*,\s*" + IDENT + r")*)?\s*\))?\Z")
@@ -119,6 +123,8 @@ def parse(arguments):
                         raise Failure(f"unsupported -D macro spelling: {name}", 2)
                     directive = "#define " + name + " " + (body if separator else "1") + "\n"
                 options["macros"].append(directive)
+        elif arg == "-lm":
+            options["inputs"].append((arg, "seed-library"))
         elif arg.startswith("-") and arg != "-":
             raise Failure(f"unsupported option: {arg}", 2)
         else:
@@ -131,6 +137,8 @@ def parse(arguments):
         if options["verbose"]:
             return options
         raise Failure("no input files", 2)
+    if options["mode"] != "link" and any(kind == "seed-library" for _, kind in options["inputs"]):
+        raise Failure("-lm requires link mode", 2)
     if options["mode"] != "link" and options["output"] and len(options["inputs"]) != 1:
         raise Failure("a single -o requires one input with -c or -E", 2)
     if options["mode"] != "preprocess" and options["output"] == "-":
@@ -192,7 +200,10 @@ class Toolchain:
 
     def compile(self, source, source_name, output, includes, macros=(), preprocess=False):
         source_name = checked_path(source_name)
-        driver = "cc-sysv-object-enable\n[lit] 8388608 cc-arena-map\n"
+        driver = f"cc-sysv-object-enable\n[lit] {ARENA_BYTES} cc-arena-map\n"
+        driver += ("cc-io-direct-workspace cc-prep-direct-workspace\n"
+                   "cc-om-direct-workspace cc-label-direct-workspace\n"
+                   "cc-obj-direct-workspace cc-gfixup-direct-workspace\n")
         driver += path_word("driver-output", output)
         driver += path_word("driver-source", source_name)
         driver += f"driver-source [lit] {len(os.fsencode(source_name))} cc-prep-source-name\n"
@@ -229,8 +240,9 @@ class Toolchain:
         cache_root.mkdir(parents=True, exist_ok=True)
         cache = cache_root / self.identity
         names = [Path(name).stem + ".o" for name in self.inputs
-                 if name.startswith(RUNTIME + "/") and name.endswith(".c")]
-        names += ["syscall.o", "errno.o", "start.o", "frame.o", "sigreturn.o"]
+                 if name.startswith(RUNTIME + "/") and name.endswith(".c")
+                 and name != RUNTIME + "/math.c"]
+        names += ["syscall.o", "errno.o", "start.o", "frame.o", "sigreturn.o", "setjmp.o", "longjmp.o"]
 
         def verified():
             try:
@@ -259,6 +271,8 @@ class Toolchain:
         with tempfile.TemporaryDirectory(prefix=".build-", dir=cache_root) as directory:
             build = Path(directory)
             for source in sorted(self.runtime.glob("*.c")):
+                if source.name == "math.c":
+                    continue
                 self.compile(source.read_bytes(), source, build / (source.stem + ".o"),
                              [self.runtime / "include"])
             driver = ""
@@ -266,7 +280,9 @@ class Toolchain:
                                   ("errno", "cc-sysrt-errno-object"),
                                   ("start", "cc-sysrt-runtime-start-object"),
                                   ("frame", "cc-sysrt-frame-object"),
-                                  ("sigreturn", "cc-sysrt-sigreturn-object")):
+                                  ("sigreturn", "cc-sysrt-sigreturn-object"),
+                                  ("setjmp", "cc-sysrt-setjmp-object"),
+                                  ("longjmp", "cc-sysrt-longjmp-object")):
                 driver += path_word(name + "-path", build / (name + ".o"))
                 driver += f"{builder} {name}-path cc-obj-write\n"
             self.forth(list(BASE) + ["081-cc-object.fth", "122-cc-sysv-runtime.fth"], driver + "bye\n")
@@ -283,11 +299,11 @@ class Toolchain:
                     raise
             return [private / name for name in names]
 
-    def runtime_archive(self, objects):
+    def runtime_archive(self, objects, name="libseed.a"):
         # Keep startup eager so its main reference precedes user archives.
         # All remaining runtime members are selected by the Forth linker
         # only when an unresolved symbol needs them.
-        output = self.work / "libseed.a"
+        output = self.work / name
         driver = "arc-init\n" + path_word("driver-runtime-archive", output)
         for index, path in enumerate(objects):
             if path.name == "start.o":
@@ -297,6 +313,19 @@ class Toolchain:
         driver += "driver-runtime-archive arc-write bye\n"
         self.forth(list(BASE) + ["140-cc-link.fth", "141-archive.fth"], driver)
         return output
+
+    def math_archive(self):
+        # This exact builtin library is source-built, never found in host
+        # search paths. Explicit -lm remains explicit even with -nostdlib.
+        archive = self.work / "libm.a"
+        if archive.exists():
+            return archive
+        source = self.runtime / "math.c"
+        if not source.is_file() or not (self.runtime / "include/math.h").is_file():
+            raise Failure("-lm requires the source-built math.c and math.h", 2)
+        output = self.work / "math.o"
+        self.compile(source.read_bytes(), source, output, [self.runtime / "include"])
+        return self.runtime_archive([output], "libm.a")
 
     def link(self, objects, output):
         archives = any(path.suffix == ".a" for path in objects)
@@ -344,7 +373,9 @@ def main(arguments):
     inputs = []
     stdin_seen = False
     for spelling, language in options["inputs"]:
-        if spelling == "-":
+        if language == "seed-library":
+            inputs.append((ROOT / RUNTIME / "math.c", "math", b""))
+        elif spelling == "-":
             if stdin_seen or (language != "c" and options["mode"] != "preprocess"):
                 raise Failure("stdin requires -x c (or -E), and can occur only once", 2)
             stdin_seen = True
@@ -387,6 +418,9 @@ def main(arguments):
         objects = []
         results = []
         for index, (path, kind, data) in enumerate(inputs):
+            if kind == "math":
+                objects.append(toolchain.math_archive())
+                continue
             output = work / f"input-{index}.{'a' if kind == 'a' else 'o'}"
             if kind in ("o", "a"):
                 output.write_bytes(data)

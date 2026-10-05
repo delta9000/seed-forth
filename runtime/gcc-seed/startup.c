@@ -15,3 +15,11 @@ void __seed_init_program_name(int count, char **arguments)
     }
 }
 
+
+/* Only the runtime entry passes a complete kernel argv/environment vector. */
+extern char **environ;
+void __seed_init_runtime(int count, char **arguments)
+{
+    __seed_init_program_name(count, arguments);
+    environ = count >= 0 && arguments != NULL ? arguments + count + 1 : NULL;
+}

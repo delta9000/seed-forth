@@ -60,10 +60,10 @@ def main():
         'aggregate-result': (247, 'struct X {double x;}; void f(va_list a){va_arg(a,struct X);}'),
         'wrong-record': (246, 'struct X {unsigned int a,b;void *c,*d;}; void f(struct X *a){va_arg(a,double);}'),
         'integer-list': (246, 'void f(long a){va_arg(a,double);}'),
-        'named-double': (232, 'void f(double x,...){va_list a;va_start(a,x);}'),
-        'outbound-fixed-double': (232, 'void g(double);void f(double *x){g(*x);}'),
-        'outbound-variadic-double': (232, 'void g(int,...);void f(double *x){g(0,*x);}'),
-        'pointer-to-list-array': (238, 'void f(va_list *list){(void)list;}'),
+        'named-extended': (232, 'void f(long double x,...){va_list a;va_start(a,x);}'),
+        'outbound-fixed-extended': (232, 'void g(long double);void f(long double *x){g(*x);}'),
+        'outbound-variadic-extended': (232, 'void g(int,...);void f(long double *x){g(0,*x);}'),
+        'pointer-to-list-array': (246, 'void f(va_list **list){va_arg(list,double);}'),
     }
     diagnostic_records = []
     for name, (status, body) in negatives.items():
@@ -92,9 +92,9 @@ def main():
         output.write_bytes(b'baseline existing output')
         result = run([old / 'tests/gcc/sysv-object-compile.sh',
                       work / 'pointer-to-list-array.c', output,
-                      old / 'runtime/gcc-seed/include'], 238)
+                      old / 'runtime/gcc-seed/include'], 246)
         assert not result.stdout and output.read_bytes() == b'baseline existing output'
-        assert re.fullmatch(r'cc: line \d+: error 238\n', result.stderr)
+        assert re.fullmatch(r'varargs: cc: line \d+: error 246\n', result.stderr)
         baseline = {'scope': 'Only 126 replaced by frozen pre-increment source',
                     'baseline_varargs_sha256': sha(args.baseline_varargs),
                     'pointer_to_va_list_array_diagnostic': result.stderr,
@@ -115,7 +115,7 @@ def main():
                          'host-created list after 8 named FP arguments',
                          'host-created list after host consumes a long double',
                          'cursor restore by va_copy and repeated traversal'],
-              'limitations': ['No production floating argument emission or formatting',
+              'limitations': ['No float/long-double argument emission or floating formatting',
                               'No Forth long-double retrieval',
                               'Pointer to va_list array remains rejected with 238']}
     (work / 'report.json').write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')

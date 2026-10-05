@@ -24,7 +24,6 @@ REJECTS = {
     'callback-long-double-arg': 'struct X{int (*f[2])(long double);};int g(struct X *p){return p->f[0](1);}',
     'nested-callback-too-few': 'typedef int (*leaf)(int);struct X{leaf (*f[2])(void);};int g(struct X *p){return p->f[0]()();}',
     'nested-callback-too-many': 'typedef int (*leaf)(void);struct X{leaf (*f[2])(void);};int g(struct X *p){return p->f[0]()(1);}',
-    'pointer-to-array': 'int (*a)[3];',
     'array-of-pointer-to-array': 'int (*a[2])[3];',
     'function-return-pointer-to-array': 'int (*f(void))[3];',
     'function-return-function': 'int (f(void))(int);',

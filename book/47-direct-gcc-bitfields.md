@@ -41,10 +41,13 @@ same numeric exit code.
 
 Descriptor-size hooks retain the legacy 16-byte header with 40-byte field
 records and native LP64's 32-byte header with 48-byte records. Only explicit
-SysV mode uses a 40-byte header and 64-byte records. Header offset 32 records
+SysV mode uses a 40-byte header and 72-byte records. Header offset 32 records
 the next bit position. Field offsets 48 and 56 hold width and shift; zero
 width in a stored record means an ordinary member. Anonymous aggregate
 promotion copies the complete target-selected record, including this metadata.
+The final cell at offset 64 retains an ordinary field's inner array bound;
+zero means the field has no second dimension. The legacy/native accessor
+returns zero and its setter still rejects a nonzero inner bound with error 213.
 
 The underlying type selects a naturally aligned four- or eight-byte unit.
 A field starts at the next available bit unless its width would cross that
@@ -58,6 +61,29 @@ list. A zero-width declaration advances to the underlying-type boundary
 without raising aggregate alignment. Ordinary members resume at the next byte
 with their usual alignment. Union members start at zero and contribute to the
 maximum size. The aggregate parser rounds final size to aggregate alignment.
+
+Two-dimensional inline arrays use the same element type and descriptor as
+ordinary array fields, with both fixed bounds retained. Member expressions
+carry those bounds into subscripting and `sizeof`: the first subscript scales
+by one complete row and the second by one element. Direct subscripting keeps
+qualification provenance without constructing a pointer-to-row. Qualified
+array-pointer decay and address construction remain conservative errors;
+this does not implement full C qualifier semantics. The initializer recursively
+visits each row, including row strings and padded record elements. Static
+addresses preserve both bounds and use actual ELF relocation addends.
+
+The direct target checks each array product against its one-GiB object limit.
+It also checks the enclosing record sum and tail alignment after each ordinary field
+or bitfield, so individually valid fields cannot overflow the combined layout.
+An incomplete outer matrix bound and dimensions beyond two remain unsupported.
+Static member-array initializers use explicit addresses; implicit member-array
+decay and extra nested braces around flattened anonymous aggregates retain their
+existing rejection boundary.
+The native/TinyCC profile still rejects multidimensional fields. The focused
+matrix proof (`tests/gcc/multidimensional-record-README.md`) exercises both
+host/Forth ABI directions, rejected inputs, and the original GCC `optabs.h`
+declarations that first required this representation.
+
 
 ## 3. Preserve lvalue identity and neighboring bits
 
@@ -140,9 +166,18 @@ create cc-bf-error-prefix s, bitfield: bl c,
 : cc-bf-header-bytes
   cc-target-sysv @ if, [lit] 40 else, cc-sd-header-bytes-default then, ;
 : cc-bf-record-bytes
-  cc-target-sysv @ if, [lit] 64 else, cc-sd-record-bytes-default then, ;
+  cc-target-sysv @ if, [lit] 72 else, cc-sd-record-bytes-default then, ;
 ' cc-bf-header-bytes is cc-sd-header-bytes
 ' cc-bf-record-bytes is cc-sd-record-bytes
+
+\ The final SysV field cell retains the second fixed array dimension.
+\ Bitfield slots stay at48/56; anonymous promotion copies the entire record.
+: cc-bf-array-inner ( rec -- n )
+  cc-target-sysv @ if, [lit] 64 + @ else, cc-sf-array-inner-default then, ;
+: cc-bf-set-array-inner ( n rec -- )
+  cc-target-sysv @ if, [lit] 64 + ! else, cc-sf-set-array-inner-default then, ;
+' cc-bf-array-inner is cc-sf-array-inner
+' cc-bf-set-array-inner is cc-sf-set-array-inner
 
 : cc-sd-bit-end [lit] 32 + ;
 : cc-sf-bit-width [lit] 48 + @ ;
@@ -201,10 +236,18 @@ variable cc-bf-record
   cc-bf-desc @ cc-sd-total-size cc-nmax cc-bf-desc @ cc-sd-set-total-size
   cc-bf-position @ cc-bf-desc @ cc-sd-bit-end !
   cc-next-token-keep ;
+\ Products are checked by the declarator; sums and final tail padding
+\ must also fit, including when a bitfield follows a maximal matrix.
+: cc-bf-layout-check ( desc -- )
+  dup cc-sd-total-size swap cc-sd-align cc-nalign
+  cc-sysv-object-size-limit > if, [lit] 245 cc-die then, ;
 : cc-bf-member ( desc -- )
   cc-target-sysv @ 0= if, cc-nmember-default exit, then,
-  [char] : cc-tok-punct? if, cc-bf-add exit, then,
+  [char] : cc-tok-punct? if, dup >r cc-bf-add r> cc-bf-layout-check exit, then,
+  \ An incomplete outer dimension cannot describe an inline matrix.
+  nc-inner @ nc-array @ [lit] 0 <= and if, [lit] 238 cc-die then,
   dup >r cc-nmember-default
+  r@ cc-bf-layout-check
   r@ cc-sd-total-size [lit] 8 * r> cc-sd-bit-end ! ;
 ' cc-bf-member is cc-nmember-fwd
 

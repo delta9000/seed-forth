@@ -4,7 +4,7 @@ A compiler binary can carry a backdoor that no reading of its
 source will find; Ken Thompson showed how in 1984.  The defence is
 a first program small enough to check by hand.  Here that program
 is 1,772 bytes of hand-encoded x86-64: a Forth that, given its
-library and 11,471 lines of compiler source (`020-cc-arena.fth`
+library and 12,089 lines of compiler source (`020-cc-arena.fth`
 through `120-cc-main.fth`, by `wc -l`), becomes a C compiler whose `.M1` output is byte-identical to
 GCC-built M2-Planet's, and whose opt-in LP64 extension compiles
 TinyCC directly. This book walks every one of those bytes and lines, and backs each of its central claims with a command you can run.
@@ -74,7 +74,8 @@ What you'll want installed:
 
 Disk budget: ~30 MiB for the repo plus vendored stage0-posix /
 M2-Planet / mescc-tools. Memory: the seed maps 16 MiB; legacy
-generated programs reserve a 256 MiB heap but only touch what they use. The direct compiler adds an 8 MiB scratch mapping; its
+generated programs reserve a 256 MiB heap but only touch what they use. The direct TinyCC compiler adds an 8 MiB scratch mapping; the experimental
+direct-GCC driver requests a fixed 16 MiB scratch mapping instead. The
 generated TinyCC seed uses portable libc's static heap. Appendix B
 separates these allocations.
 
@@ -137,7 +138,7 @@ where the previous chapter stopped.
   checks remain separate.
 - **Part VI (Chs 35–47, work in progress)** explains the reconstructed object,
   ABI, linker, archives, typed constants, header policy, variadic lists, and bounded
-  runtime components, binary64 values, exact literals, and bitfields. It includes unchanged GCC source-unit proofs;
+  runtime components, binary32/binary64 values, exact literals, and bitfields. It includes unchanged GCC source-unit proofs;
   a complete direct GCC bootstrap remains unfinished.
 - **Appendices A–G** are reference cards: primitives, memory
   map, reproducibility chain, worked exercises, further reading,
