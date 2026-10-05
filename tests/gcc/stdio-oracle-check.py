@@ -45,7 +45,7 @@ def main():
     run([ROOT / "seed-forth"], input=forth + b"\n" + driver.encode())
     for optimization in ("-O0", "-O2"):
         executable = work / ("oracle" + optimization[1:])
-        run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", optimization,
+        run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", optimization, "-U_FORTIFY_SOURCE",
              "-fno-builtin", "-fno-pie", "-no-pie", "-Wl,-z,noexecstack",
              ROOT / "tests/gcc/stdio-oracle.c", obj, syscall, "-o", executable])
         print(run([executable]).stdout.decode().strip(), optimization)

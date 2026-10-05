@@ -50,7 +50,7 @@ def main():
         for optimization in ("-O0", "-O2"):
             executable = work / ("oracle" + optimization[1:])
             run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", optimization,
-                 "-fno-builtin", "-fno-pie", "-no-pie", "-Wl,-z,noexecstack",
+                 "-fno-builtin", "-U_FORTIFY_SOURCE", "-fno-pie", "-no-pie", "-Wl,-z,noexecstack",
                  ROOT / "tests/gcc/runtime-oracle.c", *objects, syscall, "-o", executable])
             print(run([executable]).stdout.decode().strip(), optimization)
         print("Oracle only: host GCC, host linker and host libc are used by this check.")

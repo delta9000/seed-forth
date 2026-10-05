@@ -51,7 +51,7 @@ for path,expected in sources:
 if host:
     for level in ['-O0','-O2']:
         for path,expected in [(source,b'integer input boundaries passed\n')]+sources:
-            executable=OUT/(path.stem+'-host'+level[1:]);run([host,'-std=c90','-pedantic','-Wall','-Wextra','-Werror','-DINTEGER_INPUT_HOST',level,path,'-o',executable]);r=run([executable]);assert r.stdout==expected and not r.stderr,(level,path,r.stdout[-300:],expected[-300:])
+            executable=OUT/(path.stem+'-host'+level[1:]);run([host,'-std=c90','-pedantic','-Wall','-Wextra','-Werror','-Wno-format-security','-U_FORTIFY_SOURCE','-DINTEGER_INPUT_HOST',level,path,'-o',executable]);r=run([executable]);assert r.stdout==expected and not r.stderr,(level,path,r.stdout[-300:],expected[-300:])
         report['host_oracles'].append(level)
 assert identity==run(CC+['--print-source-hash']).stdout.decode().strip()
 names=['runtime/gcc-seed/scan.c','runtime/gcc-seed/atoi.c','runtime/gcc-seed/include/stdio.h','runtime/gcc-seed/include/stdlib.h','tests/gcc/integer-input-check.c','tests/gcc/integer-input-check.py'];report['source_sha256']={n:hashlib.sha256((ROOT/n).read_bytes()).hexdigest() for n in names}
