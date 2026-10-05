@@ -293,3 +293,61 @@ executables. It preserves the original configure command and probe inventory,
 records the old configuration compiler and exact header hashes, and supplies
 explicit Make command-line overrides for the new Forth tools. Configure is not
 rerun, so the source set used to answer its probes remains separately identified.
+
+## cc1 execute torture runner
+
+`gcc-direct/torture.py` replaces `build-out/torture.sh` and the header/torture
+steps of `build-out/full-run.sh`. Configure and census remain prerequisites:
+
+```sh
+python3 gcc-direct/torture.py CC1 GCC_BUILD_DIR \
+  --source build-out/direct-gcc-inputs/gcc-source \
+  --levels='-O0 -O2' -j6 --out build-out/torture-run1
+```
+
+Supply a Forth-built `cc1` and its configured `build/gcc` directory. Source,
+levels and jobs shown are defaults; each repeat needs a fresh output directory
+under this worktree's `build-out/`. `--extra` (or `EXTRA`) adds cc1 flags.
+This native runner supports `x86_64-pc-linux-gnu`. Host **gcc is ONLY an oracle**:
+it assembles/links cc1's assembly with `-no-pie -lm`; the host then executes it.
+Oracle binaries never enter the Forth build route. The runner retains
+`-quiet -w -fno-builtin-abort`, a 4,000,000 KiB cc1 address-space limit,
+120-second compiler and 20-second execution timeouts, and per-test assembly,
+executable, diagnostics and output. Parallelism cannot exceed six jobs.
+
+The supplied build stays read only. Configured files are copied into
+`OUT/header-build`; make uses the environment recorded in
+`BUILD/../../configure-command.json` (`--configure-record` overrides this).
+It runs `make CFLAGS= LDFLAGS= STMP_FIXINC= stmp-int-hdrs` with at most `-j6`,
+overrides `srcdir`/`VPATH` to the supplied source, and freezes
+`Makefile`/`config.status` against reconfiguration. Empty flags avoid the
+Makefile's hardcoded unsupported `-g`. Private headers and `xlimits.h` are
+rebuilt. Disabling fixincludes also bypasses its `syslimits.h` installation,
+so the runner copies `gcc/gsyslimits.h` to `include/syslimits.h` and makes it
+readable, exactly the Makefile's `stmp-fixinc` fallback when no fixed system
+`limits.h` exists. Its `#include_next <limits.h>` lets generated `limits.h`
+reach the host system limits. Private headers precede the native
+`/usr/include/x86_64-linux-gnu` headers, as in the scratch full-run script.
+
+The tiny evaluator validates every `.x` against the **25 exact active scripts**
+in `torture-x.json`, ignoring only blank lines and full-line comments; it does
+not interpret Tcl. Changed/unknown scripts, including orphan `.x` files, fail
+visibly. Its explicit patterns, implemented in `evaluate_x`, are:
+
+- `return 0/1`, positive/negated/OR `istarget` globs and expr-return skips.
+- Direct/target-conditional `set additional_flags`, including the i386
+  board/multilib choice, C99, instrumentation and stack-boundary flags.
+- Before-compile string-match/`continue` for `-fomit-frame-pointer`.
+- `torture_execute_xfail` and compile/execute conditional XFAIL tuples
+  (reason, target globs, include/exclude option groups, nested AND groups).
+- `set options` overwritten by `c-torture-execute`; commented-out hooks;
+  and the caught malformed target quote in `931004-12.x`, reported explicitly.
+
+No compile-only markers occur in this pinned execute suite; a new one fails
+as unrecognised. Reports classify `PASS`, `FAIL(cc1|link|run)`, `SKIP(reason)`
+and `XFAIL`. Active exceptions apply only to their failure stage; unexpected
+passes are `FAIL` with an `XPASS` reason. Setup/unknown-script errors and
+unexpected failures exit nonzero. `report.json` retains hashes, commands,
+exit codes, policies and `.x` inventory; `report.md` lists every result;
+`results.txt` provides a compact scratch-runner-style listing. Check exception
+semantics and error reporting with `python3 tests/gcc/torture-check.py`.
