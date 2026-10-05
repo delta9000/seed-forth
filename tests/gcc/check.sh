@@ -106,6 +106,8 @@ python3 tests/gcc/stdio-oracle-check.py
 python3 tests/gcc/startup-check.py
 python3 tests/gcc/descriptor-check.py
 python3 tests/gcc/descriptor-io-check.py
+python3 tests/gcc/fcntl-check.py
+python3 tests/gcc/stdint-check.py
 python3 tests/gcc/mapping-check.py
 python3 tests/gcc/dirent-check.py
 python3 tests/gcc/write-check.py

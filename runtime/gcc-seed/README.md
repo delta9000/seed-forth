@@ -142,6 +142,12 @@ Original GCC precompiled-header macro restoration also uses the
 unchanged. Its focused gate separates Forth production from host libc and
 host-to-Forth ABI checks.
 
+Original binutils 2.30 libiberty needs [exact-width integer types](STDINT.md)
+(`stdint.h`, also included by `inttypes.h`) for `obstack.c`, and
+[bounded descriptor control](FCNTL.md) for `pex-unix.c`: `fcntl` supports only
+the close-on-exec, status-flag and duplication commands binutils uses, and
+fails with EINVAL for every other command.
+
 The original GCC Linux host hooks use the real bounded public
 [mmap and munmap interfaces](MAPPING.md). Private file and anonymous mappings
 retain kernel ownership and errors; unsupported flags fail explicitly.
