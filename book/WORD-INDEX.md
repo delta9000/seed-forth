@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2567 names and 97 ideas.
+carry none.  2582 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -455,6 +455,7 @@ for which chapter depends on which, the
 - `cc-cast-desc` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-null-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-null-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
+- `cc-cast-operand-decay` — *compiler word (variable, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-types-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-types-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-value-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
@@ -1169,6 +1170,7 @@ for which chapter depends on which, the
 - `cc-native-unknown-ident-fwd` — *compiler word (defer, `100-cc-expr.fth`)* — [Ch 28, Identifiers, calls, and subscripts](28-expressions-part-2.md#identifiers-calls-and-subscripts)
 - `cc-nbase` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nbase-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nbase-next-specifier` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nbase-raw` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nbase-specifiers-default` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nbase-specifiers-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
@@ -1246,6 +1248,13 @@ for which chapter depends on which, the
 - `cc-npointer-array-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-npromote-fields` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nsize` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-base` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-check-default` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-check-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-count` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-counts` — *compiler word (create, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-keyword?` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-note` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-ntag-a` — *compiler word (variable, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-ntag-u` — *compiler word (variable, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-ntypedef-check-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
@@ -2015,6 +2024,7 @@ for which chapter depends on which, the
 - `cc-sysv-compatible-signatures` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-compatible-signatures-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-compatible-types` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-decay-qualified` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-default-compatible?` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-default-type` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-enable` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Goal](36-direct-gcc-calls.md#goal)
@@ -2096,6 +2106,11 @@ for which chapter depends on which, the
 - `cc-sysv-signatures` — *compiler word (create, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-size-product` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-sizeof-type` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-spec-bad` — *compiler word (variable, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-spec-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
+- `cc-sysv-spec-fail` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-spec-only` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-spec-total` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-stack-count` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-stack-depth` — *compiler word (variable, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-store-gp` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)

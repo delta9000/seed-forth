@@ -42,6 +42,9 @@ casts, pointer expressions and static address parsing so these qualifiers
 cannot silently disappear. Existing ordinary qualified scalar/pointer/array
 paths retain their previous behavior. This does not claim full C qualifier
 semantics. Some otherwise valid qualified array-pointer programs are rejected.
+A qualified array may decay as the direct operand of a runtime explicit cast
+(`(const T *)table`), whose type name replaces the row shape; see
+`tests/gcc/qualifier-order-check.py`.
 
 Implicit integer-to-array-pointer conversion accepts runtime zero literals
 (including integer suffixes and parenthesized literals), and zero-valued static

@@ -691,7 +691,7 @@ of the seed's bytes, nearly a quarter, are headers: links, flags,
 lengths and names.
 
 Every one of those 32 headers was laid by hand.  The library and
-the C compiler that Part III loads contain 1,338 colon definitions
+the C compiler that Part III loads contain 1,349 colon definitions
 (counting each `:` that starts one), and nobody writes their headers
 in hex.  Ch 18 reads the 82 bytes
 that do, and `lit_code`, which gets a number into compiled code

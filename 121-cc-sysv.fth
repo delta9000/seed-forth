@@ -121,13 +121,17 @@ defer cc-sysv-check-scalar
     [lit] 0 nc-inner ! nc-bound-mask @ [lit] 1 and nc-bound-mask !
   then, ;
 ' cc-sysv-array-extra is cc-narray-extra-fwd
+\ An explicit cast's operand may decay although its rows are qualified:
+\ the cast's type name replaces the row descriptor before any later use.
+: cc-sysv-decay-qualified ( -- flag )
+  cc-last-expr-qualified @ cc-cast-operand-decay @ 0= and ;
 : cc-sysv-array-decay
   cc-target-sysv @ cc-last-expr-array-len @ 0= 0= and
   cc-last-expr-type @ ty-base ty-array = and if,
-    cc-last-expr-qualified @ cc-qualified-array-check
+    cc-sysv-decay-qualified cc-qualified-array-check
   then,
   cc-target-sysv @ cc-last-expr-array-inner @ 0= 0= and if,
-    cc-last-expr-qualified @ cc-qualified-array-check
+    cc-sysv-decay-qualified cc-qualified-array-check
     cc-last-expr-type @ [lit] 1 - cc-last-struct-desc @
     cc-last-expr-array-inner @ [lit] 0 cc-sysv-array-node
     ty-array [lit] 1 ty-make swap cc-mark-typed-value
@@ -357,6 +361,40 @@ variable cc-sysv-parameter-register
     else, cc-qualifier? dup if, cc-qual-note then, then,
   while, cc-next-token-keep repeat, ;
 ' cc-sysv-parameter-specifiers is cc-nbase-specifiers-fwd
+\ C90 constrains the multiset of type keywords, whatever their order and
+\ any qualifiers between them. Only long may repeat (long long); one sign;
+\ void and float stand alone; double admits one long; char admits a sign;
+\ short admits int and a sign. Every declaration context rejects with 233.
+variable cc-sysv-spec-bad
+: cc-sysv-spec-fail ( flag -- ) cc-sysv-spec-bad @ or cc-sysv-spec-bad ! ;
+: cc-sysv-spec-total ( -- n )
+  [lit] 0 [lit] 0
+  begin, dup [lit] 9 < while, dup cc-nspec-count rot + swap 1+ repeat, drop ;
+\ Fail when any keyword outside the named slots' total is present.
+: cc-sysv-spec-only ( allowed -- ) cc-sysv-spec-total swap - [lit] 0 > cc-sysv-spec-fail ;
+: cc-sysv-spec-check
+  cc-target-sysv @ 0= if, exit, then,
+  [lit] 0 cc-sysv-spec-bad !
+  [lit] 0
+  begin, dup [lit] 9 < while,
+    dup cc-nspec-count over kw-long = if, [lit] 2 else, [lit] 1 then, >
+    cc-sysv-spec-fail 1+
+  repeat, drop
+  kw-unsigned cc-nspec-count kw-signed cc-nspec-count + dup >r
+  [lit] 1 > cc-sysv-spec-fail
+  kw-void cc-nspec-count if, kw-void cc-nspec-count cc-sysv-spec-only then,
+  [lit] 7 cc-nspec-count if, [lit] 7 cc-nspec-count cc-sysv-spec-only then,
+  [lit] 8 cc-nspec-count if,
+    kw-long cc-nspec-count [lit] 1 > cc-sysv-spec-fail
+    [lit] 8 cc-nspec-count kw-long cc-nspec-count + cc-sysv-spec-only
+  then,
+  kw-char cc-nspec-count if, kw-char cc-nspec-count r@ + cc-sysv-spec-only then,
+  kw-short cc-nspec-count if,
+    kw-short cc-nspec-count kw-int cc-nspec-count + r@ + cc-sysv-spec-only
+  then,
+  r> drop
+  cc-sysv-spec-bad @ if, [lit] 233 cc-die then, ;
+' cc-sysv-spec-check is cc-nspec-check-fwd
 : cc-sysv-parameter-base ( -- type descriptor )
   cc-sysv-parameter-context @ >r cc-sysv-parameter-register @ >r
   cc-nctx @ cc-sysv-parameter-context !

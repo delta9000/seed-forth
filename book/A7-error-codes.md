@@ -150,8 +150,8 @@ to its call site.
 | 156 | `110-cc-decl.fth:459` | Local array declaration: size is zero or negative. |
 | 157 | `110-cc-decl.fth:461` | Local array declaration: missing `]`. |
 | 159 | `110-cc-decl.fth:516` | Local declaration: a declarator followed by neither `,` nor `;`. |
-| 160 | `110-cc-decl.fth:687` | Struct local declaration: variable name missing. |
-| 161 | `110-cc-decl.fth:722` | Struct-pointer local not followed by `=` or `;`. |
+| 160 | `110-cc-decl.fth:692` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:727` | Struct-pointer local not followed by `=` or `;`. |
 | 162 | `110-cc-decl.fth:45` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
 | 170 | `112-cc-stmt.fth:508,833,838` | `case` label not followed by `:`. |
 | 171 | `112-cc-stmt.fth:661` | `cc-label-create`: selected per-function label table full (default 64, direct GCC 1,024), or its mapping fails. |
@@ -204,20 +204,20 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:377` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:410` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:723` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:382`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
 | 190 | `115-cc-native.fth:118` | Native enumerator is not an identifier. |
 | 192 | `115-cc-native.fth:126` | Native enumerator followed by neither `,` nor `}`. |
-| 194 | `115-cc-native.fth:153` | Native type identifier not found. |
-| 195 | `115-cc-native.fth:154` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:250,519` | Native declarator is missing its name. |
-| 205 | `115-cc-native.fth:534` | Native declaration missing its final semicolon. |
+| 194 | `115-cc-native.fth:193` | Native type identifier not found. |
+| 195 | `115-cc-native.fth:194` | Native type identifier is not a typedef. |
+| 203 | `115-cc-native.fth:283,552` | Native declarator is missing its name. |
+| 205 | `115-cc-native.fth:567` | Native declaration missing its final semicolon. |
 | 210 | `115-cc-native.fth:54` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
 | 213 | `060-cc-types.fth:230` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
-| 214 | `110-cc-decl.fth:384`, `115-cc-native.fth:176` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
+| 214 | `110-cc-decl.fth:384`, `115-cc-native.fth:209` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:152` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:76,77,88,96` | Invalid or empty inferred array initializer. |
 | 221 | `118-cc-native-init.fth:93,100,120` | Malformed or unterminated inferred initializer. |

@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (537 lines),
+This chapter owns `115-cc-native.fth` (570 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (318 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
@@ -90,6 +90,19 @@ structs from unions. `cc-nadd-field` aligns the next struct field,
 puts each union field at offset zero, and tracks total size and
 maximum alignment. `cc-npromote-fields` copies anonymous aggregate
 members into the parent with their enclosing offset added.
+
+`cc-nbase-raw` reads the base type of every native declaration and type
+name. C90 allows qualifiers between type keywords, so
+`cc-nbase-next-specifier` steps over them (noting the qualifier as
+usual) to reach the next keyword: `unsigned const char` and
+`long volatile int` name the same types as `const unsigned char` and
+`volatile long int`. The keywords are counted in `cc-nspec-counts`
+rather than folded as they arrive, and `cc-nspec-base` derives the
+base from the counts, so their order cannot matter either
+(`double long` is `long double`). A target may check the counted set
+through `cc-nspec-check-fwd`; the native profile keeps its permissive
+keyword sequence, while the System V target rejects invalid sets
+(Chapter 36).
 
 `cc-ndeclarator` handles the bounded declarator forms the target
 needs: pointers, function pointers, arrays, and function parameter
@@ -246,12 +259,52 @@ defer cc-nenum-desc-fwd
 defer cc-nbase-specifiers-fwd
 ' cc-nbase-specifiers-default is cc-nbase-specifiers-fwd
 
+\ C90 lets qualifiers and target specifiers appear between type keywords:
+\ `unsigned const char` and `long volatile int` name the same type as their
+\ qualifier-first spellings. Read past them into the next type keyword.
+\ Qualifiers keep their existing flag; they never change the base type.
+: cc-nbase-next-specifier
+  begin,
+    cc-nbase-specifiers-fwd
+    cc-qualifier? while, cc-qual-note cc-next-token-keep
+  repeat, ;
+
+\ Type keywords are counted per spelling: int .. signed use their keyword
+\ numbers 0-6, float is 7 and double 8. A target may check the multiset;
+\ native mode keeps its permissive keyword sequence.
+create cc-nspec-counts [lit] 72 allot
+: cc-nspec-count ( slot -- n ) cc-nspec-counts cell[] @ ;
+: cc-nspec-keyword? ( -- flag )
+  cc-tok-is-basic-type-kw? kw-float cc-tok-kw? or kw-double cc-tok-kw? or ;
+: cc-nspec-note
+  cc-nspec-keyword? 0= if, exit, then,
+  tok-kw-id @
+  dup kw-float = if, drop [lit] 7 then,
+  dup kw-double = if, drop [lit] 8 then,
+  cc-nspec-counts cell[] dup @ 1+ swap ! ;
+: cc-nspec-check-default ;
+defer cc-nspec-check-fwd
+' cc-nspec-check-default is cc-nspec-check-fwd
+
+\ The base comes from the counted keywords. In native mode an invalid set
+\ still selects one base: the first of void, float, double, char, short and
+\ long that occurs, otherwise int. Long double is double with a long.
+: cc-nspec-base ( -- base )
+  kw-void cc-nspec-count if, ty-void exit, then,
+  [lit] 7 cc-nspec-count if, ty-float exit, then,
+  [lit] 8 cc-nspec-count if,
+    kw-long cc-nspec-count if, ty-ldouble else, ty-double then, exit,
+  then,
+  kw-char cc-nspec-count if, ty-char exit, then,
+  kw-short cc-nspec-count if, ty-short exit, then,
+  kw-long cc-nspec-count if, ty-long exit, then,
+  ty-int ;
+
 \ The current token is a base type. Return encoded type and descriptor.
 : cc-nbase-raw
   cc-nctx @ 0= if, cc-ncontext then,
   [lit] 0 nc-base-array ! [lit] 0 nc-base-inner !
-  cc-nbase-specifiers-fwd
-  begin, cc-qualifier? while, cc-qual-note cc-next-token-keep repeat,
+  cc-nbase-next-specifier
   cc-native-implicit-base-fwd if, exit, then,
   kw-struct cc-tok-kw? kw-union cc-tok-kw? or if,
     cc-naggregate-fwd exit,
@@ -264,22 +317,15 @@ defer cc-nbase-specifiers-fwd
     cc-ntypedef-check-fwd
     dup cc-sym-val-of swap cc-sym-struct-desc-of exit,
   then,
-  \ Stack: base unsigned? long-seen?; preserve all across token reads.
-  ty-int [lit] 0 [lit] 0
+  \ Count every keyword first, so the spelling order cannot matter.
+  cc-nspec-counts [lit] 72 cc-nzero
   begin,
-    kw-char cc-tok-kw? if, rot drop ty-char cc-nminus-rot then,
-    kw-short cc-tok-kw? if, rot drop ty-short cc-nminus-rot then,
-    kw-long cc-tok-kw? if, drop true rot drop ty-long cc-nminus-rot then,
-    kw-void cc-tok-kw? if, rot drop ty-void cc-nminus-rot then,
-    kw-float cc-tok-kw? if, rot drop ty-float cc-nminus-rot then,
-    kw-double cc-tok-kw? if,
-      dup if, rot drop ty-ldouble cc-nminus-rot else, rot drop ty-double cc-nminus-rot then,
-    then,
-    kw-unsigned cc-tok-kw? if, swap drop true swap then,
-    cc-next-token-keep cc-nbase-specifiers-fwd
-    cc-tok-is-basic-type-kw? kw-float cc-tok-kw? or kw-double cc-tok-kw? or
+    cc-nspec-note
+    cc-next-token-keep cc-nbase-next-specifier
+    cc-nspec-keyword?
   while, repeat,
-  cc-putback-token drop
+  cc-putback-token cc-nspec-check-fwd
+  cc-nspec-base kw-unsigned cc-nspec-count
   over ty-float = [lit] 2 cc-npick ty-double = or
   [lit] 2 cc-npick ty-ldouble = or cc-native-float-types-fwd 0= and if,
     [lit] 214 cc-die
