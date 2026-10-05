@@ -14,7 +14,7 @@ slot, and array length or struct descriptor (Ch 24 §3).  M2-Planet also leans o
 that point to their own type, so a struct's tag has to be usable
 before its body has finished parsing.
 
-That machinery is `110-cc-decl.fth` (785 lines), the first of the
+That machinery is `110-cc-decl.fth` (792 lines), the first of the
 four files that make up the parser.  This chapter reads all of it.
 The other three follow it in load order and each has its own
 chapter: `112-cc-stmt.fth` holds the statements (Ch 30), and
@@ -837,6 +837,7 @@ defer cc-cast-null-fwd
   cc-parse-unary
   cc-emit-materialize
   r> r> r> swap >r                                 ( desc ty ; R: qualification )
+  over cc-cast-desc !                              \ the operand may hold casts
   cc-target-lp64 @ if,
     cc-last-expr-type @ over cc-cast-types-fwd
     cc-last-expr-type @ over cc-cast-value-fwd
@@ -1018,6 +1019,10 @@ end label.
 \ the epilogue's ret.
 defer cc-value-return-fwd
 ' cc-emit-mov-rax-rdi is cc-value-return-fwd
+\ A target may reject a result shape before any conversion is emitted.
+: cc-return-shape-default ( type descriptor type descriptor -- ) 2drop 2drop ;
+defer cc-return-shape-fwd
+' cc-return-shape-default is cc-return-shape-fwd
 
 : cc-parse-return
   cc-next-token-keep
@@ -1029,6 +1034,8 @@ defer cc-value-return-fwd
     cc-putback-token
     cc-parse-expr
     cc-target-lp64 @ if,
+      cc-last-expr-type @ cc-last-struct-desc @
+      cc-native-return-type @ cc-native-return-desc @ cc-return-shape-fwd
       cc-last-expr-type @ cc-native-return-type @ cc-emit-convert-value
     then,
     cc-value-return-fwd                           \ result -> rax (SYS-V)

@@ -2,7 +2,8 @@
 \ Raw payloads occupy RDI/RCX and eight-byte expression/frame slots.
 \ Binary32 storage is four bytes; arithmetic rounds at its own precision.
 \ XMM0/XMM1 are transient arithmetic registers; XMM0 carries ABI results.
-\ Long double and static floating initializers remain checked boundaries.
+\ Long double moves as X87 data (121, 131); static floating initializers
+\ remain checked boundaries.
 \ No native/TinyCC mode is changed.
 
 : cc-f64-type? ( type -- flag )

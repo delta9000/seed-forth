@@ -87,8 +87,8 @@ def main():
             print('PASS:',name,'uses selected-arm conversion')
 
         rejects={
-            'extended-value':'long double f(long double *p){return *p;}',
-            'long-double-value':'long double f(long double *p){return *p;}',
+            'extended-value':'double f(long double *p){return *p;}',
+            'long-double-value':'long double f(double *p){return *p;}',
             'prefix-increment':'double f(double *p){return ++*p;}',
             'postfix-increment':'double f(double *p){return (*p)++;}',
             'prefix-decrement':'double f(double *p){return --*p;}',
@@ -107,9 +107,9 @@ def main():
             path=work/(name+'.c'); path.write_text(source+'\n')
             rejected=work/(name+'.o')
             run([ROOT/'tests/gcc/sysv-object-compile.sh',path,rejected,
-                 ROOT/'runtime/gcc-seed/include'],247 if name=='single-va-arg' else 232)
+                 ROOT/'runtime/gcc-seed/include'],247 if name=='single-va-arg' else 249 if name.endswith('-value') else 232)
             if rejected.exists(): raise RuntimeError(f'{name}: rejected object was published')
-            code=247 if name=='single-va-arg' else 232
+            code=247 if name=='single-va-arg' else 249 if name.endswith('-value') else 232
             print('PASS:',name,'rejects with',code)
             results.append({'kind':'fail-closed','name':name,'exit':code})
 

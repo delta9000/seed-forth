@@ -80,8 +80,11 @@ plan and [chapter 42](42-direct-gcc-varargs.md) supplies variadic retrieval.
 K&R definitions with declared float parameters reject with232: their incoming
 ABI values are promoted doubles, so accepting them requires a separate entry
 conversion. Ordinary unspecified-prototype outgoing calls still promote float
-to double correctly. Long-double computation and static floating initializers
-remain rejected.
+to double correctly. Long double is not a binary64 extension: chapter 36
+represents it as an opaque sixteen-byte X87 object that chapter 48 moves
+without computing, and every long double arithmetic operation or conversion
+to or from these types is error 249. Static floating initializers remain
+rejected.
 Floating increment/decrement remains rejected. Conditional arithmetic arms use
 the common type and convert only the selected value: integer with float gives
 float, and either type with double gives double. Separate conversion tails
@@ -124,7 +127,8 @@ proofs, not a linked GCC compiler or a same-epoch configuration bootstrap.
 \ Raw payloads occupy RDI/RCX and eight-byte expression/frame slots.
 \ Binary32 storage is four bytes; arithmetic rounds at its own precision.
 \ XMM0/XMM1 are transient arithmetic registers; XMM0 carries ABI results.
-\ Long double and static floating initializers remain checked boundaries.
+\ Long double moves as X87 data (121, 131); static floating initializers
+\ remain checked boundaries.
 \ No native/TinyCC mode is changed.
 
 : cc-f64-type? ( type -- flag )

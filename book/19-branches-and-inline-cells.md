@@ -8,7 +8,7 @@ Proof link: the C compiler's jump fixups (Ch 30) reuse the shape, just in x86-64
 ```
 
 Outside comments and their own definitions, `if,` and `while,` are
-used 2,245 times in the library and the C compiler.  Every one
+used 2,264 times in the library and the C compiler.  Every one
 compiles to a `CALL` plus an 8-byte
 cell (Ch 11), and every loop's backward edge is another.  Yet
 `branch_code`, the unconditional jump behind `else,` and `repeat,`,

@@ -97,8 +97,10 @@ def main():
       'float-entry-prior-double':(232,A+'long f(struct A,double);long f(a,x) float x;struct A a;{return a.x;}'),
       'scalar-float-entry':(232,'long f(x)float x;{return 0;}'),
       'floating-record':(232,'struct A{double x;};long f(a)struct A a;{return 0;}'),
-      'long-double-record':(232,'struct A{long double x;};long f(a)struct A a;{return 0;}'),
-      'long-double-entry':(232,A+'long f(a,x)struct A a;long double x;{return 0;}'),
+      # Long double entry is X87 data movement (long-double-check.py); a binary64
+      # member or a conversion of the parameter remains a checked boundary.
+      'long-double-record':(232,'struct A{long double x;double d;};long f(a)struct A a;{return 0;}'),
+      'long-double-entry':(249,A+'long f(a,x)struct A a;long double x;{return x;}'),
       'variadic-record':(232,A+'long f(struct A a,...){return a.x;}'),
       'variadic-result':(232,A+'struct A f(int x,...){struct A a;return a;}'),
       'variadic-call':(232,A+'long f(int,...);long g(void){struct A a;return f(1,a);}'),

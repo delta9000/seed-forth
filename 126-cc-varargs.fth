@@ -1,4 +1,4 @@
-\ 126-cc-varargs.fth — INTEGER/binary64 System V AMD64 variadic callees.
+\ 126-cc-varargs.fth — INTEGER/binary64/X87 System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
 \ Six GP and eight XMM slots belong to each invocation below named parameters.
 \ Binary64 retrieval consumes XMM or overflow slots; 131 supplies named ABI offsets.
@@ -75,6 +75,11 @@ create cc-va-tag-name s, __seed_va_list_tag
   [lit] 133 cc-emit-byte cc-emit-4le       \ lea rax, [rbp+disp32]
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
   [lit] 71 cc-emit-byte r> cc-emit-byte ; \ mov [rdi+disp8], rax
+\ The last named parameter's frame slot; 131 supplies it from its entry plan,
+\ where a sixteen-byte long double parameter occupies two slots.
+: cc-va-last-slot-default ( -- slot ) cc-va-signature @ cc-sysv-sig-count ;
+defer cc-va-last-slot-fwd
+' cc-va-last-slot-default is cc-va-last-slot-fwd
 : cc-va-last-named
   cc-va-signature @ dup 0= if, [lit] 246 cc-va-die then,
   dup cc-sysv-sig-varargs [lit] 1 and 0= if, [lit] 246 cc-va-die then,
@@ -86,7 +91,7 @@ create cc-va-tag-name s, __seed_va_list_tag
   tok-str-addr @ tok-str-len @ cc-sym-find
   dup 0< if, [lit] 246 cc-va-die then,
   dup cc-sym-kind-of sk-local <> if, [lit] 246 cc-va-die then,
-  cc-sym-val-of cc-va-signature @ cc-sysv-sig-count <> if,
+  cc-sym-val-of cc-va-last-slot-fwd <> if,
     [lit] 246 cc-va-die
   then, ;
 : cc-va-layout-default ( -- gp-offset fp-offset overflow-offset )
@@ -148,8 +153,24 @@ defer cc-va-layout-fwd
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
   [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
   cc-emit-mov-rdi-rax r> cc-patch-rel32-to-here ;
+\ Long double is class X87: always in the overflow area, aligned to sixteen
+\ and sixteen bytes long, never in a register save slot. The result is the
+\ object's address, as for every long double value (121).
+: cc-va-next-x87-address
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 71 cc-emit-byte [lit] 8 cc-emit-byte          \ mov rax, [rdi+8]
+  [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+  [lit] 192 cc-emit-byte [lit] 15 cc-emit-byte        \ add rax, 15
+  [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+  [lit] 224 cc-emit-byte [lit] 240 cc-emit-byte       \ and rax, -16
+  [lit] 72 cc-emit-byte [lit] 141 cc-emit-byte
+  [lit] 72 cc-emit-byte [lit] 16 cc-emit-byte         \ lea rcx, [rax+16]
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
+  cc-emit-mov-rdi-rax ;
 : cc-va-check-result-type ( type -- )
   dup [lit] 256 / [lit] 255 and if, [lit] 247 cc-va-die then,
+  dup cc-cast-desc @ cc-ld? if, drop exit, then,
   dup ty-ptr if, drop exit, then,
   ty-base dup ty-int = over ty-uint = or
   over ty-long = or over ty-ulong = or over ty-llong = or over ty-ullong = or
@@ -160,6 +181,9 @@ defer cc-va-layout-fwd
   cc-type-name-array @ cc-type-name-inner @ or if, [lit] 247 cc-va-die then,
   dup cc-va-check-result-type cc-cast-desc @ >r >r
   [char] ) cc-va-expect
+  r> r> 2dup >r >r cc-ld? if,
+    cc-va-next-x87-address r> r> cc-mark-typed-value exit,
+  then,
   r@ ty-double [lit] 0 ty-make = if,
     cc-va-next-double-address
   else, cc-va-next-address then,

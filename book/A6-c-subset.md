@@ -295,3 +295,13 @@ standard call ABI support the real-floating, bitfield, VLA, and local-enum
 programs tested after the direct bootstrap. The executable/object fixed
 points and all 136 libc checks are reported separately from the focused
 Forth compiler gates in [`tests/tcc/README.md`](https://github.com/delta9000/seed-forth/blob/master/tests/tcc/README.md).
+
+## Floating types in the direct-GCC System V target
+
+The direct-GCC target ([chapters 36](36-direct-gcc-calls.md)–[48](48-direct-gcc-aggregate-abi.md))
+keeps the three floating types apart:
+
+| Type | Supported | Size / alignment | Boundary |
+|---|---|---|---|
+| `float`, `double` | values, arithmetic, comparisons, integer conversions, named and variadic arguments, results in XMM0, `va_arg(list, double)` | 4/4, 8/8 | Static floating initializers, `++`/`--`, `f`-suffixed literals, records with binary32/binary64 members by value ([Ch 45](45-direct-gcc-binary64.md)) |
+| `long double` | data movement only: objects, arrays, record/union members, copy, assignment and initialization from long double, `?:` between long doubles, `&`, `sizeof`, named and variadic arguments and identifier-list parameters (stack, sixteen-aligned), results in `st(0)`, `va_arg(list, long double)`, X87/MEMORY records containing it, a cast to its own type | 16/16, x87 80-bit extended in the low ten bytes | Any arithmetic, comparison, condition, conversion or cast to/from another type, and static initializers: error 249; `L`-suffixed literals: 248 ([Ch 48](48-direct-gcc-aggregate-abi.md) §4) |

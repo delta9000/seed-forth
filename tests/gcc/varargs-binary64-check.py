@@ -47,10 +47,12 @@ def main():
         print(result.stdout.strip(), opt)
     rejects = {
         "single": (247, "int f(int n,...){va_list a;va_start(a,n);va_arg(a,float);return 0;}"),
-        "extended": (247, "int f(int n,...){va_list a;va_start(a,n);va_arg(a,long double);return 0;}"),
-        "named-extended": (232, "long double f(long double n,...){return n;}"),
-        "variadic-extended-call": (232, "extern int f(int,...);int g(long double *p){return f(0,*p);}"),
-        "indirect-extended-call": (232, "int g(int (*f)(int,...),long double *p){return f(0,*p);}"),
+        # Long double retrieval and passing are data movement (long-double-check.py);
+        # any conversion of the retrieved or named value needs x87 code.
+        "extended": (249, "int f(int n,...){va_list a;va_start(a,n);return va_arg(a,long double);}"),
+        "named-extended": (249, "double f(long double n,...){return n;}"),
+        "variadic-extended-call": (249, "extern int f(int,...);int g(long double *p){return f(0,(double)*p);}"),
+        "indirect-extended-call": (249, "int g(int (*f)(int,...),long double *p){return f(0,-*p);}"),
     }
     for name, (status, code) in rejects.items():
         source = work / (name + ".c")

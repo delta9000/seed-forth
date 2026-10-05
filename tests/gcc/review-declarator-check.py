@@ -84,7 +84,7 @@ def main():
         src=work/(name+'.c');src.write_text(source+'\n')
         out=work/(name+'.o');out.unlink(missing_ok=True)
         checks=[]
-        expected=237 if name.endswith('conflict') else 235 if 'too-few' in name or 'too-many' in name else 232 if name in ('callback-record-arg','callback-record-return','callback-long-double-arg') else 230 if name=='fnptr-object-call' else 143 if name.startswith('missing-') else 238
+        expected=237 if name.endswith('conflict') else 235 if 'too-few' in name or 'too-many' in name else 249 if name=='callback-long-double-arg' else 232 if name in ('callback-record-arg','callback-record-return') else 230 if name=='fnptr-object-call' else 143 if name.startswith('missing-') else 238
         for mode in ('object','mapped'):
             out.unlink(missing_ok=True)
             for exists in (False,True):

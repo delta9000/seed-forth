@@ -24,9 +24,9 @@ is MEMORY. The recursive walk validates every union alternative and array
 element type. The parser currently produces natural layouts; a synthetic
 unaligned descriptor tests the classifier separately from the C ABI tests.
 
-Floating members, vector classes, over-aligned and empty records, aggregate
-variadic calls, and aggregate calls without a visible prototype are deliberately
-rejected. Packed attributes remain outside the
+Binary32/binary64 members, vector classes, over-aligned and empty records,
+aggregate variadic calls, and aggregate calls without a visible prototype are
+deliberately rejected. Long double members are admitted as X87 leaves (§4). Packed attributes remain outside the
 parser's supported dialect. Classifying a pointer does not inspect its pointee.
 Declaration and `sizeof` metadata remain usable for unsupported value classes.
 Argument descriptor identity is still checked inside `sizeof`; suppressing
@@ -85,7 +85,9 @@ in source order and advance in eight-byte units, with the outgoing block
 aligned to sixteen before CALL. Scalar float and double share the SSE bank;
 float payloads use the low four bytes. The eight-byte private frame slots
 permit a shared register-move encoder without increasing C object sizes.
-Long double and floating-member records remain checked boundaries.
+A stack argument starts at a multiple of its own alignment, at least eight, so
+long double and records containing it take sixteen-byte stack slots (§4).
+Binary32/binary64-member records remain a checked boundary.
 
 The measured new source requirement is GCC 4.0.4 `gcc/genautomata.c`:
 `estimate_one_automaton_bound` calls `exp(log(...)/automata_num)`. The ABI
@@ -134,7 +136,56 @@ GP, XMM and stack consumption to `va_start`, while aggregate variadics remain
 rejected. The native and TinyCC targets are unchanged when System V mode is
 disabled.
 
-## 4. Check both sides independently
+## 4. Carry long double as X87 data
+
+On x86-64 Linux, `long double` is the x87 80-bit extended format: ten
+significant bytes stored in sixteen, aligned to sixteen. The psABI gives it
+its own classes. An X87 argument, named or unnamed, always goes to the stack
+in a sixteen-aligned, sixteen-byte slot and never consumes a GP or XMM
+register. An X87 result returns in `st(0)`, the top of the x87 register stack.
+A record of exactly sixteen bytes whose only leaves are long double, such as
+`struct { long double x; }`, has the same classes. Any other leaf sharing an
+eightbyte with X87, as in `union { int i; long double x; }`, makes the whole
+object MEMORY.
+
+The source demand is binutils 2.30 `bfd/bfd.c`. Its positional `printf` keeps
+`union _bfd_doprnt_args { ... double d; long double ld; ... }` and fetches
+`args[i].ld = va_arg (ap, long double)` unconditionally. The code that would
+format the value is under `HAVE_LONG_DOUBLE`, which bfd's configuration leaves
+undefined. The unit needs the type's layout and its bytes, not its arithmetic.
+
+So this compiler moves long double and never computes with it. Layer 121
+replaces the keyword-spelled base with an opaque record: type `ty-struct`
+with one shared, memberless sixteen-byte descriptor, so every spelling and
+typedef has one identity. A long double expression is then its object's
+address, exactly as a record's is, and the paths above already declare, lay
+out, copy, assign, initialize from another long double, select with `?:`,
+take addresses, and reach members of enclosing records. The walk treats that
+descriptor as a leaf: it notes the X87 leaf and any other leaf, and
+`cc-ag-class` returns class four for a pure sixteen-byte X87 object or
+MEMORY otherwise. Class four travels like MEMORY when it is an argument; a
+result is loaded by `fld tbyte [rdi]` in the callee and stored by `fstp
+tbyte` into the caller's result slot, so the x87 stack is empty again at
+once. These are the instructions GCC itself uses for this class; for the
+80-bit format they perform no conversion, so finite values, infinities and
+NaNs, signaling ones included, keep their bytes, as the tests check bitwise.
+
+Long double has no default promotion and the same ABI in every prototype
+form, so it may appear in variadic signatures, as an unnamed argument, in
+unprototyped calls and in identifier-list definitions; records containing
+it keep the record rules. [Chapter 42](42-direct-gcc-varargs.md) retrieves it
+from the overflow area.
+
+Everything that would need x87 computation is a checked boundary with its
+own diagnostic, `long-double: cc: line N: error 249`. That covers
+arithmetic, comparison, unary operators, conditions, integer-only uses,
+compound assignment and increment, every conversion to or from another type
+(assignment, argument, result, initializer, `?:` arm or cast), and static
+initializers, which would need encoded x87 bytes at compile time. A cast of
+long double to itself is accepted and moves nothing. `L`-suffixed literals
+are rejected earlier, with the literal decoder's 248.
+
+## 5. Check both sides independently
 
 `python3 tests/gcc/aggregate-check.py --oracle` builds the production objects,
 entry and runtime with Forth and links them with the Forth linker. A mapped ELF
@@ -192,12 +243,25 @@ compares six native/TinyCC-profile ELF fixtures byte-for-byte against the
 accepted compiler. The existing INTEGER/MEMORY and binary64 `va_arg` gates
 continue to test their separate boundaries.
 
+`python3 tests/gcc/long-double-check.py` makes values by host arithmetic
+(`1.0L/3`, `LDBL_MAX`, `-0.0L`, a subnormal, `-Inf`) and by explicit bytes
+(quiet and signaling NaN payloads), then compares their ten significant bytes
+with `memcmp` after every crossing. Host O0/O2 code calls Forth-built named,
+variadic, X87-record, MEMORY-record and union functions, and the Forth code
+calls host and Forth peers back, including through a function pointer, an
+unprototyped declaration and an identifier-list definition. Its reduction of
+bfd's union and `va_arg` loop passes the `va_list` to a helper as bfd does.
+Sizes and offsets are compared with host GCC's. A Forth-only build repeats the
+movement without a host object, and host-only builds prove the fixtures. Each
+rejected operation keeps its exact code and leaves outputs untouched.
+
 ## Canonical source
 
 ```forth file=131-cc-aggregate-abi.fth
-\ 131-cc-aggregate-abi.fth -- shared INTEGER/binary32/binary64/MEMORY SysV ABI.
+\ 131-cc-aggregate-abi.fth -- shared INTEGER/binary32/binary64/X87/MEMORY SysV ABI.
 \ Record expressions carry addresses. The ABI transports object bytes, never
 \ that address: up to two INTEGER eightbytes, otherwise a private stack copy.
+\ Long double (121) is X87: a sixteen-aligned stack copy, returned in st(0).
 \ Floating members, vector classes and aggregate varargs are not implemented.
 create cc-ag-error-prefix s, aggregate-abi: bl c,
 : cc-ag-die cc-ag-error-prefix [lit] 15 cc-err-write [lit] 232 cc-die ;
@@ -207,6 +271,9 @@ create cc-ag-error-prefix s, aggregate-abi: bl c,
 \ Validate each nested member, including members of unions and arrays.
 \ A descriptor with an unaligned member is MEMORY; the current parser emits
 \ natural layouts, but the classifier does not rely on this coincidence.
+\ The walk notes whether it met a long double leaf and any other leaf.
+variable cc-ag-x87
+variable cc-ag-other
 defer cc-ag-walk-fwd
 : cc-ag-walk ( type descriptor offset -- unaligned? )
   >r
@@ -214,7 +281,11 @@ defer cc-ag-walk-fwd
   over ty-base ty-array = [lit] 2 cc-npick ty-ptr 0= and if,
     nip dup cc-ad-type swap cc-ad-desc r> cc-ag-walk-fwd exit,
   then,
+  2dup cc-ld? if,
+    2drop true cc-ag-x87 ! r> [lit] 16 cc-mod 0= 0= exit,
+  then,
   over cc-ag-type? 0= if,
+    true cc-ag-other !
     drop dup ty-ptr 0= if,
       dup ty-base dup ty-float = over ty-double = or
       swap ty-ldouble = or if, cc-ag-die then,
@@ -223,7 +294,7 @@ defer cc-ag-walk-fwd
   then,
   nip dup 0= if, cc-ag-die then,
   dup cc-sd-total-size 0= if, cc-ag-die then,
-  dup cc-sd-align dup [lit] 8 > if, cc-ag-die then,
+  dup cc-sd-align dup [lit] 16 > if, cc-ag-die then,
   r@ swap cc-mod 0= 0= swap
   [lit] 0 begin, over cc-sd-field-count over > while,
     2dup cc-sd-field-rec
@@ -233,12 +304,20 @@ defer cc-ag-walk-fwd
     >r drop rot r> or rot rot 1+
   repeat, 2drop r> drop ;
 ' cc-ag-walk is cc-ag-walk-fwd
-\ Class is zero for MEMORY, one/two INTEGER eightbytes, three for scalar SSE.
+\ Class is zero for MEMORY, one/two INTEGER eightbytes, three for scalar SSE
+\ and four for X87: sixteen bytes holding only long double leaves, which an
+\ argument passes like MEMORY and a result returns in st(0). Any other leaf
+\ sharing an eightbyte with X87 makes the whole object MEMORY.
 : cc-ag-class ( type descriptor -- class )
   over cc-fp-type? if, 2drop [lit] 3 exit, then,
   over cc-ag-type? 0= if, cc-sysv-abi-type-default [lit] 1 exit, then,
+  [lit] 0 cc-ag-x87 ! [lit] 0 cc-ag-other !
   2dup [lit] 0 cc-ag-walk >r nip cc-sd-total-size
   dup cc-sysv-object-size-limit > if, cc-ag-die then,
+  cc-ag-x87 @ if,
+    [lit] 16 = cc-ag-other @ 0= and r> 0= and if, [lit] 4 else, [lit] 0 then,
+    exit,
+  then,
   dup [lit] 16 > r> or if, drop [lit] 0 else, [lit] 7 + [lit] 8 / then, ;
 : cc-ag-abi-type ( type descriptor -- ) cc-ag-class drop ;
 ' cc-ag-abi-type is cc-sysv-abi-type-fwd
@@ -295,10 +374,16 @@ variable cc-ag-plan
     ag-signature @ cc-sysv-sig-desc cc-sd-total-size ag-return-size !
     ag-return-class @ 0= if, [lit] 1 ag-gp ! then,
   then, ;
+\ Long double has no promotions and one ABI in every prototype form, so only
+\ records restrict the signature forms below.
+: cc-ag-record? ( type descriptor -- flag )
+  2dup cc-ld? 0= swap drop swap cc-ag-type? and ;
 : cc-ag-signature? ( signature -- flag )
-  dup cc-sysv-sig-return cc-ag-type? if, drop true exit, then,
+  dup cc-sysv-sig-return over cc-sysv-sig-desc cc-ag-record? if, drop true exit, then,
   [lit] 0 begin, over cc-sysv-sig-count over > while,
-    2dup cc-sysv-sig-param @ cc-ag-type? if, 2drop true exit, then, 1+
+    2dup cc-sysv-sig-param dup @ swap [lit] 8 + @ cc-ag-record? if,
+      2drop true exit,
+    then, 1+
   repeat, 2drop [lit] 0 ;
 : cc-ag-check-entry ( signature -- )
   \ K&R float parameters arrive as promoted doubles, but the local declared
@@ -329,12 +414,14 @@ variable cc-ag-plan
       ag-fp @ r@ [lit] 32 + ! [lit] 1 ag-fp +!
     else, true r@ [lit] 32 + ! then,
   else,
-    r@ ag-class dup 0= over ag-gp @ + [lit] 6 > or if,
+    r@ ag-class dup 0= over [lit] 4 = or over ag-gp @ + [lit] 6 > or if,
       drop true r@ [lit] 32 + !
     else, ag-gp @ r@ [lit] 32 + ! ag-gp +! then,
   then,
+  \ Stack copies keep their own alignment, at least eight: X87 takes sixteen.
   r@ ag-register [lit] 0 < if,
-    ag-stack @ r@ [lit] 40 + !
+    ag-stack @ r@ ag-type r@ ag-desc cc-nalignment [lit] 8 cc-nmax cc-nalign
+    dup ag-stack ! r@ [lit] 40 + !
     r@ ag-size [lit] 8 cc-nalign ag-stack +!
   then,
   r@ ag-size cc-ag-frame r> [lit] 48 + ! ;
@@ -379,8 +466,12 @@ variable cc-ag-plan
       ag-signature @ ag-count @ cc-sysv-parameter-type
     else,
       ag-signature @ cc-sysv-sig-varargs [lit] 3 and 0= if, [lit] 235 cc-die then,
-      cc-last-expr-type @ cc-sysv-check-scalar
-      cc-last-expr-type @ cc-sysv-default-type cc-last-struct-desc @
+      cc-last-expr-type @ cc-last-struct-desc @ cc-ld? if,
+        cc-last-expr-type @ cc-last-struct-desc @
+      else,
+        cc-last-expr-type @ cc-sysv-check-scalar
+        cc-last-expr-type @ cc-sysv-default-type cc-last-struct-desc @
+      then,
     then,
     2dup >r >r cc-last-expr-type @ cc-last-struct-desc @ r> r> cc-value-shape-fwd
     ag-count @ cc-ag-locate
@@ -437,6 +528,10 @@ variable cc-ag-plan
     then, drop 1+
   repeat, drop ;
 : cc-ag-result
+  ag-return-class @ [lit] 4 = if,
+    [lit] 219 cc-emit-byte ag-result @ [lit] 125 cc-emit-local-ea \ fstp tbyte
+    ag-live @ cc-sysv-restore-live ag-result @ cc-emit-lea-rdi-local exit,
+  then,
   ag-return-class @ [lit] 0 >= if,
     ag-return-class @ if,
       [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
@@ -561,7 +656,9 @@ variable cc-ag-sret-slot
   cc-native-return-type @ cc-ag-type? 0= if, cc-fp-return exit, then,
   cc-last-expr-type @ cc-native-return-type @ <>
   cc-last-struct-desc @ cc-native-return-desc @ <> or if, cc-ag-die then,
-  cc-native-return-type @ cc-native-return-desc @ cc-ag-class dup 0= if,
+  cc-native-return-type @ cc-native-return-desc @ cc-ag-class
+  dup [lit] 4 = if, drop [lit] 219 cc-emit-byte [lit] 47 cc-emit-byte exit, then, \ fld tbyte [rdi]
+  dup 0= if,
     drop cc-ni-mov-rsi-rdi cc-ag-sret-slot @ cc-emit-load-local
     cc-emit-mov-rax-rdi
     cc-native-return-desc @ cc-sd-total-size cc-ni-copy-bytes
@@ -576,18 +673,24 @@ variable cc-ag-sret-slot
 ' cc-ag-return is cc-value-return-fwd
 
 \ An address representation is not permission to use a record as a scalar.
-\ Explicit record casts remain outside this value contract.
+\ Explicit record casts remain outside this value contract. Long double
+\ shares the representation; every computing use is error 249 instead.
 : cc-ag-scalar-use ( type -- ) dup cc-ag-type? if, cc-ag-die then, drop ;
-: cc-ag-plus cc-last-expr-type @ cc-ag-scalar-use ;
+: cc-ld-scalar-use ( type descriptor -- )
+  over swap cc-ld? if, cc-ld-die then, cc-ag-scalar-use ;
+: cc-ag-last-use cc-last-expr-type @ cc-last-struct-desc @ cc-ld-scalar-use ;
+: cc-ag-plus cc-ag-last-use ;
 ' cc-ag-plus is cc-value-plus-fwd
 : cc-ag-common-type ( left right -- type )
-  over cc-ag-scalar-use dup cc-ag-scalar-use cc-fp-common-type ;
+  over cc-expr-left-desc @ cc-ld-scalar-use
+  dup cc-expr-right-desc @ cc-ld-scalar-use cc-fp-common-type ;
 ' cc-ag-common-type is cc-expr-common-type
-: cc-ag-test cc-last-expr-type @ cc-ag-scalar-use cc-fp-test ;
-: cc-ag-not cc-last-expr-type @ cc-ag-scalar-use cc-fp-not ;
-: cc-ag-negate cc-last-expr-type @ cc-ag-scalar-use cc-fp-negate ;
-: cc-ag-complement cc-last-expr-type @ cc-ag-scalar-use cc-fp-complement ;
-: cc-ag-integer-use dup cc-ag-scalar-use cc-fp-integer-use ;
+: cc-ag-test cc-ag-last-use cc-fp-test ;
+: cc-ag-not cc-ag-last-use cc-fp-not ;
+: cc-ag-negate cc-ag-last-use cc-fp-negate ;
+: cc-ag-complement cc-ag-last-use cc-fp-complement ;
+: cc-ag-integer-use
+  dup cc-last-struct-desc @ cc-ld-scalar-use cc-fp-integer-use ;
 ' cc-ag-test is cc-value-test-fwd
 ' cc-ag-not is cc-value-not-fwd
 ' cc-ag-negate is cc-value-negate-fwd
@@ -604,6 +707,7 @@ variable cc-ag-sret-slot
   then,
   cc-patch-rel32-to-here
   drop 2drop
+  2dup cc-last-expr-type @ cc-last-struct-desc @ cc-ld-mismatch
   over cc-last-expr-type @ <> over cc-last-struct-desc @ <> or if, cc-ag-die then,
   dup 0= if, cc-ag-die then,
   cc-expr-unevaluated @ 0= if,
@@ -634,6 +738,10 @@ variable cc-ag-sret-slot
 \ descriptor-checked assignments and returns bypass explicit cast parsing.
 : cc-ag-cast-types ( source destination -- )
   dup ty-void [lit] 0 ty-make = if, cc-sysv-cast-types exit, then,
+  \ A long double cast to its own type moves nothing; any other needs x87.
+  over cc-last-struct-desc @ cc-ld? over cc-cast-desc @ cc-ld?
+  2dup and if, 2drop 2drop exit, then,
+  or if, cc-ld-die then,
   over cc-ag-type? over cc-ag-type? or if, cc-ag-die then,
   cc-sysv-cast-types ;
 ' cc-ag-cast-types is cc-cast-types-fwd
@@ -645,4 +753,28 @@ variable cc-ag-sret-slot
   ag-gp @ [lit] 8 * ag-fp @ [lit] 16 * [lit] 48 +
   ag-stack @ [lit] 16 + r> cc-ag-plan ! ;
 ' cc-ag-va-layout is cc-va-layout-fwd
+: cc-ag-va-last-slot ( -- slot )
+  cc-ag-plan @ >r cc-ag-function-plan @ cc-ag-plan !
+  ag-signature @ cc-sysv-sig-count 1- ag-arg ag-slot r> cc-ag-plan ! ;
+' cc-ag-va-last-slot is cc-va-last-slot-fwd
+
+\ Long double crosses no type boundary: assignment, arguments, results and
+\ initializers accept only long double, copied whole. A static initializer
+\ would need its x87 bytes at compile time, so it is rejected too.
+: cc-ld-value-shape ( source descriptor destination descriptor -- )
+  [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick
+  cc-ld-mismatch cc-sysv-value-shape ;
+' cc-ld-value-shape is cc-value-shape-fwd
+: cc-ld-ni-scalar
+  ni-type @ ni-desc @ cc-ld? 0= if, cc-om-scalar-initializer exit, then,
+  cc-ni-static @ if, cc-ld-die then,
+  ni-offset @ cc-ni-address cc-emit-push-rdi
+  cc-putback-token cc-parse-assign
+  cc-last-expr-type @ cc-last-struct-desc @ ni-type @ ni-desc @ cc-ld-mismatch
+  cc-ni-mov-rsi-rdi cc-emit-pop-rdi [lit] 16 cc-ni-copy-bytes
+  cc-next-token-keep ;
+' cc-ld-ni-scalar is cc-ni-scalar-fwd
+' cc-ld-mismatch is cc-return-shape-fwd
+: cc-ld-compound ( type descriptor -- ) cc-ld? if, cc-ld-die then, ;
+' cc-ld-compound is cc-aggregate-compound-fwd
 ```

@@ -122,16 +122,16 @@ to its call site.
 | 116 | `100-cc-expr.fth:1455,1463,1488` | Unary `&`: identifier isn't a local. |
 | 117 | `100-cc-expr.fth:2141` | Ternary `?`: missing `:`. |
 | 118 | `100-cc-expr.fth:2214` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
-| 120 | `100-cc-expr.fth:2231,2239,2257,2381` | Assignment: left-hand side isn't an lvalue. |
+| 120 | `100-cc-expr.fth:2235,2243,2263,2388` | Assignment: left-hand side isn't an lvalue. |
 | 121 | `100-cc-expr.fth:527,613` | Call: argument list not closed by `)`. |
 | 122 | `100-cc-expr.fth:621` | Call: more than six arguments (the register-only calling convention). |
 | 123 | `100-cc-expr.fth:661` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
 | 124 | `100-cc-expr.fth:1573` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
-| 125 | `100-cc-expr.fth:2450` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
-| 126 | `100-cc-expr.fth:2459` | Constant expression: a token that can't start an operand. |
-| 127 | `100-cc-expr.fth:2456` | Constant expression: `(` not closed by `)`. |
-| 128 | `100-cc-expr.fth:2531` | Constant expression: `?` without its `:`. |
-| 129 | `100-cc-expr.fth:2560` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
+| 125 | `100-cc-expr.fth:2457` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
+| 126 | `100-cc-expr.fth:2466` | Constant expression: a token that can't start an operand. |
+| 127 | `100-cc-expr.fth:2463` | Constant expression: `(` not closed by `)`. |
+| 128 | `100-cc-expr.fth:2538` | Constant expression: `?` without its `:`. |
+| 129 | `100-cc-expr.fth:2567` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
 | 140 | `110-cc-decl.fth:67` | `cc-expect-kw-id`: next token wasn't a keyword. |
 | 141 | `110-cc-decl.fth:70` | `cc-expect-kw-id`: keyword id mismatch. |
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
@@ -150,8 +150,8 @@ to its call site.
 | 156 | `110-cc-decl.fth:455` | Local array declaration: size is zero or negative. |
 | 157 | `110-cc-decl.fth:457` | Local array declaration: missing `]`. |
 | 159 | `110-cc-decl.fth:512` | Local declaration: a declarator followed by neither `,` nor `;`. |
-| 160 | `110-cc-decl.fth:683` | Struct local declaration: variable name missing. |
-| 161 | `110-cc-decl.fth:718` | Struct-pointer local not followed by `=` or `;`. |
+| 160 | `110-cc-decl.fth:684` | Struct local declaration: variable name missing. |
+| 161 | `110-cc-decl.fth:719` | Struct-pointer local not followed by `=` or `;`. |
 | 162 | `110-cc-decl.fth:45` | `cc-fn-add-slots`: a function's parameters and locals need more than the 32 slots of its 256-byte frame. |
 | 170 | `112-cc-stmt.fth:535,861,866` | `case` label not followed by `:`. |
 | 171 | `112-cc-stmt.fth:689` | `cc-label-create`: selected per-function label table full (default 64, direct GCC 1,024), or its mapping fails. |
@@ -204,29 +204,29 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:432` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:438` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:751` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:378`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
 | 190 | `115-cc-native.fth:118` | Native enumerator is not an identifier. |
 | 192 | `115-cc-native.fth:126` | Native enumerator followed by neither `,` nor `}`. |
-| 194 | `115-cc-native.fth:198` | Native type identifier not found. |
-| 195 | `115-cc-native.fth:199` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:289,574` | Native declarator is missing its name. |
-| 205 | `115-cc-native.fth:589` | Native declaration missing its final semicolon. |
+| 194 | `115-cc-native.fth:204` | Native type identifier not found. |
+| 195 | `115-cc-native.fth:205` | Native type identifier is not a typedef. |
+| 203 | `115-cc-native.fth:295,580` | Native declarator is missing its name. |
+| 205 | `115-cc-native.fth:595` | Native declaration missing its final semicolon. |
 | 210 | `115-cc-native.fth:54` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
 | 213 | `060-cc-types.fth:289` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
-| 214 | `110-cc-decl.fth:380`, `115-cc-native.fth:214` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
-| 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:152` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
-| 220 | `118-cc-native-init.fth:76,77,88,96` | Invalid or empty inferred array initializer. |
-| 221 | `118-cc-native-init.fth:93,100,120` | Malformed or unterminated inferred initializer. |
-| 222 | `118-cc-native-init.fth:106,111` | Inferred array's nested aggregate/row lacks required braces. |
-| 223 | `118-cc-native-init.fth:85,140,233` | Character initializer too large or invalid braced-string close. |
-| 224 | `118-cc-native-init.fth:159` | Aggregate copy has a mismatched type/descriptor. |
-| 225 | `118-cc-native-init.fth:215,238,257` | Required initializer brace is missing. |
-| 226 | `118-cc-native-init.fth:220` | Initializer has excess elements or lacks its closing brace. |
-| 227 | `118-cc-native-init.fth:270` | Braced scalar initializer not closed by `}`. |
+| 214 | `110-cc-decl.fth:380`, `115-cc-native.fth:220` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
+| 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:158` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
+| 220 | `118-cc-native-init.fth:82,83,94,102` | Invalid or empty inferred array initializer. |
+| 221 | `118-cc-native-init.fth:99,106,126` | Malformed or unterminated inferred initializer. |
+| 222 | `118-cc-native-init.fth:112,117` | Inferred array's nested aggregate/row lacks required braces. |
+| 223 | `118-cc-native-init.fth:91,146,239` | Character initializer too large or invalid braced-string close. |
+| 224 | `118-cc-native-init.fth:165` | Aggregate copy has a mismatched type/descriptor. |
+| 225 | `118-cc-native-init.fth:221,244,263` | Required initializer brace is missing. |
+| 226 | `118-cc-native-init.fth:226` | Initializer has excess elements or lacks its closing brace. |
+| 227 | `118-cc-native-init.fth:276` | Braced scalar initializer not closed by `}`. |
 
 The restricted bootstrap runtime has a separate **execution** failure:
 `localtime`, `ldexp`, and `longjmp` print
@@ -267,6 +267,14 @@ record layout does not match the public System V declaration. Code 247 means
 an unsupported requested argument type. These are unrelated to the same
 numbers in the object writer or assembler. [Chapter 42](42-direct-gcc-varargs.md)
 states the supported argument classes and the public list representation.
+
+The System V target prints a `long-double: ` prefix before code 249. It means
+an operation that would need x87 computation on a `long double`: arithmetic,
+comparison, a unary operator, a condition or integer use, compound assignment
+or increment, a conversion or cast between long double and any other type
+(in an assignment, argument, result, initializer or `?:` arm), or a static
+initializer. Long double data movement itself is accepted;
+[chapter 48](48-direct-gcc-aggregate-abi.md) §4 states the boundary.
 
 ### The assembler's codes
 

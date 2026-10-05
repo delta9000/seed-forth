@@ -314,8 +314,19 @@ local lvalues materialize only when their value is needed, so taking
 `&local_double` does not first perform an unsupported floating load.
 Typed load, store, and conversion hooks reject unsupported value classes.
 [Ch45](45-direct-gcc-binary64.md) adds binary32/binary64 computation and return values;
-long-double values, static floating initializers and unsupported function definitions/calls
-also fail before publication. `sizeof` may inspect their types without
+static floating initializers and unsupported function definitions/calls
+also fail before publication.
+
+Long double takes a different route. `cc-nbase-scalar-fwd` lets this target
+replace the keyword-spelled `ty-ldouble` base with an opaque record: base
+`ty-struct` and one shared, memberless sixteen-byte, sixteen-aligned
+descriptor from `cc-ld-descriptor`. `cc-ld?` recognizes it. The value is then
+carried by address and copied whole, like a record, and never loaded into a
+register, so no x87 computation is ever needed to move it. The same
+descriptor makes it one leaf for initializers (`cc-opaque-scalar-fwd`).
+`cc-ld-mismatch` and `cc-ld-die` give every operation that would compute or
+convert the prefixed error 249; [Ch48](48-direct-gcc-aggregate-abi.md) applies
+them and gives the type its X87 calling convention. `sizeof` may inspect their types without
 creating a call or a value operation. Existing aggregate byte copies remain
 supported; aggregate values still cannot cross this scalar call boundary.
 
@@ -604,6 +615,34 @@ defer cc-sysv-check-scalar
 \ are unsupported. Taking an address must not read that value first.
 : cc-sysv-float-types cc-target-sysv @ cc-bootstrap-floatbits @ or ;
 ' cc-sysv-float-types is cc-native-float-types-fwd
+
+\ Long double is the x87 80-bit extended format in sixteen bytes, aligned
+\ to sixteen. This target moves its bytes and never computes with them:
+\ the value is an opaque record with one shared, memberless descriptor, so
+\ it travels by address as records do and every spelling has one identity.
+\ Arithmetic, conversion, tests and casts reach error 249 instead (131).
+variable cc-ld-desc
+[lit] 0 cc-ld-desc !
+: cc-ld-descriptor ( -- descriptor )
+  cc-ld-desc @ dup if, exit, then, drop
+  cc-sd-alloc [lit] 16 over cc-sd-set-total-size
+  [lit] 16 over cc-sd-set-align dup cc-ld-desc ! ;
+: cc-ld? ( type descriptor -- flag )
+  dup 0= if, 2drop [lit] 0 exit, then,
+  cc-ld-desc @ = swap ty-struct [lit] 0 ty-make = and ;
+create cc-ld-error-prefix s, long-double: bl c,
+: cc-ld-die cc-ld-error-prefix [lit] 13 cc-err-write [lit] 249 cc-die ;
+\ ( t1 d1 t2 d2 -- )  A value crossing between long double and another
+\ type would need an x87 conversion.
+: cc-ld-mismatch
+  cc-ld? >r cc-ld? r> <> if, cc-ld-die then, ;
+: cc-sysv-scalar-base ( type descriptor -- type descriptor )
+  cc-target-sysv @ 0= if, exit, then,
+  over ty-ldouble [lit] 0 ty-make = if,
+    2drop ty-struct [lit] 0 ty-make cc-ld-descriptor
+  then, ;
+' cc-sysv-scalar-base is cc-nbase-scalar-fwd
+' cc-ld? is cc-opaque-scalar-fwd
 : cc-sysv-value-type-check ( type -- type )
   cc-target-sysv @ cc-expr-unevaluated @ 0= and if,
     dup cc-sysv-check-scalar
@@ -1496,7 +1535,7 @@ variable cc-sysv-function-signature
 ' cc-sysv-function is cc-native-function-fwd
 
 : cc-sysv-enable
-  [lit] 0 cc-qualified-fields !
+  [lit] 0 cc-qualified-fields ! [lit] 0 cc-ld-desc !
   [lit] 0 cc-sysv-implicit-head ! [lit] 0 cc-sysv-implicit-count !
   true cc-target-sysv ! true cc-target-lp64 ! true cc-prep-direct !
   [lit] 0 cc-bootstrap-floatbits ! ;

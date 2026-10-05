@@ -52,7 +52,7 @@ def main():
   'float-suffix':('float f(void){return 1.25f;}',248),
   'float-suffix-uppercase':('float f(void){return 1.25F;}',248),
   'hexfloat':('float f(void){return 0x1p0;}',248),
-  'long-double':('long double f(long double x){return x;}',232),
+  'long-double':('double f(long double x){return x;}',249),
   'static-float':('float x=0;',232),
   'increment-float':('float f(float *x){return ++*x;}',232),
   'decrement-float':('float f(float *x){return (*x)--;}',232),

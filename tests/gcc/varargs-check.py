@@ -84,10 +84,12 @@ def main():
     ]
     for name, code, source in negatives:
         reject(work, name, code, source)
-    for name, typename in (("single", "float"), ("extended", "long double")):
-        reject(work, "floating-arg-" + name, 247,
-               "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,"
-               + typename + "); return 0; }")
+    reject(work, "floating-arg-single", 247,
+           "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,float); return 0; }")
+    # Retrieval of a long double is data movement; converting it is not.
+    reject(work, "floating-arg-extended", 249,
+           "int f(int n,...) { va_list p; va_start(p,n); return va_arg(p,long double); }",
+           prefix=b"long-double: ")
     reject(work, "bad-layout", 246,
            "struct __seed_va_list_tag { unsigned long gp_offset; unsigned int fp_offset; "
            "void *overflow_arg_area; void *reg_save_area; }; "

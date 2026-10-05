@@ -2,7 +2,7 @@
 
 ## Goal
 
-Compile INTEGER and binary64 variadic retrieval with the same list
+Compile INTEGER, binary64 and X87 variadic retrieval with the same list
 representation used by other AMD64 System V compilers. The production proof compiles separate
 C objects and constructs their executable with Forth. Host GCC and libc are
 used only by a separate interoperability test.
@@ -18,8 +18,8 @@ The public declarations live in `runtime/gcc-seed/include/stdarg.h`.
 **Concepts introduced:** array typedef identity, per-invocation register-save
 areas, variadic cursors, checked compiler intrinsics, and list copying.
 
-**Deferred:** float and long-double retrieval, aggregate variadic argument
-values, vector types, and a complete GCC reconstruction. Binary64 expressions
+**Deferred:** float retrieval, aggregate variadic argument values, long
+double computation, vector types, and a complete GCC reconstruction. Binary64 expressions
 and returns use [chapter 45](45-direct-gcc-binary64.md). The shared argument
 plan in [chapter 48](48-direct-gcc-aggregate-abi.md) classifies named and
 outgoing doubles and supplies this chapter's named-register/stack offsets.
@@ -119,8 +119,20 @@ GP and XMM exhaustion are independent. A GP access never advances the FP
 cursor, and a double access never advances the GP cursor. Both classes share
 the overflow cursor in argument order once their own register bank is full.
 A System V stack double needs eight-byte alignment, already guaranteed by the
-incoming stack area and every supported overflow access. This does not claim
-the sixteen-byte alignment or special classification needed by long double.
+incoming stack area and every supported overflow access.
+
+`long double` is class X87 and never occupies a register save slot. Its
+argument is always in the overflow area, sixteen bytes long and aligned to
+sixteen, so `cc-va-next-x87-address` rounds `overflow_arg_area` up to a
+multiple of sixteen, takes that address and advances the pointer sixteen
+bytes past it. Neither register cursor moves. No value is loaded: like every
+long double expression in this target, the result is the object's address,
+which an assignment such as bfd's `args[i].ld = va_arg (ap, long double)`
+copies whole ([chapter 48](48-direct-gcc-aggregate-abi.md) §4). A named long
+double parameter occupies two frame slots, so `va_start` identifies the last
+named parameter by the slot its entry plan assigned (`cc-va-last-slot-fwd`),
+not by its position.
+
 The existing typed load carries the double bits in RDI for chapter 45 to
 store, compute with, cast, discard, or return through XMM0.
 
@@ -128,8 +140,8 @@ The caller already applies default promotions to unnamed arguments. Reading
 an `int` is appropriate for promoted `char` and `short` values; asking
 `va_arg` for either narrow type is rejected. Unnamed `float` is promoted to
 `double` by a conforming caller; `va_arg(list, float)` therefore stays rejected.
-Long-double and aggregate requests also fail rather than consuming a slot
-under the wrong ABI. Opaque forwarding can still leave those operations to
+Aggregate requests also fail rather than consuming a slot under the wrong
+ABI. Opaque forwarding can still leave those operations to
 a host consumer.
 
 `va_copy` copies the entire three-word record, producing an independent cursor
@@ -145,9 +157,10 @@ The intrinsic layer prefixes its diagnostics with `varargs:`. Error 246 means
 an invalid list, invocation, named-parameter reference, or start context.
 Error 247 means an unsupported requested result type. The numbers overlap
 errors in other bounded compiler components, so the prefix identifies the
-phase. Unsupported floating types can be named, so `va_arg(list, float)` and
-`va_arg(list, long double)` reach the intrinsic's error 247. Binary64 retrieval
-is accepted. The negative checks require exit status 247, exactly one
+phase. Unsupported floating types can be named, so `va_arg(list, float)`
+reaches the intrinsic's error 247. Binary64 and long double retrieval are
+accepted; converting a retrieved long double is error 249 of chapter 48.
+The negative checks require exit status 247, exactly one
 `varargs: cc: line N: error 247`
 diagnostic, empty stdout, and preservation of an existing output file.
 Pointers to floating objects still belong to the INTEGER class and can be
@@ -185,9 +198,13 @@ twelve doubles, stack-passed named parameters, host-initialized lists with
 named floating arguments, copied cursors before and after overflow, list
 restart, and nested callbacks. Signed zero, infinities, a NaN payload and a
 subnormal are compared as bits. It also verifies the existing XMM0 result
-ABI and checked rejection of float/long-double argument values. The shared
+ABI and checked rejection of float arguments and long double conversions. The shared
 argument-plan gate additionally tests named double offsets, Forth-produced
 variadic calls, actual outgoing AL counts and mixed named stack overflow.
+`long-double-check.py` ([chapter 48](48-direct-gcc-aggregate-abi.md)) gives
+Forth-built consumers long doubles interleaved with integers and doubles past
+both register banks, rescans a copied cursor, and repeats bfd's
+union-and-`va_arg` loop through a `va_list` parameter.
 
 `varargs-vasprintf-check.py` compiles the unmodified GCC 4.0.4
 `libiberty/vasprintf.c` with the original configured headers. Its sizing pass
@@ -203,7 +220,7 @@ compiling the sizing branch does not imply implementing `%f` output.
 ## Canonical source
 
 ```forth file=126-cc-varargs.fth
-\ 126-cc-varargs.fth — INTEGER/binary64 System V AMD64 variadic callees.
+\ 126-cc-varargs.fth — INTEGER/binary64/X87 System V AMD64 variadic callees.
 \ va_list is the real 24-byte record array[1], declared by stdarg.h.
 \ Six GP and eight XMM slots belong to each invocation below named parameters.
 \ Binary64 retrieval consumes XMM or overflow slots; 131 supplies named ABI offsets.
@@ -280,6 +297,11 @@ create cc-va-tag-name s, __seed_va_list_tag
   [lit] 133 cc-emit-byte cc-emit-4le       \ lea rax, [rbp+disp32]
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
   [lit] 71 cc-emit-byte r> cc-emit-byte ; \ mov [rdi+disp8], rax
+\ The last named parameter's frame slot; 131 supplies it from its entry plan,
+\ where a sixteen-byte long double parameter occupies two slots.
+: cc-va-last-slot-default ( -- slot ) cc-va-signature @ cc-sysv-sig-count ;
+defer cc-va-last-slot-fwd
+' cc-va-last-slot-default is cc-va-last-slot-fwd
 : cc-va-last-named
   cc-va-signature @ dup 0= if, [lit] 246 cc-va-die then,
   dup cc-sysv-sig-varargs [lit] 1 and 0= if, [lit] 246 cc-va-die then,
@@ -291,7 +313,7 @@ create cc-va-tag-name s, __seed_va_list_tag
   tok-str-addr @ tok-str-len @ cc-sym-find
   dup 0< if, [lit] 246 cc-va-die then,
   dup cc-sym-kind-of sk-local <> if, [lit] 246 cc-va-die then,
-  cc-sym-val-of cc-va-signature @ cc-sysv-sig-count <> if,
+  cc-sym-val-of cc-va-last-slot-fwd <> if,
     [lit] 246 cc-va-die
   then, ;
 : cc-va-layout-default ( -- gp-offset fp-offset overflow-offset )
@@ -353,8 +375,24 @@ defer cc-va-layout-fwd
   [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
   [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
   cc-emit-mov-rdi-rax r> cc-patch-rel32-to-here ;
+\ Long double is class X87: always in the overflow area, aligned to sixteen
+\ and sixteen bytes long, never in a register save slot. The result is the
+\ object's address, as for every long double value (121).
+: cc-va-next-x87-address
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 71 cc-emit-byte [lit] 8 cc-emit-byte          \ mov rax, [rdi+8]
+  [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+  [lit] 192 cc-emit-byte [lit] 15 cc-emit-byte        \ add rax, 15
+  [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+  [lit] 224 cc-emit-byte [lit] 240 cc-emit-byte       \ and rax, -16
+  [lit] 72 cc-emit-byte [lit] 141 cc-emit-byte
+  [lit] 72 cc-emit-byte [lit] 16 cc-emit-byte         \ lea rcx, [rax+16]
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte          \ mov [rdi+8], rcx
+  cc-emit-mov-rdi-rax ;
 : cc-va-check-result-type ( type -- )
   dup [lit] 256 / [lit] 255 and if, [lit] 247 cc-va-die then,
+  dup cc-cast-desc @ cc-ld? if, drop exit, then,
   dup ty-ptr if, drop exit, then,
   ty-base dup ty-int = over ty-uint = or
   over ty-long = or over ty-ulong = or over ty-llong = or over ty-ullong = or
@@ -365,6 +403,9 @@ defer cc-va-layout-fwd
   cc-type-name-array @ cc-type-name-inner @ or if, [lit] 247 cc-va-die then,
   dup cc-va-check-result-type cc-cast-desc @ >r >r
   [char] ) cc-va-expect
+  r> r> 2dup >r >r cc-ld? if,
+    cc-va-next-x87-address r> r> cc-mark-typed-value exit,
+  then,
   r@ ty-double [lit] 0 ty-make = if,
     cc-va-next-double-address
   else, cc-va-next-address then,

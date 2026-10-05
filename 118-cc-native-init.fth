@@ -21,8 +21,14 @@ variable cc-ni-entry-patch
 : ni-brace  cc-ni-frame @ [lit] 48 + ;
 : ni-nested cc-ni-frame @ [lit] 56 + ;
 
+\ A target may represent a scalar as an opaque record (121: long double);
+\ initializers treat it as one scalar leaf, never as a brace list.
+: cc-opaque-scalar-default ( type descriptor -- flag ) 2drop [lit] 0 ;
+defer cc-opaque-scalar-fwd
+' cc-opaque-scalar-default is cc-opaque-scalar-fwd
 : cc-ni-aggregate?
-  ni-type @ ty-base ty-struct = ni-type @ ty-ptr 0= and ;
+  ni-type @ ty-base ty-struct = ni-type @ ty-ptr 0= and
+  ni-type @ ni-desc @ cc-opaque-scalar-fwd 0= and ;
 : cc-ni-address ( offset -- )
   cc-ni-static @ if,
     nc-slot @ cc-emit-global-ref
@@ -102,7 +108,7 @@ variable cc-ni-scan-brace
       else,
         cc-ni-scan-have @ 0= if,
           nc-ty @ ty-base dup ty-struct = swap ty-array = or
-          nc-ty @ ty-ptr 0= and if,
+          nc-ty @ ty-ptr 0= and nc-ty @ nc-desc @ cc-opaque-scalar-fwd 0= and if,
             [char] { cc-tok-punct? 0= if, [lit] 222 cc-die then,
           then,
           nc-inner @ if,

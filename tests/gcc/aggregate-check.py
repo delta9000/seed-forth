@@ -10,7 +10,7 @@ REJECTS={
  'large-floating-member':'struct A{long a[3];double b;};int f(struct A a){return 0;}',
  'nested-floating':'struct A{double x;};struct B{struct A a[2];};void f(struct B b){}',
  'union-floating':'union A{long a;double b;};void f(union A a){}',
- 'long-double':'struct A{long double a;};void f(struct A a){}',
+ 'long-double':'struct A{long double a;float f;};void f(struct A a){}',
  'variadic-fixed':'struct A{int a;};void f(struct A a,...){}',
  'variadic-result':'struct A{int a;};struct A f(int n,...){struct A a;return a;}',
  'variadic-value':'struct A{int a;};void f(int,...);void g(void){struct A a;f(1,a);}',

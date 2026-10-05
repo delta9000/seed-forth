@@ -233,7 +233,8 @@ four-byte storage and SSE single-precision arithmetic. Integer conversions,
 float/double conversions, usual arithmetic types, scalar parameters/returns,
 and outgoing default argument promotion are implemented. The independent
 O0/O2 gate is `tests/gcc/binary32-values-check.py`. Decimal f/F literals,
-long double, K&R float parameter definitions, static floating initializers,
+long double computation (see "Long double data movement" below), K&R float
+parameter definitions, static floating initializers,
 floating ++/-- and floating-member record ABI values remain checked boundaries.
 Mixed-floating conditionals use the later selected-arm stage described below.
 The unchanged full GCC 4.0.4 `ggc-page.c` translation unit compiles with this
@@ -378,8 +379,8 @@ pipeline remain separate pending work.
 
 Identifier-list definitions now use their refined record types with the existing
 INTEGER/MEMORY entry transport. Compatible prior prototypes remain visible;
-aggregate calls without a prototype, aggregate variadics, floating-member records,
-long double and K&R float-entry conversion remain unsupported. Empty-list record
+aggregate calls without a prototype, aggregate variadics, binary32/binary64-member
+records, long double computation and K&R float-entry conversion remain unsupported. Empty-list record
 result definitions retain their previous rejection. The focused gate is
 `tests/gcc/knr-record-check.py`.
 The source demand is original libiberty `regex.c`'s `group_in_compile_stack`.
@@ -410,3 +411,25 @@ a535 configuration, with structural object checks. These outcomes belong to
 the original candidate identity, not this combined tree. See
 [publication status](PUBLICATION-STATUS.md) for identities, test scopes, and
 the missing combined behavioral validation.
+
+## Long double data movement
+
+Original binutils 2.30 `bfd/bfd.c` declares `union _bfd_doprnt_args` with a
+`long double ld` member and fetches `args[i].ld = va_arg (ap, long double)`
+unconditionally; formatting it is under `HAVE_LONG_DOUBLE`, which bfd's
+configuration leaves undefined. The System V target now carries `long double`
+as an ABI-correct data type without x87 arithmetic: sixteen bytes, sixteen
+alignment, GCC's record/union/array layout, copies of whole objects, named
+and unnamed arguments in sixteen-aligned stack slots, `va_arg` from the
+sixteen-aligned overflow area, and results in `st(0)` (`fld`/`fstp tbyte`).
+Records of exactly sixteen bytes holding only long double leaves are X87 and
+return in `st(0)`; other records containing long double are MEMORY.
+Arithmetic, comparison, conditions, conversions and casts to or from other
+types, and static initializers fail with `long-double: cc: line N: error
+249`; `L` literals keep error 248. The focused gate is
+`tests/gcc/long-double-check.py`: host O0/O2 and Forth-built units call each
+other both ways, values made by host arithmetic and explicit bytes (including
+signaling NaN) are compared over their ten significant bytes, layouts match
+host GCC, and 34 rejected operations preserve outputs. With the stage-B
+configured bfd directory and its recorded arguments, `bfd.c` compiles to an
+object; later link and behavior remain separate. See book chapter 48 §4.

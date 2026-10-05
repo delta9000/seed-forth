@@ -1797,6 +1797,10 @@ variable cc-assign-field
 : cc-aggregate-assignment-default ;
 defer cc-aggregate-assignment-fwd
 ' cc-aggregate-assignment-default is cc-aggregate-assignment-fwd
+\ A target may give compound assignment to a record type its own diagnostic.
+: cc-aggregate-compound-default ( type descriptor -- ) 2drop ;
+defer cc-aggregate-compound-fwd
+' cc-aggregate-compound-default is cc-aggregate-compound-fwd
 
 \ One native store path handles locals, globals, fields and dereferences.
 \ Snapshots live on the return stack across the recursive RHS parse.
@@ -1827,7 +1831,10 @@ defer cc-aggregate-assignment-fwd
     cc-assign-type @ cc-assign-desc @ cc-value-shape-fwd
   then,
   cc-assign-type @ ty-base ty-struct = cc-assign-type @ ty-ptr 0= and if,
-    cc-assign-op @ [char] = <> if, [lit] 120 cc-die then,
+    cc-assign-op @ [char] = <> if,
+      cc-assign-type @ cc-assign-desc @ cc-aggregate-compound-fwd
+      [lit] 120 cc-die
+    then,
     cc-aggregate-assignment-fwd
     [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 254 cc-emit-byte
     cc-emit-pop-rdi cc-emit-push-rdi               \ rsi=source; rdi=destination

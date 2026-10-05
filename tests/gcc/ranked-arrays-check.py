@@ -29,7 +29,7 @@ POSITIVE={
 REJECT={
 'float-record-value':('struct F{float a[1][1][1];};struct F f(struct F a){return a;}',232),
 'double-record-value':('struct F{double a[1][1][1];};struct F f(struct F a){return a;}',232),
-'long-double-record-value':('struct F{long double a[1][1][1];};struct F f(struct F a){return a;}',232),
+'long-double-record-value':('struct F{long double a[1][1][1];double d;};struct F f(struct F a){return a;}',232),
 'inferred-unbraced':('int a[][2][3]={1,2,3,4,5,6,7};',222),
 'inferred-unbraced-local':('int main(void){int a[][2][3]={1,2,3,4,5,6,7};return sizeof a;}',222),
 'grouped-function-pointer-array':('int (*callbacks[2][3][4])(int);',238),

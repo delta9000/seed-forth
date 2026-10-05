@@ -165,9 +165,9 @@ def main():
             'conflicting-param-signedness': (237, 'long f(unsigned int); long f(int x){return x;} int main(void){return 0;}'),
             'conflicting-varargs': (237, 'long f(long,...); long f(long x){return x;} int main(void){return 0;}'),
             'conflicting-struct-pointer': (237, 'struct A{int x;}; struct B{int x;}; long f(struct A*); long f(struct B*x){return 0;} int main(void){return 0;}'),
-            'extended-function-pointer-call': (232, 'int main(void){long (*p)(long double); p=0; return p(1);}'),
+            'extended-function-pointer-call': (249, 'int main(void){long (*p)(long double); p=0; return p(1);}'),
             'aggregate-function-pointer-call': (232, 'struct S{double x;}; int main(void){long (*p)(struct S); struct S s; p=0; return p(s);}'),
-            'extended-local-value': (232, 'int main(void){long double d; return d;}'),
+            'extended-local-value': (249, 'int main(void){long double d; return d;}'),
         }
         results = []
         for name, source in valid.items():

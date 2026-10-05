@@ -183,6 +183,12 @@ defer cc-nspec-check-fwd
   then,
   ty-int ;
 
+\ A target may give a keyword-spelled scalar its own representation; the
+\ SysV layer (121) makes long double an opaque sixteen-byte record.
+: cc-nbase-scalar-default ( type descriptor -- type descriptor ) ;
+defer cc-nbase-scalar-fwd
+' cc-nbase-scalar-default is cc-nbase-scalar-fwd
+
 \ The current token is a base type. Return encoded type and descriptor.
 : cc-nbase-raw
   cc-nctx @ 0= if, cc-ncontext then,
@@ -220,7 +226,7 @@ defer cc-nspec-check-fwd
     dup ty-llong = if, drop ty-ullong else,
     drop ty-uint then, then, then, then,
   then,
-  [lit] 0 ty-make [lit] 0 ;
+  [lit] 0 ty-make [lit] 0 cc-nbase-scalar-fwd ;
  : cc-nbase
   cc-nctx @ 0= if, cc-ncontext then,
   nc-prefix-qualified @ nc-qualified ! [lit] 0 nc-prefix-qualified !

@@ -15,9 +15,9 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (592 lines),
+This chapter owns `115-cc-native.fth` (598 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
-(318 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
+(324 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
 preprocessor, types, expressions, and statement code they extend.
 The compiler files still load in numerical order: the native words
@@ -109,7 +109,9 @@ LP64, whatever their order: `long unsigned long` and
 one `long`. A target may check the counted set
 through `cc-nspec-check-fwd`; the native profile keeps its permissive
 keyword sequence, while the System V target rejects invalid sets
-(Chapter 36).
+(Chapter 36). The finished base passes through `cc-nbase-scalar-fwd`, an
+identity here; the System V target uses it to represent `long double`
+as an opaque sixteen-byte record (Chapter 36).
 
 `cc-ndeclarator` handles the bounded declarator forms the target
 needs: pointers, function pointers, arrays, and function parameter
@@ -312,6 +314,12 @@ defer cc-nspec-check-fwd
   then,
   ty-int ;
 
+\ A target may give a keyword-spelled scalar its own representation; the
+\ SysV layer (121) makes long double an opaque sixteen-byte record.
+: cc-nbase-scalar-default ( type descriptor -- type descriptor ) ;
+defer cc-nbase-scalar-fwd
+' cc-nbase-scalar-default is cc-nbase-scalar-fwd
+
 \ The current token is a base type. Return encoded type and descriptor.
 : cc-nbase-raw
   cc-nctx @ 0= if, cc-ncontext then,
@@ -349,7 +357,7 @@ defer cc-nspec-check-fwd
     dup ty-llong = if, drop ty-ullong else,
     drop ty-uint then, then, then, then,
   then,
-  [lit] 0 ty-make [lit] 0 ;
+  [lit] 0 ty-make [lit] 0 cc-nbase-scalar-fwd ;
  : cc-nbase
   cc-nctx @ 0= if, cc-ncontext then,
   nc-prefix-qualified @ nc-qualified ! [lit] 0 nc-prefix-qualified !
@@ -870,7 +878,9 @@ initializer to count outer elements, then restores the lexer mark.
 For inferred arrays, nested aggregates require their own braces;
 known-size arrays also accept the supported brace-elided forms.
 Excess elements and unsupported shapes produce diagnostics.
-Designated initializers are outside the profile.
+Designated initializers are outside the profile. A target that represents
+a scalar as an opaque record answers `cc-opaque-scalar-fwd`, so such an
+element is one leaf rather than a brace list; this profile has none.
 
 The interesting choice is static storage. Rather than write a
 second relocation evaluator, we emit small initialization routines
@@ -910,8 +920,14 @@ variable cc-ni-entry-patch
 : ni-brace  cc-ni-frame @ [lit] 48 + ;
 : ni-nested cc-ni-frame @ [lit] 56 + ;
 
+\ A target may represent a scalar as an opaque record (121: long double);
+\ initializers treat it as one scalar leaf, never as a brace list.
+: cc-opaque-scalar-default ( type descriptor -- flag ) 2drop [lit] 0 ;
+defer cc-opaque-scalar-fwd
+' cc-opaque-scalar-default is cc-opaque-scalar-fwd
 : cc-ni-aggregate?
-  ni-type @ ty-base ty-struct = ni-type @ ty-ptr 0= and ;
+  ni-type @ ty-base ty-struct = ni-type @ ty-ptr 0= and
+  ni-type @ ni-desc @ cc-opaque-scalar-fwd 0= and ;
 : cc-ni-address ( offset -- )
   cc-ni-static @ if,
     nc-slot @ cc-emit-global-ref
@@ -991,7 +1007,7 @@ variable cc-ni-scan-brace
       else,
         cc-ni-scan-have @ 0= if,
           nc-ty @ ty-base dup ty-struct = swap ty-array = or
-          nc-ty @ ty-ptr 0= and if,
+          nc-ty @ ty-ptr 0= and nc-ty @ nc-desc @ cc-opaque-scalar-fwd 0= and if,
             [char] { cc-tok-punct? 0= if, [lit] 222 cc-die then,
           then,
           nc-inner @ if,
