@@ -141,6 +141,33 @@ The Makefile template hardcodes `CFLAGS = -g` despite configure accepting an
 empty CFLAGS. The recipe therefore passes `CFLAGS= LDFLAGS=` explicitly to
 make, retaining the original compilation rule while selecting supported flags.
 
+## Binutils stage-B build
+
+Run the pinned binutils 2.30 configure and original gas/ld/binutils Makefiles
+with the frozen Forth compiler and archive adapter in a new work directory:
+
+```sh
+python3 gcc-direct/binutils.py build-out/stage-b-codex \
+  --oyacc /path/to/forth-built/oyacc --flex /path/to/forth-built/flex -j 6
+```
+
+For example, existing Forth-built tools may live at
+`/home/ben/code/seed-forth-direct-gcc/build-out/oyacc-source-ycjjoae3/production/oyacc`
+and `/home/ben/code/seed-forth-direct-gcc/build-out/tools-run1/lexer-build/flex/flex`;
+these are examples, not defaults. Both arguments are required. Jobs default to
+six and are limited to 1–6.
+
+Configure's source view omits shipped generated parser/scanner C and headers,
+so make regenerates them with the supplied oyacc and flex. The recipe restores
+the recorded configure environment and passes empty `CFLAGS`, `LDFLAGS`,
+`WARN_CFLAGS`, and `WARN_WRITE_STRINGS`: the Forth driver rejects unsupported
+flags, including `-Wwrite-strings` incorrectly selected by bfd's GCC version
+test. `make -k` continues across failures. `WORK/make.log` retains make output;
+`WORK/stage-b/report.json` and `report.md` list the six requested executables
+with SHA256 hashes, all failed compile/link traces, and diagnostic counts.
+Configure conftests are excluded from this build census. Missing executables
+cause a nonzero exit; a successful configure remains provisional.
+
 ## Original RTL generator checks
 
 Given a retained successful component configure directory, run:
