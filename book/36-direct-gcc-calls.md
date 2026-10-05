@@ -110,8 +110,22 @@ The same mapping lets an ABI test export a real function address as `long`
 and restore its original signature. Arbitrary numeric values can be stored,
 passed, returned, or compared as this target's representation; this gives no
 permission to call a sentinel, a noncanonical address, or a function through
-an incompatible signature. Object/function-pointer casts remain rejected,
-including a null `void *` cast to a function pointer.
+an incompatible signature.
+
+Explicit casts between a function pointer and any object pointer, such as
+`void *`, `char *`, a struct pointer, or a pointer to a function pointer,
+keep the same 64-bit value in both directions. Strict C90 leaves this
+conversion undefined, but POSIX requires it for `dlsym`
+([dlsym rationale](https://pubs.opengroup.org/onlinepubs/9699919799/functions/dlsym.html))
+and GCC accepts it on LP64, where both pointers are eight bytes. Original
+binutils' `bfd/doc/chew.c` depends on it: its threaded interpreter stores a
+dictionary pointer in a `void (*)()` code slot and recovers it with
+`(dict_type *) (pc[1])`. Only explicit casts cross. Assignments, arguments,
+and conditional operands that mix the two kinds keep their existing shape
+diagnostics, and calling through a pointer-to-function-pointer still rejects
+with 230. A function pointer cast to or from a floating type also rejects
+with 230; a struct or union partner reaches Chapter 48's aggregate policy
+first and rejects with 232.
 
 The type policy in `cc-sysv-cast-types` is pure and is shared by runtime casts
 and Chapter 41's static constant evaluator. The separate `cc-cast-value-fwd`
@@ -122,7 +136,10 @@ emitting instructions. Both typedef and abstract casts keep the destination
 signature descriptor, including callbacks returned from callbacks.
 `sysv-function-integer-casts-check.sh` checks all supported integer widths,
 null comparisons, static sentinels and address relocations, side effects once,
-restored typed calls, and rejection of object crossings in both output paths.
+restored typed calls, and rejection of narrow and floating partners in both
+output paths. `function-object-cast-check.py` runs object-pointer round trips,
+static initializers, and a chew-style interpreter against host GCC `-O0` and
+`-O2`, and checks the exact codes of the remaining rejections.
 `SF_GCC_CAST_ORACLE=1` adds host `-O0`/`-O2` semantic and cross-compiler ABI
 oracles; sentinels are never called.
 
@@ -871,7 +888,7 @@ variable cc-sysv-spec-bad
 
 \ C permits function-pointer conversions and a round trip back to the
 \ original signature. A call still uses its actual selected signature and
-\ the normal ABI class checks. Object/function-pointer crossings reject.
+\ the normal ABI class checks. Only explicit casts cross to object pointers.
 : cc-sysv-function-pointer? ( type -- flag )
   dup ty-base ty-func = swap ty-ptr [lit] 1 = and ;
 : cc-sysv-integral? ( type -- flag )
@@ -883,7 +900,9 @@ variable cc-sysv-spec-bad
   over ty-llong = or swap ty-ullong = or ;
 \ Explicit LP64 integer/function-pointer representation conversions use
 \ all 64 bits. Only pointer-width integral destinations preserve a function
-\ address. The policy is pure so constant and runtime casts share it.
+\ address. Explicit function/object pointer casts keep all 64 bits too, as
+\ POSIX dlsym and GCC allow; any other function-pointer partner rejects.
+\ The policy is pure so constant and runtime casts share it.
 \ This permits signal sentinels and address round trips, not arbitrary calls.
 : cc-sysv-cast-types ( source destination -- )
   cc-target-sysv @ 0= if, 2drop exit, then,
@@ -894,8 +913,10 @@ variable cc-sysv-spec-bad
   over cc-sysv-function-pointer? over cc-sysv-integral? and if,
     ty-size [lit] 8 <> if, [lit] 230 cc-die then, drop exit,
   then,
-  cc-sysv-function-pointer? swap cc-sysv-function-pointer? <>
-  if, [lit] 230 cc-die then, ;
+  over cc-sysv-function-pointer? over cc-sysv-function-pointer? = if,
+    2drop exit,
+  then,
+  ty-ptr 0= swap ty-ptr 0= or if, [lit] 230 cc-die then, ;
 ' cc-sysv-cast-types is cc-cast-types-fwd
 \ Normalize an integral operand before replacing its type with a pointer:
 \ signed narrow values extend their sign and unsigned ones extend zero.

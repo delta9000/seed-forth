@@ -32,15 +32,10 @@ runtime-function-to-int|int f(void); int g(void){return (int)f;}
 runtime-function-to-uint|int f(void); unsigned int g(void){return (unsigned int)f;}
 runtime-function-to-short|int f(void); short g(void){return (short)f;}
 runtime-function-to-char|int f(void); char g(void){return (char)f;}
-runtime-function-to-object|int f(void); void *g(void){return (void *)f;}
-runtime-object-to-function|int g(void *p){return ((int (*)(void))p)();}
-runtime-null-object-to-function|typedef void (*H)(int); H g(void){return (H)(void *)0;}
-runtime-function-to-function-pointer-object|typedef int (*F)(void); int f(void); F *g(void){return (F *)f;}
+runtime-function-to-double|int f(void); double g(void){return (double)f;}
+runtime-double-to-function|int g(double d){return ((int (*)(void))d)();}
 static-function-to-int|int f(void); int p=(int)f; int main(void){return 0;}
-static-function-to-object|int f(void); void *p=(void *)f; int main(void){return 0;}
-static-object-to-function|int x; int (*p)(void)=(int (*)(void))&x; int main(void){return 0;}
-static-null-object-to-function|typedef void (*H)(int); H p=(H)(void *)0; int main(void){return 0;}
-static-function-to-function-pointer-object|typedef int (*F)(void); int f(void); F *p=(F *)f; int main(void){return 0;}
+static-function-to-short|int f(void); short p=(short)f; int main(void){return 0;}
 CASES
 # The ordinary pointer-to-pointer signature round-trip gate stays unchanged
 # apart from removing the three newly supported integer/null rejections.

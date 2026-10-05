@@ -23,11 +23,9 @@ while IFS='|' read -r label code source; do
   echo "PASS: $label rejects with $code and preserves output"
 done <<'CASES'
 function-to-narrow-integer|230|int f(void); int g(void){return (int)f;}
-object-to-function|230|int g(void *p){return ((int (*)(void))p)();}
-function-to-object|230|int f(void); void *g(void){return (void *)f;}
-function-to-char-double-pointer|230|int f(void); char **g(void){return (char **)f;}
-object-to-typedef-function|230|typedef int (*F)(void); int g(char **p){return ((F)p)();}
-function-to-function-pointer-object|230|typedef int (*F)(void); int f(void); F *g(void){return (F *)f;}
+function-to-double|230|int f(void); double g(void){return (double)f;}
+double-to-function|230|int g(double d){return ((int (*)(void))d)();}
+object-cast-then-call|230|int f(void); int g(void){return ((char **)f)();}
 extended-return-call|232|long double f(void); int g(void){void (*p)()=(void (*)())f; ((long double (*)(void))p)(); return 0;}
 extended-argument-call|232|int f(long double); int g(void){void (*p)()=(void (*)())f; return ((int (*)(long double))p)(1);}
 aggregate-return-call|232|struct S{double x;}; struct S f(void); int g(void){void (*p)()=(void (*)())f; ((struct S (*)(void))p)(); return 0;}

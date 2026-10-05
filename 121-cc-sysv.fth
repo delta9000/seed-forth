@@ -531,7 +531,7 @@ variable cc-sysv-spec-bad
 
 \ C permits function-pointer conversions and a round trip back to the
 \ original signature. A call still uses its actual selected signature and
-\ the normal ABI class checks. Object/function-pointer crossings reject.
+\ the normal ABI class checks. Only explicit casts cross to object pointers.
 : cc-sysv-function-pointer? ( type -- flag )
   dup ty-base ty-func = swap ty-ptr [lit] 1 = and ;
 : cc-sysv-integral? ( type -- flag )
@@ -543,7 +543,9 @@ variable cc-sysv-spec-bad
   over ty-llong = or swap ty-ullong = or ;
 \ Explicit LP64 integer/function-pointer representation conversions use
 \ all 64 bits. Only pointer-width integral destinations preserve a function
-\ address. The policy is pure so constant and runtime casts share it.
+\ address. Explicit function/object pointer casts keep all 64 bits too, as
+\ POSIX dlsym and GCC allow; any other function-pointer partner rejects.
+\ The policy is pure so constant and runtime casts share it.
 \ This permits signal sentinels and address round trips, not arbitrary calls.
 : cc-sysv-cast-types ( source destination -- )
   cc-target-sysv @ 0= if, 2drop exit, then,
@@ -554,8 +556,10 @@ variable cc-sysv-spec-bad
   over cc-sysv-function-pointer? over cc-sysv-integral? and if,
     ty-size [lit] 8 <> if, [lit] 230 cc-die then, drop exit,
   then,
-  cc-sysv-function-pointer? swap cc-sysv-function-pointer? <>
-  if, [lit] 230 cc-die then, ;
+  over cc-sysv-function-pointer? over cc-sysv-function-pointer? = if,
+    2drop exit,
+  then,
+  ty-ptr 0= swap ty-ptr 0= or if, [lit] 230 cc-die then, ;
 ' cc-sysv-cast-types is cc-cast-types-fwd
 \ Normalize an integral operand before replacing its type with a pointer:
 \ signed narrow values extend their sign and unsigned ones extend zero.

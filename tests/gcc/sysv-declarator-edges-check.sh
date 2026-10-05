@@ -57,8 +57,8 @@ callback-array-zero|238|struct X {int (*f[0])(int);};
 callback-array-negative|238|struct X {int (*f[-1])(int);};
 grouped-return-conflict|237|int (*f(void)); long *f(void);
 callback-array-argument-count|235|struct X{int (*f[3])(int);}; int g(struct X *p){return p->f[0]();}
-function-object-cast|230|int f(void); char **g(void){return (char **)f;}
-grouped-object-function-cast|230|int f(void); int g(void){char (**p);p=(char **)f;return 0;}
+function-double-cast|230|int f(void); double g(void){return (double)f;}
+grouped-function-object-assignment|237|int f(void); int g(void){char (**p);p=f;return 0;}
 aggregate-callback-argument|232|struct S{double x;}; struct X{int (*f[3])(struct S);}; int g(struct X *p){struct S s;return p->f[0](s);}
 long-double-callback-argument|232|struct X{int (*f[3])(long double);}; int g(struct X *p){return p->f[0](1);}
 CASES
