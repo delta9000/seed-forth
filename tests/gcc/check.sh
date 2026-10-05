@@ -192,5 +192,8 @@ fi
 lexers_status=0
 python3 tests/gcc/lexers-check.py || lexers_status=$?
 if [ "$lexers_status" != 0 ] && [ "$lexers_status" != 77 ]; then exit "$lexers_status"; fi
+e2e_status=0
+python3 tests/gcc/e2e-freestanding-check.py || e2e_status=$?
+if [ "$e2e_status" != 0 ] && [ "$e2e_status" != 77 ]; then exit "$e2e_status"; fi
 tools/tangle.sh verify --strict
 echo 'PASS: direct-GCC objects, archives, ABI, typed storage, floating literals, preprocessor, runtime and driver component gate'

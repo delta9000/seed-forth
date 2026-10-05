@@ -190,6 +190,70 @@ with SHA256 hashes, all failed compile/link traces, and diagnostic counts.
 Configure conftests are excluded from this build census. Missing executables
 cause a nonzero exit; a successful configure remains provisional.
 
+## Driver toolchain on our binutils
+
+By default `configure.py` passes `--with-as`/`--with-ld` naming its guards so
+no host assembler or linker answers a probe. GCC 4.0.4 records those paths as
+`DEFAULT_ASSEMBLER` and `DEFAULT_LINKER` in `auto-host.h`, and `gcc.c`
+(`find_a_file`) and `collect2.c` run them whenever they are executable, ahead
+of any `-B` directory or `PATH`. A driver built that way can only report
+`host target tool blocked: as`.
+
+`configure.py --with-binutils DIR` (GCC package only) names a directory of
+Forth-built binutils instead: `DIR/as` and `DIR/ld` are required and become
+`--with-as`/`--with-ld` and `AS_FOR_TARGET`/`LD_FOR_TARGET`; `nm`, `objdump`,
+`ar` and `ranlib`, when present, set the matching `*_FOR_TARGET`. GCC's
+configure has no option for nm or objdump; it, and the Makefile's
+`NM_FOR_TARGET`, first take `./nm` and `./objdump` in the gcc build
+directory (the combined-tree route), so the recipe links those there. The
+assembler feature probes (`HAVE_AS_TLS`, `HAVE_GAS_HIDDEN`, `HAVE_AS_LEB128`,
+...) are then answered by our `as`, which the compiler will really use. The
+host-side `AS`, `LD` and `NM` variables and every other host tool stay
+guarded: libintl's host-linker test (`ld -v`) and nm probes when `DIR` has no
+nm still land in `host-tool-attempts.jsonl`. Without the option nothing changes.
+
+```sh
+python3 gcc-direct/binutils.py build-out/b --oyacc OYACC --flex FLEX -j 8
+python3 gcc-direct/driver.py build-out/driver --binutils build-out/b \
+  --oyacc OYACC --flex FLEX -j 8
+python3 tests/gcc/e2e-freestanding-check.py build-out/driver
+```
+
+`driver.py` checks the binutils executables against that run's
+`stage-b/report.json` and copies `as-new`, `ld-new`, `ar`, `nm-new`, `objdump`
+and `readelf` into `WORK/toolchain` as `as`, `ld`, `ar`, `nm`, `objdump`,
+`readelf` (configure needs `as`/`ld` to exist). It then configures
+`WORK/libiberty` (`--forth-ar --alloca-frame`), `WORK/libcpp` (`--forth-ar`)
+and `WORK/gcc` (`--forth-ar --with-binutils WORK/toolchain`), runs
+`census.py WORK --link` for libiberty.a, the cc1 objects, libcpp.a and cc1,
+and makes `xgcc cpp collect2` with the same Makefile and census.py's
+overrides. `xgcc` (installed as `gcc`), `cpp`, `cc1` and `collect2` join the
+binutils in `WORK/toolchain`.
+
+The layout is flat and is used as `-BWORK/toolchain/`. The driver searches
+each `-B` prefix for `cc1` and `collect2` (first under
+`x86_64-pc-linux-gnu/4.0.4/` inside it, then the prefix itself); without `-B`
+it would look under the configured install prefix. `as` and `ld` are not
+searched: the driver and collect2 run the absolute `DEFAULT_ASSEMBLER` and
+`DEFAULT_LINKER`, `WORK/toolchain/as` and `WORK/toolchain/ld`, so the
+toolchain is tied to its WORK path.
+
+Finally the recipe runs `tests/gcc/e2e-freestanding-check.py` (also in
+`tests/gcc/check.sh`, which skips with 77 when `build-out/driver` or
+`$GCC_DIRECT_DRIVER_WORK` holds no toolchain). With an environment of only
+`PATH=WORK/toolchain`, one command,
+`gcc -BWORK/toolchain/ -O2 -nostdlib -static hello.c -o hello`, compiles
+`tests/gcc/e2e-freestanding-hello.c`, a program that makes Linux system calls
+itself; it must print two lines and exit 42. The commands `-v` reports, and
+under strace every successful `execve`, must all be in `WORK/toolchain`; the
+gcc configure guard log must not grow, and no installed tool may contain the
+guard path. As a report-only oracle, our `as` and the host `as` assemble the
+same `-S` output and their `.text` bytes are compared. `WORK/report.json` and
+`report.md` record steps, input and installed hashes, guard counts and the
+result. cc1 still lists host `/usr/local/include` and `/usr/include` as its
+system include directories; the freestanding program includes nothing, and a
+real sysroot belongs to the next stage.
+
 ## Original RTL generator checks
 
 Given a retained successful component configure directory, run:

@@ -67,6 +67,14 @@ def environment_for(component_work):
     return environment
 
 
+def gcc_overrides(work, oyacc, flex):
+    """Make overrides for WORK/gcc: the ones configure cannot express."""
+    libiberty = work / "libiberty/build/libiberty/libiberty.a"
+    return ["CFLAGS=", "LDFLAGS=", f"BISON={oyacc.resolve()}", f"FLEX={flex.resolve()}",
+            f"LIBIBERTY={libiberty}", f"BUILD_LIBIBERTY={libiberty}",
+            f"CPPLIB={work / 'libcpp/build/libcpp/libcpp.a'}"]
+
+
 def cc1_objects(build, environment, scratch):
     """Ask the configured Makefile itself which objects cc1 is linked from."""
     printer = scratch / "print-cc1-objects.mk"
@@ -141,9 +149,7 @@ def main():
 
     gcc_build = work / "gcc/build/gcc"
     environment = environment_for(work / "gcc")
-    overrides = ["CFLAGS=", "LDFLAGS=",
-                 f"BISON={args.oyacc.resolve()}", f"FLEX={args.flex.resolve()}",
-                 f"LIBIBERTY={libiberty}", f"BUILD_LIBIBERTY={libiberty}"]
+    overrides = gcc_overrides(work, args.oyacc, args.flex)
     objects = cc1_objects(gcc_build, environment, out)
     (out / "objects.txt").write_text("\n".join(objects) + "\n")
     print(f"{len(objects)} cc1 objects; make log: {log}", flush=True)
@@ -161,7 +167,7 @@ def main():
                           ["-j", str(args.jobs), "CFLAGS=", "LDFLAGS=",
                            f"AR={libcpp_environment['AR']}", "ARFLAGS=rc", "libcpp.a"], log))
         steps.append(make(gcc_build, environment,
-                          [*overrides, f"CPPLIB={libcpp_build / 'libcpp.a'}", "cc1"], log))
+                          [*overrides, "cc1"], log))
 
     traces = compile_traces(work / "gcc/probes")
     units = []
