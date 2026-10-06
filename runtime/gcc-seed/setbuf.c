@@ -1,12 +1,27 @@
-/* Original seed-forth implementation; distributed under ../../LICENSE. */
+/* Original seed-forth implementation; distributed under ../../LICENSE.
+   See DIRECTORY-BUFFERING.md. */
 #include <stdio.h>
 #include <unistd.h>
+#include <errno.h>
+
+int setvbuf(FILE *stream, char *buffer, int mode, size_t size)
+{
+    /* Every seed FILE is unbuffered and stays so: a requested buffer is
+       neither read nor retained, and a valid request simply succeeds. */
+    (void)buffer;
+    (void)size;
+    if (fileno(stream) < 0) return EOF;
+    if (mode != _IOFBF && mode != _IOLBF && mode != _IONBF) {
+        errno = EINVAL;
+        return EOF;
+    }
+    return 0;
+}
 
 void setbuf(FILE *stream, char *buffer)
 {
-    /* Every seed FILE is actually unbuffered. A non-NULL buffer requests
-       unsupported buffering; this void interface cannot return an error.
-       Fail closed immediately, without diagnostic I/O that could block or
-       deliver a signal, and without changing process signal state. */
-    if (buffer != NULL || fileno(stream) < 0) _exit(127);
+    /* NULL or a closed stream is outside the live-object contract; fail
+       closed without diagnostic I/O, as before. Any buffer is accepted. */
+    (void)buffer;
+    if (fileno(stream) < 0) _exit(127);
 }

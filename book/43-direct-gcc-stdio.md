@@ -202,11 +202,14 @@ its stream. The new bounded interface validates the live stream through
 position. Nothing needs flushing or copying, and no private FILE layout is
 exposed to the separate implementation unit.
 
-The non-NULL form would request real buffering. A void function cannot return
-a normal unsupported-operation error, so that form terminates immediately
-with status 127. It does no diagnostic I/O and changes no signal state: a
-closed pipe or file-size limit could otherwise deliver a signal, and a full
-stderr pipe could block before termination. Tests check silent status 127 and
-that no later write is reached under each of those real conditions.
-This explicit boundary is not a claim of full setbuf support. See the
-[NULL-buffer contract and focused proof](https://github.com/delta9000/seed-forth/blob/bootstrap/forth-direct-gcc/runtime/gcc-seed/DIRECTORY-BUFFERING.md).
+The non-NULL form asks for real buffering. This chapter's first version
+answered it with an immediate, silent exit status 127, because a void
+function cannot report an unsupported operation. The plumbing tools changed
+that: patch 2.5.9 hands `setbuf` its own stderr buffer, and C lets an
+implementation honour such a request in its own way. The runtime now
+accepts the buffer and never touches it, so the stream stays unbuffered and
+every write still reaches the kernel at once; `setvbuf` accepts the three
+`_IO*BF` modes the same way and rejects any other with `EINVAL`. A NULL or
+closed stream still terminates with status 127, without diagnostic I/O.
+Buffering itself, if it comes, belongs to the stream layer. See the
+[buffer contract and focused proof](https://github.com/delta9000/seed-forth/blob/bootstrap/forth-direct-gcc/runtime/gcc-seed/DIRECTORY-BUFFERING.md).

@@ -25,13 +25,33 @@ int main(int argc, char **argv)
     stream = fopen(argv[2], "w+b");
     if (stream == NULL) return 14;
 #ifndef DIRECTORY_LIBC
-    if (strcmp(argv[1], "unsupported") == 0) {
+    if (strcmp(argv[1], "caller-buffer") == 0) {
+        /* Accepted, never read or written: the stream stays unbuffered. */
+        size_t index;
         memset(unsupported, 85, sizeof(unsupported));
+        errno = 97;
         setbuf(stream, unsupported);
-        fputs("incorrectly continued", stream);
-        return 15;
+        if (errno != 97) return 15;
+        if (fputs("written at once", stream) == EOF) return 16;
+        reader = fopen(argv[2], "rb");
+        if (reader == NULL || fread(bytes, 1, 15, reader) != 15 || memcmp(bytes, "written at once", 15)) return 17;
+        for (index = 0; index < sizeof(unsupported); index++)
+            if (unsupported[index] != 85) return 18;
+        if (setvbuf(stream, unsupported, _IOFBF, sizeof(unsupported)) != 0) return 19;
+        if (setvbuf(stream, NULL, _IOLBF, 0) != 0 || setvbuf(stream, NULL, _IONBF, 0) != 0) return 20;
+        errno = 0;
+        if (setvbuf(stream, NULL, 7, 0) != EOF || errno != EINVAL) return 21;
+        fclose(reader);
+        fclose(stream);
+        puts("caller buffer accepted");
+        return 0;
     }
-    if (strcmp(argv[1], "bad-buffer") == 0) { setbuf(stream, (char *)1); return 16; }
+    if (strcmp(argv[1], "bad-buffer") == 0) {
+        setbuf(stream, (char *)1);
+        if (fputc('Z', stream) != 'Z') return 22;
+        puts("unused buffer pointer accepted");
+        return 0;
+    }
 #endif
     errno = 97;
     setbuf(stream, NULL);

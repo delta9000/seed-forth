@@ -49,7 +49,23 @@ path. That rejection may leave the kernel-written bytes in caller storage.
 The corresponding synthetic path is tested; real chroot/mount/credential
 changes are not exercised or required by this focused proof.
 
-## setbuf: only the observed NULL-buffer form
+## setbuf and setvbuf: buffers accepted, streams stay unbuffered
+
+*Update (POSIX runtime).* The non-NULL form described below is no longer
+rejected. patch 2.5.9 calls `setbuf(stderr, serrbuf)` and coreutils calls
+`setvbuf`, and C defines both as requests the implementation may honour in
+its own way. Every seed stream stays unbuffered: a caller's buffer is
+accepted but never read, written or retained, so output still reaches the
+kernel at once. `setvbuf(stream, buffer, mode, size)` returns 0 for
+`_IOFBF`, `_IOLBF` and `_IONBF` (now defined in `stdio.h`) and fails with
+`EOF`/`EINVAL` for any other mode. Real buffering, if it is added, belongs
+to the stdio implementation itself. A NULL or closed stream still ends the
+process with the silent status 127 described below. The gate now checks the
+accepted buffer (writes immediate, buffer bytes untouched, `setvbuf` modes)
+instead of the old terminations; the historical record below describes the
+superseded contract.
+
+## setbuf: only the observed NULL-buffer form (superseded)
 
 The public type is `void setbuf(FILE *, char *)`. The NULL form is the
 unbuffered operation described by the [GNU libc manual](https://www.gnu.org/software/libc/manual/2.34/html_node/Controlling-Buffering.html). Call it immediately after

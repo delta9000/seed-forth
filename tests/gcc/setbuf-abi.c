@@ -23,8 +23,11 @@ int main(int argc, char **argv)
     wanted = (FILE *)&stream_token;
     errno = 97;
     if (argc > 1 && argv[1][0] == 'x') {
+        /* A caller buffer is accepted after the same stream validation. */
         tested_setbuf(wanted, (char *)1);
-        return 43;
+        if (calls != 1 || errno != 97) return 43;
+        puts("setbuf buffer ABI passed");
+        return 0;
     }
     if (argc > 1 && argv[1][0] == 'i') {
         invalid_stream = 1;

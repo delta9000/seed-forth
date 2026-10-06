@@ -23,8 +23,14 @@ FILE *fopen(const char *path, const char *mode);
 FILE *freopen(const char *path, const char *mode, FILE *stream);
 /* Ownership transfers only on success; w modes never truncate the fd. */
 FILE *fdopen(int descriptor, const char *mode);
-/* Only NULL buffer is supported; non-NULL terminates immediately with status 127. */
+/* Streams stay unbuffered; a caller buffer is accepted but never used.
+   See ../DIRECTORY-BUFFERING.md. */
 void setbuf(FILE *stream, char *buffer);
+#define _IOFBF 0
+#define _IOLBF 1
+#define _IONBF 2
+/* Valid MODE (_IOFBF, _IOLBF, _IONBF) returns 0; others fail with EINVAL. */
+int setvbuf(FILE *stream, char *buffer, int mode, size_t size);
 int fclose(FILE *stream);
 int fflush(FILE *stream);
 int ferror(FILE *stream);
