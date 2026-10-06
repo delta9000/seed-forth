@@ -39,6 +39,13 @@ GOLDENS = [
     ("7 / -3", (-2) & MASK, INT), ("7 % -3", 1, INT),
     ("0xffffffffU >> 31", 1, UINT), ("0x8000000000000000UL >> 63", 1, ULONG),
     ("-8 >> 2", (-2) & MASK, INT), ("1U << 31", 1 << 31, UINT),
+    # Signed left shifts within the width fold as two's complement, as GCC
+    # does: coreutils' TYPE_MINIMUM is ~(t)0 << (sizeof (t) * 8 - 1).
+    ("1 << 31", (-(1 << 31)) & MASK, INT), ("-1 << 1", (-2) & MASK, INT),
+    ("-1L << 3", (-8) & MASK, LONG), ("~(int)0 << 31", (-(1 << 31)) & MASK, INT),
+    ("~(long)0 << 63", 1 << 63, LONG), ("~(long long)0 << 63", 1 << 63, LLONG),
+    ("3 << 30", (-(1 << 30)) & MASK, INT), ("0x7fffffffffffffffL << 1", (-2) & MASK, LONG),
+    ("(short)-1 << 15", (-(1 << 15)) & MASK, INT), ("(signed char)-3 << 30", (1 << 30) & MASK, INT),
     ("0xffffffffU << 4", 0xfffffff0, UINT), ("1UL << 63", 1 << 63, ULONG),
     ("1 << 30", 1 << 30, INT), ("0 << 31", 0, INT),
     ("2147483647 * 1", 2147483647, INT),
@@ -77,7 +84,7 @@ REJECTIONS = {
     "(-9223372036854775807L-1) - 1L": 242,
     "2147483647 * 2": 242, "9223372036854775807L * 2L": 242,
     "(-2147483647-1) / -1": 242, "(-2147483647-1) % -1": 242,
-    "-(-2147483647-1)": 242, "1 << 31": 242, "-1 << 1": 242,
+    "-(-2147483647-1)": 242, "-1 << 32": 241, "-1L << 64": 241,
     "(int *)0": 240, "unknown_name": 240, "&unknown_name": 240,
     "(double)1": 240,
     "1.5": 240, "1e3": 240, "1.5f": 240, "09": 240,
@@ -150,7 +157,8 @@ def main():
         a, b, shift = rng.randrange(1 << 64), rng.randrange(1, 1 << 64), rng.randrange(64)
         expressions.extend([f"({a}UL / {b}UL)", f"({a}UL % {b}UL)",
                             f"({a}UL < {b}UL)", f"({a}UL >> {shift})",
-                            f"((unsigned int){a}UL * (unsigned int){b}UL)"])
+                            f"((unsigned int){a}UL * (unsigned int){b}UL)",
+                            f"((long){a}UL << {shift})", f"((int){a}UL << {shift % 32})"])
     actual = seed(";\n".join(expressions) + ";\n", len(expressions))
     assert actual.returncode == 0, (actual.returncode, actual.stderr)
     with tempfile.TemporaryDirectory(prefix="sf-constant-oracle.") as tmp:

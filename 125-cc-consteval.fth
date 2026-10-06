@@ -359,18 +359,15 @@ variable cc-const-b
     then,
     cc-const-op [char] / = if, cc-div else, cc-mod then,
   then, ;
+\ A count outside the promoted width is 241. Within it, a left shift keeps
+\ the low bits as two's complement, as GCC folds it even for a negative or
+\ overflowing signed operand: TYPE_MINIMUM (t) is ~(t)0 << (bits - 1).
 : cc-const-shift ( a b -- value )
   dup 0< over cc-const-common @ ty-size [lit] 8 * >= or if,
     [lit] 241 cc-die
   then,
   cc-const-op pt-shl = if,
-    cc-const-unsigned? 0= if,
-      over 0< if, [lit] 242 cc-die then,
-      cc-const-common @ cc-const-signed-min cc-abs 1-
-      over cc-pow2 / [lit] 2 cc-npick cc-const-ult if,
-        [lit] 242 cc-die
-      then,
-    then, cc-shl
+    cc-shl
   else,
     cc-const-unsigned? if, cc-pow2 / else, cc-sar then,
   then, cc-const-common @ cc-const-convert ;

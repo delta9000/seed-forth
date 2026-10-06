@@ -289,8 +289,9 @@ of that type, a function returning it, and a definition written through it,
 `Function g { ... }`.
 
 The compiler's typed constant evaluator reports 240 for an unsupported
-constant form, 241 for an invalid shift count, and 242 for signed arithmetic
-overflow. 242 also rejects a floating constant whose truncated value does not
+constant form, 241 for an invalid shift count (negative, or at least the
+left operand's promoted width), and 242 for signed arithmetic overflow; a
+left shift by a valid count folds as two's complement, as GCC's does. 242 also rejects a floating constant whose truncated value does not
 fit its integer destination, such as `int i = 1e10;` or `unsigned u = -1.0;`.
 A floating operand of `%`, a shift or a bitwise operator is 240, a floating
 division by zero is 124, and a floating result too large for its format is

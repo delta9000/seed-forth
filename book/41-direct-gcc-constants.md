@@ -77,9 +77,14 @@ primitive directly. Full-range comparison checks the operands' sign bits
 before subtraction; the simpler comparison word used for compiler offsets
 cannot safely compare all possible constant values.
 
-Division by zero reports error 124. Invalid shift counts report 241. Signed
-addition, subtraction, multiplication, negation, division overflow, and invalid
-signed left shifts report 242. Unsupported value forms and literal spellings
+Division by zero reports error 124. Invalid shift counts, negative or at
+least the promoted left operand's width, report 241. Signed addition,
+subtraction, multiplication, negation and division overflow report 242. A
+left shift by a valid count keeps the low bits as two's complement, even for
+a negative or overflowing signed operand: C leaves that undefined, but GCC
+folds it this way, and code relies on it. Coreutils computes the smallest
+value of a signed type as `~(t)0 << (sizeof (t) * CHAR_BIT - 1)`, so
+`static long x = -1L << 3;` is -8 and `case (-1 << 2):` is -4. Unsupported value forms and literal spellings
 report 240. These are target diagnostics, rather than substituted zero values.
 Unsigned arithmetic continues to wrap at the declared width. Conversion to
 `_Bool` keeps only whether the value is nonzero (`cc-const-convert`); a
@@ -585,18 +590,15 @@ variable cc-const-b
     then,
     cc-const-op [char] / = if, cc-div else, cc-mod then,
   then, ;
+\ A count outside the promoted width is 241. Within it, a left shift keeps
+\ the low bits as two's complement, as GCC folds it even for a negative or
+\ overflowing signed operand: TYPE_MINIMUM (t) is ~(t)0 << (bits - 1).
 : cc-const-shift ( a b -- value )
   dup 0< over cc-const-common @ ty-size [lit] 8 * >= or if,
     [lit] 241 cc-die
   then,
   cc-const-op pt-shl = if,
-    cc-const-unsigned? 0= if,
-      over 0< if, [lit] 242 cc-die then,
-      cc-const-common @ cc-const-signed-min cc-abs 1-
-      over cc-pow2 / [lit] 2 cc-npick cc-const-ult if,
-        [lit] 242 cc-die
-      then,
-    then, cc-shl
+    cc-shl
   else,
     cc-const-unsigned? if, cc-pow2 / else, cc-sar then,
   then, cc-const-common @ cc-const-convert ;

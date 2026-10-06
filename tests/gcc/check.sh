@@ -38,6 +38,7 @@ bash tests/gcc/sysv-interop-check.sh
 bash tests/gcc/sysv-storage-check.sh
 python3 tests/gcc/review-storage-probe.py
 python3 tests/gcc/constant-check.py
+python3 tests/gcc/shift-constants-check.py
 python3 tests/gcc/array-pointer-check.py
 python3 tests/gcc/multidimensional-record-check.py
 python3 tests/gcc/large-record-check.py
