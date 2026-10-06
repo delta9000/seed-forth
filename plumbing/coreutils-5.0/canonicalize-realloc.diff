@@ -1,0 +1,26 @@
+canonicalize.c: keep DEST valid when xrealloc moves RPATH (upstream bug)
+
+Origin: written for seed-forth's plumbing stage 2; later gnulib versions of
+  canonicalize.c make the same correction (they keep the offset of DEST
+  across the reallocation).
+Why: for a relative name, canonicalize_filename_mode copies the working
+  directory into RPATH, points DEST at its end, then grows RPATH to
+  PATH_MAX with xrealloc but keeps using the old DEST.  When realloc
+  moves the block (runtime/gcc-seed's realloc always moves on growth;
+  glibc usually extends in place, which hides the bug) DEST points into
+  freed memory, and `readlink -f RELATIVE-NAME' crashes.
+Applied by: plumbing/stage2.kaem, with the patch 2.5.9 built just before
+  coreutils (patch -p1 -i in the coreutils-5.0 tree).
+
+--- coreutils-5.0/lib/canonicalize.c
++++ coreutils-5.0/lib/canonicalize.c
+@@ -171,7 +171,9 @@
+       dest = strchr (rpath, '\0');
+       if (dest < rpath + PATH_MAX)
+ 	{
++	  size_t dest_offset = dest - rpath;
+ 	  rpath = xrealloc (rpath, PATH_MAX);
++	  dest = rpath + dest_offset;
+ 	  rpath_limit = rpath + PATH_MAX;
+ 	}
+       else
