@@ -53,8 +53,10 @@ first volume's machine-code audit before entering here.
     follow copied arguments into frame slots and back to the caller
 19. [Translation units and process entry](chapters/19-translation-units-and-process-entry.md):
     join declarations and finalization, then derive a whole small program's image and entry path
+20. [The complete compiler and Stage-A comparison](chapters/20-complete-compiler-and-stage-a.md):
+    follow the produced compiler into its next output, then identify exactly what a recorded comparison establishes
 
-These nineteen chapters provide 137 exercises and separate feedback
+These twenty chapters provide 145 exercises and separate feedback
 companions. Try a
 prediction, use a hint when a step is missing, then attempt a changed case
 without copying the worked answer. The purpose is to explain a mechanism,
@@ -82,8 +84,8 @@ switch cleanup, replayed tokens, unresolved uses and whole-image placement.
 
 Places and values precede operator parsing, so operators use an already-taught
 state model. Statements and functions then use it to build a complete paper
-program. The next unit turns to the exact artifacts and comparisons of an
-actual Stage-A recipe. The
+program. C20 then follows the exact artifacts and comparisons of Stage A;
+the next unit opens the assembly representation that it produces. The
 [coverage map](../COVERAGE.md#volume-2-a-c-compiler-in-forth) assigns the later
 control, function, assembler and bootstrap units. Planned
 units are not chapters that already exist.
@@ -93,7 +95,9 @@ units are not chapters that already exist.
 The [C16–C19 unit record](DRAFTS.md) distinguishes the completed C16–C18
 technical and reading-flow checks, C19's complete reference/practice review,
 and the bounded reader attempts. C19 and the sixth mixed check have passed
-source-derived checks. All nineteen chapters remain paper drafts;
+source-derived checks. C20's full recipe, evidence account and eight exercise
+sets have also received independent source-based review. All twenty chapters
+remain teaching drafts;
 source and model-assisted reviews do not establish real-reader learning.
 
 ## Profile and evidence
@@ -107,13 +111,14 @@ provides the comparison before the distinction matters in a trace.
 
 All implementation claims use the [edition pin](../EDITION.md). The chapters
 contain inspected source and paper derivations, not transcripts of newly run
-compilers. The new examples and fresh-reader setup remain unexecuted; there
+compilers. C20 separately reads an identified existing CI comparison record.
+The new examples and fresh-reader setup remain unexecuted; there
 has been no real-reader validation. Existing repository CI has its own
 [validation record](../VALIDATION.md) and does not execute these exercises.
 
-The eventual volume outcome includes the legacy compiler/M2-Planet comparison,
-the Forth assembler handoff and a separately identified TinyCC extension.
-Those closing units are still planned. A current direct-GCC-to-Linux outcome
+The legacy compiler/M2-Planet recipe and its finite M1 comparison now have an
+explanatory home. The Forth assembler handoff and separately identified TinyCC
+extension remain planned closing units. A current direct-GCC-to-Linux outcome
 requires its own evidence in the later kernel volume.
 
 ## Find the implementation

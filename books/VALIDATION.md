@@ -3,7 +3,7 @@
 This manuscript checkpoint contains the first volume's complete draft paper
 route: entry/motivation guides, nineteen teaching chapters, ninety-five
 exercises with separate feedback, six mixed return checks and a compact
-reference. The C volume now adds nineteen teaching chapters, 137 exercises
+reference. The C volume now adds twenty teaching chapters, 145 exercises
 with feedback and six four-question mixed checks. These are paper teaching
 drafts, not validated execution guides or a completed multi-volume rewrite.
 
@@ -20,7 +20,7 @@ The included checker is intentionally small and inspectable:
 python3 books/check.py
 ```
 
-It uses Python's standard library. It checks thirty-five relevant source blob
+It uses Python's standard library. It checks forty-eight relevant source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
@@ -210,7 +210,7 @@ reading and identified an implicit source-order-emission premise. That premise
 is now stated explicitly. This was a model-assisted dependency check, not a
 human trial or an observed transfer outcome.
 
-The document checker now covers 232 main exercise pairs, all 85 source-inventory
+At the C19 checkpoint, the document checker covered 232 main exercise pairs, all 85 source-inventory
 rows and the 77-unit prerequisite graph. The definition map accounts for 526
 colon definitions across thirteen source files. The new control/program
 companion adds all 160 declarations and ten top-level initialization, binding
@@ -229,6 +229,53 @@ seven changed contents were read back exactly, and the repository entries
 outside `books/` were unchanged. Its CI covers the canonical pipeline, not the
 new book's exercises or rendered layout.
 
+## Stage-A recipe and evidence chapter
+
+C20 follows the compiler executable into its next role as an M1 producer.
+Independent review checked its complete recipe/reference account, eight main
+tasks, 24 graduated hints, eight worked answers and eight answer-free changed
+cases against actual pinned scripts and the identified CI record. Corrections
+kept a nonzero comparison error distinct from a demonstrated byte difference,
+separated the shell wrapper's removal from the Forth driver's open/truncate,
+and specified a common hash algorithm for a digest-comparison exercise. A
+Fibonacci locator was tightened to the exact nine source lines; the displayed
+C block matches those lines.
+
+A bounded simulated-reader attempt used only the continuous first story and
+three changed records. It distinguished producer ELF sizes from output parity,
+equal lengths from byte comparison, and acceptance of equal empty files from
+useful compilation. Its questions led to an explicit absence of a nonempty-
+output gate and simpler source-version language in the first story. This is
+model-assisted text-dependency evidence, not a real-reader learning outcome.
+
+The pipeline companion partitions all 273 lines of five pinned scripts into
+33 source-annotated regions. This count is separate from the 526 Forth colon
+definitions. The current document pass covers 240 main exercise pairs, 90
+source-inventory rows, the 77-unit prerequisite graph, 48 project source blobs,
+and 67 complete named C-compiler excerpts. The checker checks source-line
+bounds and uses implementation `.fth` bodies, rather than historical narrative
+fragments, as the authority for those Forth excerpts.
+
+C20's observed comparison is explicitly attributed to
+[run 37474668625](https://github.com/delta9000/seed-forth/actions/runs/37474668625)
+and its [check-all + verify job](https://github.com/delta9000/seed-forth/actions/runs/37474668625/job/112306844449).
+The surviving summary reports equality of `self-v1-amd64.M1` and
+`self-ref-amd64.M1`, with 2,367,260 bytes. The relevant script contents match
+the teaching pin. The chapter distinguishes that remote observation from
+recipe inspection, old recorded hashes and new paper examples. Complete inner
+transcripts and the compared binary/text artifacts were not retained in that
+run's downloadable artifacts, so the book does not invent their measurements.
+The later fixed-point summary also concerns M1 text, not equality of the v2
+and v3 compiler ELFs. Separate cross-route ELF comparisons remain separately
+named.
+
+The preceding integrated C19 checkpoint at
+`945282917f45cebf9e04d86492e7a64ef50393a8` passed its automatic
+[Check run](https://github.com/delta9000/seed-forth/actions/runs/37478538502).
+All 109 book files matched the saved manifest; all 15 changed contents were
+read back exactly, with no repository changes outside `books/`. As before,
+canonical CI builds the original `book/`, not these new teaching manuscripts.
+
 ## Still unverified
 
 - The seed and C teaching examples have not been executed for this edition
@@ -246,9 +293,9 @@ new book's exercises or rendered layout.
 
 ## Next coherent unit
 
-The next manuscript work follows the actual Stage-A recipe, named inputs and
-artifact comparisons, keeping recorded build evidence distinct from the new
-source-derived program predictions.
+The next manuscript work opens the M1 text representation and its assembler,
+then follows the two-pass and source-built assembler handoff. Later native,
+TinyCC, GCC and kernel routes retain separate source and evidence obligations.
 The [coverage map](COVERAGE.md) distinguishes that planned material from
 the first volume's drafted mechanisms and its remaining verification work.
 Execution checks need a named, authorized seed profile before their status

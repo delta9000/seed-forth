@@ -17,6 +17,19 @@ from urllib.parse import unquote, urlsplit
 REV = "7d7e1996d1753118181d43e1a413960d3a1ec24b"
 ROOT = Path(__file__).resolve().parent
 SOURCE_BLOBS = {
+    'README.md': 'b4a167739d8c47dc2338cfde5f915bb9aca566f7',
+    'REPRODUCIBLE.md': '5bfd46d7bbdc90e375fe378da30cae3fa617af32',
+    'book/00-prologue.md': '91b3ee2a06373f3d1b6234d9abed0a6c0008184b',
+    'book/32-main-and-bootstrap-chain.md': 'dc0666d9b8da3e61ccdd953309dfe371f3aa719e',
+    'book/A3-reproducibility-chain.md': 'e044d26829ac588354cdaaf7b3021ea59b0d4b4b',
+    'bootstrap.sh': '14986352c5ee2d24746dabf038099d9e430fc11a',
+    'build.sh': '47b9c426aaa17bed389119b89f313a7107b9d15c',
+    'tests/cc/bootstrap-chain.sh': '1cf990022c967b655e40fcf596c1550c3d79b3f7',
+    'tests/cc/build-gcc-refs.sh': '01b4b996cc1a923b010049b569880d4a3cfb4be4',
+    'tests/cc/build-m2planet-monolith.sh': 'a6adc796e998b0d5802051e9d0673b43bf33b85f',
+    'tests/cc/cc_globals.h': '0633b632d001175429a8217653a0e1b3b89300b7',
+    'tests/cc/stage-a-check.sh': '5a73cde4d041f0fb9058f40147f329c363d26236',
+    'verify.sh': 'f66ba07d4b9ab9fb884b1952b68204bf8ae3b673',
     "tools/tcc-compile.fth": "c7804bdcb5ef7ebb6b1d774af175558013eb50be",
     "book/21-arena-and-io-buffers.md": "55d0af2ee7e885fd8f9f100e2be8376422c30559",
     "140-cc-link.fth": "57d274b12b643dda55400967c953ff42b0553875",
@@ -156,7 +169,7 @@ def check_documents():
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9, 19: 7}.get(number, 5)
+        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9, 19: 7, 20: 8}.get(number, 5)
         c_pairs += exercise_count
         expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
@@ -351,7 +364,10 @@ def check_sources(source_root):
 def check_c_excerpts(source_root):
     """Compare complete named C-compiler Forth excerpts, not pseudocode."""
     definitions = {}
+    # Narrative files can contain historical fragments; use implementation bodies.
     for name in SOURCE_BLOBS:
+        if not name.endswith(".fth"):
+            continue
         if not re.match(r"[0-9]{3}-cc-.*\.fth$", name):
             continue
         text = (source_root / name).read_text()
@@ -594,6 +610,100 @@ def check_control_map(source_root):
                        ("120-cc-main.fth", 40, 40, "execution")}
     assert forms == expected_forms, forms
     print(f"PASS: {len(seen)} control/function/program declarations and {len(forms)} top-level forms; states {states}")
+
+
+def check_pipeline_map(source_root):
+    path = ROOT / "c-compiler/pipeline-map.csv"
+    if not path.exists():
+        return
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    expected_lengths = {
+        "tests/cc/stage-a-check.sh": 78,
+        "tests/cc/build-m2planet-monolith.sh": 106,
+        "tests/cc/build-gcc-refs.sh": 50,
+        "tools/compiler-layers.sh": 10,
+        "build.sh": 29,
+    }
+    for name, length in expected_lengths.items():
+        assert len((source_root/name).read_text().splitlines()) == length, name
+    next_line = {name: 1 for name in expected_lengths}
+    ids, states = set(), {}
+    for row in rows:
+        name = row["source_path"]
+        assert name in expected_lengths and row["region_id"] not in ids, row
+        ids.add(row["region_id"])
+        start, end = int(row["start_line"]), int(row["end_line"])
+        assert start == next_line[name] and start <= end <= expected_lengths[name], row
+        next_line[name] = end+1
+        assert row["source_revision"] == REV and row["source_blob_sha"] == SOURCE_BLOBS[name], row
+        assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/{name}#L{start}-L{end}"
+        assert row["teaching_unit"] == "C20" and row["evidence_kind"] == "inspected-recipe", row
+        for field in ["semantic_purpose", "inputs", "outputs", "state_owner", "exact_action",
+                      "acceptance_predicate", "profile_assumptions", "teaching_depth",
+                      "run_evidence", "claim_limit"]:
+            assert row[field].strip(), (field, row)
+        chapter = (ROOT / "c-compiler" / row["manuscript_path"]).resolve()
+        assert chapter.is_relative_to(ROOT) and chapter.is_file(), row
+        state = row["coverage_status"]
+        assert state in {"taught", "partial-prose", "pending-prose"}, row
+        states[state] = states.get(state, 0) + 1
+        if state == "taught" or row["teaching_anchor"]:
+            assert row["teaching_anchor"] in anchors(chapter.read_text()), row
+            assert row["teaching_section"].strip(), row
+    assert next_line == {name: end+1 for name, end in expected_lengths.items()}
+    assert len(rows) == 33
+    print(f"PASS: {len(rows)} pipeline regions partition {sum(expected_lengths.values())} lines in five recipes; states {states}")
+
+
+def check_c_pipeline_models(source_root):
+    path = ROOT / "c-compiler/chapters/20-complete-compiler-and-stage-a.md"
+    if not path.exists():
+        return
+    blocks = list(all_fenced_blocks(path.read_text()))
+    text_blocks = [block.strip().splitlines() for language, block in blocks if language == "text"]
+    layers = sorted(p.name for p in source_root.glob("[0-9][0-9][0-9]-cc-*.fth"))
+    assert len(layers) == 30 and "120-cc-main.fth" in layers
+    ordered = ["010-lib.fth"] + [name for name in layers if name != "120-cc-main.fth"] + ["120-cc-main.fth"]
+    assert ordered in text_blocks and len(ordered) == 31
+    # Read shell text as data. These expressions do not execute either helper.
+    mono = (source_root / "tests/cc/build-m2planet-monolith.sh").read_text()
+    header_line = next(line for line in mono.splitlines() if line.strip().startswith('cat "$M2/cc.h"'))
+    headers = re.findall(r'\$M2/([^"\s]+)', header_line)
+    c_loop = re.search(r"for f in (.*?); do", mono, re.S).group(1)
+    c_files = c_loop.replace("\\\n", " ").split()
+    assert len(headers) == 4 and headers in text_blocks
+    assert len(c_files) == 9 and c_files in text_blocks
+    stage = (source_root / "tests/cc/stage-a-check.sh").read_text()
+    comparison = re.search(r"m2_srcs=\((.*?)\)", stage, re.S).group(1).split()
+    assert len(comparison) == 11
+    arguments = ["--architecture amd64 --expand-includes"] + [f"-f {name}" for name in comparison]
+    assert arguments in text_blocks
+    assert comparison != c_files and "130-asm.fth" not in ordered
+    original_lines = (source_root / "book/00-prologue.md").read_text().splitlines()
+    fibonacci_source = "\n".join(original_lines[8:17]).strip()
+    assert fibonacci_source.startswith("int fib(") and fibonacci_source.endswith("}")
+    assert sum(language == "c" and block.strip() == fibonacci_source for language, block in blocks) == 1
+    sequence, a, b = [], 0, 1
+    for _ in range(12):
+        sequence.append(a)
+        a, b = b, a+b
+    assert len((" ".join(map(str, sequence))+"\n").encode()) == 29 and sequence[10] == 55
+    assert len((" ".join(map(str, sequence[:10]))+"\n").encode()) == 23 and sequence[8] == 21
+    # A small model of the displayed harness branches, not a compiler/runtime test.
+    def classify(left_status, right_status, comparison_status=None):
+        if left_status == right_status and left_status != 0:
+            return "both-fail"
+        if left_status == right_status == 0 and comparison_status == 0:
+            return "identical"
+        return "differ"
+    cases = [(124, 124, None), (7, 8, None), (0, 0, 1), (0, 0, 0)]
+    results = [classify(*case) for case in cases]
+    assert [results.count(name) for name in ["identical", "both-fail", "differ"]] == [1, 1, 2]
+    assert classify(0, 0, 2) == "differ"  # Comparison error is not necessarily unequal bytes.
+    assert int(bool(8) and bool(1)) == 1 and (8 & 1) == 0
+    assert b"A\n" != b"A \n" and b"" == b""
+    print("PASS: C20's three displayed input lists and Fibonacci source match pinned text; bounded counts/status models agree")
 
 
 def check_c_models(source_root):
@@ -996,8 +1106,10 @@ def main():
     check_emission_map(args.source_root)
     check_parser_map(args.source_root)
     check_control_map(args.source_root)
+    check_pipeline_map(args.source_root)
     check_c_models(args.source_root)
     check_c_program_capstone()
+    check_c_pipeline_models(args.source_root)
     check_models()
     check_audit_partition(args.source_root)
     check_audit_listings(args.source_root)

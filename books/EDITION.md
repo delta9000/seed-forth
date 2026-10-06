@@ -37,7 +37,7 @@ prerequisites for calculating the first three chapters' states.
 
 ## Compiler-volume entrance
 
-The first nineteen C-volume chapters use the same exact source revision.
+The first twenty C-volume chapters use the same exact source revision.
 [C01](c-compiler/chapters/01-compiler-entry-and-profile.md) distinguishes the
 legacy direct-ELF builder from the separate generated program and from the
 optional TinyCC/System V profiles. [C02](c-compiler/chapters/02-buffers-arenas-and-failure.md)
@@ -57,15 +57,22 @@ the final driver. Its complete small-program story derives a 556-byte buffer
 and a conditional exit-value trace, then its reference sessions open enums,
 typedefs, prototypes, global storage, runtime registration and final checks.
 C19's full technical/practice manuscript review is complete.
+[C20](c-compiler/chapters/20-complete-compiler-and-stage-a.md) now follows the
+produced executable as an M2-Planet compiler, reconstructs the exact Stage-A
+recipe and bounds its observed M1-output comparison. Eight complete practice/
+feedback sets exist; source/practice review and final readback are complete.
 
 The source maps assign 526 colon definitions across thirteen non-preprocessor
 compiler files, all 333 declarations in `100`/`110`, and 170 control/function/
 program rows: 160 declarations plus ten top-level forms in `112`/`114`/`116`/
 `120`. The separate preprocessor inventory remains 57 regions/325 declarations.
-These are source-coverage units, not execution counts. Full native/private-stack,
-System V and other target providers retain separate homes. C20 retains actual
-artifact/build/Stage-A comparisons; a source-complete default driver account
-does not complete those evidence obligations.
+The separate [pipeline map](c-compiler/pipeline-map.csv) covers 33 regions and
+273 lines across five complete shell recipe files; all have teaching homes.
+The source-blob check covers 48 pinned project files. These are distinct
+source-coverage counts, not execution counts. C20 covers the standalone
+Stage-A recipe and attributed result; full assembly, native/private-stack,
+System V, broader bootstrap lineages and later target providers retain
+separate homes.
 
 Their source inspection does not resume or reproduce a compiler build.
 The canonical `tri.c` is retained as a paper example; its output character
@@ -91,11 +98,22 @@ as new measurements. More workspace does not change a C data model or ABI.
 | All seed file bytes: headers, startup, primitive bodies and helpers | `000-seed.hex0`, S11–S18 regions enumerated in the byte ledger | Source-matched byte listings, GNU readelf/objdump 2.44 static decoding and manual state traces | All 1,772 bytes have drafted explanations: 120 ELF bytes, 421 dictionary-header bytes and 1,231 native-instruction bytes; coverage is not a correctness proof |
 | A complete new `inc` definition | S19 capstone, using the inspected dictionary/compiler contracts | Predicted 32-byte entry, independently reconstructed by the document checker | Generated process-memory bytes, not an observed artifact or extra seed file bytes |
 | Stack, byte and bit examples and exercise answers | Chapter and solution steps, plus document-check assertions | Derived from the stated model | An arithmetic assertion is not a seed execution |
-| C entry through default statements, functions and process entry | `020`–`120` core modules at the pin, source-map.csv, parser-map.csv, control-map.csv, named provider contracts and the actual loader | Inspected source, matched excerpts and manual state/byte derivations | C01–C19 paper route; C19 full technical/practice manuscript review complete. Complete optional providers and C20 artifact comparisons remain planned; no new compiler/example execution |
+| C entry through default statements, functions and process entry | `020`–`120` core modules at the pin, source-map.csv, parser-map.csv, control-map.csv, named provider contracts and the actual loader | Inspected source, matched excerpts and manual state/byte derivations | C01–C19 paper route; C19 full technical/practice manuscript review complete. C20 now supplies a separately scoped recipe/comparison account; complete optional providers remain planned; no new compiler/example execution |
 | A minimal C program has a predicted 556-byte image and exit value seven | C19 fixture `int main(void){return 7;}`; exact header, stub, eager runtime, function and finalizer definitions | Manual byte/layout and conditional target-state derivation | Output-buffer prediction only; one-write delivery, loading and execution have not been observed; unrelated to original seed byte coverage or a Stage-A artifact comparison |
+| The standalone Stage-A recipe compares two M1 text files | Five pinned recipe scripts; [33-region map](c-compiler/pipeline-map.csv) | Complete recipe/source inspection | Does not compare the producer ELFs, enforce a published hash/size or explain every later bootstrap implementation |
+| Standalone Stage A reported equal 2,367,260-byte M1 outputs | [Run 37474668625, check job](https://github.com/delta9000/seed-forth/actions/runs/37474668625/job/112306844449), head `764bdc4f4902d613145f361da6a7f33010dd37b4`; relevant recipe blobs match the teaching pin | Observed remote execution summary | Named self-source input/profile only; no downloadable output artifacts or Stage-A SHA-256 in the available log; no execution of new teaching examples |
+| Published Stage-A artifact hashes identify historical outputs | Pinned [REPRODUCIBLE.md](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/REPRODUCIBLE.md#L301-L323) | Attributed historical record | Neither newly measured hashes nor a hash oracle enforced by the Stage-A script |
+| Original Fibonacci source requests 29 character bytes and returns 55 | C20 optional retrieval, original prologue source | Source-derived program trace | Assumes admitted compilation, resources and successful target writes; no new execution or Stage-A input claim |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | An exact byte-decoded copy was inspected as data; no manual build-script run or seed execution is claimed |
 
 ## Existing results are attributed results
+
+C20 distinguishes inspected recipes, historical output records and the named
+remote Stage-A observation. The independently passed C19 publication check
+at `945282917f45cebf9e04d86492e7a64ef50393a8`, [run 37478538502](https://github.com/delta9000/seed-forth/actions/runs/37478538502),
+remains a canonical repository result with the scope recorded in the
+[coverage ledger](COVERAGE.md#existing-ci-is-separate-evidence). It does not
+establish that these new manuscript examples ran.
 
 The pinned [GCC driver documentation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md)
 and commit message report matching stages 2, 3 and 4 for the selected set of

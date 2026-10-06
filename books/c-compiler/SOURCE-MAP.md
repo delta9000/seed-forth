@@ -29,8 +29,9 @@ C01 opens the contract of `cc-main` and the main-last loader before C02 opens
 the storage mechanisms. C03–C08 open preprocessing, lexing, type storage and name visibility. C09–C11
 open emission/finalization and the bounded runtime. C12–C15 open expression
 and declaration mechanisms. C16–C19 join statements, functions and the
-top-level driver into a complete source-derived program trace. C20 still owns
-the actual compiler/Stage-A artifact recipe and comparisons. Reading a call's
+top-level driver into a complete source-derived program trace. C20 explains
+the actual compiler/Stage-A artifact recipe and reads an identified comparison
+record. Reading a call's
 name is not the same as auditing its implementation.
 
 The inventory currently covers all 526 colon definitions in `020`, `030`,
@@ -122,12 +123,35 @@ entry, finalization and the output attempt. The local native branches are
 explained where they appear; complete alternative function/call providers
 remain later units.
 
+## Complete recipes and their acceptance conditions
+
+The [pipeline region inventory](pipeline-map.csv) covers all 273 lines of five
+scripts in 33 contiguous regions: `stage-a-check.sh`, the monolith builder,
+the reference builder, `compiler-layers.sh` and `build.sh`. These are shell
+recipe regions, not additional Forth definitions. Each row separates inputs,
+outputs, the acting process, an acceptance condition and the claim's limits.
+Comments/setup are included in the partition; a comment does not itself
+establish an observed result.
+
+[C20](chapters/20-complete-compiler-and-stage-a.md) gives each region an
+explanatory home. Its first reading follows two executable producers into the
+two M1 text files compared by Stage A. Later sections open the three different
+input lists, file wrapper and namespace fallback, reference dependencies,
+source identities, failure classifications and the distinct later comparison
+pairs. The row state `taught` means represented in the manuscript; run evidence
+is kept separately in the chapter's identified CI account.
+
+This companion does not claim to teach the entire upstream M2-Planet compiler,
+bootstrap implementation, assembler or downstream GCC/Linux route. Their
+current use as named inputs or contextual evidence does not replace the later
+mechanism chapters.
+
 ## What the checks establish
 
 The [document checker](../check.py) verifies pinned source blobs, definition
 names and spans, inventory completeness for the thirteen files above, the full
 preprocessor region/declaration partition, emission, parser and control/program declaration
-inventories, bounded source-line locators, and complete
+inventories, the five-script region partition, bounded source-line locators, and complete
 named Forth excerpts shown in the new C chapters. It also checks local links,
 exercise/solution IDs and selected paper calculations.
 

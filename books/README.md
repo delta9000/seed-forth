@@ -8,17 +8,21 @@ and all 1,772 bytes of the executable, then assembles the ideas in a
 whole-seed capstone.
 Each mechanism has a source-pinned trace and separate practice feedback.
 
-The [C-compiler volume](c-compiler/README.md) now has nineteen paper chapters,
+The [C-compiler volume](c-compiler/README.md) now has twenty paper chapters,
 from an independent entry bridge through preprocessing, representations,
 emission/runtime, expressions/declarations, statements, function frames and
-translation-unit/process entry. Its 137 main exercises have separate feedback;
-six mixed checks add 24 questions. The edition has 232 main exercises including
+translation-unit/process entry, then the bounded Stage-A recipe and evidence.
+Its 145 main exercises have separate feedback; six mixed checks add 24 questions.
+The edition has 240 main exercises including
 the seed volume. C19's full technical/practice manuscript review is complete; C16–C18's
-reported technical, practice and first-reading reviews are complete.
+reported technical, practice and first-reading reviews are complete. C20 has
+complete source/recipe coverage; its source/practice review and final readback are complete.
 
 C19 derives a small program's 556-byte output-buffer layout and predicted exit
-path. Actual artifact/build comparisons remain C20, and assembler/native
-handoffs remain C21–C24. The earlier reviewed C01–C15 checkpoint and
+path. [C20](c-compiler/chapters/20-complete-compiler-and-stage-a.md) explains
+the next producer executions and exact M1 comparison, with a separately
+attributed remote result. Assembler/native handoffs remain C21–C24, and
+broader bootstrap lineages keep their own unfinished reference obligations. The earlier reviewed C01–C15 checkpoint and
 [continuation-draft notes](c-compiler/DRAFTS.md) retain their historical scope.
 
 The edition is a draft, not a complete replacement for the original book.
@@ -30,7 +34,7 @@ and appendix, including material not rewritten yet.
 | Book | Intended completed outcome | Current state |
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
-| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default source-to-predicted-program route drafted through C19; C19 source/manuscript review complete; C20 artifact/bootstrap and assembler/native closure remain planned |
+| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default compiler and bounded Stage-A recipe/evidence route drafted through C20; C20 source/practice review complete; assembler/native and broader bootstrap closure remain planned |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 
@@ -68,7 +72,10 @@ units.
 The source maps account for 526 colon definitions across thirteen compiler
 files, plus the separate preprocessor-region inventory. The control/function/
 program ledger distinguishes 160 declarations from ten top-level forms;
-coverage does not mean those forms were executed here.
+coverage does not mean those forms were executed here. The [pipeline
+map](c-compiler/pipeline-map.csv) separately covers 33 regions/273 lines in five
+complete shell scripts. Source-blob checks cover 48 pinned project files;
+none of these counts is a claim of whole-bootstrap implementation coverage.
 
 The new teaching examples have not been executed; repository CI results,
 where available, cover their separately named canonical checks.

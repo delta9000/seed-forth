@@ -196,6 +196,7 @@ C06 + C09 + C10 + C13 + C15 + local statement/switch contracts -> C16: condition
 C06 + C09 + C10 + C14 + C15 + C16 -> C17: switches, labels and gotos
 C06 + C08 + C09 + C10 + C14 + C15 + C16 + C17 -> C18: functions and frames
 C02 + C06 + C08 + C09 + C10 + C11 + C14 + C15 + C18 + local entry/driver contracts -> C19: translation units and process entry
+C19 -> C20: compiler producers, exact Stage-A recipe and bounded evidence
 ```
 
 | Unit | Observable outcome | Practice and feedback |
@@ -225,13 +226,15 @@ C02 + C06 + C08 + C09 + C10 + C11 + C14 + C15 + C18 + local entry/driver contrac
 | [C18 Functions and frames](c-compiler/chapters/18-functions-and-call-frame-accounting.md) | Join symbol publication, parameter copies, fixed frames and returns; distinguish balance from actual call-boundary alignment | Nine exercises and [feedback](c-compiler/practice/18-solutions.md) |
 | [C19 Translation units and entry](c-compiler/chapters/19-translation-units-and-process-entry.md) | Complete default file-scope metadata/storage and derive a predicted image, main call and exit path | Seven exercises and [feedback](c-compiler/practice/19-solutions.md); full technical/practice manuscript review complete |
 | [Sixth C mixed check](c-compiler/practice/return-check-6.md) | Trace the next destination, saved reader state, unresolved-use owner and entry-field completion | Four mixed questions, hints and separate answers |
+| [C20 Complete compiler and Stage A](c-compiler/chapters/20-complete-compiler-and-stage-a.md) | Reconstruct producers, three input lists, physical output paths and the exact M1 comparison; bound the recorded result | Eight exercises and [feedback](c-compiler/practice/20-solutions.md); source/practice review and final readback complete |
 
-The current C route has **137 main exercises** and six four-question mixed
-checks. Including the seed volume gives **232 main exercises**; mixed questions
+The current C route has **145 main exercises** and six four-question mixed
+checks. Including the seed volume gives **240 main exercises**; mixed questions
 are separate. C16–C18 technical/practice and first-reading reviews are complete.
-C19's full technical/practice manuscript review is complete. All new outcomes remain
-source-derived paper predictions, with execution and human-reader validation
-unperformed.
+C19's full technical/practice manuscript review is complete; C20's source/practice review
+and final readback are complete. New teaching answers remain source-derived predictions.
+C20 separately reads an existing remote Stage-A execution record; it does not
+turn that result into execution or human-reader validation of the new examples.
 
 The graph describes contracts used across each complete chapter, including its
 reference sessions. It is not a demand to reread every dependency before a
@@ -239,7 +242,12 @@ first story. C16 follows one continue destination through its loop; C17 follows
 one switch through selection and cleanup; C18's first call retrieves the
 C09/C14 contracts and supplies its coordinates. C19's first story supplies the
 header, eager-prefix, function and entry rules needed to derive one small
-program before its later file-scope reference sessions.
+program before its later file-scope reference sessions. C20 retrieves that
+builder/target distinction and supplies shell, producer/artifact and comparison
+contracts locally. Its first story follows two M1 files; the optional later
+sessions open complete recipe lists, physical paths and evidence. Its [pipeline
+map](c-compiler/pipeline-map.csv) covers 33 regions/273 lines in five scripts;
+C03/C13 refreshers do not secretly require whole-chapter rereads.
 
 The preprocessor's macro and conditional handlers are named interfaces in
 C03. C04/C05 now open those mechanisms; the earlier include exercise
@@ -252,11 +260,13 @@ Places, values and delayed loads precede precedence and short-circuit parsing.
 That order gives each operator a known state model to preserve or consume.
 C16–C19 now draft the default statement, function and top-level integration.
 The resulting 556-byte example is a predicted output-buffer layout, not an
-observed file or run. C20 still must identify the actual build inputs,
-artifacts and Stage-A comparison rules, distinguish parity from fixed-point
-claims, and retain the limits of the recorded evidence. C21–C24 retain the
-assembler and native-profile handoffs; the toolchain and kernel volumes remain
-planned. Existing repository results have their own evidence scope.
+observed file or run. C20 now identifies actual build inputs, artifact roles
+and Stage-A comparison rules, distinguishes parity from fixed-point claims,
+and states the limits of its attributed records. C21/C22 still owe assembly
+and source-built tool handoffs; C23/C24 owe the native/TinyCC routes. Full
+stage0/DDC/handoff/pnut and historical lineage references remain distinct,
+as do the planned toolchain and kernel volumes. Access to the actual compared
+CI artifacts and a tested fresh-reader reproduction route remain outstanding.
 
 Both volumes' new examples need an authorized, named execution profile and a
 fresh-reader setup check before derived results can be relabeled as observed.
