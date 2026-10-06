@@ -1,0 +1,7 @@
+eb0866e740b79bd3a23e0ca47885eb3148aab18d77a4bedba96e979d8b4ebfe1  build-out/lexer-inputs/archives/oyacc-6.6.tar.gz
+9f233d8b78e4351fe9dd2d50d83958a0e5af36f54e9818521458a08e058691ba  build-out/lexer-inputs/archives/heirloom-devtools-070527.tar.bz2
+68aa10c473b6010ffad680cada09fc4eec6b3cc6e415cc2339e5fc2385ccc142  build-out/lexer-inputs/archives/flex-d160f0247ba1611aa59d28f027d6292ba24abb50.tar.gz
+44c61bdc11b962f0153fcfb40fb08adc1263c43a0cb8958f9b260b8037cc9c46  gcc-direct/lexer-inputs/recipe-reference/steps/flex-2.5.11/files/scan.lex.l
+8afd3fb5c2187d0cb4bfe32c01b19b428cf7ba0b090d79b7d2c56dae4bb28dce  gcc-direct/lexer-inputs/recipe-reference/steps/flex-2.5.11/patches/scan_l.patch
+3f75d109864c355c534cb32da3dc8315a5dce4c144d518b75229599f2a975564  gcc-direct/lexer-inputs/recipe-reference/steps/flex-2.5.11/patches/yyin.patch
+24a7109c41c79a79ecfc245fa0c63d60b5a3bc0a08d88a33250a22e8445c2a70  gcc-direct/lexer-inputs/recipe-reference/LICENSES/BSD-2-Clause.txt

@@ -1,0 +1,50 @@
+# Parser generators after stage1. Run from the repository root.
+# Inputs: build-out/lexer-inputs/archives (gcc-direct/lexer-inputs/sources.json).
+# The preparation tool applies the original pinned patches without fuzz.
+set -ex
+LC_ALL=C
+CC=./build-out/seed-cc/seed-cc
+BIN=./build-out/plumbing/bin
+B=build-out/plumbing/src
+F=flex-d160f0247ba1611aa59d28f027d6292ba24abb50
+R=../../../../gcc-direct/lexer-inputs/recipe-reference/steps/flex-2.5.11
+
+${BIN}/sha256sum --check plumbing/lexers.SOURCES
+${CC} -static -Werror=implicit-function-declaration plumbing/lexer-prepare.c -o ${BIN}/lexer-prepare
+# Fresh package directories are required (mkdir fails rather than reusing C).
+${BIN}/mkdir ${B}/oyacc-6.6 ${B}/heirloom-devtools-070527 ${B}/${F}
+cd ${B}
+../bin/ungz --file ../../lexer-inputs/archives/oyacc-6.6.tar.gz --output oyacc.tar
+../bin/untar --file oyacc.tar
+../bin/unbz2 --file ../../lexer-inputs/archives/heirloom-devtools-070527.tar.bz2 --output heirloom.tar
+../bin/untar --file heirloom.tar
+../bin/ungz --file ../../lexer-inputs/archives/flex-d160f0247ba1611aa59d28f027d6292ba24abb50.tar.gz --output flex.tar
+../bin/untar --file flex.tar
+../bin/rm oyacc.tar heirloom.tar flex.tar
+
+cd oyacc-6.6
+../../bin/cp ../../../../plumbing/oyacc-6.6/config.h config.h
+../../bin/cp ../../../../plumbing/oyacc-6.6/Makefile Makefile
+../../bin/make
+cd ../heirloom-devtools-070527/lex
+../../../bin/lexer-prepare lexconfig config.h
+../../../bin/cp ../../../../../plumbing/heirloom-lex-070527/main-unit.c main-unit.c
+../../../bin/cp ../../../../../plumbing/heirloom-lex-070527/Makefile Makefile
+../../../bin/make
+
+cd ../../${F}
+../../bin/lexer-prepare patch ${R}/patches/scan_l.patch
+../../bin/lexer-prepare patch ${R}/patches/yyin.patch
+../../bin/cp ${R}/files/scan.lex.l scan.lex.l
+# No shipped generated C can enter the bootstrap.
+../../bin/lexer-prepare ungenerated
+../../bin/lexer-prepare skeleton flex.skl skel.c
+../../bin/cp ../../../../plumbing/flex-2.5.11/config.h config.h
+../../bin/cp ../../../../plumbing/flex-2.5.11/Makefile Makefile
+cd ../../../..
+${BIN}/sha256sum --check plumbing/lexers.PREPARED
+cd ${B}/${F}
+../../bin/make
+cd ../../../..
+${BIN}/sha256sum --check plumbing/lexers.GENERATED
+${BIN}/flex -V
