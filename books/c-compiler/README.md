@@ -31,8 +31,14 @@ first volume's machine-code audit before entering here.
    separate encoded types, aggregate identity, current field tables and object layout
 8. [Names and lexical scope](chapters/08-names-and-lexical-scope.md):
    track borrowed names, reusable IDs and the visibility restored by a scope count
+9. [Instructions inside an executable](chapters/09-instructions-inside-an-executable.md):
+   derive file bytes, instruction effects and the exact executable envelope
+10. [Calls, literals and deferred addresses](chapters/10-calls-literals-and-deferred-addresses.md):
+    preserve unresolved destinations until their relative or absolute fields can be patched
+11. [A bounded legacy runtime](chapters/11-a-bounded-legacy-runtime.md):
+    follow the actual requests and results behind nineteen familiar-looking names
 
-These eight chapters provide forty-eight exercises and separate feedback
+These eleven chapters provide seventy-three exercises and separate feedback
 companions. Try a
 prediction, use a hint when a step is missing, then attempt a changed case
 without copying the worked answer. The purpose is to explain a mechanism,
@@ -49,7 +55,11 @@ type identity, table movement and name visibility. The newer chapters also
 provide answer-free changed-case prompts so you can keep feedback closed
 while finding the task.
 
-The next unit opens executable instruction bytes, calls and deferred addresses. The
+The [fourth mixed check](practice/return-check-4.md) joins instruction fields,
+patch ownership, runtime results and typed storage.
+
+The next unit opens places and values before precedence and short-circuit
+parsing, so operator explanations can use an already-taught state model. The
 [coverage map](../COVERAGE.md#volume-2-a-c-compiler-in-forth) assigns the later
 parser, emitter, assembler and bootstrap units. Planned
 units are not chapters that already exist.

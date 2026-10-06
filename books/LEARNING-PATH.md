@@ -185,6 +185,9 @@ C03 + C04 + local evaluator/profile contracts -> C05: conditionals and extension
 C05 -> C06: token records and reversible lookahead
 C02 + local type/bit contracts -> C07: type identity and stable descriptors
 C02 + C06 + C07 -> C08: names, reusable symbols and scope visibility
+C02 + C07 + local instruction/ELF bridge -> C09: executable byte encodings
+C02 + C06 + C07 + C08 + C09 -> C10: calls, literals and delayed addresses
+C09 + C10 + local Linux request/result contract -> C11: bounded legacy runtime
 ```
 
 | Unit | Observable outcome | Practice and feedback |
@@ -200,6 +203,10 @@ C02 + C06 + C07 -> C08: names, reusable symbols and scope visibility
 | [C07 Types and descriptors](c-compiler/chapters/07-types-and-stable-descriptors.md) | Separate type bits, scalar representation, aggregate identity, table movement and object layout | Seven exercises and [feedback](c-compiler/practice/07-solutions.md) |
 | [C08 Names and scope](c-compiler/chapters/08-names-and-lexical-scope.md) | Trace name borrowing, lookup policy, row reuse and count-based visibility | Eight exercises and [feedback](c-compiler/practice/08-solutions.md) |
 | [Third C mixed check](c-compiler/practice/return-check-3.md) | Identify the exact state restored or preserved across token, type and name boundaries | Four mixed questions, hints and separate answers |
+| [C09 Executable instructions](c-compiler/chapters/09-instructions-inside-an-executable.md) | Derive encoded bytes, field widths, instruction effects and ELF mapping under named premises | Eight exercises and [feedback](c-compiler/practice/09-solutions.md) |
+| [C10 Calls, literals and addresses](c-compiler/chapters/10-calls-literals-and-deferred-addresses.md) | Follow argument staging and the full lifetime of relative/absolute patches and data placement | Nine exercises and [feedback](c-compiler/practice/10-solutions.md) |
+| [C11 Bounded legacy runtime](c-compiler/chapters/11-a-bounded-legacy-runtime.md) | Predict each runtime operation's actual request, return and limit | Eight exercises and [feedback](c-compiler/practice/11-solutions.md) |
+| [Fourth C mixed check](c-compiler/practice/return-check-4.md) | Separate instruction fields, patch metadata, runtime units and typed storage effects | Four mixed questions, hints and separate answers |
 
 The preprocessor's macro and conditional handlers are named interfaces in
 C03. C04/C05 now open those mechanisms; the earlier include exercise
@@ -208,8 +215,10 @@ keeps both the current explanations and the deferred regions inspectable.
 
 ## What the next units must earn
 
-The next C units connect the representation contracts to executable
-instruction bytes, calls, deferred addresses and the bounded legacy runtime. The later compiler still needs complete type/parser/emitter chapters,
+The next C units teach places, values and delayed loads before precedence
+and short-circuit parsing. That order gives each operator a known state model
+to preserve or consume. Complete expression/evaluator closure and declaration
+construction follow, then statement/function integration. The later compiler still needs complete type/parser/emitter chapters,
 a named end-to-end artifact comparison and its assembler/extended-profile
 handoffs. Existing repository results have their own evidence scope.
 

@@ -16,15 +16,18 @@ immutable file, not an edition identifier by themselves.
 | `050-cc-lex.fth` | 39 | [C06](chapters/06-tokens-and-lookahead.md) | Token kinds, keyword/punctuation tables, borrowed spelling, current-record validity and snapshots |
 | `060-cc-types.fth` | 52 | [C07](chapters/07-types-and-stable-descriptors.md) | Type/profile flags, suffix state, aggregate headers, movable field tables and named provider interfaces |
 | `070-cc-sym.fth` | 19 | [C08](chapters/08-names-and-lexical-scope.md) | Ten parallel columns, symbol kinds, qualifier metadata, deferred lookup/fixup hooks and scope counts |
+| `080-cc-elf.fth` | 3 | [C09](chapters/09-instructions-inside-an-executable.md) | File/target coordinates, every ELF field and bounded size finalization |
+| `090-cc-emit.fth` | 119 | [C09](chapters/09-instructions-inside-an-executable.md), [C10](chapters/10-calls-literals-and-deferred-addresses.md), [C11](chapters/11-a-bounded-legacy-runtime.md) | Encoder families/hooks, function and global fixups, data/BSS storage and all legacy runtime bodies |
 
 C01 opens the contract of `cc-main` and the main-last loader before C02 opens
-the storage mechanisms. C03–C08 open preprocessing, lexing, type storage and name visibility. Later
-units still must explain the parsing, emission and finalization operations
-invoked by that driver. Reading a
+the storage mechanisms. C03–C08 open preprocessing, lexing, type storage and name visibility. C09–C11
+open emission/finalization and the bounded runtime. Later units still must
+explain the complete parsing, declaration, statement and function flows
+invoked by the driver. Reading a
 call's name is not the same as auditing its implementation.
 
-The inventory currently covers all 145 colon definitions in `020`, `030`,
-`050`, `060` and `070`.
+The inventory currently covers all 267 colon definitions in `020`, `030`,
+`050`, `060`, `070`, `080` and `090`.
 It does not yet claim a complete word inventory for all compiler layers.
 Small accessors may share one explanation; substantial state transitions get
 worked examples. Definitions need not be copied in full into the prose to
@@ -55,11 +58,25 @@ alone finishes its later behavior. Comments and top-level bindings belong to
 the surrounding region. Definition counts and source-line coverage do not
 measure learnability or runtime correctness.
 
+## Executable, emission and runtime ownership
+
+The [emission inventory](emission-map.csv) assigns all 150 named declarations
+in `080` and `090`, including the non-colon storage/policy/hook names. C09 owns
+93, C10 owns 41 and C11 owns 16. These source declaration counts are distinct
+from emitted instruction bytes or generated runtime names: sixteen runtime
+emitters supply nineteen names.
+
+The C10 explanations also open selected patch consumers in `112`, `114` and
+`116`, so a deferred-address promise has a complete local resolution trace.
+That does not claim those whole parser/control/function modules are already
+rewritten. Their remaining mechanisms retain later teaching homes.
+
 ## What the checks establish
 
 The [document checker](../check.py) verifies pinned source blobs, definition
-names and spans, inventory completeness for the five files above, the full
-preprocessor region/declaration partition, and complete
+names and spans, inventory completeness for the seven files above, the full
+preprocessor region/declaration partition, the emission declaration inventory,
+and complete
 named Forth excerpts shown in the new C chapters. It also checks local links,
 exercise/solution IDs and selected paper calculations.
 

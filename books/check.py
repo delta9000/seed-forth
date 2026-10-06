@@ -156,7 +156,7 @@ def check_documents():
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8}.get(number, 5)
+        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8}.get(number, 5)
         c_pairs += exercise_count
         expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
@@ -331,11 +331,12 @@ def check_c_source_map(source_root):
         expected = f"https://github.com/delta9000/seed-forth/blob/{REV}/{row['source_path']}#L{start}-L{end}"
         assert row["source_url"] == expected, row
     for name in ["020-cc-arena.fth", "030-cc-io.fth", "050-cc-lex.fth",
-                 "060-cc-types.fth", "070-cc-sym.fth"]:
+                 "060-cc-types.fth", "070-cc-sym.fth", "080-cc-elf.fth",
+                 "090-cc-emit.fth"]:
         expected = set(re.findall(r"^:\s+(\S+)", (source_root/name).read_text(), re.M))
         actual = {word for file, word in seen if file == name}
         assert actual == expected, (name, actual ^ expected)
-    print(f"PASS: {len(rows)} C source-map definitions; complete arena/I/O/lexer/type/symbol definition inventories")
+    print(f"PASS: {len(rows)} C source-map definitions; complete infrastructure/representation/emission definition inventories")
 
 
 def check_preprocessor_regions(source_root):
@@ -377,6 +378,42 @@ def check_preprocessor_regions(source_root):
     assert next_line == len(source)+1
     assert len(rows) == 57 and len(names) == 325
     print(f"PASS: {len(rows)} preprocessor regions partition {len(source)} lines and {len(names)} declarations; states {states}")
+
+
+def check_emission_map(source_root):
+    path = ROOT / "c-compiler/emission-map.csv"
+    if not path.exists():
+        return
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    expected = {}
+    for name in ["080-cc-elf.fth", "090-cc-emit.fth"]:
+        for number, line in enumerate((source_root/name).read_text().splitlines(), 1):
+            line = line.split("\\", 1)[0]
+            direct = re.match(r"^\s*(:|create|variable|defer)\s+(\S+)", line)
+            constant = re.search(r"\bconstant\s+(\S+)", line)
+            if direct:
+                kind, word = direct.groups()
+                kind = "colon" if kind == ":" else kind
+            elif constant:
+                kind, word = "constant", constant.group(1)
+            else:
+                continue
+            expected[(name, word)] = (number, kind)
+    seen = set()
+    for row in rows:
+        key = (row["source_path"], row["name"])
+        assert key not in seen
+        seen.add(key)
+        assert (int(row["source_line"]), row["declaration_kind"]) == expected[key], row
+        assert row["source_revision"] == REV
+        assert row["source_blob_sha"] == SOURCE_BLOBS[row["source_path"]]
+        assert row["teaching_unit"] in {"C09", "C10", "C11"}
+        assert (ROOT / "c-compiler" / row["manuscript_path"]).is_file(), row
+        assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/{row['source_path']}#L{row['source_line']}"
+    assert seen == expected.keys()
+    assert len(rows) == 150
+    print(f"PASS: {len(rows)} ELF/emitter declarations have source-matched teaching homes")
 
 
 def check_c_models(source_root):
@@ -452,7 +489,27 @@ def check_c_models(source_root):
     assert find_name("rows") == 2 and find_name("draw") == -1
     assert len("rows") == len("draw") == 4
     assert 8192*8 == 65536 and 64*8 == 512
-    print("PASS: canonical tri.c text and bounded C-unit paper calculations through token/type/symbol representations")
+    # C09–C11 emitted-data arithmetic, not execution of emitter words.
+    pad = bytes.fromhex("48 8B 7D F8 57 48 C7 C7 01 00 00 00 48 89 F9 5F 48 29 CF 48 89 7D F8")
+    assert len(pad) == 23 and 1024+len(pad) == 1047
+    assert (-8*(15+1)) == -128 and (-8*(16+1)) == -136
+    assert (-136).to_bytes(4, "little", signed=True) == bytes.fromhex("78 FF FF FF")
+    assert 146-(1024+5) == -883
+    assert (-883).to_bytes(4, "little", signed=True) == bytes.fromhex("8D FC FF FF")
+    assert 1408-(1201+4) == 203
+    assert (0x400000+1408).to_bytes(8, "little") == bytes.fromhex("80 05 40 00 00 00 00 00")
+    eager_sizes = [29,10,48,33,29,51,12,20,30,113,1]
+    assert sum(eager_sizes) == 376 and 120+26+sum(eager_sizes) == 522
+    assert 146+sum(eager_sizes[:9]) == 408
+    assert 408+97 == 505 and 408+105 == 513
+    for start, displacement, target in [(2,88,97),(48,42,97),(55,43,105),(76,22,105),(89,9,105)]:
+        assert start+7+displacement == target
+    assert 5//2 == 2 and 5 <= 2*4 and 7 <= 1*10
+    assert 511 & 255 == 255
+    assert 17920*16 == 286720 and 286720//4096 == 70
+    assert max(81920, 1024+24) == 81920
+    assert max(81920, 81920+16) == 81936
+    print("PASS: canonical tri.c text and bounded C-unit paper calculations through emitted bytes and runtime contracts")
 
 
 def check_audit_partition(source_root):
@@ -682,6 +739,7 @@ def main():
     check_c_excerpts(args.source_root)
     check_c_source_map(args.source_root)
     check_preprocessor_regions(args.source_root)
+    check_emission_map(args.source_root)
     check_c_models(args.source_root)
     check_models()
     check_audit_partition(args.source_root)

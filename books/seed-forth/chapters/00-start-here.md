@@ -121,4 +121,5 @@ The size, primitive count and profile are tied to
 [`000-seed.hex0` at 7d7e1996](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0).
 See the [edition record](../../EDITION.md) for claim boundaries. This draft has
 not been tested with a representative new reader, and this manuscript pass
-has not built or executed the seed or any compiler chain.
+uses a source-decoded byte copy for static checks, without manually running
+the build scripts, seed, or any compiler chain.
