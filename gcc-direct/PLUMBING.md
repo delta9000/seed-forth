@@ -63,7 +63,7 @@ host build is an output oracle only.
   runtime-aware `_start`.
 - Typedefs of function types (`typedef int Function ();`): **fixed**.
 - Floating-point initialisers for objects with static storage, including
-  integer constants assigned to them: in progress.
+  integer constants assigned to them: **fixed** (exact binary32/binary64).
 - Struct arguments passed by value to unprototyped or variadic functions
   (error 232).
 - `_Bool` and `<stdbool.h>`.
