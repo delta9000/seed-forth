@@ -15,9 +15,19 @@
 #define O_TRUNC 512
 #define O_APPEND 1024
 #define O_NONBLOCK 2048
+#define O_NDELAY O_NONBLOCK
+#define O_DSYNC 4096
+#define O_ASYNC 8192
+#define FASYNC O_ASYNC
+#define O_DIRECT 16384
+/* Every open is large-file capable on LP64 Linux. */
+#define O_LARGEFILE 0
 #define O_DIRECTORY 65536
 #define O_NOFOLLOW 131072
+#define O_NOATIME 262144
 #define O_CLOEXEC 524288
+#define O_SYNC 1052672
+#define O_RSYNC O_SYNC
 #define O_PATH 2097152
 #define O_TMPFILE 4259840
 #define F_DUPFD 0
@@ -31,4 +41,6 @@ int open(const char *path, int flags, ...);
 /* F_DUPFD, F_DUPFD_CLOEXEC, F_SETFD and F_SETFL read one int argument;
    F_GETFD and F_GETFL read none. Other commands fail with EINVAL. */
 int fcntl(int descriptor, int command, ...);
+/* open(PATH, O_WRONLY | O_CREAT | O_TRUNC, MODE); see ../FILE-CALLS.md. */
+int creat(const char *path, mode_t mode);
 #endif

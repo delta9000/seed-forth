@@ -49,11 +49,11 @@ Run `python3 tests/gcc/runtime-oracle-check.py` for the optional comparison
 between Forth-built functions and host libc at host GCC `-O0` and `-O2`.
 See [chapter 39](../../book/39-direct-gcc-libc.md) for the design and proof boundary.
 
-The bounded `perror` message table includes `EISDIR`, `ENOTDIR`,
-`ENAMETOOLONG`, and `ELOOP`: original GCC 4 `makedepend` reaches these when
-opening invalid output paths. The stdio production test checks exact messages,
-nonempty/empty/null prefixes, and preservation of the incoming errno value.
-Unlisted errors retain the documented numeric `Unknown error` fallback.
+`perror` prints `strerror(errno)`, which has the glibc text for every Linux
+error number ([ERRNO.md](ERRNO.md)); original GCC 4 `makedepend` reaches
+`EISDIR`, `ENOTDIR`, `ENAMETOOLONG` and `ELOOP` when opening invalid output
+paths. The stdio production test checks exact messages, nonempty/empty/null
+prefixes, and preservation of the incoming errno value.
 
 The source-built `process.c` and `stat.c` extend this boundary with terminating
 `exit` and Linux AMD64 `stat`/`fstat`. The public `sys/types.h` and `sys/stat.h`
@@ -176,3 +176,43 @@ the [binutils runtime](FILE-METADATA.md): the `sys/stat.h` permission macros,
 `rewind`, `mktemp`, `towlower`, `mbstowcs`, `gmtime`, `ctime` and a bounded
 `strftime`, the [`%u`, `l` and `%s` scanner conversions](INTEGER-INPUT.md#binutils-conversions),
 plus [correctly rounded decimal `atof`](DECIMAL-INPUT.md) for `binutils/stabs.c`.
+
+## POSIX surface for the plumbing tools
+
+The GNU tools that replace the host plumbing (make, bash, sed, grep, gawk,
+coreutils, tar, gzip, patch, diffutils; see
+[../../gcc-direct/PLUMBING.md](../../gcc-direct/PLUMBING.md)) need a broad
+POSIX layer. Each topic has its contract and a gate in
+`tests/gcc/posix-*-check.py` that compares a Forth-built fixture with host
+GCC/glibc at `-O0` and `-O2` (shared driver:
+`tests/gcc/posix_runtime_harness.py`):
+
+- [error numbers and their text](ERRNO.md): every Linux errno, `strerror`,
+  `perror`;
+- [signals](SIGNALS.md): every signal number, `sigaction`, sets, masks,
+  `sigsuspend`, `raise`, `killpg`, `alarm`, `pause`, `strsignal`, `psignal`;
+- [identity](IDENTITY.md): `get*id`/`set*id`, groups, process groups and
+  sessions;
+- [system information](SYSINFO.md): `uname`, `gethostname`, `limits.h` and
+  `unistd.h` constants, `sysconf`, `pathconf`, resource limits, priority,
+  `times`, POSIX clocks, `nanosleep`, `usleep`, `settimeofday`;
+- [file calls](FILE-CALLS.md): links, ownership, truncation, syncing,
+  `mknod`/`mkfifo`/`creat`, `flock`, `utimes`, `struct timespec` stat times,
+  `major`/`minor`/`makedev`, `ar.h`, `sys/mtio.h`, `dup3`/`pipe2` and a real
+  `realpath`;
+- [processes](PROCESS-POSIX.md): `execl`/`execlp`/`execle`, `system`,
+  `popen`/`pclose`, `wait3`/`wait4`, `atexit`/`on_exit`/`_Exit`, and `exit`
+  on return from `main`;
+- [users and groups](PASSWD.md): `/etc/passwd` and `/etc/group` lookups and
+  `getlogin`;
+- [terminals](TERMIOS.md): `termios.h`, `sys/ioctl.h`, `ioctl`, window size,
+  `ttyname`, `tcgetpgrp`/`tcsetpgrp`;
+- [strings and numbers](STRINGS-POSIX.md): `strings.h`, `memory.h`,
+  `strndup`/`strnlen`/`stpcpy`/`strtok`/`strcoll`, `strtoll` family,
+  `div`/`labs`, glibc-sequence `rand`/`random`, `isblank`, `getline`,
+  and the `alloca.h` policy;
+- additions to [environment and locale](ENVIRONMENT.md) (`setenv`,
+  `unsetenv`, `localeconv`), [wide characters](WIDE.md) (`mbstate_t`,
+  `mbrtowc` and relatives), [directories](DIRECTORIES.md) (`d_type`,
+  `dirfd`, `rewinddir`) and [buffering](DIRECTORY-BUFFERING.md) (`setbuf`
+  and `setvbuf` accept caller buffers).

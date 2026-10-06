@@ -15,8 +15,10 @@ these additional Linux AMD64 flags: `O_CREAT`, `O_EXCL`, `O_NOCTTY`,
 access mode 3, or the isolated internal `__O_TMPFILE` bit with `EINVAL`
 before making a syscall or fetching a variadic argument. This is an
 intentional bounded interface: Linux may otherwise ignore unknown bits.
-It does not expose or promise `O_SYNC`, `O_DSYNC`, `O_DIRECT`, `O_ASYNC`,
-`O_LARGEFILE`, or `O_NOATIME`. LP64 offsets need no `O_LARGEFILE` here.
+The POSIX runtime adds `O_DSYNC`, `O_ASYNC`, `O_DIRECT`, `O_NOATIME` and
+`O_SYNC` to the accepted bits (the kernel validates their use), `O_NDELAY`
+and `O_RSYNC` as aliases, and `O_LARGEFILE` as 0: LP64 offsets need no flag.
+See [FILE-CALLS.md](FILE-CALLS.md).
 Other combinations of accepted flags receive the kernel's own validation;
 filesystem support for `O_TMPFILE` is not invented by the runtime.
 

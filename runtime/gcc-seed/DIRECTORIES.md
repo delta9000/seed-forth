@@ -27,7 +27,21 @@ including when it reports EINTR, and stream memory is released on either
 success or failure. NULL streams are rejected with EBADF. Other invalid or
 already-closed pointers, concurrent access and directory seeking are outside
 this bounded interface. An exhausted stream stays exhausted if entries are
-added later; reopening starts a new traversal.
+added later; reopening or `rewinddir` starts a new traversal.
+
+## d_type, dirfd and rewinddir
+
+`d_type` is the kernel's getdents64 file type. `dirent.h` names its values
+`DT_UNKNOWN`, `DT_FIFO`, `DT_CHR`, `DT_DIR`, `DT_BLK`, `DT_REG`, `DT_LNK`,
+`DT_SOCK` and `DT_WHT` and converts with `IFTODT(mode)` and `DTTOIF(type)`
+(the `S_IFMT` bits shifted by 12). A file system may report `DT_UNKNOWN`;
+callers must then `lstat`. `dirfd` returns the stream's descriptor (owned by
+the stream: `closedir` closes it; NULL fails `EINVAL`) and lives in its own
+archive member (`dirfd.c`) because gnulib-based programs often carry a
+replacement. `rewinddir` seeks the descriptor to 0 and discards buffered
+records and the end/error state. The private `seed-directory.h` holds the
+`DIR` record both files use. The POSIX gate
+`tests/gcc/posix-files-check.py` covers them ([FILE-CALLS.md](FILE-CALLS.md)).
 
 Run `python3 tests/gcc/dirent-check.py`. It compares 3,003 real directory entries
 (including a 255-byte name), traverses multiple buffer refills, checks repeated

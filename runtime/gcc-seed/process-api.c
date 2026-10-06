@@ -130,3 +130,13 @@ unsigned int sleep(unsigned int seconds)
     errno = saved;
     return 0;
 }
+
+pid_t wait4(pid_t process, int *status, int options, struct rusage *usage)
+{
+    return (pid_t)seed_process_call(61, process, (long)status, options, (long)usage);
+}
+
+pid_t wait3(int *status, int options, struct rusage *usage)
+{
+    return wait4(-1, status, options, usage);
+}

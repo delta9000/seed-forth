@@ -44,7 +44,8 @@ def main():
         subprocess.run([ROOT / "build.sh"], check=True)
     (ROOT / "build-out").mkdir(exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="configure-runtime-", dir=ROOT / "build-out"))
-    sources = [RUNTIME / (name + ".c") for name in ("memory", "string", "alloc", "stdio", "stat", "process")]
+    # perror in stdio.c reports through strerror.c (runtime/gcc-seed/ERRNO.md).
+    sources = [RUNTIME / (name + ".c") for name in ("memory", "string", "alloc", "strerror", "stdio", "stat", "process")]
     sources += [ROOT / "tests/gcc" / ("configure-runtime-" + name + ".c")
                 for name in ("layout", "production", "exit", "faults")]
     inputs = sorted(set(sources + [Path(__file__).resolve(), ROOT / "seed-forth",
@@ -67,7 +68,7 @@ def main():
         driver += f"{builder} {name}-output cc-obj-write\n"
         objects[name] = obj
     forth(BASE + ["081-cc-object.fth", "122-cc-sysv-runtime.fth"], driver + "bye\n")
-    common = [objects[name] for name in ("memory", "string", "alloc", "stdio", "stat", "process", "errno", "start")]
+    common = [objects[name] for name in ("memory", "string", "alloc", "strerror", "stdio", "stat", "process", "errno", "start")]
     programs = {}
     for name in ("layout", "production", "exit", "faults"):
         executable = work / name

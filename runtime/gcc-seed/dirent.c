@@ -4,14 +4,7 @@
 #include <errno.h>
 #include <seed-syscall.h>
 
-/* A long array gives every kernel record its required eight-byte alignment. */
-struct seed_directory {
-    int descriptor;
-    int ended;
-    unsigned long position;
-    unsigned long available;
-    long buffer[4096];
-};
+#include <seed-directory.h>
 
 DIR *opendir(const char *path)
 {
@@ -94,4 +87,13 @@ int closedir(DIR *directory)
     free(directory);
     if (result < 0) { errno = (int)-result; return -1; }
     return 0;
+}
+
+void rewinddir(DIR *directory)
+{
+    /* Restart the directory stream; the next readdir reads afresh. */
+    __seed_syscall6(8, directory->descriptor, 0, 0, 0, 0, 0);
+    directory->ended = 0;
+    directory->position = 0;
+    directory->available = 0;
 }

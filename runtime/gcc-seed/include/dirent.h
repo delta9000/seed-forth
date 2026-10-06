@@ -11,8 +11,25 @@ struct dirent {
     unsigned char d_type;
     char d_name[1];
 };
+/* d_type values: the file-type bits of st_mode shifted right by 12. A file
+   system may report DT_UNKNOWN, after which the caller must use lstat. */
+#define DT_UNKNOWN 0
+#define DT_FIFO 1
+#define DT_CHR 2
+#define DT_DIR 4
+#define DT_BLK 6
+#define DT_REG 8
+#define DT_LNK 10
+#define DT_SOCK 12
+#define DT_WHT 14
+#define IFTODT(mode) (((mode) & 0170000) >> 12)
+#define DTTOIF(type) ((type) << 12)
 typedef struct seed_directory DIR;
 DIR *opendir(const char *path);
 struct dirent *readdir(DIR *directory);
 int closedir(DIR *directory);
+/* Restarts the stream from the first entry; see ../DIRECTORIES.md. */
+void rewinddir(DIR *directory);
+/* The descriptor the stream reads; closedir closes it. */
+int dirfd(DIR *directory);
 #endif

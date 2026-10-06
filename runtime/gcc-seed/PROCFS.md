@@ -35,14 +35,16 @@ result is success.
   this parameter nonnull, so portable callers should not rely on that.
 - `zone` may be NULL. When nonnull, Linux stores its two-`int` timezone
   record (minutes west of Greenwich, then the obsolete DST kind; normally
-  both 0) unchanged. No `struct timezone` is declared; pass a pointer to two
-  ints. The runtime never consults TZ for it. POSIX leaves a nonnull zone
+  both 0) unchanged. `struct timezone` (two ints) is now declared for
+  `settimeofday` ([SYSINFO.md](SYSINFO.md)); `gettimeofday` keeps its
+  `void *` parameter. The runtime never consults TZ for it. POSIX leaves a nonnull zone
   unspecified.
 - An invalid pointer fails with EFAULT, as reported by the kernel. (glibc's
   vDSO path faults in user space instead.)
 
-Interval timers, `settimeofday`, `select` and `struct timezone` are not
-supplied.
+Interval timers and `select` are not supplied; `settimeofday` and
+`utimes` are described in [SYSINFO.md](SYSINFO.md) and
+[FILE-CALLS.md](FILE-CALLS.md).
 
 ## `<sys/procfs.h>`
 

@@ -134,6 +134,13 @@ python3 tests/gcc/process-api-check.py
 python3 tests/gcc/driver-runtime-check.py
 python3 tests/gcc/binutils-runtime-check.py
 python3 tests/gcc/procfs-time-check.py
+python3 tests/gcc/posix-signals-check.py
+python3 tests/gcc/posix-sysinfo-check.py
+python3 tests/gcc/posix-files-check.py
+python3 tests/gcc/posix-process-check.py
+python3 tests/gcc/posix-users-check.py
+python3 tests/gcc/posix-termios-check.py
+python3 tests/gcc/posix-strings-check.py
 python3 tests/gcc/mapping-check.py
 python3 tests/gcc/dirent-check.py
 python3 tests/gcc/write-check.py

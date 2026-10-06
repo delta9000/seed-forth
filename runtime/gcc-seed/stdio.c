@@ -759,27 +759,9 @@ int sprintf(char *buffer, const char *format, ...)
 }
 void perror(const char *prefix)
 {
+    /* strerror covers every Linux errno and preserves errno itself. */
     int saved = errno;
-    const char *message = NULL;
-    if (saved == 0) message = "Success";
-    else if (saved == ENOENT) message = "No such file or directory";
-    else if (saved == EACCES) message = "Permission denied";
-    else if (saved == ENOMEM) message = "Cannot allocate memory";
-    else if (saved == EMFILE) message = "Too many open files";
-    else if (saved == ENFILE) message = "Too many open files in system";
-    else if (saved == EIO) message = "Input/output error";
-    else if (saved == EBADF) message = "Bad file descriptor";
-    else if (saved == EINVAL) message = "Invalid argument";
-    else if (saved == EINTR) message = "Interrupted system call";
-    else if (saved == EEXIST) message = "File exists";
-    else if (saved == ENOTDIR) message = "Not a directory";
-    else if (saved == EISDIR) message = "Is a directory";
-    else if (saved == ENAMETOOLONG) message = "File name too long";
-    else if (saved == ELOOP) message = "Too many levels of symbolic links";
-    else if (saved == ENOSPC) message = "No space left on device";
-    else if (saved == EPIPE) message = "Broken pipe";
     if (prefix != NULL && *prefix) fprintf(stderr, "%s: ", prefix);
-    if (message != NULL) fprintf(stderr, "%s\n", message);
-    else fprintf(stderr, "Unknown error %d\n", saved);
+    fprintf(stderr, "%s\n", strerror(saved));
     errno = saved;
 }

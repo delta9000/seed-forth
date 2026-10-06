@@ -25,3 +25,17 @@ contract; the explicit zero-count errno choice is checked only for this runtime.
 Wide stream I/O and wide printf formatting are a separate successor stage.
 Original binutils adds ASCII `mbstowcs` and C-locale `towlower`; see
 [FILE-METADATA.md](FILE-METADATA.md).
+
+## Restartable conversions
+
+`wchar.h` adds `mbstate_t` (eight bytes, always in the initial state for
+this stateless encoding) and `mbstate.c` the restartable and length forms
+used by gnulib's `quotearg` and `mbswidth`: `mbrtowc` (0 for the null
+character, 1 for other ASCII bytes, `(size_t)-2` for a zero count,
+`(size_t)-1`/`EILSEQ` above 127; a NULL string resets and returns 0),
+`mbrlen`, `wcrtomb` (one byte; values above 127 fail `EILSEQ`; a NULL
+destination returns 1), `mbsinit` (true for NULL or the zero state),
+`btowc`/`wctob` (ASCII only, `WEOF`/`EOF` otherwise), and in `stdlib.h`
+`mblen` (as `mbtowc`) and `wcstombs` (the inverse of `mbstowcs`). Host glibc
+in the C locale rejects bytes above 127 the same way, and
+`tests/gcc/posix-strings-check.py` compares every case with it.

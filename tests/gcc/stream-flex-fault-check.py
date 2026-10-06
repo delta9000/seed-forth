@@ -5,7 +5,7 @@ import hashlib,importlib.util,json,tempfile
 ROOT=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('stdio_check',ROOT/'tests/gcc/stdio-check.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 (ROOT/'build-out').mkdir(exist_ok=True);OUT=Path(tempfile.mkdtemp(prefix='stream-flex-fault-',dir=ROOT/'build-out'))
-sources=[ROOT/'runtime/gcc-seed'/(n+'.c') for n in ['memory','string','alloc','stdio']]+[ROOT/'tests/gcc/stream-flex-faults.c']
+sources=[ROOT/'runtime/gcc-seed'/(n+'.c') for n in ['memory','string','alloc','strerror','stdio']]+[ROOT/'tests/gcc/stream-flex-faults.c']
 objects=[]
 for source in sources:
     obj=OUT/(source.stem+'.o');module.run([ROOT/'tests/gcc/sysv-object-compile.sh',source,obj,ROOT/'runtime/gcc-seed/include']);objects.append(obj)

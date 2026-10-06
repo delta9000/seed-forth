@@ -6,6 +6,7 @@
    string/character, and %n; floating and positional conversions fail. */
 #include <stddef.h>
 #include <stdarg.h>
+#include <sys/types.h>
 typedef struct __seed_FILE FILE;
 #define EOF (-1)
 /* Recommended application I/O block size; FILE streams remain unbuffered. */
@@ -69,4 +70,20 @@ int remove(const char *path);
 /* The kernel's atomic rename; an existing target file is replaced. */
 int rename(const char *old, const char *new);
 void perror(const char *prefix);
+/* POSIX additions; see ../PROCESS-POSIX.md and ../STRINGS-POSIX.md. */
+#define FILENAME_MAX 4096
+#define P_tmpdir "/tmp"
+/* MODE is "r" or "w", optionally followed by "e" (close-on-exec). */
+FILE *popen(const char *command, const char *mode);
+/* The child's wait status, or -1 (ECHILD) for a stream popen did not open. */
+int pclose(FILE *stream);
+/* Read through DELIMITER into a malloc'd *LINE (grown as needed) and
+   NUL-terminate it; returns the byte count, or -1 at end of file/error.
+   Declared only on request (as POSIX 2008 or GNU): older programs define
+   their own getline with other types. See ../STRINGS-POSIX.md. */
+#if defined _GNU_SOURCE || (defined _POSIX_C_SOURCE && _POSIX_C_SOURCE >= 200809L) \
+    || (defined _XOPEN_SOURCE && _XOPEN_SOURCE >= 700)
+ssize_t getdelim(char **line, size_t *capacity, int delimiter, FILE *stream);
+ssize_t getline(char **line, size_t *capacity, FILE *stream);
+#endif
 #endif

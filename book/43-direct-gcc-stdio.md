@@ -133,9 +133,10 @@ formatter. No private Forth stack supplies the argument values. The
 production test copies a cursor and sends both copies across the register
 and overflow-stack boundary, proving independent traversal.
 
-`perror` prints a prefix and a bounded English error description, with a
-numeric fallback for other errno values, and preserves the original errno.
-There is no locale or full system error-message catalog.
+`perror` prints a prefix and the English description `strerror` gives for
+the errno value, and preserves the original errno. The runtime now carries
+glibc's C-locale text for every Linux error number, with a numeric fallback
+for anything else; there is no locale catalog.
 
 ## 5. Keep the evidence boundaries visible
 

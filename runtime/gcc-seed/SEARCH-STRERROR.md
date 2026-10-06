@@ -29,7 +29,8 @@ matching element, or a null pointer when none matches or `count` is zero.
 
 `strerror` (in `strerror.c`, shared with the [process API](PROCESS-API.md),
 which also needs it) returns the Linux wording for each error number that
-`<errno.h>` declares, and "Success" for zero; it preserves `errno`. Any other value
+`<errno.h>` declares (now every Linux value; see [ERRNO.md](ERRNO.md)), and
+"Success" for zero; it preserves `errno`. Any other value
 produces "Unknown error N" in a single static buffer that the next such call
 overwrites, as ISO C permits. The returned text must not be modified.
 

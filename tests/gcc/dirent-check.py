@@ -26,7 +26,7 @@ assert run([OUT/'dirent-check',d/'missing'],3)==b'open:2\n'
 assert run([OUT/'dirent-check',d/names[0]],3)==b'open:20\n'
 # Host references are independent; never used to build production artifacts.
 oracle_headers=OUT/'oracle-headers';oracle_headers.mkdir()
-for name in ('dirent.h','seed-syscall.h'):
+for name in ('dirent.h','seed-syscall.h','seed-directory.h'):
     shutil.copy2(ROOT/'runtime/gcc-seed/include'/name,oracle_headers/name)
 for opt in ('-O0','-O2'):
     host=OUT/('host-directory'+opt)

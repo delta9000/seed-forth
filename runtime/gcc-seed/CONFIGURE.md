@@ -54,9 +54,11 @@ kernel result. Size, block count and time seconds are signed 64-bit values;
 device, inode and link counts are unsigned 64-bit values; mode, UID and GID
 are unsigned 32-bit values. The time-seconds words have the kernel's binary
 layout while exposing signed `time_t`, including pre-epoch timestamps.
-The three `st_*time_nsec` members are documented seed extensions. This
-header does not declare `struct timespec` or promise the POSIX.1-2008 member
-spellings. Padding and reserved words are not public application data.
+The times are now POSIX.1-2008 `struct timespec` members `st_atim`,
+`st_mtim` and `st_ctim` with the same bytes; `st_atime`/`st_mtime`/`st_ctime`
+and the older `st_*time_nsec` names are macros for their fields (see
+[FILE-CALLS.md](FILE-CALLS.md#times-in-struct-stat)). Padding and reserved
+words are not public application data.
 
 The wrappers pass the caller's buffer directly to syscall 4 or 5. Results
 from -4095 through -1 become -1 with positive `errno`; successful calls

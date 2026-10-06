@@ -25,8 +25,9 @@ value of the promoted corresponding type, and all are usable in `#if`.
 `UL` to the literal, as glibc does.
 
 `inttypes.h` now includes `stdint.h` (it previously declared only
-`intptr_t`/`uintptr_t`, identically). Its `PRI*`/`SCN*` format macros and
-`imaxabs`/`strtoimax` family are not supplied.
+`intptr_t`/`uintptr_t`, identically). It declares `strtoimax` and
+`strtoumax` ([STRINGS-POSIX.md](STRINGS-POSIX.md)); its `PRI*`/`SCN*` format
+macros, `imaxabs` and `imaxdiv` are not supplied.
 
 ## Focused gate
 

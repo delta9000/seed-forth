@@ -13,7 +13,8 @@ int open(const char *path, int flags, ...)
     long result;
     int supported = O_ACCMODE | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC
         | O_APPEND | O_NONBLOCK | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
-        | O_PATH | O_TMPFILE;
+        | O_PATH | O_TMPFILE | O_DSYNC | O_ASYNC | O_DIRECT | O_NOATIME
+        | O_SYNC;
     /* Reject unsupported bits before inspecting optional arguments. A lone
        Linux __O_TMPFILE bit is invalid, not a request to fetch absent mode. */
     if ((flags & ~supported) || (flags & O_ACCMODE) == O_ACCMODE

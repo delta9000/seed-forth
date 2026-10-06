@@ -45,7 +45,8 @@ def main():
     work = Path(tempfile.mkdtemp(prefix="stdio-production-", dir=ROOT / "build-out"))
     stdio = RUNTIME / "stdio.c"
     includes = [RUNTIME / "include"]
-    sources = [RUNTIME / (name + ".c") for name in ("memory", "string", "alloc")]
+    # perror reports through strerror (see runtime/gcc-seed/ERRNO.md).
+    sources = [RUNTIME / (name + ".c") for name in ("memory", "string", "alloc", "strerror")]
     sources += [stdio, ROOT / "tests/gcc/stdio-production.c", ROOT / "tests/gcc/stdio-faults.c"]
     objects = {}
     for source in sources:
@@ -61,7 +62,7 @@ def main():
         driver += f"{builder} {name}-output cc-obj-write\n"
         objects[name] = obj
     forth(BASE + ["081-cc-object.fth", "122-cc-sysv-runtime.fth"], driver + "bye\n")
-    common = [objects[name] for name in ("memory", "string", "alloc", "stdio", "errno", "start")]
+    common = [objects[name] for name in ("memory", "string", "alloc", "strerror", "stdio", "errno", "start")]
     production = work / "stdio-production"
     faults = work / "stdio-faults"
     link(common + [objects["stdio-production"], objects["syscall"]], production)

@@ -1,5 +1,9 @@
 # Source-built signal handlers
 
+The full POSIX signal surface (every Linux signal number, `sigaction`,
+signal sets and masks, `raise`, `alarm`, `strsignal`) is described in
+[SIGNALS.md](SIGNALS.md); this document covers `signal()` itself.
+
 Original oyacc 6.6 `main.c` installs handlers for SIGINT, SIGTERM and SIGHUP,
 preserving an inherited ignored disposition. This requires real disposition
 changes and a real handler-return path, even though oyacc's particular handler

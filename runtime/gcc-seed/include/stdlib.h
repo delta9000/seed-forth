@@ -45,6 +45,42 @@ void _Exit(int status);
 int atexit(void (*handler)(void));
 int on_exit(void (*handler)(int, void *), void *argument);
 void abort(void);
+/* "/bin/sh -c COMMAND" with SIGINT/SIGQUIT ignored and SIGCHLD blocked in
+   the caller; NULL asks whether a shell exists. See ../PROCESS-POSIX.md. */
+int system(const char *command);
+/* Canonical absolute name with no ".", ".." or symbolic links; RESOLVED
+   needs PATH_MAX bytes, or NULL returns a malloc'd copy. See
+   ../FILE-CALLS.md. */
+char *realpath(const char *path, char *resolved);
+/* Copying environment updates; see ../ENVIRONMENT.md. */
+int setenv(const char *name, const char *value, int overwrite);
+int unsetenv(const char *name);
+/* Integer conversions and arithmetic; see ../STRINGS-POSIX.md. */
+/* The long long forms are C99; strict C90 compilation hides them. */
+#if !defined __STRICT_ANSI__ || (defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L)
+long long strtoll(const char *text, char **end, int base);
+unsigned long long strtoull(const char *text, char **end, int base);
+long long atoll(const char *text);
+long long llabs(long long value);
+#endif
+long labs(long value);
+typedef struct { int quot; int rem; } div_t;
+typedef struct { long quot; long rem; } ldiv_t;
+div_t div(int numerator, int denominator);
+ldiv_t ldiv(long numerator, long denominator);
+#if !defined __STRICT_ANSI__ || (defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L)
+typedef struct { long long quot; long long rem; } lldiv_t;
+lldiv_t lldiv(long long numerator, long long denominator);
+#endif
+/* glibc's additive-feedback generator: the same sequence per seed. */
+#define RAND_MAX 2147483647
+int rand(void);
+void srand(unsigned int seed);
+long random(void);
+void srandom(unsigned int seed);
+/* ASCII C locale, as mbtowc; see ../WIDE.md. */
+int mblen(const char *bytes, size_t count);
+size_t wcstombs(char *bytes, const wchar_t *wide, size_t count);
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 #endif

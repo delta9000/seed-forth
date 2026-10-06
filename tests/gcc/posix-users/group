@@ -1,0 +1,10 @@
+root:x:0:
+wheel:x:10:root,alice
+users:x:100:alice,bob,carol
+empty:x:200:
+trailing:x:300:alice,
+badgid:x:x1:alice
+short:x
+# c
+nomembers:x:400
+last:*:500:zed

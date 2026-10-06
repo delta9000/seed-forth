@@ -3,8 +3,10 @@
 /* Original seed-forth declarations; see LICENSE and ../../CONFIGURE.md.
    Field widths, offsets and padding match the Linux AMD64 stat syscall ABI.
    Signed seconds expose pre-epoch times; kernel words have identical bits.
-   The nanosecond names below are seed extensions, not struct timespec. */
+   Times are POSIX struct timespec members; st_atime etc. name their seconds
+   (as in glibc) and the older st_atime_nsec names remain as aliases. */
 #include <sys/types.h>
+#include <seed-timespec.h>
 struct stat {
     dev_t st_dev;
     ino_t st_ino;
@@ -17,14 +19,17 @@ struct stat {
     off_t st_size;
     blksize_t st_blksize;
     blkcnt_t st_blocks;
-    time_t st_atime;
-    unsigned long st_atime_nsec;
-    time_t st_mtime;
-    unsigned long st_mtime_nsec;
-    time_t st_ctime;
-    unsigned long st_ctime_nsec;
+    struct timespec st_atim;
+    struct timespec st_mtim;
+    struct timespec st_ctim;
     long __seed_stat_reserved[3];
 };
+#define st_atime st_atim.tv_sec
+#define st_mtime st_mtim.tv_sec
+#define st_ctime st_ctim.tv_sec
+#define st_atime_nsec st_atim.tv_nsec
+#define st_mtime_nsec st_mtim.tv_nsec
+#define st_ctime_nsec st_ctim.tv_nsec
 #define S_IFMT 0170000
 #define S_IFSOCK 0140000
 #define S_IFLNK 0120000
@@ -56,6 +61,12 @@ struct stat {
 #define S_IROTH 00004
 #define S_IWOTH 00002
 #define S_IXOTH 00001
+#define S_IREAD S_IRUSR
+#define S_IWRITE S_IWUSR
+#define S_IEXEC S_IXUSR
+#define ACCESSPERMS 0777
+#define ALLPERMS 07777
+#define DEFFILEMODE 0666
 int stat(const char *path, struct stat *status);
 int fstat(int descriptor, struct stat *status);
 /* Single Linux calls: lstat does not follow a final symbolic link; umask
@@ -64,4 +75,9 @@ int lstat(const char *path, struct stat *status);
 int chmod(const char *path, mode_t mode);
 int mkdir(const char *path, mode_t mode);
 mode_t umask(mode_t mask);
+/* Single Linux calls; see ../../FILE-CALLS.md. mkfifo is mknod with
+   S_IFIFO; mknod passes DEVICE in the 64-bit encoding of makedev. */
+int fchmod(int descriptor, mode_t mode);
+int mknod(const char *path, mode_t mode, dev_t device);
+int mkfifo(const char *path, mode_t mode);
 #endif

@@ -18,4 +18,6 @@ int islower(int value);
 int isxdigit(int value);
 int tolower(int value);
 int toupper(int value);
+/* Space or tab; see ../STRINGS-POSIX.md. */
+int isblank(int value);
 #endif

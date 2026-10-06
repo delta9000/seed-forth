@@ -63,8 +63,10 @@ Compiler drivers run real executables; add the fallback with a consumer.
 encoding: normal exit is `code << 8`, a signal death keeps the signal in bits
 0–6 (bit 7 is the core flag), and a stop is `signal << 8 | 0x7f`. The
 `WIFEXITED`, `WEXITSTATUS`, `WIFSIGNALED`, `WTERMSIG`, `WIFSTOPPED` and
-`WSTOPSIG` macros evaluate their argument once. `WCONTINUED` and core-dump
-reporting are not supplied.
+`WSTOPSIG` macros evaluate their argument once. `WCONTINUED`, `WCOREDUMP`,
+`WIFCONTINUED`, `wait3` and `wait4` are now in
+[PROCESS-POSIX.md](PROCESS-POSIX.md), with `execl`/`execlp`/`execle`,
+`system`, `popen` and the exit handlers.
 
 `sleep` calls `nanosleep` (syscall 35) once. It returns 0 and preserves errno
 on completion. After a signal interrupts it (`EINTR`), it returns the unslept
@@ -75,8 +77,9 @@ reports 0; it does not resume. Any other failure returns the full request.
 
 `strerror` returns fixed glibc C-locale text for 0 and every errno value
 `errno.h` defines, and `Unknown error N` (in one static buffer, overwritten
-by the next unknown lookup) otherwise. It preserves errno. The existing
-`perror` message table is unchanged.
+by the next unknown lookup) otherwise. It preserves errno. `errno.h` now
+holds every Linux error number and `perror` uses `strerror`; see
+[ERRNO.md](ERRNO.md).
 
 ## Focused gate
 
