@@ -19,12 +19,12 @@ ISA, loader and input assumptions. The new examples have not been executed.
 | [S11 Executable and entry](chapters/11-executable-and-entry.md) | Both ELF headers and the three startup sections | 5 | 186 | Drafted |
 | [S12 Physical stacks and memory](chapters/12-physical-stacks-and-memory.md) | Ten stack and memory primitive bodies | 10 | 119 | Drafted |
 | [S13 Arithmetic instruction bytes](chapters/13-arithmetic-in-instruction-bytes.md) | Five arithmetic and logic primitive bodies | 5 | 70 | Drafted |
-| S14 Physical I/O | Four I/O/exit primitive bodies | 4 | 142 | Planned |
-| S15 Dictionary and token input | All 32 dictionary headers, lookup/storage/token words and input/error helpers | 43 | 816 | Planned |
-| S16 Colon compiler | Definition/literal bodies and the call-emission helper | 5 | 237 | Planned |
+| [S14 Physical I/O](chapters/14-physical-io-and-exit.md) | Four I/O/exit primitive bodies | 4 | 142 | Drafted |
+| [S15 Dictionary and token input](chapters/15-dictionary-and-token-input.md) | All 32 dictionary headers, lookup/storage/token words and input/error helpers | 43 | 816 | Drafted |
+| [S16 Colon compiler](chapters/16-native-colon-compiler.md) | Definition/literal bodies and the call-emission helper | 5 | 237 | Drafted |
 | S17 Inline branch operands | Two branch primitive bodies | 2 | 34 | Planned |
 | S18 Parser and interpreter loop | Decimal parser and REPL | 2 | 168 | Planned |
-| Total | Exact file-byte partition | 76 | 1,772 | 375 bytes drafted; 1,397 planned |
+| Total | Exact file-byte partition | 76 | 1,772 | 1,570 bytes drafted; 202 planned |
 
 Dictionary headers are assigned to S15 even when the corresponding primitive
 body is taught earlier. This avoids pretending that recognizing a word's name

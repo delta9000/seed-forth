@@ -95,14 +95,15 @@ def check_documents():
                          (7, "linux-io-contracts"), (8, "defining-words-and-phases"),
                          (9, "control-flow-by-patching"), (10, "storage-deferred-words-and-bytes"),
                          (11, "executable-and-entry"), (12, "physical-stacks-and-memory"),
-                         (13, "arithmetic-in-instruction-bytes")]:
+                         (13, "arithmetic-in-instruction-bytes"), (14, "physical-io-and-exit"),
+                         (15, "dictionary-and-token-input"), (16, "native-colon-compiler")]:
         chapter = ROOT / f"seed-forth/chapters/{number:02}-{name}.md"
         solutions = ROOT / f"seed-forth/practice/{number:02}-solutions.md"
         expected = {f"S{number}-{i:02}" for i in range(1, 6)}
         for file in [chapter, solutions]:
             found = set(re.findall(rf"\bS{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 65 exercise ID pairs")
+    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 80 exercise ID pairs")
 
 
 def check_coverage():
@@ -250,17 +251,46 @@ def check_audit_listings(source_root):
     with (ROOT / "seed-forth/source-audit.csv").open(newline="") as stream:
         regions = list(csv.DictReader(stream))
     for number, filename in [(11, "executable-and-entry"), (12, "physical-stacks-and-memory"),
-                              (13, "arithmetic-in-instruction-bytes")]:
+                              (13, "arithmetic-in-instruction-bytes"), (14, "physical-io-and-exit"),
+                              (15, "dictionary-and-token-input"), (16, "native-colon-compiler")]:
         path = ROOT / f"seed-forth/chapters/{number:02}-{filename}.md"
         expected = set()
         for row in regions:
             if row["unit"] == f"S{number}":
                 expected.update(range(int(row["start_offset"], 16), int(row["end_offset_exclusive"], 16)))
-        seen, count = set(), 0
+        seen, count, headers = set(), 0, []
         for line in path.read_text().splitlines():
+            parts = [part.strip() for part in line.strip().split("|")[1:-1]]
+            header = None
+            if number == 15 and len(parts) >= 7:
+                offset = re.fullmatch(r"`([0-9A-Fa-f]{4})`", parts[0])
+                link = re.fullmatch(r"`0x([0-9A-Fa-f]+)`", parts[1])
+                flags = re.fullmatch(r"`([0-9A-Fa-f]{2})`", parts[2])
+                length = re.fullmatch(r"`([0-9A-Fa-f]{2})` \((\d+)\)", parts[3])
+                name_bytes = re.fullmatch(r"`([0-9A-Fa-f ]+)`", parts[4])
+                if all([offset, link, flags, length, name_bytes]):
+                    name = bytes.fromhex(name_bytes.group(1))
+                    n = int(length.group(1), 16)
+                    assert n == int(length.group(2)) == len(name), line
+                    displayed_name = re.search(r"`([^`]+)`", parts[5]).group(1)
+                    assert name.decode("ascii") == displayed_name, line
+                    start = int(offset.group(1), 16)
+                    data = int(link.group(1), 16).to_bytes(8, "little") + bytes([int(flags.group(1), 16), n]) + name
+                    code_start = 0x400000 + start + len(data)
+                    displayed_xt = [int(m.group(1), 16) for part in parts[6:]
+                                    if (m := re.fullmatch(r"`0x([0-9A-Fa-f]+)`", part))]
+                    assert displayed_xt == [code_start], line
+                    displayed_offsets = [int(m.group(1), 16) for part in parts[6:]
+                                         if (m := re.fullmatch(r"`([0-9A-Fa-f]{3,4})`", part))]
+                    if displayed_offsets:
+                        assert displayed_offsets == [start+len(data)], line
+                    header = (start, data)
+                    headers.append((start, int(link.group(1), 16)))
             half_open = re.match(r"^\[([0-9A-Fa-f]{3,4}),([0-9A-Fa-f]{3,4})\)\s+((?:[0-9A-Fa-f]{2}\s+)+)", line)
             match = re.match(r"^([0-9A-Fa-f]{3,4})(?:[–-]([0-9A-Fa-f]{3,4}))?:?\s+((?:[0-9A-Fa-f]{2}\s+)+)", line)
-            if half_open:
+            if header:
+                start, data = header
+            elif half_open:
                 start, data = int(half_open.group(1), 16), bytes.fromhex(half_open.group(3))
                 assert int(half_open.group(2), 16)-start == len(data), line
             elif match:
@@ -279,6 +309,11 @@ def check_audit_listings(source_root):
             seen.update(positions)
             count += 1
         assert seen == expected, f"Listing coverage mismatch in {path.name}: {len(seen)} versus {len(expected)}"
+        if number == 15:
+            assert len(headers) == 32
+            for i, (offset, link) in enumerate(headers):
+                assert link == (0 if i == 0 else 0x400000 + headers[i-1][0])
+            assert headers[-1][0] == 0x617
         print(f"PASS: S{number} has {count} source-matched field/instruction rows covering {len(seen)} bytes")
 
 

@@ -446,3 +446,5 @@ The linked Intel references are the September 2016 Volume 2A/2B instruction
 manuals, consulted for the specified legacy encodings on 2026-10-06.
 Derived states are not tool output. No build, seed run, timing measurement,
 or wider compiler validation is claimed.
+
+Continue with [Physical I/O and exit](14-physical-io-and-exit.md).

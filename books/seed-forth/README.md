@@ -50,6 +50,18 @@ marks the remaining machine-code regions explicitly. The
 [fourth return check](practice/return-check-4.md) connects mapping, physical
 storage, register-width mistakes and arithmetic information loss.
 
+## Unit five: I/O, names, and the native compiler
+
+14. [Physical I/O and exit](chapters/14-physical-io-and-exit.md): audit the
+    handoff between cached Forth state and Linux registers, including failure cases
+15. [Dictionary and token input](chapters/15-dictionary-and-token-input.md):
+    reconstruct all headers and follow lookup, borrowed input and error handling
+16. [The native colon compiler](chapters/16-native-colon-compiler.md): trace
+    definition construction, emitted calls and the two halves of a literal
+
+The [fifth return check](practice/return-check-5.md) revisits stale input,
+early-bound calls, compiler-stack preservation and token-boundary failures.
+
 Each chapter links to its own hints and worked solutions. The
 [return check](practice/return-check.md) mixes the three topics so that the
 chapter title no longer chooses the method for you.
@@ -60,7 +72,8 @@ with the first unit's contracts.
 The [third return check](practice/return-check-3.md) mixes I/O progress,
 compiled identity, patch locations, and borrowed-buffer lifetime.
 
-The three library-level units and first machine-code unit are drafted. Execution practice and the promised complete machine-code audit remain
+The library-level arc and machine-code audit through the native compiler
+are drafted. Execution practice and the promised complete machine-code audit remain
 outstanding. The
 [learning path](../LEARNING-PATH.md) and [coverage map](../COVERAGE.md) show the
 remaining work. All implementation claims refer to the

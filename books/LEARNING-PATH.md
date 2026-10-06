@@ -108,14 +108,35 @@ header ownership kept separate from earlier primitive-body explanations.
 | [S13 Arithmetic instruction bytes](seed-forth/chapters/13-arithmetic-in-instruction-bytes.md) | Explain each arithmetic result from actual instruction and register widths | S13 exercises, [feedback](seed-forth/practice/13-solutions.md) |
 | [Fourth return check](seed-forth/practice/return-check-4.md) | Diagnose mapping, live-region, register-width and truncation mistakes | Four mixed questions with separate answers |
 
+
+## I/O, dictionary, and compiler audit dependencies
+
+```text
+S7 + S12 + S13 -> S14: physical syscall and exit bodies
+S8 + S10 + S12 + S14 -> S15: headers, lookup, token input and errors
+S8 + S9 + S10 + S13 + S15 -> S16: native definition and literal compiler
+```
+
+S15 needs the borrowed-token lifetime taught in S10, not just byte decoding.
+S16 uses phase separation and physical register-width rules before opening
+the compiler. Its numeric parser and the outer loop remain named interfaces
+for S18; that deferral is not a circular prerequisite.
+
+| Unit | Observable outcome | Practice and feedback |
+|---|---|---|
+| [S14 Physical I/O and exit](seed-forth/chapters/14-physical-io-and-exit.md) | Audit the exact register/stack boundary and distinguish successful input from stale scratch data | S14 exercises, [feedback](seed-forth/practice/14-solutions.md) |
+| [S15 Dictionary and input](seed-forth/chapters/15-dictionary-and-token-input.md) | Reconstruct every initial header and trace lookup, token lifetime and failure paths | S15 exercises, [feedback](seed-forth/practice/15-solutions.md) |
+| [S16 Native colon compiler](seed-forth/chapters/16-native-colon-compiler.md) | Derive a created entry while preserving compiler data and inline-literal return ownership | S16 exercises, [feedback](seed-forth/practice/16-solutions.md) |
+| [Fifth return check](seed-forth/practice/return-check-5.md) | Select the right input, identity, phase or boundary contract | Four mixed questions with separate answers |
+
 ## Interfaces opened in stages
 
 | Interface | Initial contract | Later explanation and remaining audit |
 |---|---|---|
-| `: name ... ;` | Define a word from the stated sequence, using the explicit literal syntax | S8 opens headers, immediacy and emitted calls; the full native compiler implementation is still deferred |
+| `: name ... ;` | Define a word from the stated sequence, using the explicit literal syntax | S8 opens the phases; S15–S16 now audit headers and native compilation; S18 will finish outer-loop dispatch and numeric parsing |
 | A data stack | Words consume and produce the documented topmost cells | S4 separates data and return stacks; S12 now audits the cached-top representation and primitive bodies |
 | `@ ! c@ c!` | Access the stated valid memory location with the stated width | S11 states the mapping contract and S12 audits access encodings; operating-system internals remain trusted |
-| `here` / `latest` | Their distinct value/address contracts at this pinned seed | S11 opens startup and mapping; the detailed dictionary/input implementation is still to come |
+| `here` / `latest` | Their distinct value/address contracts at this pinned seed | S11 opens startup and mapping; S15 now audits dictionary and token input |
 
 These interfaces reduce prerequisites without hiding a proof obligation. The
 first unit asks what follows if the contracts hold; later chapters open the
@@ -125,8 +146,8 @@ that second question early, but exercises do not require solving it early.
 
 ## What the next units must earn
 
-1. The remaining physical I/O, dictionary, token reader, colon compiler,
-   branch and REPL audit, followed by a whole-seed synthesis
+1. The branch, decimal parser and REPL audit, followed by a whole-seed
+   synthesis and independent-volume reference/entry package
 2. A compiler-volume bridge that introduces C syntax, buffer ownership,
    representation changes and the chosen build profile before implementation
    detail

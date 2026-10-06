@@ -1,8 +1,8 @@
 # Validation record
 
 This manuscript checkpoint, checked on 2026-10-06, contains an entry
-chapter, thirteen teaching chapters, sixty-five exercises with separate feedback,
-and four four-question mixed return checks. It is not a completed book.
+chapter, sixteen teaching chapters, eighty exercises with separate feedback,
+and five four-question mixed return checks. It is not a completed book.
 
 ## Checks performed
 
@@ -16,8 +16,8 @@ It uses Python's standard library. It checks the two relevant source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
-The current document pass checks 38 Markdown files, 379 links, the 71-row
-source inventory, the prerequisite graph of all 77 teaching units for cycles, sixty-five
+The current document pass checks 45 Markdown files, 502 links, the 71-row
+source inventory, the prerequisite graph of all 77 teaching units for cycles, eighty
 exercise pairs, two source blobs, all 63 library colon-definition excerpts and mathematical
 assertions. The earlier units passed their smaller document passes. The exact source byte
 sequence contains 1,772 bytes and has SHA-256
@@ -45,19 +45,22 @@ repository and original literate book; they do not execute this new edition's
 examples or render the separate `books/` tree. The six-chapter checkpoint also passed [its own Check run](https://github.com/delta9000/seed-forth/actions/runs/37417624921)
 at commit `d63b29b3f7f563bafb0de6056309e70cc0964e41`. The ten-chapter
 checkpoint passed [its separate Check run](https://github.com/delta9000/seed-forth/actions/runs/37419018142)
-at `bff03516d3b7202bb2ecbb0457192ec61cb9d9eb`. Later checkpoints have
+at `bff03516d3b7202bb2ecbb0457192ec61cb9d9eb`. The thirteen-chapter
+checkpoint also passed [its Check run](https://github.com/delta9000/seed-forth/actions/runs/37420513780)
+at `705e3f73a5f74c636b0f016d1e8f840acf6d747a`. Later checkpoints have
 their own CI identity and must not inherit those results as a fresh run.
 
-The entry chapter and thirteen teaching chapters were converted from GitHub-
+The entry chapter and sixteen teaching chapters were converted from GitHub-
 flavored Markdown to HTML with Pandoc 3.1.11.1 to check parseability. A local
 headless Chromium layout check could not complete because the environment
 refused its process-singleton socket. No browser screenshot inspection is
 claimed; GitHub and published-book layout still need visual review.
 
 The [byte audit ledger](seed-forth/AUDIT.md) partitions all 1,772 bytes into
-76 source-checked regions. The current audit manuscripts cover 375 bytes:
-S11's 35 field/instruction rows cover 186 bytes, S12's 43 instructions cover
-119, and S13's 23 instructions cover 70. The checker compares every displayed
+76 source-checked regions. The current audit manuscripts cover 1,570 bytes:
+S11 covers 186, S12 119, S13 70, S14 142, S15 816, and S16 237. The displayed
+records include all 32 reconstructed dictionary headers and 277 decoded
+startup/body instructions, along with the ELF fields. The checker compares every displayed
 byte to the pinned image and verifies exact, nonoverlapping coverage. GNU
 readelf/objdump 2.44 independently supplied static decoding observations;
 neither tool executed the seed. Remaining ledger regions are still planned.
@@ -79,9 +82,9 @@ neither tool executed the seed. Remaining ledger regions are still planned.
 
 ## Next coherent unit
 
-The next manuscript work continues the machine-code audit with S14–S16 in
-[the coverage map](COVERAGE.md): physical I/O, dictionary/token handling and
-the native colon compiler. It should preserve the same
+The next manuscript work closes the final 202-byte branch/parser/REPL
+audit and adds the whole-seed synthesis and reader reference package in
+[the coverage map](COVERAGE.md). It should preserve the same
 contracts, recurring state notation, source pins and separate feedback.
 Execution checks need a named, authorized seed profile before their status
 can change from derived to observed.
