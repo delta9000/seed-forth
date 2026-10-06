@@ -51,7 +51,7 @@ host build is an output oracle only.
 | tar 1.12 | Extracts every input tarball to host tar's tree; archives it creates are byte-identical to the oracle |
 | patch 2.5.9 | 20 cases identical to the oracle |
 | diffutils 2.7 | `diff`, `cmp`, `diff3`, `sdiff`: 50 cases identical to the oracle |
-| bash 2.05b | Blocked on typedefs of function types (next compiler fix) |
+| bash 2.05b | Not yet attempted past `mkbuiltins`; its first blocker (function typedefs) is now fixed |
 
 ## Gaps found
 
@@ -61,7 +61,7 @@ host build is an output oracle only.
   function): **fixed**.
 - `main(argc, argv, envp)` received no environment pointer: **fixed** in the
   runtime-aware `_start`.
-- Typedefs of function types (`typedef int Function ();`): in progress.
+- Typedefs of function types (`typedef int Function ();`): **fixed**.
 - Floating-point initialisers for objects with static storage, including
   integer constants assigned to them: in progress.
 - Struct arguments passed by value to unprototyped or variadic functions
