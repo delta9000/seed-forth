@@ -76,6 +76,14 @@ top-level orchestration. The
 control, function, assembler and bootstrap units. Planned
 units are not chapters that already exist.
 
+## Saved continuation drafts
+
+[C16–C18](DRAFTS.md) are preserved in a separate draft checkpoint: conditions
+and loops, switches/labels, and function-frame accounting. C16's technical and
+practice review passed; C17/C18 still need independent technical review. Their
+short reading routes were checked, but complete unit integration and C19 remain
+pending. These saved drafts do not extend the reviewed route listed above.
+
 ## Profile and evidence
 
 The first route uses the pinned legacy direct-ELF compiler: the Forth builder

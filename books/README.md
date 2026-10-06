@@ -12,7 +12,9 @@ The [C-compiler volume](c-compiler/README.md) also has its first fifteen teachin
 chapters: an independent entry bridge, storage/ownership, preprocessing,
 tokens/types/names, executable bytes, deferred addresses and the bounded
 legacy runtime, places/values, expressions and declarations. Statement/function
-integration and bootstrap-closure units remain planned.
+integration and bootstrap-closure units remain planned. [C16–C18 continuation
+drafts](c-compiler/DRAFTS.md) are also saved, with their review limits clearly
+marked; they are separate from the reviewed C01–C15 route.
 
 The edition is a draft, not a complete replacement for the original book.
 The [coverage map](COVERAGE.md) accounts for every original numbered chapter

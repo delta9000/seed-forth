@@ -4,6 +4,10 @@ This is the editorial map for a new teaching edition in `books/`. It does not re
 
 **Edition:** `direct-gcc-overlay`, commit `7d7e1996d1753118181d43e1a413960d3a1ec24b`, inspected October 6, 2026. All source destinations in [coverage.csv](coverage.csv) are pinned to that commit. A floating branch name is not an edition identifier.
 
+This map records the reviewed C01–C15 checkpoint. [Saved C16–C18 drafts](c-compiler/DRAFTS.md)
+are preserved separately, with pending review/integration made explicit; they
+are not yet credited in this migration map.
+
 ## Current result
 
 **Volume 1, Seed and Forth, has a complete draft teaching path.** Its [opening](seed-forth/chapters/00-why-inspect-a-seed.md), [route guide](seed-forth/chapters/00-start-here.md), chapters S01–S19, separate feedback, six mixed return checks and [compact reference](seed-forth/REFERENCE.md) cover the seed and its first library. The [audit ledger](seed-forth/source-audit.csv) assigns an explanation to all **76 regions / 1,772 original file bytes**, including all 32 dictionary headers. All **63 library colon definitions and 11 constant-created names** have substantive teaching homes.

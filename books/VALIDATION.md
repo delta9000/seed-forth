@@ -6,7 +6,9 @@ teaching chapters, ninety-five exercises with separate feedback, six mixed
 return checks and a compact reference. The C volume adds fifteen teaching
 chapters, 105 exercises with feedback and five four-question mixed
 checks. These are not validated execution guides or a completed multi-volume
-rewrite.
+rewrite. Additional [C16–C18 drafts](c-compiler/DRAFTS.md) are saved with their
+own limits below. The detailed source/practice record in the next section
+applies to the reviewed C01–C15 checkpoint.
 
 ## Checks performed
 
@@ -20,7 +22,7 @@ It uses Python's standard library. It checks thirty-five relevant source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
-The current document pass checks all local inline and reference-style links,
+The reviewed C01–C15 document pass checks all local inline and reference-style links,
 the 81-row source inventory, the prerequisite graph of all 77 teaching units
 for cycles, 200 exercise pairs, thirty-five source blobs, all 63 library
 colon-definition excerpts and bounded mathematical assertions. It also
@@ -113,6 +115,21 @@ from the source append values and cover exactly 120 bytes. The runtime review
 also checked every emitted-body length, the 376-byte eager block, five heap
 RIP-relative targets and all supplied I/O cases. These observations complement
 manual derivations; they do not execute the compiler or its output.
+
+## Saved continuation draft checks
+
+The separate C16–C18 save adds 25 paired main exercises, bringing the working
+document check to 225 pairs. Local links and exercise IDs were checked across
+the full saved tree. All six draft chapter/feedback files were converted from
+GitHub-flavored Markdown to HTML with Pandoc and parsed, without a visual-layout
+claim. C16's independent source/practice review passed. C17/C18 have author
+checks but still require separate independent technical review.
+
+All three revised reading routes were independently checked for the
+prerequisites of their assigned exercise parts. This does not establish
+learning outcomes. The credited coverage inventory remains the reviewed
+C01–C15 checkpoint until the later unit's review and integration are complete.
+No implementation or canonical literate-source changes accompany this save.
 
 ## Still unverified
 
