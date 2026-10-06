@@ -33,8 +33,7 @@ allocator is not safe for concurrent or signal-handler allocation.
 
 As with ordinary C allocation APIs, freeing an invalid pointer, double-freeing,
 or accessing an allocation after its lifetime has ended is undefined. The
-runtime provides no threads, floating input parsing beyond
-[`atof`](DECIMAL-INPUT.md), dynamic loader, or whole-libc compatibility promise. Signal handling and the fixed C/POSIX locale
+runtime provides no threads, dynamic loader, or whole-libc compatibility promise. Signal handling and the fixed C/POSIX locale
 have separate bounded contracts below. Add interfaces when an original source
 consumer on the documented bootstrap path and a corresponding test establish
 the need.
@@ -124,6 +123,13 @@ the separate pointer-to-array parser limitation still blocks full libcpp.
 
 The [approximate exp/log contract](MATH.md) is implemented in a separate
 [explicit Forth-built math archive](MATH-LINKING.md), selected by literal `-lm`.
+
+The plumbing tools (gawk, coreutils, make, the shells and lexers) need the
+numeric and stream services of an ordinary C library:
+
+- [Correctly rounded floating input](DECIMAL-INPUT.md): `strtod`, `strtof`,
+  `strtold` and `atof` with C99 decimal and hexadecimal syntax, infinities,
+  NaN payloads, end pointer and glibc's `ERANGE` rules.
 
 Original libcpp macro expansion uses the [bounded UTC calendar runtime](CALENDAR.md):
 real wall-clock time, a standard nine-int `struct tm`, and Gregorian conversion

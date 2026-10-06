@@ -166,7 +166,7 @@ for text, a, e in zip(lines, decimal, oracle):
 if len(decimal) != len(lines):
     raise SystemExit("atof output length differs from input")
 hexadecimal = run([work / "forth-decimal"], b"0x10\n0x1p3\n").decode().split()
-if hexadecimal != ["0000000000000000"] * 2:
+if hexadecimal != ["4030000000000000", "4020000000000000"]:
     raise SystemExit(f"hexadecimal input: {hexadecimal}")
 
 # Host stdarg.h replaces the runtime's (same ABI, Forth-specific spelling).

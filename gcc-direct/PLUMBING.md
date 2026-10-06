@@ -86,7 +86,9 @@ host build is an output oracle only.
   formatter (base-10^9 bignum digits, round half to even, 600/601 cases equal
   to glibc) is a starting point.
 - `math.h` declares only `exp` and `log`. Also missing are `floor`, `ceil`,
-  `modf`, `fmod`, `pow`, `sqrt`, `sin`, `cos`, `atan2` and `strtod`.
+  `modf`, `fmod`, `pow`, `sqrt`, `sin`, `cos` and `atan2`. (`strtod`,
+  `strtof` and `strtold` are **fixed**:
+  [DECIMAL-INPUT.md](../runtime/gcc-seed/DECIMAL-INPUT.md).)
 - `localtime` fails unless `TZ` is exactly `UTC0`. Upstream code that does not
   check for NULL then crashes (`tar -tv`, `gzip -l`, `ls -l`, `date`).
   `strftime` lacks `%a`, `%b`, `%c` and `%Z`.

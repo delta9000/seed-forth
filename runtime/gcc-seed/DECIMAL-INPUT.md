@@ -1,59 +1,104 @@
-# Correctly rounded decimal input: atof
+# Correctly rounded floating input: strtod, strtof, strtold, atof
 
 Original binutils 2.30 `binutils/stabs.c` reads stabs floating constants
-(`c=r<value>`) with `atof`, and objdump links `stabs.o`. libiberty's
-`strtod.c` replacement also calls `atof`. The runtime previously had no
-floating input at all ([README.md](README.md)), so objdump's link failed on
-`atof`. `decimal.c` adds `atof` alone; `strtod` and its end pointer and
-`ERANGE` reporting are not supplied, so libiberty keeps its own `strtod.o`.
+with `atof`; gawk 3.0.4 converts every numeric-looking field and string with
+`strtod`; coreutils `seq`, `printf` and `sort -g` parse their operands with
+`strtod`/`strtold`. `decimal.c` supplies all four functions. `atof(s)` is
+`strtod(s, NULL)`.
 
 ## Accepted text
 
-After C-locale white space and an optional sign, `atof` reads the longest
-decimal prefix: digits with at most one `.`, at least one digit, then an
-optional `e`/`E` exponent that is used only when at least one digit follows
-its optional sign. Case-insensitive `inf`/`infinity` and `nan` give infinity
-and a quiet NaN with the sign applied. Text with no digits gives `+0.0`.
-Hexadecimal floating input is not recognized: `0x10` reads the decimal prefix
-`0` and gives `0.0`, where glibc gives 16. No consumer on this path writes it.
+After C-locale white space (space, `\t \n \v \f \r`) and an optional sign,
+the longest prefix of one of these forms is converted:
+
+- decimal: digits with at most one `.`, at least one digit, then an optional
+  `e`/`E` exponent that is used only when at least one digit follows its
+  optional sign (`1e+` converts `1`);
+- hexadecimal: `0x` or `0X`, hexadecimal digits with at most one `.` and at
+  least one digit, then an optional `p`/`P` binary exponent under the same
+  rule. `0x` without a hexadecimal digit converts the `0` alone;
+- `inf` or `infinity` in any case (the longer one when it matches);
+- `nan` in any case, optionally followed by `(n-char-sequence)` of letters,
+  digits and `_`. As in glibc, a sequence that is entirely one
+  `strtoul(..., 0)` number sets the NaN payload (masked to the fraction bits
+  below the quiet bit); any other sequence is consumed without a payload.
+  An unclosed `(` is not consumed.
+
+The sign applies to every form, including NaN. When no form matches, the
+result is `+0` and the end pointer is the original argument. Decimal
+points other than `.` (locales) are not supported.
 
 ## Rounding
 
-The result is the binary64 value nearest the exact decimal, ties to even,
-with gradual underflow; overflow gives infinity. The conversion is exact
-integer arithmetic, with no floating operation:
+The result is the value of the chosen format (binary32, binary64, or x87
+extended80 with its 64-bit significand) nearest the exact input, ties to
+even, with gradual underflow; values beyond the largest finite value after
+rounding become infinity. The conversion is exact integer arithmetic, with
+no floating operation:
 
-1. Up to 800 significant digits are kept. When a nonzero digit is dropped,
-   a final `1` digit is appended instead (sticky digit). A decimal that lies
-   exactly half-way between two doubles needs at most 768 significant
-   digits, so the appended digit decides exactly the ties the dropped
-   digits would have. Leading and (without a dropped digit) trailing zeros
-   only move the decimal exponent.
-2. With the value in `[10^(n-1), 10^n)`, `n > 310` is infinity and
-   `n < -324` is zero before any big arithmetic. The exponent text saturates
-   at one billion.
-3. The digits become a natural number `num`, and the decimal exponent a
-   power of ten in `num` or in `den`, as base-2^32 numbers of at most 160
-   limbs. Scaling by a power of two puts `num/den` in `[2^62, 2^64)`, and 64
-   steps of restoring division give the quotient and whether a remainder
-   exists.
-4. The quotient is rounded to 53 bits, or fewer below 2^-1022, using its
-   discarded bits and the remainder as sticky; a carry to 2^53 renormalizes
-   and a subnormal rounding up to 2^-1022 becomes the smallest normal.
+1. Significant digits are kept up to a limit that exceeds the longest
+   decimal half-way point of the format (120 for binary32, 800 for binary64,
+   11,600 for extended80; the half-way points need at most 112, 768 and
+   about 11,520). When a nonzero digit is dropped, a final `1` digit is
+   appended instead, which decides exactly the ties the dropped digits
+   would have. Hexadecimal input keeps 40 significant digits and appends a
+   sticky low bit the same way.
+2. With the value in `[10^(n-1), 10^n)`, an `n` beyond the format's range
+   is infinity or zero before any big arithmetic. Exponent text saturates
+   at 10^8.
+3. The value becomes `num/den` with base-2^32 numbers of up to 1,800 limbs.
+   Its binary exponent `e` is found exactly. The number of result bits is
+   the precision, or fewer for a subnormal; scaling by a power of two puts
+   `num/den` in `[2^(p-1), 2^p)`, and `p` steps of restoring division give
+   the significand. Twice the remainder compared with `den` decides the
+   rounding; a carry to `2^p` moves to the next binade (a subnormal that
+   rounds up to `2^emin` becomes the smallest normal).
 
-`atof` does not change errno. It keeps two static numbers, so it is not
-reentrant, like the rest of the single-threaded runtime.
+## errno and the end pointer
 
-## Gate
+`*end` (when `end` is not NULL) points just past the converted text. errno
+is set only to `ERANGE`, following glibc:
 
-`tests/gcc/binutils-runtime-check.py` (see [FILE-METADATA.md](FILE-METADATA.md))
-feeds 4,397 lines to `tests/gcc/decimal-input-check.c`, which prints the bits
-of `atof` for each. The Forth build must match host glibc at `-O0` and `-O2`
-and Python's correctly rounded `float()` on every line. Inputs include the
-largest and smallest normal and subnormal boundaries, overflow and underflow
-just across them, `2^53 + 1`, white space, signs and malformed exponents,
-a 401-digit integer and a 400-zero fraction, saturated exponents, 120 exact
-half-way points (normal, subnormal and near overflow), each also with a `1`
-appended after 50 and after 900 further zeros, and 4,000 random decimals of
-up to 900 digits with exponents from -1250 to 330. Hexadecimal input is checked
-only against the documented `0.0`.
+- overflow: the result is `+-HUGE_VAL` (infinity);
+- underflow: the result is inexact and tiny after rounding, meaning that
+  rounding the exact value to the full precision with an unbounded exponent
+  gives a magnitude below the smallest normal. A result that rounds to zero
+  from a nonzero input is underflow. Exact subnormals (`0x1p-1074`) and
+  values that round up to the smallest normal from at least
+  `2^emin - 2^(emin-p-1)` do not set errno;
+  `2.2250738585072012e-308` (rounds to `DBL_MIN`, but would not at
+  unbounded exponent) does.
+
+Successful conversions leave errno unchanged. `strtold` returns an x87
+extended80 value; the runtime supports long double only for data movement
+(storage, arguments, `printf("%Lg")`), and builds the value from its bytes.
+
+The functions keep three static big numbers, so they are not reentrant,
+like the rest of the single-threaded runtime.
+
+## Gates
+
+`tests/gcc/strtod-check.py` builds `tests/gcc/strtod-check.c` with the
+Forth compiler (production) and with host GCC against glibc (expected-output
+oracle only). The fixture generates its own inputs from a seeded generator,
+with an independent exact decimal expander for half-way points, and prints
+for each input the result bits, errno and end offset of `strtod`, `atof`,
+`strtof` and (for every extended80 case) `strtold`. At scale 1 it checks
+340,132 inputs; the outputs must be byte-identical:
+
+- 200,000 random decimals of 1 to 800 digits, with and without a point,
+  exponents from -350 to 349 (some to +-5000), signs, white space and
+  trailing garbage;
+- 100,000 random hexadecimal inputs of up to 45 digits, both cases, binary
+  exponents up to +-16,500;
+- 40,000 exact half-way points between adjacent binary32, binary64 and
+  extended80 values (normal, subnormal, near overflow), each exact, truncated,
+  one unit below, or followed by zeros and a final `1`;
+- 132 special inputs: the `DBL_MIN`/`FLT_MIN`/`LDBL_MIN` and maximum
+  boundaries, all the infinity/NaN spellings and payload forms, malformed
+  exponents and prefixes, 2,000-digit inputs.
+
+A scale-10 run checked 3,400,132 inputs with no difference.
+`tests/gcc/binutils-runtime-check.py` keeps its original `atof` gate: 4,397
+lines compared with host glibc at `-O0`/`-O2` and with Python's correctly
+rounded `float()`, and hexadecimal `0x10` and `0x1p3` now convert to 16 and 8.

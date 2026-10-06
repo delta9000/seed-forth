@@ -27,8 +27,13 @@ int mkstemp(char *template);
 /* Replace six trailing Xs with a name that does not exist now; on failure
    the template becomes "" (EINVAL or EEXIST). Racy by design: prefer mkstemp. */
 char *mktemp(char *template);
-/* Correctly rounded decimal input; see ../DECIMAL-INPUT.md for the syntax. */
+/* Correctly rounded C99 decimal/hexadecimal input with glibc's end pointer,
+   NaN payload and ERANGE rules; see ../DECIMAL-INPUT.md. atof is strtod. */
 double atof(const char *text);
+double strtod(const char *text, char **end);
+float strtof(const char *text, char **end);
+/* x87 extended80 result; long double values support data movement only. */
+long double strtold(const char *text, char **end);
 /* Basename of argv[0], initialized by the runtime-aware entry before main. */
 extern char *__progname;
 /* Searches the current environ; returns a pointer into that entry. */
