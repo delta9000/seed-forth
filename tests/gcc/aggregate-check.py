@@ -11,11 +11,6 @@ REJECTS={
  'nested-floating':'struct A{double x;};struct B{struct A a[2];};void f(struct B b){}',
  'union-floating':'union A{long a;double b;};void f(union A a){}',
  'long-double':'struct A{long double a;float f;};void f(struct A a){}',
- 'variadic-fixed':'struct A{int a;};void f(struct A a,...){}',
- 'variadic-result':'struct A{int a;};struct A f(int n,...){struct A a;return a;}',
- 'variadic-value':'struct A{int a;};void f(int,...);void g(void){struct A a;f(1,a);}',
- 'unprototyped':'struct A{int a;};struct A f();void g(void){f();}',
- 'knr-record-unprototyped-call':'struct A{int a;};int f(a) struct A a; {return a.a;} int g(void){struct A a;return f(a);}',
  'wrong-argument':'struct A{int a;};struct B{int a;};int f(struct A);int g(void){struct B b;return f(b);}',
  'scalar-argument':'struct A{int a;};int f(struct A);int g(void){return f(3);}',
  'wrong-return':'struct A{int a;};struct B{int a;};struct A f(void){struct B b;return b;}',
@@ -46,6 +41,14 @@ REJECTS={
  'sizeof-unary-plus-record':'struct A{long x;};long f(struct A a){return sizeof(+a);}',
  'void-return-record':'struct A{long x;};void f(struct A a){return a;}',
 
+}
+# Records cross unprototyped and variadic calls unchanged (record-varargs-check.py).
+ACCEPTS={
+ 'variadic-fixed':'struct A{int a;};void f(struct A a,...){}',
+ 'variadic-result':'struct A{int a;};struct A f(int n,...){struct A a;return a;}',
+ 'variadic-value':'struct A{int a;};void f(int,...);void g(void){struct A a;f(1,a);}',
+ 'unprototyped':'struct A{int a;};struct A f();void g(void){f();}',
+ 'knr-record-unprototyped-call':'struct A{int a;};int f(a) struct A a; {return a.a;} int g(void){struct A a;return f(a);}',
 }
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def run(command,expected=0,input=None):
@@ -80,7 +83,9 @@ def main():
    assert out.read_bytes()==b'previous-valid-object\x00\xff' if existing else not out.exists()
    records.append({'existing_output':existing,'status':result.returncode})
   report['rejections'][name]=records
- print(f'PASS: {len(REJECTS)} unsupported/invalid forms preserve output publication',flush=True)
+ for name,source in ACCEPTS.items():
+  path=work/(name+'.c');path.write_text(source+'\n');run([cc,'-c',path,'-o',work/(name+'.o')])
+ print(f'PASS: {len(REJECTS)} unsupported/invalid forms preserve output publication; {len(ACCEPTS)} variadic/unprototyped record forms compile',flush=True)
  metadata=work/'sizeof-metadata.c';metadata.write_text('struct A{double x;long y;};struct A f(struct A);struct A (*p)(struct A);int main(void){struct A a;return sizeof(f(a))!=16||sizeof(p(a))!=16||sizeof(a=a)!=16;}\n')
  metadata_exe=work/'sizeof-metadata';run([cc,metadata,'-o',metadata_exe]);run([metadata_exe])
  report['executions'].append({'name':'unsupported ABI metadata-only sizeof','sha256':sha(metadata_exe)})

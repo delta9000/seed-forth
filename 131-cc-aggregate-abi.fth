@@ -2,7 +2,8 @@
 \ Record expressions carry addresses. The ABI transports object bytes, never
 \ that address: up to two INTEGER eightbytes, otherwise a private stack copy.
 \ Long double (121) is X87: a sixteen-aligned stack copy, returned in st(0).
-\ Floating members, vector classes and aggregate varargs are not implemented.
+\ Records cross prototyped, unprototyped and variadic calls alike, and
+\ va_arg retrieves them. Floating members and vector classes are not implemented.
 create cc-ag-error-prefix s, aggregate-abi: bl c,
 : cc-ag-die cc-ag-error-prefix [lit] 15 cc-err-write [lit] 232 cc-die ;
 : cc-ag-type? ( type -- flag )
@@ -114,17 +115,9 @@ variable cc-ag-plan
     ag-signature @ cc-sysv-sig-desc cc-sd-total-size ag-return-size !
     ag-return-class @ 0= if, [lit] 1 ag-gp ! then,
   then, ;
-\ Long double has no promotions and one ABI in every prototype form, so only
-\ records restrict the signature forms below.
-: cc-ag-record? ( type descriptor -- flag )
-  2dup cc-ld? 0= swap drop swap cc-ag-type? and ;
-: cc-ag-signature? ( signature -- flag )
-  dup cc-sysv-sig-return over cc-sysv-sig-desc cc-ag-record? if, drop true exit, then,
-  [lit] 0 begin, over cc-sysv-sig-count over > while,
-    2dup cc-sysv-sig-param dup @ swap [lit] 8 + @ cc-ag-record? if,
-      2drop true exit,
-    then, 1+
-  repeat, 2drop [lit] 0 ;
+\ Records and long double have one ABI in every prototype form: default
+\ promotions leave them unchanged, so prototyped, variadic and unprototyped
+\ calls, and every definition form, classify them alike.
 : cc-ag-check-entry ( signature -- )
   \ K&R float parameters arrive as promoted doubles, but the local declared
   \ type is float. Reject until entry conversion has its own transport type.
@@ -133,17 +126,7 @@ variable cc-ag-plan
       2dup cc-sysv-sig-param @ cc-f32-type? if, cc-ag-die then, 1+
     repeat, drop
   then,
-  dup cc-ag-signature? if,
-    \ Admit only a prototype or a refined identifier-list definition (6).
-    dup cc-sysv-sig-varargs dup [lit] 6 <> and if, cc-ag-die then,
-  then, drop ;
-: cc-ag-check-signature ( signature -- )
-  \ Definition entry has known refined types; an unprototyped call does not.
-  \ Keep all flagged record calls outside scalar-only default promotion.
-  dup cc-ag-check-entry
-  dup cc-ag-signature? if,
-    dup cc-sysv-sig-varargs if, cc-ag-die then,
-  then, drop ;
+  drop ;
 : cc-ag-locate ( type descriptor index -- )
   ag-arg >r
   2dup cc-ag-class r@ [lit] 24 + !
@@ -206,11 +189,10 @@ variable cc-ag-plan
       ag-signature @ ag-count @ cc-sysv-parameter-type
     else,
       ag-signature @ cc-sysv-sig-varargs [lit] 3 and 0= if, [lit] 235 cc-die then,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-ld? if,
-        cc-last-expr-type @ cc-last-struct-desc @
-      else,
-        cc-last-expr-type @ cc-sysv-check-scalar
-        cc-last-expr-type @ cc-sysv-default-type cc-last-struct-desc @
+      \ Default promotions leave records and long double unchanged.
+      cc-last-expr-type @ cc-last-struct-desc @
+      2dup cc-ld? [lit] 2 cc-npick cc-ag-type? or 0= if,
+        drop dup cc-sysv-check-scalar cc-sysv-default-type cc-last-struct-desc @
       then,
     then,
     2dup >r >r cc-last-expr-type @ cc-last-struct-desc @ r> r> cc-value-shape-fwd
@@ -301,7 +283,7 @@ variable cc-ag-plan
     else, cc-sym-val-of cc-emit-call-vaddr then,
   then, cc-ag-result ;
 : cc-ag-call-begin ( signature -- )
-  dup cc-ag-check-signature cc-ag-new-plan
+  dup cc-ag-check-entry cc-ag-new-plan
   ag-return-class @ [lit] 0 >= if,
     ag-return-size @ cc-ag-frame ag-result !
   then, ;
@@ -497,6 +479,42 @@ variable cc-ag-sret-slot
   cc-ag-plan @ >r cc-ag-function-plan @ cc-ag-plan !
   ag-signature @ cc-sysv-sig-count 1- ag-arg ag-slot r> cc-ag-plan ! ;
 ' cc-ag-va-last-slot is cc-va-last-slot-fwd
+\ va_arg of a record: an INTEGER record whose eightbytes all fit in the
+\ remaining GP save slots is read there, where they are consecutive; any
+\ other record comes from the overflow area, aligned as the caller stored
+\ it. The value is the record's address, like every record value.
+: cc-ag-va-record ( type descriptor -- )
+  2dup cc-ag-class >r
+  r@ [lit] 1 = r@ [lit] 2 = or if,
+    [lit] 139 cc-emit-byte [lit] 7 cc-emit-byte         \ mov eax, [rdi]
+    [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
+    [lit] 49 r@ [lit] 8 * - cc-emit-byte                \ cmp eax, 49-8n
+    [lit] 15 cc-emit-byte [lit] 131 cc-emit-byte        \ jae overflow
+    cc-out-pos @ [lit] 0 cc-emit-4le >r
+    [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+    [lit] 79 cc-emit-byte [lit] 16 cc-emit-byte         \ mov rcx, [rdi+16]
+    [lit] 72 cc-emit-byte [lit] 1 cc-emit-byte [lit] 193 cc-emit-byte
+    [lit] 131 cc-emit-byte [lit] 7 cc-emit-byte
+    r> r@ [lit] 8 * cc-emit-byte >r                     \ add dword [rdi], 8n
+    [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 207 cc-emit-byte
+    cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
+  else, [lit] 0 >r then,
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 71 cc-emit-byte [lit] 8 cc-emit-byte            \ mov rax, [rdi+8]
+  2dup cc-nalignment [lit] 8 > if,
+    [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+    [lit] 192 cc-emit-byte [lit] 15 cc-emit-byte        \ add rax, 15
+    [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+    [lit] 224 cc-emit-byte [lit] 240 cc-emit-byte       \ and rax, -16
+  then,
+  [lit] 72 cc-emit-byte [lit] 141 cc-emit-byte [lit] 136 cc-emit-byte
+  2dup cc-nsize [lit] 8 cc-nalign cc-emit-4le           \ lea rcx, [rax+size]
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte            \ mov [rdi+8], rcx
+  cc-emit-mov-rdi-rax
+  r> dup if, cc-patch-rel32-to-here else, drop then, r> drop
+  cc-mark-typed-value ;
+' cc-ag-va-record is cc-va-record-fwd
 
 \ Long double crosses no type boundary: assignment, arguments, results and
 \ initializers accept only long double, copied whole. A static initializer

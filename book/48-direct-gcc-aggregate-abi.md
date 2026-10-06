@@ -24,9 +24,8 @@ is MEMORY. The recursive walk validates every union alternative and array
 element type. The parser currently produces natural layouts; a synthetic
 unaligned descriptor tests the classifier separately from the C ABI tests.
 
-Binary32/binary64 members, vector classes, over-aligned and empty records,
-aggregate variadic calls, and aggregate calls without a visible prototype are
-deliberately rejected. Long double members are admitted as X87 leaves (§4). Packed attributes remain outside the
+Binary32/binary64 members, vector classes, over-aligned and empty records
+are deliberately rejected. Long double members are admitted as X87 leaves (§4). Packed attributes remain outside the
 parser's supported dialect. Classifying a pointer does not inspect its pointee.
 Declaration and `sizeof` metadata remain usable for unsupported value classes.
 Argument descriptor identity is still checked inside `sizeof`; suppressing
@@ -34,13 +33,22 @@ execution does not suppress this C type constraint.
 
 C90 identifier-list definitions refine parameter types by name before entry
 planning. Their known record parameters and results use the same transport as
-prototype-style definitions. Empty-list record-result definitions retain their
-previous rejection. This does not turn a definition into a prototype. Calls still
-require a visible compatible prototype when any argument or result is a record;
-unspecified calls retain the scalar-only default-promotion boundary. A prior
+prototype-style definitions, and so do empty-list definitions such as
+`struct A f() { ... }`. This does not turn a definition into a prototype. A prior
 prototype remains visible, while definition parameter order follows the identifier
 list, not the order of the refining declarations. Declared K&R float parameters
 remain rejected because their promoted double entry needs a separate conversion.
+
+Default argument promotions change only integer types narrower than `int`
+and `float`; a record passes unchanged. So a record argument to a call
+without a visible prototype (`long f(); f(v)`, a K&R definition, or a
+`long (*p)()` pointer), or in the `...` of a variadic call, has exactly the
+class it has as a prototyped parameter, and a record result or a named record
+parameter of a variadic function is the same as anywhere else. GNU code
+relies on this: coreutils and bash pass small records to old-style functions.
+`cc-ag-parse-arguments` therefore gives an unnamed record argument its own
+type and descriptor as the parameter type and plans it like a named one.
+Records whose members would need SSE classes remain error 232 in every form.
 
 The address used internally for a record is never an implicit scalar
 initializer. Scalar, pointer, array-element, field and bitfield initializers
@@ -131,9 +139,8 @@ a record as a different type. The C discard cast `(void)record` remains valid,
 including side effects and result storage for record-returning calls. Runtime
 and constant cast parsers use the same pure policy hook; the constant grammar
 also rejects non-scalar constants before conversion. Scalar-only calls and functions
-now use this same SysV plan. Named variadic scalar parameters feed its exact
-GP, XMM and stack consumption to `va_start`, while aggregate variadics remain
-rejected. The native and TinyCC targets are unchanged when System V mode is
+now use this same SysV plan. Named variadic parameters, records included, feed its exact
+GP, XMM and stack consumption to `va_start`. The native and TinyCC targets are unchanged when System V mode is
 disabled.
 
 ## 4. Carry long double as X87 data
@@ -176,6 +183,21 @@ unprototyped calls and in identifier-list definitions; records containing
 it keep the record rules. [Chapter 42](42-direct-gcc-varargs.md) retrieves it
 from the overflow area.
 
+`va_arg (ap, struct S)` follows the psABI's retrieval algorithm, and
+`cc-ag-va-record` supplies it to chapter 42 through `cc-va-record-fwd`. An
+INTEGER record of one or two eightbytes is read in place from the register
+save area when `gp_offset` leaves room for all of its eightbytes: the saved
+GP registers are consecutive eight-byte slots, so the two halves of a
+sixteen-byte record are adjacent there as they are in memory, and the
+offset advances by eight per eightbyte. Otherwise the record was passed on
+the stack, like every MEMORY and X87 record: `overflow_arg_area` is rounded
+up to sixteen when the record's alignment exceeds eight, the record is taken
+there and the pointer advances by its size rounded up to eight. A record
+that did not fit the remaining registers leaves `gp_offset` unchanged, so a
+later one-eightbyte record still comes from a register, as the caller placed
+it. The result is the record's address, which an assignment or initializer
+copies whole.
+
 Everything that would need x87 computation is a checked boundary with its
 own diagnostic, `long-double: cc: line N: error 249`. That covers
 arithmetic, comparison, unary operators, conditions, integer-only uses,
@@ -198,11 +220,24 @@ Protected-page tests put short source records immediately before an inaccessible
 page. Negative tests verify that unsupported or mismatched forms do not create
 an output or replace an existing one.
 
+`python3 tests/gcc/record-varargs-check.py` compiles a caller and a callee
+unit with Forth and with host GCC at O0 and O2 and runs every pairing: Forth
+only, a Forth caller with a host callee, and a host caller with a Forth
+callee. The callee has K&R and empty-list definitions, a variadic function
+that retrieves every record class next to integers, pointers and doubles,
+another that rescans a `va_copy`, a variadic MEMORY result, and a named
+record before `...`. The caller passes records through unprototyped
+declarations and pointers, exhausts the GP registers so that a two-eightbyte
+record goes to the stack while a later one-eightbyte record still uses a
+register, and passes X87 and union records. Records with floating members
+stay error 232 as calls, definitions and `va_arg` requests.
+
 `python3 tests/gcc/knr-record-check.py` separately checks C90 record definitions:
 byte sizes 1--33, register exhaustion and rollback, stack copies, hidden results,
 interleaved integer/double parameters, reordered declarations and prototypes,
 separately compiled host callers and callbacks. Rejection cases retain record
-identity, unsupported promotion and publication boundaries. This extension is
+identity, unsupported promotion and publication boundaries; the unprototyped
+and variadic record forms it once rejected now compile. This extension is
 motivated by the unchanged original libiberty `regex.c` definition of
 `group_in_compile_stack`; compilation of that unit is reported separately from
 any regex behavior or complete GCC build claim.
@@ -262,7 +297,8 @@ rejected operation keeps its exact code and leaves outputs untouched.
 \ Record expressions carry addresses. The ABI transports object bytes, never
 \ that address: up to two INTEGER eightbytes, otherwise a private stack copy.
 \ Long double (121) is X87: a sixteen-aligned stack copy, returned in st(0).
-\ Floating members, vector classes and aggregate varargs are not implemented.
+\ Records cross prototyped, unprototyped and variadic calls alike, and
+\ va_arg retrieves them. Floating members and vector classes are not implemented.
 create cc-ag-error-prefix s, aggregate-abi: bl c,
 : cc-ag-die cc-ag-error-prefix [lit] 15 cc-err-write [lit] 232 cc-die ;
 : cc-ag-type? ( type -- flag )
@@ -374,17 +410,9 @@ variable cc-ag-plan
     ag-signature @ cc-sysv-sig-desc cc-sd-total-size ag-return-size !
     ag-return-class @ 0= if, [lit] 1 ag-gp ! then,
   then, ;
-\ Long double has no promotions and one ABI in every prototype form, so only
-\ records restrict the signature forms below.
-: cc-ag-record? ( type descriptor -- flag )
-  2dup cc-ld? 0= swap drop swap cc-ag-type? and ;
-: cc-ag-signature? ( signature -- flag )
-  dup cc-sysv-sig-return over cc-sysv-sig-desc cc-ag-record? if, drop true exit, then,
-  [lit] 0 begin, over cc-sysv-sig-count over > while,
-    2dup cc-sysv-sig-param dup @ swap [lit] 8 + @ cc-ag-record? if,
-      2drop true exit,
-    then, 1+
-  repeat, 2drop [lit] 0 ;
+\ Records and long double have one ABI in every prototype form: default
+\ promotions leave them unchanged, so prototyped, variadic and unprototyped
+\ calls, and every definition form, classify them alike.
 : cc-ag-check-entry ( signature -- )
   \ K&R float parameters arrive as promoted doubles, but the local declared
   \ type is float. Reject until entry conversion has its own transport type.
@@ -393,17 +421,7 @@ variable cc-ag-plan
       2dup cc-sysv-sig-param @ cc-f32-type? if, cc-ag-die then, 1+
     repeat, drop
   then,
-  dup cc-ag-signature? if,
-    \ Admit only a prototype or a refined identifier-list definition (6).
-    dup cc-sysv-sig-varargs dup [lit] 6 <> and if, cc-ag-die then,
-  then, drop ;
-: cc-ag-check-signature ( signature -- )
-  \ Definition entry has known refined types; an unprototyped call does not.
-  \ Keep all flagged record calls outside scalar-only default promotion.
-  dup cc-ag-check-entry
-  dup cc-ag-signature? if,
-    dup cc-sysv-sig-varargs if, cc-ag-die then,
-  then, drop ;
+  drop ;
 : cc-ag-locate ( type descriptor index -- )
   ag-arg >r
   2dup cc-ag-class r@ [lit] 24 + !
@@ -466,11 +484,10 @@ variable cc-ag-plan
       ag-signature @ ag-count @ cc-sysv-parameter-type
     else,
       ag-signature @ cc-sysv-sig-varargs [lit] 3 and 0= if, [lit] 235 cc-die then,
-      cc-last-expr-type @ cc-last-struct-desc @ cc-ld? if,
-        cc-last-expr-type @ cc-last-struct-desc @
-      else,
-        cc-last-expr-type @ cc-sysv-check-scalar
-        cc-last-expr-type @ cc-sysv-default-type cc-last-struct-desc @
+      \ Default promotions leave records and long double unchanged.
+      cc-last-expr-type @ cc-last-struct-desc @
+      2dup cc-ld? [lit] 2 cc-npick cc-ag-type? or 0= if,
+        drop dup cc-sysv-check-scalar cc-sysv-default-type cc-last-struct-desc @
       then,
     then,
     2dup >r >r cc-last-expr-type @ cc-last-struct-desc @ r> r> cc-value-shape-fwd
@@ -561,7 +578,7 @@ variable cc-ag-plan
     else, cc-sym-val-of cc-emit-call-vaddr then,
   then, cc-ag-result ;
 : cc-ag-call-begin ( signature -- )
-  dup cc-ag-check-signature cc-ag-new-plan
+  dup cc-ag-check-entry cc-ag-new-plan
   ag-return-class @ [lit] 0 >= if,
     ag-return-size @ cc-ag-frame ag-result !
   then, ;
@@ -757,6 +774,42 @@ variable cc-ag-sret-slot
   cc-ag-plan @ >r cc-ag-function-plan @ cc-ag-plan !
   ag-signature @ cc-sysv-sig-count 1- ag-arg ag-slot r> cc-ag-plan ! ;
 ' cc-ag-va-last-slot is cc-va-last-slot-fwd
+\ va_arg of a record: an INTEGER record whose eightbytes all fit in the
+\ remaining GP save slots is read there, where they are consecutive; any
+\ other record comes from the overflow area, aligned as the caller stored
+\ it. The value is the record's address, like every record value.
+: cc-ag-va-record ( type descriptor -- )
+  2dup cc-ag-class >r
+  r@ [lit] 1 = r@ [lit] 2 = or if,
+    [lit] 139 cc-emit-byte [lit] 7 cc-emit-byte         \ mov eax, [rdi]
+    [lit] 131 cc-emit-byte [lit] 248 cc-emit-byte
+    [lit] 49 r@ [lit] 8 * - cc-emit-byte                \ cmp eax, 49-8n
+    [lit] 15 cc-emit-byte [lit] 131 cc-emit-byte        \ jae overflow
+    cc-out-pos @ [lit] 0 cc-emit-4le >r
+    [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+    [lit] 79 cc-emit-byte [lit] 16 cc-emit-byte         \ mov rcx, [rdi+16]
+    [lit] 72 cc-emit-byte [lit] 1 cc-emit-byte [lit] 193 cc-emit-byte
+    [lit] 131 cc-emit-byte [lit] 7 cc-emit-byte
+    r> r@ [lit] 8 * cc-emit-byte >r                     \ add dword [rdi], 8n
+    [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte [lit] 207 cc-emit-byte
+    cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
+  else, [lit] 0 >r then,
+  [lit] 72 cc-emit-byte [lit] 139 cc-emit-byte
+  [lit] 71 cc-emit-byte [lit] 8 cc-emit-byte            \ mov rax, [rdi+8]
+  2dup cc-nalignment [lit] 8 > if,
+    [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+    [lit] 192 cc-emit-byte [lit] 15 cc-emit-byte        \ add rax, 15
+    [lit] 72 cc-emit-byte [lit] 131 cc-emit-byte
+    [lit] 224 cc-emit-byte [lit] 240 cc-emit-byte       \ and rax, -16
+  then,
+  [lit] 72 cc-emit-byte [lit] 141 cc-emit-byte [lit] 136 cc-emit-byte
+  2dup cc-nsize [lit] 8 cc-nalign cc-emit-4le           \ lea rcx, [rax+size]
+  [lit] 72 cc-emit-byte [lit] 137 cc-emit-byte
+  [lit] 79 cc-emit-byte [lit] 8 cc-emit-byte            \ mov [rdi+8], rcx
+  cc-emit-mov-rdi-rax
+  r> dup if, cc-patch-rel32-to-here else, drop then, r> drop
+  cc-mark-typed-value ;
+' cc-ag-va-record is cc-va-record-fwd
 
 \ Long double crosses no type boundary: assignment, arguments, results and
 \ initializers accept only long double, copied whole. A static initializer

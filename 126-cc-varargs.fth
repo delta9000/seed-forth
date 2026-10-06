@@ -175,10 +175,17 @@ defer cc-va-layout-fwd
   ty-base dup ty-int = over ty-uint = or
   over ty-long = or over ty-ulong = or over ty-llong = or over ty-ullong = or
   swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
+\ A record argument's ABI class lives in 131, which supplies its retrieval.
+: cc-va-record-default ( type descriptor -- ) 2drop [lit] 247 cc-va-die ;
+defer cc-va-record-fwd
+' cc-va-record-default is cc-va-record-fwd
 : cc-va-arg
   cc-va-operand [char] , cc-va-expect
   cc-next-token-keep cc-native-type-name-fwd
   cc-type-name-array @ cc-type-name-inner @ or if, [lit] 247 cc-va-die then,
+  dup ty-ptr 0= over ty-base ty-struct = and over cc-cast-desc @ cc-ld? 0= and if,
+    cc-cast-desc @ [char] ) cc-va-expect cc-va-record-fwd exit,
+  then,
   dup cc-va-check-result-type cc-cast-desc @ >r >r
   [char] ) cc-va-expect
   r> r> 2dup >r >r cc-ld? if,

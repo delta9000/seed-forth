@@ -62,9 +62,13 @@ REJECT = {
     'static-array-initializer': ('long double g[2]={0,0};', 249, b'long-double: '),
     'braced-element-conversion': ('void f(int i){long double a[1]={i};}', 249, b'long-double: '),
     'literal': ('long double f(void){return 1.0L;}', 248, b'cc-f64-literal: suffix-unsupported'),
-    'record-vararg': ('struct A{long double a;};void h(int,...);void f(struct A a){h(1,a);}', 232, b'cc: line 1: error 232'),
     'floating-member-record': ('struct A{long double a;double d;};void f(struct A a){}', 232, b'aggregate-abi: '),
     'member-of-scalar': ('long double x; void f(void){x.a;}', 90, b'cc: line 1: error 90'),
+}
+
+# An X87 record is an unchanged unnamed argument (record-varargs-check.py runs one).
+ACCEPT = {
+    'record-vararg': 'struct A{long double a;};void h(int,...);void f(struct A a){h(1,a);}',
 }
 
 
@@ -132,6 +136,11 @@ def main():
         report['rejections'][name] = status
     print('PASS: %d unsupported long double operations rejected with exact codes; outputs preserved'
           % len(REJECT), flush=True)
+    for name, body in ACCEPT.items():
+        c = work / (name + '.c')
+        c.write_text(body + '\n')
+        run([CC, '-c', c, '-o', work / (name + '.o')], 0)
+        report.setdefault('accepted', []).append(name)
 
     assert hashes == {str(p.relative_to(ROOT)): sha(p) for p in inputs}, 'inputs changed during proof'
     (work / 'report.json').write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')

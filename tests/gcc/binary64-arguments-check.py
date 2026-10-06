@@ -40,9 +40,6 @@ def main():
   'extended-call':'void f(long double);void g(void){f(1);}',
   'extended-from-double':'void f(long double);void g(double x){f(x);}',
   'floating-record':'struct A{double x;};void f(struct A x){}',
-  'aggregate-vararg':'struct A{long x;};void f(int,...);void g(void){struct A x;f(0,x);}',
-  'aggregate-variadic-fixed':'struct A{long x;};void f(struct A x,double y,...){}',
-  'aggregate-variadic-result':'struct A{long x;};struct A f(double x,...){}',
   'too-many':'void f(double);void g(void){f(1.0,2.0);}',
   'too-few':'void f(double,double);void g(void){f(1.0);}',
  }
@@ -55,6 +52,14 @@ def main():
    assert ('error '+str(status)).encode() in p.stderr
    assert out.read_bytes()==b'previous-object\x00\xff' if existing else not out.exists()
   report['rejections'][name]=status
+ # INTEGER records mix with binary64 in variadic plans (record-varargs-check.py).
+ accepts={
+  'aggregate-vararg':'struct A{long x;};void f(int,...);void g(void){struct A x;f(0,x);}',
+  'aggregate-variadic-fixed':'struct A{long x;};void f(struct A x,double y,...){}',
+  'aggregate-variadic-result':'struct A{long x;};struct A f(double x,...){}',
+ }
+ for name,body in accepts.items():
+  src=work/(name+'.c');src.write_text(body+'\n');run([cc,'-c',src,'-o',work/(name+'.o')])
  # A shared scalar plan must fit thousands of ordinary calls in the 8 MiB arena.
  src=work/'many-calls.c';src.write_text('double f(double x){return x;}int main(void){'+'f(1.0);'*2000+'return 0;}\n')
  exe=work/'many-calls';run([cc,src,'-o',exe]);run([exe]);report['executions'].append({'name':'2000 fixed-prototype plans in default arena','sha256':sha(exe)})

@@ -57,7 +57,8 @@ def main():
         'narrow-short': (247, 'void f(va_list a){va_arg(a,short);}'),
         'void-result': (247, 'void f(va_list a){va_arg(a,void);}'),
         'array-result': (247, 'typedef double A[2]; void f(va_list a){va_arg(a,A);}'),
-        'aggregate-result': (247, 'struct X {double x;}; void f(va_list a){va_arg(a,struct X);}'),
+        # Records with floating members have no ABI class yet (131).
+        'aggregate-result': (232, 'struct X {double x;}; void f(va_list a){va_arg(a,struct X);}'),
         'wrong-record': (246, 'struct X {unsigned int a,b;void *c,*d;}; void f(struct X *a){va_arg(a,double);}'),
         'integer-list': (246, 'void f(long a){va_arg(a,double);}'),
         # Long double retrieval and passing are data movement (long-double-check.py);
@@ -76,7 +77,7 @@ def main():
         output.write_bytes(sentinel)
         result = run([compiler, source, output, ROOT / 'runtime/gcc-seed/include'], status)
         assert not result.stdout and output.read_bytes() == sentinel
-        assert re.fullmatch(r'(?:varargs: |long-double: )?cc: line \d+: error ' + str(status) + r'\n', result.stderr), result.stderr
+        assert re.fullmatch(r'(?:varargs: |long-double: |aggregate-abi: )?cc: line \d+: error ' + str(status) + r'\n', result.stderr), result.stderr
         diagnostic_records.append({'case': name, 'exit_status': status,
                                    'output_preserved': True, 'diagnostic': result.stderr})
     baseline = None

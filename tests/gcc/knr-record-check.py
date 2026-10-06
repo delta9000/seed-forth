@@ -86,13 +86,7 @@ def main():
     # fresh output and replacement of a previous artifact in every case.
     A='struct A{long x;};';B='struct B{long x;};'
     rejects={
-      'no-prototype-after-definition':(232,A+'long f(a) struct A a;{return a.x;}long g(void){struct A a;return f(a);}'),
-      'no-prototype-result':(232,A+'struct A f(a) struct A a;{return a;}void g(void){struct A a;a=f(a);}'),
-      'unprototyped-pointer':(232,A+'long f(a) struct A a;{return a.x;}long g(void){long(*p)();struct A a;p=f;return p(a);}'),
-      'unprototyped-external':(232,A+'long f();long g(void){struct A a;return f(a);}'),
-      'empty-result':(232,A+'struct A f(){struct A a;return a;}'),
-      'empty-result-prior-count':(232,A+'struct A f(int);struct A f(){struct A a;return a;}'),
-      'empty-result-prior-void':(232,A+'struct A f(void);struct A f(){struct A a;return a;}'),
+      'empty-result-prior-count':(237,A+'struct A f(int);struct A f(){struct A a;return a;}'),
       'float-entry':(232,A+'long f(a,x) struct A a;float x;{return a.x;}'),
       'float-entry-prior-double':(232,A+'long f(struct A,double);long f(a,x) float x;struct A a;{return a.x;}'),
       'scalar-float-entry':(232,'long f(x)float x;{return 0;}'),
@@ -101,9 +95,6 @@ def main():
       # member or a conversion of the parameter remains a checked boundary.
       'long-double-record':(232,'struct A{long double x;double d;};long f(a)struct A a;{return 0;}'),
       'long-double-entry':(249,A+'long f(a,x)struct A a;long double x;{return x;}'),
-      'variadic-record':(232,A+'long f(struct A a,...){return a.x;}'),
-      'variadic-result':(232,A+'struct A f(int x,...){struct A a;return a;}'),
-      'variadic-call':(232,A+'long f(int,...);long g(void){struct A a;return f(1,a);}'),
       'prior-record-identity':(237,A+B+'long f(struct B);long f(a)struct A a;{return a.x;}'),
       'prior-return-identity':(237,A+B+'struct B f(struct A);struct A f(a)struct A a;{return a;}'),
       'prior-count':(237,A+'long f(struct A,long);long f(a)struct A a;{return a.x;}'),
@@ -115,6 +106,22 @@ def main():
       'duplicate-declaration':(233,A+'long f(a)struct A a;struct A a;{return 0;}'),
       'sizeof-wrong-call':(232,A+B+'long f(struct A);long f(a)struct A a;{return a.x;}long g(void){struct B b;return sizeof(f(b));}'),
     }
+    # Records cross unprototyped and variadic boundaries unchanged by default
+    # promotions (record-varargs-check.py runs them against host GCC).
+    accepts={
+      'no-prototype-after-definition':A+'long f(a) struct A a;{return a.x;}long g(void){struct A a;return f(a);}',
+      'no-prototype-result':A+'struct A f(a) struct A a;{return a;}void g(void){struct A a;a=f(a);}',
+      'unprototyped-pointer':A+'long f(a) struct A a;{return a.x;}long g(void){long(*p)();struct A a;p=f;return p(a);}',
+      'unprototyped-external':A+'long f();long g(void){struct A a;return f(a);}',
+      'empty-result':A+'struct A f(){struct A a;return a;}',
+      'empty-result-prior-void':A+'struct A f(void);struct A f(){struct A a;return a;}',
+      'variadic-record':A+'long f(struct A a,...){return a.x;}',
+      'variadic-result':A+'struct A f(int x,...){struct A a;return a;}',
+      'variadic-call':A+'long f(int,...);long g(void){struct A a;return f(1,a);}',
+    }
+    for name,src in accepts.items():
+        source=work/(name+'.c');source.write_text(src+'\n')
+        run(name+'-accepted',[CC,'-c',source,'-o',work/(name+'.o')])
     for name,(expected,src) in rejects.items():
         source=work/(name+'.c');source.write_text(src+'\n');out=work/(name+'.o')
         for prior in (False,True):
@@ -154,7 +161,7 @@ def main():
             run('default-'+label+'-run',[objects[1]])
             comparisons.append({'fixture':'default-'+label,'sha256':sha(objects[0]),'kind':'default ELF'})
     assert inputs=={n:sha(ROOT/n) for n in inputs},'inputs changed during proof'
-    report={'compiler_test_inputs':inputs,'layouts':layouts,'record_sizes':list(range(1,34)),'directions':['Forth only','host O0/O2 callers','host O0/O2 K&R callees','host O0/O2 all-host controls'],'functions':2*len(layouts)+2,'rejections':list(rejects),'byte_comparisons':comparisons,'steps':rows,'claim':'Focused record definition-entry extension only; no unprototyped aggregate calls, no full GCC build'}
+    report={'compiler_test_inputs':inputs,'layouts':layouts,'record_sizes':list(range(1,34)),'directions':['Forth only','host O0/O2 callers','host O0/O2 K&R callees','host O0/O2 all-host controls'],'functions':2*len(layouts)+2,'rejections':list(rejects),'byte_comparisons':comparisons,'steps':rows,'accepted':list(accepts),'claim':'Focused record definition-entry extension; unprototyped and variadic record calls are compiled here and executed in record-varargs-check.py; no full GCC build'}
     (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print('PASS: K&R record entry sizes1–33, 99 layouts, INTEGER/MEMORY returns, callbacks, ordered refinement and host O0/O2')
     print('PASS:',len(rejects),'rejection/publication cases;',len(comparisons),'unchanged objects/native ELFs')

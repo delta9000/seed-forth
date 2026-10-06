@@ -307,6 +307,15 @@ an unsupported requested argument type. These are unrelated to the same
 numbers in the object writer or assembler. [Chapter 42](42-direct-gcc-varargs.md)
 states the supported argument classes and the public list representation.
 
+The System V target prints an `aggregate-abi: ` prefix before code 232 when
+a record crosses a call, return or `va_arg` boundary with a class
+[chapter 48](48-direct-gcc-aggregate-abi.md) does not implement, chiefly a
+record with a `float` or `double` member, or when a record is used as a
+scalar. Records with INTEGER, MEMORY or X87 classes cross prototyped,
+unprototyped and variadic calls alike. An empty-parenthesis definition,
+`long f() { ... }`, declares zero parameters, so a prior prototype with
+parameters disagrees with it (237).
+
 The System V target prints a `long-double: ` prefix before code 249. It means
 an operation that would need x87 computation on a `long double`: arithmetic,
 comparison, a unary operator, a condition or integer use, compound assignment

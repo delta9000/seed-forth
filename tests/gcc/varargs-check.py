@@ -76,7 +76,6 @@ def main():
         ("wrong-last", 246, "int f(int a,int b,...) { va_list p; va_start(p,a); return 0; }"),
         ("fixed-start", 246, "int f(int n) { va_list p; va_start(p,n); return 0; }"),
         ("narrow-arg", 247, "int f(int n,...) { va_list p; va_start(p,n); return va_arg(p,char); }"),
-        ("aggregate-arg", 247, "struct T { long x; }; int f(int n,...) { va_list p; va_start(p,n); va_arg(p,struct T); return 0; }"),
         ("array-arg", 247, "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,va_list); return 0; }"),
         ("void-arg", 247, "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,void); return 0; }"),
         ("bad-copy", 246, "int f(int n,...) { va_list p; long q; va_start(p,n); va_copy(q,p); return 0; }"),
@@ -84,6 +83,11 @@ def main():
     ]
     for name, code, source in negatives:
         reject(work, name, code, source)
+    # INTEGER/MEMORY/X87 records are retrieved (record-varargs-check.py); a
+    # record with a floating member has no ABI class yet (131).
+    reject(work, "floating-aggregate-arg", 232,
+           "struct T { double x; }; int f(int n,...) { va_list p; va_start(p,n); va_arg(p,struct T); return 0; }",
+           prefix=b"aggregate-abi: ")
     reject(work, "floating-arg-single", 247,
            "int f(int n,...) { va_list p; va_start(p,n); va_arg(p,float); return 0; }")
     # Retrieval of a long double is data movement; converting it is not.
@@ -106,7 +110,7 @@ def main():
         "host_compiler": False,
         "host_linker": False,
         "host_libc": False,
-        "negative_cases": len(negatives) + 3,
+        "negative_cases": len(negatives) + 4,
         "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                           for p in sources},
         "artifact_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()

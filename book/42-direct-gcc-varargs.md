@@ -18,7 +18,7 @@ The public declarations live in `runtime/gcc-seed/include/stdarg.h`.
 **Concepts introduced:** array typedef identity, per-invocation register-save
 areas, variadic cursors, checked compiler intrinsics, and list copying.
 
-**Deferred:** float retrieval, aggregate variadic argument values, long
+**Deferred:** float retrieval, records with floating members, long
 double computation, vector types, and a complete GCC reconstruction. Binary64 expressions
 and returns use [chapter 45](45-direct-gcc-binary64.md). The shared argument
 plan in [chapter 48](48-direct-gcc-aggregate-abi.md) classifies named and
@@ -140,9 +140,12 @@ The caller already applies default promotions to unnamed arguments. Reading
 an `int` is appropriate for promoted `char` and `short` values; asking
 `va_arg` for either narrow type is rejected. Unnamed `float` is promoted to
 `double` by a conforming caller; `va_arg(list, float)` therefore stays rejected.
-Aggregate requests also fail rather than consuming a slot under the wrong
-ABI. Opaque forwarding can still leave those operations to
-a host consumer.
+A record request belongs to the record classifier of
+[chapter 48](48-direct-gcc-aggregate-abi.md), which installs
+`cc-va-record-fwd`: INTEGER records come from consecutive GP save slots or the
+overflow area, MEMORY and X87 records from the overflow area (§4 there). A
+record with floating members has no class yet and is that chapter's 232
+rather than a slot consumed under the wrong ABI.
 
 `va_copy` copies the entire three-word record, producing an independent cursor
 that shares the immutable saved arguments. `va_end` evaluates and checks its
@@ -397,10 +400,17 @@ defer cc-va-layout-fwd
   ty-base dup ty-int = over ty-uint = or
   over ty-long = or over ty-ulong = or over ty-llong = or over ty-ullong = or
   swap ty-double = or 0= if, [lit] 247 cc-va-die then, ;
+\ A record argument's ABI class lives in 131, which supplies its retrieval.
+: cc-va-record-default ( type descriptor -- ) 2drop [lit] 247 cc-va-die ;
+defer cc-va-record-fwd
+' cc-va-record-default is cc-va-record-fwd
 : cc-va-arg
   cc-va-operand [char] , cc-va-expect
   cc-next-token-keep cc-native-type-name-fwd
   cc-type-name-array @ cc-type-name-inner @ or if, [lit] 247 cc-va-die then,
+  dup ty-ptr 0= over ty-base ty-struct = and over cc-cast-desc @ cc-ld? 0= and if,
+    cc-cast-desc @ [char] ) cc-va-expect cc-va-record-fwd exit,
+  then,
   dup cc-va-check-result-type cc-cast-desc @ >r >r
   [char] ) cc-va-expect
   r> r> 2dup >r >r cc-ld? if,

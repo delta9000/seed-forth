@@ -235,6 +235,9 @@ retain their parameter names, then bind the following declarations by
 name. Parameters without a declaration become `int`. Comparing such a
 definition with a prototype compares its promoted parameter types; a
 later unspecified declaration does not erase an already visible prototype.
+A definition's empty parentheses, `long f() { ... }`, are an empty
+identifier list: the function has zero parameters, so a prior `long f(int);`
+disagrees with it (237), as it does for GCC, while `long f(void);` agrees.
 
 File-scope declarations and function definitions also admit C90's
 omitted `int`; typedef names still introduce explicit types. This handles
@@ -1675,6 +1678,11 @@ variable cc-sysv-function-signature
   \ A function type from a typedef declares; C defines only with a suffix.
   nc-func @ true <> [char] { cc-tok-punct? and if, [lit] 238 cc-die then,
   cc-sysv-declarator-signature cc-sysv-function-signature !
+  \ A definition's empty parentheses are an empty identifier list: zero
+  \ parameters, which a prior prototype must also have (C90 6.5.4.3).
+  [char] { cc-tok-punct? cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 2 = and if,
+    [lit] 6 cc-sysv-function-signature @ [lit] 32 + !
+  then,
   cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 4 and if,
     cc-sysv-function-signature @ cc-sysv-old-parameters
   then,

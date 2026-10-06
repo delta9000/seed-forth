@@ -54,6 +54,7 @@ python3 tests/gcc/review-declarator-check.py
 SF_GCC_CAST_ORACLE=1 bash tests/gcc/sysv-function-integer-casts-check.sh
 python3 tests/gcc/aggregate-check.py --oracle
 python3 tests/gcc/knr-record-check.py
+python3 tests/gcc/record-varargs-check.py
 knr_source=${GCC4_SOURCE_ROOT:-build-out/direct-gcc-inputs/gcc-source}
 if [ -f "$knr_source/libiberty/regex.c" ] && [ -n "${GCC4_LIBIBERTY_CONFIG:-}" ]; then
     python3 tests/gcc/knr-regex-check.py --source-root "$knr_source" --config-dir "$GCC4_LIBIBERTY_CONFIG"
