@@ -155,6 +155,7 @@ else
     TZ=UTC0 python3 tests/gcc/calendar-check.py
     echo 'SKIP: original libcpp calendar formatting checks require the pinned source archive'
 fi
+python3 tests/gcc/calendar-tz-check.py
 python3 tests/gcc/wide-check.py
 python3 tests/gcc/wide-stdio-check.py
 python3 tests/gcc/ctype-lex-check.py

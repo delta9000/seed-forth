@@ -77,11 +77,22 @@ def exercise(binary, strict_errno=True):
         result=[line if line.startswith('error ') else line.rsplit(' ',1)[0]+' 71' for line in result]
     assert result==answers, next(((v,a,b) for v,a,b in zip(values,answers,result) if a!=b), 'length')
 exercise(OUT/'calendar-check')
-for zone in (None,'','UTC','GMT','GMT0','UTC1','America/New_York',':UTC0','UTC0 ','UTC0DST'):
+# Unset, empty, ':'-prefixed and unparsable zones mean UTC (no zoneinfo file
+# or /etc/localtime is read); POSIX strings are honoured. Wider zone coverage
+# is the glibc-differential calendar-tz-check.py.
+utc_epoch=b'0 0 0 1 0 70 4 0 0 71\n'
+for zone,answer in ((None,utc_epoch),('',utc_epoch),('UTC',utc_epoch),('GMT',utc_epoch),
+                    ('GMT0',utc_epoch),('America/New_York',utc_epoch),(':UTC0',utc_epoch),
+                    ('UTC0 ',utc_epoch),('UTC0DST',utc_epoch),
+                    ('UTC1',b'0 0 23 31 11 69 3 364 0 71\n'),
+                    ('EST5EDT,M3.2.0,M11.1.0',b'0 0 19 31 11 69 3 364 0 71\n'),
+                    ('<+0530>-5:30',b'0 30 5 1 0 70 4 0 0 71\n')):
     env=dict(ENV)
     if zone is None: del env['TZ']
     else: env['TZ']=zone
-    assert run([OUT/'calendar-check','0'],env)==b'error 22\n'
+    assert run([OUT/'calendar-check','0'],env)==answer,(zone,answer)
+env=dict(ENV,TZ='EST5EDT,M3.2.0,M11.1.0')
+assert run([OUT/'calendar-check','962368496'],env)==b'56 34 8 30 5 100 5 181 1 71\n'
 # Header contract and the exact original configure probe bodies.
 probes={
  'header-order': '#include <time.h>\n#include <sys/time.h>\n#include <time.h>\n#include <sys/time.h>\nint main(void) { struct timeval v; v.tv_sec=0;v.tv_usec=0;return sizeof(v)!=16; }\n',
@@ -133,7 +144,7 @@ if args.gcc_source:
     macro_report={'source_commit':'944765863eec87a9f37e297994fd2af960397138',
                   'source_sha256':{'libcpp/macro.c':digest(macro),'libcpp/configure':digest(configure)},
                   'original_cases_sha256':digest(OUT/'original-calendar-cases.inc'),
-                  'checks':'valid -1, epoch, leap day, post2038, syscall failure, unsupported TZ, year overflow, one-time cache, allocation boundary sentinels'}
+                  'checks':'valid -1, epoch, leap day, post2038, syscall failure, zoneinfo name as UTC, POSIX DST and offset zones, year overflow, one-time cache, allocation boundary sentinels'}
 assert identity==run(CC+['--print-source-hash']).decode().strip()
 assert seed==digest(ROOT/'seed-forth')
 names=['runtime/gcc-seed/calendar.c','runtime/gcc-seed/include/time.h','runtime/gcc-seed/include/sys/time.h']
@@ -142,7 +153,7 @@ report={'compiler_runtime_source_identity':identity,'seed_sha256':seed,'seed_byt
         'production':'Forth compiler/linker/runtime only; no host-built production objects',
         'host_oracles':'separate GCC O0/O2 calendar, injected faults and Forth-object ABI consumers',
         'vectors':len(values),'python_oracle':'independent ordinal-day arithmetic and binary-search year',
-        'timestamp_minimum':minimum,'timestamp_maximum':maximum,'timezone':'TZ=UTC0 only',
+        'timestamp_minimum':minimum,'timestamp_maximum':maximum,'timezone':'vectors under TZ=UTC0; UTC fallback and POSIX zone spot checks',
         'faults':'all4095 Linux errno values, malformed statuses/nanoseconds, valid timestamp-1, full signed64 time storage, return stored on every path, static-result preservation',
         'live':'32 strict raw CLOCK_REALTIME windows for Forth; 32 libc time windows per host oracle; host clock_gettime windows for Forth-object ABI calls',
         'header_probes':'both orders, repeated includes, original AC_HEADER_TIME and AC_STRUCT_TM source bodies',

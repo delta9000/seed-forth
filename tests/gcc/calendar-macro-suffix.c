@@ -32,7 +32,11 @@ int main(void)
     if (one(951827696,0,"UTC0","\"Feb 29 2000\"","\"12:34:56\"",0,1)) return 3;
     if (one(2147483648L,0,"UTC0","\"Jan 19 2038\"","\"03:14:08\"",0,1)) return 4;
     if (one(0,-EIO,"UTC0","\"??? ?? ????\"","\"??:??:??\"",1,0)) return 5;
-    if (one(0,0,"America/New_York","\"??? ?? ????\"","\"??:??:??\"",1,1)) return 6;
+    /* A zoneinfo name is not read: it means UTC. POSIX TZ rules apply. */
+    if (one(0,0,"America/New_York","\"Jan  1 1970\"","\"00:00:00\"",0,1)) return 6;
     if (one(9223372036854775807L,0,"UTC0","\"??? ?? ????\"","\"??:??:??\"",1,1)) return 7;
+    if (one(951827696,0,"EST5EDT,M3.2.0,M11.1.0","\"Feb 29 2000\"","\"07:34:56\"",0,1)) return 8;
+    if (one(962368496,0,"EST5EDT,M3.2.0,M11.1.0","\"Jun 30 2000\"","\"08:34:56\"",0,1)) return 9;
+    if (one(0,0,"<+0530>-5:30","\"Jan  1 1970\"","\"05:30:00\"",0,1)) return 10;
     puts("original libcpp date/time formatting and caching passed");return 0;
 }

@@ -137,10 +137,13 @@ numeric and stream services of an ordinary C library:
   `strtold` and `atof` with C99 decimal and hexadecimal syntax, infinities,
   NaN payloads, end pointer and glibc's `ERANGE` rules.
 
-Original libcpp macro expansion uses the [bounded UTC calendar runtime](CALENDAR.md):
-real wall-clock time, a standard nine-int `struct tm`, and Gregorian conversion
-under explicit `TZ=UTC0`. Unsupported timezones fail rather than silently
-changing the interpretation.
+Original libcpp macro expansion uses the [calendar runtime](CALENDAR.md): real
+wall-clock time, a standard nine-int `struct tm`, Gregorian conversion, POSIX
+`TZ` strings with daylight rules, `mktime`/`timegm`, `asctime`/`ctime` and the
+`_r` forms, and a glibc-compatible C-locale `strftime` with the GNU flags.
+An unset, empty, `:`-prefixed or unparsable `TZ` means UTC; no host
+`/etc/localtime` or zoneinfo file is read, so results never depend on the
+build machine's zone.
 
 ## Public descriptor I/O
 
@@ -185,7 +188,7 @@ existing integer scanner. A runtime `putenv` also removes libiberty's
 Original binutils 2.30 `gas`, `ld`, `ar`, `nm`, `objdump` and `readelf` need
 the [binutils runtime](FILE-METADATA.md): the `sys/stat.h` permission macros,
 `lstat`, `chmod`, `chown`, `umask`, `mkdir`, `rmdir`, `<utime.h>` `utime`,
-`rewind`, `mktemp`, `towlower`, `mbstowcs`, `gmtime`, `ctime` and a bounded
+`rewind`, `mktemp`, `towlower`, `mbstowcs`, `gmtime`, `ctime` and
 `strftime`, the [`%u`, `l` and `%s` scanner conversions](INTEGER-INPUT.md#binutils-conversions),
 plus [correctly rounded decimal `atof`](DECIMAL-INPUT.md) for `binutils/stabs.c`.
 

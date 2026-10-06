@@ -74,22 +74,18 @@ this runtime.
 
 ## gmtime, ctime, strftime
 
-`calendar.c` now shares one proleptic Gregorian conversion between
-`localtime` and `gmtime` ([CALENDAR.md](CALENDAR.md)). `gmtime` needs no
-`TZ`; both return the same static record, as in glibc. `localtime` keeps its
-explicit `TZ=UTC0` requirement, so `ctime`, which formats `localtime(timer)`
-as `"Thu Jan  1 00:00:00 1970\n"` in a static buffer, returns NULL with
-`EINVAL` for any other zone. Original `bucomm.c` handles that NULL; run
-`ar tv` with `TZ=UTC0`. Years are printed with `%d`, so any representable
-year fits the buffer.
+These now come from the full [calendar runtime](CALENDAR.md). `gmtime` needs
+no `TZ`; it and `localtime` return the same static record, as in glibc.
+`ctime` formats `localtime(timer)` as `"Thu Jan  1 00:00:00 1970\n"` in a
+static buffer; `localtime` follows `TZ` (UTC when it is unset or not a POSIX
+string), so `ar tv` prints local times as glibc would under the same POSIX
+`TZ`. Years are printed with `%d`, so any representable year fits the buffer.
 
-`strftime` is a bounded C-locale subset: `%Y %m %d %e %H %M %S %j %y %F %T
-%z %%`, enough for gas's `"%Y-%m-%dT%H:%M:%S.000%z"`. Fields are formatted
-from the record without normalization. `%z` is always `+0000`, because only
-UTC records exist. Any other conversion, or a field outside its C range,
-returns 0 with `EINVAL` and an empty string; output that does not fit with
-its terminating zero returns 0 with an empty string, as C allows. Names
-(`%a`, `%b`, `%c`, `%p`, `%Z`) and week numbers are not supplied.
+`strftime` is the complete C-locale set with glibc's flags and widths, which
+covers gas's `"%Y-%m-%dT%H:%M:%S.000%z"`. Fields are formatted from the record
+without normalization; `%z` and `%Z` come from the current `TZ` and
+`tm_isdst`, because the record has no `tm_gmtoff`/`tm_zone`. Output that does
+not fit with its terminating zero returns 0 with an empty string, as C allows.
 
 ## Gate
 
@@ -124,7 +120,8 @@ symbol. All six print their 2.30 version; `as-new` and `ld-new` assemble
 and link a program that runs; `ar rcs`, `ar tv`, `nm -s` and `objdump -a`
 read archives (the `%lu` gap above was found here); `readelf -l` prints a
 host executable's interpreter; and `nm`, `objdump -d` and `readelf -h`
-read a Forth-built object. `ctime` output requires `TZ=UTC0`.
+read a Forth-built object. `ctime` output follows `TZ`; the gate uses
+`TZ=UTC0`.
 
 Four undefined references remain in `libiberty.a` and are deliberately not
 supplied: `alloca` (`regex.o`), `creat` (`simple-object.o`) and `frexp`/

@@ -88,9 +88,9 @@ host build is an output oracle only.
   `modf`, `fmod`, `pow`, `sqrt`, `sin`, `cos` and `atan2`. (`strtod`,
   `strtof` and `strtold` are **fixed**:
   [DECIMAL-INPUT.md](../runtime/gcc-seed/DECIMAL-INPUT.md).)
-- `localtime` fails unless `TZ` is exactly `UTC0`. Upstream code that does not
-  check for NULL then crashes (`tar -tv`, `gzip -l`, `ls -l`, `date`).
-  `strftime` lacks `%a`, `%b`, `%c` and `%Z`.
+- `localtime` failed unless `TZ` was exactly `UTC0`, and `strftime` lacked
+  `%a`, `%b`, `%c` and `%Z`: **fixed** (POSIX `TZ` rules, full C99/POSIX
+  `strftime`; [CALENDAR.md](../runtime/gcc-seed/CALENDAR.md)).
 - `setbuf` with a non-NULL buffer exited with status 127: **fixed** with
   real buffering (`setvbuf`, `setbuffer`, `setlinebuf`).
 - The POSIX surface: **added** to the runtime, each topic with a contract

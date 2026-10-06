@@ -177,7 +177,7 @@ compiler_include = run(["gcc", "-print-file-name=include"]).decode().strip()
 LINT = ["gcc", "-std=c90", "-pedantic", "-fsyntax-only", "-nostdinc", "-isystem", lint,
         "-isystem", RUNTIME / "include", "-Wall", "-Wextra", "-Werror",
         "-Wno-builtin-declaration-mismatch", "-Wno-long-long"]
-names = ["metadata.c", "mkstemp.c", "stdio.c", "wide.c", "calendar.c", "decimal.c", "scan.c"]
+names = ["metadata.c", "mkstemp.c", "stdio.c", "wide.c", "calendar.c", "strftime.c", "decimal.c", "scan.c"]
 for name in names:
     run(LINT + [RUNTIME / name])
 headers = ["sys/stat.h", "unistd.h", "utime.h", "stdio.h", "stdlib.h", "wctype.h", "time.h"]
