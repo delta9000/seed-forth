@@ -123,3 +123,6 @@ host build is an output oracle only.
 2. Turn the scratch builds into pinned recipes with no workaround patches.
 3. Build bash, then rerun GCC 4.0.4's, binutils' and musl's configure and make
    with a `PATH` that contains only these tools.
+   The compiler and archiver on that `PATH` can be the native
+   [seed-cc and seed-ar](../tools/SEED-CC.md), which the seed builds itself and
+   which build sed 4.0.9 and make 3.82 byte-identically to the Python driver.

@@ -105,6 +105,24 @@ invalidation, and runtime isolation checks in an isolated source-copy fixture.
 These are evidence for this driver contract, not proof that original GCC configure,
 generators, a full compiler build, or a GCC fixed point have succeeded.
 
+## Native driver without Python
+
+`tools/seed-cc.c` and `tools/seed-ar.c` implement this same contract in C. The
+seed builds them itself, with no Python or other host program running:
+
+```sh
+./seed-forth < tools/seed-cc-start.fth   # writes build-out/seed-cc/seed-cc and seed-ar
+build-out/seed-cc/seed-cc -c example.c -o example.o
+```
+
+They accept the same command lines and give the seed the same input, so their
+outputs, messages and exit statuses are byte-identical to `gcc-direct-cc.py`
+and `gcc-direct-ar.py`; `seed-ar` additionally updates existing archives.
+`seed-cc` rebuilds itself and `seed-ar` to the bootstrap's bytes. Their cache is
+`build-out/seed-cc-cache/`. See [tools/SEED-CC.md](../tools/SEED-CC.md), and
+run `python3 tests/gcc/seed-cc-check.py` and `tests/gcc/seed-cc-cache-check.py`
+for the bootstrap audit, equivalence corpus and cache checks.
+
 ## Measured original configure runs
 
 `python3 gcc-direct/configure.py --component gcc` runs the original pinned

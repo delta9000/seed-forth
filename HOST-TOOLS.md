@@ -106,6 +106,29 @@ Host inventories alone would not prove guest execution; this run supplies
 that separate result. The longer GNU/Linux attempt did not complete and
 is not implied by the TinyCC fixed point or K0/K1 handoff.
 
+## Direct-GCC compiler driver
+
+The direct seed-forth → GCC route's compiler and archiver commands no longer
+need a host interpreter. `tools/seed-cc.c` and `tools/seed-ar.c` replace
+`tools/gcc-direct-cc.py` and `tools/gcc-direct-ar.py` byte for byte, and the
+seed builds them directly:
+
+```sh
+./build.sh
+./seed-forth < tools/seed-cc-start.fth
+```
+
+As with `tools/amd64-start.fth`, the start file runs in the seed and executes
+only `./seed-forth`: an `execve` trace of the bootstrap shows 52 calls, all of
+the seed. Every compilation, archive and link inside it is Forth. The
+resulting `build-out/seed-cc/seed-cc` and `seed-ar` are static executables
+that, in turn, run only private copies of the seed. Outside this boundary
+remain the same kernel, seed and source-acquisition assumptions as above,
+plus whatever runs the commands: the `gcc-direct/*.py` recipes (configure,
+census, stages B–D) are still Python, and Makefiles still run under host make
+and shell until the [plumbing](gcc-direct/PLUMBING.md) tools replace them. See
+[tools/SEED-CC.md](tools/SEED-CC.md) for pins and the equivalence evidence.
+
 The remaining sections describe the separately retained pnut control.
 Its raw-archive preparation boundary is now also preserved by the direct
 route, using Forth-built helpers in place of pnut-built helpers.
