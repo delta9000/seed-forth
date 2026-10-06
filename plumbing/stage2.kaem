@@ -1,0 +1,140 @@
+# stage2.kaem -- the GNU text, archive and file tools, built by our make.
+#
+# Run from the repository root, after stage1.kaem, by the same kaem:
+#   build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage2.kaem
+#
+# Each package is unpacked from its pinned tarball (plumbing/SOURCES) by the
+# stage0 unbz2/ungz and untar, configured by plumbing/PKG/config.h (no
+# configure script runs), and built by build-out/plumbing/bin/make with
+# plumbing/PKG/Makefile, whose recipe lines contain no shell
+# metacharacters, so make runs every compiler, archiver and copy directly.
+# No shell exists at this stage and none is run.
+#
+# The sources are pristine except for coreutils, which gets two reviewed
+# patches applied by the patch built here (see plumbing/README.md).
+#
+# Installed into build-out/plumbing/bin: sed; gzip, gunzip, zcat; patch;
+# cmp, diff, diff3, sdiff; grep, egrep, fgrep; gawk, awk; tar; and the
+# coreutils programs (which replace the stage0 cp, rm, mkdir and chmod).
+
+set -ex
+
+B=build-out/plumbing
+MK=../../bin/make
+P=../../../../plumbing
+
+./${B}/bin/sha256sum --check plumbing/SOURCES
+
+cd ${B}/src
+
+# --- sed 4.0.9 ---
+../bin/ungz --file ../../plumbing-inputs/sed-4.0.9.tar.gz --output sed-4.0.9.tar
+../bin/untar --file sed-4.0.9.tar
+../bin/rm sed-4.0.9.tar
+cd sed-4.0.9
+../../bin/cp ${P}/sed-4.0.9/config.h config.h
+${MK} -j4 -f ${P}/sed-4.0.9/Makefile
+../../bin/cp sed/sed ../../bin/sed
+../../bin/chmod 755 ../../bin/sed
+cd ..
+
+# --- gzip 1.2.4 (gunzip and zcat are gzip under other names) ---
+../bin/ungz --file ../../plumbing-inputs/gzip-1.2.4.tar.gz --output gzip-1.2.4.tar
+../bin/untar --file gzip-1.2.4.tar
+../bin/rm gzip-1.2.4.tar
+cd gzip-1.2.4
+${MK} -j4 -f ${P}/gzip-1.2.4/Makefile
+../../bin/cp gzip ../../bin/gzip
+../../bin/cp gzip ../../bin/gunzip
+../../bin/cp gzip ../../bin/zcat
+../../bin/chmod 755 ../../bin/gzip
+../../bin/chmod 755 ../../bin/gunzip
+../../bin/chmod 755 ../../bin/zcat
+cd ..
+
+# --- patch 2.5.9 ---
+../bin/ungz --file ../../plumbing-inputs/patch-2.5.9.tar.gz --output patch-2.5.9.tar
+../bin/untar --file patch-2.5.9.tar
+../bin/rm patch-2.5.9.tar
+cd patch-2.5.9
+../../bin/cp ${P}/patch-2.5.9/config.h config.h
+${MK} -j4 -f ${P}/patch-2.5.9/Makefile
+../../bin/cp patch ../../bin/patch
+../../bin/chmod 755 ../../bin/patch
+cd ..
+
+# --- diffutils 2.7 ---
+../bin/ungz --file ../../plumbing-inputs/diffutils-2.7.tar.gz --output diffutils-2.7.tar
+../bin/untar --file diffutils-2.7.tar
+../bin/rm diffutils-2.7.tar
+cd diffutils-2.7
+../../bin/cp ${P}/diffutils-2.7/config.h config.h
+${MK} -j4 -f ${P}/diffutils-2.7/Makefile
+../../bin/cp cmp ../../bin/cmp
+../../bin/cp diff ../../bin/diff
+../../bin/cp diff3 ../../bin/diff3
+../../bin/cp sdiff ../../bin/sdiff
+../../bin/chmod 755 ../../bin/cmp
+../../bin/chmod 755 ../../bin/diff
+../../bin/chmod 755 ../../bin/diff3
+../../bin/chmod 755 ../../bin/sdiff
+cd ..
+
+# --- grep 2.4 ---
+../bin/ungz --file ../../plumbing-inputs/grep-2.4.tar.gz --output grep-2.4.tar
+../bin/untar --file grep-2.4.tar
+../bin/rm grep-2.4.tar
+cd grep-2.4
+../../bin/cp ${P}/grep-2.4/config.h config.h
+${MK} -j4 -f ${P}/grep-2.4/Makefile
+../../bin/cp src/grep ../../bin/grep
+../../bin/cp src/egrep ../../bin/egrep
+../../bin/cp src/fgrep ../../bin/fgrep
+../../bin/chmod 755 ../../bin/grep
+../../bin/chmod 755 ../../bin/egrep
+../../bin/chmod 755 ../../bin/fgrep
+cd ..
+
+# --- gawk 3.0.4 (installed as gawk and awk) ---
+../bin/ungz --file ../../plumbing-inputs/gawk-3.0.4.tar.gz --output gawk-3.0.4.tar
+../bin/untar --file gawk-3.0.4.tar
+../bin/rm gawk-3.0.4.tar
+cd gawk-3.0.4
+../../bin/cp ${P}/gawk-3.0.4/config.h config.h
+${MK} -j4 -f ${P}/gawk-3.0.4/Makefile
+../../bin/cp gawk ../../bin/gawk
+../../bin/cp gawk ../../bin/awk
+../../bin/chmod 755 ../../bin/gawk
+../../bin/chmod 755 ../../bin/awk
+cd ..
+
+# --- tar 1.12 ---
+../bin/ungz --file ../../plumbing-inputs/tar-1.12.tar.gz --output tar-1.12.tar
+../bin/untar --file tar-1.12.tar
+../bin/rm tar-1.12.tar
+cd tar-1.12
+../../bin/cp ${P}/tar-1.12/config.h config.h
+${MK} -j4 -f ${P}/tar-1.12/Makefile
+../../bin/cp src/tar ../../bin/tar
+../../bin/chmod 755 ../../bin/tar
+cd ..
+
+# --- coreutils 5.0 (two reviewed patches, applied by our patch) ---
+../bin/unbz2 --file ../../plumbing-inputs/coreutils-5.0.tar.bz2 --output coreutils-5.0.tar
+../bin/untar --file coreutils-5.0.tar
+../bin/rm coreutils-5.0.tar
+cd coreutils-5.0
+../../bin/patch -p1 -i ${P}/coreutils-5.0/canonicalize-realloc.diff
+../../bin/patch -p1 -i ${P}/coreutils-5.0/human-long-double.diff
+../../bin/cp ${P}/coreutils-5.0/config.h config.h
+${MK} -j4 -f ${P}/coreutils-5.0/Makefile
+# The new install puts every program in place with mode 755; it, not the
+# stage0 cp, overwrites cp, rm, mkdir and chmod.
+./src/ginstall -m 755 src/basename src/cat src/chgrp src/chmod src/chown src/chroot src/cksum src/comm src/cp src/csplit src/cut src/date src/dd src/dir src/dircolors src/dirname src/du src/echo src/env src/expand src/expr src/factor src/false src/fmt src/fold src/head src/hostname src/id src/join src/kill src/link src/ln src/logname src/ls src/md5sum src/mkdir src/mkfifo src/mknod src/mv src/nice src/nl src/od src/paste src/pathchk src/pr src/printenv src/printf src/ptx src/pwd src/readlink src/rm src/rmdir src/seq src/sha1sum src/shred src/sleep src/sort src/split src/stty src/sum src/sync src/tac src/tail src/tee src/test src/touch src/tr src/true src/tsort src/tty src/uname src/unexpand src/uniq src/unlink src/vdir src/wc src/whoami src/yes ../../bin
+./src/ginstall -m 755 src/ginstall ../../bin/install
+./src/ginstall -m 755 src/test ../../bin/[
+cd ..
+
+cd ../../..
+./build-out/plumbing/bin/sed --version
+./build-out/plumbing/bin/ls --version
