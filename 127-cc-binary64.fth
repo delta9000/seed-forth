@@ -2,8 +2,8 @@
 \ Raw payloads occupy RDI/RCX and eight-byte expression/frame slots.
 \ Binary32 storage is four bytes; arithmetic rounds at its own precision.
 \ XMM0/XMM1 are transient arithmetic registers; XMM0 carries ABI results.
-\ Long double moves as X87 data (121, 131); static floating initializers
-\ remain checked boundaries.
+\ Long double moves as X87 data (121, 131). Static binary32/binary64
+\ initializers are exact compile-time constants (125, 128).
 \ No native/TinyCC mode is changed.
 
 : cc-f64-type? ( type -- flag )
@@ -21,10 +21,6 @@
   cc-sysv-value-type-check
   dup cc-f32-type? if, drop ty-uint [lit] 0 ty-make then, ;
 ' cc-fp-storage-type is cc-emit-type-check-fwd
-
-: cc-f64-parse-unavailable ( address length -- bits ) 2drop [lit] 248 cc-die ;
-defer cc-f64-parse-fwd
-' cc-f64-parse-unavailable is cc-f64-parse-fwd
 
 \ Scan a complete pp-number, retaining its spelling. Integer tokens return
 \ to the original lexer unchanged; malformed floating forms reach128's
@@ -64,8 +60,8 @@ variable cc-f64-scan-hex
 ' cc-f64-lex is cc-sysv-lex-number-fwd
 : cc-f64-literal ( -- handled? )
   cc-target-sysv @ tok-kind @ tk-float = and 0= if, [lit] 0 exit, then,
-  tok-str-addr @ tok-str-len @ cc-f64-parse-fwd cc-emit-movabs-rdi-imm64
-  ty-double [lit] 0 ty-make [lit] 0 cc-mark-typed-value true ;
+  cc-const-float-spelling swap cc-emit-movabs-rdi-imm64
+  [lit] 0 cc-mark-typed-value true ;
 ' cc-f64-literal is cc-value-literal-fwd
 
 : cc-fp-xmm0-from-rdi

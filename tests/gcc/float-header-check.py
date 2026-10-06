@@ -14,7 +14,12 @@ identity=run(CC+['--print-source-hash']).stdout.decode().strip()
 source=ROOT/'tests/gcc/float-header-check.c';production=OUT/'production'
 run(CC+['-o',production,source]);r=run([production]);assert r.stdout==expected and not r.stderr
 report={'compiler_source_identity':identity,'metadata_and_binary64_bits':'pass','unsupported_typed_constants':{},'host_oracles':[]}
-for name in ['FLT_MIN','FLT_MAX','FLT_EPSILON','LDBL_MIN','LDBL_MAX','LDBL_EPSILON']:
+# F-suffixed binary32 limits decode exactly (book Ch 46); check their bits in
+# a static table and through runtime use. Long double limits stay rejected.
+probe=OUT/'binary32-limits.c';probe.write_text('#include <float.h>\n#include <string.h>\nstatic float table[3]={FLT_MIN,FLT_MAX,FLT_EPSILON};\nint main(void){unsigned bits[3];float live[3];live[0]=FLT_MIN;live[1]=FLT_MAX;live[2]=FLT_EPSILON;memcpy(bits,table,12);if(bits[0]!=0x00800000U||bits[1]!=0x7f7fffffU||bits[2]!=0x34000000U)return 1;if(memcmp(table,live,12))return 2;return (int)FLT_MIN!=0||(int)(FLT_EPSILON*1e7f)!=1;}\n')
+run(CC+['-o',OUT/'binary32-limits',probe]);run([OUT/'binary32-limits'])
+report['binary32_limit_bits']='pass'
+for name in ['LDBL_MIN','LDBL_MAX','LDBL_EPSILON']:
     probe=OUT/(name+'.c');probe.write_text('#include <float.h>\nint main(void) { return (int)'+name+'; }\n')
     r=run(CC+['-c','-o',OUT/(name+'.o'),probe],False)
     assert r.returncode!=0,(name,'unsupported value unexpectedly accepted')
@@ -32,4 +37,4 @@ assert identity==run(CC+['--print-source-hash']).stdout.decode().strip()
 names=['runtime/gcc-seed/include/float.h','tests/gcc/float-header-check.c','tests/gcc/float-header-check.py']
 report['source_sha256']={n:hashlib.sha256((ROOT/n).read_bytes()).hexdigest() for n in names}
 (OUT/'report.json').write_text(json.dumps(report,indent=2)+'\n')
-print('PASS: target format/layout metadata, nine host limit values, binary64 bits, six unsupported value gates');print(OUT/'report.json')
+print('PASS: target format/layout metadata, nine host limit values, binary64 and binary32 bits, three unsupported long double gates');print(OUT/'report.json')

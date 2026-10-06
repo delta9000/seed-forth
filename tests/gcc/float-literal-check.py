@@ -159,7 +159,7 @@ def corpus():
 
 def layers():
     return (b"".join((ROOT / p).read_bytes() for p in SOURCES[1:4]) +
-            b"\ndefer cc-f64-parse-fwd\n" + (ROOT / SOURCES[4]).read_bytes())
+            b"\ndefer cc-fp-decimal-fwd\ndefer cc-fp-integer-fwd\ndefer cc-fp-resize-fwd\ndefer cc-fp-arith-fwd\ndefer cc-fp-truncate-fwd\n" + (ROOT / SOURCES[4]).read_bytes())
 
 
 DRIVER = b"""

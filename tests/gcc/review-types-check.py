@@ -13,7 +13,9 @@ TESTS = ROOT / 'tests/gcc'
 INCLUDES = [TESTS, ROOT / 'runtime/gcc-seed/include']
 MODES = ('sysv-compile.sh', 'sysv-object-compile.sh')
 # Long double moves as X87 data (long-double-check.py); each extended case
-# below converts or computes with one and is rejected with 249.
+# below converts or computes with one and is rejected with 249. Static
+# binary32/binary64 initializers and casts of floating constants are exact
+# compile-time values now; static-float-check.py checks them.
 REJECTIONS = {
     'extended-parameter-definition': (249, 'int f(long double x){return x;}'),
     'extended-return-definition': (249, 'long double f(void){return 0;}'),
@@ -38,11 +40,8 @@ REJECTIONS = {
     'extended-cast': (249, 'int main(void){return (int)(long double)1;}'),
     'floating-postincrement': (232, 'int f(double *p){(*p)++;return 0;}'),
     'extended-comparison': (249, 'int f(long double *p){return *p==0;}'),
-    'floating-static-scalar': (232, 'static double d=0; int main(void){return sizeof(d)!=8;}'),
     'extended-static-local': (249, 'int main(void){static long double d=0;return sizeof(d)!=16;}'),
     'extended-static-array': (249, 'long double f[2]={0,0}; int main(void){return sizeof(f)!=8;}'),
-    'floating-static-field': (232, 'struct S{double d;}; struct S s={0}; int main(void){return sizeof(s)!=8;}'),
-    'floating-typed-constant': (240, 'enum E{n=(int)(double)1}; int main(void){return 0;}'),
     'floating-va-arg': (247, '#include <stdarg.h>\nint f(int n,...){va_list a;va_start(a,n);va_arg(a,float);return 0;}'),
 }
 

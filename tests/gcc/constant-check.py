@@ -56,6 +56,12 @@ GOLDENS = [
     ("sizeof(float)", 4, ULONG), ("sizeof(double)", 8, ULONG),
     ("sizeof(long double)", 16, ULONG),
     ("sizeof(float*)", 8, ULONG), ("sizeof(double*)", 8, ULONG),
+    # Floating operands may appear when the result is an integer (125, 128).
+    ("(int)2.7", 2, INT), ("(int)-2.7", (-2) & MASK, INT),
+    ("(unsigned char)255.9", 255, UCHAR), ("(long)(1e18 * 3)", 3 * 10**18, LONG),
+    ("(unsigned long)1.8e19", 18 * 10**18, ULONG), ("(int)(1.0f / 3 * 3)", 1, INT),
+    ("1.5 < 2", 1, INT), ("-0.0 == 0.0", 1, INT), ("!0.0", 1, INT),
+    ("0.5 && 2", 1, INT), ("0.0 ? 1 : 2", 2, INT),
     ("sizeof(long double*)", 8, ULONG),
     ("sizeof(unsigned char)", 1, ULONG), ("sizeof(int[3])", 12, ULONG),
     ("sizeof(1U + 1UL)", 8, ULONG), ("sizeof(1 / 0)", 4, ULONG),
@@ -74,7 +80,8 @@ REJECTIONS = {
     "-(-2147483647-1)": 242, "1 << 31": 242, "-1 << 1": 242,
     "(int *)0": 240, "unknown_name": 240, "&unknown_name": 240,
     "(double)1": 240,
-    "1.5": 240, "1e3": 240, "0x1p4": 240, "09": 240,
+    "1.5": 240, "1e3": 240, "1.5f": 240, "09": 240,
+    "0x1p4": 248, "(int)1e10": 242, "(unsigned)-1.0": 242, "(int)(1.0 / 0)": 124,
     "18446744073709551616ULL": 240, "0x10000000000000000UL": 240,
     "1UU": 240, "1LUL": 240, "1lL": 240, "0xU": 240,
 }

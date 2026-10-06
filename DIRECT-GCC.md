@@ -252,10 +252,12 @@ The direct SysV target now carries binary32 scalar values with their actual
 four-byte storage and SSE single-precision arithmetic. Integer conversions,
 float/double conversions, usual arithmetic types, scalar parameters/returns,
 and outgoing default argument promotion are implemented. The independent
-O0/O2 gate is `tests/gcc/binary32-values-check.py`. Decimal f/F literals,
-long double computation (see "Long double data movement" below), K&R float
-parameter definitions, static floating initializers,
+O0/O2 gate is `tests/gcc/binary32-values-check.py`. Long double computation
+(see "Long double data movement" below), K&R float parameter definitions,
 floating ++/-- and floating-member record ABI values remain checked boundaries.
+Decimal f/F literals and static binary32/binary64 initializers are now exact
+compile-time constants (book chapter 41 §5); `tests/gcc/static-float-check.py`
+compares their object bytes with host GCC's.
 Mixed-floating conditionals use the later selected-arm stage described below.
 The unchanged full GCC 4.0.4 `ggc-page.c` translation unit compiles with this
 stage using the separately identified earlier configuration. This removes

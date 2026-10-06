@@ -86,6 +86,16 @@ def main():
             results.append({'kind':'conditional-accepted','name':name,'exit':0})
             print('PASS:',name,'uses selected-arm conversion')
 
+        # A former boundary: static-float-check.py compares these bytes with GCC.
+        path=work/'static-double-initializer.c'
+        path.write_text('double d=1; double f(void){return d;}\n')
+        accepted=work/'static-double-initializer.o'
+        run([ROOT/'tests/gcc/sysv-object-compile.sh',path,accepted,
+             ROOT/'runtime/gcc-seed/include'])
+        if not accepted.is_file(): raise RuntimeError('static-double-initializer: accepted object missing')
+        results.append({'kind':'static-initializer-accepted','name':'static-double-initializer','exit':0})
+        print('PASS: static-double-initializer folds at compile time')
+
         rejects={
             'extended-value':'double f(long double *p){return *p;}',
             'long-double-value':'long double f(double *p){return *p;}',
@@ -95,7 +105,6 @@ def main():
             'postfix-decrement':'double f(double *p){return (*p)--;}',
             'floating-array-index':'double f(double *p,double *i){return p[*i];}',
             'floating-switch':'int f(double *p){switch(*p){case 1:return 1;}return 0;}',
-            'static-double-initializer':'double d=1; double f(void){return d;}',
             'double-to-pointer':'void *f(double *p){return (void *)*p;}',
             'pointer-to-double':'double f(void *p){return (double)p;}',
             'double-remainder':'double f(double *p,double *q){return *p % *q;}',

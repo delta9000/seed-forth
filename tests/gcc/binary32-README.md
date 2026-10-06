@@ -32,11 +32,13 @@ claimed; the memory probes verify the emitted ordinary four-byte accesses. A sep
 Forth-only link/run verifies representative behavior without host object
 providers. Rejected cases test both absent and preserved existing outputs.
 
-Still unsupported: K&R float parameter definitions, decimal f/F and hexadecimal floating literals, long-double
-values, static floating initializers, float/double increment or decrement,
+Still unsupported: K&R float parameter definitions, hexadecimal floating literals, long-double
+values, float/double increment or decrement,
 and records with floating members passed by
 value. `va_arg(ap,float)` remains invalid; unnamed float arguments arrive as
 double. Old native/TinyCC modes retain their prior semantics and bytes.
+Decimal f/F literals and static floating initializers are now exact
+compile-time values; [static-float-check.py](static-float-check.py) checks them.
 
 The source replay uses the full untouched translation unit and records its
 source, compiler and generated-header hashes. It deliberately distinguishes

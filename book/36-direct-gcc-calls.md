@@ -367,9 +367,9 @@ aligns long doubles and containing aggregates to sixteen bytes. Scalar
 local lvalues materialize only when their value is needed, so taking
 `&local_double` does not first perform an unsupported floating load.
 Typed load, store, and conversion hooks reject unsupported value classes.
-[Ch45](45-direct-gcc-binary64.md) adds binary32/binary64 computation and return values;
-static floating initializers and unsupported function definitions/calls
-also fail before publication.
+[Ch45](45-direct-gcc-binary64.md) adds binary32/binary64 computation and return values,
+and [Ch41](41-direct-gcc-constants.md) §5 folds static binary32/binary64
+initializers; unsupported function definitions/calls fail before publication.
 
 Long double takes a different route. `cc-nbase-scalar-fwd` lets this target
 replace the keyword-spelled `ty-ldouble` base with an opaque record: base
@@ -1783,6 +1783,13 @@ relocation with its explicit addend. This handles function pointers,
 array elements, and aggregate fields without executing an initializer at
 startup. Unsigned intermediate arithmetic follows the same width rules
 as ordinary expressions, rather than using an untyped host-sized result.
+Each absolute leaf passes through `cc-om-value-fwd` with its source and
+destination types. Its default keeps the bits; Chapter 41 installs a
+conversion that acts only when a `float` or `double` is involved, so
+`double d = -1;` stores binary64 -1.0 and `int i = 2.7;` stores 2. The leaf
+checks its type with the deferred `cc-sysv-check-scalar`, which accepts these
+types once Chapter 45 loads. A symbolic value never initializes a `double`
+(232).
 
 String literals live in read-only object storage; character-array
 initializers copy their decoded bytes into the array's own data or local
@@ -2033,20 +2040,26 @@ create cc-om-string-name s, .Lstring
 ' cc-sysv-object-declaration is cc-nobject-fwd
 
 \ Reuse118's recursive aggregate/array traversal; only static leaves differ.
+\ A floating leaf is converted at compile time (125); others keep their bits.
+: cc-om-value-default ( value source destination -- value ) 2drop ;
+defer cc-om-value-fwd
+' cc-om-value-default is cc-om-value-fwd
 : cc-om-scalar-initializer
   cc-sysv-object-mode @ cc-ni-static @ and 0= if, cc-ni-scalar exit, then,
   cc-ni-aggregate? if, [lit] 219 cc-die then,
-  ni-type @ cc-sysv-check-scalar-default
+  ni-type @ cc-sysv-check-scalar
   cc-putback-token cc-parse-static-const-fwd
   dup 0= [lit] 4 cc-npick 0= and cc-last-expr-null !
   >r 2dup ni-type @ ni-desc @ cc-value-shape-fwd r>
   dup if,
     ni-type @ ty-size [lit] 8 <> if, [lit] 238 cc-die then,
+    ni-type @ dup ty-ptr 0= swap ty-base ty-double = and if, [lit] 232 cc-die then,
     >r 2drop
     cc-obj-data nc-slot @ om-offset @ ni-offset @ + cc-obj-r64 r> [lit] 4 cc-npick cc-om-reloc
     drop
   else,
-    drop 2drop cc-obj-data nc-slot @ om-offset @ ni-offset @ +
+    drop drop ni-type @ cc-om-value-fwd
+    cc-obj-data nc-slot @ om-offset @ ni-offset @ +
     ni-type @ ty-size cc-obj-patch
   then,
   cc-next-token-keep ;

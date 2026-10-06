@@ -204,20 +204,26 @@ create cc-om-string-name s, .Lstring
 ' cc-sysv-object-declaration is cc-nobject-fwd
 
 \ Reuse118's recursive aggregate/array traversal; only static leaves differ.
+\ A floating leaf is converted at compile time (125); others keep their bits.
+: cc-om-value-default ( value source destination -- value ) 2drop ;
+defer cc-om-value-fwd
+' cc-om-value-default is cc-om-value-fwd
 : cc-om-scalar-initializer
   cc-sysv-object-mode @ cc-ni-static @ and 0= if, cc-ni-scalar exit, then,
   cc-ni-aggregate? if, [lit] 219 cc-die then,
-  ni-type @ cc-sysv-check-scalar-default
+  ni-type @ cc-sysv-check-scalar
   cc-putback-token cc-parse-static-const-fwd
   dup 0= [lit] 4 cc-npick 0= and cc-last-expr-null !
   >r 2dup ni-type @ ni-desc @ cc-value-shape-fwd r>
   dup if,
     ni-type @ ty-size [lit] 8 <> if, [lit] 238 cc-die then,
+    ni-type @ dup ty-ptr 0= swap ty-base ty-double = and if, [lit] 232 cc-die then,
     >r 2drop
     cc-obj-data nc-slot @ om-offset @ ni-offset @ + cc-obj-r64 r> [lit] 4 cc-npick cc-om-reloc
     drop
   else,
-    drop 2drop cc-obj-data nc-slot @ om-offset @ ni-offset @ +
+    drop drop ni-type @ cc-om-value-fwd
+    cc-obj-data nc-slot @ om-offset @ ni-offset @ +
     ni-type @ ty-size cc-obj-patch
   then,
   cc-next-token-keep ;

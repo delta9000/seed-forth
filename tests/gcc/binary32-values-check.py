@@ -42,6 +42,11 @@ def main():
  for name,body in {
   'mixed-ternary-int':'float f(int n,float x){return n?x:1;}',
   'mixed-ternary-double':'float f(int n,float x,double y){return n?x:y;}',
+  # Former rejections: binary32 literals and static initializers are now
+  # exact compile-time values (static-float-check.py checks their bytes).
+  'float-suffix':'float f(void){return 1.25f;}',
+  'float-suffix-uppercase':'float f(void){return 1.25F;}',
+  'static-float':'float x=0;',
  }.items():
   src=w/(name+'.c');src.write_text(body+'\n');out=w/(name+'.o')
   run([ROOT/'tools/gcc-direct-cc.py','-c',src,'-o',out])
@@ -49,11 +54,8 @@ def main():
  rejects={
   'knr-float-parameter':('float f(x) float x; {return x;}',232),
   'knr-float-unused':('int f(x) float x; {return 0;}',232),
-  'float-suffix':('float f(void){return 1.25f;}',248),
-  'float-suffix-uppercase':('float f(void){return 1.25F;}',248),
   'hexfloat':('float f(void){return 0x1p0;}',248),
   'long-double':('double f(long double x){return x;}',249),
-  'static-float':('float x=0;',232),
   'increment-float':('float f(float *x){return ++*x;}',232),
   'decrement-float':('float f(float *x){return (*x)--;}',232),
   'float-index':('float f(float *x,float y){return x[y];}',232),

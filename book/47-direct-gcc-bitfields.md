@@ -124,6 +124,9 @@ Brace traversal consumes only named members. Automatic initialization uses
 the preserving store. Static object initialization evaluates an integer
 constant and merges it into reserved bytes, preserving earlier members in
 the same unit; it does not emit executable initialization into an ELF object.
+A floating constant first converts to the member's declared type with
+Chapter 41's `cc-const-change`, so `int low : 3` initialized with `2.9`
+holds 2 rather than the low bits of an IEEE encoding.
 
 `tests/gcc/bitfield-check.py` checks rejection without replacing existing output,
 verifies original source/header hashes, compiles unchanged `libiberty/fibheap.c`,
@@ -318,7 +321,10 @@ variable cc-bf-init-offset
 : cc-bf-static-initializer ( rec -- )
   cc-bf-init-record !
   cc-putback-token cc-parse-static-const-fwd
-  if, cc-bf-die then, 2drop
+  if, cc-bf-die then, drop
+  dup cc-const-float? if,
+    cc-bf-init-record @ cc-sf-type cc-const-change
+  else, drop then,
   cc-bf-init-record @ cc-sf-bit-width cc-bf-mask and
   cc-bf-init-record @ cc-sf-bit-shift cc-shl
   nc-slot @ om-offset @ ni-offset @ + cc-bf-init-record @ cc-sf-offset + cc-bf-init-offset !

@@ -78,6 +78,7 @@ python3 tests/gcc/conditional-qualified-null-check.py
 bash tests/gcc/sysv-binary64-check.sh
 python3 tests/gcc/float-literal-check.py
 python3 tests/gcc/review-floating-literals.py
+python3 tests/gcc/static-float-check.py
 bash tests/gcc/sysv-setjmp-check.sh
 python3 tests/gcc/nonlocal-runtime-check.py --oracle
 python3 tests/gcc/review-nonlocal-check.py

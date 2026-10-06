@@ -3,6 +3,8 @@
 \ A private value record carries value, type, descriptor and relocation ID.
 \ The public integer API returns ( value type ); the static API returns all
 \ four cells. No machine code is executed to obtain a constant value.
+\ A binary32 or binary64 record holds its IEEE encoding as the value;
+\ 128 supplies the exact rounding behind the cc-fp-*-fwd hooks.
 
 [lit] 4096 constant cc-const-cap
 create cc-const-values cc-const-cap [lit] 32 * allot
@@ -30,6 +32,41 @@ variable cc-const-used
     cc-const-unsupported
   then, ;
 
+\ 010's subtraction comparison is sufficient for compiler offsets, but
+\ constants may straddle the entire signed or unsigned 64-bit range.
+: cc-const-slt ( a b -- flag )
+  2dup cc-xor 0< if, drop 0< else, < then, ;
+: cc-const-ult ( a b -- flag )
+  2dup cc-xor 0< if, nip 0< else, < then, ;
+: cc-const-signed-min ( type -- value )
+  ty-size [lit] 8 * 1- cc-pow2 cc-negate ;
+
+\ Floating constants exist only for the System V target. A format is the
+\ byte size: 4 for binary32, 8 for binary64. Long double stays outside.
+: cc-const-float? ( type -- flag )
+  dup ty-ptr if, drop [lit] 0 exit, then,
+  ty-base dup ty-float = swap ty-double = or cc-target-sysv @ and ;
+: cc-const-sign ( type -- bit )
+  ty-size [lit] 4 = if, [lit] 2147483648 else, 2^63 then, ;
+defer cc-fp-decimal-fwd  ( address length format -- bits )
+defer cc-fp-integer-fwd  ( value signed? format -- bits )
+defer cc-fp-resize-fwd   ( bits from-format to-format -- bits )
+defer cc-fp-arith-fwd    ( left right operator format -- bits )
+defer cc-fp-truncate-fwd ( bits format -- magnitude negative? fits? )
+' cc-const-unsupported is cc-fp-decimal-fwd
+' cc-const-unsupported is cc-fp-integer-fwd
+' cc-const-unsupported is cc-fp-resize-fwd
+' cc-const-unsupported is cc-fp-arith-fwd
+' cc-const-unsupported is cc-fp-truncate-fwd
+\ A trailing f or F selects binary32; any other suffix reaches 128's
+\ grammar unchanged and is reported there.
+: cc-const-float-spelling ( -- bits type )
+  tok-str-addr @ tok-str-len @
+  2dup + 1- c@ dup [char] f = swap [char] F = or if,
+    1- [lit] 4 cc-fp-decimal-fwd ty-float
+  else, [lit] 8 cc-fp-decimal-fwd ty-double then,
+  [lit] 0 ty-make ;
+
 \ Narrowing keeps low bits, then sign extends signed integer targets.
 \ / is the seed's unsigned division, so a bit-63-set value stays intact.
 : cc-const-convert ( value type -- value )
@@ -45,8 +82,51 @@ variable cc-const-used
   dup cc-const-type cc-expr-promote over [lit] 8 + ! ;
 : cc-const-scalar? ( type -- flag )
   dup ty-ptr if, drop true else, cc-const-integer? then, ;
+
+\ Integer to floating rounds once; floating to integer truncates toward
+\ zero and must fit the destination (242). Width changes round once too.
+: cc-const-to-float ( value from to -- bits )
+  over cc-const-float? if,
+    ty-size swap ty-size swap 2dup = if, 2drop exit, then,
+    cc-fp-resize-fwd exit,
+  then,
+  over cc-const-integer? 0= if, cc-const-unsupported then,
+  ty-size swap ty-unsigned? 0= swap cc-fp-integer-fwd ;
+: cc-const-range [lit] 242 cc-die ;
+: cc-const-from-float ( bits from to -- value )
+  dup cc-const-integer? 0= if, cc-const-unsupported then,
+  >r ty-size cc-fp-truncate-fwd 0= if, cc-const-range then,
+  r@ ty-unsigned? if,
+    over 0= 0= and if, cc-const-range then,
+    r@ ty-size [lit] 8 < if,
+      dup r@ ty-size [lit] 8 * cc-pow2 cc-const-ult 0= if,
+        cc-const-range
+      then,
+    then,
+  else,
+    r@ ty-size [lit] 8 * 1- cc-pow2 swap if,
+      over cc-const-ult if, cc-const-range then, cc-negate
+    else,
+      over swap cc-const-ult 0= if, cc-const-range then,
+    then,
+  then, r> drop ;
+: cc-const-change ( value from to -- value )
+  dup cc-const-float? if, cc-const-to-float exit, then,
+  over cc-const-float? if, cc-const-from-float exit, then,
+  nip cc-const-convert ;
+: cc-const-arithmetic? ( type -- flag )
+  dup cc-const-integer? swap cc-const-float? or ;
+
 : cc-const-cast ( record type descriptor -- record )
   >r >r
+  dup cc-const-type cc-const-float? r@ cc-const-float? or if,
+    dup cc-const-symbol if, cc-const-unsupported then,
+    dup cc-const-type cc-const-arithmetic? r@ cc-const-arithmetic? and 0= if,
+      cc-const-unsupported
+    then,
+    dup @ over cc-const-type r@ cc-const-change over !
+    r> over [lit] 8 + ! r> over [lit] 16 + ! exit,
+  then,
   dup cc-const-type cc-const-scalar? r@ cc-const-scalar? and 0= if,
     cc-const-unsupported
   then,
@@ -60,15 +140,6 @@ variable cc-const-used
     r@ ty-ptr 0= if, dup @ r@ cc-const-convert over ! then,
   then,
   r> over [lit] 8 + ! r> over [lit] 16 + ! ;
-
-\ 010's subtraction comparison is sufficient for compiler offsets, but
-\ constants may straddle the entire signed or unsigned 64-bit range.
-: cc-const-slt ( a b -- flag )
-  2dup cc-xor 0< if, drop 0< else, < then, ;
-: cc-const-ult ( a b -- flag )
-  2dup cc-xor 0< if, nip 0< else, < then, ;
-: cc-const-signed-min ( type -- value )
-  ty-size [lit] 8 * 1- cc-pow2 cc-negate ;
 
 \ The lexer retains the spelling but accumulates modulo2^64. Recheck the
 \ digits before accepting that value, and reject floating or malformed
@@ -110,6 +181,16 @@ variable cc-const-literal-digit
 defer cc-const-unary-fwd
 defer cc-const-conditional-fwd
 
+\ A condition becomes int 0 or 1. Both floating zeros are false.
+: cc-const-truth ( record -- flag )
+  dup cc-const-type cc-const-float? if,
+    dup @ swap cc-const-type cc-const-sign 1- and 0= 0= exit,
+  then,
+  dup cc-const-check-integer @ 0= 0= ;
+: cc-const-boolean ( record -- record )
+  dup cc-const-truth cc-flag over !
+  cc-const-int-type over [lit] 8 + ! ;
+
 : cc-const-operand ( -- record )
   cc-next-token-keep
   tok-kind @ tk-num = if,
@@ -118,6 +199,9 @@ defer cc-const-conditional-fwd
   then,
   tok-kind @ tk-chr = if,
     tok-num @ cc-const-int-type [lit] 0 [lit] 0 cc-const-new exit,
+  then,
+  tok-kind @ tk-float = if,
+    cc-const-float-spelling [lit] 0 [lit] 0 cc-const-new exit,
   then,
   tok-kind @ tk-ident = if,
     tok-str-addr @ tok-str-len @ cc-sym-find
@@ -155,10 +239,16 @@ defer cc-const-conditional-fwd
     cc-const-address-fwd cc-const-new exit,
   then,
   [char] + cc-tok-punct? if,
-    cc-const-unary cc-const-promote exit,
+    cc-const-unary dup cc-const-type cc-const-float? 0= if,
+      cc-const-promote
+    then, exit,
   then,
   [char] - cc-tok-punct? if,
-    cc-const-unary cc-const-promote
+    cc-const-unary dup cc-const-type cc-const-float? if,
+      \ Negation flips only the sign, so -0.0 keeps its sign bit.
+      dup @ over cc-const-type cc-const-sign cc-xor over ! exit,
+    then,
+    cc-const-promote
     cc-cx-skip @ 0= if,
       dup cc-const-type ty-unsigned? 0= if,
         dup @ over cc-const-type cc-const-signed-min = if,
@@ -173,9 +263,8 @@ defer cc-const-conditional-fwd
     dup @ cc-invert over cc-const-type cc-const-convert over ! exit,
   then,
   [char] ! cc-tok-punct? if,
-    cc-const-unary dup cc-const-check-integer
-    dup @ 0= cc-flag over !
-    cc-const-int-type over [lit] 8 + ! exit,
+    cc-const-unary cc-const-boolean
+    dup @ 0= cc-flag over ! exit,
   then,
   cc-putback-token cc-const-operand ;
 ' cc-const-unary is cc-const-unary-fwd
@@ -290,10 +379,52 @@ variable cc-const-b
   dup pt-ge = if, drop cc-const-less 0= cc-flag exit, then,
   drop cc-const-row @ bo-eval + @ execute ;
 
+\ Usual arithmetic conversions: double if either operand is double, else
+\ float. Only + - * / and comparisons accept floating operands.
+: cc-const-float-operand ( record -- value )
+  dup cc-const-symbol if, cc-const-unsupported then,
+  dup @ swap cc-const-type cc-const-common @ cc-const-change ;
+: cc-const-float-key ( bits -- key )
+  dup cc-const-common @ cc-const-sign and if,
+    cc-const-common @ cc-const-sign 1- and cc-negate
+  then, ;
+: cc-const-float-compare ( a b -- flag )
+  cc-const-float-key swap cc-const-float-key swap
+  cc-const-op
+  dup [char] < = if, drop cc-const-slt exit, then,
+  dup [char] > = if, drop swap cc-const-slt exit, then,
+  dup pt-le = if, drop swap cc-const-slt 0= exit, then,
+  dup pt-ge = if, drop cc-const-slt 0= exit, then,
+  dup pt-eq-eq = if, drop = exit, then,
+  pt-bang-eq = if, <> exit, then,
+  cc-const-unsupported ;
+: cc-const-float-binary ( -- record )
+  cc-const-left @ cc-const-type ty-base ty-double =
+  cc-const-right @ cc-const-type ty-base ty-double = or if,
+    ty-double else, ty-float then, [lit] 0 ty-make cc-const-common !
+  cc-const-left @ cc-const-float-operand cc-const-a !
+  cc-const-right @ cc-const-float-operand cc-const-b !
+  cc-const-op dup [char] + = over [char] - = or
+  over [char] * = or swap [char] / = or if,
+    cc-cx-skip @ if, [lit] 0 else,
+      cc-const-a @ cc-const-b @ cc-const-op
+      cc-const-common @ ty-size cc-fp-arith-fwd
+    then, cc-const-common @
+  else,
+    cc-cx-skip @ if, [lit] 0 else,
+      cc-const-a @ cc-const-b @ cc-const-float-compare cc-flag
+    then, cc-const-int-type
+  then,
+  cc-const-left @ [lit] 8 + ! cc-const-left @ ! cc-const-left @ ;
+
 : cc-const-binary-apply ( left right row -- left )
   cc-const-row ! cc-const-right ! cc-const-left !
   cc-const-left @ cc-const-address? cc-const-right @ cc-const-address? or if,
     cc-const-address-binary exit,
+  then,
+  cc-const-left @ cc-const-type cc-const-float?
+  cc-const-right @ cc-const-type cc-const-float? or if,
+    cc-const-float-binary exit,
   then,
   cc-const-left @ cc-const-check-integer
   cc-const-right @ cc-const-check-integer
@@ -326,20 +457,20 @@ variable cc-const-b
 : cc-const-logical-and ( -- record )
   level-bit-or cc-const-binary
   begin, cc-next-token-keep pt-and-and cc-tok-punct? while,
-    dup cc-const-check-integer
+    cc-const-boolean
     cc-cx-skip @ >r dup @ 0= if, true cc-cx-skip ! then,
     level-bit-or cc-const-binary
-    r> cc-cx-skip ! dup cc-const-check-integer
+    r> cc-cx-skip ! cc-const-boolean
     @ 0= 0= over @ 0= 0= and cc-flag over !
     cc-const-int-type over [lit] 8 + !
   repeat, cc-putback-token ;
 : cc-const-logical-or ( -- record )
   cc-const-logical-and
   begin, cc-next-token-keep pt-or-or cc-tok-punct? while,
-    dup cc-const-check-integer
+    cc-const-boolean
     cc-cx-skip @ >r dup @ if, true cc-cx-skip ! then,
     cc-const-logical-and
-    r> cc-cx-skip ! dup cc-const-check-integer
+    r> cc-cx-skip ! cc-const-boolean
     @ 0= 0= over @ 0= 0= or cc-flag over !
     cc-const-int-type over [lit] 8 + !
   repeat, cc-putback-token ;
@@ -365,13 +496,13 @@ variable cc-const-b
   2dup cc-const-type swap cc-const-type cc-expr-common-type >r
   rot @ if, drop else, nip then,
   dup cc-const-symbol if,
-    r@ ty-size [lit] 8 <> if, cc-const-unsupported then,
-  else, dup @ r@ cc-const-convert over ! then,
+    r@ ty-size [lit] 8 <> r@ cc-const-float? or if, cc-const-unsupported then,
+  else, dup @ over cc-const-type r@ cc-const-change over ! then,
   r> over [lit] 8 + ! ;
 : cc-const-conditional ( -- record )
   cc-const-logical-or cc-next-token-keep
   [char] ? cc-tok-punct? if,
-    dup cc-const-check-integer
+    cc-const-boolean
     cc-cx-skip @ >r
     dup @ 0= if, true cc-cx-skip ! then,
     cc-const-conditional r@ cc-cx-skip ! >r
@@ -393,6 +524,12 @@ variable cc-const-b
 : cc-const-address-index ( -- value )
   cc-const-conditional dup cc-const-check-integer @ ;
 ' cc-const-address-cast is cc-om-address-cast-fwd
+\ Static leaves change representation only when a floating type is involved.
+: cc-const-initial ( value source destination -- value )
+  2dup cc-const-float? swap cc-const-float? or if,
+    cc-const-change exit,
+  then, 2drop ;
+' cc-const-initial is cc-om-value-fwd
 ' cc-const-address-unary is cc-om-address-unary-fwd
 ' cc-const-address-index is cc-om-address-index-fwd
 

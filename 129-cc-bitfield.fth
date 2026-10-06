@@ -153,7 +153,10 @@ variable cc-bf-init-offset
 : cc-bf-static-initializer ( rec -- )
   cc-bf-init-record !
   cc-putback-token cc-parse-static-const-fwd
-  if, cc-bf-die then, 2drop
+  if, cc-bf-die then, drop
+  dup cc-const-float? if,
+    cc-bf-init-record @ cc-sf-type cc-const-change
+  else, drop then,
   cc-bf-init-record @ cc-sf-bit-width cc-bf-mask and
   cc-bf-init-record @ cc-sf-bit-shift cc-shl
   nc-slot @ om-offset @ ni-offset @ + cc-bf-init-record @ cc-sf-offset + cc-bf-init-offset !

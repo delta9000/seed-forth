@@ -289,7 +289,12 @@ of that type, a function returning it, and a definition written through it,
 
 The compiler's typed constant evaluator reports 240 for an unsupported
 constant form, 241 for an invalid shift count, and 242 for signed arithmetic
-overflow. Under LP64, 240 also rejects a malformed integer suffix, such as
+overflow. 242 also rejects a floating constant whose truncated value does not
+fit its integer destination, such as `int i = 1e10;` or `unsigned u = -1.0;`.
+A floating operand of `%`, a shift or a bitwise operator is 240, a floating
+division by zero is 124, and a floating result too large for its format is
+248 with the `cc-f64-literal: overflow` reason
+([chapter 41](41-direct-gcc-constants.md) §5). Under LP64, 240 also rejects a malformed integer suffix, such as
 `1LLL`, `1lL`, `1LUL` or `1uu`, in every context: runtime expressions, constant
 expressions and `#if` lines all read suffixes through `cc-integer-suffix` in
 `060-cc-types.fth`. Division by zero retains 124. Constant evaluation never executes

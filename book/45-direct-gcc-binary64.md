@@ -83,8 +83,9 @@ conversion. Ordinary unspecified-prototype outgoing calls still promote float
 to double correctly. Long double is not a binary64 extension: chapter 36
 represents it as an opaque sixteen-byte X87 object that chapter 48 moves
 without computing, and every long double arithmetic operation or conversion
-to or from these types is error 249. Static floating initializers remain
-rejected.
+to or from these types is error 249. Static floating initializers in object
+mode are compile-time constants (Ch 41 §5); in the older mapped mode they still
+reject with 232, because there they would run as code before `main`.
 Floating increment/decrement remains rejected. Conditional arithmetic arms use
 the common type and convert only the selected value: integer with float gives
 float, and either type with double gives double. Separate conversion tails
@@ -98,11 +99,14 @@ remain available without executing an unsupported operation.
 Floating tokens are scanned as complete preprocessing numbers so malformed
 suffixes or hexadecimal floating forms cannot be split into accepted integer
 fragments. [Ch 46](46-direct-gcc-float-literals.md) provides the source-only,
-bounded decimal decoder and its exact nearest-even rounding contract through
-`cc-f64-parse-fwd`. The decoder performs no host floating evaluation. Binary32 `f`/`F` suffixes
-remain rejected with248: parsing as binary64 then narrowing would incorrectly
+bounded decimal decoder and its exact nearest-even rounding contract.
+`cc-f64-literal` asks Ch 41's `cc-const-float-spelling` for the token's bits
+and type, so a runtime literal and a constant one decode identically. The
+decoder performs no host floating evaluation. A binary32 `f`/`F` suffix
+decodes straight to binary32: parsing as binary64 then narrowing would
 double-round certain decimal literals. Explicitly converting an unsuffixed
-double literal to float has C's specified two-type semantics.
+double literal to float has C's specified two-type semantics. Long double
+`l`/`L` suffixes still reject with 248.
 
 The independent `tests/gcc/review-floating-check.py` gate compares Forth-built
 objects with host ABI oracles at O0 and O2. It exercises conversion boundaries,
@@ -127,8 +131,8 @@ proofs, not a linked GCC compiler or a same-epoch configuration bootstrap.
 \ Raw payloads occupy RDI/RCX and eight-byte expression/frame slots.
 \ Binary32 storage is four bytes; arithmetic rounds at its own precision.
 \ XMM0/XMM1 are transient arithmetic registers; XMM0 carries ABI results.
-\ Long double moves as X87 data (121, 131); static floating initializers
-\ remain checked boundaries.
+\ Long double moves as X87 data (121, 131). Static binary32/binary64
+\ initializers are exact compile-time constants (125, 128).
 \ No native/TinyCC mode is changed.
 
 : cc-f64-type? ( type -- flag )
@@ -146,10 +150,6 @@ proofs, not a linked GCC compiler or a same-epoch configuration bootstrap.
   cc-sysv-value-type-check
   dup cc-f32-type? if, drop ty-uint [lit] 0 ty-make then, ;
 ' cc-fp-storage-type is cc-emit-type-check-fwd
-
-: cc-f64-parse-unavailable ( address length -- bits ) 2drop [lit] 248 cc-die ;
-defer cc-f64-parse-fwd
-' cc-f64-parse-unavailable is cc-f64-parse-fwd
 
 \ Scan a complete pp-number, retaining its spelling. Integer tokens return
 \ to the original lexer unchanged; malformed floating forms reach128's
@@ -189,8 +189,8 @@ variable cc-f64-scan-hex
 ' cc-f64-lex is cc-sysv-lex-number-fwd
 : cc-f64-literal ( -- handled? )
   cc-target-sysv @ tok-kind @ tk-float = and 0= if, [lit] 0 exit, then,
-  tok-str-addr @ tok-str-len @ cc-f64-parse-fwd cc-emit-movabs-rdi-imm64
-  ty-double [lit] 0 ty-make [lit] 0 cc-mark-typed-value true ;
+  cc-const-float-spelling swap cc-emit-movabs-rdi-imm64
+  [lit] 0 cc-mark-typed-value true ;
 ' cc-f64-literal is cc-value-literal-fwd
 
 : cc-fp-xmm0-from-rdi

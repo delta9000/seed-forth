@@ -20,7 +20,6 @@ while IFS='|' read -r name source; do
   fi
   echo "PASS: $name rejects with232 and preserves output"
 done <<'CASES'
-static-double|double x=0.0;
 increment-double|double f(double *p){return ++*p;}
 floating-index|int f(int *p,double *q){return p[*q];}
 floating-switch|int f(double *p){switch(*p){case 0:return 1;}return 0;}

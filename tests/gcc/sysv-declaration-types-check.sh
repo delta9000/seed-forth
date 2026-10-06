@@ -32,8 +32,5 @@ extended-global-load|249|extern long double x; int f(void){return x;}
 extended-pointer-load|249|int f(long double *p){return *p;}
 extended-pointer-store|249|int f(long double *p){*p=0; return 0;}
 extended-runtime-cast|249|int f(void){return (int)(long double)1;}
-floating-static-value|232|double x=0;
-floating-static-field|232|struct S{int x; double y;}; struct S s={1,0};
-floating-static-cast|240|int x=(int)(double)1;
 default-float-promotion-conflict|237|int f(); int f(float x);
 CASES

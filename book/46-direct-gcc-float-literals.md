@@ -2,19 +2,21 @@
 
 ## Goal and source coverage
 
-You can decode a positive, unsuffixed C decimal floating literal into its
-IEEE binary64 bit pattern using only the seed's integer Forth operations.
-`128-cc-float-literal.fth` provides `cc-f64-parse (address length -- bits)`.
+You can decode a positive C decimal floating literal into its IEEE binary64
+or binary32 bit pattern using only the seed's integer Forth operations.
+`128-cc-float-literal.fth` provides `cc-f64-parse (address length -- bits)`
+for binary64 and `cc-f64-decimal (address length format -- bits)` for either
+width. The same exact ratio then rounds the constant arithmetic of Ch 41.
 The scalar layer handles the unary sign and consumes the returned cell.
 No host parser, generated lookup table, compiler, or floating instruction
-participates in literal conversion.
+participates in literal conversion or constant folding.
 
 Concepts carried in: Chapter 21's bounded storage and diagnostics, Chapter
 24's target types, and the scalar layer's binary64 value representation.
 Concepts introduced: a bounded integer ratio, exact remainder rounding,
-and the special spacing of subnormal numbers. Deferred: hexadecimal
-floating literals, `f/F` and `l/L` suffixes, other floating formats, and
-floating constant-expression arithmetic.
+the special spacing of subnormal numbers, a format record shared by both
+widths, and exact operations on significand/exponent pairs. Deferred:
+hexadecimal floating literals, `l/L` suffixes and the x87 format.
 
 ## 1. Validate the spelling before deciding its magnitude
 
@@ -23,6 +25,9 @@ a point or an `e/E` exponent must be present. `.5`, `1.`, and `1e3` are
 valid. The exponent can have a plus or minus sign. The expression parser
 owns a leading unary sign. Every byte must belong to this grammar.
 Suffixes and hexadecimal prefixes receive explicit unsupported diagnostics.
+The decoder itself never accepts a suffix: Ch 41's `cc-const-float-spelling`
+removes one trailing `f` or `F` and asks for binary32, so `1.0ff` still
+reports `suffix-unsupported`.
 
 The decoder accepts at most 4096 token bytes, 768 significant mantissa
 digits, and an absolute written exponent of 1,000,000. Significant digits
@@ -84,7 +89,51 @@ Failures begin with `cc-f64-literal:` and exit with status 248. The reason
 identifies malformed spelling, unsupported suffix or hexadecimal notation,
 a token/digit/exponent limit, numeric overflow, or workspace exhaustion.
 
-## 4. Replay the proof cases
+## 4. One rounding step for two widths
+
+Binary32 differs from binary64 in four numbers only: 23 stored fraction bits
+instead of 52, a minimum normal exponent of -126 instead of -1022, a maximum of
+127 instead of 1023, and the sign at bit 31 instead of bit 63. `cc-f64-use`
+stores them for a format of 4 or 8 bytes, and `cc-f64-round` reads nothing else.
+It is the binary64 tail of the previous section with the constants replaced:
+the half-minimum-subnormal exponent is the minimum exponent less the fraction
+width less one, and the subnormal quotient width counts up from there.
+
+A binary32 literal therefore never passes through binary64. Rounding
+`1.0000000596046447753906250000001` to binary64 lands exactly on the halfway
+point between two binary32 values, and a second rounding would pick the even
+one, 1.0. Decoding with the `f` suffix rounds the exact decimal once and gets
+the next value up, as C requires. The decimal-order gates of §1 remain correct
+for binary32, since anything that overflows or vanishes in binary64 does so in
+binary32 too; the final exponent test reports the narrower overflow.
+
+## 5. Constant arithmetic on exact pairs
+
+Every finite encoding is a sign and an integer pair: magnitude M times two to
+the E. `cc-f64-unpack` reads the pair, treating a zero exponent field as field
+one without the hidden bit. `cc-f64-pack` takes a ratio N/D already in the big
+integers, scales it by two to an exponent, rounds once with `cc-f64-round`, and
+then applies the sign. A zero ratio packs to a signed zero.
+
+With that, each operation is exact integer work followed by one rounding.
+A product multiplies the two significands into N and adds the exponents. A
+quotient sets N and D to the significands and subtracts them; a zero divisor
+is error 124. A sum shifts both significands to the smaller exponent, then
+adds or subtracts the big integers by sign. At most 2,099 bits are needed,
+inside the workspace of §2. Exact cancellation gives `+0.0`, and the sign of
+`-0.0 + -0.0` survives. An integer, including the most negative `long`, is a
+ratio over one. A width change unpacks in one format and packs in the other.
+`cc-f64-truncate` shifts the significand right for conversion to an integer and
+reports whether the magnitude fits in 64 bits; Ch 41 checks the real range.
+
+The new big-integer words are small: `cc-f64-bi-set` loads one cell as two
+limbs, `cc-f64-bi-copy` copies, `cc-f64-bi-add` adds with carry, and
+`cc-f64-bi-times` multiplies by a full cell as two 32-bit halves, so each limb
+product still fits the seed's cell. The five operations reach Ch 41 through
+the deferred `cc-fp-*-fwd` words, so this file still loads after only 010 and
+020 in its focused tests, which declare those five words first.
+
+## 6. Replay the proof cases
 
 `tests/gcc/float-literal-check.py` loads the source decoder on the checked
 hex0-derived seed. An independent Python `Fraction` and integer `divmod`
@@ -98,6 +147,8 @@ parser state. A report records the seed, source, corpus, and output hashes.
 Run `python3 tests/gcc/float-literal-check.py`. Add `--report PATH` to save
 the evidence from that run. This is a bounded decoder contract test; the
 scalar integration tests separately prove emitted program behavior.
+`tests/gcc/static-float-check.py` covers binary32 decoding and every
+arithmetic operation through compiled objects, against host GCC's bytes.
 
 ## Canonical source
 
@@ -105,6 +156,7 @@ scalar integration tests separately prove emitted program behavior.
 \ 128-cc-float-literal.fth -- exact, bounded decimal-to-binary64 decoding.
 \ Only integer Forth operations participate in parsing or rounding. The
 \ returned cell is an IEEE binary64 encoding, not a host floating value.
+\ The same exact ratio rounds binary32 and constant arithmetic for 125.
 \ Requires 010 and 020; production loads it after the scalar value layer.
 
 create cc-f64-error-prefix s, cc-f64-literal: bl c,
@@ -329,6 +381,44 @@ variable cc-f64-q
   dup [lit] 0 > swap 0= cc-f64-q @ [lit] 1 and and or if,
     [lit] 1 cc-f64-q +!
   then, ;
+\ A format names an encoding by its byte size: 8 selects binary64 and
+\ 4 binary32. Rounding reads only these cells, so one exact ratio serves
+\ both widths. Each caller selects its format before it rounds.
+variable cc-f64-fraction
+variable cc-f64-unit
+variable cc-f64-emin
+variable cc-f64-emax
+variable cc-f64-sign
+: cc-f64-use ( format -- )
+  [lit] 4 = if,
+    [lit] 23 [lit] 8388608 [lit] 127 [lit] 2147483648
+  else,
+    [lit] 52 [lit] 4503599627370496 [lit] 1023 2^63
+  then,
+  cc-f64-sign ! dup cc-f64-emax ! [lit] 1 swap - cc-f64-emin !
+  cc-f64-unit ! cc-f64-fraction ! ;
+
+\ Round N/D * 2^e, with N/D in [1,2), once to the selected format.
+: cc-f64-round ( -- bits )
+  cc-f64-emin @ cc-f64-fraction @ - 1- >r
+  cc-f64-e @ r@ < if, r> drop [lit] 0 exit, then,
+  cc-f64-e @ r> = if,
+    \ Exactly half the minimum subnormal rounds to even zero.
+    cc-f64-n cc-f64-d cc-f64-bi-compare 0= if,
+      [lit] 0 else, [lit] 1 then, exit,
+  then,
+  cc-f64-e @ cc-f64-emin @ < if,
+    cc-f64-e @ cc-f64-emin @ - cc-f64-fraction @ + cc-f64-quotient
+    cc-f64-q @ exit,
+  then,
+  cc-f64-fraction @ cc-f64-quotient
+  cc-f64-q @ cc-f64-unit @ [lit] 2 * = if,
+    cc-f64-q @ [lit] 2 / cc-f64-q ! [lit] 1 cc-f64-e +!
+  then,
+  cc-f64-e @ cc-f64-emax @ > if, cc-f64-overflow then,
+  cc-f64-e @ cc-f64-emax @ + cc-f64-unit @ *
+  cc-f64-q @ cc-f64-unit @ - + ;
+
 : cc-f64-decode ( address length -- bits )
   cc-f64-spelling
   cc-f64-significant @ 0= if, [lit] 0 exit, then,
@@ -339,30 +429,150 @@ variable cc-f64-q
   cc-f64-scale @ 0< if,
     cc-f64-d [lit] 0 cc-f64-scale @ - cc-f64-bi-ten-power
   else, cc-f64-n cc-f64-scale @ cc-f64-bi-ten-power then,
-  cc-f64-normalize
-  cc-f64-e @ [lit] 0 [lit] 1075 - < if, [lit] 0 exit, then,
-  cc-f64-e @ [lit] 0 [lit] 1075 - = if,
-    \ Exactly half the minimum subnormal rounds to even zero.
-    cc-f64-n cc-f64-d cc-f64-bi-compare 0= if,
-      [lit] 0 else, [lit] 1 then, exit,
-  then,
-  cc-f64-e @ [lit] 0 [lit] 1022 - < if,
-    cc-f64-e @ [lit] 1074 + cc-f64-quotient cc-f64-q @ exit,
-  then,
-  [lit] 52 cc-f64-quotient
-  cc-f64-q @ [lit] 9007199254740992 = if,
-    cc-f64-q @ [lit] 2 / cc-f64-q ! [lit] 1 cc-f64-e +!
-  then,
-  cc-f64-e @ [lit] 1023 > if, cc-f64-overflow then,
-  cc-f64-e @ [lit] 1023 + [lit] 4503599627370496 *
-  cc-f64-q @ [lit] 4503599627370496 - + ;
+  cc-f64-normalize cc-f64-round ;
 
-: cc-f64-parse ( address length -- bits ) cc-f64-decode ;
-' cc-f64-parse is cc-f64-parse-fwd
+: cc-f64-decimal ( address length format -- bits )
+  cc-f64-use cc-f64-decode ;
+: cc-f64-parse ( address length -- bits ) [lit] 8 cc-f64-decimal ;
+
+\ Constant arithmetic (125) uses the same ratio. An encoding splits into
+\ a sign and integers M and E with magnitude M * 2^E. Each operation is
+\ exact on those integers, so cc-f64-round is its only rounding step.
+create cc-f64-t cc-f64-big-size allot
+: cc-f64-bi-set ( value big -- )
+  >r r@ cc-f64-bi-zero
+  dup cc-f64-mask and r@ cc-f64-bi-append
+  cc-f64-radix / r@ cc-f64-bi-append r> cc-f64-bi-trim ;
+: cc-f64-bi-copy ( from to -- )
+  cc-f64-bi-b ! cc-f64-bi-a ! [lit] 0 cc-f64-bi-i !
+  begin, cc-f64-bi-i @ cc-f64-bi-a @ @ > 0= while,
+    cc-f64-bi-a @ cc-f64-bi-i @ [lit] 8 * + @
+    cc-f64-bi-b @ cc-f64-bi-i @ [lit] 8 * + !
+    [lit] 1 cc-f64-bi-i +!
+  repeat, ;
+: cc-f64-bi-add ( a b -- )
+  cc-f64-bi-b ! cc-f64-bi-a !
+  [lit] 0 cc-f64-bi-carry ! [lit] 0 cc-f64-bi-i !
+  begin,
+    cc-f64-bi-i @ cc-f64-bi-a @ @ < cc-f64-bi-i @ cc-f64-bi-b @ @ < or
+  while,
+    cc-f64-bi-a @ cc-f64-bi-i @ cc-f64-bi-get
+    cc-f64-bi-b @ cc-f64-bi-i @ cc-f64-bi-get + cc-f64-bi-carry @ +
+    dup cc-f64-radix / cc-f64-bi-carry ! cc-f64-mask and
+    cc-f64-bi-i @ cc-f64-bi-a @ @ < if,
+      cc-f64-bi-a @ cc-f64-bi-i @ cc-f64-bi-cell !
+    else, cc-f64-bi-a @ cc-f64-bi-append then,
+    [lit] 1 cc-f64-bi-i +!
+  repeat,
+  cc-f64-bi-carry @ if,
+    cc-f64-bi-carry @ cc-f64-bi-a @ cc-f64-bi-append
+  then, ;
+\ Multiply by a full cell in two 32-bit halves: big*hi*2^32 + big*lo.
+: cc-f64-bi-times ( big value -- )
+  over cc-f64-t cc-f64-bi-copy
+  cc-f64-t over cc-f64-radix / [lit] 0 cc-f64-bi-muladd
+  cc-f64-t cc-f64-bi-trim cc-f64-t [lit] 32 cc-f64-bi-shift
+  over swap cc-f64-mask and [lit] 0 cc-f64-bi-muladd
+  dup cc-f64-bi-trim cc-f64-t cc-f64-bi-add ;
+: cc-f64-power ( n -- 2^n )
+  [lit] 1 swap begin, dup while, swap [lit] 2 * swap 1- repeat, drop ;
+
+: cc-f64-negative? ( bits -- flag ) cc-f64-sign @ and 0= 0= ;
+\ A zero exponent field reads as field one without the hidden unit.
+: cc-f64-unpack ( bits -- significand exponent )
+  cc-f64-sign @ 1- and
+  dup cc-f64-unit @ 1- and swap cc-f64-unit @ /
+  dup if, swap cc-f64-unit @ + swap else, drop [lit] 1 then,
+  cc-f64-emax @ - cc-f64-fraction @ - ;
+\ Round N/D * 2^exponent and apply the sign; zero keeps its sign.
+: cc-f64-pack ( exponent negative? -- bits )
+  >r cc-f64-n @ if,
+    cc-f64-normalize cc-f64-e +! cc-f64-round
+  else, drop [lit] 0 then,
+  r> if, cc-f64-sign @ or then, ;
+: cc-f64-one-denominator [lit] 1 cc-f64-d cc-f64-bi-set ;
+
+\ An integer is its own ratio; the minimum signed value negates to its
+\ unsigned magnitude.
+: cc-f64-integer ( value signed? format -- bits )
+  cc-f64-use
+  over 0< and dup >r if, [lit] 0 swap - then,
+  cc-f64-n cc-f64-bi-set cc-f64-one-denominator
+  [lit] 0 r> cc-f64-pack ;
+: cc-f64-resize ( bits from to -- bits )
+  >r cc-f64-use
+  dup cc-f64-negative? swap cc-f64-unpack
+  swap cc-f64-n cc-f64-bi-set cc-f64-one-denominator
+  swap r> cc-f64-use cc-f64-pack ;
+
+variable cc-f64-a-negative
+variable cc-f64-a-m
+variable cc-f64-a-e
+variable cc-f64-b-negative
+variable cc-f64-b-m
+variable cc-f64-b-e
+: cc-f64-operands ( left right -- )
+  dup cc-f64-negative? cc-f64-b-negative !
+  cc-f64-unpack cc-f64-b-e ! cc-f64-b-m !
+  dup cc-f64-negative? cc-f64-a-negative !
+  cc-f64-unpack cc-f64-a-e ! cc-f64-a-m ! ;
+: cc-f64-sign-of-product ( -- negative? )
+  cc-f64-a-negative @ cc-f64-b-negative @ <> ;
+: cc-f64-product ( -- bits )
+  cc-f64-a-m @ cc-f64-n cc-f64-bi-set cc-f64-n cc-f64-b-m @ cc-f64-bi-times
+  cc-f64-one-denominator
+  cc-f64-a-e @ cc-f64-b-e @ + cc-f64-sign-of-product cc-f64-pack ;
+: cc-f64-ratio ( -- bits )
+  cc-f64-b-m @ 0= if, [lit] 124 cc-die then,
+  cc-f64-a-m @ cc-f64-n cc-f64-bi-set cc-f64-b-m @ cc-f64-d cc-f64-bi-set
+  cc-f64-a-e @ cc-f64-b-e @ - cc-f64-sign-of-product cc-f64-pack ;
+\ Align both magnitudes to the smaller exponent; D holds the right one.
+\ Exact cancellation is +0 under round to nearest; -0 + -0 stays -0.
+: cc-f64-sum ( -- bits )
+  cc-f64-a-e @ cc-f64-b-e @ 2dup > if, swap then, drop >r
+  cc-f64-a-m @ cc-f64-n cc-f64-bi-set cc-f64-n cc-f64-a-e @ r@ - cc-f64-bi-shift
+  cc-f64-b-m @ cc-f64-d cc-f64-bi-set cc-f64-d cc-f64-b-e @ r@ - cc-f64-bi-shift
+  cc-f64-a-negative @ cc-f64-b-negative @ = if,
+    cc-f64-n cc-f64-d cc-f64-bi-add cc-f64-a-negative @
+  else,
+    cc-f64-n cc-f64-d cc-f64-bi-compare dup 0= if,
+      drop cc-f64-n cc-f64-bi-zero [lit] 0
+    else, 0< if,
+      cc-f64-d cc-f64-n cc-f64-bi-subtract cc-f64-d cc-f64-n cc-f64-bi-copy
+      cc-f64-b-negative @
+    else,
+      cc-f64-n cc-f64-d cc-f64-bi-subtract cc-f64-a-negative @
+    then, then,
+  then,
+  cc-f64-one-denominator r> swap cc-f64-pack ;
+: cc-f64-arith ( left right operator format -- bits )
+  cc-f64-use >r cc-f64-operands r>
+  dup [char] * = if, drop cc-f64-product exit, then,
+  dup [char] / = if, drop cc-f64-ratio exit, then,
+  [char] - = if, cc-f64-b-negative @ 0= cc-f64-b-negative ! then,
+  cc-f64-sum ;
+\ Truncate toward zero. fits? is false when the magnitude needs more
+\ than 64 bits; the caller applies the destination type's range.
+: cc-f64-truncate ( bits format -- magnitude negative? fits? )
+  cc-f64-use dup cc-f64-negative? >r cc-f64-unpack
+  dup 0< if,
+    [lit] 0 swap - dup [lit] 64 < if,
+      cc-f64-power /
+    else, 2drop [lit] 0 then,
+    r> true exit,
+  then,
+  dup [lit] 63 > if, 2drop [lit] 0 r> [lit] 0 exit, then,
+  cc-f64-power 2dup * dup >r swap / = r> swap r> swap ;
+
+' cc-f64-decimal is cc-fp-decimal-fwd
+' cc-f64-integer is cc-fp-integer-fwd
+' cc-f64-resize is cc-fp-resize-fwd
+' cc-f64-arith is cc-fp-arith-fwd
+' cc-f64-truncate is cc-fp-truncate-fwd
 ```
 
 ## Takeaways
 
 - Exact integer ratios preserve every accepted decimal digit until the final rounding decision.
 - A quotient and its complete remainder settle halfway ties without host floating arithmetic.
-- Explicit grammar and workspace bounds make unsupported inputs fail predictably.
+- Explicit grammar and workspace bounds make unsupported inputs fail predictably, and one rounding word serves both widths and every constant operation.

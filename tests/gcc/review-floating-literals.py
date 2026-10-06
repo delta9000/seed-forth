@@ -106,7 +106,7 @@ def accepted_tokens():
 
 def forth_prelude():
     return b'\n'.join((ROOT/name).read_bytes() for name in
-        ('010-lib.fth','020-cc-arena.fth'))+b'\nskip-vm-pages\ndefer cc-f64-parse-fwd\n'+(
+        ('010-lib.fth','020-cc-arena.fth'))+b'\nskip-vm-pages\ndefer cc-fp-decimal-fwd\ndefer cc-fp-integer-fwd\ndefer cc-fp-resize-fwd\ndefer cc-fp-arith-fwd\ndefer cc-fp-truncate-fwd\n'+(
         ROOT/'128-cc-float-literal.fth').read_bytes()+b'\ncreate review-output [lit] 0 ,\n'
 
 
@@ -202,9 +202,12 @@ def main():
                 print(f'PASS: source literals -> Forth object -> host {opt} XMM0 oracle {len(expressions)} values')
             # Markerless/sign-only strings are decoder-only: in actual C the
             # lexer recognizes integer literals and the parser owns unary sign.
-            for name in ('suffix-f','suffix-F','suffix-l','suffix-L','hex-lower','hex-upper',
+            # f/F now select an exact binary32 literal in source; the bare
+            # binary64 decoder above still rejects them.
+            source_rejects=('suffix-l','suffix-L','hex-lower','hex-upper',
                          'positive-exponent-bound','negative-exponent-bound','digit-bound',
-                         'token-bound','obvious-overflow','round-to-infinity'):
+                         'token-bound','obvious-overflow','round-to-infinity')
+            for name in source_rejects:
                 token,reason=rejects[name]
                 production.write_text(f'double f(void){{return {token};}}\n')
                 rejected=work/(name+'.o')
@@ -217,7 +220,7 @@ def main():
         raise RuntimeError('Decoder changed during review; rerun after source freeze')
     if compiler_hashes()!=compiler_snapshot:
         raise RuntimeError('Compiler changed during review; rerun after source freeze')
-    report={'compiler_sha256':compiler_snapshot,'source_object_sha256':object_hash,'decoder_sha256':decoder_hash,'accepted':len(tokens),'decoder_rejections':len(rejects),'source_rejections':12 if integrated else 0,
+    report={'compiler_sha256':compiler_snapshot,'source_object_sha256':object_hash,'decoder_sha256':decoder_hash,'accepted':len(tokens),'decoder_rejections':len(rejects),'source_rejections':10 if integrated else 0,
             'integrated_host_optimizations':integrated,'source_values':len(tokens)+7 if integrated else 0,'reference':'Python exact integer rational rounding; no float parser'}
     if args.report: args.report.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
 
