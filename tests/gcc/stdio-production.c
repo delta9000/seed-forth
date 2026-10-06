@@ -113,6 +113,11 @@ int main(int argc, char **argv)
     if (ferror(stream) || fclose(stream)) return 46;
     if (fopen(argv[1], "q") != NULL || errno != EINVAL) return 47;
     if (fopen(argv[1], "r++") != NULL || errno != EINVAL) return 48;
+    /* glibc extensions: "t" is ignored, "e" adds O_CLOEXEC, ",ccs=" ends the mode. */
+    stream = fopen(argv[1], "rt");
+    if (stream == NULL || fclose(stream)) return 64;
+    stream = fopen(argv[1], "re,ccs=UTF-8");
+    if (stream == NULL || fclose(stream)) return 65;
     stream = fopen("/dev/full", "w");
     /* A fully buffered file reports the write failure when it is flushed. */
     if (stream == NULL || fprintf(stream, "%d", 7) != 1 || ferror(stream)) return 49;

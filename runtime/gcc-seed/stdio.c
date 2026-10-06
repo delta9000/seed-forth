@@ -303,9 +303,15 @@ static int seed_open_mode(const char *mode, int *flags, int *access)
     else if (mode[0] == 'w') { *flags = O_WRONLY | O_CREAT | O_TRUNC; *access = SEED_WRITE; }
     else if (mode[0] == 'a') { *flags = O_WRONLY | O_CREAT | O_APPEND; *access = SEED_WRITE | SEED_APPEND; }
     else { errno = EINVAL; return 0; }
-    while (mode[index]) {
+    /* After the first letter, glibc honours 'x' (O_EXCL) and 'e' (O_CLOEXEC),
+       ignores the 't', 'm' and 'c' extensions and stops at ",ccs=".  sed
+       4.0.9 opens -f scripts with "rt".  A repeated '+' or 'b' is rejected. */
+    while (mode[index] && mode[index] != ',') {
         if (mode[index] == '+' && !update) update = 1;
         else if (mode[index] == 'b' && !binary) binary = 1;
+        else if (mode[index] == 'x' && mode[0] == 'w') *flags |= O_EXCL;
+        else if (mode[index] == 'e') *flags |= O_CLOEXEC;
+        else if (mode[index] == 't' || mode[index] == 'm' || mode[index] == 'c') ;
         else { errno = EINVAL; return 0; }
         index++;
     }
