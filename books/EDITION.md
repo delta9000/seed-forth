@@ -13,6 +13,32 @@ Only paths under `books/` belong to this rewrite milestone. There is no promise
 that a checkout of `master`, a different Forth, or a later compiler profile
 has the same behavior.
 
+## Reading-route edition
+
+The [hybrid narrative](HYBRID-NARRATIVE.md) and [route map](narrative-map.csv)
+plan five capabilities: H1 Forth result, H2 simple C ELF, H3 objects/System V/
+link/runtime, H4 generators/GCC/output tools, and H5 hosted closure/rebuild.
+They change learning order, not the implementation pin or the 77 stable
+editorial units. C19's first story can appear early under supplied contracts;
+its complete implementation and the S11–S19 byte audit keep their full scope.
+Existing chapter/exercise draft states do not change merely because a passage
+moves onto the main route or becomes depth.
+
+Direct GCC has its own production branch. M2/M1/hex2, pnut and private-ABI
+TinyCC are useful alternate tracks, not compulsory executable ancestors.
+The direct target still uses shared LP64 declaration machinery from `115`
+and initializer traversal from `118`; G01/G03/G09 retain those planned
+teaching homes alongside the System V/object providers. Source provenance,
+loaded definitions, selected providers and executed producers are distinct.
+
+For each proposed milestone, distinguish required production inputs, supplied
+but initially unopened teaching components, comparison/test controls, and
+optional routes. Preview, paper derivation, observed fixture execution and
+independent learner performance remain separate evidence states. The new
+first-reader setup, H3 two-file fixture and H4 generator lesson are not yet
+validated runnable checkpoints; this sequencing plan has no observed learning
+benefit or new execution result.
+
 ## First-volume profile
 
 The mechanism being described is the supplied x86-64 Linux seed. A cell holds
@@ -75,7 +101,7 @@ The separate [pipeline map](c-compiler/pipeline-map.csv) covers 33 regions and
 273 lines across five complete shell recipe files; all have teaching homes.
 The [assembler ledger](c-compiler/assembler-regions.csv) separately covers
 785 lines in 42 regions: 99 declarations, including its 50 colon definitions,
-plus two initialization forms. The source-blob check covers 59 pinned project
+plus two initialization forms. The source-blob check covers 68 pinned project
 files. These are distinct
 source-coverage counts, not execution counts. C20 covers the standalone
 Stage-A recipe and attributed result; C21/C22 cover full bounded Forth
@@ -125,7 +151,9 @@ remote Stage-A observation. The independently passed C19 publication check
 at `945282917f45cebf9e04d86492e7a64ef50393a8`, [run 37478538502](https://github.com/delta9000/seed-forth/actions/runs/37478538502),
 remains a canonical repository result with the scope recorded in the
 [coverage ledger](COVERAGE.md#existing-ci-is-separate-evidence). It does not
-establish that these new manuscript examples ran.
+establish that these new manuscript examples ran. The C21/C22 checkpoint at
+`0b7b2bd3fc64f2746249ac5194abf1506328fc0e` also passed its [canonical CI run](https://github.com/delta9000/seed-forth/actions/runs/37492966101).
+That result does not validate the newly planned hybrid reading order or fixtures.
 
 The pinned [GCC driver documentation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md)
 and commit message report matching stages 2, 3 and 4 for the selected set of

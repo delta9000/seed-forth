@@ -6,6 +6,38 @@ This is the editorial map for a new teaching edition in `books/`. It does not re
 
 The current paper draft extends the earlier reviewed C01–C20 checkpoint through C22. C21/C22 are source/practice-reviewed paper drafts, with 22 new main exercise/feedback sets and complete standalone-assembler coverage. Execution, rendered-layout review and actual-reader outcomes remain unverified. C20 has eight complete exercise/feedback sets and all 33 recipe regions have teaching homes; its source/practice review and final readback are complete. C16–C19 technical/practice manuscript reviews and the sixth mixed-check source review are complete; C16–C18 also received first-reading flow review. These are source/manuscript checks, not execution or human-reader validation. [Earlier continuation-draft notes](c-compiler/DRAFTS.md) preserve the preceding checkpoint history.
 
+## Main capability route and complete coverage
+
+The [hybrid narrative](HYBRID-NARRATIVE.md) and [unit-by-unit route map](narrative-map.csv)
+add a main route through five capabilities: **H1 Forth result → H2 simple C
+ELF → H3 objects/System V/link/runtime → H4 generators/GCC/output tools →
+H5 hosted closure/rebuild**. H labels organize first sessions and future
+fixtures; they do not add to the 77 stable unit IDs or mark planned material
+drafted. The currently written S/C chapters, all exercises and source homes
+remain intact.
+
+The unit graph below governs complete implementation/reference work and its
+depth exercises. The narrative map separately states which contracts a first
+session teaches or supplies. H2 therefore uses C01's profile contract and
+C19's early whole-program story without requiring the whole C implementation
+first. S11–S19 remain a complete source-byte audit with its own earned
+capstone; moving that audit to depth does not reduce its learning objective.
+Existing mixed checks still require their actual mechanisms.
+
+The direct-GCC main route enters G01 from the C19 builder/target capability
+and a local direct-profile bridge. M2/M1/hex2, pnut and private-ABI TinyCC
+remain alternate executable routes, with their full teaching and lineage
+obligations preserved. A short C20/C22 comparison case illustrates dependency replacement; the
+full M2/assembler lab is optional for the main route. Shared native/LP64 declarations and initializer traversal are
+still required mechanisms in direct GCC, as the planned homes below specify.
+
+Every milestone must distinguish required production inputs, temporarily
+supplied teaching components, comparison controls and optional routes. An
+unopened implementation can remain a real production dependency. Host shell,
+Python, make, text tools, Linux and source acquisition retain their actual
+recipe roles. The narrative is a plan: new setup/fixture execution and
+representative-reader validation remain outstanding.
+
 ## Current result
 
 **Volume 1, Seed and Forth, has a complete draft teaching path.** Its [opening](seed-forth/chapters/00-why-inspect-a-seed.md), [route guide](seed-forth/chapters/00-start-here.md), chapters S01–S19, separate feedback, six mixed return checks and [compact reference](seed-forth/REFERENCE.md) cover the seed and its first library. The [audit ledger](seed-forth/source-audit.csv) assigns an explanation to all **76 regions / 1,772 original file bytes**, including all 32 dictionary headers. All **63 library colon definitions and 11 constant-created names** have substantive teaching homes.
@@ -58,14 +90,15 @@ The following automatic canonical repository runs passed at their named rewrite 
 | `4ba55cabf64894a0a4b41149495ff04fb66006de` | [37436370123](https://github.com/delta9000/seed-forth/actions/runs/37436370123) |
 | `764bdc4f4902d613145f361da6a7f33010dd37b4` | [37474668625](https://github.com/delta9000/seed-forth/actions/runs/37474668625) |
 | `945282917f45cebf9e04d86492e7a64ef50393a8` | [37478538502](https://github.com/delta9000/seed-forth/actions/runs/37478538502) |
+| `0b7b2bd3fc64f2746249ac5194abf1506328fc0e` | [37492966101](https://github.com/delta9000/seed-forth/actions/runs/37492966101) |
 
 Native instruction listings were also checked by bounded GNU objdump 2.44 disassembly of source-decoded bytes. A static decoder reads the byte stream as data; that observation is not a running-seed trace. Manual predictions remain predictions until their exact inputs and environment are executed and recorded.
 
 ## Four books with independent outcomes
 
 1. **Seed and Forth (`seed-forth`)**: begin with small stack programs, make bytes and state visible, construct a useful library, and then open the full 1,772-byte seed. The draft now finishes with a reader-built paper capstone, complete source/byte explanations and a precise statement of the trusted Linux/CPU/input boundary
-2. **A C Compiler in Forth (`c-compiler`)**: enter with a pinned seed/library or an equivalent refresher; follow one C program through buffers, preprocessing, tokens, types, emitted instructions, and execution. Finish the legacy compiler/M2-Planet comparison, the Forth assembler handoff, and a distinctly labeled direct TinyCC extension
-3. **From Compiler to Closed Toolchain (`gcc-toolchain`)**: enter with the compiler mechanisms and a new direct-GCC target contract. Build the conceptual path through objects, ABI, runtime, generators, `cc1`, binutils, hosted musl/libgcc, and the recorded GCC 4.0.4 fixed point
+2. **A C Compiler in Forth (`c-compiler`)**: enter with a pinned seed/library or an equivalent refresher; follow one C program through buffers, preprocessing, tokens, types, emitted instructions, and execution. Use the early default-compiler result on the main route; retain complete implementation depth, the M2-Planet comparison/Forth-assembler branch and a distinctly labeled direct TinyCC alternate track
+3. **From Compiler to Closed Toolchain (`gcc-toolchain`)**: enter from the C19 capability through a new direct-GCC target contract, with the required shared frontend/provider mechanisms explicitly taught or supplied. Build the conceptual path through objects, ABI, runtime, generators, `cc1`, binutils, hosted musl/libgcc, and the recorded GCC 4.0.4 fixed point
 4. **Kernels and Linux (`kernels-linux`)**: begin from an explicitly identified direct-chain toolchain. The proposed finish is a newly evidenced kernel/Linux path with a chosen user-visible acceptance criterion. The current direct-GCC-to-Linux outcome is **pending**, and the technical route and scope still require their own pinned source inventory
 
 An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. Volume 2 now supplies its contract bridges, profile comparison, source-to-predicted-program route, Stage-A recipe/evidence account, complete bounded assembler and source-built handoff, and local source maps; its later teaching and tested setup remain outstanding. Volumes 3–4's entry packages are planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
@@ -82,7 +115,7 @@ The source files remain authoritative and unchanged. The new order follows what 
 - The compiler's internal data stack/registers, generated program's registers, private TinyCC ABI, and direct-GCC System V ABI are distinct machines and profiles
 - In the toolchain book, scalar argument planning and floating representation move before the variadic/aggregate cases that use them. Ranked arrays stay with type identity; archive order stays with linking
 
-The numbering below is an editorial route, not a requirement to alter file load order. Compiler startup still follows the actual loader contract, including the executing main layer last. Canonical chapter numbers remain source IDs, not new chapter numbers.
+The numbering below preserves editorial/source-navigation IDs. The capability route can select earlier first sessions under named supplied contracts; it does not require altering file load order. Compiler startup still follows the actual loader contract, including the executing main layer last. Canonical chapter numbers remain source IDs, not new chapter numbers.
 
 ## Prerequisite bridges and deliberate deferrals
 
@@ -127,7 +160,7 @@ The numbering below is an editorial route, not a requirement to alter file load 
 | C19 → C20 | Distinguish a complete paper derivation from observed artifacts and comparisons | C20 supplies the producer/artifact and shell-reading bridge, three exact input lists, physical output path, M1 comparator and bounded recorded evidence |
 | C02/C06 contracts → C21 | Distinguish text characters, bytes, borrowed slices, cursor state and Forth storage operations | C21 supplies the Forth storage/byte bridge locally; S10 is an equivalent optional refresher, not a mandatory seed-volume reread |
 | C20/C21 → C22 | Preserve expanded text, distinguish address roles and name each producer/artifact | C22 supplies field-end arithmetic and little-endian/range contracts, then separates supplied ELF input, assembly-route equality and later fixed points |
-| Compiler → toolchain | Name source/object/executable, symbol/relocation, ABI, host/builder/target, and profile | G01–G05 provide a new contract and a complete numerical two-object example |
+| C19 capability → direct toolchain | Distinguish builder/target, then acquire object/symbol/relocation, LP64, System V and selected-provider contracts | Planned G01 supplies the direct-profile bridge; G02/G04/G05/G06 give the bounded two-object call/link/startup story without requiring the TinyCC or M2 executable route |
 | Scalar → variadic/record ABI | Track independent register banks, stack slots, alignment, snapshots, and result lifetime | G04, G10, G12, G15; X87 is deferred explicitly until G15 |
 | `cc1` → closed toolchain | Distinguish emitted assembly, a runnable program, a hosted runtime, and a reproducible compiler generation | G20–G25 add downstream production tools, sysroot, lineage, and comparisons |
 | Hosted toolchain → kernel | Distinguish a Linux process from bare/privileged entry and distinguish kernel entry from userspace success | K01–K07 must provide a new platform/boot contract; no silent carryover of hosted assumptions |
@@ -136,7 +169,7 @@ Exercises inherit these edges. For example, a write-all implementation waits unt
 
 ## Destination ledger
 
-IDs below are stable editorial destinations. S00–S19 and C01–C22 have drafted manuscripts: 42 drafted units in the 77-unit graph. C23–C24 and all G/K units remain planned. C19's full technical/practice manuscript review is complete; unit manuscript state is separate from review and execution state. `entry` means the stated volume entrance; an equivalent entry bridge requires an explicit diagnostic/refresher, not an unexplained prerequisite. Named local bridges are required contracts supplied in that unit; their targeted refresher links are alternative ways to acquire those contracts. Listed prerequisites are conjunctive, with semicolons used in the CSV. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
+IDs below are stable editorial destinations for full-depth prerequisite work; [narrative-map.csv](narrative-map.csv) separately records first-session contracts. S00–S19 and C01–C22 have drafted manuscripts: 42 drafted units in the 77-unit graph. C23–C24 and all G/K units remain planned. C19's full technical/practice manuscript review is complete; unit manuscript state is separate from review and execution state. `entry` means the stated volume entrance; an equivalent entry bridge requires an explicit diagnostic/refresher, not an unexplained prerequisite. Named local bridges are required contracts supplied in that unit; their targeted refresher links are alternative ways to acquire those contracts. Listed prerequisites are conjunctive, with semicolons used in the CSV. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
 
 ### Volume 1: Seed and Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -193,15 +226,15 @@ IDs below are stable editorial destinations. S00–S19 and C01–C22 have drafte
 ### Volume 3: From Compiler to Closed Toolchain
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
 |---|---|---|---|---|
-| G01 — Entering the direct-GCC target | C24 or equivalent entry bridge | Pin builder/host/target roles and the direct-GCC profile without importing either earlier calling convention. | 35 | planned |
+| G01 — Entering the direct-GCC target | C19, local direct-profile bridge | Retrieve builder/target capability; introduce shared LP64/declaration contracts, System V/object selection, host services and oracle/production roles without importing private-ABI ancestry. | 34, 35 | planned |
 | G02 — Objects, symbols, and relocation records | G01 | Trace section bytes, stable symbol identities, BSS, and a relocation before placement is known. | 35 | planned |
-| G03 — Signatures, declarators, and ranked arrays | G02, C07, C15 | Preserve type and signature identity through declarations, pointer shapes, and ranked array descriptors. | 36, 47 | planned |
-| G04 — A shared scalar argument planner | G03, C18 | Assign integer arguments and results, protect temporaries, and account for stack alignment at every call. | 36, 48 | planned |
+| G03 — Signatures, declarators, and ranked arrays | G02, C07, C15 | Open shared 115 native declarations and selected 118 initializer structure alongside type/signature identity, symbols, pointer shapes and ranked arrays. | 34, 36, 47 | planned |
+| G04 — A shared scalar argument planner | G03, C18 | Assign integer arguments and results, protect temporaries, and account for stack alignment at every call. | 34, 36, 48 | planned |
 | G05 — Linking independently built objects | G02 | Validate, resolve, place, relocate, and publish a bounded ELF link with a complete numerical example. | 37 | planned |
 | G06 — Raw syscalls, startup, and runtime control | G04, G05 | Trace the C-to-Linux bridge, errno, entry, and separately specified frame/nonlocal-return helpers. | 38 | planned |
 | G07 — Source-built allocation and byte operations | G06 | Follow allocation extents, failure preservation, memory/string operations, and mapped/process interfaces. | 39 | planned |
 | G08 — Target headers and honest feature probes | G03, C05 | Explain target predefines, selector hooks and which header branches they select without claiming unsupported GNU compatibility. | 40 | planned |
-| G09 — Typed constants and symbolic addresses | G03, G02, C14 | Trace a typed constant record and relocation addend while parsing unevaluated branches safely. | 41 | planned |
+| G09 — Typed constants and symbolic addresses | G03, G02, C14 | Trace shared 118 initializer traversal into selected static constant/relocation providers; distinguish it from private runtime queues and preserve unevaluated-branch contracts. | 34, 41 | planned |
 | G10 — Floating values and conversion | G04, G09 | Separate payload transport, numeric conversion, storage width, and floating arithmetic. | 45 | planned |
 | G11 — Decimal literals rounded once | G10 | Convert an exact decimal ratio to binary64 with rounding and subnormal boundary cases. | 46 | planned |
 | G12 — Variadic cursors and argument classes | G04, G10 | Walk an interleaved register/overflow argument list; defer X87 details explicitly until G15. | 42 | planned |
@@ -213,11 +246,33 @@ IDs below are stable editorial destinations. S00–S19 and C01–C22 have drafte
 | G18 — Source generators must have builders | G17 | Track oyacc, Heirloom lex, flex, and GCC generators with source preparation and production/oracle separation. | 49 | planned |
 | G19 — The cc1 milestone and its tests | G18 | Explain declaration failures despite successful linking and scope execution-torture evidence using host output tools. | 49 | planned |
 | G20 — Building the downstream binutils | G18 | Connect regenerated parser/scanner inputs to Forth-built assembler/linker tools and their retained reports. | gcc-direct/README.md | planned |
-| G21 — A freestanding GCC driver toolchain | G20 | Follow driver, cc1, as, and ld invocation provenance through a no-libc executable. | gcc-direct/README.md | planned |
+| G21 — A freestanding GCC driver toolchain | G19, G20 | Follow driver, cc1, as, and ld invocation provenance through a no-libc executable. | gcc-direct/README.md | planned |
 | G22 — Hosted closure with libgcc and musl | G21 | Follow the sysroot, runtime libraries, startup objects, and a hosted program built by Stage C. | gcc-direct/README.md | planned |
 | G23 — Rebuild lineage and controlled paths | G22 | Identify who builds GCC stages 2, 3, and 4 and hold embedded-path inputs constant. | gcc-direct/README.md | planned |
 | G24 — Equal sort keys and unequal bytes | G23 | Explain why legal qsort tie ordering can change generated bytes and how the recorded runtime change affects the comparison. | runtime/gcc-seed/SORT.md | planned |
 | G25 — Fixed-point evidence and toolchain capstone | G24 | Read file/member comparisons, retain provenance and assumptions, and distinguish recorded equality from general correctness. | A3 | planned |
+
+### Shared direct-route mechanisms and alternate profiles
+
+These are planned teaching homes, not additional drafted modules. Canonical
+Chapter 34 is split by mechanism so its TinyCC demonstration can be optional
+without hiding code used by the direct-GCC production driver.
+
+| Mechanism | Required direct-route home | Distinct alternate-track obligation |
+|---|---|---|
+| `115` LP64 sizes/alignment and native declarator/declaration machinery | G01 introduces the profile contract; G03 opens complete shared declaration/symbol/storage mechanisms | C23 retains private-call/whole-program TinyCC behavior |
+| Shared native call metadata/hooks | G04/G15 explain selected System V parameter/result/frame providers and shared interfaces | C23 retains the private all-stack calling sequence |
+| `118` scalar/array/record initializer traversal | G03 opens structure and G09 follows selected static constants/object relocations | C24 retains private executable runtime-initializer queues and its closure |
+| `117`/`119` private program/runtime entry | G01/G04/G06 distinguish actual selected object/startup providers and retain any reused hooks | C23/C24 retain private program construction and Linux argument/runtime behavior |
+| Profile preprocessing and target headers | G01 supplies selectors; C03–C05/G08/G09 retain needed mechanisms before their tasks | A filename or shared source origin does not imply a TinyCC executable ancestor |
+
+The pinned [System V selector](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1256-L1265)
+uses native declaration machinery; the [object initializer path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L179-L181)
+uses `cc-ni-value`. The [object completion contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L436-L443)
+rejects a remaining runtime initializer queue. Entire `115`–`119` files
+therefore cannot be dismissed as optional merely because they also serve the
+TinyCC branch. Full source-region inventories for these planned modules are
+still owed.
 
 ### Volume 4: Kernels and Linux
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -377,7 +432,7 @@ The new chapters contribute **32 main exercises** (8/8/9/7). The sixth C return 
 
 ## Stage-A recipe and evidence boundary
 
-C20's [pipeline map](c-compiler/pipeline-map.csv) assigns all **33 regions / 273 lines** of five complete recipe files: `stage-a-check.sh` has ten regions/78 lines, `build-m2planet-monolith.sh` eleven/106, `build-gcc-refs.sh` seven/50, `compiler-layers.sh` one/10 and `build.sh` four/29. All regions are taught at the recipe level. Source-blob checks now cover **59 pinned project files**; the definition inventory now contains **576 colon definitions across fourteen compiler/assembler files**. Source identities, recipe regions and definitions are different counts.
+C20's [pipeline map](c-compiler/pipeline-map.csv) assigns all **33 regions / 273 lines** of five complete recipe files: `stage-a-check.sh` has ten regions/78 lines, `build-m2planet-monolith.sh` eleven/106, `build-gcc-refs.sh` seven/50, `compiler-layers.sh` one/10 and `build.sh` four/29. All regions are taught at the recipe level. Source-blob checks now cover **68 pinned project files**; the definition inventory now contains **576 colon definitions across fourteen compiler/assembler files**. Source identities, recipe regions and definitions are different counts.
 
 The chapter supplies eight main exercise/feedback sets. It distinguishes 31 loaded Forth files (010 plus 30 selected compiler layers), the four-header/nine-C-file monolith, and the eleven ordered comparison arguments. It follows conditional seed reuse/build, fresh host references, the wrapper's fixed-path/private-view/fallback behavior, the two M2-Planet invocations and the exact M1 `cmp`. The loaded optional providers are not thereby selected or fully taught.
 
@@ -450,7 +505,7 @@ Chapter 49 is the `cc1` milestone. It cannot serve as the whole direct-GCC endin
 
 1. **G17–G19: capture, generators, and compiler proper.** Keep source snapshots, configuration facts, Makefile-selected units, declaration checks, and test outcomes distinct. Give generated C a named builder: oyacc → Heirloom lex → flex, plus GCC's own source generators. Retain preparation patches, licenses, and generated-input provenance
 2. **G20: binutils.** Explain regeneration and Forth-built assembler/linker outputs, not merely that their sources compiled or configure returned success. Teach the meaning of retained failed and successful invocations
-3. **G21: the driver chain.** Follow `gcc`, `cc1`, `collect2`, `as`, and `ld` through a freestanding executable. The documented tool paths and successful execs belong to this specific boundary; a no-header program does not establish a hosted sysroot
+3. **G21: the joined driver chain, after both G19 and G20.** Follow `gcc`, `cc1`, `collect2`, `as`, and `ld` through a freestanding executable. The documented tool paths and successful execs belong to this specific boundary; a no-header program does not establish a hosted sysroot
 4. **G22: Stage C.** Explain target headers and libraries in the musl sysroot, the Forth-built GCC driver/compiler, GCC-built `libgcc`/`libgcov`/crt objects, musl's `libc.a` and startup objects, and the hosted program used by the recorded recipe
 5. **G23–G25: Stage D.** Stage-C GCC builds stage 2; stage 2 builds stage 3; stage 3 builds stage 4. The recorded recipe requires stages 2, 3, and 4 to agree. Source/build/prefix paths are controlled; archive comparisons are member-wise because container timestamps differ. Every comparison must name its artifact set and normalization/comparison rule
 6. **G24: why a legal difference mattered.** The [source-built sorting account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md) explains how equal-comparing values may be reordered differently, giving equivalent code but unequal bytes. Teach the reported heapsort-to-musl-smoothsort change as part of the recorded fixed-point lineage, not a universal theorem that one sort is stable or a fresh verification of these results

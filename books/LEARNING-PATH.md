@@ -7,16 +7,60 @@ program one step at a time. No Forth, assembly, operating-system or compiler
 knowledge is assumed. Programming experience is helpful but does not stand in
 for knowledge of stack notation or addresses.
 
-The first unit has a concrete outcome: explain how a small vocabulary can
-transform values and write bytes, while keeping the data stack and memory
-state straight. Later units reuse those capabilities to explain the
-library, its control-flow words and finally the machine code that implements
-the seed. The complete first-volume paper route is drafted; the operational
-setup, execution and reader-validation obligations remain explicit.
+The [hybrid narrative](HYBRID-NARRATIVE.md) organizes the main reading around
+five capabilities, while the [unit-by-unit route map](narrative-map.csv) names the
+contracts taught or supplied in each first session. The complete library,
+seed-byte audit and C implementation remain coherent depth routes with their
+existing exercises and source homes.
+
+| Main milestone | Observable capability | Current reading and remaining work |
+|---|---|---|
+| H1 — A Forth result | Trace a reusable word; separate its stack result, requested output byte and stored byte | Start with S1 and a local S7-derived output contract; use S2 for storage transfer. New visible-output fixture/setup work remains planned |
+| H2 — A simple C ELF | Distinguish builder, buffer, saved file, entry and process result; explain one final call field | C01 profile/two-process contract, then C19's first story; retrieve C09 coordinates and C18 frame/return contracts. The short H2 primer remains planned; the 556-byte result is a reviewed paper derivation |
+| H3 — Objects, System V, linking and runtime | Resolve a use across two objects, explain one relocation and preserve the selected calling/startup contract | Planned G01/G02/G04/G05/G06 first-session packet with explicit shared frontend/initializer and runtime contracts; exact fixture and observed result remain owed |
+| H4 — Generators, GCC and output tools | Identify generated-source producers and join GCC output with source-built binutils in a freestanding program | Planned G17–G21 route; G21 needs both G19's compiler and G20's output tools. Generator choice and distributed fixture remain owed |
+| H5 — Hosted closure and rebuild | Identify runtime/header/startup producers and interpret controlled file/member comparisons | Planned G22–G25 with the required G16 archive contract; existing bounded reports remain attributed results |
+
+The H labels supplement the 77 stable editorial units; they are not new
+chapters or new draft-completion claims. H3–H5 manuscript packets are planned.
+New H1/H2 launch/reset/capture instructions also require source review and
+clean-start validation before a runnable route can be promised. Preview,
+worked paper result, observed runnable checkpoint and independent learner
+performance are different states.
+
+## Reading a first session versus studying a full implementation
+
+The graphs below and in [COVERAGE.md](COVERAGE.md) express prerequisites for
+complete unit/reference work and its depth exercises. They do not require
+finishing every predecessor before a first session whose contract is supplied
+explicitly in the narrative map. For example, H2 can use C19's opening layout
+story before its full translation-unit implementation sessions. That earlier
+result does not earn the complete C19 implementation objective.
+
+Use S11–S19 for the separate full seed-byte audit and C01–C19 for the complete
+C implementation route. Keep each mixed check after the mechanisms it tests;
+reaching a capability milestone alone does not establish readiness for every
+depth exercise. Existing IDs, hints, solutions and source inventories remain.
+
+M2/M1/hex2, pnut and direct TinyCC are alternate routes. C20/C22 can provide a
+short same-input dependency-replacement case; their full lab is optional for
+the main direct-GCC route. The planned G01 entrance retrieves the C19
+builder/target capability and supplies the direct-profile bridge locally,
+including LP64 versus calling convention, objects, selected providers and
+production versus comparison tools. Shared `115` declaration and `118`
+initializer mechanisms retain G01/G03/G09 homes; building TinyCC first is
+not the way the direct route obtains them.
+
+The first Forth unit still has a concrete outcome: explain how a small
+vocabulary transforms values and writes bytes while preserving the stack and
+memory contracts. The complete first-volume paper route is drafted; setup,
+execution and reader-validation obligations remain explicit.
 
 ## First-unit dependency graph
 
-Read each arrow as “needed before,” not “executes before.”
+Read each arrow as a contract required for the complete unit. A first-session
+bridge may supply that contract earlier, as the narrative map specifies.
+These arrows do not describe executable production ancestry.
 
 ```text
 ordinary integer arithmetic
@@ -269,6 +313,16 @@ does not secretly require solving them first. The [source map](c-compiler/SOURCE
 keeps both the current explanations and the deferred regions inspectable.
 
 ## What the next units must earn
+
+The next main-route writing priority is a short H1/H2 entrance/setup packet,
+then the G01 object/profile bridge and a coherent two-file G02/G04/G05/G06
+story. C23/C24 remain planned alternate TinyCC work, rather than the next
+mandatory chapters because of their numbers. H3 must identify the actual
+object driver, selected System V providers, startup/runtime inputs and
+relocation before any example is called runnable. H4 must select a real
+small generator and keep host-assisted cc1 tests separate from the joined
+source-built GCC/binutils result.
+
 
 Places, values and delayed loads precede precedence and short-circuit parsing.
 That order gives each operator a known state model to preserve or consume.

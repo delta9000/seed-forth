@@ -17,6 +17,15 @@ from urllib.parse import unquote, urlsplit
 REV = "7d7e1996d1753118181d43e1a413960d3a1ec24b"
 ROOT = Path(__file__).resolve().parent
 SOURCE_BLOBS = {
+    'gcc-direct/driver.py': '5db06a189474f8e90e46040e4409f093193f4e12',
+    'gcc-direct/lexers.py': 'b238798ed0b421548f940ee00045d31481d3f4e6',
+    'gcc-direct/stage-c.py': 'dc3152b6ad22c7c8994d8b702db76be88c069fe0',
+    'gcc-direct/stage-d.py': 'aa21424781eff6eaaae944bd04051cb75edcc386',
+    'k1/README.md': 'd02441ae729e4089efed80b2a603b3c96ce9250f',
+    'tests/pnut/sf-pnut-check.sh': '067f2f4bc367276b7ecf04092d9e170ecc4dc919',
+    'tools/amd64.recipe': 'fd525c5e478266aff55e3e102af34aea0567349d',
+    'tools/gcc-direct-cc.py': '9fd1d063b2984d979cde7c89b75e9b557b9b5a07',
+    'tools/tcc.recipe': '9efffbd59dcc223e13ccc35ad73004a5d3d5bac7',
     '130-asm.fth': 'f1aec439017467a377af636b3b619e7cbb72188a',
     'book/33-the-assembler.md': '6e3d80fcbcd1247c59eb627d361445cd40d9e2d8',
     'tests/asm/die-gates.sh': '2d952e9c417a579d431bd68e68298d77d28dc612',
@@ -226,6 +235,40 @@ def check_coverage():
         assert row["migration_status"] in {"draft_covered", "partial", "planned"}, row
         assert row["remaining_scope"], row["source_path"]
     print(f"PASS: {len(rows)} source inventory rows include all 50 chapters and 7 appendices")
+
+
+
+def check_narrative_map(map_path=None):
+    """Ensure the short reading route preserves every full-depth unit."""
+    units = {}
+    for line in (ROOT / "COVERAGE.md").read_text().splitlines():
+        if re.match(r"^\| [SCGK]\d{2} —", line):
+            fields = [field.strip() for field in line.split("|")[1:-1]]
+            unit = re.search(r"[SCGK]\d{2}", fields[0]).group()
+            units[unit] = fields[-1]
+    with (map_path or ROOT / "narrative-map.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    mapped = [row["unit"] for row in rows]
+    assert len(mapped) == len(set(mapped)), "Duplicate narrative-map unit"
+    assert set(mapped) == set(units), "Narrative map must retain every declared unit"
+    allowed_roles = {"orientation", "main_story", "bridge", "audit_depth",
+                     "audit_capstone", "optional_route", "replacement_case",
+                     "toolchain_capstone", "continuation"}
+    allowed_milestones = {"Preview", "H1", "H2", "H3", "H4", "H5",
+                          "Audit", "Alternate", "Continuation"}
+    for row in rows:
+        assert row["manuscript_status"] == units[row["unit"]], row["unit"]
+        assert row["first_reading_role"] in allowed_roles, row
+        assert set(row["milestones"].split(";")) <= allowed_milestones, row
+        for field in ("title", "first_session", "retained_depth", "route_status"):
+            assert row[field].strip(), (row["unit"], field)
+        if row["manuscript_status"] == "drafted":
+            path = (ROOT / row["chapter_path"]).resolve()
+            assert path.is_relative_to(ROOT.resolve()) and path.is_file(), row
+            assert path.suffix == ".md", row
+        else:
+            assert not row["chapter_path"], "Planned unit must not imply an existing chapter"
+    print(f"PASS: {len(rows)} narrative assignments preserve unit identities, states and chapter paths")
 
 
 def check_prerequisites():
@@ -1203,6 +1246,7 @@ def main():
     check_documents()
     check_coverage()
     check_prerequisites()
+    check_narrative_map()
     check_sources(args.source_root)
     check_pinned_source_links(args.source_root)
     check_c_excerpts(args.source_root)

@@ -317,6 +317,39 @@ All 112 book files matched its complete manifest and all twelve changed
 contents were read back exactly; no repository entry outside `books/` changed.
 That canonical CI result remains separate from the new assembler examples.
 
+## Hybrid narrative and route plan
+
+The hybrid plan maps all 77 stable teaching units to first stories, bridges,
+retained depth, optional routes or capstones. It retains the 91 source
+inventory rows and every current chapter/exercise. Direct GCC is the main
+destination; M2/pnut/TinyCC executable ancestry is not imposed on it. Shared
+native declaration/LP64 and initializer mechanisms remain in the direct
+profile's planned teaching homes. The source pin is unchanged.
+
+The manuscript checker now checks the narrative map against every declared
+unit, draft status and current chapter path, in addition to the acyclic
+full-depth prerequisite graph. Nine newly included pinned source blobs bring
+that bounded identity check to 68 files. Those identity and line checks do
+not establish complete implementation explanation or execution of those
+newly linked scripts. Negative checks rejected an omitted unit, a planned
+unit mislabeled drafted and a missing chapter path.
+
+Separate read-only reviews checked the producer graph and the learning plan.
+Corrections distinguished object-mode selection from initializer-queue
+rejection, located musl-header installation before configuration, marked the
+new H2 syntax bridge as planned and kept a supplied-length helper problem
+separate from an existing fixture. Final route review accounted for all 77
+units, including 42 drafted and 35 planned. These checks assess the plan's
+consistency, not observed learner performance.
+
+The C21/C22 checkpoint at
+`0b7b2bd3fc64f2746249ac5194abf1506328fc0e` passed its automatic
+[Check run](https://github.com/delta9000/seed-forth/actions/runs/37492966101).
+All 117 manuscript files matched the saved manifest; all 15 changed contents
+were read back exactly, and all 1,535 entries outside `books/` were unchanged.
+The hybrid route's new setup cards and later fixtures are still planned;
+that CI result does not execute them or assess the reading order.
+
 ## Still unverified
 
 - The seed and C teaching examples have not been executed for this edition
@@ -334,9 +367,11 @@ That canonical CI result remains separate from the new assembler examples.
 
 ## Next coherent unit
 
-The next manuscript work distinguishes the native/private-stack profile and
-its TinyCC preparation and closure. GCC and kernel routes retain separate
-source and evidence obligations.
+The next manuscript work adds the short H1/H2 entrance and then the
+direct-GCC two-object System V/link/runtime packet in the
+[hybrid narrative plan](HYBRID-NARRATIVE.md). The native/private-stack TinyCC
+application remains an optional complete route. Kernel work retains its own
+source, lineage and observed-boot obligations.
 The [coverage map](COVERAGE.md) distinguishes that planned material from
 the first volume's drafted mechanisms and its remaining verification work.
 Execution checks need a named, authorized seed profile before their status

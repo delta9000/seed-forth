@@ -11,7 +11,29 @@ It teaches the C syntax needed for the recurring example and provides a short
 Forth diagnostic with targeted refreshers. You do not need to memorize the
 first volume's machine-code audit before entering here.
 
-## Available teaching route
+## A shorter first route toward GCC
+
+The [hybrid narrative](../HYBRID-NARRATIVE.md) begins with a small whole
+program before opening every implementation. Read C01's
+[two-process distinction](chapters/01-compiler-entry-and-profile.md#two-processes-with-a-boundary-between-them)
+and [legacy profile](chapters/01-compiler-entry-and-profile.md#name-the-compiler-profile),
+then C19's [continuous entry story](chapters/19-translation-units-and-process-entry.md).
+Its source-derived result is a 556-byte buffer and a predicted return-seven
+path. The compact syntax/setup entrance still needs its own teaching packet.
+
+Return to the triangle for a concrete use of expressions, loops and copied
+arguments. C20/C22 then supply a short dependency-replacement case from the
+M2 branch. Their full M2/assembler lab is optional for the direct-GCC reader.
+The next mainline manuscript is the System V/object/link/runtime entrance;
+C23/C24's private-profile TinyCC application is an alternate route. Shared
+native declarations and initializers retain named direct-route homes.
+
+The complete implementation route below remains intact. Its full-depth
+exercises and mixed checks require their listed mechanisms; the shorter
+route does not silently satisfy them. The [unit map](../narrative-map.csv)
+separates first stories, bridges, audit depth and alternate-route capstones.
+
+## Complete implementation route
 
 1. [Compiler entry and profile](chapters/01-compiler-entry-and-profile.md):
    derive the triangle, separate builder and generated program, and choose the
@@ -108,7 +130,7 @@ source and model-assisted reviews do not establish real-reader learning.
 ## Profile and evidence
 
 The first route uses the pinned legacy direct-ELF compiler: the Forth builder
-emits an executable image directly. Optional direct TinyCC and System V routes
+emits an executable image directly. The later mainline System V profile and optional direct TinyCC route
 have their own storage, calling, preprocessing and runtime contracts. Loading
 their definitions does not silently make the default path equivalent to them.
 The [entry chapter](chapters/01-compiler-entry-and-profile.md#name-the-compiler-profile)

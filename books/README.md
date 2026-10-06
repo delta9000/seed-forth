@@ -1,12 +1,20 @@
 # Seed Forth teaching books
 
-This is the learning-first teaching edition of Seed Forth. Start with
-[Seed and Forth](seed-forth/README.md): its first-volume paper route is drafted,
-with an entry guide, motivation chapter, nineteen worked chapters and a
-compact reference. It takes you from stack contracts through the library
-and all 1,772 bytes of the executable, then assembles the ideas in a
-whole-seed capstone.
-Each mechanism has a source-pinned trace and separate practice feedback.
+This teaching edition now plans one main capability route toward direct GCC:
+a small Forth result, a simple C executable, independently compiled objects
+joined into a program, GCC with its source-built output tools, then hosted
+closure and a bounded rebuild comparison. The [hybrid narrative](HYBRID-NARRATIVE.md)
+and [unit-by-unit route map](narrative-map.csv) distinguish the first sessions,
+supplied contracts, implementation depth and alternate routes. H1–H5 are
+learning milestones; their new fixtures and runnable entrances are still plans.
+
+Begin with [S1's values and words](seed-forth/chapters/01-values-and-words.md).
+For the early C result, use C01's profile/builder contract and
+[C19's first program story](c-compiler/chapters/19-translation-units-and-process-entry.md).
+Its 556-byte result is a paper derivation. The complete
+[Seed and Forth](seed-forth/README.md) route remains available, including all
+1,772 original file bytes and its separate audit capstone. Finishing that
+audit is its own objective, rather than a gate before the first C result.
 
 The [C-compiler volume](c-compiler/README.md) now has twenty-two paper chapters,
 from an independent entry bridge through preprocessing, representations,
@@ -31,6 +39,13 @@ comparisons. Native/TinyCC work remains C23/C24; broader bootstrap lineages
 keep their own unfinished reference obligations. The earlier reviewed C01–C15 checkpoint and
 [continuation-draft notes](c-compiler/DRAFTS.md) retain their historical scope.
 
+M2/M1/hex2, pnut and direct TinyCC remain distinct alternate tracks. Their
+executable chains are not compulsory ancestors of direct GCC. A short C20/C22
+case study can illustrate replacing an assembly service without making its
+whole route required reading. Shared LP64 declarations and initializer
+machinery still belong to the direct-profile learning contract; optional
+TinyCC execution does not make those implementation mechanisms optional.
+
 The edition is a draft, not a complete replacement for the original book.
 The [coverage map](COVERAGE.md) accounts for every original numbered chapter
 and appendix, including material not rewritten yet.
@@ -41,7 +56,7 @@ and appendix, including material not rewritten yet.
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
 | [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default compiler, Stage-A recipe/evidence and complete bounded assembler/handoff drafted through C22; source/practice reviewed; native/TinyCC and broader bootstrap closure remain planned |
-| From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
+| From compiler to toolchain | Follow the main objects/System V/link/runtime → generators/GCC/output tools → hosted/rebuild route | Planned; enter from the C19 capability through an explicit direct-profile bridge; shared frontend mechanisms and existing chapters 35–49 remain required source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 
 The four-book division is an editorial plan. It can change as the dependency
@@ -67,8 +82,10 @@ units.
 
 - [Edition and evidence](EDITION.md) pins the exact source and distinguishes
   source inspection, hand-derived traces and observed runs
-- [Learning path](LEARNING-PATH.md) shows prerequisites, outcomes and explicit
-  interfaces whose machinery is opened later
+- [Hybrid narrative](HYBRID-NARRATIVE.md) and [route data](narrative-map.csv)
+  show the five milestones, supplied first-session contracts and depth/alternate routes
+- [Learning path](LEARNING-PATH.md) shows full-depth prerequisites, outcomes
+  and explicit interfaces whose machinery is opened later
 - [Validation record](VALIDATION.md) says what was checked and what remains
   unverified
 - [Coverage data](coverage.csv) makes remaining migration work sortable
@@ -83,11 +100,14 @@ map](c-compiler/pipeline-map.csv) separately covers 33 regions/273 lines in five
 complete shell scripts. The [assembler ledger](c-compiler/assembler-regions.csv)
 adds all 785 lines in 42 regions, 99 declarations and two initialization
 forms; its 50 colon definitions are included in the 576 total. Source-blob
-checks cover 59 pinned project files;
+checks cover 68 pinned project files;
 none of these counts is a claim of whole-bootstrap implementation coverage.
 
 The new teaching examples have not been executed; repository CI results,
 where available, cover their separately named canonical checks.
 The worked states are derived from the stated contracts and inspected source.
+Changing reading order supplies no new execution, setup or learner evidence.
+Production tools, temporarily supplied teaching components, comparison controls
+and optional executable routes must be identified separately at each milestone.
 An expert review or a document checker cannot establish how well a new reader
 will learn from them; that needs reader attempts and revision.
