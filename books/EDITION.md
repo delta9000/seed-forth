@@ -37,7 +37,7 @@ prerequisites for calculating the first three chapters' states.
 | Claim used in this unit | Primary evidence at the pinned revision | Evidence kind | Limit |
 |---|---|---|---|
 | Stack effects of `dup`, `drop`, `swap`, `+`, `*`, `/` | [`000-seed.hex0`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0), `dup_code` through `star_code` | Inspected instructions and source comments | No execution or exhaustive correctness proof |
-| `[lit]`, definition phases and outer-loop lookup | Same file, `colon_code`, `semicolon_code`, `lit_compile_code`, `parse_decimal`, `repl` | Inspected source | Trusted token syntax; malformed input and resource limits are not made safe by the prose |
+| `[lit]`, definition phases and outer-loop lookup | Same file, `colon_code`, `semicolon_code`, `bracket_lit_code`, `parse_decimal_code`, `repl` | Inspected source | Trusted token syntax; malformed input and resource limits are not made safe by the prose |
 | `@`/`!` transfer a cell; `c@`/`c!` transfer a byte | Same file, `fetch_code`, `store_code`, `cfetch_code`, `cstore_code` | Inspected instructions | Valid readable/writable address assumed |
 | `here` reads the cursor; `latest` returns a sysvar address | Same file, `here_code`, `latest_code`, `sysvar_init` | Inspected source | Layout is edition-specific |
 | `here-addr`, `c,`, `and`, `or` and `-` definitions | [`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth), named definitions | Inspected source, with excerpt comparisons | Explains selected definitions, not the whole loaded library |
