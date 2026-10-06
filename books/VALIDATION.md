@@ -159,6 +159,30 @@ already described; it does not execute these teaching exercises. Both saved
 checkpoints were verified against complete file manifests and exact changed-file
 remote readbacks, with no changes outside `books/`.
 
+## Loop and switch reading-flow revision
+
+C16 and C17 now place their first worked stories in reading order instead of
+requiring jumps among reference sections. Independent checks compared the
+reordered explanations with the pinned implementation and retained source
+excerpts, tables, exercise prompts and numerical results. Corrections made
+implementation choices explicit: C behavior constrains loop destinations but
+does not force this compiler's physical layout; bodies-first switch emission
+is one design; and C17's byte exercise stipulates replacement body regions,
+rather than assigning those lengths to the introductory C statements.
+
+C16's shared-lookahead counterexample is tied to the actual legacy `++r`
+parser path, not assumed for the different `r = r + 1` fixture. Bounded
+simulated-reader attempts covered loop destinations and a pending token,
+then switch fallthrough, no-default behavior and cleanup. Post-correction
+checks confirmed the cited premises were available. These model-assisted
+checks are not fresh human trials or evidence of retention or transfer.
+
+The preceding C01/C18 flow checkpoint at
+`f4101d72fa5c7cf93d0bd015f03d63784e3a98af` passed its automatic
+[Check run](https://github.com/delta9000/seed-forth/actions/runs/37464236418).
+That run checks the canonical pipeline; it does not execute or render the
+new teaching-book examples.
+
 ## Still unverified
 
 - The seed and C teaching examples have not been executed for this edition

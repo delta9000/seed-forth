@@ -158,7 +158,7 @@ The real order is:
 
 Replay leaves its generated step instructions in the output. Restoring lexer state rolls back the input view, not output position. The copied mark remains allocated; there is no local free in this algorithm.
 
-Using `cc-peek-mark` would endanger the saved state because expression parsing can invoke a lookahead that uses the same global mark. This replay interval does more than a read-only non-nested lookahead interval. A dedicated allocated snapshot keeps the post-body state independent of those peeks.
+Using `cc-peek-mark` is not an equivalent general replacement. A valid legacy step `++r`, with r a local, takes the [prefix-update path through `cc-name-alone?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1380-L1410). That helper writes its own lexer snapshot into `cc-peek-mark`, overwriting an outer snapshot stored in the same buffer. A dedicated allocated block preserves the post-body state independently. This counterexample establishes the general ownership problem; it does not claim the particular `r=r+1` fixture itself performs that overwrite.
 
 For a comments/whitespace-only step, the skipper reaches the window end. The comparison is false, so no expression parser is called. Continue still targets the step position, now occupied by the subsequently emitted backward JMP.
 
@@ -269,10 +269,12 @@ An alternative after the original step can be acceptable if the design explicitl
 
 **Next step.** If totals were wrong, retain the correct edge layout and make one row per body entry. If edges were wrong, temporarily ignore values and label “work,” “step,” and “exit.” Then attempt the changed placement with the result table covered.
 
+### Small change: move the continue
+
 **Changed reattempt check.** Moving the r=1 continue after the `t.stars` update changes none of the original triangle's totals. That statement is already the final body work, so jumping to the step skips no additional work. All four array elements become 1,3,5,7; final r=4, `t.stars=16`, and the valued return of sixteen is selected. The outcome differs from the early-continue case because the skipped interval is now empty, not because continue has changed its destination.
 
 Source check: [canonical triangle](../chapters/01-compiler-entry-and-profile.md#read-enough-c-to-follow-the-example), [for continue target and replay](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L313-L338), and [for break completion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L340-L352).
 
 ## Return for a changed attempt
 
-Choose a [changed prompt](../chapters/16-conditions-and-loops.md#changed-reattempts-with-answers-closed) with this page covered. If you need to reconstruct your starting state, use the chapter's [if-owner checkpoint](../chapters/16-conditions-and-loops.md#first-session-checkpoint) or [saved replay tuple](../chapters/16-conditions-and-loops.md#close-the-loop-in-reverse-ownership-order) before attempting the new case.
+Choose a [changed prompt](../chapters/16-conditions-and-loops.md#changed-reattempts-with-answers-closed) with this page covered. If you need to reconstruct your starting state, use the chapter's [if-owner checkpoint](../chapters/16-conditions-and-loops.md#branch-owner-checkpoint) or [outer-for tuple](../chapters/16-conditions-and-loops.md#keep-the-outer-fors-state) before attempting the new case.

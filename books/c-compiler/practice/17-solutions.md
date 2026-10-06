@@ -2,13 +2,21 @@
 
 [Back to the chapter](../chapters/17-switches-labels-and-nonlocal-control.md)
 
-These are checked manual derivations against revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`, using the chapter's explicit profiles and paper coordinates. No compiler, Forth, C example, generated program, build, or bootstrap was run. Correct answers here are source-reading and derivation results, not observed execution or evidence that a learner has mastered the material.
+These answers are manual derivations from revision `7d7e1996d1753118181d43e1a413960d3a1ec24b` and the chapter's stated paper coordinates. No compiler or generated program was run.
 
-Use as much help as you want: the first hint identifies the distinction, the second exposes the decisive state, and the third supplies a partial step. The solution is available without a required waiting period. After feedback, close this page and use a changed reattempt from the chapter; copying a visible solution checks a different capability from an independent attempt.
+The hints move from the relevant distinction to a partial transition. Use the full solution whenever it helps; then try a changed case with its answer covered.
+
+## Without default
+
+With n=9, both comparisons fail. The selector's final no-match jump must reach end-A, where POP RBX restores the entry save. No assignment runs, so `pad` remains ten. The saved register still needs restoration even though no case body was entered: the save happened before the jump to the selector.
+
+With n=2, the selector enters the first body, adds two, falls through to add five, and takes the same explicit break. Starting from ten, `pad` becomes seventeen. Removing the default changes neither of those case assignments nor their fall-through relationship.
+
+A prediction of zero for the unmatched case would still be executing the assignment that was removed. A prediction of no pop would forget the entry save. Those are different mistakes: one concerns selected body work, the other concerns stack cleanup.
 
 ## Entry check
 
-Questions 1–2 support the first session (question 1 is for its byte-layout extension); question 4 belongs to ownership, and question 3 to the identifier session.
+The chapter places questions 1–2 beside byte layout, question 4 beside recursive scopes, and question 3 beside identifier lookahead. Their numbers stay fixed here.
 
 1. The displacement is `160−(101+4)=55`, bytes `37 00 00 00`. Field offset 101 is neither the JMP's opcode offset nor a target virtual address
 2. No. Builder `>r` saves a Forth cell on the builder's return stack. A target PUSH emitter writes future machine-instruction bytes

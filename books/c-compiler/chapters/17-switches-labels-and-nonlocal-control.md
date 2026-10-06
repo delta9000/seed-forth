@@ -2,39 +2,89 @@
 
 A `break` in a switch and a `continue` in that same switch can leave through different doors. The `break` reaches the switch's cleanup instruction. The `continue` may bypass that instruction on its way to an enclosing loop. If both jumps merely received the right address, one path could still leave the generated stack wrong.
 
-This chapter joins two obligations: **where control goes** and **what saved state it must carry or restore on the way**. We will build a switch whose dispatch instructions come after its bodies, follow labels whose addresses are initially unknown, and determine why a forward native `goto` can need more than a patched displacement. The final section asks an earlier question: when a statement starts with a name, how does the parser decide whether that name begins a declaration, a label, or an expression?
+Start with a switch that uses only the first door. Take `n` and `pad` to be initialized legacy integer locals, with `pad=10` at the start of each independent trace:
 
-## Choose a route and check the entry contracts
+```c
+switch (n) {
+case 2: pad = pad + 2;
+case 5: pad = pad + 5; break;
+default: pad = 0;
+}
+```
 
-First session: follow a switch from entry to dispatch and back through cleanup. Read the [state key](#state-key), [A switch gives break a cleanup destination](#a-switch-gives-break-a-cleanup-destination), the [two output/execution orders](#emit-the-bodies-before-their-selector), [A case record is data for the builder](#a-case-record-is-data-for-the-builder), the [shared dispatch bridge](#legacy-dispatch-walk-the-recorded-cases), and [Work a complete switch layout](#work-a-complete-switch-layout). Do [C17-01(a)](#c17-01--count-the-saves-crossed) and [C17-02(a)](#c17-02--remove-the-default-without-losing-the-exit). Stop there if you can explain which path restores each saved RBX. For a byte-layout session, return to the [branch calculations](#byte-layout-detail-calculate-the-branches) and do C17-02(b).
+Predict `pad` for n=2 and n=5. In particular, does entering `case 2` also execute the assignment after `case 5`, or must another comparison succeed first? The missing break after the first assignment will let us distinguish two orders that would otherwise look interchangeable.
 
-Next, choose the mechanism you need: [recursion and scope ownership](#recursion-must-restore-the-owner-not-just-the-target), including [the parser’s scope setup](#parser-detail-how-the-switch-is-assembled) (C17-04); [function-wide labels](#labels-have-a-function-wide-identity) and [legacy goto](#a-legacy-goto-finishes-at-the-label) (C17-05/C17-06); [native conversion](#native-detail-convert-before-choosing-comparison-width) and [goto adjustment](#native-gotos-reconcile-source-and-destination-depth) (C17-03, C17-01(b), C17-07); or the [identifier fork](#the-identifier-fork-needs-one-speculative-token) (C17-08). The [label-storage layout](#reference-selected-label-storage) and [source ledger](#check-claims-at-the-actual-completion-event) are references. For legacy goto, read [label identity](#labels-have-a-function-wide-identity) and [lookup](#lookup-creation-and-definition-are-different-events) before the goto walkthrough. Each session's changed-case prompts use the same prerequisites unless marked for a later section.
+**Profile and evidence.** We use the legacy Linux/x86-64 path in [112-cc-stmt.fth, revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth), with `cc-target-lp64=0` unless a native section says otherwise. The traces are manual derivations, not runs or a C-conformance claim. Assume adequate storage and balanced expression temporaries. Helpers and profile limits are identified where used; pinned definitions settle differences from the historical [book30](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/30-statements-if-while-for-return.md).
 
-Bring these interfaces as needed for your chosen session. C10, C14, C15's return interface, and C16 support the first session; token lookahead and typedef lookup enter the later identifier session:
+## Emit the bodies before their selector
 
-- [C06](06-tokens-and-lookahead.md): the current token record, one-token pending flag, and a complete lexer mark/reset
-- [C10](10-calls-literals-and-deferred-addresses.md#a-node-has-two-builder-cells-even-for-a-four-byte-patch): two-cell fixup nodes and relative versus absolute-address patching
-- [C14](14-expressions-and-constant-evaluation.md): `cc-parse-expr` emits a future value; `cc-parse-const` produces a builder-cell constant
-- [C15](15-declarations-and-recursive-records.md): typedef payloads, lexical scope, and result placement before return cleanup
-- [C16](16-conditions-and-loops.md): the current break/continue owners, their walkers, and the loop's saved switch depth
+This source chooses a bodies-first pass: emit each body as it is read, keeping the assignments in source order for fall-through, and record its case address. After the closing brace, emit the **selector**, the chain of comparisons choosing a case. Another design could put the selector first and use forward case fixups; unknown addresses do not force this layout. The source bytes are already buffered. This choice needs neither a separate saved representation of the bodies nor a replay of them to place the switch's selector.
 
-**Entry diagnostic.** Questions 1–2 serve the first session, with question 1 supporting its byte-layout extension; question 4 serves the ownership session, and question 3 serves the identifier session. Answer the questions for your route before opening [the feedback](../practice/17-solutions.md#entry-check). (1) A JMP's four-byte field begins at output offset 101; its target is offset 160. What displacement belongs there? (2) Does builder `>r` emit a generated PUSH? (3) If a consumed identifier is restored by a lexer mark whose pending flag was zero, is it now pending? (4) Does restoring a symbol count also restore the local-slot allocation count? These are small contracts, not a memory test for source line numbers.
+That placement creates a second problem. A generated program entering the switch must run the selector first. The compiler therefore leaves an initial forward-jump field before the bodies and patches it when the selector's position is known. This is C10's deferred-branch idea applied to a whole selection, rather than a single condition.
 
-**Edition and evidence.** The main source is [112-cc-stmt.fth at `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth), with the unwind/return helpers in `110` and named function/provider consumers below. The historical [book30](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/30-statements-if-while-for-return.md) motivates the mechanism but does not override the definitions. In this edition the label table has **five** columns; legacy switch parsing does **not** create its own symbol scope; and only the named native function providers call the native forward-goto finisher.
+Here **builder** means the Forth compiler running now; the **generated program** runs the emitted instructions later. As [C14](14-expressions-and-constant-evaluation.md) established, `cc-parse-expr` emits instructions that will calculate the controlling value in RDI. The switch then emits `PUSH RBX` and `MOV RBX,RDI`: preserve RBX's previous value, then keep the controlling value in RBX for the comparisons. Emitting those instructions does not perform their register changes in the builder.
 
-The default route is legacy Linux/x86-64 with `cc-target-lp64=0`, eight-byte builder cells and stack saves, and output base `0x400000`. Native differences are explicitly gated. All examples are source-inspected **manual predictions**, not executed C, Forth, compiler, or generated-program results. No build or bootstrap is part of this chapter. We assume retained source-name storage, sufficient buffers, balanced expression temporaries, valid stated source forms, and fitting rel32 branches. Profile selection is not a general C-conformance claim.
+The generated entry has one eight-byte save to undo. Call the common cleanup destination **end-A**; it will contain `POP RBX`. The two orders can now be written without pretending the compiler follows a particular future branch:
 
-### State key
+```text
+Builder output order:
+  expression; save RBX; copy value; initial JMP
+  case bodies in source order; body-end JMP
+  comparison chain; default/no-match JMP
+  end-A: POP RBX
 
-Keep three machines' quantities apart: the builder's Forth data/return stacks, the builder's output-byte cursor, and the future CPU's registers/stack. We write B.D and B.R for the builder stacks, with the rightmost item on top. A node address N belongs to builder memory; an output offset q names a byte field in the generated file; a target address V is `0x400000+offset`. Generated RSP=S names a future stack boundary, never a builder node. Byte lists run from low to high addresses and multibyte fields are little-endian.
+Generated execution order on a match:
+  expression; save RBX; copy value; initial JMP to chain
+  comparisons; JE backward to the matching body
+  body, including any source-order fall-through
+  break/body-end JMP to end-A; POP RBX
+```
+
+The builder emits every body once; a later run of the generated program selects where to enter them.
+
+### A case record is data for the builder
+
+On reaching `case 2:`, the builder needs to remember two facts: the constant two, and the address where that body's next instruction will go. The constant is calculated now by `cc-parse-const`; it is not an expression for the generated program to reevaluate. Call the body's target address V2. The later `case 5:` similarly supplies five and V5.
+
+The builder puts each new `(constant, target)` record at the front of a list. Reading case two and then case five therefore gives the record order `(5,V5), (2,V2)`, while the emitted bodies still occur as body2 then body5. The records are compiler data, not emitted instructions; V2 and V5 identify positions in the generated code. The default's target is kept separately.
+
+### Legacy dispatch: walk the recorded cases
+
+Now both body addresses exist. The dispatch emitter visits the newest record first: emit a comparison of RBX with its constant, then JE to its target, and continue with the next record. JE means “jump if equal.” In our example the emitted tests ask whether n is five, then whether n is two. If neither comparison succeeds, a final jump selects the default body.
+
+The initial jump sends the generated program to this chain before it can execute any assignment. A successful JE jumps backward to the selected body. It does not re-run the controlling expression, and it does not arrange another comparison after that body's assignment. Once inside the bodies, ordinary instruction order and explicit source jumps determine what happens next.
 
 ## A switch gives break a cleanup destination
 
-At switch entry, emitted code evaluates the controlling expression into RDI, pushes the old RBX, and copies RDI to RBX for dispatch. `cc-emit-push-rbx` appends `53`; `cc-emit-mov-rbx-rdi` appends `48 89 FB`. When the generated program later executes these instructions, RSP changes from S to S−8, memory at S−8 contains the old RBX, and RBX holds the controlling value. The builder increments `cc-switch-depth` while parsing the body. It has emitted a save; it has not executed one on behalf of the generated function.
+The second assignment is followed by `break`. `cc-parse-break-stmt` requires its semicolon, emits a forward JMP, and records that jump on this switch's break list. It does not emit a pop. The switch parser will patch the jump to end-A, immediately before the single `POP RBX` that restores the entry save. Adding a pop at both the break and its destination would restore twice.
 
-`cc-parse-break-stmt` contributes only its expected semicolon and jump-list entry; it adds no register restoration. The switch's ordinary exit label, called **end-A**, is immediately before the emitted `POP RBX` (`5B`). Breaks, normal fall-through beyond the last body, and a no-match/no-default path all target end-A. They execute that one pop and continue after the switch. Thus `break` must not emit its own pop as well: that would restore twice on one path.
+The default assignment also needs to leave. Without a jump after the last body, execution would fall into the selector and start testing again. The compiler emits that body-end jump unconditionally and adds it to the same break list. Both exits will therefore reach the same pop.
 
-`continue` is different. A switch creates a new break owner but leaves the current continue owner and `cc-loop-switch-depth` alone. The continue list still belongs to the innermost loop. If that loop surrounds the switch, the continue bypasses end-A and must restore the intervening saves itself.
+Follow the three possible entries, keeping the source-order bodies in view:
+
+| Controlling value | Selector chooses | Assignments reached | Final pad | Exit |
+|---:|---|---|---:|---|
+| n=2 | Second comparison, V2 | Add two, then add five | 17 | Explicit break to end-A |
+| n=5 | First comparison, V5 | Add five | 15 | Explicit break to end-A |
+| n=9 | Default target | Store zero | 0 | Body-end jump to end-A |
+
+For n=2, the five-comparison failed **before** the two-comparison succeeded. That failure does not prevent execution from later falling through into the five-case body. **The selector's reverse order has not reversed the bodies.** If both cases had ended with breaks, our example would have hidden this distinction.
+
+Every listed path performs exactly one restoration. When the generated entry pushes the old RBX, its stack pointer RSP moves from a boundary S to S−8 and stores that old value there. At end-A, POP RBX restores the value and moves RSP back to S. These are generated stack changes, not builder-stack operations.
+
+Bodies may then use RBX as scratch: dispatch has finished and body completion skips it. The controlling value need not survive all body work, but the saved *previous* RBX must be restored at exit.
+
+### Without default
+
+Remove only `default: pad = 0;` from the source. Keep `pad=10` initially. What should happen for n=9 now, and why should n=2 still follow its earlier path? Decide where the selector's no-match path must go so that the saved RBX is restored even though no assignment ran. [Check this small change](../practice/17-solutions.md#without-default).
+
+The other door from the opening question remains: `continue` leaves without visiting end-A.
+
+## When continue bypasses the cleanup
+
+Put the same switch inside a loop and replace its `break` with `continue`. The destination is now the loop's next condition or step, not the switch's end-A. The jump bypasses the pop we placed there. To avoid leaving the saved RBX on the stack, this path must pop it **before** jumping.
+
+[C16](16-conditions-and-loops.md) supplied two separate lists of unfinished jumps. A switch installs its own break list but leaves the enclosing loop's continue list in use. `cc-loop-switch-depth` remembers how many switches were open when that loop began. `cc-switch-depth` counts the switches open at the current source position; parsing the switch's entry save increments it once. Neither variable counts how often the generated loop will run. Their difference tells the compiler how many switch saves this continue crosses.
 
 The exact [continue consumer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L608-L620) emits:
 
@@ -75,71 +125,23 @@ Consider a loop entered at depth zero, containing switch A. Inside A is another 
 
 After B's parser and the inner loop's parser finish, the outer loop's continue head and snapshot zero are restored. A later `continue` still inside A emits one pop. In contrast, a `continue` in the inner loop but outside B emits zero: it remains inside A. A `break` from that inner loop also leaves A's save in place, because its loop-end destination lies inside A.
 
-Switch depth is different: each switch increments it once on entering its emitted-save region and decrements it once after emitting its normal cleanup. It need not save a copy on B.R because well-nested recursion balances the counter. A return or goto encountered while compiling a body emits another runtime exit path; it does not close the parser's lexical switch. Later source statements still need the same depth information.
+Switch depth is different: each switch increments it once on entering its emitted-save region and decrements it once after emitting its normal cleanup. It need not save a copy on the builder's return stack because well-nested recursion balances the counter. A return or goto encountered while compiling a body emits another runtime exit path; it does not close the parser's lexical switch. Later source statements still need the same depth information.
 
 [C15's return path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L774-L803) places the result, emits `cc-switch-depth` pops, then emits the epilogue. Resetting RSP during frame teardown is not a substitute for restoring RBX's contents. None of these parsers maintains a separate validity counter that reliably diagnoses every `break` or `continue` outside an allowed construct. An unowned fixup is not a valid exit merely because its node can be allocated.
 
-## Emit the bodies before their selector
-
-The source places case labels before their statements, but a selector needs every target address. This compiler emits the body first while recording those addresses, then emits a linear comparison chain. An initial forward jump makes runtime enter the chain before any body.
-
-The two orders are:
-
-```text
-Builder output order:
-  expression; save RBX; copy value; initial JMP
-  case bodies in source order; body-end JMP
-  comparison chain; default/no-match JMP
-  end-A: POP RBX
-
-Generated execution order on a match:
-  expression; save RBX; copy value; initial JMP to chain
-  comparisons; JE backward to the matching body
-  body, including any source-order fall-through
-  break/body-end JMP to end-A; POP RBX
-```
-
-This text layout describes control flow, not a measured disassembly. A match does not re-run the controlling expression. Case bodies may subsequently use RBX as scratch; the selector has already run, and ordinary body completion skips it. Do not infer from the register's initial role that every body must preserve its original controlling value forever.
-
-### A case record is data for the builder
-
-`cc-switch-cases-head` owns a singly linked list. Each node occupies 24 builder bytes:
-
-| Byte offset within node | Cell contents |
-|---:|---|
-| 0 | Converted case constant K |
-| 8 | Absolute target virtual address of the body's next instruction |
-| 16 | Next builder-node pointer, zero at the end |
-
-[`cc-add-switch-case`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L431-L467) receives `(K,V)`, allocates 24 bytes, stores V at node+8 and K at node, links node+16 to the old head, and installs the new head. Its saved node on B.R allows both incoming cells to be consumed without losing the allocation. It emits no instruction. Reading `case 2:` followed later by `case 5:` produces `head → {5,V5,...} → {2,V2,0}`.
-
-`cc-switch-case` calls `cc-parse-const`, converts K with `cc-switch-label`, reads and checks `:`, then records `cc-here-vaddr`. A missing colon on this path is error 170. The body address is the next emitted byte: stacked case labels can therefore share an address. The constant is computed in the builder; it is not an emitted expression reevaluated each time dispatch runs.
-
-`cc-switch-default` instead expects `:` with the ordinary punctuation helper and stores the current target address in `cc-switch-default-vaddr`. Zero means no default. It does not allocate a case node. Consequently the two colon failures do not use identical checks: default uses the ordinary kind/value errors 142/143.
-
-Neither registration word checks for duplicate case values, and default registration overwrites a prior nonzero default target. Reverse comparison order is harmless for distinct converted case values; it is not a duplicate-case diagnostic. Our valid examples use distinct constants and at most one default.
-
-### Legacy dispatch: walk the recorded cases
-
-On the legacy route, `cc-emit-switch-dispatch` visits the newest case node first. It loads K at node+0, emits a seven-byte CMP RBX with a sign-extended imm32, loads the recorded target V at node+8, emits a six-byte relative JE to V, then follows node+16. The constants in the following layout fit the signed-32 comparison range. An absolute target argument still produces a relative branch; the [native detail](#native-detail-convert-before-choosing-comparison-width) explains when the comparison needs a wider constant.
-
-The walker neither frees nodes nor clears the owner. `cc-emit-je-vaddr` emits `0F 84` and calculates its rel32 from the end of the forthcoming four-byte field. Sources: [dispatch walker](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L491-L502) and [JE encoder](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L94-L101).
-
 ## Work a complete switch layout
 
-Use initialized legacy integer locals in this source pattern:
+The paths are settled. Now use the same control-flow skeleton in a schematic byte-layout exercise.
 
-```c
-switch (n) {
-case 2: pad = pad + 2;
-case 5: pad = pad + 5; break;
-default: pad = 0;
-}
-```
+### State key
 
-Predict first: which case comparison is emitted first, and what happens for n=2? The source order of bodies and the list order of comparisons need not agree.
+Keep these quantities apart: the builder's Forth data/return stacks, the builder's output-byte cursor, and the future CPU's registers/stack. We write B.D and B.R for the builder stacks, with the rightmost item on top. A node address N belongs to builder memory; an output offset q names a byte field in the generated file; a target address V is `0x400000+offset`. Generated RSP=S names a future stack boundary, never a builder node. Byte lists run from low to high addresses and multibyte fields are little-endian.
 
-For a compact arithmetic exercise, **stipulate** that expression emission has just ended at offset 1000 and that the three assignment bodies occupy 12, 7, and 10 bytes respectively. These are chosen body extents, not measured encodings of these assignments. Everything else below uses the actual listed control-instruction widths.
+For two short checks, (1) a JMP's four-byte field begins at output offset 101 and its target is offset 160: what displacement belongs there? (2) does builder `>r` emit a generated PUSH? [Check the answers](../practice/17-solutions.md#entry-check), or refresh [C10's field/list contracts](10-calls-literals-and-deferred-addresses.md#a-node-has-two-builder-cells-even-for-a-four-byte-patch).
+
+`cc-emit-push-rbx` appends `53`; `cc-emit-mov-rbx-rdi` appends `48 89 FB`; `cc-emit-pop-rbx` appends `5B`. Legacy comparison uses a seven-byte CMP RBX with a sign-extended imm32. The constants two and five fit that signed-32 range. `cc-emit-je-vaddr` emits `0F 84` followed by a four-byte displacement, six bytes in total. Its absolute target argument still produces a relative branch, measured from the end of that field. Assume every displacement fits rel32. Source: [JE encoder](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L94-L101).
+
+For this exercise, **stipulate** that expression emission has just ended at offset 1000. Use replacement regions of 12, 7, and 10 bytes for the three bodies, respectively. These are chosen replacement-body extents, not measured encodings of the assignments. Everything else below uses the actual listed control-instruction widths.
 
 | Output offsets | Emitted item | Stored record or patch field |
 |---|---|---|
@@ -159,15 +161,7 @@ For a compact arithmetic exercise, **stipulate** that expression emission has ju
 | 1079 | POP RBX | end-A |
 | 1080 | Next instruction | Switch complete |
 
-At runtime, n=5 matches the first comparison, executes the second body, and takes its break to the pop. With n=2, the first comparison fails, the second succeeds, and execution runs the first body **then falls through into the second body** before the break. The selector's reverse order has not reversed the bodies. With n=9, both comparisons fail; the default jump runs its body, whose body-end jump skips the selector and reaches the pop. Each normal exit performs exactly one restoration.
-
-If there is no default, the selector's final jump is another forward break-list entry. If there are no cases either, the chain emits no comparisons and the final no-match jump goes straight to the pop. The body-end jump is still emitted even if earlier branches make it unreachable. Omitting it as a presumed optimization would need a different reachability argument; this algorithm does not make one.
-
-**Pause/resume.** Keep the two sequences separate: `case-head=5→2` in builder memory and `body2→body5→default` in output order. On returning, explain the n=2 path before recalculating a byte. If you can justify the path but miss a displacement, repair only the field-end arithmetic.
-
 ### Byte-layout detail: calculate the branches
-
-This pass supports C17-02(b); the selected paths above are enough for part (a).
 
 For a field at q and a destination at output offset T, compute `T−(q+4)`. The executable base cancels only because both coordinates refer to this same image.
 
@@ -180,9 +174,31 @@ For a field at q and a destination at output offset T, compute `T−(q+4)`. The 
 | JE case 2 | `1009−1074=−65` | `BF FF FF FF` |
 | JMP default | `1033−1079=−46` | `D2 FF FF FF` |
 
+Keep `case-head=5→2` beside `body2→body5→default`. If only a displacement differs, recheck the field-end subtraction. C17-02 applies these coordinates to the no-default change.
+
+### Source detail: case-node storage and traversal
+
+The earlier `(constant, target)` pairs are implemented as linked nodes. Here are the storage and traversal operations behind that conceptual list.
+
+`cc-switch-cases-head` holds the first pointer in a linked list of these records. A record is a **node** in builder memory, separate from the emitted instructions. Each node contains three eight-byte cells, 24 bytes in total:
+
+| Byte offset within node | Cell contents |
+|---:|---|
+| 0 | Case constant K, converted when the selected profile requires it |
+| 8 | Absolute target virtual address V of the body's next instruction |
+| 16 | Next builder-node pointer, zero at the end |
+
+[`cc-add-switch-case`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L431-L467) receives `(K,V)`, allocates 24 bytes, stores V at node+8 and K at node, links node+16 to the old head, and installs the new head. It temporarily saves the node on the builder's return stack so it can consume K and V without losing the allocation. It emits no instruction.
+
+The resulting physical chain is `head → {5,V5,...} → {2,V2,0}`. The address of a node in compiler memory is not V2 or V5: those values identify instructions in the generated program. `cc-switch-default-vaddr` holds the separate default target.
+
+`cc-emit-switch-dispatch` starts at the head and, for each node, loads K from node+0, emits its comparison, loads V from node+8, emits JE to V, then follows node+16 until it reaches zero. This is the offset-level implementation of the newest-first walk already traced.
+
+Source: [dispatch walker](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L491-L502). The walk neither frees its nodes nor clears the head.
+
 ### Parser detail: how the switch is assembled
 
-This step-by-step pass supports recursive ownership and the scope distinctions in C17-04.
+Now follow the parser that builds this layout, including the compiler state it protects across nested switches.
 
 The complete control algorithm of [`cc-parse-switch`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L508-L596) is:
 
@@ -201,9 +217,19 @@ The required `{` is an implementation boundary: this parser does not accept ever
 
 The brace loop, like the compound loop, has no dedicated EOF recovery branch. We trace well-formed bounded bodies and do not invent a missing-brace message. Body declarations can emit initialization code before the first case, but the initial jump bypasses such code on direct entry to a later case. Emitting a declaration does not establish that every generated path executed its initializer.
 
+### Reading case and default labels
+
+`cc-switch-case` calls `cc-parse-const`, converts K with `cc-switch-label`, reads and checks `:`, then records `cc-here-vaddr`. A missing colon on this path is error 170. The body address is the next emitted byte: stacked case labels can therefore share an address.
+
+`cc-switch-default` instead expects `:` with the ordinary punctuation helper and stores the current target address in `cc-switch-default-vaddr`. Zero means no default. It does not allocate a case node. Consequently the two colon failures do not use identical checks: default uses the ordinary kind/value errors 142/143.
+
+Neither registration word checks for duplicate case values, and default registration overwrites a prior nonzero default target. Reverse comparison order is harmless for distinct converted case values; it is not a duplicate-case diagnostic. Our valid examples use distinct constants and at most one default.
+
+If there is no default, the selector's final jump is another forward break-list entry. If there are no cases either, the chain emits no comparisons and the final no-match jump goes straight to the pop. The body-end jump is still emitted even if earlier branches make it unreachable. Omitting it as a presumed optimization would need a different reachability argument; this algorithm does not make one.
+
 ### Native detail: convert before choosing comparison width
 
-This detail supports C17-03. The first switch session uses the legacy comparison contract above.
+Two and five fit the short comparison. Now change the controlling type to an unsigned 32-bit integer and use `case -1:`. The converted constant is no longer the 64-bit value −1. The native path must preserve that distinction when it chooses instructions.
 
 Legacy `cc-switch-label` returns K unchanged. With LP64 selected, it examines `cc-switch-type`, the recorded promoted controlling type. If its size is four bytes, it masks K to 32 bits. For a signed controlling type, it then subtracts `2^32` when bit 31 is set. For an unsigned type it keeps the masked nonnegative value. Eight-byte controlling types take no conversion in this helper.
 
@@ -215,7 +241,7 @@ For the same source constant −1:
 | LP64 unsigned 32-bit int | 4,294,967,295 (`0x00000000FFFFFFFF`) | RBX equals that zero-extended value |
 | Legacy route | K unchanged | Legacy imm32 encoding contract applies |
 
-The controls' value-producing paths must supply the corresponding representation. `cc-unary-type` in `100` promotes nonpointer types smaller than four bytes to int; it is a type-metadata operation, not itself an emitted conversion. The integer-use hook initially drops its type input. A later [binary64 provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L247-L251) rejects its floating types with 232. Naming that hook does not establish complete controlling-expression type validation in every profile. These are bounded provider seams, not an invitation to mix native types with legacy assumptions.
+The controls' value-producing paths must supply the corresponding representation. `cc-unary-type` in `100` promotes nonpointer types smaller than four bytes to int; it is a type-metadata operation, not itself an emitted conversion. The integer-use hook initially drops its type input. A later [binary64 provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L247-L251) rejects its floating types with 232. Naming that hook does not establish complete controlling-expression type validation in every profile.
 
 [`cc-emit-switch-compare`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L449-L502) chooses between:
 
@@ -227,6 +253,8 @@ The range test computes the low-64-bit sum `K+2^31`, divides **unsigned** by `2^
 Sources for the supporting contracts: [promoted metadata and integer-use defaults in 100](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L175-L217), [encoders in 090](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L258-L273), and [JE encoder in 112](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L94-L101).
 
 ## Recursion must restore the owner, not just the target
+
+Recall [C15's scope distinction](15-declarations-and-recursive-records.md): (4) does restoring symbol count also restore local-slot allocation? [Check that distinction](../practice/17-solutions.md#entry-check) before adding nested jump lists.
 
 Let an outer switch currently own case head C, default target D, break head B, and type T. Just before its body, B.R contains the saved surrounding values followed by its initial jump field q. During an inner switch call, the relevant suffix becomes:
 
@@ -247,6 +275,19 @@ Under LP64, the dispatcher additionally recognizes `case` and `default` while pa
 Legacy dispatch lacks those extra case/default branches. Its supported route is the inline switch-body interception, not a promise that labels nested arbitrarily within other statements work. An inner switch naturally installs its own owner, so a label parsed inside that inner switch belongs to it. The exact [LP64 dispatcher extension](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L865-L880) rejects a case/default seen through that route at depth zero with 170.
 
 ## Labels have a function-wide identity
+
+A switch learns every case address before emitting its selector. A named jump can arrive in the opposite order:
+
+```c
+if (n) goto done;
+pad = pad + 2;
+done:
+pad = pad + 5;
+```
+
+Use a function body outside switches, with initialized locals and `done` not a typedef. At `goto done;`, the target instruction has not been emitted. What can the compiler remember so that the later definition can finish this and any other earlier jump to `done`?
+
+An unfinished JMP field is enough for the instruction. A shared table row for `done` connects those fields to the eventual definition.
 
 A switch case is a constant and a target, owned by the current switch. A named label instead has an identifier, can be referenced before definition, and belongs to the current function. The label table is separate from the ordinary symbol table. Braces do not remove its rows.
 
@@ -275,32 +316,6 @@ Zero target is a sentinel because these generated code addresses are nonzero. ID
 For legacy, definition fetches the row's head and calls `cc-walk-and-patch-fixups`, resolving every pending goto to the current position. The walker does not clear the head or reclaim nodes, and this definition word does neither afterward. Later duplicate definitions are rejected by the nonzero target. For LP64, definition intentionally does **not** walk the list: its nodes have another shape and require a later completion event.
 
 Function entry resets `cc-label-count` to zero, not every backing byte. The next created row overwrites its name pair and zeros its target, head, and depth before that row becomes active. Thus equal spelling in different functions does not inherit an old address or an old pending list. The verified entry consumers are [legacy `cc-parse-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L273-L280), [private-stack native `cc-native-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L55-L60), and [System V `cc-sysv-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1233-L1238). Their complete frame mechanisms belong to C18 and later provider chapters.
-
-### Reference: selected label storage
-
-This reference is needed for C17-05's address calculations. For the legacy-goto session, continue to [A legacy goto finishes at the label](#a-legacy-goto-finishes-at-the-label); the identity and lookup contracts above are sufficient.
-
-Each accessor reads a selected base cell. The five initial object/base-cell pairs are:
-
-- `cc-label-default-name-addr` / `cc-label-name-addr-buffer`
-- `cc-label-default-name-len` / `cc-label-name-len-buffer`
-- `cc-label-default-vaddr` / `cc-label-vaddr-buffer`
-- `cc-label-default-fixup` / `cc-label-fixup-buffer`
-- `cc-label-default-switch-depth` / `cc-label-switch-depth-buffer`
-
-The top-level initialization stores each default object's address in its paired base cell; each default array reserves `64*8=512` bytes. `cc-label-limit` initially contains `cc-label-default-cap`, 64, and `cc-label-cap` reads the selected limit. This indirection lets storage selection change without changing every client.
-
-`cc-label-default-workspace` reinstalls the five default bases and limit 64. `cc-label-direct-workspace` allocates once, caching the mapping in `cc-label-direct-base`, then installs limit `cc-label-direct-cap=1024` and these offsets from mapping base A:
-
-| Column | Direct base | Extent |
-|---|---|---:|
-| Names | A | 8,192 bytes |
-| Lengths | A+8,192 | 8,192 bytes |
-| Target addresses | A+16,384 | 8,192 bytes |
-| Fixup heads | A+24,576 | 8,192 bytes |
-| Definition depths | A+32,768 | 8,192 bytes |
-
-The whole mapping is `1024*40=40,960` bytes, ten 4,096-byte pages. Each column spans two pages. The mapping request uses `cc-workspace-map` with failure code 171. Re-selecting a nonzero cached base does not allocate again. These selectors change all five bases and the limit together; they do not reset the count, migrate active rows, copy names, or expand the node arena. Select them before normal initialization, not halfway through a live function. The source comment attributes the chosen bound to a 739-label function in its direct-GCC workload; that is a source-reported motivation, not a count measured in this chapter.
 
 ## A legacy goto finishes at the label
 
@@ -389,6 +404,8 @@ For a known target, the same depth arithmetic is emitted at the goto site direct
 
 ## The identifier fork needs one speculative token
 
+How does the compiler recognize `done:` as a label rather than a variable or typedef? Recall [C06's token record and lexer marks](06-tokens-and-lookahead.md), then check (3): if a mark restores a consumed identifier whose pending flag was zero, is it now pending? [Check the flag](../practice/17-solutions.md#entry-check) before following the reads.
+
 Given these independent statement starts, the leading token kind is the same:
 
 ```c
@@ -435,7 +452,7 @@ The shared `cc-peek-mark` works because the interval between mark and decision o
 4. On true, define the saved label. Under LP64, recursively call `cc-parse-stmt-fwd` for the following labeled statement; under legacy, return immediately after the definition
 5. On false, discard the saved name pair and call the expression-statement adapter, which puts the restored identifier back, parses the expression, and requires `;`
 
-The typedef payload's depth supplies the starting depth for each declarator, so the admitted legacy `int_ptr p;` gives p depth one. The parser does not treat the spelling `int_ptr` as a type merely because it resembles one; it requires the row's kind.
+As in [C15](15-declarations-and-recursive-records.md), the typedef payload's depth supplies the starting depth for each declarator, so the admitted legacy `int_ptr p;` gives p depth one. The parser does not treat the spelling `int_ptr` as a type merely because it resembles one; it requires the row's kind.
 
 Under LP64, the earlier dispatcher branch asks `cc-native-type-start-fwd` or tests keyword `typedef`. The actual [provider in 115](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L83-L91) recognizes existing typedef identifiers, so an ordinary native typedef-led declaration goes to `cc-native-decl-fwd` before reaching this legacy adapter. This is the statement-level declaration seam opened by C15, not an additional declaration implementation in this chapter.
 
@@ -443,25 +460,35 @@ There are two boundaries worth keeping visible. First, a name that currently res
 
 Together, these decisions extend C16's dispatcher without changing its ordinary expression adapter: LP64 nested case/default checks come first, native type starts get first refusal, and later identifier handling performs the remaining lookup/colon/expression fork. Parser ownership determines which token is read next; surface indentation does not.
 
-## Check claims at the actual completion event
+### Reference: selected label storage
 
-This compact ledger is a safeguard when comparing profiles or debugging a paper trace:
+The row operations stay the same when storage changes. A larger workspace must replace all five array bases and their common bound. C17-05 uses these exact addresses.
 
-| Claim | Inspected evidence | Limit |
-|---|---|---|
-| Normal switch exits restore one saved RBX | `112`, `cc-parse-switch`, end-A before POP | Requires a path with the matching entry save; nonlocal exits need separate accounting |
-| Continue restores intervening switch saves | `112`, `cc-parse-continue-stmt`; `110`, `cc-emit-switch-unwind` | Assumes a valid enclosing loop and balanced generated temporaries |
-| Cases select a recorded body | `cc-switch-case`, `cc-emit-switch-dispatch` | Distinct converted constants; no duplicate/default check in these words |
-| Label creation is capacity checked | `cc-label-create`, `cc-check-cap` | Selected arrays must agree with the limit; selectors do not migrate live rows |
-| Legacy forward goto is patched when defined | `cc-define-label` legacy branch | Target must be outside switches; no legacy function-end missing-label check |
-| Native forward goto is completed through a trampoline | `cc-native-finish-gotos` plus actual `117`/`121` callers | Records depth, not full switch ancestry or general legality of skipped initialization |
-| Colon lookahead preserves an expression start | `cc-peek-after-is-colon?` plus expression adapter | Reset restores original pending flag; adapter supplies the putback |
+Each accessor reads a selected base cell. The five initial object/base-cell pairs are:
 
-All rows are source inspection plus the stated manual derivations. None is an executed test, a proof of the whole compiler, or a learner study. A source comment, a successful fixture reported elsewhere, or a familiar language rule cannot silently strengthen these local contracts.
+- `cc-label-default-name-addr` / `cc-label-name-addr-buffer`
+- `cc-label-default-name-len` / `cc-label-name-len-buffer`
+- `cc-label-default-vaddr` / `cc-label-vaddr-buffer`
+- `cc-label-default-fixup` / `cc-label-fixup-buffer`
+- `cc-label-default-switch-depth` / `cc-label-switch-depth-buffer`
+
+The top-level initialization stores each default object's address in its paired base cell; each default array reserves `64*8=512` bytes. `cc-label-limit` initially contains `cc-label-default-cap`, 64, and `cc-label-cap` reads the selected limit. This indirection lets storage selection change without changing every client.
+
+`cc-label-default-workspace` reinstalls the five default bases and limit 64. `cc-label-direct-workspace` allocates once, caching the mapping in `cc-label-direct-base`, then installs limit `cc-label-direct-cap=1024` and these offsets from mapping base A:
+
+| Column | Direct base | Extent |
+|---|---|---:|
+| Names | A | 8,192 bytes |
+| Lengths | A+8,192 | 8,192 bytes |
+| Target addresses | A+16,384 | 8,192 bytes |
+| Fixup heads | A+24,576 | 8,192 bytes |
+| Definition depths | A+32,768 | 8,192 bytes |
+
+The whole mapping is `1024*40=40,960` bytes, ten 4,096-byte pages. Each column spans two pages. The mapping request uses `cc-workspace-map` with failure code 171. Re-selecting a nonzero cached base does not allocate again. These selectors change all five bases and the limit together; they do not reset the count, migrate active rows, copy names, or expand the node arena. Select them before normal initialization, not halfway through a live function. The source comment attributes the chosen bound to a 739-label function in its direct-GCC workload; that is a source-reported motivation, not a count measured in this chapter.
 
 ## Practice: identify the owner before doing arithmetic
 
-State your profile, field coordinates, and generated stack obligations first. Use the [graduated hints and checked solutions](../practice/17-solutions.md) when useful; the changed reattempts keep their answers on the feedback page.
+For a path question, mark the body reached and the save restored. For a byte question, add the field offset and its destination. The [practice feedback](../practice/17-solutions.md) supplies hints and checked reasoning; the changed prompts below keep their answers separate.
 
 ### C17-01 — Count the saves crossed
 

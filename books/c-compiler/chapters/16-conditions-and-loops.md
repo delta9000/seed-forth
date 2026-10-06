@@ -1,57 +1,186 @@
 # 16. Conditions and loops
 
-The triangle's `line` function contains `while (pad > 0)`, and `main` contains `for (r = 0; r < t.rows; r = r + 1)`. Both repeat work. Yet a `continue` would need different destinations: the `while` must test again; the `for` must first increase `r`. How does a compiler remember those destinations while it is still reading the body?
+The triangle's `line` function contains `while (pad > 0)`, and `main` contains `for (r = 0; r < t.rows; r = r + 1)`. Both repeat work. Yet a `continue` needs different destinations: the `while` must test again; the `for` must first increase `r`. How can the compiler choose those destinations while it is still reading the body?
 
-This chapter follows three kinds of unfinished work: one branch held across a recursive statement call, any number of exits collected in a loop's lists, and a `for` step whose source is read before its instructions can be emitted. You will connect each unfinished item to the parser that owns it and the event that finishes it. The same accounting explains nested loops without treating a compiler variable as a generated-program variable.
+Make one prediction. Suppose `t.rows` is four and the for-body begins with `if (r == 1) continue;`. When execution reaches row one, what will make `r` become two? If the continue jumps straight to `r < t.rows`, it tests one against four again, then reaches the same continue. Something essential has been skipped.
 
-## Choose a route and check the entry contracts
+We will follow that missing step from source text to its emitted position, then calculate what the changed triangle does.
 
-Choose a session by the question you want to answer. Each has its own stopping point:
-
-1. **First session: who owns an if's unfinished branch?** Read the entry/evidence contract below, [the two-machine notation](#keep-the-builder-and-the-future-program-separate), [one parser call](#one-parser-call-one-statement), and [if completion](#an-if-has-two-possible-completion-events), including its recursive example. Attempt [C16-01](#c16-01--trace-a-recursive-owner) and **Part A: if layout** of [C16-02](#c16-02--calculate-both-branch-origins). Stop at the [first-session checkpoint](#first-session-checkpoint); known-target branches belong to the next session
-2. **Next session: where do loop exits go?** Read [known-target branches](#a-known-destination-still-becomes-a-relative-instruction), [loop-owned lists](#give-each-enclosing-construct-its-own-lists), [while](#a-while-owns-two-exit-destinations), and then [do](#a-do-loop-tests-after-its-body), skipping the intervening for sections for now. Complete C16-02 Part B, [C16-03](#c16-03--separate-three-kinds-of-nesting), and both parts of [C16-04](#c16-04--complete-a-loop-layout). The [switch-depth contrast](#when-a-switch-lies-inside-the-loop) supports C16-03's unwind question; the first loop trace uses zero depths. Stop when you can distinguish while/do continue targets and restore an outer loop's heads
-3. **Replay session: how does for preserve the next statement?** With the loop contracts available, read [source versus execution order](#a-for-separates-source-order-from-execution-order) and [step replay](#replay-the-step-without-losing-the-next-statement). Attempt [C16-05](#c16-05--repair-a-replay-account), [C16-06](#c16-06--protect-an-outer-for), and [C16-08](#c16-08--change-the-triangles-behavior-deliberately). Stop when you can separate the saved lexer mark, source length, and outer for scratch
-4. **Reference return: which parser gets this token?** Read the [complete dispatcher/profile reference](#close-the-dispatcher-without-hiding-its-other-clients) and attempt [C16-07](#c16-07--select-an-interface-without-importing-its-implementation). This can wait until after replay
-
-If a route is already familiar, try its exercise first and recover only the transition you cannot justify. None requires reading another chapter from beginning to end.
-
-Bring these small contracts as each route needs them; the list-node contract first enters the loop session:
-
-- [C06's token interface](06-tokens-and-lookahead.md): a current token is a record; putting it back makes that record pending without moving the source cursor backward
-- [C09's branch interface](09-instructions-inside-an-executable.md#patch-from-the-end-of-the-displacement-field): a rel32 field at output offset q reaches offset T by storing `T−(q+4)`
-- [C10's two-cell lists](10-calls-literals-and-deferred-addresses.md#a-node-has-two-builder-cells-even-for-a-four-byte-patch): each arena node holds an output field offset and a next-node pointer; an owner holds the head
-- [C13's expression boundary](13-precedence-and-short-circuit.md#a-ladder-of-promises): `cc-parse-expr` emits a runtime expression and materializes its result; it does not calculate the C value on the builder's data stack
-- [C15's declaration boundary](15-declarations-and-recursive-records.md#exact-expectations-advance-the-parser): an expectation helper consumes the requested punctuation; a scope pop hides symbol rows but does not reset the local-slot count
-
-Try four entry questions before the refresh. What happens to source position when a pending token is reread? Does calling an emitter immediately run its emitted instruction? Which coordinate does q name? After leaving a block, can we infer that the next local reuses its slots? [Check the entry answers](../practice/16-solutions.md#entry-check).
-
-**Edition and evidence.** The primary source is [112-cc-stmt.fth at `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth). This chapter owns its statement/compound/condition/loop mechanisms, expression-statement adapter, and core dispatcher. C17 opens switch dispatch, labels, and identifier disambiguation; we name their interfaces here before using them. C10 already opened the generic list append and both patch walkers, which we retrieve rather than silently assume.
-
-The default profile is legacy Linux/x86-64, `cc-target-lp64=0`, `cc-target-sysv=0`, eight-byte builder cells and frame slots, and executable base `0x400000`. Examples assume well-formed bounded source, sufficient builder/target storage, valid initialized objects, and fitting signed rel32 displacements. All byte, parser, and runtime traces are **manual derivations from inspected source**. No compiler build, Forth or C execution, generated-program execution, or bootstrap was performed. The historical [book30](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/30-statements-if-while-for-return.md) supplies context; current definitions settle disagreements. In particular, this edition scans `for` steps as tokens and restores a full lexer snapshot plus a separate source length.
+**Profile and evidence.** We use the legacy Linux/x86-64 compiler in [112-cc-stmt.fth, revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth), with `cc-target-lp64=0`, `cc-target-sysv=0`, and default hooks. Traces are manual derivations, not compiler or generated-program runs. Assume well-formed source, sufficient storage, valid initialized objects whenever read, and bounded arithmetic and branch distances. Native differences follow the main story.
 
 ## Keep the builder and the future program separate
 
-Use these conventions throughout:
+The **builder** is the Forth compiler running now. The **target** is the C program whose instructions it writes for later execution. Parsing an expression emits its calculation; it does not return the future C value on a Forth stack. In this profile the generated expression result is in RDI. The default value-test hook emits `TEST RDI,RDI`, which preserves RDI and sets the zero flag exactly when its value is zero. JZ branches on zero; JNZ branches on nonzero.
 
-| Notation | Meaning |
-|---|---|
-| B.D, B.R | Builder Forth data and return stacks; rightmost item is top |
-| `[…]` in a builder trace | Only the lesson's saved cells; ordinary call machinery and unchanged surrounding cells are omitted |
-| O or q | Decimal byte offset in the output file; q specifically names a displacement field |
-| V | Target virtual address; for this profile `V=0x400000+O` |
-| P, S | Symbolic target frame base and stack boundary, never builder node addresses |
-| RDI, flags, RSP | State of the future processor executing generated instructions |
-| `head=N` | A builder variable contains arena-node pointer N; zero means no node |
-
-Byte lists run from low to high addresses and store multibyte numeric fields little-endian. A minus sign in a displacement describes signed arithmetic; its four stored bytes are the low 32-bit two's-complement representation. A builder `>r` saves a compiler cell; it does not emit a target PUSH. Conversely, `cc-emit-jmp-vaddr` appends a jump; it does not jump within the compiler.
-
-The expression-value test is a deliberately small interface. [`cc-value-test-fwd`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L186-L191) initially calls `cc-emit-test-rdi`. That emits `48 85 FF`, or `TEST RDI,RDI`: future ZF is one for a zero value and zero for a nonzero value. The test preserves RDI. JZ then skips on false; JNZ repeats on true. These are future CPU flags, distinct from a Forth true flag used to select the builder's own `if,` branch. A typed provider can replace the test; selecting LP64 does not authorize assuming all future values are eight-byte integers or that every provider body lives here.
+We write the builder's data and return stacks as B.D and B.R, with the top at the right, showing only the saved cells relevant to the trace. A builder `>r` saves a compiler cell. It does not emit a target PUSH or change the future program's RSP. We will name an output field q when the compiler needs to remember where to patch it.
 
 ## One parser call, one statement
 
-A body need not begin with `{`. In `while (pad > 0) pad = pad - 1;`, the assignment itself is the body. In `while (pad > 0) { putchar(' '); pad = pad - 1; }`, the compound is one outer statement containing two inner ones.
+Before choosing a loop destination, give the parser a body boundary. In `while (pad > 0) pad = pad - 1;`, one assignment is the body. Braces can group several statements into one compound body. `cc-parse-stmt-fwd ( -- )` parses that next structured statement while preserving the caller's saved builder-stack items. It is a deferred interface because the compound, branch, and loop parsers call one another; the final dispatcher supplies its implementation.
 
-The statement interface is `cc-parse-stmt-fwd ( -- )`: begin at the next token, or at a token deliberately made pending, and parse the selected statement/declaration unit while appending its code. For the structured forms here, a completed call preserves the caller's builder stack items and stops after its own syntax. A parser may have read a following token and put it back, so “finished” does not imply that the source byte cursor sits immediately after the last semicolon. That distinction becomes essential for `for` replay. Legacy label units have a narrower boundary opened in C17; do not silently use an arbitrary label-prefixed sequence as an example of this promise.
+A completed body need not leave the source cursor immediately after its last semicolon. C06's lexer can read the following token and mark it **pending**. Its next pending-aware read returns that same token record without moving the cursor. This lets a parser discover what comes next without taking that token away from its caller.
+
+## An if has two possible completion events
+
+Consider `if (pad) pad = pad - 1; n = n - 1;`, with both locals valid and initialized. The compiler must emit the assignment to `pad`, but future execution must skip it when `pad` is zero.
+
+`cc-parse-if` owns the parentheses around the condition. It emits the condition, value test, and a JZ with an unfinished four-byte relative-displacement field q. The field will encode the distance to the chosen destination; q names where that field lives. It keeps q on B.D while `cc-parse-stmt-fwd` emits the then-body. When that call returns, the byte position after the body is known. The parser reads one token to ask whether an `else` follows.
+
+Here it reads `n`, so it puts that token back and patches q to the end of the then-body. The assignment to `n` belongs to the next statement. For an actual `else`, the parser would first emit a JMP over that else-body, patch q to the else-body's start, parse it, and finally patch the second jump to its end. A recursive inner if gets the first chance to consume its own else.
+
+One owner held one unfinished field across a recursive call. Notice the other unfinished item it leaves behind: `n` is pending even though the source cursor has already advanced past its spelling. Both facts will matter when the loop parser resumes after a body.
+
+## A while owns two exit destinations
+
+Return to the triangle's first loop:
+
+```c
+while (pad > 0) { putchar(' '); pad = pad - 1; }
+```
+
+Its generated layout has this shape. Labels below name instruction positions; they are not extra C source statements:
+
+```text
+condition: evaluate pad > 0
+           test rdi, rdi
+           jz exit
+body:      call putchar(' '); subtract one from pad
+           jmp condition
+exit:      the following statement
+```
+
+The compiler records the condition's address **before** emitting its calculation. It holds the condition-JZ field across body parsing, emits the backward JMP, then patches the field to the position after that JMP. With initial `pad=2`, the derived target visits are: test true, call `putchar(' ')` and store one; test true, call `putchar(' ')` and store zero; test false and leave. The builder parsed the body once, although the future program visits it twice.
+
+A continue must also reach the first condition instruction. Sending it only to TEST would reuse whatever RDI the body last produced instead of reevaluating `pad > 0`. A break must reach `exit`, after the backward JMP. Sending it to the JMP would turn “leave” into “repeat.”
+
+There can be many breaks and continues inside nested if statements. The loop therefore owns two lists of unfinished jump fields: `cc-break-stack-head` and `cc-continue-stack-head`. Each recorded field is patched when its destination is known. The append helper records the obligation; the enclosing loop chooses its meaning.
+
+## A do loop tests after its body
+
+To isolate test placement, use `pad = pad - 1;` as the entire body of either loop:
+
+```c
+do { pad = pad - 1; } while (pad > 0);
+```
+
+With initial `pad=0`, this body stores −1 before its test fails. The corresponding while-body would not execute. With initial `pad=2`, the do-body stores one, tests true, stores zero, then tests false.
+
+`cc-parse-do-while` records the body-top address first, parses the body, then patches continue jumps to the current position, the start of condition evaluation. After consuming `while ( expression ) ;`, it emits the value test and a JNZ back to the body top. No initial condition-JZ field is needed. Breaks target the position after the JNZ.
+
+Both while and do send continue to their condition, but those conditions occupy different places in the output. A do-continue sent to the body top would bypass the test altogether. We now have a reason to ask for a construct's exact destination rather than use the phrase “jump to the loop top.”
+
+## A for separates source order from execution order
+
+The triangle's main loop has a third action between one body visit and the next test. Here `r` is an already-declared local and `w` is a four-element array:
+
+```c
+for (r = 0; r < t.rows; r = r + 1) {
+    w[r] = 1 + r * 2;
+    line(t.rows - 1 - r, w[r]);
+    t.stars = t.stars + w[r];
+}
+```
+
+Now the opening prediction has a destination. Continue must reach `r = r + 1`; that step makes row one become row two before the condition runs again. Break must skip the step as well as the remaining body. For the three constructs:
+
+| Construct | Continue destination | Repeating edge | Break destination |
+|---|---|---|---|
+| `while` | First condition instruction | Unconditional JMP to condition | After backward JMP |
+| `for` | First step instruction, or the backward JMP if step omitted | Unconditional JMP to condition | After backward JMP |
+| `do` | First condition instruction after body | JNZ to body top | After JNZ |
+
+There is a construction problem hidden in the for-step destination. Source order is **init, condition, step, body**. Execution must reach the step after a completed body and before the next test. This parser chooses the physical layout **init, condition, body, step, backward JMP**; another layout could provide the same execution order with different jumps. Compiling each expression as soon as its text appears would not give this chosen layout.
+
+This parser emits directly rather than first building a stored syntax tree. Its solution is to remember where the step text lives, scan past it without compiling it, compile the body, then replay the step's text at the right output position. The source bytes do not move.
+
+`cc-parse-for` emits initialization once, records the condition-top address, emits the condition and its exit JZ, then captures the step's source interval. The scanner counts parenthesis **tokens**, starting at depth one for the already-open header. A grouping or call parenthesis changes depth; a parenthesis inside a character, string, or comment does not. The matching header `)` ends the captured interval and is excluded from replay. After the body has been emitted, the current output position is exactly where the step belongs, so the parser patches all continue fields to that position.
+
+## Replay the step without losing the next statement
+
+Saving the step's source interval solves the placement problem. It creates another: after reading the body, the compiler must temporarily revisit old source and then resume the input exactly where it left off. Is saving only position and source length enough?
+
+Use an if as the for-body, so the earlier token-ownership example matters. In this stipulated layout, the five step bytes `r=r+1` occupy `[40,45)`, the header `)` is at 45, and total source length is 140. The body's if has no else. Its optional-else read sees the next statement's identifier `n` at byte 90, advances the cursor to 91, and leaves `n` pending.
+
+Parsing the step will replace the current token record. If replay then restores only cursor 91 and length 140, it does not restore that already-read `n` token. A fresh byte read from 91 starts after its spelling. Leaving the old pending flag set while entering replay is no better: the first step read would receive `n` instead of retokenizing `r` at 40. We need to preserve the token promise as well as the byte boundary.
+
+### A full state transition with a pending token
+
+The parser allocates a fresh lexer **mark**, a copy of the complete state to restore later. Let the saved source line be eight. Fields unused by an identifier may contain old values U and W; they are still copied. The post-body record is:
+
+`(pos=91, line=8, kind=ident, num=U, str=src-buf+90, str-len=1, kw=W, pending=true)`
+
+This implementation copies eight reader/token-state cells: source position, source line, token kind, numeric/punctuation payload, string/name address, string/name length, keyword ID, and pending flag. It copies even fields unused by the current token, so the enclosing parser receives exactly its prior state.
+
+Source length is a separate variable in `030`, outside that block. Saving all eight cells does **not** save length, so it is preserved separately on B.R. `cc-lex-mark` copies the complete state into the allocated block; `cc-lex-reset` copies it back.
+
+That full copy is this source's uniform snapshot design. The pending-`n` example shows why position and length alone are insufficient; it does not establish a minimal snapshot representation. The replay proceeds in this order:
+
+| Transition | Source position/length | Token-state consequence | Output consequence |
+|---|---|---|---|
+| Mark post-body state | 91 / 140 | All eight cells copied to fresh block M | None |
+| Save length, install step window | 40 / 45 | Pending cleared so the old `n` cannot be returned | None |
+| Parse step | Advances within `[40,45)` | Replay replaces token fields; EOF is at window end | Append code for `r=r+1` after the body |
+| Restore length | Replay position / 140 | Replay token state still present briefly | None |
+| Reset from M | 91 / 140 | Exact saved `n` record and pending=true restored | Emitted step code remains |
+| Next outer token read | Still 91 / 140 | Returns pending `n`, clears pending | No source byte reread |
+
+Clearing pending protects the entrance to replay; resetting from the full mark protects the return. The restored source length makes later bytes available again. None of those restorations removes the step instructions just appended to the output.
+
+The saved mark must also survive parsing the step. For a valid legacy step such as `++r`, with r a local, [the prefix-update parser calls `cc-name-alone?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1380-L1410). That helper saves a new lexer state into the shared `cc-peek-mark` buffer. If the outer replay snapshot occupied that same buffer, the new mark would overwrite it. Fresh storage M keeps the two snapshots separate. This is a general valid-step counterexample; it does not assert that the specific `r=r+1` fixture overwrites the shared mark.
+
+For an omitted step, the parser first skips whitespace and comments inside the temporary window. If nothing remains, it makes no expression-parser call. Continue still has a destination: the backward JMP that will occupy the empty step position.
+
+### Close the loop in reverse ownership order
+
+After restoring the post-body lexer state, the parser emits JMP to the condition-top address, patches the condition's exit field to the new end, and patches breaks to that same end. Its emitted loop is complete. It must now give the enclosing parser back its own unfinished work.
+
+An inner loop must restore the outer break/continue heads after patching its own lists. An inner for must also preserve the outer condition target, exit field, and step span. Those are separate from lexer state: restoring a token record cannot recover loop targets or source intervals. All these saves belong to the builder; they are not emitted target-stack PUSH instructions.
+
+## Follow the changed triangle
+
+We can now follow the opening continue through a complete bounded example. Keep `ROWS=4`, `t.rows=4`, and initial `t.stars=0`. The statements after the loop in the [canonical triangle](01-compiler-entry-and-profile.md#read-enough-c-to-follow-the-example) are:
+
+```c
+if (t.stars == ROWS * ROWS) return t.stars;
+return 1;
+```
+
+Without a new exit, the body computes one, three, five, and seven:
+
+| r at successful condition | Body's `w[r]` | `t.stars` after body | r after step |
+|---:|---:|---:|---:|
+| 0 | 1 | 1 | 1 |
+| 1 | 3 | 4 | 2 |
+| 2 | 5 | 9 | 3 |
+| 3 | 7 | 16 | 4 |
+
+The next condition, `4<4`, fails, so no fifth body or step is reached. Now put `if (r == 1) continue;` immediately before the array assignment. At r=1, the branch skips the assignment, line call, and star update, but reaches the emitted step. That step stores two in r. Body work resumes for rows two and three.
+
+Replace only `continue` with `break`, and that same visit leaves before its step. The different destinations give these derived outcomes:
+
+| Body variant | Rows that do the array/call/update work | Final r | Final `t.stars` | Selected return |
+|---|---|---:|---:|---:|
+| Original | 0, 1, 2, 3 | 4 | 16 | 16 |
+| Early continue at r=1 | 0, 2, 3 | 4 | `1+5+7=13` | 1 |
+| Early break at r=1 | 0 | 1 | 1 | 1 |
+
+In the continue case, `w[1]` remains unassigned, but the operations that would read it are also skipped. Every reached `w[r]` read still follows its assignment in that row. In the break case, only `w[0]` is assigned and read before the loop ends. This safety argument depends on the given body order; a different later read could invalidate it.
+
+That is what the compiler's bookkeeping bought: a continue can skip one interval of body code without losing the step, the enclosing parser's next token, or an outer loop's unfinished jumps. The generated program follows those selected edges; the builder's lists and lexer marks never become its runtime variables.
+
+### Move the continue after the update
+
+Move `if (r == 1) continue;` to **after** the `t.stars` update, the last work in the body. Before checking, predict which original totals change. Does the jump now skip any body work at all? This is the changed case for C16-08; [check its reasoning](../practice/16-solutions.md#small-change-move-the-continue) when ready. The larger counter-instrumentation design remains in deeper practice.
+
+## Return to the source and practice
+
+The story above is a complete first reading. You can stop with “continue reaches step; full lexer state preserves pending `n`; inner loops restore outer owners.” The sections below open the exact source, numerical fields, and profile boundaries. Use C16-01/02 for branches, C16-03/04 for loop owners, C16-05/06 for replay, and C16-07 for dispatch; C16-08 adds an independent layout design.
+
+If a particular transition needs repair, retrieve only its contract: [C06 tokens](06-tokens-and-lookahead.md), [C09 rel32 origin](09-instructions-inside-an-executable.md#patch-from-the-end-of-the-displacement-field), [C10 list nodes](10-calls-literals-and-deferred-addresses.md#a-node-has-two-builder-cells-even-for-a-four-byte-patch), [C13 expression consumption](13-precedence-and-short-circuit.md#a-ladder-of-promises), or [C15 scope and punctuation](15-declarations-and-recursive-records.md#exact-expectations-advance-the-parser).
+
+Four return checks are available without restarting: what moves when a pending token is reread; whether an emitter runs its emitted instruction; which coordinate q names; and whether a scope pop reuses local slots. [Check the entry answers](../practice/16-solutions.md#entry-check).
+
+## Reference: statement boundaries and recursive branches
 
 The source solves a definition-order cycle with a deferred word:
 
@@ -94,7 +223,11 @@ The loop test consumes `}` and does not put it back. Every other token is made p
 
 **Input/error boundary.** This is a well-formed-input trace. The compound loop has no dedicated EOF test or local recovery branch; an EOF token is not a closing brace and enters downstream parsing. Do not promise a particular missing-brace diagnosis from this loop alone. [The actual scope provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L152-L167) checks scope capacity with 61 and an unmatched pop with 62.
 
-## An if has two possible completion events
+### Reference: both if completion paths
+
+For these byte calculations, O and q are decimal output-file byte offsets; q names a displacement field. V is a target virtual address, with `V=0x400000+O` in this fixed-address profile. Neither is a pointer into the builder's arena. Byte lists run from lower to higher addresses, with multibyte numeric fields little-endian. A signed negative rel32 is stored as its low 32-bit two's-complement pattern. A field at q targeting offset T stores `T−(q+4)`, measured from the field's end.
+
+The default [`cc-value-test-fwd`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L186-L191) calls `cc-emit-test-rdi`, emitting `48 85 FF`. It preserves RDI and sets future ZF for zero. Those CPU flags are distinct from a Forth true flag selecting a builder `if,` branch. A typed provider may replace the hook; selecting LP64 alone does not identify every provider or make every generated value an eight-byte integer.
 
 The parser enters with `if` consumed. It owns the parentheses; `cc-parse-expr` owns the condition expression. Here is the complete [branch algorithm](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L49-L70):
 
@@ -153,9 +286,9 @@ Only then does the outer parser look for an `else`. It sees `return`, puts it ba
 
 If braces instead surround the inner statement, the inner's no-else read can see `}`, put it back, and return. The compound consumes that brace; the outer's subsequent lookahead may then claim an `else` outside it. Token ownership, rather than indentation, determines that boundary.
 
-### First-session checkpoint
+### Branch-owner checkpoint
 
-After C16-01 and C16-02 Part A, stop when you can explain which recursive parser consumes `else`, what token remains pending afterward, and why each saved field is patched at that event. Save qO and qI as field offsets, not target addresses. On returning, reconstruct that token ledger before adding known-target branches or loop lists.
+For a short return to the branch mechanism, use C16-01 and C16-02 Part A. Explain which recursive parser consumes `else`, what token remains pending afterward, and why each saved field is patched at that event. Keep qO and qI as field offsets rather than target addresses.
 
 ## A known destination still becomes a relative instruction
 
@@ -202,7 +335,7 @@ A single `if` needs a fixed number of fields. A loop body can contain many `brea
 | `cc-for-end-fixup` | Current `for`'s condition-JZ field offset |
 | `cc-for-step-start`, `cc-for-step-end` | Source byte offsets bounding the current `for` step, end-exclusive |
 
-The four `cc-for-*` cells return in the replay session; the first loop trace needs the two heads and walker scratch.
+The four `cc-for-*` cells preserve the replay context described above; the two heads and walker scratch serve ordinary loops too.
 
 The names “stack-head” describe saved nesting contexts; the lists themselves are linked arena nodes. The complete [append adapters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L118-L134) select the mutable head cell:
 
@@ -230,7 +363,7 @@ If a list holds field offsets 361 then 341 and current output position is 405, t
 
 ### Break and continue consume syntax before adding work
 
-**Switch-free starting point.** In the first loop trace, both `cc-switch-depth` and `cc-loop-switch-depth` are zero. Their difference is zero, so the unwind callback emits no restore instruction. Keep that small contract while reading the adapters; the [switch contrast](#when-a-switch-lies-inside-the-loop) below explains nonzero depths when you need them.
+**Switch-free starting point.** In the switch-free traces, both `cc-switch-depth` and `cc-loop-switch-depth` are zero. Their difference is zero, so the unwind callback emits no restore instruction. The switch contrast below explains the nonzero case.
 
 The full [statement adapters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L605-L620) are:
 
@@ -254,19 +387,11 @@ The leading keyword is already consumed. The semicolon expectation precedes the 
 
 ### When a switch lies inside the loop
 
-**Optional depth for the switch-free trace; needed for C16-03's unwind question.** We need C15's named switch-depth interface, but not yet its producer. Each open switch has one saved target RBX to restore. `cc-switch-depth` counts those lexical obligations; `cc-loop-switch-depth` records the depth when the current loop was entered. `cc-emit-switch-unwind ( n -- )` appends n `POP RBX` instructions for a nonnegative count. It does not alter the builder's depth variables or pop B.R. C17 establishes how switches create the obligations and route normal exits.
+**Switch-depth extension, used in C16-03.** We need C15's named switch-depth interface, but not yet its producer. Each open switch has one saved target RBX to restore. `cc-switch-depth` counts those lexical obligations; `cc-loop-switch-depth` records the depth when the current loop was entered. `cc-emit-switch-unwind ( n -- )` appends n `POP RBX` instructions for a nonnegative count. It does not alter the builder's depth variables or pop B.R. C17 establishes how switches create the obligations and route normal exits.
 
 A continue from depth three to a loop entered at depth one emits two restores before its JMP. A loop entered inside a switch at depth one, with no newer switch around the continue, emits zero. Restoring the enclosing switch in that second case would discard state the surrounding construct still owns. Break emits no explicit unwind here: its current owner's exit destination performs any required switch restoration. Return uses a different count, all open switches, as C15 established.
 
-## A while owns two exit destinations
-
-The recurring body is:
-
-```c
-while (pad > 0) { putchar(' '); pad = pad - 1; }
-```
-
-The builder will parse that body once and emit a backward edge. Future execution may visit it repeatedly. The condition's first instruction is both the backward destination and the `continue` destination, so `pad > 0` is reevaluated after each visit.
+## Reference: the complete while owner
 
 Before reading the source, name the saved state: outer break head Bo, outer continue head Co, previous loop depth Do, current switch depth D, condition-top address Vtop, and condition field qE. In the first switch-free trace, Do=D=0. The stacks below show only this parser's saved cells, with top at the right.
 
@@ -282,7 +407,7 @@ Before reading the source, name the saved state: outer break head Bo, outer cont
 
 ### Read the complete while body
 
-On a source-detail pass, match this [complete parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L192-L226) to the ledger. If the ledger is enough for your first pass, continue to [the byte layout](#check-the-while-bytes) and return to the listing later:
+On a source-detail pass, match this [complete parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L192-L226) to the ledger. The following byte layout then gives each edge a numerical destination:
 
 ```forth
 : cc-parse-while
@@ -349,21 +474,7 @@ Suppose the outer loop has already recorded break node B1 and continue node C1. 
 
 B1 through C2 are symbolic builder node addresses, not target labels. Inner nodes remain allocated after their obligations are discharged. Saving and restoring the heads supplies nesting; the generic walker does not discover which loop a jump belongs to.
 
-For the original `pad` loop with initial `pad=2`, the conditional runtime prediction is: test true, print one space, store one; test true, print another space, store zero; test false, leave. Neither the builder's loop-parsing count nor its scope depth becomes two because this future execution repeats twice.
-
-## A for separates source order from execution order
-
-The triangle has already declared `r`, so its header uses assignment initialization:
-
-```c
-for (r = 0; r < t.rows; r = r + 1) {
-    w[r] = 1 + r * 2;
-    line(t.rows - 1 - r, w[r]);
-    t.stars = t.stars + w[r];
-}
-```
-
-Source order is init, condition, step, body. Required emitted order is init, condition, body, step, backward JMP. The parser emits directly rather than building a stored syntax tree. It resolves this mismatch by scanning over the step without compiling it, compiling the body, and then replaying the step's source window into the output buffer at its new position. The source bytes themselves never move.
+## Reference: for setup and source capture
 
 The [first half of `cc-parse-for`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L247-L290) performs these transitions:
 
@@ -410,11 +521,34 @@ Depth begins at one because the outer header's `(` has already been consumed. Fo
 
 The end offset is the position of the header's final one-byte `)`, excluded from the step window. Whitespace preceding that parenthesis remains inside the window. The scanner checks EOF while searching, but does not separately reject a nonzero remaining depth before assigning `pos−1` and attempting the body. Our derivation therefore requires a matched header; it does not promise a clean dedicated “missing for parenthesis” error.
 
-Next, `cc-parse-stmt-fwd` emits the body. The source is now after the body, possibly with a following token pending. At this exact output position, before replaying the step, the parser patches the continue list to here. This is why `continue` in a `for` performs the step, rather than jumping directly to the condition.
+After `cc-parse-stmt-fwd` emits the body, `cc-continue-stack-head @ cc-walk-and-patch-fixups` patches the continue fields to the current output position, before step replay.
 
-## Replay the step without losing the next statement
+### For completion order
 
-It is tempting to save only `cc-src-pos`. That would preserve a byte coordinate while losing which token those bytes belonged to. The current implementation instead uses a fresh arena-allocated lexer snapshot:
+After restoring the post-body lexer state, the parser emits JMP to `cc-for-top-vaddr`, patches `cc-for-end-fixup` to the new end, and patches the break list to that same end. It restores the saved outer loop switch-depth, continue head, and break head in reverse save order. Then it pops the for-scope and restores step-end, step-start, end-fixup, and top scratch cells in reverse order. [112:337–352](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L337-L352) supplies that closure.
+
+### Keep the outer for's state
+
+For a nested `for`, the outer saved state might be `(Vouter,qOuter,40,45)`: condition-top address Vouter, condition-exit field qOuter, and step interval `[40,45)`. The inner parser temporarily replaces all four components, completes its own replay and patches, then restores exactly that tuple. The outer parser can now replay its own window. Restoring only its top address would still risk replaying the inner step or patching the inner condition again. Likewise, a full lexer mark cannot replace the four scratch saves: it contains no loop target or step-range cells.
+
+### The replay mark's physical layout
+
+The [replay block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L322-L335) allocates **64 bytes**, not a pair of cells. From [020's layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth#L19-L28), the mark contains:
+
+| Mark byte offset | Saved cell |
+|---:|---|
+| 0 | Source position |
+| 8 | Source line |
+| 16 | Token kind |
+| 24 | Token numeric/punctuation payload |
+| 32 | Token string/name address |
+| 40 | Token string/name length |
+| 48 | Token keyword ID |
+| 56 | Pending-token flag |
+
+### Read the complete replay block
+
+The state table in the story corresponds to this exact [112:322–335 block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L322-L335):
 
 ```forth
   cc-lex-state-size cc-alloc dup cc-lex-mark >r
@@ -433,72 +567,15 @@ It is tempting to save only `cc-src-pos`. That would preserve a byte coordinate 
   r> cc-lex-reset
 ```
 
-This exact [replay block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L322-L335) allocates **64 bytes**, not a pair of cells. From [020's layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth#L19-L28), the mark contains:
+The [mark/reset copy helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L666-L689) copy eight eight-byte builder cells between the lexer block and the supplied mark storage.
 
-| Mark byte offset | Saved cell |
-|---:|---|
-| 0 | Source position |
-| 8 | Source line |
-| 16 | Token kind |
-| 24 | Token numeric/punctuation payload |
-| 32 | Token string/name address |
-| 40 | Token string/name length |
-| 48 | Token keyword ID |
-| 56 | Pending-token flag |
-
-Source length is a separate variable in `030`, outside that block. Saving all eight cells does **not** save length, so the next `>r` preserves it separately. `cc-lex-mark` copies the complete state into the allocated block; `cc-lex-reset` copies it back. The [copy helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L666-L689) operate in eight-byte cells. The fresh block is not the shared `cc-peek-mark`: expression parsing during replay can itself use lookahead and overwrite that shared scratch mark.
-
-### A full state transition with a pending token
-
-Use a deliberately small, stipulated source layout. The five bytes `r=r+1` occupy `[40,45)`, with the header `)` at 45. Total source length is 140. The body is an `if` without an else. Its optional-else read sees the next statement's identifier `n` at byte 90, advances position to 91, and puts that token back. Let the saved line be 8. Other fields unused by an identifier may contain old values U and W; their values are irrelevant to classification, but are still copied.
-
-The saved post-body state is:
-
-`(pos=91, line=8, kind=ident, num=U, str=src-buf+90, str-len=1, kw=W, pending=true)`
-
-| Transition | Source position/length | Token-state consequence | Output consequence |
-|---|---|---|---|
-| Mark post-body state | 91 / 140 | All eight cells copied to fresh block M | None |
-| Save length, install step window | 40 / 45 | Pending cleared so the old `n` cannot be returned | None |
-| Parse step | Advances within `[40,45)` | Replay replaces token fields; EOF is at window end | Append code for `r=r+1` after the body |
-| Restore length | Replay position / 140 | Replay token state still present briefly | None |
-| Reset from M | 91 / 140 | Exact saved `n` record and pending=true restored | Emitted step code remains |
-| Next outer token read | Still 91 / 140 | Returns pending `n`, clears pending | No source byte reread |
-
-A cursor-only restore would leave replay's token record in place. Leaving the pending flag set when entering replay would instead let the stale `n` masquerade as the step's first token. Clearing pending fixes the replay entrance; restoring the full mark fixes the return. They solve different problems.
-
-Whitespace or comments alone are a valid omitted step. The explicit skip runs inside the temporary window, and the comparison `pos<len` calls the expression parser only if something remains. An omitted step still has a continue destination: it is the position where the backward JMP will be emitted.
+The [omitted-step case](#replay-the-step-without-losing-the-next-statement) uses the exact guard `cc-src-pos @ cc-src-len @ <` after `cc-skip-ws-and-comments`; only a nonempty remainder invokes `cc-parse-expr`.
 
 Resetting the mark restores lexer state, not expression metadata, emitted bytes, or arena allocation. The fresh 64-byte mark and any replay allocations are not locally freed.
 
 **Diagnostic boundary.** The saved line counter is restored afterward. The code does not separately save the step's original line and install it before replay, so do not infer exact original-step diagnostic line numbers during replay from this restoration mechanism. Nor does the window alone validate every malformed expression. These are boundaries of what the inspected state transitions establish.
 
-### Close the loop in reverse ownership order
-
-After restoring the post-body lexer state, the parser emits JMP to `cc-for-top-vaddr`, patches `cc-for-end-fixup` to the new end, and patches the break list to that same end. It restores outer loop-depth, continue head, and break head in reverse save order. Then it pops the for-scope and restores step-end, step-start, end-fixup, and top scratch cells in reverse order. [112:337–352](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L337-L352) supplies that closure.
-
-For a nested `for`, the outer scratch tuple might be `(Vouter,qOuter,40,45)`. The inner parser temporarily replaces all four components, completes its own replay and patches, then restores exactly that tuple. The outer parser can now replay its own window. Restoring only its top address would still risk replaying the inner step or patching the inner condition again. Likewise, a full lexer mark cannot replace the four scratch saves: it contains no loop target or step-range cells.
-
-For the triangle with `t.rows=4` and initial `t.stars=0`, the conditional runtime derivation is:
-
-| r at successful condition | Body's `w[r]` | `t.stars` after body | r after step |
-|---:|---:|---:|---:|
-| 0 | 1 | 1 | 1 |
-| 1 | 3 | 4 | 2 |
-| 2 | 5 | 9 | 3 |
-| 3 | 7 | 16 | 4 |
-
-The next condition, `4<4`, is false. The body and step are skipped, and the following `if (t.stars == ROWS * ROWS)` can test sixteen against sixteen. This joins previously taught expression/storage contracts to this chapter's edges; it is not a measured whole-program result. A break in the body would skip the step. A continue would skip the remaining body but still execute the step.
-
-**Stop/resume.** Keep the tuple “step `[40,45)`, post-body pending `n`, pos 91, length 140.” On returning, name the three distinct saved things: lexer mark, source length, and outer for scratch. Reconstruct one restoration before tracing another nested loop.
-
-## A do loop tests after its body
-
-A `do` form makes the first visit unconditional:
-
-```c
-do { pad = pad - 1; } while (pad > 0);
-```
+### Read the complete do closure
 
 `cc-parse-do-while`, the [complete parser at 112:367–400](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L367-L400) saves/resets the same three loop-context values as `while`, then saves the current target address on B.R before parsing the body. Immediately after the body it patches continues to the current output position. Only then does it consume keyword `while`, `(`, the condition expression, `)`, and `;`.
 
@@ -519,21 +596,9 @@ Its decisive closing sequence is:
 
 That exact [tail](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L391-L400) uses JNZ because a true condition repeats. There is no initial condition JZ field to patch. The backward address was known before body emission. Break fields target the position after the JNZ, while continues target the start of condition evaluation. A continue sent to the body top would bypass the required test and could repeat indefinitely.
 
-With initial `pad=0`, the body stores −1 before the test fails; the corresponding `while` body would not execute at all. With initial `pad=2`, the do-body stores one, the test repeats, then the body stores zero and the test ends. These bounded values fit the legacy signed arithmetic used here.
-
-Compare the destinations without memorizing the parsers:
-
-| Construct | Continue destination | Repeating edge | Break destination |
-|---|---|---|---|
-| `while` | First condition instruction | Unconditional JMP to condition | After backward JMP |
-| `for` | First step instruction, or the backward JMP if step omitted | Unconditional JMP to condition | After backward JMP |
-| `do` | First condition instruction after body | JNZ to body top | After JNZ |
-
-Each parser chooses these addresses while producing the layout. The list append helper has no knowledge of which row it serves.
-
 ## Close the dispatcher without hiding its other clients
 
-**Complete dispatcher/profile reference.** Return here for C16-07 after the control-flow mechanisms you need. This section closes every dispatcher route; it is not a prerequisite for succeeding at the replay trace.
+**Complete dispatcher/profile reference.** This section closes the routes behind the statement interface used in the story; C16-07 checks their token-entry contracts. The main trace used structured bodies. Legacy label units have a narrower return boundary, detailed below and in C17; an arbitrary label-prefixed sequence is not silently covered by the same one-call body promise.
 
 An expression statement enters with its first token already read. The complete [adapter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L828-L833) returns it to the expression parser:
 
@@ -591,6 +656,12 @@ Here are the explicit boundaries of the three C17 clients. Switch parsing tempor
 
 The adjacent JE emitter's complete arithmetic is already covered. The native declaration hooks are providers from `115`, the typed value-test seam can be rebound by `127`, and switch-depth state/unwind comes from `110`. Full provider internals remain later chapters; selecting a flag without the intended bindings is not the same profile. Sources: [identifier dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L835-L858), [switch ownership](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L508-L596), [native declaration providers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L478-L638), and [typed test binding](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L220-L230).
 
+## Source and profile boundary
+
+This chapter covers `112:17–400`, the local break/continue adapters at `608–620`, expression statements at `830–833`, and the core dispatcher/final binding at `865–905`. The two generic patch walkers are retrieved from C10; switch/label/identifier mechanisms are opened in C17. The source's JE helper receives its switch consumer there. The full native declaration and typed-value providers remain later lessons, with their caller contracts stated above.
+
+The [historical book30](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/30-statements-if-while-for-return.md) supplies context; the pinned definitions settle disagreements. This edition scans for-step tokens and restores a full lexer mark plus separately saved source length. The traces assume valid retained source bytes, sufficient builder/target storage, and fitting signed rel32 fields. They establish these local predictions rather than whole-language conformance or a bootstrap result.
+
 ## Practice: account for each unfinished obligation
 
 These are paper tasks. Assume the chapter's legacy profile unless a task selects a native branch. Supplied byte coordinates are stipulated layouts, not actual compiler dumps. [Graduated hints and checked solutions](../practice/16-solutions.md) are separate. If you get stuck, identify whether the missing piece is token ownership, coordinate arithmetic, saved state, or runtime order; recover that one piece rather than rereading every page.
@@ -601,9 +672,9 @@ Given valid initialized `pad` and `n`, trace `if (pad) if (n) pad=pad-1; else n=
 
 ### C16-02 — Calculate both branch origins
 
-**Part A: if layout, first session.** An if's JZ starts at offset 1000. Its then-body is 14 bytes. With an else, a five-byte JMP follows it, then a nine-byte else-body. Give both field offsets, both targets, both displacements and their four little-endian bytes. Recalculate the JZ without an else.
+**Part A: if layout.** An if's JZ starts at offset 1000. Its then-body is 14 bytes. With an else, a five-byte JMP follows it, then a nine-byte else-body. Give both field offsets, both targets, both displacements and their four little-endian bytes. Recalculate the JZ without an else.
 
-**Part B: known-target branches, next session.** Independently, compare a direct JMP and a direct JNZ starting at 1100 and targeting `0x40040A`. Give their complete bytes and explain why their displacement fields differ.
+**Part B: known-target branches.** Independently, compare a direct JMP and a direct JNZ starting at 1100 and targeting `0x40040A`. Give their complete bytes and explain why their displacement fields differ.
 
 ### C16-03 — Separate three kinds of nesting
 
@@ -629,7 +700,7 @@ Classify the dispatcher route and token-entry contract for `;`, `return;`, `{}`,
 
 ### C16-08 — Change the triangle's behavior deliberately
 
-In the triangle's for body, insert `if (r == 1) continue;` immediately before `w[r] = 1 + r * 2;`. Keep `t.rows=4`, initial `t.stars=0`, the original step, and the later equality test against sixteen. Predict visited body-work rows, assigned array elements, final `r`, `t.stars`, and the selected return. Then replace only `continue` with `break` and recompute. Explain which destinations cause the differences and why an unassigned `w` element need not be read. For an independent design, describe a control-flow layout that increments a target counter on every entry into the for-step block, including continues, while preserving break behavior. Assume an initialized, nonconflicting writable target counter; count entries into the step block. No declaration or output mechanism is required. A layout/rubric answer is enough; do not modify or execute the compiler.
+With the worked payoff covered, reconstruct this contrast: in the triangle's for body, insert `if (r == 1) continue;` immediately before `w[r] = 1 + r * 2;`. Keep `t.rows=4`, initial `t.stars=0`, the original step, and the later equality test against sixteen. Predict visited body-work rows, assigned array elements, final `r`, `t.stars`, and the selected return. Then replace only `continue` with `break` and recompute. Explain which destinations cause the differences and why an unassigned `w` element need not be read. For an independent design, describe a control-flow layout that increments a target counter on every entry into the for-step block, including continues, while preserving break behavior. Assume an initialized, nonconflicting writable target counter; count entries into the step block. No declaration or output mechanism is required. A layout/rubric answer is enough; do not modify or execute the compiler.
 
 ### Changed reattempts, with answers closed
 

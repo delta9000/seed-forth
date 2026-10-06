@@ -8,8 +8,8 @@ but the complete statement/function unit is not yet integrated. The described im
 
 | Draft | Practice | Current review boundary |
 |---|---|---|
-| [C16 Conditions and loops](chapters/16-conditions-and-loops.md) | [Eight exercise sets](practice/16-solutions.md) | Technical/practice and reading-route reviews passed; a continuous-story revision and later unit integration remain pending |
-| [C17 Switches, labels, and nonlocal control](chapters/17-switches-labels-and-nonlocal-control.md) | [Eight exercise sets](practice/17-solutions.md) | Technical/practice and reading-route reviews passed; a continuous-story revision remains pending |
+| [C16 Conditions and loops](chapters/16-conditions-and-loops.md) | [Eight exercise sets](practice/16-solutions.md) | Technical/practice and continuous-story reviews passed; later unit integration remains pending |
+| [C17 Switches, labels, and nonlocal control](chapters/17-switches-labels-and-nonlocal-control.md) | [Eight exercise sets](practice/17-solutions.md) | Technical/practice and continuous-story reviews passed; later unit integration remains pending |
 | [C18 Functions and call-frame accounting](chapters/18-functions-and-call-frame-accounting.md) | [Nine exercise sets](practice/18-solutions.md) | Technical/practice review passed; the continuous first-reading story was checked for flow and technical consistency |
 
 Each draft gives a bounded first reading session, later routes, worked traces,
@@ -34,10 +34,17 @@ Independent review checked the changed explanations against the source and
 previous worked results. Simulated reader checks sampled C1-01–C1-03 and the
 C18 extra-local question, C18-04 and C18-07, looking for steps unsupported by the
 supplied text. These are bounded model-assisted dependency checks, not human
-learning, retention or transfer results. C16/C17 will receive the same kind of
-flow revision next.
+learning, retention or transfer results.
 
-The next integration includes those revisions, C19's translation-unit/process-entry
+C16 now follows the opening `continue` puzzle through `while`, `do` and `for`,
+then explains why replay must save an already-read token. C17 follows one
+switch through its case bodies, selector and cleanup before the byte-layout
+and parser details. Their changed explanations received independent
+source-consistency and simulated-reader checks, including loop destinations,
+fallthrough, no-default behavior and saved-register cleanup. The source's
+chosen layouts are distinguished from requirements imposed by C behavior.
+
+The next integration includes C19's translation-unit/process-entry
 account, complete source-map ownership and a mixed practice check. The [coverage map](../COVERAGE.md) still records
 the reviewed C01–C15 scope rather than crediting these saved drafts as a
 finished migration. Source and canonical literate-book files are unchanged.
