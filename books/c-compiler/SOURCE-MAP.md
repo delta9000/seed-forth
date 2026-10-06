@@ -18,16 +18,18 @@ immutable file, not an edition identifier by themselves.
 | `070-cc-sym.fth` | 19 | [C08](chapters/08-names-and-lexical-scope.md) | Ten parallel columns, symbol kinds, qualifier metadata, deferred lookup/fixup hooks and scope counts |
 | `080-cc-elf.fth` | 3 | [C09](chapters/09-instructions-inside-an-executable.md) | File/target coordinates, every ELF field and bounded size finalization |
 | `090-cc-emit.fth` | 119 | [C09](chapters/09-instructions-inside-an-executable.md), [C10](chapters/10-calls-literals-and-deferred-addresses.md), [C11](chapters/11-a-bounded-legacy-runtime.md) | Encoder families/hooks, function and global fixups, data/BSS storage and all legacy runtime bodies |
+| `100-cc-expr.fth` | 142 | [C10](chapters/10-calls-literals-and-deferred-addresses.md), [C12](chapters/12-places-values-and-delayed-loads.md)–[C14](chapters/14-expressions-and-constant-evaluation.md) | Nine-cell metadata, grammar recursion, operator tables, store/call/type hooks and immediate evaluation |
+| `110-cc-decl.fth` | 35 | [C14](chapters/14-expressions-and-constant-evaluation.md), [C15](chapters/15-declarations-and-recursive-records.md) | Type-query handshake, declaration prefixes, recursive descriptors, local/storage state and bounded return/switch helpers |
 
 C01 opens the contract of `cc-main` and the main-last loader before C02 opens
 the storage mechanisms. C03–C08 open preprocessing, lexing, type storage and name visibility. C09–C11
-open emission/finalization and the bounded runtime. Later units still must
-explain the complete parsing, declaration, statement and function flows
-invoked by the driver. Reading a
+open emission/finalization and the bounded runtime. C12–C15 open expression
+and declaration mechanisms. Later units still must explain full statement,
+function and top-level flows invoked by the driver. Reading a
 call's name is not the same as auditing its implementation.
 
-The inventory currently covers all 267 colon definitions in `020`, `030`,
-`050`, `060`, `070`, `080` and `090`.
+The inventory currently covers all 444 colon definitions in `020`, `030`,
+`050`, `060`, `070`, `080`, `090`, `100` and `110`.
 It does not yet claim a complete word inventory for all compiler layers.
 Small accessors may share one explanation; substantial state transitions get
 worked examples. Definitions need not be copied in full into the prose to
@@ -45,9 +47,9 @@ partition, not a machine-code byte audit.
 ordinary walking, include storage, paths and parent restoration. [C04](chapters/04-macro-expansion-and-rescanning.md) opens macro records,
 argument storage and rescanning; [C05](chapters/05-conditionals-and-profile-extensions.md)
 opens conditional, computed-include and location/profile mechanisms.
-All fifty-seven regions now have drafted explanatory homes. C06 subsequently opens the lexer interface. The expression evaluator and
-later target providers retain explicitly named implementation homes; their
-remaining internals are not completed by calling them from this layer.
+All fifty-seven regions now have drafted explanatory homes. C06 subsequently opens the lexer interface. C14 now opens the expression evaluator and its reader restoration. Later
+target providers retain explicitly named implementation homes; their remaining
+internals are not completed by calling them from this layer.
 The inventory vocabulary is `drafted` for a represented region, `partial`
 where a listed teaching interface is still pending, and `planned` for a future
 home. These are manuscript states, not execution or correctness results.
@@ -71,12 +73,30 @@ The C10 explanations also open selected patch consumers in `112`, `114` and
 That does not claim those whole parser/control/function modules are already
 rewritten. Their remaining mechanisms retain later teaching homes.
 
+## Expression and declaration ownership
+
+The [parser inventory](parser-map.csv) assigns all 333 named declarations in
+`100` and `110`: 177 colon definitions, 74 variables, 60 deferred entries,
+20 constants and two created buffers. Primary homes are C10 for six names,
+C12 for 78, C13 for 57, C14 for 135 and C15 for 57. Cross-mechanism notes keep
+shared uses visible without counting one declaration several times.
+
+C10 already opens call-pop and string-emission helpers; C12 explains places
+and metadata; C13 owns operator tables and precedence; C14 closes grammar,
+stores, immediate evaluation and the cross-file cast/type-query handshake.
+C15 constructs declarations and opens the local switch/return helpers. Their
+complete use inside statements and frames remains with planned C17/C18.
+
+A named provider's caller/default is distinct from its later full optional
+implementation. The inventory's current home does not claim that all native
+provider source files or complete control/function paths have been rewritten.
+
 ## What the checks establish
 
 The [document checker](../check.py) verifies pinned source blobs, definition
-names and spans, inventory completeness for the seven files above, the full
-preprocessor region/declaration partition, the emission declaration inventory,
-and complete
+names and spans, inventory completeness for the nine files above, the full
+preprocessor region/declaration partition, emission and parser declaration
+inventories, and complete
 named Forth excerpts shown in the new C chapters. It also checks local links,
 exercise/solution IDs and selected paper calculations.
 

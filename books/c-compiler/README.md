@@ -37,8 +37,16 @@ first volume's machine-code audit before entering here.
     preserve unresolved destinations until their relative or absolute fields can be patched
 11. [A bounded legacy runtime](chapters/11-a-bounded-legacy-runtime.md):
     follow the actual requests and results behind nineteen familiar-looking names
+12. [Places, values, and delayed loads](chapters/12-places-values-and-delayed-loads.md):
+    preserve destination identity and decide when a result needs a memory read
+13. [Precedence and short-circuit expressions](chapters/13-precedence-and-short-circuit.md):
+    preserve operands through recursive parsing and select generated execution paths
+14. [Expressions, stores, and values computed now](chapters/14-expressions-and-constant-evaluation.md):
+    close postfix/unary/assignment/comma grammar and distinguish runtime emission from immediate evaluation
+15. [Declarations and recursive records](chapters/15-declarations-and-recursive-records.md):
+    build the descriptors, names and storage records supplied to earlier traces
 
-These eleven chapters provide seventy-three exercises and separate feedback
+These fifteen chapters provide 105 exercises and separate feedback
 companions. Try a
 prediction, use a hint when a step is missing, then attempt a changed case
 without copying the worked answer. The purpose is to explain a mechanism,
@@ -58,10 +66,14 @@ while finding the task.
 The [fourth mixed check](practice/return-check-4.md) joins instruction fields,
 patch ownership, runtime results and typed storage.
 
-The next unit opens places and values before precedence and short-circuit
-parsing, so operator explanations can use an already-taught state model. The
+The [fifth mixed check](practice/return-check-5.md) joins place identity,
+short-circuit phases, declaration storage and successful reader restoration.
+
+Places and values precede operator parsing, so operators use an already-taught
+state model. The next unit combines statements, control flow, functions and
+top-level orchestration. The
 [coverage map](../COVERAGE.md#volume-2-a-c-compiler-in-forth) assigns the later
-parser, emitter, assembler and bootstrap units. Planned
+control, function, assembler and bootstrap units. Planned
 units are not chapters that already exist.
 
 ## Profile and evidence

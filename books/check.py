@@ -156,7 +156,7 @@ def check_documents():
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8}.get(number, 5)
+        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7}.get(number, 5)
         c_pairs += exercise_count
         expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
@@ -211,12 +211,67 @@ def check_prerequisites():
 
 
 def source_words(text):
-    text = re.sub(r"\\[^\n]*", "", text)
-    text = re.sub(r"\([^)]*\)", "", text)
-    return text.split()
+    """Normalize displayed Forth without discarding literal delimiter tokens.
+
+    This is a bounded textual excerpt check, not a Forth interpreter. A
+    [char] operand (and top-level char/s, payload) can itself be '(' or '\\';
+    it must not be mistaken for an explanatory comment.
+    """
+    words, position = [], 0
+    in_definition, definition_name, literal_next = False, False, False
+    while position < len(text):
+        if text[position].isspace():
+            position += 1
+            continue
+        if not literal_next and text[position] == "\\":
+            end = text.find("\n", position)
+            position = len(text) if end < 0 else end+1
+            continue
+        if not literal_next and text[position] == "(":
+            end = text.find(")", position+1)
+            assert end >= 0, "Unclosed Forth comment in excerpt/source"
+            position = end+1
+            continue
+        end = position
+        while end < len(text) and not text[end].isspace():
+            end += 1
+        word = text[position:end]
+        words.append(word)
+        position = end
+        if literal_next:
+            literal_next = False
+            continue
+        if definition_name:
+            definition_name = False
+            continue
+        if word == ":" and not in_definition:
+            in_definition, definition_name = True, True
+        elif word == ";":
+            in_definition = False
+        elif word == "[char]" or (not in_definition and word in {"char", "s,"}):
+            literal_next = True
+    return words
+
+
+def definition_end(words, start=0):
+    """Find this dialect's definition terminator, ignoring [char] operands."""
+    position = start+2  # Skip ':' and the name, which may itself be punctuation.
+    while position < len(words):
+        if words[position] == "[char]":
+            position += 2
+        elif words[position] == ";":
+            return position
+        else:
+            position += 1
+    return None
 
 
 def check_sources(source_root):
+    assert definition_end(source_words(": f [char] ; drop ;")) == 5
+    assert definition_end(source_words(": f [char] ; drop")) is None
+    assert source_words(": f [char] ( ;") == [":", "f", "[char]", "(", ";"]
+    assert source_words("char ( ( comment )") == ["char", "("]
+    assert source_words(": f ( stack comment ) dup ;") == [":", "f", "dup", ";"]
     for name, wanted in SOURCE_BLOBS.items():
         data = (source_root / name).read_bytes()
         actual = hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
@@ -238,7 +293,8 @@ def check_sources(source_root):
     for name in names:
         start = next(i for i in range(len(library)-1)
                      if library[i:i+2] == [":", name])
-        end = library.index(";", start)
+        end = definition_end(library, start)
+        assert end is not None
         expected = library[start:end+1]
         found = False
         for path in (ROOT / "seed-forth/chapters").glob("*.md"):
@@ -253,9 +309,9 @@ def check_sources(source_root):
                     if words[i] != ":":
                         i += 1
                         continue
-                    if ";" not in words[i+2:]:
+                    end = definition_end(words, i)
+                    if end is None:
                         break  # A labeled fragment is not a full definition.
-                    end = words.index(";", i+2)
                     if words[i+1] == name:
                         assert words[i:end+1] == expected, f"Changed excerpt for {name}: {path}"
                         found = True
@@ -283,8 +339,8 @@ def check_c_excerpts(source_root):
         for i, start in enumerate(starts):
             region = text[start.start():starts[i+1].start() if i+1 < len(starts) else len(text)]
             words = source_words(region)
-            if ";" in words:
-                end = words.index(";")
+            end = definition_end(words)
+            if end is not None:
                 definitions.setdefault(start.group(1), []).append(words[:end+1])
     checked = set()
     for path in (ROOT / "c-compiler").rglob("*.md"):
@@ -297,9 +353,9 @@ def check_c_excerpts(source_root):
                 if words[i] != ":":
                     i += 1
                     continue
-                if ";" not in words[i+2:]:
+                end = definition_end(words, i)
+                if end is None:
                     break  # A labeled partial excerpt needs manual review.
-                end = words.index(";", i+2)
                 name = words[i+1]
                 if name in definitions:
                     assert words[i:end+1] in definitions[name], f"Changed C-compiler excerpt {name}: {path}"
@@ -325,18 +381,19 @@ def check_c_source_map(source_root):
         start, end = int(row["start_line"]), int(row["end_line"])
         assert 1 <= start <= end <= len(lines)
         assert re.match(r"^:\s+" + re.escape(row["word"]) + r"(?:\s|$)", lines[start-1]), row
-        assert ";" in source_words("\n".join(lines[start-1:end])), row
+        definition = source_words("\n".join(lines[start-1:end]))
+        assert definition_end(definition) == len(definition)-1, row
         chapter = (ROOT / "c-compiler" / row["manuscript_path"]).resolve()
         assert chapter.is_relative_to(ROOT) and chapter.is_file(), row
         expected = f"https://github.com/delta9000/seed-forth/blob/{REV}/{row['source_path']}#L{start}-L{end}"
         assert row["source_url"] == expected, row
     for name in ["020-cc-arena.fth", "030-cc-io.fth", "050-cc-lex.fth",
                  "060-cc-types.fth", "070-cc-sym.fth", "080-cc-elf.fth",
-                 "090-cc-emit.fth"]:
+                 "090-cc-emit.fth", "100-cc-expr.fth", "110-cc-decl.fth"]:
         expected = set(re.findall(r"^:\s+(\S+)", (source_root/name).read_text(), re.M))
         actual = {word for file, word in seen if file == name}
         assert actual == expected, (name, actual ^ expected)
-    print(f"PASS: {len(rows)} C source-map definitions; complete infrastructure/representation/emission definition inventories")
+    print(f"PASS: {len(rows)} C source-map definitions; complete infrastructure/representation/emission/parser definition inventories")
 
 
 def check_preprocessor_regions(source_root):
@@ -414,6 +471,42 @@ def check_emission_map(source_root):
     assert seen == expected.keys()
     assert len(rows) == 150
     print(f"PASS: {len(rows)} ELF/emitter declarations have source-matched teaching homes")
+
+
+def check_parser_map(source_root):
+    path = ROOT / "c-compiler/parser-map.csv"
+    if not path.exists():
+        return
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    expected = {}
+    for name in ["100-cc-expr.fth", "110-cc-decl.fth"]:
+        for number, line in enumerate((source_root/name).read_text().splitlines(), 1):
+            line = line.split("\\", 1)[0]
+            direct = re.match(r"^\s*(:|create|variable|defer)\s+(\S+)", line)
+            constant = re.search(r"\bconstant\s+(\S+)", line)
+            if direct:
+                kind, word = direct.groups()
+                kind = "colon" if kind == ":" else kind
+            elif constant:
+                kind, word = "constant", constant.group(1)
+            else:
+                continue
+            expected[(name, word)] = (number, kind)
+    seen = set()
+    for row in rows:
+        key = (row["source_path"], row["name"])
+        assert key not in seen
+        seen.add(key)
+        assert (int(row["source_line"]), row["declaration_kind"]) == expected[key], row
+        assert row["source_revision"] == REV
+        assert row["source_blob_sha"] == SOURCE_BLOBS[row["source_path"]]
+        assert row["teaching_unit"] in {"C10", "C12", "C13", "C14", "C15"}
+        assert (ROOT / "c-compiler" / row["manuscript_path"]).is_file(), row
+        assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/{row['source_path']}#L{row['source_line']}"
+    assert seen == expected.keys()
+    assert len(rows) == 333
+    print(f"PASS: {len(rows)} expression/declaration names have source-matched teaching homes")
 
 
 def check_c_models(source_root):
@@ -509,7 +602,17 @@ def check_c_models(source_root):
     assert 17920*16 == 286720 and 286720//4096 == 70
     assert max(81920, 1024+24) == 81920
     assert max(81920, 81920+16) == 81936
-    print("PASS: canonical tri.c text and bounded C-unit paper calculations through emitted bytes and runtime contracts")
+    # C12–C15 paper fixtures: metadata/storage coordinates, not an evaluator.
+    assert 9*8 == 72 and -8*(4+1) == -40
+    assert -8*(3+1)+2*8 == -16
+    assert 1+2*2 == 5 and (1+2)*2 == 6
+    assert (9-3)-2 == 4 and 9-(3-2) == 8
+    assert (2*65536)+1 == 131073 and 2*65536 == 131072
+    assert 1+3 == 4 and (-32+3*8) == -8
+    assert 31+1 == 32 and 32+3 > 32
+    assert len(b"1 + 2") == 5 and 500+len(b"1 + 2") == 505
+    assert 1+2 == 3 and bool(1 and (9//3)) == True
+    print("PASS: canonical tri.c text and bounded C-unit paper calculations through expression and declaration fixtures")
 
 
 def check_audit_partition(source_root):
@@ -740,6 +843,7 @@ def main():
     check_c_source_map(args.source_root)
     check_preprocessor_regions(args.source_root)
     check_emission_map(args.source_root)
+    check_parser_map(args.source_root)
     check_c_models(args.source_root)
     check_models()
     check_audit_partition(args.source_root)

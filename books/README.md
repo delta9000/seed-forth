@@ -8,10 +8,11 @@ and all 1,772 bytes of the executable, then assembles the ideas in a
 whole-seed capstone.
 Each mechanism has a source-pinned trace and separate practice feedback.
 
-The [C-compiler volume](c-compiler/README.md) also has its first eleven teaching
+The [C-compiler volume](c-compiler/README.md) also has its first fifteen teaching
 chapters: an independent entry bridge, storage/ownership, preprocessing,
 tokens/types/names, executable bytes, deferred addresses and the bounded
-legacy runtime. Its parser and bootstrap-closure units remain planned.
+legacy runtime, places/values, expressions and declarations. Statement/function
+integration and bootstrap-closure units remain planned.
 
 The edition is a draft, not a complete replacement for the original book.
 The [coverage map](COVERAGE.md) accounts for every original numbered chapter
@@ -22,7 +23,7 @@ and appendix, including material not rewritten yet.
 | Book | Intended completed outcome | Current state |
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
-| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Infrastructure, preprocessing, representations, emission/fixups and legacy runtime drafted; parser/closure units remain planned |
+| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Infrastructure, preprocessing, representations, emission/runtime, expressions and declarations drafted; statement/function/closure units remain planned |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 

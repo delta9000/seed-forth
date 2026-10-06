@@ -188,6 +188,10 @@ C02 + C06 + C07 -> C08: names, reusable symbols and scope visibility
 C02 + C07 + local instruction/ELF bridge -> C09: executable byte encodings
 C02 + C06 + C07 + C08 + C09 -> C10: calls, literals and delayed addresses
 C09 + C10 + local Linux request/result contract -> C11: bounded legacy runtime
+C06 + C07 + C08 + C09 + C10 -> C12: places, values and delayed loads
+C06 + C09 + C10 + C12 -> C13: precedence and short-circuit paths
+C06 + C10 + C12 + C13 -> C14: full expression and evaluator closure
+C06 + C07 + C08 + C12 + C14 -> C15: declaration and record construction
 ```
 
 | Unit | Observable outcome | Practice and feedback |
@@ -207,6 +211,11 @@ C09 + C10 + local Linux request/result contract -> C11: bounded legacy runtime
 | [C10 Calls, literals and addresses](c-compiler/chapters/10-calls-literals-and-deferred-addresses.md) | Follow argument staging and the full lifetime of relative/absolute patches and data placement | Nine exercises and [feedback](c-compiler/practice/10-solutions.md) |
 | [C11 Bounded legacy runtime](c-compiler/chapters/11-a-bounded-legacy-runtime.md) | Predict each runtime operation's actual request, return and limit | Eight exercises and [feedback](c-compiler/practice/11-solutions.md) |
 | [Fourth C mixed check](c-compiler/practice/return-check-4.md) | Separate instruction fields, patch metadata, runtime units and typed storage effects | Four mixed questions, hints and separate answers |
+| [C12 Places and values](c-compiler/chapters/12-places-values-and-delayed-loads.md) | Preserve the nine-cell expression record and choose when an address becomes a loaded value | Eight exercises and [feedback](c-compiler/practice/12-solutions.md) |
+| [C13 Precedence and short-circuit](c-compiler/chapters/13-precedence-and-short-circuit.md) | Trace recursive operand ownership, association and patched execution paths | Seven exercises and [feedback](c-compiler/practice/13-solutions.md) |
+| [C14 Expressions and immediate evaluation](c-compiler/chapters/14-expressions-and-constant-evaluation.md) | Preserve destinations and recursive state through stores, calls, casts and two evaluation phases | Ten exercises and [feedback](c-compiler/practice/14-solutions.md) |
+| [C15 Declarations and recursive records](c-compiler/chapters/15-declarations-and-recursive-records.md) | Construct descriptors, per-name types, symbol rows and storage reservations | Seven exercises and [feedback](c-compiler/practice/15-solutions.md) |
+| [Fifth C mixed check](c-compiler/practice/return-check-5.md) | Identify which consumer, phase, lifetime or restoration contract determines the result | Four mixed questions, hints and separate answers |
 
 The preprocessor's macro and conditional handlers are named interfaces in
 C03. C04/C05 now open those mechanisms; the earlier include exercise
@@ -215,12 +224,13 @@ keeps both the current explanations and the deferred regions inspectable.
 
 ## What the next units must earn
 
-The next C units teach places, values and delayed loads before precedence
-and short-circuit parsing. That order gives each operator a known state model
-to preserve or consume. Complete expression/evaluator closure and declaration
-construction follow, then statement/function integration. The later compiler still needs complete type/parser/emitter chapters,
-a named end-to-end artifact comparison and its assembler/extended-profile
-handoffs. Existing repository results have their own evidence scope.
+Places, values and delayed loads precede precedence and short-circuit parsing.
+That order gives each operator a known state model to preserve or consume.
+The next unit integrates statements, control flow, functions and top-level
+orchestration using the now-drafted expression and declaration mechanisms.
+The volume still needs a named end-to-end artifact comparison and its
+assembler/extended-profile handoffs. Existing repository results have their
+own evidence scope.
 
 Both volumes' new examples need an authorized, named execution profile and a
 fresh-reader setup check before derived results can be relabeled as observed.
