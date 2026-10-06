@@ -197,6 +197,8 @@ C06 + C09 + C10 + C14 + C15 + C16 -> C17: switches, labels and gotos
 C06 + C08 + C09 + C10 + C14 + C15 + C16 + C17 -> C18: functions and frames
 C02 + C06 + C08 + C09 + C10 + C11 + C14 + C15 + C18 + local entry/driver contracts -> C19: translation units and process entry
 C19 -> C20: compiler producers, exact Stage-A recipe and bounded evidence
+C02 + C06 + local Forth storage/byte contracts -> C21: raw slices and exact expansion
+C20 + C21 -> C22: label placement, byte emission and source-built-tool handoff
 ```
 
 | Unit | Observable outcome | Practice and feedback |
@@ -227,12 +229,15 @@ C19 -> C20: compiler producers, exact Stage-A recipe and bounded evidence
 | [C19 Translation units and entry](c-compiler/chapters/19-translation-units-and-process-entry.md) | Complete default file-scope metadata/storage and derive a predicted image, main call and exit path | Seven exercises and [feedback](c-compiler/practice/19-solutions.md); full technical/practice manuscript review complete |
 | [Sixth C mixed check](c-compiler/practice/return-check-6.md) | Trace the next destination, saved reader state, unresolved-use owner and entry-field completion | Four mixed questions, hints and separate answers |
 | [C20 Complete compiler and Stage A](c-compiler/chapters/20-complete-compiler-and-stage-a.md) | Reconstruct producers, three input lists, physical output paths and the exact M1 comparison; bound the recorded result | Eight exercises and [feedback](c-compiler/practice/20-solutions.md); source/practice review and final readback complete |
+| [C21 Assembler input and expansion](c-compiler/chapters/21-assembler-input-and-expansion.md) | Derive exact expanded text, borrowed-slice ownership, narrow token/number grammar and capacity boundaries | Ten exercises and [feedback](c-compiler/practice/21-solutions.md); source/practice reviewed |
+| [C22 Two-pass assembly and handoff](c-compiler/chapters/22-two-pass-assembly-and-bootstrap-handoff.md) | Preserve sizing/emission invariants, derive fields and supplied ELF bytes, and name each handoff predicate | Twelve exercises and [feedback](c-compiler/practice/22-solutions.md); source/practice reviewed |
 
-The current C route has **145 main exercises** and six four-question mixed
-checks. Including the seed volume gives **240 main exercises**; mixed questions
+The current C route has **167 main exercises** and six four-question mixed
+checks. Including the seed volume gives **262 main exercises**; mixed questions
 are separate. C16–C18 technical/practice and first-reading reviews are complete.
 C19's full technical/practice manuscript review is complete; C20's source/practice review
-and final readback are complete. New teaching answers remain source-derived predictions.
+and final readback are complete. C21/C22 have completed source/practice review.
+New teaching answers remain source-derived predictions.
 C20 separately reads an existing remote Stage-A execution record; it does not
 turn that result into execution or human-reader validation of the new examples.
 
@@ -249,6 +254,15 @@ sessions open complete recipe lists, physical paths and evidence. Its [pipeline
 map](c-compiler/pipeline-map.csv) covers 33 regions/273 lines in five scripts;
 C03/C13 refreshers do not secretly require whole-chapter rereads.
 
+C21 supplies the needed Forth storage/byte contracts locally; S10 is an
+equivalent optional refresher. Its first story ends with an exact 35-byte
+expanded text. C22 carries that unchanged text through sizing and emission
+to seven bytes before opening the supplied 120-byte header and 148-byte
+fixture. The [assembler ledger](c-compiler/assembler-regions.csv) covers all
+785 source lines, 99 declarations and two initialization forms in 42 regions.
+The short story and later reference sessions share the same ownership and
+field-end rules; the reference does not impose an unannounced source-code reread.
+
 The preprocessor's macro and conditional handlers are named interfaces in
 C03. C04/C05 now open those mechanisms; the earlier include exercise
 does not secretly require solving them first. The [source map](c-compiler/SOURCE-MAP.md)
@@ -262,14 +276,16 @@ C16–C19 now draft the default statement, function and top-level integration.
 The resulting 556-byte example is a predicted output-buffer layout, not an
 observed file or run. C20 now identifies actual build inputs, artifact roles
 and Stage-A comparison rules, distinguishes parity from fixed-point claims,
-and states the limits of its attributed records. C21/C22 still owe assembly
-and source-built tool handoffs; C23/C24 owe the native/TinyCC routes. Full
+and states the limits of its attributed records. C21/C22 now supply complete bounded Forth assembly
+and the source-built-tool handoff. C23/C24 still owe the native/TinyCC routes. Full
 stage0/DDC/handoff/pnut and historical lineage references remain distinct,
 as do the planned toolchain and kernel volumes. Access to the actual compared
 CI artifacts and a tested fresh-reader reproduction route remain outstanding.
 
 Both volumes' new examples need an authorized, named execution profile and a
 fresh-reader setup check before derived results can be relabeled as observed.
+Rendered-layout review and actual-reader learning also remain unverified for
+the new assembler unit.
 The [full coverage map](COVERAGE.md) allocates the remaining original material.
 A planned unit is not required reading that already exists.
 

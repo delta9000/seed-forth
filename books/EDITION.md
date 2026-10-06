@@ -37,7 +37,7 @@ prerequisites for calculating the first three chapters' states.
 
 ## Compiler-volume entrance
 
-The first twenty C-volume chapters use the same exact source revision.
+The first twenty-two C-volume chapters use the same exact source revision.
 [C01](c-compiler/chapters/01-compiler-entry-and-profile.md) distinguishes the
 legacy direct-ELF builder from the separate generated program and from the
 optional TinyCC/System V profiles. [C02](c-compiler/chapters/02-buffers-arenas-and-failure.md)
@@ -61,18 +61,27 @@ C19's full technical/practice manuscript review is complete.
 produced executable as an M2-Planet compiler, reconstructs the exact Stage-A
 recipe and bounds its observed M1-output comparison. Eight complete practice/
 feedback sets exist; source/practice review and final readback are complete.
+[C21](c-compiler/chapters/21-assembler-input-and-expansion.md) and
+[C22](c-compiler/chapters/22-two-pass-assembly-and-bootstrap-handoff.md) now
+open the complete standalone Forth assembler and bounded source-built-tool
+handoff. Their 10 and 12 main practice/feedback sets passed source/practice
+review. This adds no observed execution or actual-reader learning result.
 
-The source maps assign 526 colon definitions across thirteen non-preprocessor
-compiler files, all 333 declarations in `100`/`110`, and 170 control/function/
+The source maps assign 576 colon definitions across fourteen non-preprocessor
+compiler/assembler files, all 333 declarations in `100`/`110`, and 170 control/function/
 program rows: 160 declarations plus ten top-level forms in `112`/`114`/`116`/
 `120`. The separate preprocessor inventory remains 57 regions/325 declarations.
 The separate [pipeline map](c-compiler/pipeline-map.csv) covers 33 regions and
 273 lines across five complete shell recipe files; all have teaching homes.
-The source-blob check covers 48 pinned project files. These are distinct
+The [assembler ledger](c-compiler/assembler-regions.csv) separately covers
+785 lines in 42 regions: 99 declarations, including its 50 colon definitions,
+plus two initialization forms. The source-blob check covers 59 pinned project
+files. These are distinct
 source-coverage counts, not execution counts. C20 covers the standalone
-Stage-A recipe and attributed result; full assembly, native/private-stack,
-System V, broader bootstrap lineages and later target providers retain
-separate homes.
+Stage-A recipe and attributed result; C21/C22 cover full bounded Forth
+assembly and the source-built-tool handoff. Native/private-stack, System V,
+full upstream implementations, broader bootstrap lineages and later target
+providers retain separate homes.
 
 Their source inspection does not resume or reproduce a compiler build.
 The canonical `tri.c` is retained as a paper example; its output character
@@ -104,6 +113,9 @@ as new measurements. More workspace does not change a C data model or ABI.
 | Standalone Stage A reported equal 2,367,260-byte M1 outputs | [Run 37474668625, check job](https://github.com/delta9000/seed-forth/actions/runs/37474668625/job/112306844449), head `764bdc4f4902d613145f361da6a7f33010dd37b4`; relevant recipe blobs match the teaching pin | Observed remote execution summary | Named self-source input/profile only; no downloadable output artifacts or Stage-A SHA-256 in the available log; no execution of new teaching examples |
 | Published Stage-A artifact hashes identify historical outputs | Pinned [REPRODUCIBLE.md](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/REPRODUCIBLE.md#L301-L323) | Attributed historical record | Neither newly measured hashes nor a hash oracle enforced by the Stage-A script |
 | Original Fibonacci source requests 29 character bytes and returns 55 | C20 optional retrieval, original prologue source | Source-derived program trace | Assumes admitted compilation, resources and successful target writes; no new execution or Stage-A input claim |
+| Complete standalone Forth assembler mechanisms | `130-asm.fth` at the pin; [42-region ledger](c-compiler/assembler-regions.csv); 50 definition spans in source-map.csv | Source/practice-reviewed explanations of all 785 lines, 99 declarations and two initialization forms | Narrow grammar and unchecked quote/number paths remain; supplied ELF envelope and output-write success are separate contracts; no new execution |
+| Expansion and assembly produce seven bytes; a supplied header/fixture describes 148 | C21/C22 worked fragments, pinned M2libc header/definitions and `m1-jump42.M1` | Manual text, layout, field and byte derivations | Arbitrary fragments are not runnable ELFs; predicted target exit is conditional; no file or execution observation |
+| Source-built tools have distinct handoff comparisons | Pinned `bootstrap.sh` bounded step/helper spans and named test predicates in C22 | Inspected recipes, with historical CI summaries separately attributed to head `764bdc4f4902d613145f361da6a7f33010dd37b4` | Step 5 ELF route equality, step 6 M1-text equality and step 7 tool rebuilds are different checks; neither full script coverage nor a fresh run is claimed |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | An exact byte-decoded copy was inspected as data; no manual build-script run or seed execution is claimed |
 
 ## Existing results are attributed results

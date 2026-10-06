@@ -8,21 +8,27 @@ and all 1,772 bytes of the executable, then assembles the ideas in a
 whole-seed capstone.
 Each mechanism has a source-pinned trace and separate practice feedback.
 
-The [C-compiler volume](c-compiler/README.md) now has twenty paper chapters,
+The [C-compiler volume](c-compiler/README.md) now has twenty-two paper chapters,
 from an independent entry bridge through preprocessing, representations,
 emission/runtime, expressions/declarations, statements, function frames and
-translation-unit/process entry, then the bounded Stage-A recipe and evidence.
-Its 145 main exercises have separate feedback; six mixed checks add 24 questions.
-The edition has 240 main exercises including
+translation-unit/process entry, the bounded Stage-A recipe and evidence,
+then the complete standalone Forth assembler and its source-built-tool handoff.
+Its 167 main exercises have separate feedback; six mixed checks add 24 questions.
+The edition has 262 main exercises including
 the seed volume. C19's full technical/practice manuscript review is complete; C16–C18's
 reported technical, practice and first-reading reviews are complete. C20 has
 complete source/recipe coverage; its source/practice review and final readback are complete.
+C21/C22 are also source/practice-reviewed paper drafts. New example execution,
+rendered-layout review and actual-reader learning remain unverified.
 
 C19 derives a small program's 556-byte output-buffer layout and predicted exit
 path. [C20](c-compiler/chapters/20-complete-compiler-and-stage-a.md) explains
 the next producer executions and exact M1 comparison, with a separately
-attributed remote result. Assembler/native handoffs remain C21–C24, and
-broader bootstrap lineages keep their own unfinished reference obligations. The earlier reviewed C01–C15 checkpoint and
+attributed remote result. [C21](c-compiler/chapters/21-assembler-input-and-expansion.md)
+and [C22](c-compiler/chapters/22-two-pass-assembly-and-bootstrap-handoff.md)
+now open expansion, two-pass assembly and the exact source-built-tool
+comparisons. Native/TinyCC work remains C23/C24; broader bootstrap lineages
+keep their own unfinished reference obligations. The earlier reviewed C01–C15 checkpoint and
 [continuation-draft notes](c-compiler/DRAFTS.md) retain their historical scope.
 
 The edition is a draft, not a complete replacement for the original book.
@@ -34,7 +40,7 @@ and appendix, including material not rewritten yet.
 | Book | Intended completed outcome | Current state |
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
-| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default compiler and bounded Stage-A recipe/evidence route drafted through C20; C20 source/practice review complete; assembler/native and broader bootstrap closure remain planned |
+| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default compiler, Stage-A recipe/evidence and complete bounded assembler/handoff drafted through C22; source/practice reviewed; native/TinyCC and broader bootstrap closure remain planned |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 
@@ -69,12 +75,15 @@ units.
 - [Seed byte audit](seed-forth/AUDIT.md) assigns every file byte and shows
   which regions are explained so far
 
-The source maps account for 526 colon definitions across thirteen compiler
+The source maps account for 576 colon definitions across fourteen compiler/assembler
 files, plus the separate preprocessor-region inventory. The control/function/
 program ledger distinguishes 160 declarations from ten top-level forms;
 coverage does not mean those forms were executed here. The [pipeline
 map](c-compiler/pipeline-map.csv) separately covers 33 regions/273 lines in five
-complete shell scripts. Source-blob checks cover 48 pinned project files;
+complete shell scripts. The [assembler ledger](c-compiler/assembler-regions.csv)
+adds all 785 lines in 42 regions, 99 declarations and two initialization
+forms; its 50 colon definitions are included in the 576 total. Source-blob
+checks cover 59 pinned project files;
 none of these counts is a claim of whole-bootstrap implementation coverage.
 
 The new teaching examples have not been executed; repository CI results,

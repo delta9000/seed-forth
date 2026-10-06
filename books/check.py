@@ -17,6 +17,17 @@ from urllib.parse import unquote, urlsplit
 REV = "7d7e1996d1753118181d43e1a413960d3a1ec24b"
 ROOT = Path(__file__).resolve().parent
 SOURCE_BLOBS = {
+    '130-asm.fth': 'f1aec439017467a377af636b3b619e7cbb72188a',
+    'book/33-the-assembler.md': '6e3d80fcbcd1247c59eb627d361445cd40d9e2d8',
+    'tests/asm/die-gates.sh': '2d952e9c417a579d431bd68e68298d77d28dc612',
+    'tests/asm/exit42-check.sh': '04da9dcec07b3a030c1429ef07c4d2a8fa3f3b97',
+    'tests/asm/exit42.M1': '4e13975caa7c6f4283d23594ee6cfffe00f37515',
+    'tests/asm/jump42-check.sh': '70aa18447ed079f6c2652b3d31d088ee9c88e05f',
+    'tests/asm/jump42.hex2': '91750f0cd818a6ca8a880feca1aad75f31ed8d19',
+    'tests/asm/m1-jump42-check.sh': 'be2c7cbbf8b8440739c895d75922ab017edba2d6',
+    'tests/asm/m1-jump42.M1': '2acbec7a76922bd82bdeacda6665dc0450cdd7f7',
+    'tests/asm/m2planet-check.sh': '76bc61c54bf54695fa3315e90dd0692380f1ce54',
+    'tests/asm/mescc-tools-check.sh': '6385162dd729981496061d524c06bc8ae23b0820',
     'README.md': 'b4a167739d8c47dc2338cfde5f915bb9aca566f7',
     'REPRODUCIBLE.md': '5bfd46d7bbdc90e375fe378da30cae3fa617af32',
     'book/00-prologue.md': '91b3ee2a06373f3d1b6234d9abed0a6c0008184b',
@@ -169,7 +180,7 @@ def check_documents():
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9, 19: 7, 20: 8}.get(number, 5)
+        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9, 19: 7, 20: 8, 21: 10, 22: 12}.get(number, 5)
         c_pairs += exercise_count
         expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
@@ -426,11 +437,11 @@ def check_c_source_map(source_root):
     for name in ["020-cc-arena.fth", "030-cc-io.fth", "050-cc-lex.fth",
                  "060-cc-types.fth", "070-cc-sym.fth", "080-cc-elf.fth",
                  "090-cc-emit.fth", "100-cc-expr.fth", "110-cc-decl.fth",
-                 "112-cc-stmt.fth", "114-cc-func.fth", "116-cc-prog.fth", "120-cc-main.fth"]:
+                 "112-cc-stmt.fth", "114-cc-func.fth", "116-cc-prog.fth", "120-cc-main.fth", "130-asm.fth"]:
         expected = set(re.findall(r"^:\s+(\S+)", (source_root/name).read_text(), re.M))
         actual = {word for file, word in seen if file == name}
         assert actual == expected, (name, actual ^ expected)
-    print(f"PASS: {len(rows)} C source-map definitions; complete infrastructure/representation/emission/parser/control/program definition inventories")
+    print(f"PASS: {len(rows)} compiler/assembler source-map definitions; complete named implementation inventories")
 
 
 def check_preprocessor_regions(source_root):
@@ -704,6 +715,100 @@ def check_c_pipeline_models(source_root):
     assert int(bool(8) and bool(1)) == 1 and (8 & 1) == 0
     assert b"A\n" != b"A \n" and b"" == b""
     print("PASS: C20's three displayed input lists and Fibonacci source match pinned text; bounded counts/status models agree")
+
+
+def check_assembler_regions(source_root):
+    path = ROOT / "c-compiler/assembler-regions.csv"
+    if not path.exists():
+        return
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    name = "130-asm.fth"
+    lines = (source_root/name).read_text().splitlines()
+    assert len(lines) == 785
+    next_line, seen, initialization_rows = 1, set(), []
+    counts, owners = {}, {"C21": 0, "C22": 0}
+    for row in rows:
+        start, end = int(row["start_line"]), int(row["end_line"])
+        assert start == next_line and start <= end <= len(lines), row
+        next_line = end+1
+        assert row["source_path"] == name and row["source_revision"] == REV
+        assert row["source_blob_sha"] == SOURCE_BLOBS[name]
+        expected = []
+        for line in lines[start-1:end]:
+            line = line.split("\\", 1)[0]
+            direct = re.match(r"^\s*(:|create|variable)\s+(\S+)", line)
+            constant = re.search(r"\bconstant\s+(\S+)", line)
+            if direct:
+                kind, word = direct.groups()
+                kind = "colon" if kind == ":" else kind
+            elif constant:
+                kind, word = "constant", constant.group(1)
+            else:
+                continue
+            expected.append(word)
+            counts[kind] = counts.get(kind, 0)+1
+        actual = row["declarations"].split("; ") if row["declarations"] else []
+        assert actual == expected and not seen.intersection(actual), row
+        seen.update(actual)
+        unit = row["primary_unit"]
+        assert unit in owners
+        owners[unit] += len(actual)
+        for word in actual:
+            assert word in row["declaration_notes"], (word, row)
+        for field in ["phase", "state_owner", "mechanism", "assumptions", "teaching_section"]:
+            assert row[field].strip(), (field, row)
+        if row["initialization_forms"]:
+            initialization_rows.append((start, end, row["initialization_forms"]))
+        assert row["manuscript_status"] == "taught", row
+        chapter = (ROOT / "c-compiler" / row["manuscript_path"]).resolve()
+        assert chapter.is_relative_to(ROOT) and chapter.is_file(), row
+        assert row["teaching_anchor"] in anchors(chapter.read_text()), row
+        for target in filter(None, row["related_teaching"].split("; ")):
+            url = urlsplit(target)
+            related = (ROOT / "c-compiler" / url.path).resolve()
+            assert related.is_relative_to(ROOT) and related.is_file(), target
+            assert url.fragment in anchors(related.read_text()), target
+        assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/{name}#L{start}-L{end}"
+    assert next_line == 786 and len(rows) == 42 and len(seen) == 99
+    assert counts == {"colon": 50, "variable": 34, "create": 8, "constant": 7}, counts
+    assert owners == {"C21": 56, "C22": 43}
+    assert len(initialization_rows) == 2
+    assert any(start <= 45 <= end and "skip-vm-pages" in text for start, end, text in initialization_rows)
+    assert any(start <= 172 <= end and "6291456" in text for start, end, text in initialization_rows)
+    print("PASS: 42 assembler regions partition 785 lines and explain 99 declarations plus two initialization forms")
+
+
+def check_assembler_paper_models():
+    path = ROOT / "c-compiler/chapters/21-assembler-input-and-expansion.md"
+    if not path.exists():
+        return
+    text = path.read_text()
+    # Fenced presentation ends with a newline; preserve the meaningful final space.
+    raw_blocks = re.findall(r"^```text[ \t]*\n(.*?)^```[ \t]*$", text, re.M | re.S)
+    displayed = [block[:-1] if block.endswith("\n") else block for block in raw_blocks]
+    expanded = ":top EB !end 41 00 :end 90 EB !top "
+    assert expanded in displayed and len(expanded.encode("ascii")) == 35
+    single = ":top EB !end 41 :end 90 EB !top "
+    assert single in displayed and len(single.encode("ascii")) == 32
+    assert len(":top EB !end 41 42 00 :end 90 EB !top ") == 38
+    assert len(":top EB !end 41 42 43 00 :end 90 EB !top ") == 41
+    raw = b'DEFINE jump EB\nDEFINE nop 90\n:top jump !end "A"\n:end nop jump !top\n'
+    assert raw[7:11] == b"jump" and raw[12:14] == b"EB"
+    assert raw[22:25] == b"nop" and raw[26:28] == b"90"
+    # These are supplied field/byte calculations, not an assembler or execution.
+    assert 4-(1+1) == 2 and 0-(6+1) == -7
+    fragment = bytes([0xEB, 2, 0x41, 0, 0x90, 0xEB, (-7)&255])
+    assert fragment == bytes.fromhex("EB 02 41 00 90 EB F9")
+    assert ((-8)&255) == 0xF8 and ((-9)&255) == 0xF7
+    assert (256&255) == 0 and ((-129)&255) == 0x7F
+    assert (0x100000000 & 0xFFFFFFFF) == 0  # Four-byte low-field representation.
+    assert 120+7+7+5+7+2 == 148 and 146-(135+4) == 7
+    assert (0x600000+120).to_bytes(4, "little") == bytes.fromhex("78 00 60 00")
+    assert (148).to_bytes(4, "little") == bytes.fromhex("94 00 00 00")
+    assert len(b"/tmp/asm-out\0") == 13
+    assert 8192*24 == 196608
+    print("PASS: exact displayed assembler expansion, raw slices, and bounded field/header arithmetic agree")
 
 
 def check_c_models(source_root):
@@ -1107,9 +1212,11 @@ def main():
     check_parser_map(args.source_root)
     check_control_map(args.source_root)
     check_pipeline_map(args.source_root)
+    check_assembler_regions(args.source_root)
     check_c_models(args.source_root)
     check_c_program_capstone()
     check_c_pipeline_models(args.source_root)
+    check_assembler_paper_models()
     check_models()
     check_audit_partition(args.source_root)
     check_audit_listings(args.source_root)

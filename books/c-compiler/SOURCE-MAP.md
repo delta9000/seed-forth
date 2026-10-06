@@ -1,4 +1,4 @@
-# C compiler source map
+# Compiler and assembler source map
 
 The [definition inventory](source-map.csv) provides precise navigation from
 this teaching draft to the implementation at
@@ -24,6 +24,7 @@ immutable file, not an edition identifier by themselves.
 | `114-cc-func.fth` | 7 | [C18](chapters/18-functions-and-call-frame-accounting.md) | Function registration, copied parameters, fixed frames, body parsing and explicit/fallback return paths |
 | `116-cc-prog.fth` | 29 | [C19](chapters/19-translation-units-and-process-entry.md) | File-scope products, prototypes, entry/runtime ordering, deferred-use closure, global placement and entry patch |
 | `120-cc-main.fth` | 1 | [C19](chapters/19-translation-units-and-process-entry.md) | Output-path bytes, driver ordering and the final executing form |
+| `130-asm.fth` | 50 | [C21](chapters/21-assembler-input-and-expansion.md), [C22](chapters/22-two-pass-assembly-and-bootstrap-handoff.md) | Standalone buffers/cursor, one-pass definitions and strings, numeric/label fields, two-pass accounting and output |
 
 C01 opens the contract of `cc-main` and the main-last loader before C02 opens
 the storage mechanisms. C03–C08 open preprocessing, lexing, type storage and name visibility. C09–C11
@@ -34,8 +35,8 @@ the actual compiler/Stage-A artifact recipe and reads an identified comparison
 record. Reading a call's
 name is not the same as auditing its implementation.
 
-The inventory currently covers all 526 colon definitions in `020`, `030`,
-`050`, `060`, `070`, `080`, `090`, `100`, `110`, `112`, `114`, `116` and `120`.
+The inventory currently covers all 576 colon definitions in `020`, `030`,
+`050`, `060`, `070`, `080`, `090`, `100`, `110`, `112`, `114`, `116`, `120` and `130`.
 It does not yet claim a complete word inventory for all compiler layers.
 Small accessors may share one explanation; substantial state transitions get
 worked examples. Definitions need not be copied in full into the prose to
@@ -146,12 +147,32 @@ bootstrap implementation, assembler or downstream GCC/Linux route. Their
 current use as named inputs or contextual evidence does not replace the later
 mechanism chapters.
 
+## The standalone assembler
+
+The [assembler region inventory](assembler-regions.csv) partitions all 785
+lines of `130-asm.fth` into 42 contiguous regions. It accounts separately for
+99 declarations (50 colon definitions, 34 variables, eight created objects and
+seven constants) and two initialization forms. C21 owns 56 declarations and
+C22 owns 43; the shared source file is not silently counted as a compiler layer.
+It runs in a fresh seed process with `010-lib.fth` and an explicit caller
+invocation.
+
+The primary teaching story follows one 35-byte expansion into seven output
+bytes. Later sessions explain each local mechanism, then identify the supplied
+ELF envelope and exact assembler/handoff comparisons. Region notes distinguish
+raw source ownership, expanded-token ownership, target-address counts, output
+bytes and recorded evidence. All heading homes and related section links are
+checked against the actual prose. These are represented mechanisms, not a
+claim that any new assembler example has run or that every possible input is
+accepted correctly.
+
 ## What the checks establish
 
 The [document checker](../check.py) verifies pinned source blobs, definition
-names and spans, inventory completeness for the thirteen files above, the full
+names and spans, inventory completeness for the fourteen files above, the full
 preprocessor region/declaration partition, emission, parser and control/program declaration
-inventories, the five-script region partition, bounded source-line locators, and complete
+inventories, the five-script and standalone-assembler region partitions,
+bounded source-line locators, and complete
 named Forth excerpts shown in the new C chapters. It also checks local links,
 exercise/solution IDs and selected paper calculations.
 

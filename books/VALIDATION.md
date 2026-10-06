@@ -3,7 +3,7 @@
 This manuscript checkpoint contains the first volume's complete draft paper
 route: entry/motivation guides, nineteen teaching chapters, ninety-five
 exercises with separate feedback, six mixed return checks and a compact
-reference. The C volume now adds twenty teaching chapters, 145 exercises
+reference. The C volume now adds twenty-two teaching chapters, 167 exercises
 with feedback and six four-question mixed checks. These are paper teaching
 drafts, not validated execution guides or a completed multi-volume rewrite.
 
@@ -20,7 +20,7 @@ The included checker is intentionally small and inspectable:
 python3 books/check.py
 ```
 
-It uses Python's standard library. It checks forty-eight relevant source blob
+It uses Python's standard library. It checks fifty-nine relevant source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
@@ -250,7 +250,7 @@ model-assisted text-dependency evidence, not a real-reader learning outcome.
 
 The pipeline companion partitions all 273 lines of five pinned scripts into
 33 source-annotated regions. This count is separate from the 526 Forth colon
-definitions. The current document pass covers 240 main exercise pairs, 90
+definitions. At the C20 checkpoint, the document pass covered 240 main exercise pairs, 90
 source-inventory rows, the 77-unit prerequisite graph, 48 project source blobs,
 and 67 complete named C-compiler excerpts. The checker checks source-line
 bounds and uses implementation `.fth` bodies, rather than historical narrative
@@ -276,6 +276,47 @@ All 109 book files matched the saved manifest; all 15 changed contents were
 read back exactly, with no repository changes outside `books/`. As before,
 canonical CI builds the original `book/`, not these new teaching manuscripts.
 
+## Assembler expansion and two-pass unit
+
+C21/C22 follow one fragment from exact expanded text to label positions and
+seven described output bytes, then derive the supplied 120-byte ELF envelope
+and 148-byte long-jump fixture. The assembler does not manufacture that
+envelope. Independent source/practice reviews checked all 99 declarations,
+42 source regions, 22 main exercises, 66 graduated hints, their worked answers
+and changed cases. C21 has ten answer-free changed prompts; C22 has four
+separately listed changed reattempts alongside changes in its main tasks.
+
+The reviews kept label-reference field-end subtraction separate from numeric
+immediates, retained the unusual actual fit rules and four-byte bypass, and
+separated the bootstrap source-built tool comparison from a different
+GCC-default reference recipe. Recipe success was made conditional rather than
+phrased as a newly witnessed event. The final source locators and correction
+readbacks were checked before this checkpoint.
+
+A bounded reader-role audit saved its C21 attempt before seeing C22. It
+reconstructed both representations and identified prerequisites to make
+explicit: character codes, the availability of only preceding definitions,
+and the one-byte label range. These facts were added where needed. First-
+session practice now stays with the one-byte puzzle; the absolute four-byte
+exercise follows the sigil/emission session. This is model-assisted dependency
+checking, not measured human learning, retention or transfer.
+
+Current static checks cover 262 main exercise pairs, 91 source-inventory rows,
+59 pinned project source blobs and 576 Forth definitions across fourteen files.
+The new assembler companion verifies the complete 785-line partition, every
+declaration, both initialization forms and current teaching anchors. The
+checker also preserves the meaningful final space in the displayed expansion
+and verifies selected raw slices, displacement/header arithmetic and the
+thirteen-byte NUL-terminated output path. No Forth word, assembler, compiler
+or generated instruction is executed by those checks.
+
+The preceding C20 checkpoint at
+`0549ca0e205d4eabc8386c5bac1de2013321e3ae` passed its automatic
+[Check run](https://github.com/delta9000/seed-forth/actions/runs/37484530444).
+All 112 book files matched its complete manifest and all twelve changed
+contents were read back exactly; no repository entry outside `books/` changed.
+That canonical CI result remains separate from the new assembler examples.
+
 ## Still unverified
 
 - The seed and C teaching examples have not been executed for this edition
@@ -293,9 +334,9 @@ canonical CI builds the original `book/`, not these new teaching manuscripts.
 
 ## Next coherent unit
 
-The next manuscript work opens the M1 text representation and its assembler,
-then follows the two-pass and source-built assembler handoff. Later native,
-TinyCC, GCC and kernel routes retain separate source and evidence obligations.
+The next manuscript work distinguishes the native/private-stack profile and
+its TinyCC preparation and closure. GCC and kernel routes retain separate
+source and evidence obligations.
 The [coverage map](COVERAGE.md) distinguishes that planned material from
 the first volume's drafted mechanisms and its remaining verification work.
 Execution checks need a named, authorized seed profile before their status
