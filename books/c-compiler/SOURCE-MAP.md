@@ -20,16 +20,21 @@ immutable file, not an edition identifier by themselves.
 | `090-cc-emit.fth` | 119 | [C09](chapters/09-instructions-inside-an-executable.md), [C10](chapters/10-calls-literals-and-deferred-addresses.md), [C11](chapters/11-a-bounded-legacy-runtime.md) | Encoder families/hooks, function and global fixups, data/BSS storage and all legacy runtime bodies |
 | `100-cc-expr.fth` | 142 | [C10](chapters/10-calls-literals-and-deferred-addresses.md), [C12](chapters/12-places-values-and-delayed-loads.md)–[C14](chapters/14-expressions-and-constant-evaluation.md) | Nine-cell metadata, grammar recursion, operator tables, store/call/type hooks and immediate evaluation |
 | `110-cc-decl.fth` | 35 | [C14](chapters/14-expressions-and-constant-evaluation.md), [C15](chapters/15-declarations-and-recursive-records.md) | Type-query handshake, declaration prefixes, recursive descriptors, local/storage state and bounded return/switch helpers |
+| `112-cc-stmt.fth` | 45 | [C16](chapters/16-conditions-and-loops.md), [C17](chapters/17-switches-labels-and-nonlocal-control.md) | Recursive statement dispatch, loop/token state, switch selection and cleanup, label storage and goto completion |
+| `114-cc-func.fth` | 7 | [C18](chapters/18-functions-and-call-frame-accounting.md) | Function registration, copied parameters, fixed frames, body parsing and explicit/fallback return paths |
+| `116-cc-prog.fth` | 29 | [C19](chapters/19-translation-units-and-process-entry.md) | File-scope products, prototypes, entry/runtime ordering, deferred-use closure, global placement and entry patch |
+| `120-cc-main.fth` | 1 | [C19](chapters/19-translation-units-and-process-entry.md) | Output-path bytes, driver ordering and the final executing form |
 
 C01 opens the contract of `cc-main` and the main-last loader before C02 opens
 the storage mechanisms. C03–C08 open preprocessing, lexing, type storage and name visibility. C09–C11
 open emission/finalization and the bounded runtime. C12–C15 open expression
-and declaration mechanisms. Later units still must explain full statement,
-function and top-level flows invoked by the driver. Reading a
-call's name is not the same as auditing its implementation.
+and declaration mechanisms. C16–C19 join statements, functions and the
+top-level driver into a complete source-derived program trace. C20 still owns
+the actual compiler/Stage-A artifact recipe and comparisons. Reading a call's
+name is not the same as auditing its implementation.
 
-The inventory currently covers all 444 colon definitions in `020`, `030`,
-`050`, `060`, `070`, `080`, `090`, `100` and `110`.
+The inventory currently covers all 526 colon definitions in `020`, `030`,
+`050`, `060`, `070`, `080`, `090`, `100`, `110`, `112`, `114`, `116` and `120`.
 It does not yet claim a complete word inventory for all compiler layers.
 Small accessors may share one explanation; substantial state transitions get
 worked examples. Definitions need not be copied in full into the prose to
@@ -70,8 +75,9 @@ emitters supply nineteen names.
 
 The C10 explanations also open selected patch consumers in `112`, `114` and
 `116`, so a deferred-address promise has a complete local resolution trace.
-That does not claim those whole parser/control/function modules are already
-rewritten. Their remaining mechanisms retain later teaching homes.
+C16–C19 now supply the remaining explanations within those four control,
+function and program source files. Their optional providers in other files
+still retain later teaching homes.
 
 ## Expression and declaration ownership
 
@@ -85,18 +91,43 @@ C10 already opens call-pop and string-emission helpers; C12 explains places
 and metadata; C13 owns operator tables and precedence; C14 closes grammar,
 stores, immediate evaluation and the cross-file cast/type-query handshake.
 C15 constructs declarations and opens the local switch/return helpers. Their
-complete use inside statements and frames remains with planned C17/C18.
+complete use inside statements and frames is explained in C17/C18.
 
 A named provider's caller/default is distinct from its later full optional
 implementation. The inventory's current home does not claim that all native
 provider source files or complete control/function paths have been rewritten.
 
+## Statements, frames and program completion
+
+The [control and program inventory](control-map.csv) assigns all 160 named
+declarations in `112`, `114`, `116` and `120`: 82 colon definitions, 32
+variables, 40 created objects, five constants and one deferred entry. Ten
+additional rows explain eight initialization forms, the statement-dispatch
+binding and the final driver invocation. Each row records its state owner,
+purpose, exact source span and teaching section. Primary row counts are C16:
+25, C17: 53, C18: 12 and C19: 80.
+
+The 170 rows are an annotation aid, not 170 separate lessons. A created table
+and its data-initialization row may refer to overlapping source lines; this is
+not a disjoint line partition. `taught` in this ledger means that an explanatory
+home exists in the paper manuscript, not that reader learning or execution
+has been demonstrated. The [unit record](DRAFTS.md) tracks independent review
+separately.
+
+C16 explains the distinct continue destinations and full-token restoration
+needed for step replay. C17 separates emitted case order from selector order,
+then follows saves across switch, loop and label exits. C18 joins names and
+parameters to target frames. C19 connects file-scope metadata and storage to
+entry, finalization and the output attempt. The local native branches are
+explained where they appear; complete alternative function/call providers
+remain later units.
+
 ## What the checks establish
 
 The [document checker](../check.py) verifies pinned source blobs, definition
-names and spans, inventory completeness for the nine files above, the full
-preprocessor region/declaration partition, emission and parser declaration
-inventories, and complete
+names and spans, inventory completeness for the thirteen files above, the full
+preprocessor region/declaration partition, emission, parser and control/program declaration
+inventories, bounded source-line locators, and complete
 named Forth excerpts shown in the new C chapters. It also checks local links,
 exercise/solution IDs and selected paper calculations.
 

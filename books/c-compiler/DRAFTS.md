@@ -1,20 +1,22 @@
-# Saved continuation drafts: C16–C18
+# Control and program unit: C16–C19
 
 These chapters are saved work in progress after the
 [reviewed C01–C15 checkpoint](https://github.com/delta9000/seed-forth/commit/41f538d2da81f3831782d960a546c991244e2c83).
-They are available to read and their technical/practice reviews have passed,
-but the complete statement/function unit is not yet integrated. The described implementation remains pinned to
+C16–C18 have passed technical/practice reviews. C19 now completes the paper
+program route; its full reference/practice
+review has also passed source-derived checks. The described implementation remains pinned to
 `7d7e1996d1753118181d43e1a413960d3a1ec24b`.
 
 | Draft | Practice | Current review boundary |
 |---|---|---|
-| [C16 Conditions and loops](chapters/16-conditions-and-loops.md) | [Eight exercise sets](practice/16-solutions.md) | Technical/practice and continuous-story reviews passed; later unit integration remains pending |
-| [C17 Switches, labels, and nonlocal control](chapters/17-switches-labels-and-nonlocal-control.md) | [Eight exercise sets](practice/17-solutions.md) | Technical/practice and continuous-story reviews passed; later unit integration remains pending |
+| [C16 Conditions and loops](chapters/16-conditions-and-loops.md) | [Eight exercise sets](practice/16-solutions.md) | Technical/practice and continuous-story reviews passed; unit source/navigation integration is complete |
+| [C17 Switches, labels, and nonlocal control](chapters/17-switches-labels-and-nonlocal-control.md) | [Eight exercise sets](practice/17-solutions.md) | Technical/practice and continuous-story reviews passed; unit source/navigation integration is complete |
 | [C18 Functions and call-frame accounting](chapters/18-functions-and-call-frame-accounting.md) | [Nine exercise sets](practice/18-solutions.md) | Technical/practice review passed; the continuous first-reading story was checked for flow and technical consistency |
+| [C19 Translation units and process entry](chapters/19-translation-units-and-process-entry.md) | [Seven exercise sets](practice/19-solutions.md) | First story, full reference/practice and sixth mixed check passed source-derived checks |
 
 Each draft gives a bounded first reading session, later routes, worked traces,
-graduated hints and changed-case practice. The practice adds 25 paired main
-exercises. A checked reading route means that its named sections supply the
+graduated hints and changed-case practice. The unit adds 32 paired main
+exercises and a [sixth mixed check](practice/return-check-6.md). A checked reading route means that its named sections supply the
 contracts needed by its assigned exercise parts; it is not a reader study.
 
 Local links, exercise pairing and Markdown-to-HTML parseability were checked.
@@ -44,7 +46,16 @@ source-consistency and simulated-reader checks, including loop destinations,
 fallthrough, no-default behavior and saved-register cleanup. The source's
 chosen layouts are distinguished from requirements imposed by C behavior.
 
-The next integration includes C19's translation-unit/process-entry
-account, complete source-map ownership and a mixed practice check. The [coverage map](../COVERAGE.md) still records
-the reviewed C01–C15 scope rather than crediting these saved drafts as a
-finished migration. Source and canonical literate-book files are unchanged.
+C19 follows a complete small program continuously from its C definition to a
+predicted 556-byte image, then from generated process entry through main and
+back to the exit request. Detailed file-scope forms come afterward. A bounded
+reader attempt exposed one implicit premise about emitting uncalled functions
+in source order; that premise is now explicit. The attempt is evidence about
+text dependencies, not a human learning result.
+
+The source/navigation integration now includes all four chapters, the complete
+[control/program companion](control-map.csv) and mixed practice. The
+[coverage map](../COVERAGE.md) credits represented paper mechanisms while
+retaining the C19 review boundary above and the later build/profile obligations.
+C20 still owns the actual Stage-A recipe and artifact comparisons. Source and
+canonical literate-book files are unchanged.

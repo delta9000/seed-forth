@@ -37,7 +37,7 @@ prerequisites for calculating the first three chapters' states.
 
 ## Compiler-volume entrance
 
-The first fifteen C-volume chapters use the same exact source revision.
+The first nineteen C-volume chapters use the same exact source revision.
 [C01](c-compiler/chapters/01-compiler-entry-and-profile.md) distinguishes the
 legacy direct-ELF builder from the separate generated program and from the
 optional TinyCC/System V profiles. [C02](c-compiler/chapters/02-buffers-arenas-and-failure.md)
@@ -51,9 +51,21 @@ gates. C06 opens tokens/lookahead, C07 type/descriptor representations and C08
 name/scope records. C09–C11 open the executable envelope, encoders, calls,
 patch resolution and legacy runtime. C12–C15 open places/values, operator
 parsing, full expressions and constant evaluation, then declaration construction.
-The source maps assign all 333 named declarations in `100` and `110` to
-current explanations. Statement/function integration and later target providers
-retain separate implementation homes rather than becoming hidden prerequisites.
+C16–C18 now integrate conditions/loops, switches/labels and fixed legacy
+function frames. C19 now explains translation-unit forms, process entry and
+the final driver. Its complete small-program story derives a 556-byte buffer
+and a conditional exit-value trace, then its reference sessions open enums,
+typedefs, prototypes, global storage, runtime registration and final checks.
+C19's full technical/practice manuscript review is complete.
+
+The source maps assign 526 colon definitions across thirteen non-preprocessor
+compiler files, all 333 declarations in `100`/`110`, and 170 control/function/
+program rows: 160 declarations plus ten top-level forms in `112`/`114`/`116`/
+`120`. The separate preprocessor inventory remains 57 regions/325 declarations.
+These are source-coverage units, not execution counts. Full native/private-stack,
+System V and other target providers retain separate homes. C20 retains actual
+artifact/build/Stage-A comparisons; a source-complete default driver account
+does not complete those evidence obligations.
 
 Their source inspection does not resume or reproduce a compiler build.
 The canonical `tri.c` is retained as a paper example; its output character
@@ -79,7 +91,8 @@ as new measurements. More workspace does not change a C data model or ABI.
 | All seed file bytes: headers, startup, primitive bodies and helpers | `000-seed.hex0`, S11–S18 regions enumerated in the byte ledger | Source-matched byte listings, GNU readelf/objdump 2.44 static decoding and manual state traces | All 1,772 bytes have drafted explanations: 120 ELF bytes, 421 dictionary-header bytes and 1,231 native-instruction bytes; coverage is not a correctness proof |
 | A complete new `inc` definition | S19 capstone, using the inspected dictionary/compiler contracts | Predicted 32-byte entry, independently reconstructed by the document checker | Generated process-memory bytes, not an observed artifact or extra seed file bytes |
 | Stack, byte and bit examples and exercise answers | Chapter and solution steps, plus document-check assertions | Derived from the stated model | An arithmetic assertion is not a seed execution |
-| C entry through emission, expressions and declaration construction | `020-cc-arena.fth`, `030-cc-io.fth`, all `040-cc-prep.fth` regions, `050-cc-lex.fth`, `060-cc-types.fth`, `070-cc-sym.fth`, `080-cc-elf.fth`, `090-cc-emit.fth`, `100-cc-expr.fth`, `110-cc-decl.fth`, selected patch/registration consumers, `120-cc-main.fth`, the actual loader and named profile providers | Inspected pinned source, matched excerpts, source-map inventory and paper state/byte traces | First fifteen C chapters only; statement/function/closure mechanisms and full optional providers still require their assigned chapters; no new compiler/example execution |
+| C entry through default statements, functions and process entry | `020`–`120` core modules at the pin, source-map.csv, parser-map.csv, control-map.csv, named provider contracts and the actual loader | Inspected source, matched excerpts and manual state/byte derivations | C01–C19 paper route; C19 full technical/practice manuscript review complete. Complete optional providers and C20 artifact comparisons remain planned; no new compiler/example execution |
+| A minimal C program has a predicted 556-byte image and exit value seven | C19 fixture `int main(void){return 7;}`; exact header, stub, eager runtime, function and finalizer definitions | Manual byte/layout and conditional target-state derivation | Output-buffer prediction only; one-write delivery, loading and execution have not been observed; unrelated to original seed byte coverage or a Stage-A artifact comparison |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | An exact byte-decoded copy was inspected as data; no manual build-script run or seed execution is claimed |
 
 ## Existing results are attributed results

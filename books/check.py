@@ -156,7 +156,7 @@ def check_documents():
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9}.get(number, 5)
+        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9, 19: 7}.get(number, 5)
         c_pairs += exercise_count
         expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
@@ -164,6 +164,26 @@ def check_documents():
             assert found == expected, (file, found)
     pairs = 95 + c_pairs
     print(f"PASS: {len(files)} Markdown files; {checked_links} links; {pairs} exercise ID pairs")
+
+
+def check_pinned_source_links(source_root):
+    """Check source locators against the pinned files, without network or execution."""
+    prefix = f"https://github.com/delta9000/seed-forth/blob/{REV}/"
+    pattern = re.compile(re.escape(prefix) + r"([^\s)#]+)#L(\d+)(?:-L(\d+))?")
+    lengths, checked = {}, 0
+    for path in ROOT.rglob("*.md"):
+        prose = "\n".join(visible_lines(path.read_text()))
+        for match in pattern.finditer(prose):
+            name = unquote(match.group(1))
+            source = (source_root / name).resolve()
+            assert source.is_relative_to(source_root.resolve()) and source.is_file(), (path, name)
+            if name not in lengths:
+                lengths[name] = len(source.read_text().splitlines())
+            start = int(match.group(2))
+            end = int(match.group(3) or start)
+            assert 1 <= start <= end <= lengths[name], (path, name, start, end, lengths[name])
+            checked += 1
+    print(f"PASS: {checked} pinned-source line locators stay within their source files")
 
 
 def check_coverage():
@@ -389,11 +409,12 @@ def check_c_source_map(source_root):
         assert row["source_url"] == expected, row
     for name in ["020-cc-arena.fth", "030-cc-io.fth", "050-cc-lex.fth",
                  "060-cc-types.fth", "070-cc-sym.fth", "080-cc-elf.fth",
-                 "090-cc-emit.fth", "100-cc-expr.fth", "110-cc-decl.fth"]:
+                 "090-cc-emit.fth", "100-cc-expr.fth", "110-cc-decl.fth",
+                 "112-cc-stmt.fth", "114-cc-func.fth", "116-cc-prog.fth", "120-cc-main.fth"]:
         expected = set(re.findall(r"^:\s+(\S+)", (source_root/name).read_text(), re.M))
         actual = {word for file, word in seen if file == name}
         assert actual == expected, (name, actual ^ expected)
-    print(f"PASS: {len(rows)} C source-map definitions; complete infrastructure/representation/emission/parser definition inventories")
+    print(f"PASS: {len(rows)} C source-map definitions; complete infrastructure/representation/emission/parser/control/program definition inventories")
 
 
 def check_preprocessor_regions(source_root):
@@ -509,6 +530,72 @@ def check_parser_map(source_root):
     print(f"PASS: {len(rows)} expression/declaration names have source-matched teaching homes")
 
 
+def check_control_map(source_root):
+    path = ROOT / "c-compiler/control-map.csv"
+    if not path.exists():
+        return
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    names = ["112-cc-stmt.fth", "114-cc-func.fth", "116-cc-prog.fth", "120-cc-main.fth"]
+    expected, sources = {}, {}
+    for name in names:
+        sources[name] = (source_root/name).read_text().splitlines()
+        for number, line in enumerate(sources[name], 1):
+            line = line.split("\\", 1)[0]
+            direct = re.match(r"^\s*(:|create|variable|defer)\s+(\S+)", line)
+            constant = re.search(r"\bconstant\s+(\S+)", line)
+            if direct:
+                kind, word = direct.groups()
+                kind = "colon" if kind == ":" else kind
+            elif constant:
+                kind, word = "constant", constant.group(1)
+            else:
+                continue
+            expected[(name, word)] = (number, kind)
+    declaration_kinds = {"colon", "create", "variable", "constant", "defer"}
+    seen, forms, states, counts = set(), set(), {}, {}
+    for row in rows:
+        name, kind = row["source_path"], row["declaration_kind"]
+        start, end = int(row["source_line"]), int(row["source_end_line"])
+        assert name in sources and 1 <= start <= end <= len(sources[name]), row
+        counts[kind] = counts.get(kind, 0) + 1
+        if kind in declaration_kinds:
+            key = (name, row["name"])
+            assert key not in seen and expected[key] == (start, kind), row
+            seen.add(key)
+            if kind == "colon":
+                words = source_words("\n".join(sources[name][start-1:end]))
+                assert definition_end(words) == len(words)-1, row
+        else:
+            key = (name, start, end, kind)
+            assert key not in forms, row
+            forms.add(key)
+        assert row["source_revision"] == REV
+        assert row["source_blob_sha"] == SOURCE_BLOBS[name]
+        assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/{name}#L{start}-L{end}"
+        assert row["teaching_unit"] in {"C16", "C17", "C18", "C19"}
+        for field in ["state_owner", "semantic_purpose", "teaching_depth", "interface_notes"]:
+            assert row[field].strip(), (field, row)
+        chapter = (ROOT / "c-compiler" / row["manuscript_path"]).resolve()
+        assert chapter.is_relative_to(ROOT) and chapter.is_file(), row
+        state = row["coverage_status"]
+        assert state in {"taught", "pending-chapter"}, row
+        states[state] = states.get(state, 0) + 1
+        if state == "taught":
+            assert row["teaching_anchor"] in anchors(chapter.read_text()), row
+            assert row["teaching_section"].strip(), row
+    assert seen == expected.keys() and len(seen) == 160
+    assert counts == {"colon": 82, "variable": 32, "create": 40, "constant": 5,
+                      "defer": 1, "initialization": 8, "binding": 1, "execution": 1}, counts
+    expected_forms = {("112-cc-stmt.fth", n, n, "initialization") for n in [637, 641, 645, 649, 653, 657]}
+    expected_forms |= {("112-cc-stmt.fth", 905, 905, "binding"),
+                       ("116-cc-prog.fth", 766, 774, "initialization"),
+                       ("120-cc-main.fth", 24, 26, "initialization"),
+                       ("120-cc-main.fth", 40, 40, "execution")}
+    assert forms == expected_forms, forms
+    print(f"PASS: {len(seen)} control/function/program declarations and {len(forms)} top-level forms; states {states}")
+
+
 def check_c_models(source_root):
     chapter = ROOT / "c-compiler/chapters/01-compiler-entry-and-profile.md"
     if not chapter.exists():
@@ -615,7 +702,67 @@ def check_c_models(source_root):
     assert 31+1 == 32 and 32+3 > 32
     assert len(b"1 + 2") == 5 and 500+len(b"1 + 2") == 505
     assert 1+2 == 3 and bool(1 and (9//3)) == True
-    print("PASS: canonical tri.c text and bounded C-unit paper calculations through expression and declaration fixtures")
+    # C16–C19: selected control/frame/placement arithmetic, never source execution.
+    assert 3-1 == 2 and 1-0 == 1  # saved switch obligations crossed
+    assert 10 + 0 + 0 + 12 + 13 == 35 and 0+2+3+4*10 == 45
+    assert 1000-(1231+4) == -235
+    assert (-235).to_bytes(4, "little", signed=True) == bytes.fromhex("15 FF FF FF")
+    assert 16+256 == 272 and 32*8 == 256
+    assert round8(1003+24) == 1032 and 1032-(1003+24) == 5
+    assert (0x400000+1019).to_bytes(8, "little") == bytes.fromhex("FB 03 40 00 00 00 00 00")
+    assert 8*32+8 == 264 and len(b"/tmp/cc-out\0") == 12
+    print("PASS: canonical tri.c text and bounded C-unit paper calculations through control and program fixtures")
+
+
+def check_c_program_capstone():
+    path = ROOT / "c-compiler/chapters/19-translation-units-and-process-entry.md"
+    if not path.exists():
+        return
+    text = path.read_text()
+    body_rows, entry_rows = {}, {}
+    for line in text.splitlines():
+        body = re.match(r"^\| (\d+)–(\d+) \| `([0-9A-F ]+)` \|", line)
+        entry = re.match(r"^\| (\d+) \| `([0-9A-F ]+)` \|", line)
+        if body:
+            start, end = int(body[1]), int(body[2])
+            data = bytes.fromhex(body[3])
+            assert end-start+1 == len(data), line
+            assert start not in body_rows, line
+            body_rows[start] = data
+        elif entry:
+            start, data = int(entry[1]), bytes.fromhex(entry[2])
+            assert start not in entry_rows, line
+            entry_rows[start] = data
+    expected_body = {
+        522: bytes.fromhex("55 48 89 E5 48 81 EC 00 01 00 00"),
+        533: bytes.fromhex("48 C7 C7 07 00 00 00"),
+        540: bytes.fromhex("48 89 F8"),
+        543: bytes.fromhex("48 89 EC 5D C3"),
+        548: bytes.fromhex("48 31 C0"),
+        551: bytes.fromhex("48 89 EC 5D C3"),
+    }
+    expected_entry = {
+        120: bytes.fromhex("48 8B 3C 24"),
+        124: bytes.fromhex("48 8D 74 24 08"),
+        129: bytes.fromhex("E8 00 00 00 00"),
+        134: bytes.fromhex("48 89 C7"),
+        137: bytes.fromhex("48 C7 C0 3C 00 00 00"),
+        144: bytes.fromhex("0F 05"),
+    }
+    assert body_rows == expected_body and entry_rows == expected_entry
+    for rows, start, end in [(body_rows, 522, 556), (entry_rows, 120, 146)]:
+        cursor = start
+        for offset, data in sorted(rows.items()):
+            assert offset == cursor
+            cursor += len(data)
+        assert cursor == end
+    assert (522-134).to_bytes(4, "little") == bytes.fromhex("84 01 00 00")
+    assert (556).to_bytes(8, "little") == bytes.fromhex("2C 02 00 00 00 00 00 00")
+    assert (81920).to_bytes(8, "little") == bytes.fromhex("00 40 01 00 00 00 00 00")
+    assert 522+11+8 == 541  # Empty main retains only prologue and implicit return.
+    assert 522+34+34 == 590 and 556-134 == 422  # CR6 helper before main.
+    assert (422).to_bytes(4, "little") == bytes.fromhex("A6 01 00 00")
+    print("PASS: displayed C19 entry/main bytes match independent paper construction and bounded changed layouts")
 
 
 def check_audit_partition(source_root):
@@ -842,12 +989,15 @@ def main():
     check_coverage()
     check_prerequisites()
     check_sources(args.source_root)
+    check_pinned_source_links(args.source_root)
     check_c_excerpts(args.source_root)
     check_c_source_map(args.source_root)
     check_preprocessor_regions(args.source_root)
     check_emission_map(args.source_root)
     check_parser_map(args.source_root)
+    check_control_map(args.source_root)
     check_c_models(args.source_root)
+    check_c_program_capstone()
     check_models()
     check_audit_partition(args.source_root)
     check_audit_listings(args.source_root)

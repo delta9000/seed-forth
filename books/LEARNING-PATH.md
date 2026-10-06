@@ -167,7 +167,7 @@ needed mechanisms in stages, and the full audit asks how every relevant
 source instruction realizes them. Source links are available now for readers who want
 that second question early, but exercises do not require solving it early.
 
-## C-volume entry and representation units
+## C-volume route through a predicted program
 
 The [compiler volume](c-compiler/README.md) offers a contract-based entrance.
 C01 teaches the C syntax it uses and checks four small Forth contracts; it
@@ -182,16 +182,20 @@ C01 + C02's local library-contract bridge -> C02: buffers, arena, ownership
 C02 -> C03: active regions, output sinks and nested include lifetimes
 C03 -> C04: macro records, arguments and rescans
 C03 + C04 + local evaluator/profile contracts -> C05: conditionals and extensions
-C05 -> C06: token records and reversible lookahead
-C02 + local type/bit contracts -> C07: type identity and stable descriptors
+C02 + C05 -> C06: token records and reversible lookahead
+C02 + local bit/type/token contracts -> C07: type identity and stable descriptors
 C02 + C06 + C07 -> C08: names, reusable symbols and scope visibility
 C02 + C07 + local instruction/ELF bridge -> C09: executable byte encodings
 C02 + C06 + C07 + C08 + C09 -> C10: calls, literals and delayed addresses
 C09 + C10 + local Linux request/result contract -> C11: bounded legacy runtime
-C06 + C07 + C08 + C09 + C10 -> C12: places, values and delayed loads
-C06 + C09 + C10 + C12 -> C13: precedence and short-circuit paths
-C06 + C10 + C12 + C13 -> C14: full expression and evaluator closure
-C06 + C07 + C08 + C12 + C14 -> C15: declaration and record construction
+C06 + C07 + C08 + C09 + C10 + local primary/index contracts -> C12: places and values
+C06 + C09 + C10 + C12 + local operand/arm contracts -> C13: precedence and short-circuit
+C06 + C10 + C12 + C13 + local type-query contracts -> C14: expressions and evaluator closure
+C06 + C07 + C08 + C12 + C14 + local switch/return contracts -> C15: declarations
+C06 + C09 + C10 + C13 + C15 + local statement/switch contracts -> C16: conditions and loops
+C06 + C09 + C10 + C14 + C15 + C16 -> C17: switches, labels and gotos
+C06 + C08 + C09 + C10 + C14 + C15 + C16 + C17 -> C18: functions and frames
+C02 + C06 + C08 + C09 + C10 + C11 + C14 + C15 + C18 + local entry/driver contracts -> C19: translation units and process entry
 ```
 
 | Unit | Observable outcome | Practice and feedback |
@@ -216,6 +220,26 @@ C06 + C07 + C08 + C12 + C14 -> C15: declaration and record construction
 | [C14 Expressions and immediate evaluation](c-compiler/chapters/14-expressions-and-constant-evaluation.md) | Preserve destinations and recursive state through stores, calls, casts and two evaluation phases | Ten exercises and [feedback](c-compiler/practice/14-solutions.md) |
 | [C15 Declarations and recursive records](c-compiler/chapters/15-declarations-and-recursive-records.md) | Construct descriptors, per-name types, symbol rows and storage reservations | Seven exercises and [feedback](c-compiler/practice/15-solutions.md) |
 | [Fifth C mixed check](c-compiler/practice/return-check-5.md) | Identify which consumer, phase, lifetime or restoration contract determines the result | Four mixed questions, hints and separate answers |
+| [C16 Conditions and loops](c-compiler/chapters/16-conditions-and-loops.md) | Choose exact loop exits, preserve pending tokens through step replay and restore enclosing fixup owners | Eight exercises and [feedback](c-compiler/practice/16-solutions.md) |
+| [C17 Switches and labels](c-compiler/chapters/17-switches-labels-and-nonlocal-control.md) | Separate selector order from fallthrough, restore saved registers, and finish legacy/native label uses under their distinct contracts | Eight exercises and [feedback](c-compiler/practice/17-solutions.md) |
+| [C18 Functions and frames](c-compiler/chapters/18-functions-and-call-frame-accounting.md) | Join symbol publication, parameter copies, fixed frames and returns; distinguish balance from actual call-boundary alignment | Nine exercises and [feedback](c-compiler/practice/18-solutions.md) |
+| [C19 Translation units and entry](c-compiler/chapters/19-translation-units-and-process-entry.md) | Complete default file-scope metadata/storage and derive a predicted image, main call and exit path | Seven exercises and [feedback](c-compiler/practice/19-solutions.md); full technical/practice manuscript review complete |
+| [Sixth C mixed check](c-compiler/practice/return-check-6.md) | Trace the next destination, saved reader state, unresolved-use owner and entry-field completion | Four mixed questions, hints and separate answers |
+
+The current C route has **137 main exercises** and six four-question mixed
+checks. Including the seed volume gives **232 main exercises**; mixed questions
+are separate. C16–C18 technical/practice and first-reading reviews are complete.
+C19's full technical/practice manuscript review is complete. All new outcomes remain
+source-derived paper predictions, with execution and human-reader validation
+unperformed.
+
+The graph describes contracts used across each complete chapter, including its
+reference sessions. It is not a demand to reread every dependency before a
+first story. C16 follows one continue destination through its loop; C17 follows
+one switch through selection and cleanup; C18's first call retrieves the
+C09/C14 contracts and supplies its coordinates. C19's first story supplies the
+header, eager-prefix, function and entry rules needed to derive one small
+program before its later file-scope reference sessions.
 
 The preprocessor's macro and conditional handlers are named interfaces in
 C03. C04/C05 now open those mechanisms; the earlier include exercise
@@ -226,11 +250,13 @@ keeps both the current explanations and the deferred regions inspectable.
 
 Places, values and delayed loads precede precedence and short-circuit parsing.
 That order gives each operator a known state model to preserve or consume.
-The next unit integrates statements, control flow, functions and top-level
-orchestration using the now-drafted expression and declaration mechanisms.
-The volume still needs a named end-to-end artifact comparison and its
-assembler/extended-profile handoffs. Existing repository results have their
-own evidence scope.
+C16–C19 now draft the default statement, function and top-level integration.
+The resulting 556-byte example is a predicted output-buffer layout, not an
+observed file or run. C20 still must identify the actual build inputs,
+artifacts and Stage-A comparison rules, distinguish parity from fixed-point
+claims, and retain the limits of the recorded evidence. C21–C24 retain the
+assembler and native-profile handoffs; the toolchain and kernel volumes remain
+planned. Existing repository results have their own evidence scope.
 
 Both volumes' new examples need an authorized, named execution profile and a
 fresh-reader setup check before derived results can be relabeled as observed.

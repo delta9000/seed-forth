@@ -8,13 +8,18 @@ and all 1,772 bytes of the executable, then assembles the ideas in a
 whole-seed capstone.
 Each mechanism has a source-pinned trace and separate practice feedback.
 
-The [C-compiler volume](c-compiler/README.md) also has its first fifteen teaching
-chapters: an independent entry bridge, storage/ownership, preprocessing,
-tokens/types/names, executable bytes, deferred addresses and the bounded
-legacy runtime, places/values, expressions and declarations. Statement/function
-integration and bootstrap-closure units remain planned. [C16–C18 continuation
-drafts](c-compiler/DRAFTS.md) are also saved, with their review limits clearly
-marked; they are separate from the reviewed C01–C15 route.
+The [C-compiler volume](c-compiler/README.md) now has nineteen paper chapters,
+from an independent entry bridge through preprocessing, representations,
+emission/runtime, expressions/declarations, statements, function frames and
+translation-unit/process entry. Its 137 main exercises have separate feedback;
+six mixed checks add 24 questions. The edition has 232 main exercises including
+the seed volume. C19's full technical/practice manuscript review is complete; C16–C18's
+reported technical, practice and first-reading reviews are complete.
+
+C19 derives a small program's 556-byte output-buffer layout and predicted exit
+path. Actual artifact/build comparisons remain C20, and assembler/native
+handoffs remain C21–C24. The earlier reviewed C01–C15 checkpoint and
+[continuation-draft notes](c-compiler/DRAFTS.md) retain their historical scope.
 
 The edition is a draft, not a complete replacement for the original book.
 The [coverage map](COVERAGE.md) accounts for every original numbered chapter
@@ -25,7 +30,7 @@ and appendix, including material not rewritten yet.
 | Book | Intended completed outcome | Current state |
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
-| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Infrastructure, preprocessing, representations, emission/runtime, expressions and declarations drafted; statement/function/closure units remain planned |
+| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default source-to-predicted-program route drafted through C19; C19 source/manuscript review complete; C20 artifact/bootstrap and assembler/native closure remain planned |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 
@@ -59,6 +64,11 @@ units.
 - [Coverage data](coverage.csv) makes remaining migration work sortable
 - [Seed byte audit](seed-forth/AUDIT.md) assigns every file byte and shows
   which regions are explained so far
+
+The source maps account for 526 colon definitions across thirteen compiler
+files, plus the separate preprocessor-region inventory. The control/function/
+program ledger distinguishes 160 declarations from ten top-level forms;
+coverage does not mean those forms were executed here.
 
 The new teaching examples have not been executed; repository CI results,
 where available, cover their separately named canonical checks.

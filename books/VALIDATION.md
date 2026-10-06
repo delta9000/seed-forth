@@ -1,14 +1,16 @@
 # Validation record
 
-This manuscript checkpoint, checked on 2026-10-06, contains the first
-volume's complete draft paper route: entry/motivation guides, nineteen
-teaching chapters, ninety-five exercises with separate feedback, six mixed
-return checks and a compact reference. The C volume adds fifteen teaching
-chapters, 105 exercises with feedback and five four-question mixed
-checks. These are not validated execution guides or a completed multi-volume
-rewrite. Additional [C16–C18 drafts](c-compiler/DRAFTS.md) are saved with their
-own limits below. The detailed source/practice record in the next section
-applies to the reviewed C01–C15 checkpoint.
+This manuscript checkpoint contains the first volume's complete draft paper
+route: entry/motivation guides, nineteen teaching chapters, ninety-five
+exercises with separate feedback, six mixed return checks and a compact
+reference. The C volume now adds nineteen teaching chapters, 137 exercises
+with feedback and six four-question mixed checks. These are paper teaching
+drafts, not validated execution guides or a completed multi-volume rewrite.
+
+The [C16–C19 unit record](c-compiler/DRAFTS.md) describes its technical,
+reading-flow and bounded reader checks. Earlier checkpoint records below
+retain their original scope; the current control/program integration is
+recorded separately near the end.
 
 ## Checks performed
 
@@ -22,12 +24,12 @@ It uses Python's standard library. It checks thirty-five relevant source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
-The reviewed C01–C15 document pass checks all local inline and reference-style links,
+The earlier C01–C15 document pass checked all local inline and reference-style links,
 the 81-row source inventory, the prerequisite graph of all 77 teaching units
 for cycles, 200 exercise pairs, thirty-five source blobs, all 63 library
 colon-definition excerpts and bounded mathematical assertions. It also
-checks all thirty-two primitive-reference names/body offsets and five complete
-predicted capstone-entry byte strings. The C additions check the canonical
+checked all thirty-two primitive-reference names/body offsets and five complete
+predicted capstone-entry byte strings. Those C additions checked the canonical
 `tri.c` text, forty-nine complete named Forth excerpts, bounded C-unit paper calculations, all 444 infrastructure/representation/emission/parser definitions and the full 57-region /
 325-declaration preprocessor source map, plus all 150 ELF/emitter declarations and 333 expression/declaration names. All preprocessor regions now have drafted explanatory homes; the
 lexer and evaluator mechanisms have their own drafted chapters; later target
@@ -183,6 +185,50 @@ The preceding C01/C18 flow checkpoint at
 That run checks the canonical pipeline; it does not execute or render the
 new teaching-book examples.
 
+## Control, frames and complete paper-program integration
+
+C16–C19 now form a continuous route through conditions and loops, switches
+and labels, function frames, and translation-unit/process entry. Their 32
+main exercises have separate hints, worked answers and changed cases. The
+sixth mixed check contributes four further questions combining destinations,
+cleanup, reader snapshots, unresolved uses and output placement.
+
+Independent manuscript review checked all four chapters' mechanisms and
+practice against the pinned source. For C19 this included all seven exercise
+sets, hint-supplied intermediates and changed cases, not only the headline
+556-byte result. A scope correction narrowed a question from every loop jump
+to unresolved loop break/continue jumps; condition fields and known backward
+jumps have different owners. Three out-of-range source locators were corrected,
+and the checker now rejects source-line endpoints beyond their pinned files.
+
+C19 begins with a complete small C program and derives its header, entry
+stub, eager runtime prefix, 34-byte function, final patches and predicted
+entry/return path. Detailed file-scope forms follow that first story. A bounded
+simulated-reader attempt used only that story and an answer-free helper-before-
+main problem; it obtained the changed coordinates without earlier-chapter
+reading and identified an implicit source-order-emission premise. That premise
+is now stated explicitly. This was a model-assisted dependency check, not a
+human trial or an observed transfer outcome.
+
+The document checker now covers 232 main exercise pairs, all 85 source-inventory
+rows and the 77-unit prerequisite graph. The definition map accounts for 526
+colon definitions across thirteen source files. The new control/program
+companion adds all 160 declarations and ten top-level initialization, binding
+or execution forms in `112`, `114`, `116` and `120`, with exact source spans
+and current teaching anchors. Separate preprocessor, emission and expression/
+declaration inventories retain their earlier complete counts. The checker also
+compares C19's displayed entry/function bytes with an independent paper
+construction and checks selected changed layouts. These are document and
+arithmetic checks; no Forth word or generated instruction is executed.
+
+The preceding loop/switch reading-flow checkpoint at
+`764bdc4f4902d613145f361da6a7f33010dd37b4` passed its automatic
+[Check run](https://github.com/delta9000/seed-forth/actions/runs/37474668625).
+All 105 files in that saved checkpoint matched their complete manifest, all
+seven changed contents were read back exactly, and the repository entries
+outside `books/` were unchanged. Its CI covers the canonical pipeline, not the
+new book's exercises or rendered layout.
+
 ## Still unverified
 
 - The seed and C teaching examples have not been executed for this edition
@@ -200,8 +246,9 @@ new teaching-book examples.
 
 ## Next coherent unit
 
-The next manuscript work integrates statements, control flow, functions and
-top-level orchestration using the now-drafted expression and declaration units.
+The next manuscript work follows the actual Stage-A recipe, named inputs and
+artifact comparisons, keeping recorded build evidence distinct from the new
+source-derived program predictions.
 The [coverage map](COVERAGE.md) distinguishes that planned material from
 the first volume's drafted mechanisms and its remaining verification work.
 Execution checks need a named, authorized seed profile before their status

@@ -45,8 +45,16 @@ first volume's machine-code audit before entering here.
     close postfix/unary/assignment/comma grammar and distinguish runtime emission from immediate evaluation
 15. [Declarations and recursive records](chapters/15-declarations-and-recursive-records.md):
     build the descriptors, names and storage records supplied to earlier traces
+16. [Conditions and loops](chapters/16-conditions-and-loops.md):
+    trace conditional destinations, loop exits and the reader state needed to replay a step
+17. [Switches, labels, and nonlocal control](chapters/17-switches-labels-and-nonlocal-control.md):
+    separate selection from fallthrough and restore the saves crossed by each exit
+18. [Functions and call-frame accounting](chapters/18-functions-and-call-frame-accounting.md):
+    follow copied arguments into frame slots and back to the caller
+19. [Translation units and process entry](chapters/19-translation-units-and-process-entry.md):
+    join declarations and finalization, then derive a whole small program's image and entry path
 
-These fifteen chapters provide 105 exercises and separate feedback
+These nineteen chapters provide 137 exercises and separate feedback
 companions. Try a
 prediction, use a hint when a step is missing, then attempt a changed case
 without copying the worked answer. The purpose is to explain a mechanism,
@@ -69,21 +77,24 @@ patch ownership, runtime results and typed storage.
 The [fifth mixed check](practice/return-check-5.md) joins place identity,
 short-circuit phases, declaration storage and successful reader restoration.
 
+The [sixth mixed check](practice/return-check-6.md) combines loop destinations,
+switch cleanup, replayed tokens, unresolved uses and whole-image placement.
+
 Places and values precede operator parsing, so operators use an already-taught
-state model. The next unit combines statements, control flow, functions and
-top-level orchestration. The
+state model. Statements and functions then use it to build a complete paper
+program. The next unit turns to the exact artifacts and comparisons of an
+actual Stage-A recipe. The
 [coverage map](../COVERAGE.md#volume-2-a-c-compiler-in-forth) assigns the later
 control, function, assembler and bootstrap units. Planned
 units are not chapters that already exist.
 
-## Saved continuation drafts
+## Current review boundary
 
-[C16–C18](DRAFTS.md) are preserved in a separate draft checkpoint: conditions
-and loops, switches/labels, and function-frame accounting. Their independent technical/practice reviews have passed. Their first-reading
-stories now run continuously from a concrete prediction to its explanation,
-with detailed implementation references afterward. Complete unit
-integration and C19 remain pending. The [draft status](DRAFTS.md) distinguishes
-these checks from the reviewed route listed above and from actual reader trials.
+The [C16–C19 unit record](DRAFTS.md) distinguishes the completed C16–C18
+technical and reading-flow checks, C19's complete reference/practice review,
+and the bounded reader attempts. C19 and the sixth mixed check have passed
+source-derived checks. All nineteen chapters remain paper drafts;
+source and model-assisted reviews do not establish real-reader learning.
 
 ## Profile and evidence
 
