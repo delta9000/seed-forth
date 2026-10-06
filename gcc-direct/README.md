@@ -541,3 +541,8 @@ but its `malloc`/`realloc` poison exemption names only `FLEX_SCANNER` and
 exemption is made to match. The repository's collect2 patch is applied as in
 the gcc64 route. No host compiler, assembler, linker, C library or parser
 generator takes part.
+
+## Plumbing from the seed
+
+Replacing the host shell, make and text tools with upstream versions built by
+the Forth compiler is in progress; see [PLUMBING.md](PLUMBING.md).
