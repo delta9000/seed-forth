@@ -100,8 +100,9 @@ create cc-sysrt-sigreturn-code
   cc-sysrt-sigreturn-name [lit] 16 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-text [lit] 0 [lit] 9 cc-obj-symbol drop ;
 
-\ Runtime-aware process entry. Keep argc/argv across initialization and
-\ keep the minimal raw _start builder independent of the C runtime.
+\ Runtime-aware process entry. Keep argc/argv across initialization, pass
+\ envp=argv+argc+1 as main's third argument (SysV), and keep the minimal
+\ raw _start builder independent of the C runtime.
 create cc-sysrt-init-name s, __seed_init_runtime
 create cc-sysrt-runtime-start-code
 [lit] 72 c, [lit] 139 c, [lit] 60 c, [lit] 36 c, \ mov rdi,[rsp]
@@ -112,9 +113,11 @@ create cc-sysrt-runtime-start-code
 [lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
                                                  \ call initializer (RELA16)
 [lit] 94 c, [lit] 95 c,                          \ pop rsi; pop rdi
+[lit] 72 c, [lit] 141 c, [lit] 84 c, [lit] 254 c, [lit] 8 c,
+                                                 \ lea rdx,[rsi+rdi*8+8]
 [lit] 49 c, [lit] 192 c,                         \ xor eax,eax
 [lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
-                                                 \ call main (RELA25)
+                                                 \ call main (RELA30)
 [lit] 72 c, [lit] 137 c, [lit] 199 c,             \ mov rdi,rax
 [lit] 184 c, [lit] 60 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
                                                  \ mov eax,60
@@ -122,15 +125,15 @@ create cc-sysrt-runtime-start-code
 [lit] 15 c, [lit] 11 c,                          \ ud2 if exit returned
 : cc-sysrt-runtime-start-object
   cc-obj-init
-  cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 41 cc-obj-bytes
+  cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 46 cc-obj-bytes
   cc-sysrt-init-name [lit] 19 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
   cc-obj-text [lit] 16 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-main-name [lit] 4 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
-  cc-obj-text [lit] 25 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
+  cc-obj-text [lit] 30 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-start-name [lit] 6 cc-obj-global cc-obj-func cc-obj-default
-  cc-obj-text [lit] 0 [lit] 41 cc-obj-symbol drop ;
+  cc-obj-text [lit] 0 [lit] 46 cc-obj-symbol drop ;
 
 \ Ordinary C90 nonlocal return. Layout: RBX,RBP,R12,R13,R14,R15,RSP,RIP.
 \ The saved RSP is the caller's value after this leaf would return.
