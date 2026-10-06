@@ -1,0 +1,42 @@
+# bash.kaem -- GNU bash 2.05b, built by our make, from pristine source.
+#
+# Run from the repository root after stage1.kaem, stage2.kaem and
+# lexers.kaem, by the same kaem:
+#   build-out/plumbing/bin/kaem --verbose --strict --file plumbing/bash.kaem
+#
+# The parser is regenerated from parse.y by the chain's oyacc; the shipped
+# y.tab.c is deleted. One reviewed patch (missing-defines.patch) is applied
+# by the patch that stage 2 built. Configure answers are in
+# plumbing/bash-2.05b/config.h; see NOTES.md there. Installs bash and sh.
+
+set -ex
+
+BIN=./build-out/plumbing/bin
+R=../../../../plumbing/bash-2.05b
+
+cd build-out/plumbing/src
+../bin/rm -rf bash-2.05b
+../bin/ungz --file ../../plumbing-inputs/bash-2.05b.tar.gz --output bash-2.05b.tar
+../bin/untar --file bash-2.05b.tar
+../bin/rm bash-2.05b.tar
+cd bash-2.05b
+
+../../bin/cp ${R}/config.h config.h
+../../bin/cp ${R}/Makefile Makefile
+../../bin/cp ${R}/common.mk common.mk
+../../bin/cp ${R}/builtins.mk builtins/Makefile
+../../bin/cp ${R}/empty.h include/version.h
+../../bin/cp ${R}/empty.h include/pipesize.h
+../../bin/rm y.tab.c y.tab.h parser-built
+../../bin/patch -p1 -i ${R}/missing-defines.patch
+
+../../bin/make prefix=/usr mkbuiltins
+cd builtins
+../../../bin/make prefix=/usr libbuiltins.a
+cd ..
+../../bin/make prefix=/usr YACC=../../bin/oyacc
+../../bin/cp bash ../../bin/bash
+../../bin/cp bash ../../bin/sh
+
+cd ../../../..
+./build-out/plumbing/bin/bash --version
