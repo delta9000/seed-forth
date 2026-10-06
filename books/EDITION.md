@@ -28,8 +28,9 @@ enough stack space and, for memory examples, a stated writable region. The
 seed does not check all those preconditions for you. Hypothetical addresses in
 memory exercises are paper examples, not a safe arbitrary-write recipe.
 
-The full seed instruction audit and Linux executable loader remain deferred
-behind named interfaces. Chapters 4 and 8–10 open the call/return, dictionary,
+The full seed instruction audit remains unfinished. S11 opens the executable
+layout and stated loader contract; S12–S13 open the stack/memory and arithmetic
+primitive bodies. Chapters 4 and 8–10 open the call/return, dictionary,
 input and emission contracts needed for the library-level mechanisms. They are not
 prerequisites for calculating the first three chapters' states.
 
@@ -49,6 +50,7 @@ prerequisites for calculating the first three chapters' states.
 | Created words and immediate phase selection | `000-seed.hex0`, dictionary/STATE/literal routines; `010-lib.fth`, `immediate`, push-body helpers, `constant`, `call,`, character words | Inspected source and derived layout/phase traces | Minimal ISA contracts are opened before the full machine-code audit; encodable displacements and valid storage assumed |
 | Branch fixups and the countdown body | `010-lib.fth`, nine control-flow combinators; `000-seed.hex0`, branch primitives | Source-matched definitions and manual C/D/R traces | The 50-byte countdown is a derived body, not an executed compiled artifact |
 | Named data, deferred binding and byte-sequence capstone | `010-lib.fth`, `allot` through `bytes-eq` | Inspected source and derived lifetime/stack/memory traces | Bounded lengths, owned storage, valid bound execution tokens and timely copying of borrowed TIB data assumed |
+| Headers/startup and fifteen physical primitive bodies | `000-seed.hex0`, S11–S13 regions enumerated in the byte ledger | Source-matched byte listings, GNU readelf/objdump 2.44 static decoding and manual state traces | 375 of 1,772 file bytes have drafted explanations; all dictionary headers and remaining audit units are separately assigned, not silently credited |
 | Stack, byte and bit examples and exercise answers | Chapter and solution steps, plus document-check assertions | Derived from the stated model | An arithmetic assertion is not a seed execution |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | No seed binary was built or run in this pass |
 

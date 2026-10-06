@@ -93,14 +93,16 @@ def check_documents():
                          (3, "bits-and-subtraction"), (4, "return-stack-and-shuffles"),
                          (5, "comparisons-and-characters"), (6, "memory-updates-and-writers"),
                          (7, "linux-io-contracts"), (8, "defining-words-and-phases"),
-                         (9, "control-flow-by-patching"), (10, "storage-deferred-words-and-bytes")]:
+                         (9, "control-flow-by-patching"), (10, "storage-deferred-words-and-bytes"),
+                         (11, "executable-and-entry"), (12, "physical-stacks-and-memory"),
+                         (13, "arithmetic-in-instruction-bytes")]:
         chapter = ROOT / f"seed-forth/chapters/{number:02}-{name}.md"
         solutions = ROOT / f"seed-forth/practice/{number:02}-solutions.md"
         expected = {f"S{number}-{i:02}" for i in range(1, 6)}
         for file in [chapter, solutions]:
             found = set(re.findall(rf"\bS{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 50 exercise ID pairs")
+    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 65 exercise ID pairs")
 
 
 def check_coverage():
@@ -209,6 +211,77 @@ def check_sources(source_root):
         print("Source definitions not quoted in full:", ", ".join(unquoted))
 
 
+def check_audit_partition(source_root):
+    with (ROOT / "seed-forth/source-audit.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    source = (source_root / "000-seed.hex0").read_text().splitlines()
+    offset, starts, image = 0, [], bytearray()
+    for line in source:
+        if line.startswith(";;") and (m := re.search(r"@ 0x([0-9A-Fa-f]+)", line)):
+            assert int(m.group(1), 16) == offset
+            starts.append(offset)
+        data = re.split(r"[;#]", line)[0].strip()
+        if data:
+            decoded = bytes.fromhex(data)
+            offset += len(decoded)
+            image.extend(decoded)
+    assert len(rows) == len(starts) == 76
+    cursor = 0
+    for i, row in enumerate(rows):
+        start, end = int(row["start_offset"], 16), int(row["end_offset_exclusive"], 16)
+        assert start == starts[i] == cursor
+        assert end-start == int(row["bytes"]) > 0
+        assert row["source_revision"] == REV
+        assert row["manuscript_status"] in {"drafted", "planned"}
+        if row["kind"] == "dictionary_header":
+            name_size = image[start+9]
+            name = bytes(image[start+10:start+10+name_size]).decode("ascii")
+            assert row["section"] == "dictionary_header:"+name, row
+            assert end-start == 10+name_size, row
+        cursor = end
+    assert cursor == offset == 1772
+    drafted = sum(int(row["bytes"]) for row in rows if row["manuscript_status"] == "drafted")
+    print(f"PASS: 76 source-offset regions partition 1772 bytes; {drafted} bytes assigned to drafted audit units")
+
+
+def check_audit_listings(source_root):
+    source = (source_root / "000-seed.hex0").read_text()
+    image = bytes.fromhex("".join(re.split(r"[;#]", line)[0] for line in source.splitlines()))
+    with (ROOT / "seed-forth/source-audit.csv").open(newline="") as stream:
+        regions = list(csv.DictReader(stream))
+    for number, filename in [(11, "executable-and-entry"), (12, "physical-stacks-and-memory"),
+                              (13, "arithmetic-in-instruction-bytes")]:
+        path = ROOT / f"seed-forth/chapters/{number:02}-{filename}.md"
+        expected = set()
+        for row in regions:
+            if row["unit"] == f"S{number}":
+                expected.update(range(int(row["start_offset"], 16), int(row["end_offset_exclusive"], 16)))
+        seen, count = set(), 0
+        for line in path.read_text().splitlines():
+            half_open = re.match(r"^\[([0-9A-Fa-f]{3,4}),([0-9A-Fa-f]{3,4})\)\s+((?:[0-9A-Fa-f]{2}\s+)+)", line)
+            match = re.match(r"^([0-9A-Fa-f]{3,4})(?:[–-]([0-9A-Fa-f]{3,4}))?:?\s+((?:[0-9A-Fa-f]{2}\s+)+)", line)
+            if half_open:
+                start, data = int(half_open.group(1), 16), bytes.fromhex(half_open.group(3))
+                assert int(half_open.group(2), 16)-start == len(data), line
+            elif match:
+                start, data = int(match.group(1), 16), bytes.fromhex(match.group(3))
+                if match.group(2):
+                    assert int(match.group(2), 16)-start+1 == len(data), line
+            else:
+                field = re.match(r"^\| `([0-9A-Fa-f]{3,4})` \| (\d+) \| `([0-9A-Fa-f ]+)` \|", line)
+                if not field:
+                    continue
+                start, data = int(field.group(1), 16), bytes.fromhex(field.group(3))
+                assert len(data) == int(field.group(2)), line
+            assert image[start:start+len(data)] == data, f"Byte mismatch in {path.name}: {line}"
+            positions = set(range(start, start+len(data)))
+            assert not seen & positions, f"Repeated byte range in {path.name}: {line}"
+            seen.update(positions)
+            count += 1
+        assert seen == expected, f"Listing coverage mismatch in {path.name}: {len(seen)} versus {len(expected)}"
+        print(f"PASS: S{number} has {count} source-matched field/instruction rows covering {len(seen)} bytes")
+
+
 def check_models():
     """Assertions on the written mathematical model, not on the Forth seed."""
     m = 1 << 64
@@ -275,6 +348,8 @@ def main():
     check_prerequisites()
     check_sources(args.source_root)
     check_models()
+    check_audit_partition(args.source_root)
+    check_audit_listings(args.source_root)
     print("These checks do not execute Forth, compile C, run a bootstrap, or establish reader learning.")
 
 

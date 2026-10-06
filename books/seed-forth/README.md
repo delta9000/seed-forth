@@ -36,6 +36,20 @@ of primitive operations produce subtraction?
 10. [Storage, deferred words, and bytes](chapters/10-storage-deferred-words-and-bytes.md):
     give data a lifetime, bind behavior through a cell, and compare byte sequences
 
+## Unit four: opening the machine code
+
+11. [Executable and entry](chapters/11-executable-and-entry.md): connect every
+    header/startup byte to the loaded process and its initial state
+12. [Physical stacks and memory](chapters/12-physical-stacks-and-memory.md):
+    relate the logical stack to cached registers, memory and return addresses
+13. [Arithmetic instruction bytes](chapters/13-arithmetic-in-instruction-bytes.md):
+    audit the arithmetic contracts down to register widths and instruction bytes
+
+The [byte audit ledger](AUDIT.md) accounts for all 1,772 source bytes and
+marks the remaining machine-code regions explicitly. The
+[fourth return check](practice/return-check-4.md) connects mapping, physical
+storage, register-width mistakes and arithmetic information loss.
+
 Each chapter links to its own hints and worked solutions. The
 [return check](practice/return-check.md) mixes the three topics so that the
 chapter title no longer chooses the method for you.
@@ -46,7 +60,7 @@ with the first unit's contracts.
 The [third return check](practice/return-check-3.md) mixes I/O progress,
 compiled identity, patch locations, and borrowed-buffer lifetime.
 
-These are the three drafted library-level units of a longer book. Execution practice and the promised complete machine-code audit remain
+The three library-level units and first machine-code unit are drafted. Execution practice and the promised complete machine-code audit remain
 outstanding. The
 [learning path](../LEARNING-PATH.md) and [coverage map](../COVERAGE.md) show the
 remaining work. All implementation claims refer to the

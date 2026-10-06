@@ -86,14 +86,36 @@ the increment/decrement helpers before its token and byte loops use them.
 | [S10 Storage and byte sequences](seed-forth/chapters/10-storage-deferred-words-and-bytes.md) | Build a small library-level artifact while accounting for storage and binding lifetimes | S10 exercises, [feedback](seed-forth/practice/10-solutions.md) |
 | [Third return check](seed-forth/practice/return-check-3.md) | Select the relevant phase, lifetime or progress contract without a chapter-specific cue | Four mixed questions with separate answers |
 
+
+## First machine-code audit dependencies
+
+```text
+S2 + S6 + S8 -> S11: file mapping, instruction key, headers and startup
+S4 + S11 -> S12: cached-top invariant and physical stack/memory primitives
+S3 + S5 + S12 -> S13: arithmetic instructions and width-specific boundaries
+```
+
+The early contracts now become audit targets. The source's execution order
+still does not dictate the learning order: knowing the stack invariant first
+lets each primitive become a small preservation argument. The
+[byte ledger](seed-forth/AUDIT.md) counts the exact regions covered, with
+header ownership kept separate from earlier primitive-body explanations.
+
+| Unit | Observable outcome | Practice and feedback |
+|---|---|---|
+| [S11 Executable and entry](seed-forth/chapters/11-executable-and-entry.md) | Decode the headers and startup, separating file positions, virtual memory and physical allocation | S11 exercises, [feedback](seed-forth/practice/11-solutions.md) |
+| [S12 Physical stacks and memory](seed-forth/chapters/12-physical-stacks-and-memory.md) | Reconstruct logical values and prove each shown transition preserves the stated representation invariant | S12 exercises, [feedback](seed-forth/practice/12-solutions.md) |
+| [S13 Arithmetic instruction bytes](seed-forth/chapters/13-arithmetic-in-instruction-bytes.md) | Explain each arithmetic result from actual instruction and register widths | S13 exercises, [feedback](seed-forth/practice/13-solutions.md) |
+| [Fourth return check](seed-forth/practice/return-check-4.md) | Diagnose mapping, live-region, register-width and truncation mistakes | Four mixed questions with separate answers |
+
 ## Interfaces opened in stages
 
 | Interface | Initial contract | Later explanation and remaining audit |
 |---|---|---|
 | `: name ... ;` | Define a word from the stated sequence, using the explicit literal syntax | S8 opens headers, immediacy and emitted calls; the full native compiler implementation is still deferred |
-| A data stack | Words consume and produce the documented topmost cells | S4 separates data and return stacks; the full cached-top and instruction audit remains deferred |
-| `@ ! c@ c!` | Access the stated valid memory location with the stated width | Address translation, mappings and machine instruction encodings |
-| `here` / `latest` | Their distinct value/address contracts at this pinned seed | Startup, executable layout and the complete sysvar map |
+| A data stack | Words consume and produce the documented topmost cells | S4 separates data and return stacks; S12 now audits the cached-top representation and primitive bodies |
+| `@ ! c@ c!` | Access the stated valid memory location with the stated width | S11 states the mapping contract and S12 audits access encodings; operating-system internals remain trusted |
+| `here` / `latest` | Their distinct value/address contracts at this pinned seed | S11 opens startup and mapping; the detailed dictionary/input implementation is still to come |
 
 These interfaces reduce prerequisites without hiding a proof obligation. The
 first unit asks what follows if the contracts hold; later chapters open the
@@ -103,8 +125,8 @@ that second question early, but exercises do not require solving it early.
 
 ## What the next units must earn
 
-1. An x86-64 instruction-reading primer, then an invariant-led audit of the
-   ELF, stack primitives, token reader, dictionary, compiler and REPL
+1. The remaining physical I/O, dictionary, token reader, colon compiler,
+   branch and REPL audit, followed by a whole-seed synthesis
 2. A compiler-volume bridge that introduces C syntax, buffer ownership,
    representation changes and the chosen build profile before implementation
    detail
