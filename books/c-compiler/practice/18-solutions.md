@@ -6,7 +6,13 @@ These are checked manual derivations against the pinned source, not executed C/F
 
 The hints move from the relevant distinction to a partial transition. Use the full solution whenever it helps; changed-case answers are here so the chapter's retry prompts remain answer-free.
 
-For the first call-frame session, begin with [C18-04](#c18-04--reconstruct-a-complete-call-frame). The [chapter's later-session routes](../chapters/18-functions-and-call-frame-accounting.md#choose-a-route-and-check-the-prerequisites) identify the reading for the other exercises; these answers stay in exercise-ID order for lookup.
+The chapter's opening story ends with a small [one-more-local check](#one-more-local). [C18-04](#c18-04--reconstruct-a-complete-call-frame) develops the full call trace. The remaining answers follow their stable exercise IDs.
+
+## One more local
+
+The reserved frame remains 256 bytes. Its size was fixed before the body revealed `scratch`. The two parameters already occupy slots 0 and 1, so `scratch` takes slot 2 at `Q−8*(2+1)=Q−24`, or `0x0FD8` for Q=`0x0FF0`. Its declaration has no initializer, and reserving the frame does not clear its contents. No initial zero is promised, and no additional PUSH is needed to reserve the slot.
+
+Claiming `scratch`'s slot changes the compiler's slot count inside the frame already reserved; this uninitialized declaration emits no target instruction. A temporary PUSH instead changes the target RSP below that frame.
 
 ## Entry check
 

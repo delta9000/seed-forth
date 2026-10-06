@@ -2,42 +2,11 @@
 
 At zero-based row two (`r=2`) of the recurring `tri.c`, `main` calls `line(1, 5)`. The caller has an array element containing five. The callee repeatedly changes its parameter `n` until it reaches zero. Why does `w[2]` still contain five when control returns? Where do the two parameters live, and what brings the machine back to the caller's exact stack boundary?
 
-A function definition joins mechanisms we have already opened: names, parameter types, local slots, instructions, statements, and return control. The useful new skill is **accounting across the join**. By the end, you should be able to register a function without losing it at scope exit, construct its parameter records, derive its frame and spills, trace a complete call and return, and identify a call whose balanced stack operations nevertheless have the wrong alignment.
+If those two names referred to the same cell, `n = n - 1` would change the array element too. Keep that prediction in mind as we locate both cells and follow the return.
 
-**Edition and evidence.** This chapter describes all 310 lines of [`114-cc-func.fth` at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth). Its main path is the legacy, fixed-address Linux/x86-64 compiler, with `cc-target-lp64=0`, `cc-target-sysv=0`, and the default emission/lookup hooks. All traces are manually derived from inspected source. No compiler, Forth example, C example, generated executable, or bootstrap was run for this chapter. Source comments naming “SYS-V” describe the selected argument registers; they do not establish a complete System V ABI implementation.
+**Profile and evidence.** We use the legacy, fixed-address Linux/x86-64 compiler in [`114-cc-func.fth`, revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth): `cc-target-lp64=0`, `cc-target-sysv=0`, and default emission/lookup hooks. The traces are manual derivations; no compiler or generated program was run. This is a restricted register-calling convention, despite source comments naming “SYS-V.” Later sections distinguish the native providers and account for all 310 source lines.
 
-## Choose a route and check the prerequisites
-
-**First session: answer why `w[2]` stays five.** Follow these links in order:
-
-1. [State key](#state-key)
-2. [Three lifetimes meet at one definition](#three-lifetimes-meet-at-one-definition)
-3. [Two parameter names, two slots](#two-parameter-names-two-slots)
-4. [The fixed frame](#reserve-once-initialize-selectively) and [six parameter stores](#six-specific-stores-connect-registers-to-names)
-5. [The default fall-through return](#the-default-fall-through-return)
-6. [Follow `line(1, 5)` across the boundary](#follow-line1-5-across-the-boundary), then [C18-04](#c18-04--reconstruct-a-complete-call-frame)
-
-You can stop when you can place the copied parameters and recover the caller's RSP and RBP. The extra body-local variation and alignment account can wait for another session.
-
-**Choose a later session by its outcome:**
-
-- **Publication and compiler scope:** read [publication](#publish-the-function-before-opening-its-scope), [function resets](#begin-each-function-with-clean-control-bookkeeping), [body/scope ownership](#let-statements-consume-their-own-interiors), and [compiler visibility restoration](#restore-compiler-visibility), then do [C18-01](#c18-01--publish-patch-and-retain) and [C18-08](#c18-08--restore-names-without-reusing-slots). The [name-bookkeeping reference](#reference-function-name-bookkeeping) supplies the saved-name details
-- **Parameter parsing and limits:** read the [return-spelling consumer](#consume-a-return-spelling-without-inventing-a-signature), the [parameter-token details](#parser-detail-decide-whether-there-are-any-parameters), and the [slot-limit failure point](#parser-detail-the-slot-limit-failure-point) through [the six-spill boundary](#parsing-seven-is-not-receiving-seven), then do [C18-02](#c18-02--follow-the-parameter-tokens), [C18-03](#c18-03--keep-type-and-descriptor-channels-separate), and [C18-05](#c18-05--distinguish-three-limits)
-- **Returns and actual call boundaries:** read [explicit exits](#every-normal-route-out-needs-a-result-and-a-return-destination), the [body-local variation](#add-a-body-local-and-an-explicit-result), and [balance versus alignment](#balanced-is-not-necessarily-aligned), then do [C18-06](#c18-06--reconstruct-the-exits) and [C18-07](#c18-07--test-the-actual-call-boundary)
-- **Optional provider comparison:** [Compare the later seams](#compare-the-later-seams-without-merging-their-mechanisms) supplies what you need for [C18-09](#c18-09--choose-a-provider-from-evidence). The [source inventory](#source-closure-and-what-to-carry-forward) is a reference
-
-If you can already solve a session's exercise, use its boundary sections to check your assumptions.
-
-Use the prerequisites for your chosen session:
-
-- [C08](08-names-and-lexical-scope.md), for publication and compiler scope: newest-first symbol lookup, kind-dependent payloads, and a scope marker that saves a symbol count
-- [C09](09-instructions-inside-an-executable.md), for the first call session: CALL/RET, the eleven-byte prologue, the default five-byte epilogue, and slot address `RBP−8*(slot+1)`
-- [C10](10-calls-literals-and-deferred-addresses.md), for publication: distinct rel32 call and imm64 address fixup lists
-- [C14](14-expressions-and-constant-evaluation.md), for the first call session: left-to-right legacy argument staging, reverse register pops, and RDI as expression result
-- [C15](15-declarations-and-recursive-records.md), for the detailed allocation, parameter, and return sessions: monotonic slot reservation, descriptor association, and explicit-return emission. The first call trace supplies its particular caller-array coordinates directly
-- [C06](06-tokens-and-lookahead.md), for the parameter-parser session: current versus pending tokens and a full lexer mark/reset
-
-For the publication session, check whether popping a compiler scope moves the generated program's RSP, and whether payload zero means the same thing for a local and an unresolved function. For the later call-boundary session, ask whether an inner call's own push/pop must remove an outer call's already-pushed argument too. [Entry feedback](../practice/18-solutions.md#entry-check) explains these distinctions; they need not delay the first call trace.
+For this first call, recall [C09's CALL/RET, prologue, and slot addressing](09-instructions-inside-an-executable.md) and [C14's argument staging](14-expressions-and-constant-evaluation.md). We will supply the particular array and stack coordinates rather than ask you to reconstruct them from earlier chapters.
 
 ### State key
 
@@ -45,7 +14,7 @@ Throughout, **builder** means the Forth compiler executing now. **Target** means
 
 ## Three lifetimes meet at one definition
 
-Compilation of `void line(int pad, int n) { ... }` creates a permanent-for-this-translation-unit function entry and temporary-for-this-parse local entries. Execution later creates a fresh target frame on every call. These are three different lifetimes:
+The compiler reads `void line(int pad, int n) { ... }` once and emits one body. Its record for `n` describes where each invocation will find its parameter; the record does not hold that invocation's value. Separate the things made while compiling from the storage made available while calling:
 
 | Item | Created when | Lifetime owner |
 |---|---|---|
@@ -53,13 +22,172 @@ Compilation of `void line(int pad, int n) { ... }` creates a permanent-for-this-
 | Parameter and ordinary local symbols | The builder parses the header/body | Compiler lexical scopes |
 | Parameter values and local storage | The target executes CALL and the prologue | That particular target invocation |
 
-A recursive call creates another target frame; it does not recursively compile the source definition. Likewise, finishing compilation's function scope does not execute the function's epilogue. Losing a compiler name and returning from a running function are different events.
+Overlapping recursive calls need separate live frames, not separate compilations of the body. Sequential calls may reuse the same addresses after an earlier invocation returns. At the other end, finishing the compiler's function scope only hides local names from later source. It does not execute a return in the generated program.
 
-For the first session, continue at [Two parameter names, two slots](#two-parameter-names-two-slots). The following reference serves the later publication and parameter sessions.
+## Two parameter names, two slots
 
-### Reference: function-name bookkeeping
+A parameter's source name gets a compiler record before any invocation supplies its value. For `line(int pad, int n)`, the parser creates two local records: `pad` names slot 0 and `n` names slot 1. Both the parameter count and the next-slot count become two. No target instruction has stored either argument yet. During a later call, the spill instructions copy the incoming register values into those slots.
 
-The four variables at the top of `114` carry facts across helper calls:
+The records locate the slots; they do not contain the argument values. The compiler can emit `line` before seeing any call that supplies one and five.
+
+## Reserve once, initialize selectively
+
+The two parameter copies occupy sixteen bytes. This compiler nevertheless reserves **256 bytes for every legacy function**, including an empty one. After consuming `{`, it emits a prologue using `cc-frame-slots*8`, with `cc-frame-slots=32`. The eleven bytes are:
+
+```text
+55 48 89 E5 48 81 EC 00 01 00 00
+push rbp; mov rbp,rsp; sub rsp,256
+```
+
+The compiler emits this reservation before it has read the body, so it cannot yet know every local the body will declare. A fixed size lets it proceed immediately, at the cost of unused space in small functions and a fixed limit in larger ones. Parameters and ordinary locals take successive slots from 0 through 31; the first local after `pad` and `n` would take slot 2. Leaving a nested block hides names but never reuses slots. A local static uses C15's separate storage mechanism and takes no frame slot.
+
+Reserving bytes does not initialize them. The next instructions perform the first writes to the two parameter slots.
+
+### Six specific stores connect registers to names
+
+`line` receives its first value in RDI and its second in RSI. `cc-emit-spill-params` stores them at `RBP−8` and `RBP−16`. These are the slots named `pad` and `n`. A **spill** here is that register-to-memory copy.
+
+The emitter has six independent threshold tests. A count of at least one selects the first row below; at least two also selects the second, and so on. Thus `line` uses exactly the first two stores. Every listed store writes an eight-byte qword, even when a parameter is spelled `char`.
+
+| Threshold | Incoming register | Local slot/address | Complete bytes |
+|---:|---|---|---|
+| 1 | RDI | 0: `RBP−8` | `48 89 7D F8` |
+| 2 | RSI | 1: `RBP−16` | `48 89 75 F0` |
+| 3 | RDX | 2: `RBP−24` | `48 89 55 E8` |
+| 4 | RCX | 3: `RBP−32` | `48 89 4D E0` |
+| 5 | R8 | 4: `RBP−40` | `4C 89 45 D8` |
+| 6 | R9 | 5: `RBP−48` | `4C 89 4D D0` |
+
+Each row is four bytes because slots 0–5 fit C09's disp8 address form. R8/R9 need the REX.R bit, accounting for `4C` instead of `48`. These instructions write memory without changing RSP. For `line`, the prologue plus its two stores occupies `11+4+4=19` bytes; the first body instruction follows those bytes. With six parameters the prefix is 35 bytes. With zero it is eleven.
+
+Incoming registers can be overwritten by the body's expression work and calls. The frame slots retain the parameter copies until explicitly changed or the invocation ends. This is why `n=n-1` can update the local copy while `putchar` is free to use RDI for another argument.
+
+## The default fall-through return
+
+`line` ends with `putchar('\n');`, not an explicit `return`. Finishing that call is not enough: control must leave `line` and resume its caller. After the outer body brace, `cc-parse-function` **always** appends `cc-emit-xor-rax-rax` and `cc-emit-epilogue`. With default hooks that is eight bytes:
+
+```text
+48 31 C0 48 89 EC 5D C3
+xor rax,rax; mov rsp,rbp; pop rbp; ret
+```
+
+The sequence puts zero in RAX, discards the frame, restores the caller's frame base, and returns. The caller must already have supplied the return destination through CALL; the epilogue does not invent one.
+
+These bytes are present even after `main`'s explicit returns. An executed explicit RET has already left the function, so it cannot run into this later zero and overwrite its result. A path that does reach the tail returns zero. The compiler does not remove unreachable copies of the tail.
+
+Source: [implicit return plus scope pop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L304-L310).
+
+## Follow `line(1, 5)` across the boundary
+
+Now place the caller and callee in the same drawing. In the canonical [C01 example](01-compiler-entry-and-profile.md#read-enough-c-to-follow-the-example), at `r=2`, `t.rows=4`, so `t.rows−1−r=1`, and `w[r]=1+r*2=5`. The call's arguments are those two values. C15 established that `main` has no parameters, array `w` at base slot 3, and `r` at slot 4, for five claimed slots.
+
+Use these starting conditions:
+
+- We are at a statement boundary in a valid invocation of `main`, with RSP `S=0x1000`, RBP `P=0x1100`, and no live temporary or saved register below S
+- The argument expressions finish their own temporary pushes/pops, the known `line` address is valid, and sufficient target stack memory is writable
+- Both functions use the stated legacy convention, their required parameter values have been supplied, and all calls reached in the trace meet the conditions under which their bodies operate
+- K denotes the instruction immediately after the CALL to `line`; instruction addresses otherwise remain symbolic
+- This trace does not establish whether output writes succeeded
+
+The caller's array starts at `P−32=0x10E0`; `w[2]` is at `P−16=0x10F0`, holding five. Its variable `r` is at `P−40=0x10D8`, holding two. These are above the caller's reserved-frame bottom S.
+
+Before reading the table, where will CALL put K, and which later instruction first writes `n`'s slot?
+
+| Completed target action | RSP | RBP | Important state |
+|---|---|---|---|
+| Evaluate first argument, push RDI | `0x0FF8` | `0x1100` | `[0x0FF8]=1` |
+| Evaluate second argument, push RDI | `0x0FF0` | `0x1100` | `[0x0FF0]=5` |
+| Pop last argument into RSI | `0x0FF8` | `0x1100` | RSI=5 |
+| Pop first argument into RDI | `0x1000` | `0x1100` | RDI=1 |
+| CALL `line` | `0x0FF8` | `0x1100` | `[0x0FF8]=K` |
+| PUSH RBP | `0x0FF0` | `0x1100` | `[0x0FF0]=0x1100` |
+| MOV RBP,RSP | `0x0FF0` | `0x0FF0` | Callee base Q established |
+| SUB RSP,256 | `0x0EF0` | `0x0FF0` | Reserve the callee's frame |
+| Spill RDI to slot 0 | `0x0EF0` | `0x0FF0` | `[0x0FE8]=1`, named `pad` |
+| Spill RSI to slot 1 | `0x0EF0` | `0x0FF0` | `[0x0FE0]=5`, named `n` |
+
+Staging cells have been popped before CALL. CALL and PUSH RBP can reuse their addresses because those staged argument copies no longer own them. The argument values reached registers first, then different callee storage through spills.
+
+The frame layout, from higher to lower addresses, is:
+
+```text
+0x1000       caller's pre-call stack boundary S
+0x0FF8       return destination K                  = Q+8
+0x0FF0       saved caller RBP, 0x1100               = Q
+0x0FE8       pad, slot 0                            = Q-8
+0x0FE0       n, slot 1                              = Q-16
+...          other reserved slots, contents unknown
+0x0EF0       slot 31; callee's baseline RSP          = Q-256
+```
+
+Each displayed cell is eight bytes. The ellipsis contains reserved but uninitialized local storage, not extra saved return destinations. At a later expression push, RSP would move below `0x0EF0`; the local slots stay at their RBP-relative addresses.
+
+`line`'s loops change its own slots to zero. They do not store to `main`'s `w[2]` at `0x10F0`. After the final `putchar` and its completed call sequence, the implicit return proceeds:
+
+| Completed target action | RSP | RBP | RAX/control |
+|---|---|---|---|
+| XOR RAX,RAX | `0x0EF0` | `0x0FF0` | RAX=0 |
+| MOV RSP,RBP | `0x0FF0` | `0x0FF0` | Frame extent discarded |
+| POP RBP | `0x0FF8` | `0x1100` | Caller base restored |
+| RET | `0x1000` | `0x1100` | Resume at K, RAX=0 |
+| Caller's MOV RDI,RAX | `0x1000` | `0x1100` | RDI=0 as expression result |
+
+The caller ignores this incidental zero because the source call is an expression statement. RSP is back at `0x1000`, RBP is back at `0x1100`, and `w[2]` at `0x10F0` still holds five. The `n` that became zero occupied `0x0FE0`, a different cell.
+
+That resolves the opening puzzle: the call copied a value, not the caller's storage location. Returning discards the callee's frame without undoing or repeating its writes. Its old bytes are not erased; they are simply no longer live locals of that completed invocation.
+
+### One more local
+
+Suppose `line` also declares an uninitialized ordinary local, `int scratch;`, after its two parameters. Would the prologue reserve a larger frame? At the same callee base Q=`0x0FF0`, where would `scratch` live, and would its initial contents be zero? Work from the slot rule rather than adding another PUSH. [Check this small change](../practice/18-solutions.md#one-more-local), or continue with the complete-call exercise [C18-04](#c18-04--reconstruct-a-complete-call-frame).
+
+## Balanced is not necessarily aligned
+
+The call returned with exactly the RSP it started with. It is tempting to take that as a guarantee for every call made along the way. But a nested call can balance all of its own pushes and still begin at the wrong stack boundary. The value waiting for an outer call is what exposes the difference.
+
+The ordinary integer/pointer System V stack-boundary comparison used here is: RSP is a multiple of 16 immediately before CALL, and therefore has remainder eight on callee entry after the pushed return address. The fixed-frame prologue restores remainder zero by pushing RBP and subtracting 256. This limited alignment rule is specified in the [x86-64 psABI draft 0.21, §3.2.2, page 14](https://refspecs.linuxfoundation.org/elf/x86_64-SysV-psABI.pdf), consulted October 6, 2026. It is one ABI condition, not a complete interoperability test or a claim about every wider-vector calling case.
+
+The important premise is the caller's **actual RSP at the call instruction**. The prologue establishes an aligned baseline only when its own incoming call satisfies that premise. An odd number of live eight-byte saves below the baseline flips the remainder to eight. An even number preserves zero. The size of the reserved local frame is not the number of currently live temporary pushes.
+
+### One live outer argument is enough to change the answer
+
+Consider this illustrative expression with valid scalar callees:
+
+```c
+combine(10, leaf(20))
+```
+
+Start at the same aligned body baseline `S=0x1000`, outside switches, with no pre-existing expression temporary. Assume `leaf` can complete under the shown machine state; the point is to test the alignment promise, not to predict a particular fault. C14's left-to-right staging emits the following transitions:
+
+| Completed action | RSP | Remainder modulo 16 | Live staged values, bottom-to-top |
+|---|---|---:|---|
+| Outer first argument 10 pushed | `0x0FF8` | 8 | `[10]` |
+| Inner argument 20 pushed | `0x0FF0` | 0 | `[10,20]` |
+| Inner pop into RDI | `0x0FF8` | 8 | `[10]` |
+| CALL `leaf` | `0x0FF0` | 0 | Outer 10 plus inner return control |
+| Inner PUSH RBP; MOV RBP,RSP | `0x0FE8` | 8 | Outer 10 still belongs to outer call |
+| Inner SUB RSP,256 | `0x0EE8` | 8 | Inner body baseline is misaligned |
+| Inner epilogue and RET complete | `0x0FF8` | 8 | `[10]` |
+| Push inner result as outer argument 2 | `0x0FF0` | 0 | `[10,result]` |
+| Outer POP RSI; POP RDI | `0x1000` | 0 | `[]` |
+| CALL `combine` | `0x0FF8` | 8 | Correct entry remainder for this call |
+
+The inner push/pop pair is balanced. It restores RSP to `S−8`, the value before **its own** argument staging, because the outer 10 still needs to survive. It does not restore S. Thus `leaf` was called with remainder eight instead of zero, and its ordinary fixed prologue does not repair that parity. The later call to `combine` meets this one condition after both outer arguments are popped.
+
+The nearby legacy call comment about balanced nested sequences does not establish universal alignment: balance is relative to an entry value, while alignment is a property of that value. The emitted sequence contains no legacy dynamic padding step. Existing expression saves or switch-RBX saves can likewise affect the remainder; they must be included in the actual live-stack count. Conversely, nesting alone is not the decisive condition: `combine(leaf(20), 10)` reaches `leaf` before either outer argument has been staged.
+
+The failed alignment precondition does not mean these particular legacy instructions must fault. It means the balanced sequence alone cannot justify general System V calls. C23/G04 use different frame/call providers; they do not change the sequence traced here.
+
+**Stop/resume point.** Save “before inner CALL: RSP=S−8; own pushes balance to their starting RSP; outer value remains live.” When returning, change the number of already-staged outer arguments and derive parity before consulting the table. If only addresses are confusing, first trace remainders 0/8 without names or values.
+
+## What the compiler must remember
+
+We have followed both an ordinary call and a call made inside another argument. Now rewind to the moment the compiler reads a definition. It must keep the function's name while reading other names, resolve older calls to that function, and eventually hide its parameter names without losing the function itself.
+
+The next sections trace that construction. [C08](08-names-and-lexical-scope.md) supplies newest-first symbol lookup and scope markers; [C10](10-calls-literals-and-deferred-addresses.md) supplies the two kinds of function fixup. One useful distinction to check now is whether popping a compiler scope moves the target RSP. Another is whether payload zero means the same thing for a local and an unresolved function. [Entry feedback](../practice/18-solutions.md#entry-check) keeps those answers separate from the construction below.
+
+## Reference: function-name bookkeeping
+
+After reading `line`, the compiler will read `int`, `pad`, and `n`. Each new token replaces `tok-*`. It must save the function's spelling before that happens. Four variables carry the needed facts:
 
 - `cc-fn-name-addr` and `cc-fn-name-len` retain the name span after subsequent tokens overwrite `tok-*`
 - `cc-fn-param-count` counts parameters in the current definition
@@ -71,7 +199,7 @@ Source: [bookkeeping and name test](https://github.com/delta9000/seed-forth/blob
 
 ## Consume a return spelling without inventing a signature
 
-`cc-parse-fn-return-type` is a **consumer**, not a legacy signature constructor. It skips storage classes and qualifiers using C15's helper, then reads a type token:
+The source spells `void line`, yet this legacy path will register an int-typed function symbol. That apparent mismatch comes from what `cc-parse-fn-return-type` does: it reads past the return spelling without retaining a checked signature. It skips storage classes and qualifiers using C15's helper, then reads a type token:
 
 1. For keyword `struct`, it requires and consumes an identifier, failing with 185 otherwise
 2. For `enum`, it invokes the optional-tag consumer
@@ -89,7 +217,7 @@ Source: [return-spelling consumer and function-name entry](https://github.com/de
 
 ## Publish the function before opening its scope
 
-The ordering in `cc-parse-function` is the central symbol invariant:
+When the body ends, `n` must stop naming this parameter, but `line` must remain available to later functions. Whether the compiler records the function before or after opening its scope decides which names survive:
 
 ```text
 consume return spelling, name, and (
@@ -146,7 +274,7 @@ Before pushing the scope, `cc-parse-function` sets six builder cells to zero:
 
 `cc-fn-param-count` is reset separately by the parameter-list parser. Clearing the label count does not clear every byte of the label arrays. Resetting list heads neither walks nor frees old lists. These resets prevent accidental cross-function ownership; they do not establish that an earlier malformed body had all its branches resolved.
 
-Here is the precise body interface used from C16/C17, so this chapter does not require their drafts to be open:
+The C16/C17 body parsers supply these operations:
 
 - `cc-parse-stmt ( -- )` normally consumes one complete statement or supported declaration from the next pending/unread token and appends its code. The [legacy named-label branch](17-switches-labels-and-nonlocal-control.md#typedef-first-then-colon-then-expression) consumes only the label prefix; the repeated body loop picks up the following statement on its next call. Recursive statement consumers use `cc-parse-stmt-fwd`
 - A nested compound receives `{` already consumed, pushes a compiler scope, parses until its matching `}` is consumed, then pops that scope; it does not rewind the local-slot counter
@@ -160,11 +288,7 @@ Sources: [function resets](https://github.com/delta9000/seed-forth/blob/7d7e1996
 
 ## Give each parameter a local identity
 
-### Two parameter names, two slots
-
-A parameter's source name gets a compiler record before any invocation supplies its value. For `line(int pad, int n)`, the parser creates two local records: `pad` names slot 0 and `n` names slot 1. Both the parameter count and the next-slot count become two. No target instruction has stored either argument yet. During a later call, the spill instructions copy the incoming register values into those slots.
-
-For the call-frame route, continue at [Reserve once, initialize selectively](#reserve-once-initialize-selectively). The next sections explain how the parser produces these records from tokens.
+The first call used two records, one for `pad` and one for `n`. Now follow the tokens that create them. [C06](06-tokens-and-lookahead.md) supplies the distinction between a consumed token, a pending replay, and a complete lexer mark/reset; [C15](15-declarations-and-recursive-records.md) supplies the type and descriptor helpers.
 
 ### Parser detail: decide whether there are any parameters
 
@@ -222,35 +346,7 @@ For a contrasting parameter `const struct tri *p`, strict lookup obtains descrip
 
 Sources: [ordinary parameter loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L42-L119), [empty/void cases](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L121-L147), and C15's [qualifier/star helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L121-L140) and [basic keyword scanner](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L531-L554).
 
-## Reserve once, initialize selectively
-
-After parameters, the parser consumes `{` and emits a prologue using `cc-frame-slots*8`. C15 established `cc-frame-slots=32`, so this is **256 bytes for every legacy function**, including an empty one. The eleven bytes are:
-
-```text
-55 48 89 E5 48 81 EC 00 01 00 00
-push rbp; mov rbp,rsp; sub rsp,256
-```
-
-The fixed reservation avoids waiting until the body has revealed every local. The cost is unused space in small functions and a fixed limit in larger ones. Parameters and ordinary locals share slots 0–31. Nested block exit changes symbol visibility but never reuses a slot. A local static uses the separate storage mechanism from C15 and does not consume these frame slots.
-
-### Six specific stores connect registers to names
-
-`cc-emit-spill-params` has six independent threshold tests. For count at least one it stores RDI to slot 0; at least two stores RSI to slot 1; and so on. A **spill** here means storing an incoming register value into its stable local slot. All stores are qword stores; they do not resize the slot or select a narrower width because the source spelled `char`.
-
-| Threshold | Incoming register | Local slot/address | Complete bytes |
-|---:|---|---|---|
-| 1 | RDI | 0: `RBP−8` | `48 89 7D F8` |
-| 2 | RSI | 1: `RBP−16` | `48 89 75 F0` |
-| 3 | RDX | 2: `RBP−24` | `48 89 55 E8` |
-| 4 | RCX | 3: `RBP−32` | `48 89 4D E0` |
-| 5 | R8 | 4: `RBP−40` | `4C 89 45 D8` |
-| 6 | R9 | 5: `RBP−48` | `4C 89 4D D0` |
-
-Each row is four bytes because slots 0–5 fit C09's disp8 address form. R8/R9 need the REX.R bit, accounting for `4C` instead of `48`. These instructions write memory without changing RSP. For `line`, the prologue plus its two stores occupies `11+4+4=19` bytes; the first body instruction follows those bytes. With six parameters the prefix is 35 bytes. With zero it is eleven.
-
-Incoming registers can be overwritten by the body's expression work and calls. The frame slots retain the parameter copies until explicitly changed or the invocation ends. This is why `n=n-1` can update the local copy while `putchar` is free to use RDI for another argument.
-
-For the first session, continue at [The default fall-through return](#the-default-fall-through-return). The following limits matter for the later parameter session and C18-05.
+## Parameter limits are three different limits
 
 ### Parser detail: the slot-limit failure point
 
@@ -262,7 +358,7 @@ The parameter loop has no six-parameter guard. Given seven ordinary named parame
 
 Meanwhile C14's legacy caller rejects **more than six argument expressions** with error 122, after parsing/staging them and before emitting the register pops and call. Frame capacity, header acceptance, and caller support are three different limits. A function with seven declared parameters is not thereby supported as a correctly callable seven-argument function. The legacy path also does not compare an argument count against a stored parameter signature. Calling that definition with fewer arguments does not supply the missing initialization guarantee.
 
-This boundary is part of the inspected implementation. We do not replace it with a source fix, invent a seventh-register convention, or describe successful header parsing as successful argument transfer.
+The missing step is the transfer of a seventh incoming value. Allocating a slot and accepting a name do not supply it.
 
 Sources: [spills](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L149-L170), [fixed-frame selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L286-L292), [slot limit](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L29-L46), [register-store encoders](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L180-L216), and [legacy caller](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L580-L666).
 
@@ -288,7 +384,7 @@ Source: [`cc-block-end?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d
 
 ## Every normal route out needs a result and a return destination
 
-C15's explicit-return parser supplies two legacy routes:
+A source `return` can leave before control reaches the closing brace. It must supply the result and finish any open switch saves before the frame is discarded. C15's explicit-return parser emits two legacy routes:
 
 - `return;` consumes the semicolon, emits RAX=0, unwinds all open switch saves, then emits the epilogue
 - `return expression;` puts back the first expression token, compiles/materializes the expression into RDI, invokes the default result hook to move RDI to RAX, unwinds switches, emits the epilogue, and consumes the required semicolon
@@ -297,86 +393,11 @@ In the stated legacy profile there is no return-shape check or typed conversion 
 
 Switch unwind is runtime register/stack work. If two switch saves are open, a valued return emits the result transfer, two `POP RBX` instructions, and then the epilogue. The contract assumes expression evaluation has removed its own temporaries so those POPs reach the actual switch-save cells. Resetting RSP from RBP alone would discard storage but would not restore RBX's saved contents. The default epilogue's callee-restore hook emits no additional bytes; the switch consumer owns these saves.
 
-### The default fall-through return
-
-After the outer body brace, `cc-parse-function` **always** appends `cc-emit-xor-rax-rax` and `cc-emit-epilogue`. With default hooks that is eight bytes:
-
-```text
-48 31 C0 48 89 EC 5D C3
-xor rax,rax; mov rsp,rbp; pop rbp; ret
-```
-
-It is the fall-through path, needed by `line`, whose last source statement is `putchar('\n');`. It also exists after `main`'s explicit returns. An executed explicit RET has already transferred control to the caller, so the later implicit sequence does not overwrite that returned value on that path. If some other path reaches the end, it returns zero under this implementation. No reachability analysis removes redundant bytes.
-
-For the first session, continue at [Follow `line(1, 5)` across the boundary](#follow-line1-5-across-the-boundary). Compiler visibility is a separate part of the later publication/scope session.
-
-### Restore compiler visibility
-
-Finally the builder calls `cc-scope-pop`. This restores the symbol count saved after function registration. It hides parameters and remaining function-local symbols but emits no instructions, frees no arena objects, and does not reset `cc-fn-local-count`. The next function's entry reset handles that counter. Return execution and scope restoration are now connected without conflating them.
-
-Source: [explicit-return implementation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L770-L803) and [implicit return plus scope pop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L304-L310).
-
-## Follow `line(1, 5)` across the boundary
-
-Return to the canonical [C01 example](01-compiler-entry-and-profile.md#read-enough-c-to-follow-the-example), without changing its source. At `r=2`, `t.rows=4`, so `t.rows−1−r=1`, and `w[r]=1+r*2=5`. The call's arguments are those two values. C15 established that `main` has no parameters, array `w` at base slot 3, and `r` at slot 4, for five claimed slots.
-
-For this trace assume:
-
-- We are at a statement boundary in a valid invocation of `main`, with RSP `S=0x1000`, RBP `P=0x1100`, and no live expression temporary or switch save below S
-- The argument expressions finish their own temporary pushes/pops, the known `line` address is valid, and sufficient target stack memory is writable
-- Both functions use the stated legacy convention, their required parameter values have been supplied, and all calls reached in the trace meet the conditions under which their bodies operate
-- K denotes the instruction immediately after the CALL to `line`; instruction addresses otherwise remain symbolic
-
-The caller's array starts at `P−32=0x10E0`; `w[2]` is at `P−16=0x10F0`, holding five. Its variable `r` is at `P−40=0x10D8`, holding two. These are above the caller's reserved-frame bottom S.
-
-Before reading the table, where will CALL put K, and which later instruction first writes `n`'s slot?
-
-| Completed target action | RSP | RBP | Important state |
-|---|---|---|---|
-| Evaluate first argument, push RDI | `0x0FF8` | `0x1100` | `[0x0FF8]=1` |
-| Evaluate second argument, push RDI | `0x0FF0` | `0x1100` | `[0x0FF0]=5` |
-| Pop last argument into RSI | `0x0FF8` | `0x1100` | RSI=5 |
-| Pop first argument into RDI | `0x1000` | `0x1100` | RDI=1 |
-| CALL `line` | `0x0FF8` | `0x1100` | `[0x0FF8]=K` |
-| PUSH RBP | `0x0FF0` | `0x1100` | `[0x0FF0]=0x1100` |
-| MOV RBP,RSP | `0x0FF0` | `0x0FF0` | Callee base Q established |
-| SUB RSP,256 | `0x0EF0` | `0x0FF0` | Reserve the callee's frame |
-| Spill RDI to slot 0 | `0x0EF0` | `0x0FF0` | `[0x0FE8]=1`, named `pad` |
-| Spill RSI to slot 1 | `0x0EF0` | `0x0FF0` | `[0x0FE0]=5`, named `n` |
-
-Staging cells have been popped before CALL. CALL and PUSH RBP can reuse their addresses because those staged argument copies no longer own them. The argument values reached registers first, then different callee storage through spills.
-
-The frame layout, from higher to lower addresses, is:
-
-```text
-0x1000       caller's pre-call stack boundary S
-0x0FF8       return destination K                  = Q+8
-0x0FF0       saved caller RBP, 0x1100               = Q
-0x0FE8       pad, slot 0                            = Q-8
-0x0FE0       n, slot 1                              = Q-16
-...          other reserved slots, contents unknown
-0x0EF0       slot 31; callee's baseline RSP          = Q-256
-```
-
-Each displayed cell is eight bytes. The ellipsis contains reserved but uninitialized local storage, not extra saved return destinations. At a later expression push, RSP would move below `0x0EF0`; the local slots stay at their RBP-relative addresses.
-
-`line`'s loops change its own slots to zero. They do not store to `main`'s `w[2]` at `0x10F0`. After the final `putchar`, with its call sequence complete and no open switch saves, the implicit return proceeds:
-
-| Completed target action | RSP | RBP | RAX/control |
-|---|---|---|---|
-| XOR RAX,RAX | `0x0EF0` | `0x0FF0` | RAX=0 |
-| MOV RSP,RBP | `0x0FF0` | `0x0FF0` | Frame extent discarded |
-| POP RBP | `0x0FF8` | `0x1100` | Caller base restored |
-| RET | `0x1000` | `0x1100` | Resume at K, RAX=0 |
-| Caller's MOV RDI,RAX | `0x1000` | `0x1100` | RDI=0 as expression result |
-
-The source call is an expression statement, so that incidental zero is ignored. `w[2]` remains five. The returned frame bytes are not erased, but the completed invocation no longer owns them as live locals. This trace proves no output syscall succeeded; it explains storage and control under the stated body/call premises.
-
-You have reached the first session's stopping point: the caller's frame is restored and `w[2]` is unchanged. Try [C18-04](#c18-04--reconstruct-a-complete-call-frame), including its six-parameter changed case, before continuing.
+Source: [explicit-return implementation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L770-L803).
 
 ### Add a body local and an explicit result
 
-For the later returns session and C18-06, keep the same frame construction but use this illustrative admitted definition:
+An explicit result uses the same frame. Consider this illustrative admitted definition:
 
 ```c
 int add(int pad, int n) {
@@ -388,48 +409,15 @@ int add(int pad, int n) {
 
 After its two parameters, local count is two. C15's ordinary declaration gives `total` slot 2 and raises the count to three, without changing the already-emitted 256-byte reservation. For callee base Q, its address is `Q−24`; with the preceding chosen Q=`0x0FF0`, that is `0x0FD8`. The declaration emits no initialization store.
 
-For incoming values two and three, the spills establish `pad=2` and `n=3`. C13's binary-expression sequence loads the left value, pushes it temporarily below the frame baseline, loads the right value, moves it to RCX, and pops the left value back to RDI. ADD produces five; assignment stores five to `total`. Its temporary is gone before the return expression loads `total`, moves five to RAX, and executes the epilogue. The caller receives five in RAX and then RDI, with its original RSP restored. The later implicit zero-return bytes are present but are not reached on this explicit-return path. These are derived value/storage transitions, not an executed `add` test.
+For incoming values two and three, the spills establish `pad=2` and `n=3`. C13's binary-expression sequence loads the left value, pushes it temporarily below the frame baseline, loads the right value, moves it to RCX, and pops the left value back to RDI. ADD produces five; assignment stores five to `total`. Its temporary is gone before the return expression loads `total`, moves five to RAX, and executes the epilogue. The caller receives five in RAX and then RDI, with its original RSP restored. The later implicit zero-return bytes are present but are not reached on this explicit-return path.
 
-## Balanced is not necessarily aligned
+## Restore compiler visibility
 
-The ordinary integer/pointer System V stack-boundary comparison used here is: RSP is a multiple of 16 immediately before CALL, and therefore has remainder eight on callee entry after the pushed return address. The fixed-frame prologue restores remainder zero by pushing RBP and subtracting 256. This limited alignment rule is specified in the [x86-64 psABI draft 0.21, §3.2.2, page 14](https://refspecs.linuxfoundation.org/elf/x86_64-SysV-psABI.pdf), consulted October 6, 2026. It is one ABI condition, not a complete interoperability test or a claim about every wider-vector calling case.
-
-The important premise is the caller's **actual RSP at the call instruction**. The prologue establishes an aligned baseline only when its own incoming call satisfies that premise. An odd number of live eight-byte saves below the baseline flips the remainder to eight. An even number preserves zero. The size of the reserved local frame is not the number of currently live temporary pushes.
-
-### One live outer argument is enough to change the answer
-
-Consider this illustrative expression with valid scalar callees:
-
-```c
-combine(10, leaf(20))
-```
-
-Start at the same aligned body baseline `S=0x1000`, outside switches, with no pre-existing expression temporary. Assume `leaf` can complete under the shown machine state; the point is to test the alignment promise, not to predict a particular fault. C14's left-to-right staging emits the following transitions:
-
-| Completed action | RSP | Remainder modulo 16 | Live staged values, bottom-to-top |
-|---|---|---:|---|
-| Outer first argument 10 pushed | `0x0FF8` | 8 | `[10]` |
-| Inner argument 20 pushed | `0x0FF0` | 0 | `[10,20]` |
-| Inner pop into RDI | `0x0FF8` | 8 | `[10]` |
-| CALL `leaf` | `0x0FF0` | 0 | Outer 10 plus inner return control |
-| Inner PUSH RBP; MOV RBP,RSP | `0x0FE8` | 8 | Outer 10 still belongs to outer call |
-| Inner SUB RSP,256 | `0x0EE8` | 8 | Inner body baseline is misaligned |
-| Inner epilogue and RET complete | `0x0FF8` | 8 | `[10]` |
-| Push inner result as outer argument 2 | `0x0FF0` | 0 | `[10,result]` |
-| Outer POP RSI; POP RDI | `0x1000` | 0 | `[]` |
-| CALL `combine` | `0x0FF8` | 8 | Correct entry remainder for this call |
-
-The inner push/pop pair is balanced. It restores RSP to `S−8`, the value before **its own** argument staging, because the outer 10 still needs to survive. It does not restore S. Thus `leaf` was called with remainder eight instead of zero, and its ordinary fixed prologue does not repair that parity. The later call to `combine` meets this one condition after both outer arguments are popped.
-
-The nearby legacy call comment about balanced nested sequences does not establish universal alignment: balance is relative to an entry value, while alignment is a property of that value. The emitted sequence contains no legacy dynamic padding step. Existing expression saves or switch-RBX saves can likewise affect the remainder; they must be included in the actual live-stack count. Conversely, nesting alone is not the decisive condition: `combine(leaf(20), 10)` reaches `leaf` before either outer argument has been staged.
-
-Keep the conclusions bounded. This paper counterexample demonstrates the failed alignment precondition; it does not show that the displayed legacy instructions necessarily fault, and it is not a new runtime experiment. It also explains why this chapter teaches a restricted calling convention rather than certifying general System V calls. C23/G04 later open different frame/call providers; they are not silently substituted into this trace.
-
-**Stop/resume point.** Save “before inner CALL: RSP=S−8; own pushes balance to their starting RSP; outer value remains live.” When returning, change the number of already-staged outer arguments and derive parity before consulting the table. If only addresses are confusing, first trace remainders 0/8 without names or values.
+Once `cc-parse-function` has emitted the implicit tail, it calls `cc-scope-pop` in the builder. This restores the symbol count saved after function registration. It hides parameters and remaining function-local symbols but emits no instructions, frees no arena objects, and does not reset `cc-fn-local-count`. The next function's entry reset handles that counter.
 
 ## Compare the later seams without merging their mechanisms
 
-This optional comparison supports C18-09. Two later function drivers reuse some interfaces but change their ownership rules. Their full bodies belong to C23 and G04, respectively. The following is an inspected seam comparison, not an alternative implementation to run in this chapter:
+Two later function drivers reuse some interfaces but change their ownership rules. Their full bodies belong to C23 and G04, respectively. This optional comparison asks the same frame questions of those two drivers:
 
 | Question | Legacy `114` | Native `117` / System V provider `121` |
 |---|---|---|
@@ -442,13 +430,13 @@ This optional comparison supports C18-09. Two later function drivers reuse some 
 
 In `117`, parameter index i is represented as slot `−(i+3)`. C09's slot formula therefore addresses `RBP+8*(i+2)`: the first parameter is at `RBP+16`. That is incoming stack storage under the private convention, not a legacy seventh parameter at `RBP−56`. The native frame field is captured at `cc-out-pos−4` just after the prologue; after the body its size becomes `align_up(local-count*8,16)`. The later lesson explains its parser/context and private caller in full.
 
-`121`'s `cc-sysv-function` falls back to `cc-native-function` when `cc-target-sysv` is false. Active System V selects signature checks, parameter/varargs hooks, saved-callee state, and tracked temporary depth; merely loading its name or setting LP64 does not make `114` acquire those behaviors. We do not infer complete ABI support from this short comparison.
+`121`'s `cc-sysv-function` falls back to `cc-native-function` when `cc-target-sysv` is false. Active System V selects signature checks, parameter/varargs hooks, saved-callee state, and tracked temporary depth; merely loading its name or setting LP64 does not make `114` acquire those behaviors.
 
 Sources: [`117`, native parameter/frame seams](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L1-L77) and [`121`, function/signature driver](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1193-L1260).
 
 ## Practice: join the records, bytes, and lifetimes
 
-Use paper or read-only source inspection. These tasks request no builds, implementation changes, or example execution. [Graduated hints and checked solutions](../practice/18-solutions.md) are separate. Give at least one decisive intermediate state, not only the final number.
+Use the chapter's legacy profile and valid-storage premises unless a question changes them. These are paper problems: show at least one decisive intermediate state, not only the final number. [Graduated hints and checked solutions](../practice/18-solutions.md) are separate.
 
 ### C18-01 — Publish, patch, and retain
 

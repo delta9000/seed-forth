@@ -122,14 +122,42 @@ The separate C16–C18 save adds 25 paired main exercises, bringing the working
 document check to 225 pairs. Local links and exercise IDs were checked across
 the full saved tree. All six draft chapter/feedback files were converted from
 GitHub-flavored Markdown to HTML with Pandoc and parsed, without a visual-layout
-claim. C16's independent source/practice review passed. C17/C18 have author
-checks but still require separate independent technical review.
+claim. Independent source/practice reviews passed for C16–C18, including all 25
+main exercise sets and their changed cases. This is static manuscript evidence,
+not compiler execution or proof that every possible input is handled correctly.
 
 All three revised reading routes were independently checked for the
 prerequisites of their assigned exercise parts. This does not establish
 learning outcomes. The credited coverage inventory remains the reviewed
 C01–C15 checkpoint until the later unit's review and integration are complete.
 No implementation or canonical literate-source changes accompany this save.
+
+## Continuous-story pilot
+
+C01 and C18 were reorganized around a concrete prediction and its explanation,
+with detailed profile/parser material afterward. Review compared the changed
+prose with the pinned implementation, the previous numerical tables, source
+excerpts and practice. The exact canonical `tri.c` remains present once;
+the checker locates that full program independently of introductory C slices.
+A newly added feedback sentence was corrected to distinguish a builder slot
+claim from an emitted target instruction.
+
+Two bounded simulated-reader roles attempted selected problems without their
+solution files: a programmer without Forth background used C1-01–C1-03, and a
+Forth reader new to C calling conventions used the C18 extra-local question,
+C18-04 and C18-07. Their cited reasoning exposed no blocking missing premise
+in those samples; minor terminology and premise clarifications followed.
+These checks do not erase a model's prior knowledge, substitute for human
+readers, or establish comprehension, retention, accessibility or transfer.
+
+The saved C16–C18 checkpoint at `21d10f3cc33a6f114afa8b69e26cf219a7749f72`
+passed its automatic [Check run](https://github.com/delta9000/seed-forth/actions/runs/37459033100).
+The earlier C01–C15-only [run](https://github.com/delta9000/seed-forth/actions/runs/37458589506)
+was cancelled when the next push superseded it, under the workflow's
+cancel-in-progress policy. The successful run covers the canonical checks
+already described; it does not execute these teaching exercises. Both saved
+checkpoints were verified against complete file manifests and exact changed-file
+remote readbacks, with no changes outside `books/`.
 
 ## Still unverified
 

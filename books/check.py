@@ -515,8 +515,11 @@ def check_c_models(source_root):
         return
     original = (source_root / "book/21-arena-and-io-buffers.md").read_text()
     original_c = next(block for language, block in all_fenced_blocks(original) if language == "c")
-    current_c = next(block for language, block in all_fenced_blocks(chapter.read_text()) if language == "c")
-    assert current_c == original_c, "Recurring tri.c differs from its pinned source"
+    # The entry lesson may teach a small C slice before showing the full program.
+    # Require the exact canonical program once; presentation order is not a contract.
+    canonical = [block for language, block in all_fenced_blocks(chapter.read_text())
+                 if language == "c" and block == original_c]
+    assert len(canonical) == 1, "Expected one exact copy of the pinned recurring tri.c"
     # Paper C trace: arithmetic and loop requests, never compiled execution.
     def triangle(rows, offset=1):
         widths = [offset + 2*r for r in range(rows)]

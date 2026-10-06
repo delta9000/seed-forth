@@ -79,10 +79,10 @@ units are not chapters that already exist.
 ## Saved continuation drafts
 
 [C16–C18](DRAFTS.md) are preserved in a separate draft checkpoint: conditions
-and loops, switches/labels, and function-frame accounting. C16's technical and
-practice review passed; C17/C18 still need independent technical review. Their
-short reading routes were checked, but complete unit integration and C19 remain
-pending. These saved drafts do not extend the reviewed route listed above.
+and loops, switches/labels, and function-frame accounting. Their independent technical/practice reviews have passed. C18's first-reading
+story is now continuous; C16/C17 still await that flow pass. Complete unit
+integration and C19 remain pending. The [draft status](DRAFTS.md) distinguishes
+these checks from the reviewed route listed above and from actual reader trials.
 
 ## Profile and evidence
 

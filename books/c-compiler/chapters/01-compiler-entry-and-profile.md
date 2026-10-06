@@ -1,38 +1,48 @@
 # 1. Compiler entry and profile
 
-How can a Forth program turn a page of C into a program that draws a triangle? Before tracing the compiler, we need to know what the C asks for, which compiler we mean, and when the triangle is supposed to appear.
+Our first C program asks for a triangle: four lines containing one, three, five, and seven stars. The compiler must turn that request into executable instructions. To see what it must preserve, start with something smaller than the whole triangle: one call that draws one line.
 
-By the end of this chapter, you should be able to trace the recurring `tri.c` example, distinguish the process building its executable from the process running it, and follow one piece of source through the compiler's representations. You should also be able to reject a plausible explanation that mixes two compiler profiles.
+This is an independent entrance to **A C Compiler in Forth**. You need a few Forth stack and memory contracts, with a [short refresher](#bring-four-forth-contracts) available below; the C syntax is introduced here. By the end, you should be able to predict the triangle, explain why compiling it does not draw it, and follow one declaration from source text into the compiler's records and output.
 
-This is an independent entrance to **A C Compiler in Forth**. You need small Forth stack and memory contracts, not a memorized seed disassembly. C syntax needed here is taught below. The source is pinned to [`7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b); the [edition record](../../EDITION.md) explains that boundary.
-
-**Evidence boundary:** this chapter uses inspected definitions and paper derivations. No compiler build, example execution, learner study, or complete Linux bootstrap is established here. The default-profile trace assumes that compilation and loading succeed and that the program's character writes succeed. Those assumptions are separate from calculating what the program requests.
-
-## Bring four Forth contracts
-
-Try these short questions with data-stack top at the right. All stated addresses refer to valid, separate storage in a paper model.
-
-1. From `[9]`, what does `dup [lit] 2 *` leave?
-2. If `count` pushes a cell address A and the cell contains seven, what do `count` and `count @` separately leave? What does `[lit] 4 count !` change?
-3. After `: twice dup + ;` is defined, has its body doubled a caller's number? What changes when `[lit] 3 twice` is subsequently interpreted?
-4. Does reserving a data area with `create scratch [lit] 16 allot` establish that all sixteen bytes are zero?
-
-Use the [entry-check answers](../practice/01-solutions.md#entry-check) to compare your reasoning. If a step needs repair, take only its refresher:
-
-- Stack effects and explicit literals: [Values and words](../../seed-forth/chapters/01-values-and-words.md#words-describe-changes-to-the-stack)
-- Address, value, cell fetch and store: [Four words connect the stack to memory](../../seed-forth/chapters/02-addresses-and-bytes.md#four-words-connect-the-stack-to-memory)
-- Definition versus execution: [Defining the calculation](../../seed-forth/chapters/01-values-and-words.md#defining-the-calculation)
-- Allocation versus initialization: [Reserve bytes without inventing their contents](../../seed-forth/chapters/10-storage-deferred-words-and-bytes.md#reserve-bytes-without-inventing-their-contents)
-
-The working contracts are small: a Forth cell is eight bytes; `@` fetches a cell; `!` stores a value at the address above it; defining a word and executing its body are different events. Later chapters will reopen control-flow and deferred-word mechanisms when they need them. The first volume's [audit conclusion](../../seed-forth/chapters/19-audit-synthesis-and-capstone.md#state-the-remaining-trust-honestly) supplies the trust boundary without requiring you to repeat its entire byte audit now.
-
-If these contracts are already comfortable, continue directly to the C example. You can pause after its trace with a complete, useful result: an explanation of what the compiler must preserve.
+**Our working conditions:** we use the default legacy compiler at [`7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b). The following results are paper predictions, assuming successful compilation, loading, and character writes. The [edition record](../../EDITION.md) and [source record](#source-and-evidence) keep those predictions separate from execution evidence.
 
 ## Read enough C to follow the example
 
-C uses named objects and expressions rather than a visible Forth data stack. An **object** is a region of storage holding a value. A **type** describes how that value is represented and which operations apply. `int` is the integer type used below; its byte width belongs to the selected profile, not to the spelling `int` alone.
+A **function** is a named piece of work that can be called with input values. This one is named `line`. A call written `line(2, 3)` gives it two integers: two for `pad`, three for `n`. The comma separates the inputs. Here is the part of `tri.c` that says what the function does:
 
-Here is the canonical example used throughout this volume:
+```c
+void line(int pad, int n) {
+    while (pad > 0) { putchar(' '); pad = pad - 1; }
+    while (n > 0) { putchar('*'); n = n - 1; }
+    putchar('\n');
+}
+```
+
+The two names after `int` are **parameters**: local names for the incoming integer values. The outer braces enclose the function's body. `void` says that `line` gives its caller no result value to use; it does its work through the calls inside the body.
+
+`putchar` requests one output character. The quotes in `' '` enclose a space; those in `'*'` enclose a star. `'\n'` denotes one newline character, which ends the line. The backslash and `n` are two characters in the source spelling, but they request one output byte here. Each semicolon ends a statement. The result values of the `putchar` calls are ignored.
+
+Read `while (pad > 0)` as “test whether `pad` is greater than zero; if so, do the braced work, then test again.” The statement `pad = pad - 1` calculates one less than the current value and stores that new value in `pad`. In C, a single `=` is an assignment, not a claim that the expressions on both sides were already equal. The second loop does the same job with `n` and stars.
+
+Before following the trace, predict what `line(2, 3)` requests. In what order do the spaces, stars, and newline appear? Does either loop run its body once more when its count reaches zero?
+
+The first test succeeds with `pad` equal to two. One space is requested, then the assignment changes `pad` to one. The next test succeeds too: another space, then `pad` becomes zero. Now the test fails, so execution moves to the star loop. That loop starts with its own count, three.
+
+```text
+pad before a test     2       1       0
+space requested?      yes     yes     no
+
+n before a test       3       2       1       0
+star requested?       yes     yes     yes     no
+
+both loops finished   request one newline
+```
+
+The requested line is two spaces, three stars, and a newline: six character bytes. Both counts end at zero. A `while` loop tests **before** running its body, so the failed test requests nothing. The final `putchar` is outside both loop bodies and still runs.
+
+That last distinction lets you handle a changed case without tracing positive counts again. What would `line(0, 0)` request? Both first tests fail, but the final statement still requests a newline. Zero repetitions of a loop do not mean zero work after the loop.
+
+We now know what one call does. The rest of the program chooses the inputs for four such calls and counts the stars. Here is the complete canonical `tri.c`; find the call to `line` inside `main` before reading on:
 
 ```c
 #define ROWS 4
@@ -59,37 +69,23 @@ int main() {
 }
 ```
 
-Read it in three pieces rather than trying to interpret every punctuation mark at once.
-
 ### Names and storage
 
-`#define ROWS 4` directs the **preprocessor**, the source-rewriting part of the compiler, to replace uses of the macro name `ROWS` with the replacement text `4`. It creates no runtime variable. This simple object-like macro is enough here; conditional and function-like macros come later.
+The definition of `line` is the one we just traced. The other function, `main`, chooses the rows. A call to `main` will start with its first statement and work through its body; having its definition in the source does not yet run it.
 
-`struct tri { int rows; int stars; };` describes a structure type containing two named **members**, both integers. This type declaration does not itself create `t`. The following `struct tri t;` does that. The dot in `t.rows` selects the `rows` member of that object; `t.stars` selects its other member.
+Start with the two lines inside `main` that begin with `int`. C uses named **objects**, regions of storage that hold values. A **type** describes how a value is represented and which operations apply; `int` is the integer type used here. `int r;` reserves one local integer named `r`. Its job will be to identify the current row.
 
-Here `t` is declared outside either function. Its members start at zero. For this legacy implementation, the compiler's globals buffer is explicitly cleared, and `t` receives storage in that buffer. That is a concrete initialization mechanism, unlike Forth's bare `allot`. We will track it again when global storage is opened.
+`int w[ROWS];` reserves several integers together: an **array**. The number of elements comes from `#define ROWS 4`. That line tells the **preprocessor**, the compiler's source-rewriting part, to replace uses of the macro name `ROWS` with the text `4`. Thus this declaration means an array of four integers. `ROWS` is not a runtime variable. The more elaborate kinds of macros can wait; this one replaces a name with a number.
 
-Inside `main`, `int w[ROWS];` declares an array of four integers after macro replacement. An **array** is a numbered sequence of elements of one type. Its valid indexes are zero through three: `w[0]` is first and `w[3]` is last. `w[r]` selects the element numbered by the current value of `r`. Square brackets here are C syntax; they do not invoke Forth's `[lit]`.
+The array's elements are numbered from zero: `w[0]`, `w[1]`, `w[2]`, and `w[3]`. Four is the number of elements, not an available element number. `w[r]` selects the element numbered by the current value of `r`.
 
-`int r;` declares one more local integer. These local declarations do not give us initial values to read. The program assigns `r` before testing it and assigns each `w[r]` before reading that element. We do not assume that unused local storage is zero.
+The names with dots belong to another object, `t`. Above the functions, `struct tri { int rows; int stars; };` describes a **structure type**, a group with two named integer **members**. That line describes a type; the next line, `struct tri t;`, creates the object. `t.rows` selects its `rows` member, and `t.stars` selects its `stars` member. They will hold the row limit and the accumulated star count.
 
-### Expressions, assignment, and calls
-
-`w[r] = 1 + r * 2;` computes a value and stores it in the selected element. The single `=` means assignment. The multiplication groups more tightly than addition, so for `r = 2` the value is `1 + (2 * 2) = 5`, not `(1 + 2) * 2 = 6`. A semicolon ends this statement.
-
-The left side identifies a place to store. On a right side, `w[r]` normally supplies the value stored there. A place-identifying expression is called an **lvalue**; later we will see why the compiler must preserve that distinction until it knows whether to load or store. For now, compare Forth's separate address and fetch with C's use of context to make that choice.
-
-`line(t.rows - 1 - r, w[r]);` calls a function with two argument values. The comma separates them. Subtractions of this form group left to right: `(t.rows - 1) - r`. At row two the values passed are one and five.
-
-The definition `void line(int pad, int n)` gives those two incoming values local names. `void` says this function supplies no result value for its caller to use. The parameters are copies: reducing `n` inside `line` does not overwrite `w[r]`. Reducing `pad` does not change `t.rows` or `r` either.
-
-The profile supplies `putchar`, a small output routine. `' '` means the space character, `'*'` the star character, and `'\n'` one newline character. The two-character spelling backslash-plus-`n` represents one output byte here. The calls request one character each; their result values are ignored. This canonical input relies on the legacy compiler's predeclared runtime names. It is not presented as a portable, header-complete program for every C compiler.
+Because `t` is declared outside the functions, its members start at zero. For this legacy compiler, that promise has a concrete mechanism: the compiler clears its globals buffer and places `t` there. Reserving storage alone would not explain the zeros. The local `r` and array `w` have no such initial-value promise; we will check that each value is assigned before it is read.
 
 ### Choosing and repeating work
 
-`while (n > 0) { ... }` tests its condition before each repetition. A nonzero condition runs the body; zero ends the loop. Thus `n = 3` prints three stars, decreasing `n` to two, one, then zero. An initial zero prints none. Braces group statements into one body.
-
-The `for` loop packages three jobs:
+The first assignment, `t.rows = ROWS`, stores four in the row-limit member. `t.stars` remains zero. The `for` statement then controls which row is drawn. Its parentheses package three jobs, separated by semicolons:
 
 ```text
 r = 0                 once, before any test
@@ -97,34 +93,45 @@ r < t.rows            test before each body
 r = r + 1             after each completed body
 ```
 
-For four rows, the body runs with `r` equal to zero, one, two, and three. The test at four is false. That last unsuccessful test is part of the loop's behavior; it prevents an access to `w[4]`.
+The first job gives `r` its initial value, so the test does not read uninitialized local storage. At zero, `r < t.rows` asks whether zero is less than four. It is, so the three statements inside the braces run. Only after those statements finish does `r = r + 1` advance to one and lead back to the test. As with `while`, a nonzero condition runs the body; zero ends the loop.
 
-Finally, `==` compares two values; it does not store one. If `t.stars == ROWS * ROWS` is true, `return t.stars;` ends `main` with that integer result. Otherwise execution reaches `return 1;`. Returning an integer does not print its decimal digits. This program's process-entry code uses the result as its exit status.
+### Expressions, assignment, and calls
+
+For the first row, `w[r] = 1 + r * 2` calculates `1 + 0 * 2` and stores one in `w[0]`. Multiplication groups more tightly than addition. For example, when `r` later becomes two, the same expression will be `1 + (2 * 2) = 5`, not `(1 + 2) * 2 = 6`.
+
+The next statement is the call we were looking for: `line(t.rows - 1 - r, w[r])`. The first input supplies the number of spaces. These subtractions group left to right, so with four rows and `r` zero it is `(4 - 1) - 0`, or three. The second input reads the one we just stored in `w[0]`. This first call is therefore `line(3, 1)`: three spaces, one star, one newline.
+
+Now there is a possible surprise. Inside `line`, `n` was reduced to zero. Yet the very next statement, `t.stars = t.stars + w[r]`, is supposed to add that row's width to the running total. Has drawing the line used up the width?
+
+Trace the second row, where `r` is one and the stored width is three:
+
+| Moment | `main`'s array element `w[1]` | `line`'s parameter `n` |
+|---|---:|---:|
+| After `w[1] = 1 + 1 * 2` | 3 | No call yet |
+| When `line(2, 3)` begins | 3 | 3 |
+| After the first star-loop body, including its assignment | 3 | 2 |
+| After the second star-loop body, including its assignment | 3 | 1 |
+| After the third star-loop body, including its assignment | 3 | 0 |
+| After the call returns | 3 | The call has finished |
+
+The call reads the **value stored in** `w[1]` and initializes `n` with a copy. The parameter is a separate object; it is not another name for the array element. Reducing `n` changes that local copy; it does not erase the saved width. Similarly, reducing `pad` changes neither `t.rows` nor `r`. When execution returns to `main`, the addition can still read three from `w[1]` and add it to the previous total, one, making four.
+
+This is why the array and the parameter cannot be treated as interchangeable names. They briefly hold equal values, but they are different storage. The compiler must preserve that distinction even though the complete function-call machinery comes later.
 
 ## Derive the triangle before opening the compiler
 
-Predict the first row: after `t.rows = ROWS`, `t.rows` is four; `t.stars` is still zero. At `r = 0`, the array assignment stores one, and `line` receives three and one. Its first loop requests three spaces, its second requests one star, then it requests a newline.
+The same three statements now explain every row: save its width, draw it using copied inputs, then add the saved width to the total. Try deriving the last row before looking at the completed trace. Remember that the first row was numbered zero.
 
-For a closer look at the second row, `line(2, 3)` has this sequence:
-
-```text
-pad: 2 -> 1 -> 0       request a space on each successful test
-n:   3 -> 2 -> 1 -> 0  request a star on each successful test
-then                    request one newline
-```
-
-The caller's `w[1]` remains three. Consequently the following addition increases `t.stars` by three, not by the callee's final zero.
-
-The full paper trace is:
-
-| `r` in body | `w[r] = 1 + r * 2` | Padding argument | `t.stars` before → after |
+| `r` in body | Width saved in `w[r]` | Padding argument | `t.stars` before → after |
 |---:|---:|---:|---:|
 | 0 | 1 | 3 | 0 → 1 |
 | 1 | 3 | 2 | 1 → 4 |
 | 2 | 5 | 1 | 4 → 9 |
 | 3 | 7 | 0 | 9 → 16 |
 
-At the next test, `r` is four. The body does not run. The final comparison is `16 == 4 * 4`, so `main` returns sixteen. With successful writes, the predicted output is:
+After the last row, the loop's increment makes `r` four. The next test, `4 < 4`, fails. There is no access to `w[4]`. Every array element used in the trace was assigned before the call and addition read it.
+
+With successful character writes, the predicted output is:
 
 ```text
    *
@@ -133,50 +140,70 @@ At the next test, `r` is four. The body does not run. The final comparison is `1
 *******
 ```
 
-There are six spaces, sixteen stars, and four newlines: twenty-six requested character bytes. This is an output-stream count derived from the loops, not the C source's file size or the executable's size. Those are three different measurements.
+The program has requested six spaces, sixteen stars, and four newlines: twenty-six character bytes. That counts the output stream, not the number of bytes in the C source file or in the executable.
 
-All values in this trace are small. We have not taught overflow rules, negative indexing, or arbitrary C expression behavior. The array bound and assignment-before-read properties are part of why this is a useful first example. If the loop condition changes to `r <= t.rows`, those properties must be checked again; the attractive picture alone cannot justify the change.
+One decision remains after the loop. `==` compares two values, unlike the assignment operator `=`. `if` runs the following statement only when its condition is true. Here `t.stars == ROWS * ROWS` compares sixteen with `4 * 4`. They are equal, so `return t.stars` ends `main` with result sixteen. If the comparison were false, execution would instead reach `return 1`. Returning an integer does not print its decimal digits; this program's entry code uses it as the process exit status. The visible triangle, the twenty-six character bytes, and the return value sixteen are three different results to keep track of.
 
-## Name the compiler profile
+All values here are small; no overflow rule is needed to derive them. But the safe array accesses depended on a particular comparison. Change `<` to `<=`, and `r` equal to four would enter the body. The first assignment would try to store a width in the nonexistent fifth element. An extra width of nine is easy to calculate; it does not make `w[4]` a valid destination. Stop at that broken precondition rather than predicting a fifth line or a particular crash. Negative indexing and general C arithmetic need contracts beyond this first trace.
 
-A **profile** fixes choices that a language name and processor name leave open: object sizes, function-call rules, available runtime services, preprocessing policy, and output form. An **ABI**, or application binary interface, includes the rules by which compiled code passes arguments and results and lays out data at binary boundaries.
-
-Our first path is the **default legacy direct-ELF profile**. “Direct” here means the Forth compiler emits the executable bytes without a separate assembler or linker. It does not mean the optional direct TinyCC or direct GCC route has been selected.
-
-| Choice | This chapter's legacy path | Optional direct TinyCC path | Explicit System V path |
-|---|---|---|---|
-| Integer storage relevant here | `int` eight bytes; `char` one; pointers eight | LP64: `int` four, `long` and pointers eight | LP64: `int` four, `long` and pointers eight |
-| Calls | Restricted integer/pointer register-call convention; no general ABI promise | Private all-stack convention within the generated image; each argument slot is eight bytes | Explicit System V AMD64 target; additional layers specify supported call classes |
-| Runtime and headers | Built-in shim names; legacy header policy | Real prepared headers and portable-libc source, plus emitted Linux primitives | Target-specific runtime and object/link routes need their own contract |
-| Selection | `120-cc-main.fth` calls `cc-parse-program` | Dedicated driver sets mode flags and calls `cc-native-program` | Explicit `cc-sysv-enable` and the appropriate driver |
-
-**LP64** names a storage model, not a call convention. In particular, a four-byte `int` object may be passed in an eight-byte argument slot. Neither size tells you by itself where an argument arrives.
-
-The legacy function reader spills the first six integer argument registers into local slots and returns a scalar through `rax`. That resemblance to System V does not give its eight-byte `int` the layout of an ordinary LP64 C `int`, nor establish interoperability with arbitrary host-compiled code. This example needs only two integer arguments.
-
-Loading optional definitions alone does not select their target. `cc-target-lp64` and `cc-target-sysv` start at zero. The TinyCC driver explicitly sets LP64 and direct preprocessing before choosing its program driver. It also enables a restricted bootstrap mode for floating-value bit transport; that is not general floating arithmetic. `cc-sysv-enable` explicitly selects the System V path. The scalar base and subsequent extensions must not be collapsed into a claim that any C program is supported.
-
-One practical consequence is already calculable: four `int` elements have a 32-byte payload in the legacy profile and a 16-byte payload in LP64. That calculation says nothing yet about a complete stack frame or executable. Keep our four-row trace on the legacy path until a later unit deliberately changes its contract.
+We have reached the result the compiler must preserve. The next question is when any of these writes and additions happen. Does the Forth compiler print a star when it reads `putchar('*')`?
 
 ## Two processes, with a boundary between them
 
-The **builder process** is `seed-forth` with the compiler's Forth words loaded. It consumes C source and accumulates executable bytes. The **generated program** is the separate executable those bytes describe. On this path both are Linux/x86-64 programs, but they run at different times and have different state.
+The Forth compiler does not draw a line when it reads the C call. It writes instructions that will request those characters later. That separates two processes whose jobs are easy to confuse when both programs run on Linux/x86-64.
 
-| Event | Actor | Immediate result |
+The **builder process** is `seed-forth` with the compiler's Forth words (callable operations) loaded. Its work is to read C source, accumulate executable bytes, and attempt to write them to `/tmp/cc-out`. On our default legacy path it emits an ELF executable directly: no separate assembler or linker turns the emitted bytes into a program. ELF is the executable file format that tells Linux how to load that program.
+
+The **generated program** is the separate executable described by those bytes. Only when Linux later loads and runs it does its entry code call C `main`. Then the row loop assigns widths, calls `line`, and counts stars. When `main` returns sixteen, the entry code passes that value to Linux exit. None of those C calls happens merely because the builder has read their source text.
+
+Keep the two kinds of storage separate too. The builder needs buffers in which to hold source and future executable bytes. The generated program needs the array `w`, the object `t`, and each call's local parameters. During compilation, the builder manipulates descriptions and bytes; the live array and parameters belong to the later program. The builder records how that program will use them.
+
+Writing a future instruction and executing it are different events. Here the separation extends all the way to a new executable and a later process. To see how the builder can describe objects that are not yet in use, follow the array declaration through its work.
+
+## Follow one representation through the driver
+
+The builder first reads the C source as bytes. At this point `int w[ROWS];` is text in the input buffer, `cc-in-buf`. There is no four-element array sitting in that text buffer. The letters and punctuation describe storage the generated program will need.
+
+The preprocessor rewrites source into another buffer, `cc-src-buf`. It has seen `#define ROWS 4`, so the use in the array declaration becomes `4`. The declaration reaching the next stage is effectively `int w[4];`. The replacement happens here, before that final source stream is divided into tokens.
+
+A **token** is a classified piece of source: a name, number, keyword, or punctuation operator. The **lexer** supplies these pieces. For this declaration, the useful view is:
+
+```text
+keyword int | name w | punctuation [ | number 4 | punctuation ] | punctuation ;
+```
+
+That is a teaching view of the sequence, not a captured token dump. Classification matters: `4` is the array's count, while `w` is the name the compiler must later recognize. The **parser** reads the tokens according to C's structure and records that `w` names an array of four integers with a particular storage location. In this legacy profile an `int` occupies eight bytes, so the array's elements require 32 bytes. That is the element payload, not the size of all the storage needed by a call to `main`.
+
+Later, when the parser encounters `w[r]`, that record helps it find the selected element. But finding the element is not enough. In `w[r] = 1 + r * 2`, the element is the **destination** of a store. In `line(..., w[r])`, the program needs the **value** stored there. A place-identifying expression is called an **lvalue**. C's context tells the compiler when to use that place as a destination and when to load its value. Compare Forth's separate address and fetch: an address alone is not the integer saved there. This distinction is what lets the later call receive a value copy while the array keeps its width.
+
+**Code generation** writes machine instructions that implement these operations. This compiler interleaves parsing and instruction emission; it does not need to store a complete syntax tree before writing any instructions. Some addresses will not be known yet, so it also remembers places that need repair. The stages and their source owners are:
+
+| Representation | What happens to our example | Source owner |
 |---|---|---|
-| Define `cc-main` | Seed Forth reading Forth | A callable compiler-driver word |
-| Execute `cc-main` | Builder process | Consume source, emit an image, attempt to write `/tmp/cc-out` |
-| Execute `bye` at the driver's end | Builder process | Exit the builder with zero |
-| Later load and run the output | Linux and the generated program | Entry code calls C `main`; triangle computation occurs |
-| C `main` returns sixteen | Generated program | Entry code passes sixteen to Linux exit |
+| Raw source bytes | Hold `int w[ROWS];` as input text | `030`: `cc-in-buf` |
+| Preprocessed source bytes | Replace the macro use, giving `int w[4];` | `040`: `cc-preprocess`, writing `cc-src-buf` |
+| Current-token state | Classify the keyword, name, count, and punctuation | `050`: lexer; state cells originate in `020` |
+| Meaning and compiler records | Record `w`'s type, array count, and storage identity | `060`/`070` plus declaration/expression parsers |
+| Executable bytes and deferred repairs | Encode operations on that storage; remember unresolved addresses | `080`/`090` plus parser/emitter layers |
+| Finalized image, then file | Finish global addresses and ELF sizes; attempt the output write | `cc-finalize-globals`, `cc-finalize-elf`, `cc-write-output` |
 
-The builder does not draw the triangle while it parses `putchar('*')`. It emits instructions that will request that write later. The generated program's `w` and `t` are not live C objects in the builder's Forth data stack.
+Later chapters open the numeric token kinds, records, and instruction encoders. Here the important change is already visible: source text becomes information the builder can act on, then bytes the generated program can execute. The lexer does not rescue an unexpanded `ROWS` by turning it into four; the preprocessor has already done the replacement.
 
-Even the shared-looking address `0x400000` is not shared mutable storage between these phases. The builder stores bytes in its own output buffer; the ELF describes where the later process should map them. A **file offset** counts bytes from the beginning of the file; a **virtual address** names a location in a process's address space. Their relationship belongs to the image layout, not to the builder buffer's pointer.
+There is an apparent ordering problem. The executable starts with a header, and that header must describe the completed image. Yet `cc-emit-elf-header` writes the first 120 bytes **before** parsing the C program. How can it know enough?
+
+It writes the known fields and leaves room to repair the others. The entry address is already fixed at `0x400078`, 120 bytes after the load base `0x400000`. At that entry the compiler will place a small **entry stub**, code that calls the separately located C `main` and exits with its result. The header points at that stub, not directly at `main`. Once `main`'s address is known, the compiler repairs the stub's call target.
+
+The final file length is not known at header-emission time. After code and globals have been emitted, finalization writes that length into the reserved header field. The memory-size field begins with an 81,920-byte minimum and increases if the file image plus zero-filled storage needs more. A **patch** overwrites a reserved field with a now-known value. The builder can emit, remember, and patch instead of waiting to know everything or compiling the entire program again.
+
+These addresses describe the later process, not the builder's buffer. A **file offset** counts bytes from the start of the file; a **virtual address** names a location in a process's address space. Here file offset 120 maps to entry address `0x400078`. The builder stores the corresponding bytes at its own output-buffer address. Even an address such as `0x400000` appearing in both programs does not make their storage shared.
+
+The completed image can now be written to a file. This legacy output helper checks whether opening the path failed, then makes one write and one close and discards both results. Reaching the driver's final `bye` therefore requests a zero exit from the **builder** without establishing that every output byte was written. A complete file would still be a separate fact from running it and obtaining the triangle. The distinction between description and execution also tells us which evidence to ask for.
+
+Before opening the driver's source, carry the story through one small change. Suppose `ROWS` were three instead of four. Where would the array length change? In the builder, preprocessing would replace `ROWS` with `3`, and the declaration would describe three integers. When the generated program later ran, its row loop would use indexes zero, one, and two. The compiler would not draw those three rows while discovering their array length. We can change the C request and still keep the two processes distinct.
 
 ### Why the executing main file comes last
 
-The actual driver ends with both a definition and an invocation:
+We can now read the Forth driver as a sequence of the jobs just described. Its actual definition and final invocation are:
 
 ```forth
 : cc-main
@@ -194,9 +221,9 @@ The actual driver ends with both a definition and an invocation:
 cc-main
 ```
 
-That final bare `cc-main` changes who consumes the remaining input. The compiler's source reader now reads the remaining standard-input bytes as C. They are no longer individual Forth words for the outer interpreter.
+Defining `cc-main` creates a callable Forth word. The final bare `cc-main` executes it. Its first operation, `cc-load-stdin`, changes who reads the remaining input: the compiler's source reader consumes the remaining standard-input bytes as C. They are no longer individual Forth words for the outer interpreter.
 
-The loader contract is therefore:
+That has a consequence for loading the compiler itself. Imagine placing another Forth library after this invocation. By then the source reader is consuming C; the later library's Forth text would become raw C input. It would never have been loaded as Forth. All the libraries must come before the driver begins consuming the C program:
 
 ```text
 010-lib.fth
@@ -206,30 +233,60 @@ the C source bytes
 end of input
 ```
 
-The pinned `tools/compiler-layers.sh` implements the exception: skip `120-cc-main.fth` during its glob loop, then list it last. Optional compiler libraries numbered above 120 must still be loaded before that invocation. `130-asm.fth` is not a `*-cc-*.fth` layer and is outside this pattern.
+The pinned `tools/compiler-layers.sh` implements the exception: it skips `120-cc-main.fth` during its glob loop, then lists it last. Optional compiler libraries numbered above 120 still belong before that invocation. `130-asm.fth` is not a `*-cc-*.fth` layer and is outside this pattern.
 
-If a library is put after the invocation, its Forth text is consumed as C input; it has not thereby been loaded. Do not solve this by guessing an error number. Identify the boundary that was crossed. This “main last” rule is about the Forth loader, not a rule that C's `main` function must be the final function in a source file. A specialized driver, such as TinyCC's, replaces the executing default driver and has its own selection steps.
+This “main last” rule concerns the Forth loader, not the position of C's `main` function in a source file. Nor does a misplaced library call for guessing a diagnostic number: the error in the proposed order is that Forth source crossed the boundary into C input. A specialized driver, such as TinyCC's, replaces the executing default driver and has its own selection steps.
 
-## Follow one representation through the driver
+Our first complete path is now accounted for: Forth definitions make the compiler available; invoking the driver consumes C and writes an executable; a later invocation of that executable performs the row loop. The remaining reference sections pin down the choices behind this path before the exercises ask you to distinguish it from alternatives.
 
-A **token** is a classified piece of source, such as a name, number, or punctuation operator. The **parser** combines tokens according to language structure. **Code generation** emits the instructions implementing that structure. This compiler interleaves parsing and emission; the following map does not imply that it stores a complete syntax tree.
+## Name the compiler profile
 
-| Representation | Example or responsibility | Source owner |
-|---|---|---|
-| Raw source bytes | `ROWS` occurs in `int w[ROWS];` | `030`: `cc-in-buf` |
-| Preprocessed source bytes | Macro use becomes `4`, so the declaration is effectively `int w[4];` | `040`: `cc-preprocess`, writing `cc-src-buf` |
-| Current-token state | Keyword `int`, name `w`, punctuation `[`, number 4, punctuation `]`, punctuation `;` | `050`: lexer; state cells originate in `020` |
-| Meaning and compiler records | Record `w`'s type, array count, and storage identity | `060`/`070` plus declaration/expression parsers |
-| Executable bytes and deferred repairs | Encode instructions; remember fields whose addresses are not known yet | `080`/`090` plus parser/emitter layers |
-| Finalized image, then file | Finish global addresses and ELF sizes; attempt output write | `cc-finalize-globals`, `cc-finalize-elf`, `cc-write-output` |
+A **profile** fixes choices that a language name and processor name leave open: object sizes, function-call rules, available runtime services, preprocessing policy, and output form. An **ABI**, or application binary interface, includes the rules by which compiled code passes arguments and results and lays out data at binary boundaries.
 
-The token list is a teaching representation, not a dump from a run. Later chapters open the numeric token kinds and metadata. Crucially, the macro replacement belongs before lexing the final source stream; the lexer does not turn an unexpanded `ROWS` into four by a special rule here.
+The path we have followed is the **default legacy direct-ELF profile**. “Direct” here means the Forth compiler emits the executable bytes without a separate assembler or linker. It does not mean the optional direct TinyCC or direct GCC route has been selected.
 
-Emission also has an ordering surprise. `cc-emit-elf-header` writes the first 120 bytes **before** parsing the program. ELF is the executable file format understood by the loader. Its header records an entry address of `0x400078`, 120 bytes past the load base `0x400000`. The emitted entry stub subsequently calls C `main`; the header does not directly name the first instruction of `main`.
+| Choice | This chapter's legacy path | Optional direct TinyCC path | Explicit System V path |
+|---|---|---|---|
+| Integer storage relevant here | `int` eight bytes; `char` one; pointers eight | LP64: `int` four, `long` and pointers eight | LP64: `int` four, `long` and pointers eight |
+| Calls | Restricted integer/pointer register-call convention; no general ABI promise | Private all-stack convention within the generated image; each argument slot is eight bytes | Explicit System V AMD64 target; additional layers specify supported call classes |
+| Runtime and headers | Built-in shim names; legacy header policy | Real prepared headers and portable-libc source, plus emitted Linux primitives | Target-specific runtime and object/link routes need their own contract |
+| Selection | `120-cc-main.fth` calls `cc-parse-program` | Dedicated driver sets mode flags and calls `cc-native-program` | Explicit `cc-sysv-enable` and the appropriate driver |
 
-Some facts become known only later. The final file length is patched into the header after code and globals have been emitted. The memory-size field starts with an 81,920-byte minimum and is increased if the file image plus zero-filled storage needs more. A **patch** overwrites a reserved field with a now-known value. This is a concrete instance of “emit, remember, patch,” not a second compilation of the whole program.
+**LP64** names a storage model, not a call convention. In particular, a four-byte `int` object may be passed in an eight-byte argument slot. Neither size tells you by itself where an argument arrives.
 
-Keep the output promise bounded. The legacy `cc-write-output` checks whether opening the path failed, then makes one write and one close and discards both results. It does not verify a complete write. Thus “the builder exited zero” is weaker evidence than “the intended file was completely written,” which is weaker than “the generated program ran and behaved correctly.” Subsequent chapters will examine ownership and I/O limits before providing stronger execution claims.
+The legacy function reader spills the first six integer argument registers into local slots and returns a scalar through `rax`. That resemblance to System V does not give its eight-byte `int` the layout of an ordinary LP64 C `int`, nor establish interoperability with arbitrary host-compiled code. This example needs only two integer arguments.
+
+Loading optional definitions alone does not select their target. `cc-target-lp64` and `cc-target-sysv` start at zero. The TinyCC driver explicitly sets LP64 and direct preprocessing before choosing its program driver. It also enables a restricted bootstrap mode for floating-value bit transport; that is not general floating arithmetic. `cc-sysv-enable` explicitly selects the System V path. The scalar base and subsequent extensions must not be collapsed into a claim that any C program is supported.
+
+One practical consequence is the size of our array: four `int` elements have a 32-byte payload in the legacy profile and a 16-byte payload in LP64. A call's **stack frame** is the storage set aside for that active call; it can include other locals, saved state, and padding. The array payload alone therefore gives neither the complete frame size nor the executable size. Keep our four-row trace on the legacy path until a later unit deliberately changes its contract.
+
+The canonical input uses the legacy compiler's predeclared runtime names, including `putchar`. It is not a portable, header-complete program for every C compiler. Conditional and function-like macros, broader language support, and later bootstrap routes each need their own treatment.
+
+## Bring four Forth contracts
+
+For readers returning from the Seed volume, three connections are useful here.
+C array brackets are unrelated to Forth's `[lit]` syntax. The compiler's explicit
+global-buffer clearing supplies initial zeros; bare `allot` only reserves bytes.
+And a Forth word writing another word's body already separates producing
+instructions from executing them. The C objects themselves are not live
+objects on the builder's Forth data stack. These connections are optional for
+the C story above; the following refreshers open the Forth notation when needed.
+
+This is a recovery point for the Forth ideas used above, not a requirement to repeat the first volume. Try the questions you need, with data-stack top at the right. All stated addresses refer to valid, separate storage in a paper model.
+
+1. From `[9]`, what does `dup [lit] 2 *` leave?
+2. If `count` pushes a cell address A and the cell contains seven, what do `count` and `count @` separately leave? What does `[lit] 4 count !` change?
+3. After `: twice dup + ;` is defined, has its body doubled a caller's number? What changes when `[lit] 3 twice` is subsequently interpreted?
+4. Does reserving a data area with `create scratch [lit] 16 allot` establish that all sixteen bytes are zero?
+
+Use the [entry-check answers](../practice/01-solutions.md#entry-check) to compare your reasoning. If a step needs repair, take only its refresher:
+
+- Stack effects and explicit literals: [Values and words](../../seed-forth/chapters/01-values-and-words.md#words-describe-changes-to-the-stack)
+- Address, value, cell fetch and store: [Four words connect the stack to memory](../../seed-forth/chapters/02-addresses-and-bytes.md#four-words-connect-the-stack-to-memory)
+- Definition versus execution: [Defining the calculation](../../seed-forth/chapters/01-values-and-words.md#defining-the-calculation)
+- Allocation versus initialization: [Reserve bytes without inventing their contents](../../seed-forth/chapters/10-storage-deferred-words-and-bytes.md#reserve-bytes-without-inventing-their-contents)
+
+The working contracts are small: a Forth cell is eight bytes; `@` fetches a cell; `!` stores a value at the address above it; defining a word and executing its body are different events. The compiler's calls to buffer-writing words happen in the builder, just as an ordinary defined Forth word does work only when executed. Later chapters reopen control-flow and deferred-word mechanisms when they need them. The first volume's [audit conclusion](../../seed-forth/chapters/19-audit-synthesis-and-capstone.md#state-the-remaining-trust-honestly) gives its trust boundary without requiring the whole byte audit here.
 
 ## Practice
 
@@ -241,7 +298,7 @@ A proposed input order ends `119-cc-native-runtime.fth`, `120-cc-main.fth`, `121
 
 ### C1-02 — Complete the row trace
 
-Without the full trace table, derive rows one and three: width, padding, star total before and after, and the values remaining in the selected array element after `line` returns. Then change only the loop test from `<` to `<=`. Identify the first additional body iteration and the first array precondition it violates. Do not invent an output after that violation.
+Without the full trace table, derive the iterations with `r = 1` and `r = 3`: width, padding, star total before and after, and the values remaining in the selected array element after `line` returns. Then change only the loop test from `<` to `<=`. Identify the first additional body iteration and the first array precondition it violates. Do not invent an output after that violation.
 
 ### C1-03 — Change the shape, then the check
 
@@ -261,7 +318,7 @@ You now have three separable explanations: the C requests a four-row triangle; t
 
 If the C trace is difficult, revisit one call such as `line(2, 3)` and retry C1-02. If profile questions are difficult, compare object size and argument slot size before retrying C1-04. If all five explanations hold without copying, keep the contracts handy and move on. After intervening work, reconstruct the two-process boundary and attempt one changed case with the answer closed. That checks a different capability from finding this chapter easy to read.
 
-The next planned unit, C02, opens input/output buffers, arena allocation, and who owns a failure. The [coverage map](../../COVERAGE.md#volume-2-a-c-compiler-in-forth) identifies that destination; this entrance has not silently supplied its implementation proof.
+The next planned unit, C02, opens the buffers and arena that hold the compiler's data. It asks where that storage comes from, how much fits, and what happens when an operation fails. The [coverage map](../../COVERAGE.md#volume-2-a-c-compiler-in-forth) identifies that next step.
 
 ## Source and evidence
 
@@ -270,4 +327,4 @@ The next planned unit, C02, opens input/output buffers, arena allocation, and wh
 - Initialization, calls, and program entry: [`090-cc-emit.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth), `cc-globals-init` and `cc-emit-putchar-shim`; [`114-cc-func.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth), `cc-emit-spill-params`; [`116-cc-prog.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth), global declarations, entry stub, and `cc-parse-program`.
 - Profile boundary: [`060-cc-types.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/060-cc-types.fth), `ty-size`; [`117-cc-native-program.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth); [`119-cc-native-runtime.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/119-cc-native-runtime.fth); [`tools/tcc-compile.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/tcc-compile.fth); and [`121-cc-sysv.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth), `cc-sysv-enable`.
 
-The recurring C input is preserved from [historical Chapter 21](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/21-arena-and-io-buffers.md). Its old source/executable byte counts are not reused as current measurements. [Historical Chapter 32](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/32-main-and-bootstrap-chain.md) provides comparison material; where its prose and the pinned definitions differ, this chapter follows the definitions. The triangle and exercise results are derivations under the stated contracts. They do not validate the later compiler or bootstrap chain.
+The recurring C input is preserved from [historical Chapter 21](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/21-arena-and-io-buffers.md). Its old source/executable byte counts are not reused as current measurements. [Historical Chapter 32](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/32-main-and-bootstrap-chain.md) provides comparison material; where its prose and the pinned definitions differ, this chapter follows the definitions. The triangle and exercise results are derivations under the stated contracts. No compiler build, example execution, or complete Linux bootstrap was performed for this chapter. No learner study is claimed; editorial or model review is not evidence of human learning, retention, or transfer.
