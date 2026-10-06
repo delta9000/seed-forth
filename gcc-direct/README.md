@@ -72,6 +72,10 @@ Do not force cached feature answers or advertise GNU compiler compatibility.
 `--version` and `-v` identify seed-forth; `-dumpmachine` gives the target tuple.
 No `__GNUC__` macro is invented. Compiler diagnostics currently use the
 preprocessed source line number and numeric error code.
+`-Werror=implicit-function-declaration` makes a call to an undeclared function
+error 228, naming the function and its source file and line; without it such
+a call is C90's implicit `extern int f ();`, whose `int` result truncates
+pointers and doubles on LP64.
 
 Each invocation captures the compiler, seed, runtime sources and headers,
 checks that those files did not change during capture, and verifies the seed

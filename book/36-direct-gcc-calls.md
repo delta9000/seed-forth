@@ -188,6 +188,22 @@ call gate covers scoped names, promoted arguments, function addresses, later
 definitions and unresolved symbols. This also lets the unchanged configure
 endianness probe call `exit` under its original C90 declaration rules.
 
+The same rule is a trap on LP64: an implicit `int` result keeps only the low
+32 bits of a `char *` from `popen` or `strdup` and none of a `double` from
+`floor`, and these were the hardest bugs in the plumbing builds. GCC's option
+`-Werror=implicit-function-declaration`, passed to `tools/gcc-direct-cc.py`,
+sets `cc-sysv-implicit-error`, and `cc-sysv-unknown-ident` then stops at the
+first call to an undeclared function with error 228:
+`implicit declaration of function 'strdup' at a.c:11: cc: line 29: error 228`.
+The file and line are the source's, found through the preprocessor's line
+map (Ch 22), which the driver turns on with the option; the trailing
+`cc: line` is the usual flattened line. Without the option nothing changes.
+`python3 tests/gcc/implicit-error-check.py` compares the reported function,
+file and line with host GCC's for calls after system and local headers,
+inside a header found through `-I`, after splices and comments and after
+`#line`, and checks that a program with only declared calls compiles to the
+same bytes with and without the option.
+
 Old GNU code writes the same thing explicitly: GNU make, bash and coreutils
 put `extern char *getenv ();` inside the function that calls it.
 `cc-sysv-block-function` handles a function declarator at block scope, with
@@ -1355,10 +1371,32 @@ variable cc-sysv-implicit-count
 : cc-sysv-implicit-declared-noop drop ;
 defer cc-sysv-implicit-declared-fwd
 ' cc-sysv-implicit-declared-noop is cc-sysv-implicit-declared-fwd
+\ C90 accepts a call to an undeclared function as `extern int f ();`. On
+\ LP64 that truncates a pointer or double result, so a driver may set this
+\ flag (GCC's -Werror=implicit-function-declaration) to make it error 228.
+variable cc-sysv-implicit-error
+[lit] 0 cc-sysv-implicit-error !
+create cc-sysv-implicit-message                  \ "implicit declaration of function '"
+  s, implicit bl c, s, declaration bl c, s, of bl c, s, function bl c, [lit] 39 c,
+create cc-sysv-implicit-close [lit] 39 c, [lit] 58 c, bl c,       \ "': "
+create cc-sysv-implicit-at s, ' bl c, s, at bl c,     \ "' at "
+\ Name the source file and line through the preprocessor's line map, then
+\ the usual flattened line: "... function 'f' at a.c:11: cc: line 29: ...".
+: cc-sysv-implicit-die
+  cc-sysv-implicit-message [lit] 34 cc-err-write
+  tok-str-addr @ tok-str-len @ cc-err-write
+  cc-src-line @ cc-pp-line-map-find if,
+    cc-sysv-implicit-at [lit] 5 cc-err-write
+    >r cc-err-write cc-sysv-implicit-close [lit] 1 + [lit] 1 cc-err-write
+    r> cc-err-dec cc-sysv-implicit-close [lit] 1 + [lit] 2 cc-err-write
+  else,
+    cc-sysv-implicit-close [lit] 3 cc-err-write
+  then, [lit] 228 cc-die ;
 : cc-sysv-unknown-ident ( -- id|-1 )
   cc-target-sysv @ 0= if, true exit, then,
   cc-peek-mark cc-lex-mark cc-next-token-keep
   lparen cc-tok-punct? cc-peek-mark cc-lex-reset 0= if, true exit, then,
+  cc-sysv-implicit-error @ if, cc-sysv-implicit-die then,
   tok-str-addr @ tok-str-len @ cc-sysv-implicit-record >r
   tok-str-addr @ tok-str-len @ sk-func ty-int [lit] 0 ty-make [lit] 0 cc-sym-add
   r> [lit] 24 + @ over cc-sysv-signatures cell[] !

@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2739 names and 97 ideas.
+carry none.  2750 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -1686,6 +1686,7 @@ for which chapter depends on which, the
 - `cc-pp-copy-number` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-pp-copy4` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §1 The contract, the sink and the scratch area](22-the-preprocessor.md#1-the-contract-the-sink-and-the-scratch-area)
 - `cc-pp-count-raw-lines` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
+- `cc-pp-current-name` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-defined` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-defined-name?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
 - `cc-pp-drop-splice` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
@@ -1726,6 +1727,10 @@ for which chapter depends on which, the
 - `cc-pp-line-escape` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
 - `cc-pp-line-filename` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
 - `cc-pp-line-hex` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
+- `cc-pp-line-map` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
+- `cc-pp-line-map-find` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
+- `cc-pp-line-map-note` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
+- `cc-pp-line-map-on` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-line-name-size` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
 - `cc-pp-line-number` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
 - `cc-pp-line-octal?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Parsing C line control](22-the-preprocessor.md#parsing-c-line-control)
@@ -1749,6 +1754,7 @@ for which chapter depends on which, the
 - `cc-pp-location-rescan` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-pp-location-string-byte` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-logical-name` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-pp-map-resume` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, Unavailable tokens across rescans](22-the-preprocessor.md#unavailable-tokens-across-rescans)
 - `cc-pp-n-defined` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-pp-n-elif` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
 - `cc-pp-n-else` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, `#if` and friends](22-the-preprocessor.md#if-and-friends)
@@ -2176,15 +2182,20 @@ for which chapter depends on which, the
 - `cc-sysv-function-typedef` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
 - `cc-sysv-grouped-array` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-identifier-list` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-implicit-at` — *compiler word (create, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-base` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-implicit-close` — *compiler word (create, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-count` — *compiler word (variable, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-declarator` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-declarator-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-declarator-noop` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-declared-fwd` — *compiler word (defer, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-declared-noop` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-implicit-die` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-implicit-error` — *compiler word (variable, `121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
 - `cc-sysv-implicit-find` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-head` — *compiler word (variable, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-implicit-message` — *compiler word (create, `121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-record` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-implicit-symbol` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-index-base` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
@@ -2271,7 +2282,7 @@ for which chapter depends on which, the
 - `cc-sysv-type-name-raw` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-type-shape` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-typedef-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
-- `cc-sysv-unknown-ident` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
+- `cc-sysv-unknown-ident` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36 §1 One signature, two places to use it](36-direct-gcc-calls.md#1-one-signature-two-places-to-use-it)
 - `cc-sysv-value-shape` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Ranked fixed-array descriptors](36-direct-gcc-calls.md#ranked-fixed-array-descriptors)
 - `cc-sysv-value-type-check` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)
 - `cc-sysv-varargs-prepare-default` — *compiler word (`121-cc-sysv.fth`)* — [Ch 36, Canonical source](36-direct-gcc-calls.md#canonical-source)

@@ -1615,15 +1615,49 @@ variable cc-pp-location-digit-count
   dup [lit] 8 / [lit] 7 and [char] 0 + cc-prep-emit-byte
   [lit] 7 and [char] 0 + cc-prep-emit-byte ;
 create cc-pp-stdin-name s, <stdin>
-: cc-pp-location-filename
-  [char] " cc-prep-emit-byte
+\ cc-pp-current-name ( -- a u )  The current file's __FILE__ spelling.
+: cc-pp-current-name
   cc-pp-file-name-len cc-pp-location-cell @ dup 0< if,
     drop cc-prep-current-path cc-prep-inc-depth @ cc-prep-file-lens cell[] @
     dup 0= if, 2drop cc-pp-stdin-name [lit] 7 then,
-  else, cc-pp-logical-name swap then,
+  else, cc-pp-logical-name swap then, ;
+: cc-pp-location-filename
+  [char] " cc-prep-emit-byte
+  cc-pp-current-name
   begin, dup while,
     over c@ cc-pp-location-string-byte swap 1+ swap 1-
   repeat, 2drop [char] " cc-prep-emit-byte ;
+
+\ An optional map from output lines back to source files, for a diagnostic
+\ that must name the user's file and line (121's error 228). Entering a file
+\ and returning from an include each record the output line where that
+\ file's text continues, with the file's name and logical line there. Every
+\ source newline reaches the output, spliced and macro-argument ones too, so
+\ a later output line counts on from the latest record. Records are arena
+\ entries: next, output line, source line, name length, then the name.
+variable cc-pp-line-map-on
+[lit] 0 cc-pp-line-map-on !
+variable cc-pp-line-map
+create cc-pp-map-resume  cc-prep-direct-depth 1+ [lit] 8 * allot
+: cc-pp-line-map-note ( source-line -- )
+  cc-pp-line-map-on @ 0= if, drop exit, then,
+  cc-pp-current-name dup [lit] 32 + cc-alloc >r
+  dup r@ [lit] 24 + ! r@ [lit] 32 + swap
+  begin, dup while,
+    >r over c@ over c! 1+ swap 1+ swap r> 1-
+  repeat, drop 2drop
+  r@ [lit] 16 + ! cc-src-line @ r@ [lit] 8 + !
+  cc-pp-line-map @ r@ ! r> cc-pp-line-map ! ;
+\ cc-pp-line-map-find ( output-line -- a u source-line true | false )
+: cc-pp-line-map-find
+  cc-pp-line-map-on @ 0= if, drop [lit] 0 exit, then,
+  cc-pp-line-map @
+  begin, dup while,
+    2dup [lit] 8 + @ < 0= if,
+      swap over [lit] 8 + @ - over [lit] 16 + @ + >r
+      dup [lit] 32 + swap [lit] 24 + @ r> true exit,
+    then, @
+  repeat, 2drop [lit] 0 ;
 
 \ cc-pp-expand-object ( i -- )  Scan object-like macro i's body in place of
 \ its name.
@@ -2240,12 +2274,14 @@ variable cc-prep-inc-expanded
       [lit] 1 cc-prep-inc-depth +!
       cc-prep-src-len ! cc-prep-src-addr ! [lit] 0 cc-prep-src-pos !
       cc-pp-location-enter
+      [lit] 1 cc-pp-line-map-note
       cc-pp-scan
       [lit] 1 cc-prep-inc-depth -!
       cc-prep-save-addr cc-prep-save-slot @ cc-prep-src-addr !
       cc-prep-save-len  cc-prep-save-slot @ cc-prep-src-len  !
       cc-prep-save-pos  cc-prep-save-slot @ cc-prep-src-pos  !
       r> cc-prep-inc-top !
+      cc-pp-map-resume cc-pp-location-cell @ cc-pp-line-map-note
     else, 2drop then,
 ```
 
@@ -2273,6 +2309,11 @@ libc shims such as `putchar` and `malloc` (Chs 26 and 31).
 \ Preserve the original file region while parsing its expanded header token;
 \ recursive include search and location state still belong to that file.
 : cc-prep-handle-include
+  cc-pp-line-map-on @ if,
+    \ The directive's own line, where this file resumes after the header.
+    cc-prep-src-addr @ cc-prep-src-pos @ + cc-pp-location-at
+    cc-pp-location-line @ cc-pp-map-resume cc-pp-location-cell !
+  then,
   [lit] 0 cc-prep-inc-expanded !
   cc-prep-skip-blanks
   cc-prep-peek [char] " = cc-prep-peek [char] < = or
@@ -2430,7 +2471,8 @@ does it change the offset for the next physical source line.
   cc-pp-file-offset cc-pp-location-cell !
   cc-pp-line-name-size @ dup 0< if, drop else,
     cc-pp-file-name-len cc-pp-location-cell !
-  then, ;
+  then,
+  cc-pp-line-number @ 1- cc-pp-line-map-note ;
 
 ```
 
@@ -2839,6 +2881,7 @@ defer cc-prep-target-fwd
   [lit] 0 cc-pp-sink-depth !
   [lit] 0 cc-pp-pending-nl !
   [lit] 0 cc-pp-in-if ! [lit] 0 cc-pp-line-control !
+  [lit] 0 cc-pp-line-map !
   cc-pp-scratch cc-pp-scratch-top !
   cc-src-buf cc-pp-out !  [lit] 0 cc-pp-out-pos !
   cc-src-cap cc-pp-out-cap !  [lit] 36 cc-pp-out-code !
@@ -2854,6 +2897,7 @@ defer cc-prep-target-fwd
   cc-in-len @ cc-prep-src-len !
   [lit] 0 cc-prep-src-pos !
   cc-pp-location-enter
+  [lit] 1 cc-pp-line-map-note
   true cc-prep-in-file !
   cc-pp-scan
   cc-pp-cond-depth @ if, [lit] 39 cc-die then,
@@ -3010,6 +3054,17 @@ the includer's state by depth. The physical include-search path never changes
 when `#line` names a virtual file. Repeated `cc-preprocess` calls reset the
 main input's state. Continuations and comments consumed by a directive count
 as physical lines before the following line receives its requested number.
+
+A diagnostic made after preprocessing knows only a flattened line, the line
+of the preprocessed text. When `cc-pp-line-map-on` is set (the driver does so
+for `-Werror=implicit-function-declaration`, Ch 36), entering a file, each
+`#line`, and returning from an include record an arena entry: the output line
+where that file's text continues, its `__FILE__` name and its logical line
+there. Because every physical newline reaches the output, including spliced
+and macro-argument ones, `cc-pp-line-map-find` turns a flattened line into a
+name and line by counting on from the latest earlier entry. The directive's
+own line is computed before a computed operand replaces the region, so the
+includer resumes at the right line. With the flag clear nothing is recorded.
 
 Filename strings decode standard simple, octal, and hexadecimal byte escapes,
 then use the existing `__FILE__` string encoder. Empty names are valid. This

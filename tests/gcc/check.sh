@@ -34,6 +34,7 @@ bash tests/gcc/sysv-namespaces-check.sh
 bash tests/gcc/sysv-abstract-callback-check.sh
 bash tests/gcc/sysv-implicit-calls-check.sh
 python3 tests/gcc/review-implicit-check.py
+python3 tests/gcc/implicit-error-check.py
 bash tests/gcc/sysv-interop-check.sh
 bash tests/gcc/sysv-storage-check.sh
 python3 tests/gcc/review-storage-probe.py

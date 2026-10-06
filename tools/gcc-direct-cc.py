@@ -9,6 +9,9 @@ math when no explicit directory provides libm.a. -c/-E ignore -L/-l.
 A source file and each -I directory reach the preprocessor as spelled on the
 command line, so __FILE__ is the spelling GCC uses: the name as given, or the
 directory as given plus the include name for a header.
+-Werror=implicit-function-declaration makes a call to an undeclared function
+an error naming the function and line (error 228), as with GCC; by default
+C90's implicit `extern int f ();` stays accepted.
 """
 from __future__ import annotations
 
@@ -64,7 +67,7 @@ def checked_path(path, directory=False):
 def parse(arguments):
     options = {"mode": "link", "output": None, "includes": [], "macros": [],
                "inputs": [], "libraries": [], "verbose": False, "nostdinc": False,
-               "nostdlib": False, "query": None}
+               "nostdlib": False, "query": None, "implicit_error": False}
     mode = None
     language = None
     index = 0
@@ -89,6 +92,8 @@ def parse(arguments):
             pass  # These describe the actual static, unoptimized, no-debug output.
         elif arg in ("-nostdinc", "-nostdlib"):
             options[arg[1:]] = True
+        elif arg == "-Werror=implicit-function-declaration":
+            options["implicit_error"] = True
         elif arg == "-x" or (arg.startswith("-x") and len(arg) > 2):
             if arg == "-x":
                 if index == len(arguments):
@@ -208,9 +213,12 @@ class Toolchain:
         if result.stdout:
             raise Failure("unexpected Forth output; no result published")
 
-    def compile(self, source, source_name, output, includes, macros=(), preprocess=False):
+    def compile(self, source, source_name, output, includes, macros=(), preprocess=False,
+                implicit_error=False):
         source_name = checked_path(source_name)
         driver = f"cc-sysv-object-enable\n[lit] {ARENA_BYTES} cc-arena-map\n"
+        if implicit_error:
+            driver += "true cc-sysv-implicit-error ! true cc-pp-line-map-on !\n"
         driver += ("cc-io-direct-workspace cc-prep-direct-workspace\n"
                    "cc-om-direct-workspace cc-label-direct-workspace\n"
                    "cc-obj-direct-workspace cc-gfixup-direct-workspace\n")
@@ -447,7 +455,8 @@ def main(arguments):
                 output.write_bytes(data)
             else:
                 toolchain.compile(data, b"" if kind == "stdin" else spelled[index], output, includes,
-                                  options["macros"], options["mode"] == "preprocess")
+                                  options["macros"], options["mode"] == "preprocess",
+                                  options["implicit_error"])
             objects.append(output)
             results.append(output)
         if options["mode"] == "link":
