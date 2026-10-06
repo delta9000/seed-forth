@@ -90,29 +90,33 @@ host build is an output oracle only.
 - `localtime` fails unless `TZ` is exactly `UTC0`. Upstream code that does not
   check for NULL then crashes (`tar -tv`, `gzip -l`, `ls -l`, `date`).
   `strftime` lacks `%a`, `%b`, `%c` and `%Z`.
-- `setbuf` with a non-NULL buffer exits with status 127.
-- Missing headers: `pwd.h`, `grp.h`, `sys/file.h`, `sys/utsname.h`,
-  `sys/ioctl.h`, `sys/resource.h`, `termios.h`, `ar.h`, `alloca.h`,
-  `strings.h`, `memory.h`.
-- Missing constants:
-  - errno values: `EXDEV`, `ENXIO`, `EBUSY`, `ETXTBSY`, `EFBIG`, `EROFS`,
-    `EMLINK`, `ENOTSUP`.
-  - Signal numbers: `SIGPIPE`, `SIGQUIT`, `SIGCHLD`, `SIGALRM`, `SIGTSTP`.
-  - Others: `PATH_MAX`, `NAME_MAX`, `_IO?BF`, `_PC_*`, `_SC_*`, `DT_*`.
-- Missing types and fields: `struct timespec`, `struct lconv`, `mbstate_t`,
-  and an `st_mtim` field in `struct stat`.
-- Missing functions, about 60 in all. They fall into these groups:
-  - Process control: `popen`, `pclose`, `system`, `execl` and `execlp`.
-  - Identity: the `get*id`/`set*id` calls, `getpwnam`/`getpwuid`/`getpwent`,
-    the group equivalents, and `getlogin`.
-  - File calls: `symlink`, `readlink`, `fchdir`, `fchmod`, `fchown`,
-    `lchown`, `ftruncate`, `fsync`, `mknod`, `mkfifo`, `creat` and `dirfd`.
-  - System information: `uname`, `gethostname`, `sysconf`, `pathconf`.
-  - Strings and numbers: `getline`, `index`/`rindex`, `strcasecmp`,
-    `strtoll`.
-  - Environment and exit: `setenv`, `atexit`.
-  - Time and locale: `tzset`, `localtime_r`, `localeconv`.
-  - Others: `tcgetattr`/`tcsetattr`, `flock`, `realpath`.
+- `setbuf` with a non-NULL buffer exited with status 127: **fixed** (the
+  buffer is accepted and unused; `setvbuf` added).
+- The POSIX surface: **added** to the runtime, each topic with a contract
+  and a gate against host glibc (see
+  [runtime/gcc-seed/README.md](../runtime/gcc-seed/README.md#posix-surface-for-the-plumbing-tools)).
+  This covers the missing headers (`pwd.h`, `grp.h`, `sys/file.h`,
+  `sys/utsname.h`, `sys/ioctl.h`, `sys/resource.h`, `termios.h`, `termio.h`,
+  `ar.h`, `strings.h`, `memory.h`, `sys/mtio.h`, `sys/sysmacros.h`,
+  `sys/times.h`; `alloca.h` only declares a program-supplied C `alloca`),
+  every Linux errno and signal number, `PATH_MAX`/`NAME_MAX` and the other
+  limits, `_PC_*`/`_SC_*` with `sysconf`/`pathconf`, `DT_*`, `struct
+  timespec` with `st_mtim`, `struct lconv`, `mbstate_t`, and the missing
+  process, identity, file, system-information, string, environment and
+  terminal functions. Returning from `main` now runs `exit`, so `atexit`
+  handlers run.
+- Rebuilt against this runtime with every POSIX stand-in removed, tar,
+  gzip, patch and diffutils reproduce their discovery results (patch and
+  diffutils transcripts identical to host-built 2.5.9 and 2.7; tar and gzip
+  results identical to the discovery runs), grep 2.4 and gawk 3.0.4 give
+  the same 49/49 and 63/64,
+  make 3.82 builds without its `pwd.h`/`ar.h`/`getpwnam` stand-ins, and
+  coreutils 5.0 (now with `stty`) passes 369 of 376 cases; all 7 remaining
+  differences are floating-point `printf`/`seq`. The obsolete-option
+  differences disappeared because `_POSIX2_VERSION` now matches glibc.
+- Still missing: `sscanf` `%n` (coreutils `stty` crashes restoring a saved
+  `-g` setting), and coreutils' `paste.c` declares `static FILE` objects, so
+  `FILE` must become a complete type (left to the stdio buffering work).
 - Stdio is unbuffered, so tools that read or write one character at a time
   run 10 to 40 times slower than with glibc. Output is correct.
 
