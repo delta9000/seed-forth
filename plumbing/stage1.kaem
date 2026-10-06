@@ -1,0 +1,77 @@
+# stage1.kaem -- from seed-cc to GNU make, with no host program.
+#
+# Run from the repository root by the kaem that seed-cc built:
+#   build-out/plumbing/kaem --verbose --strict --file plumbing/stage1.kaem
+# Prerequisites: build-out/seed-cc/{seed-cc,seed-ar} (tools/seed-cc-start.fth)
+# and the pinned tarballs in build-out/plumbing-inputs/ (plumbing/SOURCES).
+#
+# 1. stage0-posix's mescc-tools-extra programs (mkdir, sha256sum, unbz2, ungz,
+#    untar, cp, chmod, rm) are compiled by seed-cc.
+# 2. The input tarballs are checked against plumbing/SOURCES.
+# 3. GNU make 3.82 is unpacked and built from its pristine sources with an
+#    explicit file list (no configure), configured by plumbing/make-3.82/config.h.
+
+set -ex
+
+CC=./build-out/seed-cc/seed-cc
+X=vendor/stage0-posix/mescc-tools-extra
+B=build-out/plumbing
+BIN=./build-out/plumbing/bin
+
+# mkdir first, into a directory that already exists.
+${CC} -static ${X}/mkdir.c ${X}/M2libc/bootstrappable.c -o build-out/plumbing-mkdir
+./build-out/plumbing-mkdir -p ${BIN} ${B}/src
+
+${CC} -static ${X}/mkdir.c ${X}/M2libc/bootstrappable.c -o ${BIN}/mkdir
+${CC} -static ${X}/sha256sum.c ${X}/M2libc/bootstrappable.c -o ${BIN}/sha256sum
+${CC} -static ${X}/unbz2.c ${X}/M2libc/bootstrappable.c -o ${BIN}/unbz2
+${CC} -static ${X}/ungz.c ${X}/M2libc/bootstrappable.c -o ${BIN}/ungz
+${CC} -static ${X}/untar.c ${X}/M2libc/bootstrappable.c -o ${BIN}/untar
+${CC} -static ${X}/cp.c ${X}/M2libc/bootstrappable.c -o ${BIN}/cp
+${CC} -static ${X}/chmod.c ${X}/M2libc/bootstrappable.c -o ${BIN}/chmod
+${CC} -static ${X}/rm.c ${X}/M2libc/bootstrappable.c -o ${BIN}/rm
+
+# Every input is checked before it is used.
+${BIN}/sha256sum --check plumbing/SOURCES
+
+# GNU make 3.82: unpack, configure by header, compile, link.
+cd ${B}/src
+../bin/unbz2 --file ../../plumbing-inputs/make-3.82.tar.bz2 --output make-3.82.tar
+../bin/untar --file make-3.82.tar
+../bin/rm make-3.82.tar
+cd make-3.82
+../../bin/cp ../../../../plumbing/make-3.82/config.h config.h
+
+M=../../../seed-cc/seed-cc
+${M} -c -DHAVE_CONFIG_H -I. -Iglob ar.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob arscan.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob commands.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob default.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob dir.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob expand.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob file.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob function.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob getopt.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob getopt1.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob implicit.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob job.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob main.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob misc.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob read.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob remake.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob rule.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob signame.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob strcache.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob variable.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob version.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob vpath.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob hash.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob remote-stub.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob getloadavg.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob alloca.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob glob/fnmatch.c
+${M} -c -DHAVE_CONFIG_H -I. -Iglob glob/glob.c
+${M} -static -o ../../bin/make ar.o arscan.o commands.o default.o dir.o expand.o file.o function.o getopt.o getopt1.o implicit.o job.o main.o misc.o read.o remake.o rule.o signame.o strcache.o variable.o version.o vpath.o hash.o remote-stub.o getloadavg.o alloca.o fnmatch.o glob.o
+
+cd ../../../..
+./build-out/plumbing/bin/make --version

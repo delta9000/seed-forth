@@ -1,0 +1,10 @@
+e2c1a73f179c40c71e2fe8abf8a8a0688b8499538512984da4a76958d0402966  build-out/plumbing-inputs/make-3.82.tar.bz2
+ba03d412998cc54bd0b0f2d6c32100967d3137098affdc2d32e6e7c11b163fe4  build-out/plumbing-inputs/bash-2.05b.tar.gz
+c365874794187f8444e5d22998cd5888ffa47f36def4b77517a808dec27c0600  build-out/plumbing-inputs/sed-4.0.9.tar.gz
+c25b36b8af6e0ad2a875daf4d6196bd0df28a62be7dd252e5f99a4d5d7288d95  build-out/plumbing-inputs/coreutils-5.0.tar.bz2
+a32032bab36208509466654df12f507600dfe0313feebbcd218c32a70bf72a16  build-out/plumbing-inputs/grep-2.4.tar.gz
+5cc35def1ff4375a8b9a98c2ff79e95e80987d24f0d42fdbb7b7039b3ddb3fb0  build-out/plumbing-inputs/gawk-3.0.4.tar.gz
+c6c37e888b136ccefab903c51149f4b7bd659d69d4aea21245f61053a57aa60a  build-out/plumbing-inputs/tar-1.12.tar.gz
+1ca41818a23c9c59ef1d5e1d00c0d5eaa2285d931c0fb059637d7c0cc02ad967  build-out/plumbing-inputs/gzip-1.2.4.tar.gz
+ecb5c6469d732bcf01d6ec1afe9e64f1668caba5bfdb103c28d7f537ba3cdb8a  build-out/plumbing-inputs/patch-2.5.9.tar.gz
+d5f2489c4056a31528e3ada4adacc23d498532b0af1a980f2f76158162b139d6  build-out/plumbing-inputs/diffutils-2.7.tar.gz
