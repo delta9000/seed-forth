@@ -188,6 +188,28 @@ call gate covers scoped names, promoted arguments, function addresses, later
 definitions and unresolved symbols. This also lets the unchanged configure
 endianness probe call `exit` under its original C90 declaration rules.
 
+Old GNU code writes the same thing explicitly: GNU make, bash and coreutils
+put `extern char *getenv ();` inside the function that calls it.
+`cc-sysv-block-function` handles a function declarator at block scope, with
+or without `extern`. It parses the signature exactly as a file-scope
+declaration does, so a `char *` result reaches the caller as a full 64-bit
+pointer and a prototype such as `extern int open (const char *, int, ...);`
+passes its variadic arguments by the usual rules. When a function of that
+name is already visible, the declaration only checks compatibility and the
+visible function stays the call target. Otherwise it adds a block-scoped
+`sk-func` symbol backed by the implicit declarations' translation-unit
+record, which now holds the declared signature in place of `int ()`. The
+name disappears at the block's end, but its pending fixups and object
+record survive, so a later definition or the linker still resolves every
+call. C90 allows no storage class other than `extern` on such a
+declaration: `static`, `auto` and `register`, and an identifier list in a
+declaration, reject with 233. A function definition inside a block rejects
+with 238, and a type that disagrees with another declaration of the same
+external function rejects with 237.
+`python3 tests/gcc/block-function-decl-check.py` compares a program that
+calls `getenv`, `open` and a second translation unit only through such
+declarations against host GCC, and checks each rejection.
+
 C90 distinguishes `f()` from `f(void)`: the first leaves the parameter
 list unspecified and applies default integer promotions, while the second
 is a prototype requiring zero arguments. Identifier-list definitions
@@ -1582,8 +1604,37 @@ defer cc-sysv-return-check-fwd
 
 variable cc-sysv-frame-patch
 variable cc-sysv-function-signature
+\ A block-scope function declarator names the one external function. With
+\ none visible, a scoped symbol shares the implicit records' persistent
+\ signature and fixups; a visible function stays the target after checks.
+: cc-sysv-block-function
+  nc-static @ nc-storage @ nc-extern @ 0= and or if, [lit] 233 cc-die then,
+  [char] { cc-tok-punct? if, [lit] 238 cc-die then,
+  cc-lex-state-size cc-alloc dup cc-lex-mark >r
+  nc-params cc-lex-reset
+  nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !
+  r> cc-lex-reset
+  cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 4 and if,
+    [lit] 233 cc-die
+  then,
+  cc-sysv-function-signature @ cc-sysv-check-implicit-signature
+  nc-name @ nc-nlen @ cc-sym-find
+  dup 0< 0= if,
+    dup cc-sym-kind-of sk-func = if,
+      cc-sysv-symbol-signature cc-sysv-function-signature @
+      cc-sysv-compatible-signatures 0= if, [lit] 237 cc-die then, exit,
+    then,
+  then, drop
+  nc-name @ nc-nlen @ cc-sysv-implicit-record [lit] 24 + >r
+  r@ @ cc-sysv-prototype? cc-sysv-function-signature @ cc-sysv-prototype? 0= and
+  0= if, cc-sysv-function-signature @ r@ ! then,
+  nc-name @ nc-nlen @ sk-func nc-ty @ [lit] 0 cc-sym-add
+  nc-desc @ over cc-sym-set-struct-desc
+  r> @ over cc-sysv-signatures cell[] !
+  cc-sysv-implicit-declared-fwd ;
 : cc-sysv-function
   cc-target-sysv @ 0= if, cc-native-function exit, then,
+  nc-top @ 0= if, cc-sysv-block-function exit, then,
   cc-lex-state-size cc-alloc dup cc-lex-mark >r
   nc-params cc-lex-reset
   nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !
@@ -1718,8 +1769,10 @@ declaration's shape, and casting to an array type is rejected.
 
 The constant type representation does not yet encode a pointer to an
 array. Address constants such as `&rows[i][j]` are supported, while a bare
-`&array` or unindexed multidimensional-array decay is rejected. Multidimensional array parameters, block-scope function declarations, and
-narrow integer relocations are also rejected.
+`&array` or unindexed multidimensional-array decay is rejected. Multidimensional array parameters and
+narrow integer relocations are also rejected. A block-scope function
+declaration reuses the implicit declarations' record (section 1): its
+calls become relocations against the one external symbol.
 Unsupported forms must stop before publication, rather than preserving an
 absolute address that happened to work inside the old executable image.
 
@@ -1869,8 +1922,7 @@ create cc-om-string-name s, .Lstring
 ' cc-sysv-object-string is cc-native-string-fwd
 
 : cc-sysv-object-function
-  cc-sysv-object-mode @ 0= if, cc-sysv-function exit, then,
-  nc-top @ 0= if, [lit] 238 cc-die then,
+  cc-sysv-object-mode @ 0= nc-top @ 0= or if, cc-sysv-function exit, then,
   nc-name @ nc-nlen @ cc-om-find
   dup 0= if,
     drop nc-name @ nc-nlen @ cc-obj-global cc-obj-func cc-om-new

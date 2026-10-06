@@ -1192,8 +1192,37 @@ defer cc-sysv-return-check-fwd
 
 variable cc-sysv-frame-patch
 variable cc-sysv-function-signature
+\ A block-scope function declarator names the one external function. With
+\ none visible, a scoped symbol shares the implicit records' persistent
+\ signature and fixups; a visible function stays the target after checks.
+: cc-sysv-block-function
+  nc-static @ nc-storage @ nc-extern @ 0= and or if, [lit] 233 cc-die then,
+  [char] { cc-tok-punct? if, [lit] 238 cc-die then,
+  cc-lex-state-size cc-alloc dup cc-lex-mark >r
+  nc-params cc-lex-reset
+  nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !
+  r> cc-lex-reset
+  cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 4 and if,
+    [lit] 233 cc-die
+  then,
+  cc-sysv-function-signature @ cc-sysv-check-implicit-signature
+  nc-name @ nc-nlen @ cc-sym-find
+  dup 0< 0= if,
+    dup cc-sym-kind-of sk-func = if,
+      cc-sysv-symbol-signature cc-sysv-function-signature @
+      cc-sysv-compatible-signatures 0= if, [lit] 237 cc-die then, exit,
+    then,
+  then, drop
+  nc-name @ nc-nlen @ cc-sysv-implicit-record [lit] 24 + >r
+  r@ @ cc-sysv-prototype? cc-sysv-function-signature @ cc-sysv-prototype? 0= and
+  0= if, cc-sysv-function-signature @ r@ ! then,
+  nc-name @ nc-nlen @ sk-func nc-ty @ [lit] 0 cc-sym-add
+  nc-desc @ over cc-sym-set-struct-desc
+  r> @ over cc-sysv-signatures cell[] !
+  cc-sysv-implicit-declared-fwd ;
 : cc-sysv-function
   cc-target-sysv @ 0= if, cc-native-function exit, then,
+  nc-top @ 0= if, cc-sysv-block-function exit, then,
   cc-lex-state-size cc-alloc dup cc-lex-mark >r
   nc-params cc-lex-reset
   nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !

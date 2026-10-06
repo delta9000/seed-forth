@@ -129,8 +129,7 @@ create cc-om-string-name s, .Lstring
 ' cc-sysv-object-string is cc-native-string-fwd
 
 : cc-sysv-object-function
-  cc-sysv-object-mode @ 0= if, cc-sysv-function exit, then,
-  nc-top @ 0= if, [lit] 238 cc-die then,
+  cc-sysv-object-mode @ 0= nc-top @ 0= or if, cc-sysv-function exit, then,
   nc-name @ nc-nlen @ cc-om-find
   dup 0= if,
     drop nc-name @ nc-nlen @ cc-obj-global cc-obj-func cc-om-new
