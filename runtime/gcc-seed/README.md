@@ -121,8 +121,11 @@ real Linux directory syscalls, with bounded buffers, checked records and
 explicit EOF/error behavior. This resolves the header/runtime prerequisite;
 the separate pointer-to-array parser limitation still blocks full libcpp.
 
-The [approximate exp/log contract](MATH.md) is implemented in a separate
-[explicit Forth-built math archive](MATH-LINKING.md), selected by literal `-lm`.
+The [binary64 math library](MATH.md) (exact rounding and remainder
+operations, correctly rounded `sqrt`, and sub-ulp elementary functions) is
+implemented in a separate [explicit Forth-built math archive](MATH-LINKING.md),
+selected by literal `-lm`; `fpclass.c` supplies the classification helpers and
+the exact `frexp`/`ldexp`/`scalbn`/`modf`/`copysign` without `-lm`.
 
 The plumbing tools (gawk, coreutils, make, the shells and lexers) need the
 numeric and stream services of an ordinary C library:

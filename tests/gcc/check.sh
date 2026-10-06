@@ -160,11 +160,12 @@ python3 tests/gcc/wide-check.py
 python3 tests/gcc/wide-stdio-check.py
 python3 tests/gcc/ctype-lex-check.py
 python3 tests/gcc/float-header-check.py
+python3 tests/gcc/math-constants.py
 python3 tests/gcc/math-link-check.py
 math_log=$(mktemp "$PWD/build-out/math-check-XXXXXX.log")
 python3 tests/gcc/math-check.py | tee "$math_log"
 math_report=$(sed -n '2p' "$math_log")
-python3 tests/gcc/math-oracle-check.py --production-output "${math_report%/*}/results.txt"
+python3 tests/gcc/math-oracle-check.py --production-output "${math_report%/*}"
 python3 tests/gcc/bufsiz-check.py
 python3 tests/gcc/stream-flex-check.py
 python3 tests/gcc/stream-flex-fault-check.py

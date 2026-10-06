@@ -32,12 +32,13 @@ releases the stream even if the kernel reports an error. See
 tests. This runtime prerequisite alone does not establish compiler type
 semantics or a complete libcpp build.
 
-The separate source-built math archive supplies bounded approximate `exp` and
-`log` implementations for the original GCC optional automaton-splitting
-heuristic. Literal `-lm` selects that genuine Forth archive at its command-line
-position. The numerical contract and its rounding limitations are documented
-in `runtime/gcc-seed/MATH.md`; library ordering and the unsupported general
-search options are documented in `runtime/gcc-seed/MATH-LINKING.md`.
+The separate source-built math archive supplies the binary64 `math.h`
+functions, first needed for `exp` and `log` in the original GCC optional
+automaton-splitting heuristic. Literal `-lm` selects that genuine Forth archive
+at its command-line position. The functions, errno policy and measured accuracy
+are documented in `runtime/gcc-seed/MATH.md`; library ordering and the
+unsupported general search options are documented in
+`runtime/gcc-seed/MATH-LINKING.md`.
 
 ```forth file=122-cc-sysv-runtime.fth
 \ 122-cc-sysv-runtime.fth -- raw Linux syscall bridge for a source-built runtime.

@@ -23,6 +23,14 @@ for args in ([source],['-lm',source],['-lfoo',source],['-l',source],
     assert output.read_bytes()==b'preserve-output'
 for args in ([source,'-lm','-lm'], [source,'-l','m'], ['-L.',source,'-lm']):
     run(CC+args+['-o',output]);run([output])
+# Classification macros, HUGE_VAL/NAN and the exact frexp/ldexp family are
+# libc members (fpclass.o, as in glibc); sqrt and the rest still need -lm.
+libc_only=OUT/'libc-only.c';libc_only.write_text('#include <math.h>\nint main(void) { int e; double h = HUGE_VAL; double whole; return !(isnan(NAN) && isinf(h) && !signbit(NAN) && frexp(8.0, &e) == 0.5 && e == 4 && ldexp(1.0, 3) == 8.0 && scalbn(1.0, -1074) > 0.0 && modf(2.5, &whole) == 0.5 && whole == 2.0 && signbit(copysign(1.0, -0.0)) && fpclassify(1e-310) == FP_SUBNORMAL && isfinite(1.0) && isnormal(1.0) && isunordered(NAN, 1.0) && islessgreater(1.0, 2.0)); }\n')
+run(CC+[libc_only,'-o',output]);run([output])
+needs_m=OUT/'needs-m.c';needs_m.write_text('#include <math.h>\nint main(void) { return sqrt(4.0) != 2.0; }\n')
+output.write_bytes(b'preserve-output');run(CC+[needs_m,'-o',output],False)
+assert output.read_bytes()==b'preserve-output'
+run(CC+[needs_m,'-lm','-o',output]);run([output])
 run(CC+['-c',source,'-lm','-o',OUT/'compile.o'])
 run(CC+['-E',source,'-lm','-o',OUT/'preprocessed.i'])
 # Inspect the actual archive emitter without a host assembler/archive producer.
@@ -33,7 +41,8 @@ archive=toolchain.math_archive();assert archive.read_bytes().startswith(b'!<arch
 assert run(['ar','t',archive]).stdout==b'math.o\n'
 assert (work/'math.o').read_bytes()[:5]==b'\x7fELF\x02'
 runtime=toolchain.runtime_objects();assert not any(p.name=='math.o' for p in runtime)
-libc=toolchain.runtime_archive(runtime);assert b'math.o' not in run(['ar','t',libc]).stdout.splitlines()
+libc=toolchain.runtime_archive(runtime);members=run(['ar','t',libc]).stdout.splitlines()
+assert b'math.o' not in members and b'fpclass.o' in members
 # Explicit libm is allowed under -nostdlib, but supplies neither startup nor
 # errno nor syscall support. Those objects must be explicitly supplied here.
 start=OUT/'start.c';start.write_text('#include <math.h>\n#include <seed-syscall.h>\nvoid _start(void) { long status = log(1.0) != 0.0; __seed_syscall6(60,status,0,0,0,0,0); for (;;) {} }\n')
@@ -52,8 +61,8 @@ assert not (missing/'libm.a').exists()
 report={'compiler_source_identity':toolchain.identity,'archive_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
         'object_sha256':hashlib.sha256((work/'math.o').read_bytes()).hexdigest(),
         'producer':'Forth compiler/object writer/archive writer/linker','host_ar':'inspection only',
-        'runtime_math_member':False,'nostdlib_explicit_math':True,'ordered_archive':True,
+        'runtime_math_member':False,'runtime_fpclass_member':True,'nostdlib_explicit_math':True,'ordered_archive':True,
         'atomic_failure':True,'commands':len(commands)}
 (OUT/'report.json').write_text(json.dumps(report,indent=2)+'\n')
-print('PASS literal -lm: genuine math.o archive, ordered lazy selection, explicit nostdlib, missing-library failures, atomic failures')
+print('PASS literal -lm: genuine math.o archive, ordered lazy selection, libc-resident fpclass.o, explicit nostdlib, missing-library failures, atomic failures')
 print(OUT/'report.json')

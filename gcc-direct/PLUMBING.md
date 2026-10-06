@@ -84,7 +84,8 @@ host build is an output oracle only.
 - `printf` and related functions lacked `%e`, `%f`, `%g`, `%E` and `%G`:
   **fixed**, exact and byte-identical to glibc
   ([PRINTF-FLOAT.md](../runtime/gcc-seed/PRINTF-FLOAT.md)).
-- `math.h` declares only `exp` and `log`. Also missing are `floor`, `ceil`,
+- `math.h` declared only `exp` and `log`: **fixed**, a binary64 libm
+  ([MATH.md](../runtime/gcc-seed/MATH.md)). Previously missing were `floor`, `ceil`,
   `modf`, `fmod`, `pow`, `sqrt`, `sin`, `cos` and `atan2`. (`strtod`,
   `strtof` and `strtold` are **fixed**:
   [DECIMAL-INPUT.md](../runtime/gcc-seed/DECIMAL-INPUT.md).)
