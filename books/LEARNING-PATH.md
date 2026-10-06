@@ -167,17 +167,47 @@ needed mechanisms in stages, and the full audit asks how every relevant
 source instruction realizes them. Source links are available now for readers who want
 that second question early, but exercises do not require solving it early.
 
-## What the next volume must earn
+## C-volume entry and first dependency unit
 
-A compiler-volume bridge must introduce C syntax, buffer ownership,
-representation changes and the chosen build profile before implementation
-detail. It should supply its own entry contract, recurring small program and
-explicit acceptance artifact. The first volume's new examples also need an
-authorized, named execution profile and fresh-reader setup check before
-its derived results can be relabeled as observed.
+The [compiler volume](c-compiler/README.md) offers a contract-based entrance.
+C01 teaches the C syntax it uses and checks four small Forth contracts; it
+does not require memorizing S19 or reading every seed-audit chapter first.
+C02 supplies a local reading key for shuffles, temporary return storage,
+branch/loop syntax, bounded comparisons, I/O and deferred behavior, with
+short links to the corresponding seed explanations when needed.
 
-The [full coverage map](COVERAGE.md) allocates all original material beyond
-this first volume. A planned unit is not required reading that already exists.
+```text
+local Forth contract bridge -> C01: C example, chosen profile, builder/target
+C01 + C02's local library-contract bridge -> C02: buffers, arena, ownership
+C02 -> C03: active regions, output sinks and nested include lifetimes
+C03 -> planned C04: macro records, arguments and rescans
+planned C04 -> planned C05: conditionals and explicit profile extensions
+```
+
+| Unit | Observable outcome | Practice and feedback |
+|---|---|---|
+| [C01 Compiler entry and profile](c-compiler/chapters/01-compiler-entry-and-profile.md) | Derive the recurring C program and separate source, builder, image and generated execution | Five exercises and [feedback](c-compiler/practice/01-solutions.md) |
+| [C02 Buffers, arenas, and failure](c-compiler/chapters/02-buffers-arenas-and-failure.md) | Account for cursor, capacity, storage lifetime and I/O evidence at each boundary | Five exercises and [feedback](c-compiler/practice/02-solutions.md) |
+| [C03 Preprocessing regions and includes](c-compiler/chapters/03-preprocessing-regions-and-includes.md) | Trace changing input owners into one persistent output sink | Five exercises and [feedback](c-compiler/practice/03-solutions.md) |
+| [C mixed return check](c-compiler/practice/return-check.md) | Choose the right ownership, capacity, profile or evidence contract without a chapter-specific cue | Four mixed questions, hints and separate answers |
+
+The preprocessor's macro and conditional handlers are named interfaces in
+C03. Their implementation remains assigned to C04/C05; the include exercise
+does not secretly require solving them first. The [source map](c-compiler/SOURCE-MAP.md)
+keeps both the current explanations and the deferred regions inspectable.
+
+## What the next units must earn
+
+The next C units open macro records, temporary argument lifetimes, rescanning,
+conditional state and profile-specific source locations before presenting the
+lexer. The later compiler still needs complete type/parser/emitter chapters,
+a named end-to-end artifact comparison and its assembler/extended-profile
+handoffs. Existing repository results have their own evidence scope.
+
+Both volumes' new examples need an authorized, named execution profile and a
+fresh-reader setup check before derived results can be relabeled as observed.
+The [full coverage map](COVERAGE.md) allocates the remaining original material.
+A planned unit is not required reading that already exists.
 
 ## How to use practice
 

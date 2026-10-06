@@ -35,6 +35,21 @@ them in a predicted new definition. Chapters 4 and 8–10 open the call/return, 
 input and emission contracts needed for the library-level mechanisms. They are not
 prerequisites for calculating the first three chapters' states.
 
+## Compiler-volume entrance
+
+The first three C-volume chapters use the same exact source revision.
+[C01](c-compiler/chapters/01-compiler-entry-and-profile.md) distinguishes the
+legacy direct-ELF builder from the separate generated program and from the
+optional TinyCC/System V profiles. [C02](c-compiler/chapters/02-buffers-arenas-and-failure.md)
+opens both infrastructure files, including selectable workspace contracts.
+[C03](c-compiler/chapters/03-preprocessing-regions-and-includes.md) opens
+regions, sinks, literal includes, paths and input lifetimes.
+
+Their source inspection does not resume or reproduce a compiler build.
+The canonical `tri.c` is retained as a paper example; its output character
+count is derived, and historical source/executable sizes are not relabeled
+as new measurements. More workspace does not change a C data model or ABI.
+
 ## Claim ledger
 
 | Claim used in this unit | Primary evidence at the pinned revision | Evidence kind | Limit |
@@ -54,6 +69,7 @@ prerequisites for calculating the first three chapters' states.
 | All seed file bytes: headers, startup, primitive bodies and helpers | `000-seed.hex0`, S11–S18 regions enumerated in the byte ledger | Source-matched byte listings, GNU readelf/objdump 2.44 static decoding and manual state traces | All 1,772 bytes have drafted explanations: 120 ELF bytes, 421 dictionary-header bytes and 1,231 native-instruction bytes; coverage is not a correctness proof |
 | A complete new `inc` definition | S19 capstone, using the inspected dictionary/compiler contracts | Predicted 32-byte entry, independently reconstructed by the document checker | Generated process-memory bytes, not an observed artifact or extra seed file bytes |
 | Stack, byte and bit examples and exercise answers | Chapter and solution steps, plus document-check assertions | Derived from the stated model | An arithmetic assertion is not a seed execution |
+| C entry, buffer ownership and include-region mechanisms | `020-cc-arena.fth`, `030-cc-io.fth`, selected `040-cc-prep.fth` regions, `120-cc-main.fth`, the actual loader and named profile providers | Inspected pinned source, matched excerpts, source-map inventory and paper state/byte traces | First three C chapters only; macro/parser/emitter/closure mechanisms still require their assigned chapters; no new compiler/example execution |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | No seed binary was built or run in this pass |
 
 ## Existing results are attributed results

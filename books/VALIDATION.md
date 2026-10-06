@@ -1,10 +1,12 @@
 # Validation record
 
-This manuscript checkpoint, checked on 2026-10-06, contains an entry
-guide, a motivation chapter, nineteen teaching chapters, ninety-five exercises
-with separate feedback, six four-question mixed return checks and a compact
-reference. The first volume's paper route is complete as a draft. It is not
-a validated execution guide or a completed multi-volume rewrite.
+This manuscript checkpoint, checked on 2026-10-06, contains the first
+volume's complete draft paper route: entry/motivation guides, nineteen
+teaching chapters, ninety-five exercises with separate feedback, six mixed
+return checks and a compact reference. The C volume adds three teaching
+chapters, fifteen exercises with feedback and its first four-question mixed
+check. These are not validated execution guides or a completed multi-volume
+rewrite.
 
 ## Checks performed
 
@@ -14,16 +16,21 @@ The included checker is intentionally small and inspectable:
 python3 books/check.py
 ```
 
-It uses Python's standard library. It checks the two relevant source blob
+It uses Python's standard library. It checks thirty-five relevant source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
 The current document pass checks all local inline and reference-style links,
-the 71-row source inventory, the prerequisite graph of all 77 teaching units
-for cycles, ninety-five exercise pairs, two source blobs, all 63 library
+the 74-row source inventory, the prerequisite graph of all 77 teaching units
+for cycles, 110 exercise pairs, thirty-five source blobs, all 63 library
 colon-definition excerpts and bounded mathematical assertions. It also
 checks all thirty-two primitive-reference names/body offsets and five complete
-predicted capstone-entry byte strings. The earlier units passed their smaller document passes. The exact source byte
+predicted capstone-entry byte strings. The C additions check the canonical
+`tri.c` text, thirteen complete named Forth excerpts, bounded triangle/buffer
+calculations, all thirty-five arena/I/O definitions and the full 57-region /
+325-declaration preprocessor source map. That map explicitly distinguishes
+the drafted include/region mechanisms from planned macro and conditional
+explanations. The earlier units passed their smaller document passes. The exact source byte
 sequence contains 1,772 bytes and has SHA-256
 `697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e`.
 That digest was calculated from source text; no executable was launched.
@@ -35,7 +42,11 @@ materialized snapshot.
 An independent document review compared the manuscript and solutions with
 `000-seed.hex0` and `010-lib.fth`, concentrating on operand order, memory
 widths, address/value roles, prerequisites and the scope of evidence. Findings
-were corrected before the final checkpoint. The source excerpts use plain
+were corrected before the final checkpoint. Separate C-unit reviews checked
+all fifteen exercises, changed cases, the four-question mixed check, actual
+profile/load boundaries, all thirty-five infrastructure definitions and the
+include-region traces. They also verified the added local prerequisite bridge.
+The source excerpts use plain
 fences and do not add a second literate-source authority.
 
 The canonical `book/` tree, root source, build scripts and `book.toml` are
@@ -53,11 +64,16 @@ at `bff03516d3b7202bb2ecbb0457192ec61cb9d9eb`. The thirteen-chapter
 checkpoint also passed [its Check run](https://github.com/delta9000/seed-forth/actions/runs/37420513780)
 at `705e3f73a5f74c636b0f016d1e8f840acf6d747a`. The sixteen-chapter
 checkpoint passed [its Check run](https://github.com/delta9000/seed-forth/actions/runs/37422538095)
-at `030bb0c8e5c8805f889bc00c3f8bb165e3631bbf`. Later checkpoints have
-their own CI identity and must not inherit those results as a fresh run.
+at `030bb0c8e5c8805f889bc00c3f8bb165e3631bbf`. The complete first-volume
+paper draft passed [its Check run](https://github.com/delta9000/seed-forth/actions/runs/37425847949)
+at `e4ebf723dbe8a251e19906aaca90454c7b51aa57`. All 57 files of that
+checkpoint were also retrieved and compared literally with the saved
+manuscript text, in addition to Git-tree scope and blob-identity checks.
+Later checkpoints have their own CI identity and must not inherit those results as a fresh run.
 
 The entry guide, motivation chapter, nineteen teaching chapters, reference,
-solutions and mixed checks were converted from GitHub-flavored Markdown to
+solutions and mixed checks, plus the first three C chapters and their feedback,
+were converted from GitHub-flavored Markdown to
 HTML with Pandoc 3.1.11.1 to check parseability. A local
 headless Chromium layout check could not complete because the environment
 refused its process-singleton socket. No browser screenshot inspection is
@@ -76,7 +92,7 @@ that the prose or program is correct on every input.
 
 ## Still unverified
 
-- The seed examples have not been executed for this edition
+- The seed and C teaching examples have not been executed for this edition
 - No manual compiler, bootstrap, GCC-stage or Linux-boot reproduction was
   performed for the new chapters; the automatic canonical CI run above has
   its own narrower record
@@ -91,8 +107,9 @@ that the prose or program is correct on every input.
 
 ## Next coherent unit
 
-The next manuscript work establishes the C-compiler volume's entry profile
-and recurring program before opening preprocessing, tokens and parser state.
+The next manuscript work opens macro expansion/rescanning and conditional
+preprocessing, preserving the independent source-location and workspace
+profiles, before the lexer and parser units.
 The [coverage map](COVERAGE.md) distinguishes that planned material from
 the first volume's drafted mechanisms and its remaining verification work.
 Execution checks need a named, authorized seed profile before their status

@@ -17,8 +17,41 @@ from urllib.parse import unquote, urlsplit
 REV = "7d7e1996d1753118181d43e1a413960d3a1ec24b"
 ROOT = Path(__file__).resolve().parent
 SOURCE_BLOBS = {
+    "tools/tcc-compile.fth": "c7804bdcb5ef7ebb6b1d774af175558013eb50be",
+    "book/21-arena-and-io-buffers.md": "55d0af2ee7e885fd8f9f100e2be8376422c30559",
+    "140-cc-link.fth": "57d274b12b643dda55400967c953ff42b0553875",
+    "131-cc-aggregate-abi.fth": "1189822f2d8b5c79875aad99d046656b8e1d68ca",
+    "129-cc-bitfield.fth": "2c959b8f86f2269da089775573e0822676f2a4fa",
+    "128-cc-float-literal.fth": "31d954c700e1f82b0647898193af446e07fb4889",
+    "127-cc-binary64.fth": "9ab64f4538ca10effae0167345cb79ae71d1d4fa",
+    "126-cc-varargs.fth": "be1d9358ca78310addc8115d8e12549c86d5c357",
+    "125-cc-consteval.fth": "cfb027acbd3502e4853847b629918702f2119693",
+    "123-cc-object-program.fth": "0cb9ae99d22e6d05b827fb8559842746173b63b9",
+    "122-cc-sysv-runtime.fth": "40c378cc6daae1210cd61c3d5569a6e97b00729f",
+    "118-cc-native-init.fth": "f744a33e34982966e484178a8e94af9891792904",
+    "116-cc-prog.fth": "28ef4a5db2bf7fec9ea3e4f324b79e42b534866f",
+    "114-cc-func.fth": "031ca4a33124b075f4416c5f38781673616af8c4",
+    "112-cc-stmt.fth": "ff9f637d7f2d617ef85bbaad2bbd6ba28da519f2",
+    "110-cc-decl.fth": "779eeac5c753c141cb7e50b8454f42e666518a3b",
+    "100-cc-expr.fth": "29ca0e38f19907fc4fd18286e22a0518072ad181",
+    "090-cc-emit.fth": "55d922e8f36c1367fe27629cbd2edd8d8a577b84",
+    "081-cc-object.fth": "5e5baa07cd19962f5f4a21eddb8e915abb7f69eb",
     "000-seed.hex0": "67df9029071a6513a20b3c7695e057925b4f4b9a",
     "010-lib.fth": "f0d58f4f90fc462db97fbc0028f1318fe6d94fc0",
+    "020-cc-arena.fth": "7b4b41d4bc252eb6bbe65b99e8e69c1c39e631d1",
+    "030-cc-io.fth": "b06d403c546f143a66b25add8ebb9568da3a2e17",
+    "040-cc-prep.fth": "72ddd8beb9aeed867fdfe5cc1c62ab09cf41bb91",
+    "050-cc-lex.fth": "72e785b9c996da9ebaf7db93b3ff360692bf40e3",
+    "060-cc-types.fth": "b71cfd5e88ee99a94f8ebc0ac5b5e2dffb5d5c0d",
+    "070-cc-sym.fth": "c9bc6dde33ea1cd30bae9965e9119c2540d4b6a5",
+    "080-cc-elf.fth": "f4946890c4a2fde5a1e809ce6ae649fd20f6ca0e",
+    "115-cc-native.fth": "bae8d62dfb9abe96da9b09c3e0ff413bd50f938d",
+    "117-cc-native-program.fth": "dd17a74854225da077aeb627b660749898e72ad4",
+    "119-cc-native-runtime.fth": "072cd8f8e8aa64260e28bc79e1c8b08a75faa250",
+    "120-cc-main.fth": "3ce930098c5f6c97db0e6b6d358e8a862d2389e3",
+    "121-cc-sysv.fth": "69a923a1356032e7c684abfdedb90c40516905c7",
+    "124-cc-target.fth": "072acd33f8dbeb5335ec3bac3c96821f8661019c",
+    "tools/compiler-layers.sh": "2a55fa711df62bf3ac43b674009a0db057b66496",
 }
 
 
@@ -115,7 +148,19 @@ def check_documents():
         for file in [chapter, solutions]:
             found = set(re.findall(rf"\bS{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 95 exercise ID pairs")
+    c_chapters = sorted((ROOT / "c-compiler/chapters").glob("[0-9][0-9]-*.md"))
+    for chapter in c_chapters:
+        number = int(chapter.name[:2])
+        if number == 0:
+            continue
+        solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
+        assert solution.is_file(), f"Missing practice companion: {chapter}"
+        expected = {f"C{number}-{i:02}" for i in range(1, 6)}
+        for file in [chapter, solution]:
+            found = set(re.findall(rf"\bC{number}-\d{{2}}\b", file.read_text()))
+            assert found == expected, (file, found)
+    pairs = 95 + 5*len([p for p in c_chapters if int(p.name[:2])])
+    print(f"PASS: {len(files)} Markdown files; {checked_links} links; {pairs} exercise ID pairs")
 
 
 def check_coverage():
@@ -218,10 +263,164 @@ def check_sources(source_root):
             count += 1
         else:
             unquoted.append(name)
-    print(f"PASS: 2 pinned source blobs; 1772 source bytes; 32 primitive headers; {count} excerpts")
+    print(f"PASS: {len(SOURCE_BLOBS)} pinned source blobs; 1772 source bytes; 32 primitive headers; {count} library excerpts")
     print("Source-byte SHA256:", hashlib.sha256(image).hexdigest())
     if unquoted:
         print("Source definitions not quoted in full:", ", ".join(unquoted))
+
+
+def check_c_excerpts(source_root):
+    """Compare complete named C-compiler Forth excerpts, not pseudocode."""
+    definitions = {}
+    for name in SOURCE_BLOBS:
+        if not re.match(r"[0-9]{3}-cc-.*\.fth$", name):
+            continue
+        text = (source_root / name).read_text()
+        starts = list(re.finditer(r"^:\s+(\S+)", text, re.M))
+        for i, start in enumerate(starts):
+            region = text[start.start():starts[i+1].start() if i+1 < len(starts) else len(text)]
+            words = source_words(region)
+            if ";" in words:
+                end = words.index(";")
+                definitions.setdefault(start.group(1), []).append(words[:end+1])
+    checked = set()
+    for path in (ROOT / "c-compiler").rglob("*.md"):
+        for language, block in all_fenced_blocks(path.read_text()):
+            if language != "forth" or "___" in block:
+                continue
+            words = source_words(block)
+            i = 0
+            while i < len(words)-1:
+                if words[i] != ":":
+                    i += 1
+                    continue
+                if ";" not in words[i+2:]:
+                    break  # A labeled partial excerpt needs manual review.
+                end = words.index(";", i+2)
+                name = words[i+1]
+                if name in definitions:
+                    assert words[i:end+1] in definitions[name], f"Changed C-compiler excerpt {name}: {path}"
+                    checked.add((str(path.relative_to(ROOT)), name))
+                i = end+1
+    print(f"PASS: {len(checked)} complete named C-compiler excerpts match pinned source tokens")
+
+
+def check_c_source_map(source_root):
+    path = ROOT / "c-compiler/source-map.csv"
+    if not path.exists():
+        return
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    seen = set()
+    for row in rows:
+        key = (row["source_path"], row["word"])
+        assert key not in seen, f"Duplicate C source-map word: {key}"
+        seen.add(key)
+        assert row["source_revision"] == REV
+        assert row["source_blob_sha"] == SOURCE_BLOBS[row["source_path"]]
+        lines = (source_root / row["source_path"]).read_text().splitlines()
+        start, end = int(row["start_line"]), int(row["end_line"])
+        assert 1 <= start <= end <= len(lines)
+        assert re.match(r"^:\s+" + re.escape(row["word"]) + r"(?:\s|$)", lines[start-1]), row
+        assert ";" in source_words("\n".join(lines[start-1:end])), row
+        chapter = (ROOT / "c-compiler" / row["manuscript_path"]).resolve()
+        assert chapter.is_relative_to(ROOT) and chapter.is_file(), row
+        expected = f"https://github.com/delta9000/seed-forth/blob/{REV}/{row['source_path']}#L{start}-L{end}"
+        assert row["source_url"] == expected, row
+    for name in ["020-cc-arena.fth", "030-cc-io.fth"]:
+        expected = set(re.findall(r"^:\s+(\S+)", (source_root/name).read_text(), re.M))
+        actual = {word for file, word in seen if file == name}
+        assert actual == expected, (name, actual ^ expected)
+    print(f"PASS: {len(rows)} C source-map definitions; complete arena/I/O definition inventory")
+
+
+def check_preprocessor_regions(source_root):
+    path = ROOT / "c-compiler/preprocessor-regions.csv"
+    if not path.exists():
+        return
+    with path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    source = (source_root / "040-cc-prep.fth").read_text().splitlines()
+    next_line, names = 1, set()
+    states = {"drafted": 0, "partial": 0, "planned": 0}
+    for row in rows:
+        assert row["source_path"] == "040-cc-prep.fth"
+        assert row["source_revision"] == REV
+        assert row["source_blob_sha"] == SOURCE_BLOBS[row["source_path"]]
+        start, end = int(row["start_line"]), int(row["end_line"])
+        assert start == next_line and start <= end <= len(source), row
+        next_line = end+1
+        expected = []
+        for line in source[start-1:end]:
+            line = line.split("\\", 1)[0]
+            direct = re.match(r"^\s*(?::|create|variable|defer)\s+(\S+)", line)
+            constant = re.search(r"\bconstant\s+(\S+)", line)
+            if direct:
+                expected.append(direct.group(1))
+            elif constant:
+                expected.append(constant.group(1))
+        actual = row["declarations"].split("; ") if row["declarations"] else []
+        assert actual == expected, (start, end, actual, expected)
+        assert not names.intersection(actual), f"Repeated preprocessor declaration: {actual}"
+        names.update(actual)
+        assert row["primary_unit"] in {"C03", "C04", "C05"}
+        status = row["manuscript_status"]
+        assert status in states
+        states[status] += 1
+        if status != "planned":
+            assert (ROOT / "c-compiler" / row["manuscript_path"]).is_file(), row
+        assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/040-cc-prep.fth#L{start}-L{end}"
+    assert next_line == len(source)+1
+    assert len(rows) == 57 and len(names) == 325
+    print(f"PASS: {len(rows)} preprocessor regions partition {len(source)} lines and {len(names)} declarations; states {states}")
+
+
+def check_c_models(source_root):
+    chapter = ROOT / "c-compiler/chapters/01-compiler-entry-and-profile.md"
+    if not chapter.exists():
+        return
+    original = (source_root / "book/21-arena-and-io-buffers.md").read_text()
+    original_c = next(block for language, block in all_fenced_blocks(original) if language == "c")
+    current_c = next(block for language, block in all_fenced_blocks(chapter.read_text()) if language == "c")
+    assert current_c == original_c, "Recurring tri.c differs from its pinned source"
+    # Paper C trace: arithmetic and loop requests, never compiled execution.
+    def triangle(rows, offset=1):
+        widths = [offset + 2*r for r in range(rows)]
+        padding = [rows-1-r for r in range(rows)]
+        stars = sum(widths)
+        return widths, padding, stars, stars + sum(padding) + rows, stars if stars == rows*rows else 1
+    assert triangle(4) == ([1,3,5,7], [3,2,1,0], 16, 26, 16)
+    assert triangle(4, 2) == ([2,4,6,8], [3,2,1,0], 20, 30, 1)
+    assert triangle(3) == ([1,3,5], [2,1,0], 9, 15, 9)
+    assert 4*8 == 32 and 4*4 == 16
+    # Bounded C02 state and byte calculations, not calls into source code.
+    assert sum([3,4]) == 7 and 7+1 <= 8 and not 8+1 <= 8
+    round8 = lambda n: (n+7)//8*8
+    assert [round8(n) for n in [0,1,8,9]] == [0,8,8,16]
+    assert 1000+round8(1)+round8(9) == 1024
+    assert (1003+round8(9)) % 8 == 3
+    assert list((1297).to_bytes(4, "little")) == [17,5,0,0]
+    output = bytearray([65,66,17,5,0,0])
+    output[0:4] = (305419896).to_bytes(4, "little")
+    assert list(output) == [120,86,52,18,0,0]
+    assert sum([3,7,4]) == 14
+    assert (4097+4095)//4096*4096 == 8192
+    assert (1 << 63)-4096 == 9223372036854771712
+    # C03 and the first mixed check: exact fixture bytes and newline ownership.
+    root = b'#include "a.h"\nR\n'
+    parent = b'#include "b.h"\nA\n'
+    child = b'B\n'
+    assert [len(root), len(parent), len(child)] == [17, 17, 2]
+    assert root.index(b'\n') == parent.index(b'\n') == 14
+    flattened = child + parent[14:] + root[14:]
+    assert flattened == b'B\n\nA\n\nR\n'
+    assert len(flattened) == 8 and flattened.count(b'\n') == 5
+    changed = child[:-1] + parent[14:] + root[14:]
+    assert changed == b'B\nA\n\nR\n' and len(changed) == 7
+    assert changed.count(b'\n') == 4
+    assert len(b'Y\n\nX\n') == 5 and b'Y\n\nX\n'.count(b'\n') == 3
+    assert len(b'tests/cc/') + len(b'a.h') + 1 == 13
+    print("PASS: canonical tri.c text and bounded C-entry/buffer/include paper calculations")
 
 
 def check_audit_partition(source_root):
@@ -448,6 +647,10 @@ def main():
     check_coverage()
     check_prerequisites()
     check_sources(args.source_root)
+    check_c_excerpts(args.source_root)
+    check_c_source_map(args.source_root)
+    check_preprocessor_regions(args.source_root)
+    check_c_models(args.source_root)
     check_models()
     check_audit_partition(args.source_root)
     check_audit_listings(args.source_root)

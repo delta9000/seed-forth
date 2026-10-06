@@ -8,9 +8,11 @@ This is the editorial map for a new teaching edition in `books/`. It does not re
 
 **Volume 1, Seed and Forth, has a complete draft teaching path.** Its [opening](seed-forth/chapters/00-why-inspect-a-seed.md), [route guide](seed-forth/chapters/00-start-here.md), chapters S01–S19, separate feedback, six mixed return checks and [compact reference](seed-forth/REFERENCE.md) cover the seed and its first library. The [audit ledger](seed-forth/source-audit.csv) assigns an explanation to all **76 regions / 1,772 original file bytes**, including all 32 dictionary headers. All **63 library colon definitions and 11 constant-created names** have substantive teaching homes.
 
-The [S19 capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) derives a fresh 32-byte `inc` entry and its predicted stack/control behavior. Those are predicted **process-memory bytes**, not an observed execution or additional bytes in the original seed file. The hand-encoded native Forth colon compiler is distinct from the **C compiler written in Forth**, whose volume remains planned. Volumes 2–4 are plans, not completed manuscripts or verified chains.
+The [S19 capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) derives a fresh 32-byte `inc` entry and its predicted stack/control behavior. Those are predicted **process-memory bytes**, not an observed execution or additional bytes in the original seed file. The hand-encoded native Forth colon compiler is distinct from the **C compiler written in Forth**. Volume 2 now has a drafted first unit, C01–C03; the remainder of that volume and Volumes 3–4 remain planned. No complete C-compiler, toolchain or kernel manuscript, or newly verified chain, is claimed.
 
 Draft completeness is a teaching-coverage claim. The new examples have not been executed, the fresh-reader installation route has not been tested, and no real-reader learning validation, universal correctness proof, or security proof is claimed. The first volume supports source reading and paper derivation under its explicit Linux/x86-64, storage, input and call assumptions. It links the pinned build entry without presenting that link as a tested setup tutorial.
+
+The [C-volume entrance](c-compiler/README.md) now leads through [C01: the compiler/profile contract](c-compiler/chapters/01-compiler-entry-and-profile.md), [C02: buffers, arenas and failure](c-compiler/chapters/02-buffers-arenas-and-failure.md), and [C03: preprocessing regions and includes](c-compiler/chapters/03-preprocessing-regions-and-includes.md), with three feedback companions and a [mixed return check](c-compiler/practice/return-check.md). This establishes an independent contract-based entrance, the compiler's storage infrastructure, and a bounded first part of preprocessing. It does not yet explain macro expansion, conditional/location processing, the later compiler passes, or the volume's closing bootstrap comparisons.
 
 ## How to read coverage and evidence
 
@@ -24,7 +26,7 @@ The exact `migration_status` vocabulary is:
 
 `rewrite_concern` preserves the source issue or editorial policy behind a choice; `remaining_scope` is the authoritative list of what is still owed. These are migration states, **not test results**. `evidence_status` separately distinguishes pinned source inspection, manual derivation, static disassembly, recorded CI and the unexecuted new examples. A complete draft can still require editorial revision, execution and reader testing. Optional legacy extensions are listed as supplementary work where they remain useful; they do not turn represented core mechanisms back into unexplained ones.
 
-The inventory retains **50 prologue/numbered chapters (00–49), seven appendices (A1–A7), eight Markdown navigators/editorial files, and `playground.fth`**: 66 original items. Five additional records cover the seed, library, direct-GCC closure documentation, sorting, and historical route context, for 71 rows. No original source item is silently dropped.
+The inventory retains **50 prologue/numbered chapters (00–49), seven appendices (A1–A7), eight Markdown navigators/editorial files, and `playground.fth`**: 66 original items. Eight additional records cover the seed, library, compiler arena/I/O/preprocessor sources, direct-GCC closure documentation, sorting, and historical route context, for 74 rows. No original source item is silently dropped.
 
 ### Existing CI is separate evidence
 
@@ -37,6 +39,7 @@ The following automatic canonical repository runs passed at their named rewrite 
 | `bff03516d3b7202bb2ecbb0457192ec61cb9d9eb` | [37419018142](https://github.com/delta9000/seed-forth/actions/runs/37419018142) |
 | `705e3f73a5f74c636b0f016d1e8f840acf6d747a` | [37420513780](https://github.com/delta9000/seed-forth/actions/runs/37420513780) |
 | `030bb0c8e5c8805f889bc00c3f8bb165e3631bbf` | [37422538095](https://github.com/delta9000/seed-forth/actions/runs/37422538095) |
+| `e4ebf723dbe8a251e19906aaca90454c7b51aa57` | [37425847949](https://github.com/delta9000/seed-forth/actions/runs/37425847949) |
 
 Native instruction listings were also checked by bounded GNU objdump 2.44 disassembly of source-decoded bytes. A static decoder reads the byte stream as data; that observation is not a running-seed trace. Manual predictions remain predictions until their exact inputs and environment are executed and recorded.
 
@@ -47,7 +50,7 @@ Native instruction listings were also checked by bounded GNU objdump 2.44 disass
 3. **From Compiler to Closed Toolchain (`gcc-toolchain`)**: enter with the compiler mechanisms and a new direct-GCC target contract. Build the conceptual path through objects, ABI, runtime, generators, `cc1`, binutils, hosted musl/libgcc, and the recorded GCC 4.0.4 fixed point
 4. **Kernels and Linux (`kernels-linux`)**: begin from an explicitly identified direct-chain toolchain. The proposed finish is a newly evidenced kernel/Linux path with a chosen user-visible acceptance criterion. The current direct-GCC-to-Linux outcome is **pending**, and the technical route and scope still require their own pinned source inventory
 
-An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. The later volumes' entry packages are planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
+An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. Volume 2 now supplies its first contract bridge, profile comparison, bounded source-reading route and local source maps; its later teaching and tested setup remain outstanding. Volumes 3–4's entry packages are planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
 
 ## Learning order is not source order
 
@@ -84,7 +87,9 @@ The numbering below is an editorial route, not a requirement to alter file load 
 | S09/S12/S13/S16 → S17 | Separate branch call targets, inline program targets, saved flags and owner state | S17 opens all 34 branch bytes and restores the exact pre-call return-stack shape |
 | S13/S14/S15/S16/S17 → S18 | Combine byte grammar, raw-input limits, lookup and native compilation | S18 opens all 168 decimal-parser/REPL bytes, including failure and EOF behavior |
 | S11–S18 → S19 | Reconcile library contracts and every assigned native region | S19 adds no file bytes; it derives a fresh runtime-memory word and a bounded audit conclusion |
-| Seed → C compiler | Read the recurring C input; distinguish a C lvalue/type from a Forth value and distinguish builder from target | C01 refresher; C07/C13 make representation and lvalues explicit |
+| Entry → C01 | Read small state traces; distinguish values from addresses, definition from execution, and allocation from initialization | C01 supplies a four-contract diagnostic/bridge and the C syntax used by `tri.c`; targeted seed refreshers are available, but S19 is not an entry prerequisite |
+| C01 → C02 | Read shuffles, balanced return borrowing, compiled choices/loops/exits, bounded comparisons, stored updates, raw I/O and deferred selection | C02 supplies a local contract bridge; S04/S05/S06/S07/S09/S10 are targeted equivalent refresher routes, not six mandatory whole-chapter prerequisites |
+| C02 → C03 | Distinguish a borrowed span from owned bytes, input from output positions, capacity from accepted length, and live storage from reusable storage | C03 derives regions, shared sinks, retained newlines, literal includes and physical search paths; C04 opens macro storage/rescanning and C05 opens conditional/location interfaces |
 | Compiler → toolchain | Name source/object/executable, symbol/relocation, ABI, host/builder/target, and profile | G01–G05 provide a new contract and a complete numerical two-object example |
 | Scalar → variadic/record ABI | Track independent register banks, stack slots, alignment, snapshots, and result lifetime | G04, G10, G12, G15; X87 is deferred explicitly until G15 |
 | `cc1` → closed toolchain | Distinguish emitted assembly, a runnable program, a hosted runtime, and a reproducible compiler generation | G20–G25 add downstream production tools, sysroot, lineage, and comparisons |
@@ -94,7 +99,7 @@ Exercises inherit these edges. For example, a write-all implementation waits unt
 
 ## Destination ledger
 
-IDs below are stable editorial destinations. S00–S19 now have drafted manuscripts; all C/G/K units remain planned destinations rather than existing chapter filenames. `entry` means the stated volume entrance; `or equivalent entry bridge` requires an explicit diagnostic/refresher, not an unexplained prerequisite. Semicolon-separated prerequisites are conjunctive. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
+IDs below are stable editorial destinations. S00–S19 and C01–C03 now have drafted manuscripts; C04–C24 and all G/K units remain planned at this checkpoint. `entry` means the stated volume entrance; an equivalent entry bridge requires an explicit diagnostic/refresher, not an unexplained prerequisite. Named local bridges are required contracts supplied in that unit; their targeted refresher links are alternative ways to acquire those contracts. Listed prerequisites are conjunctive, with semicolons used in the CSV. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
 
 ### Volume 1: Seed and Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -123,9 +128,9 @@ IDs below are stable editorial destinations. S00–S19 now have drafted manuscri
 ### Volume 2: A C Compiler in Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
 |---|---|---|---|---|
-| C01 — Compiler entry and profile contract | S10, S19 or equivalent entry bridge | Read the recurring C example, name its compiler profile, and separate builder execution from generated-program execution. | 21 | planned |
-| C02 — Buffers, arenas, and failure ownership | C01 | Follow input and output cursors, allocation lifetime, capacity, and error location. | 21 | planned |
-| C03 — Preprocessing regions and includes | C02 | Trace owned include buffers into a flattened source stream. | 22 | planned |
+| C01 — Compiler entry and profile contract | entry: local Forth-contract bridge | Derive tri.c's requested output, name its profile and load order, and separate the builder, emitted image and generated-program execution. | 21 | drafted |
+| C02 — Buffers, arenas, and failure ownership | C01, local library-contract bridge | Trace all 35 arena/I/O definitions through spans, cursors, capacity, allocation lifetime, output patching, workspace selection and failure limits. | 21, A2, A7 | drafted |
+| C03 — Preprocessing regions and includes | C02 | Trace nested literal includes, shared sinks, retained newlines, bounded search paths and live storage; name deferred macro/conditional/location mechanisms. | 22, A7 | drafted |
 | C04 — Macro expansion and rescanning | C03 | Follow token expansion, argument lifetime, suppression, and nested rescans. | 22 | planned |
 | C05 — Conditional preprocessing and profile extensions | C04 | Trace conditional groups, line control, computed includes, and bounded profile-specific behavior. | 22 | planned |
 | C06 — Tokens and reversible lookahead | C05 | Decode a token and restore all relevant lexer state after lookahead. | 23 | planned |
@@ -196,12 +201,12 @@ These destinations are reference obligations. They are not extra volumes and the
 | Existing source | New destination | Preservation and revision obligation |
 |---|---|---|
 | `book/A1-32-seed-primitives.md` | R-primitives; S11–S19 | Draft-covered: REFERENCE.md plus all native body/helper explanations and the byte budget |
-| `book/A2-memory-map.md` | S10–S12; R-memory | Seed map drafted; compiler scratch, generated program, native and direct-GCC views remain planned |
+| `book/A2-memory-map.md` | S10–S12; C02; R-memory | Seed map and compiler arena/I/O workspace ownership drafted; later compiler records, generated program, native and direct-GCC views remain incomplete |
 | `book/A3-reproducibility-chain.md` | R-lineage; C20/C22/C24; G25; K08 | Preserve every existing lineage and comparison; add the direct-GCC ending separately; keep kernel lineage pending |
 | `book/A4-worked-exercises.md` | R-solutions; S09/S16/C12 | Retain the three existing worked mechanisms, repair their premises/setup, and distribute expanded feedback by objective |
 | `book/A5-further-reading.md` | R-reading | Preserve purpose-based routes with durable primary links and explicit versions |
 | `book/A6-c-subset.md` | R-c-subsets | Give legacy, native TinyCC, and direct-GCC their own accepted/rejected/bounded contracts |
-| `book/A7-error-codes.md` | S14/S15/S18; R-errors | Seed diagnostics drafted; later compiler/profile/assembler tables remain planned |
+| `book/A7-error-codes.md` | S14/S15/S18; C02/C03; R-errors | Seed diagnostics and early compiler capacity/I/O/include failures drafted; later phase/profile/assembler tables remain planned |
 | `book/CONCEPTS.md` | N-concepts | Replace stale source-order graph with first-use, revisit, and actual prerequisite edges |
 | `book/GLOSSARY.md` | N-glossary | Synchronize definitions with the profile and chapter that teaches them |
 | `book/LEARNING_STORY_PLAN.md` | N-editorial | Carry forward useful outcome/trace goals; do not import obsolete rollout statuses |
@@ -217,25 +222,45 @@ These destinations are reference obligations. They are not extra volumes and the
 | Source group | Migration state | Boundary |
 |---|---|---|
 | Canonical Chapters 01–20 | `draft_covered` | Every substantive seed/library mechanism is represented across S01–S19; optional legacy extensions are supplementary, and new examples remain unexecuted |
+| Canonical Chapter 21; `020-cc-arena.fth` and `030-cc-io.fth` | `draft_covered` | C01/C02 represent the entry/infrastructure mechanisms and all 35 colon definitions, including selectable storage and failure limits |
+| Canonical Chapter 22; `040-cc-prep.fth` | `partial` | C03 covers region/sink/include mechanisms and named interfaces; macro expansion/rescanning and conditional/location processing remain C04/C05 |
 | Canonical prologue 00 | `partial` | S00 preserves seed motivation, provenance and trust boundaries; the original C/Fibonacci demonstration moves to planned C20 |
 | `000-seed.hex0` and `010-lib.fth` | `draft_covered` | Every seed region and every library definition has a teaching home; execution and reader validation remain separate |
 | Appendix A1 | `draft_covered` | [REFERENCE.md](seed-forth/REFERENCE.md), body/helper explanations and S19 supply the complete seed-contract reference and byte budget |
 | Appendices A2–A5 and A7 | `partial` | Seed-side material is represented; exact later-volume and supplementary obligations are retained below and in the CSV |
-| Chapters 21–49 and Appendix A6 | `planned` | C compiler, assembler, TinyCC and direct-GCC teaching still needs the planned later-volume manuscripts |
-| Navigation/editorial files | `partial` | First-volume routes and references exist; complete later-volume navigation, glossary, bibliography and generated index do not |
+| Chapters 23–49 and Appendix A6 | `planned` | Later C passes, assembler, bootstrap comparisons, full subset catalogues, TinyCC and direct-GCC teaching still need their mapped manuscripts; early contract previews do not migrate those chapters |
+| Navigation/editorial files | `partial` | Complete first-volume routes and the first C-unit entrance/source maps exist; the edition-wide glossary, bibliography, later routes and generated index remain incomplete |
 | `playground.fth` | `planned` | Retained as a pinned optional compatibility profile, not promoted into a tested seed execution route |
 
 The remaining first-volume release work is explicit: test the fresh-reader setup route in the named profile; execute and record the new examples and relevant boundary cases if authorized; conduct target-reader review; and revise from those observations. These are real unfinished verification and usability obligations, not missing byte-region ownership. This map does not authorize builds or tests by itself.
 
 The old appendices cross volume boundaries:
 
-- **A2 memory map:** the seed view is in REFERENCE.md and S10–S12; compiler scratch, native TinyCC storage, direct-GCC allocation and generated-program heaps remain R-memory work for Volumes 2–3
+- **A2 memory map:** the seed view is in REFERENCE.md and S10–S12; C02 adds compiler arena/I/O buffer ownership, state blocks and selectable workspace. Later compiler records/scratch, native TinyCC and direct-GCC allocation, generated-program heaps and the complete cross-profile reference remain R-memory work for Volumes 2–3
 - **A3 reproducibility:** seed identity/trust distinctions and the inspected build entry are present; actual M2/assembler/pnut/TinyCC recipes and comparisons remain C20/C22/C24, direct-GCC closure G25, and kernel/route lineage K08/R-lineage
 - **A4 worked exercises:** seed return/exit mechanisms and new feedback are present; the C precedence exercise remains C12/R-solutions. The old worked variants are not all copied one-for-one
 - **A5 reading:** seed chapters cite the relevant implementation, ISA, ELF and Linux sources; the full purpose-based Forth/related-project bibliography and compiler/bootstrap/ABI reading routes remain R-reading
-- **A7 diagnostics:** seed reporting, token/numeric failures, continuation and EOF are in S14/S15/S18 and REFERENCE.md; compiler/native/direct-GCC/assembler diagnostic tables remain later R-errors work
+- **A7 diagnostics:** seed reporting, token/numeric failures, continuation and EOF are in S14/S15/S18 and REFERENCE.md. C02/C03 add early compiler reporting, capacity checks, raw-I/O limits, include/path failures and the active `#error` interface; later compiler/native/direct-GCC/assembler diagnostic tables remain R-errors work
 
 No kernel/Linux completion follows from finishing the seed manuscript. The historical ladder and current direct-GCC route remain distinct, and the current direct-GCC-to-Linux outcome is still pending.
+
+## Current C-compiler coverage boundary
+
+C01 supplies the independent entrance rather than requiring the entire seed audit. Its `tri.c` trace derives requested characters and return value on paper. The driver sequence, profile widths, load order and initial executable contract are entry contracts; the full parser, emitter, driver integration and compiler bootstrap still belong to their planned units.
+
+C02 explains the six colon definitions in `020-cc-arena.fth` and the 29 in `030-cc-io.fth`, together with the declarations they use. The [definition map](c-compiler/source-map.csv) supplies an immutable span, source-blob identity and C02 home for each of the **35 definitions**. Coverage includes the 64-byte lexer state block, exact-capacity distinctions, negative-read behavior, rounded allocation versus initialization, unchecked patches, partial field emission, one-shot file writes, name lookup, and cached 3/7/4-MiB workspace selection. These contracts are explained; successful I/O or generated-program behavior has not been observed here.
+
+C03 opens the first coherent part of `040-cc-prep.fth`: active-region cursors, the four-cell sink, file walkers, newline accounting, literal include frames, physical search paths, fixed-slot versus packed live storage, profile bounds, and final reader reset. Its worked three-file case preserves parents while all children append to one output. It does not equate a saved pointer with preserved bytes or flattened line counts with original-file locations.
+
+The [preprocessor region map](c-compiler/preprocessor-regions.csv) partitions all **2,256 source lines and 325 declarations into 57 regions**. At this checkpoint, **8 regions are drafted, 9 have partial shared-interface coverage, and 40 remain planned**. This is complete source navigation, not complete preprocessor teaching. Its `drafted`/`partial`/`planned` region labels are narrower than the whole-item migration statuses in this map.
+
+- **C04 remains planned:** macro definitions and persistent text, raw/expanded arguments, temporary sinks and scratch lifetime, rescanning, suppression/unavailable-token metadata, stringizing/pasting, and associated bindings/resource bounds
+- **C05 remains planned:** conditional groups and expression-evaluator interface, computed include operands, physical versus presumed locations, line control/splicing, built-in/target shims, and profile/reset gates
+- **C06 onward remains planned:** tokens, type/name representation, parsing/emission, runtime integration, assembler, bootstrap comparisons and the distinctly labeled TinyCC extension
+
+Direct preprocessing, target/location support and larger workspace are separate selectors. The map must not merge them into one “direct mode” capability claim. Later callback implementations may discharge an explicitly stated early interface; their source/load order is not a requirement for a circular teaching order.
+
+The [source-map guide](c-compiler/SOURCE-MAP.md), three feedback companions and mixed return check make the first C unit navigable. They are source-inspected, manually derived drafts with technical review; they have not been validated by executing these new examples or by target readers.
 
 ## Complete seed file-byte account
 
