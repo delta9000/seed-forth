@@ -62,28 +62,50 @@ addresses without warning.
 | [S6 Memory updates and writers](seed-forth/chapters/06-memory-updates-and-writers.md) | Trace a cell update and four/eight-byte emission with truncation limits | S6 exercises, [feedback](seed-forth/practice/06-solutions.md) |
 | [Second return check](seed-forth/practice/return-check-2.md) | Select the right stack, comparison or memory contract without a chapter-specific cue | Four mixed prompts with separate answers |
 
-## Interfaces opened later
 
-| Interface usable now | Promise the first unit permits | Mechanism deliberately deferred |
+## Library-completion dependency graph
+
+```text
+S2 + S3 + S4 + S5 -> S7: Linux I/O and raw error/progress contracts
+S2 + S6 -> S8: local dictionary/ISA bridge and definition phases
+S3 + S4 + S6 + S8 -> S9: immediate control flow and balanced early return
+S2 + S4 + S5 + S6 + S8 + S9 -> S10: storage, deferred dispatch and byte sequences
+```
+
+S7 uses the sign-test contract from S5 to describe raw negative results and
+S4's call-state distinction. S8 teaches the small dictionary and instruction
+interfaces it needs locally; it does not require the later full byte audit.
+S9 needs return-stack discipline before an early exit can be safe. S10 names
+the increment/decrement helpers before its token and byte loops use them.
+
+| Unit | Observable outcome | Practice and feedback |
 |---|---|---|
-| `: name ... ;` | Define a word from the stated sequence, using the explicit literal syntax | Dictionary headers, immediate words, compiling calls and inline literals |
-| A data stack | Words consume and produce the documented topmost cells | Cached top-of-stack register and stack-memory layout |
+| [S7 Linux I/O](seed-forth/chapters/07-linux-io-contracts.md) | Trace syscall arguments and distinguish a return value from complete requested work | S7 exercises, [feedback](seed-forth/practice/07-solutions.md) |
+| [S8 Definition phases](seed-forth/chapters/08-defining-words-and-phases.md) | Explain a created word's layout and distinguish its three relevant times | S8 exercises, [feedback](seed-forth/practice/08-solutions.md) |
+| [S9 Control-flow patching](seed-forth/chapters/09-control-flow-by-patching.md) | Trace emitted slots, fixups and runtime branch paths separately | S9 exercises, [feedback](seed-forth/practice/09-solutions.md) |
+| [S10 Storage and byte sequences](seed-forth/chapters/10-storage-deferred-words-and-bytes.md) | Build a small library-level artifact while accounting for storage and binding lifetimes | S10 exercises, [feedback](seed-forth/practice/10-solutions.md) |
+| [Third return check](seed-forth/practice/return-check-3.md) | Select the relevant phase, lifetime or progress contract without a chapter-specific cue | Four mixed questions with separate answers |
+
+## Interfaces opened in stages
+
+| Interface | Initial contract | Later explanation and remaining audit |
+|---|---|---|
+| `: name ... ;` | Define a word from the stated sequence, using the explicit literal syntax | S8 opens headers, immediacy and emitted calls; the full native compiler implementation is still deferred |
+| A data stack | Words consume and produce the documented topmost cells | S4 separates data and return stacks; the full cached-top and instruction audit remains deferred |
 | `@ ! c@ c!` | Access the stated valid memory location with the stated width | Address translation, mappings and machine instruction encodings |
 | `here` / `latest` | Their distinct value/address contracts at this pinned seed | Startup, executable layout and the complete sysvar map |
 
 These interfaces reduce prerequisites without hiding a proof obligation. The
-first unit asks what follows if the contracts hold; the later audit asks how
-the source realizes them. Source links are available now for readers who want
+first unit asks what follows if the contracts hold; later chapters open the
+needed mechanisms in stages, and the full audit asks how every relevant
+source instruction realizes them. Source links are available now for readers who want
 that second question early, but exercises do not require solving it early.
 
 ## What the next units must earn
 
-1. Linux I/O contracts, argument placement and error/partial-I/O boundaries
-2. Dictionary/definition phases, immediacy and control-flow patching, followed
-   by persistent storage and a library-level capstone
-3. An x86-64 instruction-reading primer, then an invariant-led audit of the
+1. An x86-64 instruction-reading primer, then an invariant-led audit of the
    ELF, stack primitives, token reader, dictionary, compiler and REPL
-4. A compiler-volume bridge that introduces C syntax, buffer ownership,
+2. A compiler-volume bridge that introduces C syntax, buffer ownership,
    representation changes and the chosen build profile before implementation
    detail
 

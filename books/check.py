@@ -33,6 +33,20 @@ def visible_lines(text):
             yield line
 
 
+def forth_blocks(text):
+    language, lines = None, []
+    for line in text.splitlines():
+        if line.startswith("```"):
+            if language is None:
+                language, lines = line[3:].strip(), []
+            else:
+                if language in {"", "forth"}:
+                    yield "\n".join(lines)
+                language, lines = None, []
+        elif language is not None:
+            lines.append(line)
+
+
 def slug(heading):
     # GitHub's heading convention for the characters used in these chapters.
     heading = re.sub(r"[`*_]", "", heading).strip().lower()
@@ -77,14 +91,16 @@ def check_documents():
                 )
     for number, name in [(1, "values-and-words"), (2, "addresses-and-bytes"),
                          (3, "bits-and-subtraction"), (4, "return-stack-and-shuffles"),
-                         (5, "comparisons-and-characters"), (6, "memory-updates-and-writers")]:
+                         (5, "comparisons-and-characters"), (6, "memory-updates-and-writers"),
+                         (7, "linux-io-contracts"), (8, "defining-words-and-phases"),
+                         (9, "control-flow-by-patching"), (10, "storage-deferred-words-and-bytes")]:
         chapter = ROOT / f"seed-forth/chapters/{number:02}-{name}.md"
         solutions = ROOT / f"seed-forth/practice/{number:02}-solutions.md"
         expected = {f"S{number}-{i:02}" for i in range(1, 6)}
         for file in [chapter, solutions]:
             found = set(re.findall(rf"\bS{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 30 exercise ID pairs")
+    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 50 exercise ID pairs")
 
 
 def check_coverage():
@@ -151,28 +167,46 @@ def check_sources(source_root):
     # Token-level comparison permits omitted comments/formatting in excerpts.
     library = source_words((source_root / "010-lib.fth").read_text())
     count = 0
-    for name in ["here-addr", "c,", "and", "or", "-", "over", "rot", "nip",
+    required = ["here-addr", "c,", "and", "or", "-", "over", "rot", "nip",
                  "2dup", "2drop", "true", "=", "<>", "2^63", "0<", "<", ">", "<=", ">=",
-                 "digit?", "alpha-lower?", "alpha-upper?", "alpha?", "space?", "+!", "-!", ",4", ",8"]:
+                 "digit?", "alpha-lower?", "alpha-upper?", "alpha?", "space?", "+!", "-!", ",4", ",8"]
+    names = re.findall(r"^:\s+(\S+)", (source_root / "010-lib.fth").read_text(), re.M)
+    unquoted = []
+    for name in names:
         start = next(i for i in range(len(library)-1)
                      if library[i:i+2] == [":", name])
         end = library.index(";", start)
         expected = library[start:end+1]
         found = False
         for path in (ROOT / "seed-forth/chapters").glob("*.md"):
-            for block in re.findall(r"```forth\n(.*?)\n```", path.read_text(), re.S):
+            for block in forth_blocks(path.read_text()):
                 words = source_words(block)
                 if "___" in block:
                     continue
-                for i in range(len(words)-1):
-                    if words[i:i+2] == [":", name]:
-                        end = words.index(";", i)
+                # A colon inside an existing definition is an ordinary compiled
+                # word here; it must not be mistaken for a second definition.
+                i = 0
+                while i < len(words)-1:
+                    if words[i] != ":":
+                        i += 1
+                        continue
+                    if ";" not in words[i+2:]:
+                        break  # A labeled fragment is not a full definition.
+                    end = words.index(";", i+2)
+                    if words[i+1] == name:
                         assert words[i:end+1] == expected, f"Changed excerpt for {name}: {path}"
                         found = True
-        assert found, f"Missing source excerpt: {name}"
-        count += 1
+                    i = end+1
+        if name in required:
+            assert found, f"Missing source excerpt: {name}"
+        if found:
+            count += 1
+        else:
+            unquoted.append(name)
     print(f"PASS: 2 pinned source blobs; 1772 source bytes; 32 primitive headers; {count} excerpts")
     print("Source-byte SHA256:", hashlib.sha256(image).hexdigest())
+    if unquoted:
+        print("Source definitions not quoted in full:", ", ".join(unquoted))
 
 
 def check_models():
@@ -221,7 +255,15 @@ def check_models():
     assert bytes((305419896 >> (8*i)) & 255 for i in range(4)) == bytes.fromhex("78 56 34 12")
     assert bytes((72623859790382856 >> (8*i)) & 255 for i in range(8)) == bytes.fromhex("08 07 06 05 04 03 02 01")
     assert ((1 << 32)+1) & ((1 << 32)-1) == 1
-    print("PASS: bounded arithmetic, bitwise, byte-width, comparison and byte-classifier assertions")
+    # Definition and control-flow byte ledgers are arithmetic models too.
+    assert 10 + len("seven") == 15
+    assert 4+4+2+8 == 18 and 18+1 == 19
+    assert 1000 + 15 + 19 == 1034
+    assert 5+13+13+5+13+1 == 50
+    assert 2000+5+8+13 == 2026
+    assert 18+5+5+1 == 29  # Deferred-word code before its cell.
+    assert 5000+1 == 5001 and 3-1 == 2
+    print("PASS: bounded arithmetic, bitwise, byte-width, comparison, classifier and layout assertions")
 
 
 def main():

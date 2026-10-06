@@ -1,10 +1,11 @@
 # Seed Forth teaching books
 
 This is the learning-first teaching edition of Seed Forth. Start with
-[Seed and Forth](seed-forth/README.md): a short entry chapter and six
-worked chapters are available now. They teach you to trace words and two
-stacks, distinguish addresses from values, reason about comparison limits,
-and construct byte and cell writers from the seed's smaller vocabulary.
+[Seed and Forth](seed-forth/README.md): a short entry chapter and ten
+worked chapters are available now. They take you from values and addresses
+through two-stack reasoning, Linux I/O, words that create words, patched
+control flow, and persistent data. Each mechanism has a source-pinned trace
+and separate practice feedback.
 
 The edition is a draft, not a complete replacement for the original book.
 The [coverage map](COVERAGE.md) accounts for every original numbered chapter
@@ -14,7 +15,7 @@ and appendix, including material not rewritten yet.
 
 | Book | Intended completed outcome | Current state |
 |---|---|---|
-| [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Two foundation units drafted; later library and machine-code units planned |
+| [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Library-level teaching arc drafted; full machine-code audit planned |
 | A C compiler in Forth | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Planned; existing chapters 21–34 remain the source material |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |

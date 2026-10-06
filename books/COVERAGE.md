@@ -6,9 +6,9 @@ This is the editorial map for a new teaching edition in `books/`. It does not re
 
 ## What exists, and what this map promises
 
-The first milestone introduced [S1 / S01: Values and words](seed-forth/chapters/01-values-and-words.md), [S2 / S02: Addresses and bytes](seed-forth/chapters/02-addresses-and-bytes.md), and [S3 / S03: Bits and subtraction](seed-forth/chapters/03-bits-and-subtraction.md). Current coverage also includes [S4 / S04: Return stack and shuffles](seed-forth/chapters/04-return-stack-and-shuffles.md), [S5 / S05: Comparisons and characters](seed-forth/chapters/05-comparisons-and-characters.md), and [S6 / S06: Memory updates and writers](seed-forth/chapters/06-memory-updates-and-writers.md).
+The first milestone introduced [S1 / S01: Values and words](seed-forth/chapters/01-values-and-words.md), [S2 / S02: Addresses and bytes](seed-forth/chapters/02-addresses-and-bytes.md), and [S3 / S03: Bits and subtraction](seed-forth/chapters/03-bits-and-subtraction.md). The second added [S4 / S04: Return stack and shuffles](seed-forth/chapters/04-return-stack-and-shuffles.md), [S5 / S05: Comparisons and characters](seed-forth/chapters/05-comparisons-and-characters.md), and [S6 / S06: Memory updates and writers](seed-forth/chapters/06-memory-updates-and-writers.md). The library-level arc now continues through [S7 / S07: Linux I/O contracts](seed-forth/chapters/07-linux-io-contracts.md), [S8 / S08: Defining words and phases](seed-forth/chapters/08-defining-words-and-phases.md), [S9 / S09: Control flow by patching](seed-forth/chapters/09-control-flow-by-patching.md), and [S10: Storage, deferred words, and bytes](seed-forth/chapters/10-storage-deferred-words-and-bytes.md).
 
-All six are **draft, source-inspected, and manually traced**, not execution-verified. `S1`–`S6` are the manuscript and exercise prefixes used in the [learning path](LEARNING-PATH.md); `S01`–`S06` are the same units' zero-padded editorial IDs here. The [start-here guide](seed-forth/chapters/00-start-here.md) provides their entrance; the proposed S00 below is a fuller future prologue, not another name for that guide. The six chapters do not complete any volume, the Forth library, the canonical chapter migrations, or the seed audit. Separate feedback is available for [S4](seed-forth/practice/04-solutions.md), [S5](seed-forth/practice/05-solutions.md), and [S6](seed-forth/practice/06-solutions.md), with a [mixed return check](seed-forth/practice/return-check-2.md); their solutions are manual derivations too.
+All ten are **draft, source-inspected, and manually traced**. Their new examples are not execution-verified. `S1`–`S10` are the manuscript/exercise prefixes; `S01`–`S10` are the same units' zero-padded editorial IDs here. The [start-here guide](seed-forth/chapters/00-start-here.md) provides their entrance; proposed S00 below is a fuller future prologue, not another name for that guide. The ten chapters reach a library-level paper capstone and assign every library colon definition a teaching home. They do not complete a volume, the canonical chapter migrations, or the full seed audit. Separate practice feedback and [three mixed return checks](LEARNING-PATH.md) accompany the route; those answers are manual derivations too.
 
 All other teaching units below are **planned**. Volumes 2–4 are plans, not drafted books. A row assigning a source chapter to a new destination means that its mechanisms, limitations, examples, and practice have a home to be developed; it does not mean that text has migrated. In particular, early contracts for `:` or `nand` do not count as coverage of their complete machine-code implementation.
 
@@ -18,11 +18,11 @@ The source inventory contains all **50 numbered/prologue chapters (00–49), sev
 
 ### Reading the status fields
 
-- `partial`: a specific part is taught in S01–S06, or a limited navigator/editorial replacement is drafted; the CSV states both that scope and the remaining debt. It never means “whole chapter migrated”
+- `partial`: a specific part is taught in S01–S10, or a limited navigator/editorial replacement is drafted; the CSV states both that scope and the remaining debt. It never means “whole chapter migrated”
 - `planned`: assigned a destination and prerequisites, but no replacement manuscript coverage is claimed
 - `source-inspected`: grounded in the pinned implementation or document; it is not a claim that a command ran
 - `manually traced`: predicted state changes derived from the stated contract; outputs remain predictions until the exact example is executed
-- A repository's recorded build/test result remains a **reported result**, with its original profile and lineage. This rewrite has run no compiler builds, examples, regression suites, bootstrap, or kernel boot
+- A repository's recorded build/test result remains a **reported result**, with its original profile and lineage. Automatic push-triggered canonical CI passed for rewrite checkpoint [`819de4d346c38623d8db741323bc92293273690a`](https://github.com/delta9000/seed-forth/commit/819de4d346c38623d8db741323bc92293273690a), [run 37416564070](https://github.com/delta9000/seed-forth/actions/runs/37416564070). That is evidence for the canonical workflow at that checkpoint, not an execution of the new manuscript examples. Their traces remain manual; the described source edition remains pinned above
 
 Coverage, technical evidence, and learning evidence are separate. No real target-reader study is claimed. Completing this map establishes an editorial plan, not correctness or demonstrated learnability.
 
@@ -43,7 +43,7 @@ The source files remain authoritative and unchanged. The new order follows what 
 - Bit patterns and wraparound precede signed interpretations and range checks. A small-width drawing must say it illustrates a 64-bit operation; it must not silently replace the machine's width
 - Subtraction can be derived without first explaining the CPU return stack. `over` and `rot` wait for a proper two-stack trace
 - A word's operational contract may be used before its implementation is opened. Every such deferral names the later unit that discharges it
-- Dictionary-emission idioms precede the full ELF/encoding audit. The machine-code pass returns to the same states rather than introducing an unrelated story
+- Dictionary-emission idioms precede the full ELF/encoding audit. S08 supplies the small header, immediate-dispatch, CALL, literal, and push-body contracts it uses locally; the later machine-code pass must still derive and audit the full seed
 - The compiler's internal data stack/registers, generated program's registers, private TinyCC ABI, and direct-GCC System V ABI are distinct machines and profiles
 - In the toolchain book, scalar argument planning and floating representation move before the variadic/aggregate cases that use them. Ranked arrays stay with type identity; archive order stays with linking
 
@@ -57,7 +57,10 @@ The numbering below is an editorial route, not a requirement to alter file load 
 | S01 → S02 | Distinguish the stack's value from a byte-addressed memory location | S02 supplies a labeled memory picture and fetch/store contracts |
 | S01/S03 → S04 | Track word calls, cell width, and bitwise operations for the optional application | S04 teaches owned return-stack temporaries, shuffles, the helper-call boundary, and optional XOR |
 | S03/S04 → S05 | Track modular subtraction, canonical flags, unsigned division, and `over` | S05 distinguishes equality, sign detection, bounded ordering, and ASCII membership; `space?` uses S04's `over` |
-| S02/S06 → S08/S09 | Distinguish bytes emitted now from code executed later | S08's three-phase timeline; S09's separate compile/runtime traces |
+| S02/S03/S04/S05 → S07 | Distinguish buffer addresses, signed error cells, calls, and the `0<` sign predicate | S07 teaches Linux request/result contracts and raw-error classification without requiring an untaught retry loop |
+| S02/S06 (including S03/S04) → S08 | Distinguish bytes emitted now from code executed later | S08 supplies minimal dictionary/ISA contracts locally and keeps its three phases separate; S11 is not an unstated prerequisite |
+| S03/S04/S06/S08 → S09 | Keep compile-time fixups separate from runtime data and owned return-stack temporaries | S09's conditionals/loops and `exit,` cleanup use S04's ownership discipline |
+| S02/S04/S05/S06/S08/S09 → S10 | Track storage, bounded counts, input lifetime, generated bodies, and both stacks | S10 defines `1+`/`1-` before token/copy loops, then integrates named data, deferred dispatch, and byte comparison; the paper capstone needs no printer |
 | Library → byte audit | Read hex bytes, simple register moves, CALL/RET, offsets, and virtual addresses | S11 instruction key; S12 cached-TOS invariant; S16–S18 reopen deferred compiler/parser contracts |
 | Seed → C compiler | Read the recurring C input; distinguish a C lvalue/type from a Forth value and distinguish builder from target | C01 refresher; C07/C13 make representation and lvalues explicit |
 | Compiler → toolchain | Name source/object/executable, symbol/relocation, ABI, host/builder/target, and profile | G01–G05 provide a new contract and a complete numerical two-object example |
@@ -69,7 +72,7 @@ Exercises inherit these edges. For example, a write-all implementation waits unt
 
 ## Destination ledger
 
-IDs below are stable editorial destinations. Except S01–S06, they are not existing chapter filenames. `entry` means the stated volume entrance; `or equivalent entry bridge` requires an explicit diagnostic/refresher, not an unexplained prerequisite. Semicolon-separated prerequisites are conjunctive. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
+IDs below are stable editorial destinations. Except S01–S10, they are not existing chapter filenames. `entry` means the stated volume entrance; `or equivalent entry bridge` requires an explicit diagnostic/refresher, not an unexplained prerequisite. Semicolon-separated prerequisites are conjunctive. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
 
 ### Volume 1: Seed and Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -81,10 +84,10 @@ IDs below are stable editorial destinations. Except S01–S06, they are not exis
 | S04 — Two stacks and reusable shuffles | S01, S03 | Trace over, rot, nip, 2dup, and 2drop with owned return-stack temporaries; explain the helper-call boundary and optional XOR. | 01, 03, 04, 08 | draft; partial source coverage |
 | S05 — Comparisons and character classes | S03, S04 | Distinguish equality, sign extraction, bounded signed ordering, and ASCII classifiers, including the over-dependent space? trace. | 06, 07 | draft; partial source coverage |
 | S06 — Memory updates and little-endian writers | S02, S03, S04 | Trace +!, -!, ,4, and ,8 with exact operand order, truncation, and byte/cursor invariants. | 01, 02, 09 | draft; partial source coverage |
-| S07 — Calling Linux through a contract | S01, S02 | Map seven stack inputs to six syscall arguments and a number; reason about partial I/O and errors. | 05 | planned |
-| S08 — Words that create words | S02, S06 | Separate defining constant, creating a constant, and running its result; explain immediate execution. | 10 | planned |
-| S09 — Control flow by remembered addresses | S03, S06, S08 | Build and trace forward fixups and backward branches in separate compile-time and runtime states. | 11, A4 | planned |
-| S10 — Persistent storage and a classifier | S04, S05, S07, S08, S09 | Use create, variable, defer/is, and byte comparison in a small integrated Forth program. | 12 | planned |
+| S07 — Calling Linux through a contract | S02, S03, S04, S05 | Trace Linux wrapper arguments and raw counts/errors; distinguish requested work, partial progress, and tiny-I/O limits. | 05 | draft; partial source coverage |
+| S08 — Words that create words | S02, S06 | Separate three defining-word phases using locally supplied header/ISA contracts; explain immediate metadata, calls, and character literals. | 01, 02, 09, 10 | draft; partial source coverage |
+| S09 — Control flow by remembered addresses | S03, S04, S06, S08 | Trace all nine control-flow combinators with separate compile/runtime states and owned-temporary cleanup at early exits. | 04, 11, A4 | draft; partial source coverage |
+| S10 — Persistent storage and a classifier | S02, S04, S05, S06, S08, S09 | Introduce 1+/1- before loops; trace named storage, deferred dispatch, borrowed tokens, copying, and a byte-recognizer capstone. | 04, 07, 11, 12 | draft; partial source coverage |
 | S11 — From file bytes to an entry point | S02, S06 | Read a small instruction key and trace ELF file offsets into the mapped seed and initial registers. | 13 | planned |
 | S12 — The physical stacks and memory operations | S04, S11 | Relate cached TOS and data-stack memory to decoded primitives without confusing the CPU return stack. | 04, 14 | planned |
 | S13 — Arithmetic in instruction bytes | S03, S05, S12 | Explain the register effects and encodings of addition, nand, zero test, unsigned division, and multiplication. | 15 | planned |
@@ -189,22 +192,53 @@ These destinations are reference obligations. They are not extra volumes and the
 
 ## Milestone history and current coverage debt
 
-The first milestone, S1–S3, gave partial coverage of canonical Chapters 01–04. The next unit, S4–S6, expands those mappings and adds partial coverage of canonical Chapters 06–09. The CSV preserves `first_milestone_scope` as that earlier snapshot and records `current_draft_scope` separately. Current scope is cumulative; remaining scope is the debt after the six drafts, not an obsolete list of topics already taught in S4–S6.
+The first milestone, S1–S3, gave partial coverage of canonical Chapters 01–04. The second, S4–S6, expanded those mappings and added partial coverage of Chapters 06–09. The library-completion unit, S7–S10, adds partial coverage of Chapters 05 and 10–12. The CSV preserves `first_milestone_scope` and `second_milestone_scope` as those earlier snapshots; `current_draft_scope` is the cumulative ten-chapter state. Remaining scope records current debt, rather than continuing to list mechanisms now taught.
 
-| Canonical source | Current six-chapter coverage | Explicitly still owed |
+| Canonical source | Current ten-chapter coverage | Explicitly still owed |
 |---|---|---|
-| 01, stacks and words | S01's stack/cell, literal and colon contracts; S03's subtraction; S04's `over` and shuffle family | Complete legacy exercise/source reconciliation, reusable execution setup, and execution checks; byte-level implementations remain later audit work |
-| 02, emission and HERE | S02's addresses, pointer storage, `here-addr`, and `c,`; S06's multi-byte emission | Inline-literal mechanism behind the contract, full byte audit, remaining legacy exercise reconciliation and execution checks |
-| 03, logic | S03's nand, and/or, flags and complement; S04's optional XOR construction | Remaining optional named-helper/source-practice reconciliation and execution checks; full primitive encoding audit remains planned |
-| 04, return stack and subtraction | S03's subtraction; S04's return destinations, `>r`/`r>`/`r@`, balanced `over`, and call-boundary limitation | Complete emitted-size/encoding tradeoff and legacy exercise reconciliation; execution checks and full seed-byte audit |
-| 06, character classification | S05's unsigned range argument, digit/letter classifiers, `alpha?`, and exact four-byte `space?` set | Remaining original extension exercises and environment-specific checks; classifier-consumer integration and execution verification |
-| 07, comparisons from division | S05's equality, canonical flags, sign-bit extraction, and directional signed-difference bounds | Remaining original extension/representation exercises, actual seed probes, and later primitive machine-code audit; no whole-project range audit claimed |
-| 08, stack shufflers | S04's complete named shuffle family, corrected `tuck`, fixed-depth copy practice, and rejection of the old impossibility claim | Remaining pair/roll constructions and emitted-size comparisons; execution verification and full primitive audit |
-| 09, memory and cell writers | S06's `+!`, `-!`, `,4`, `,8`, corrected operand-order diagnosis, truncation, and paper decoding | Remaining narrow-writer/four-byte-reader constructions and live round-trip checks; generated-instruction uses and byte audit |
-| `010-lib.fth` | Selected definitions and contract-level mechanisms taught across S01–S06 | Syscall wrappers; immediacy and defining words; control-flow emitters; persistent/deferred words; full-library integration, source reconciliation, and execution checks |
-| `000-seed.hex0` | Selected primitive contracts support the six drafts; S04 opens the return primitives' call handling | The complete S11–S19 byte-level audit remains planned; no full-source migration or execution is claimed |
+| 01, stacks and words | S01's values/literals/colon contracts, S03's subtraction, S04's complete named shuffles | Complete legacy exercise/source reconciliation and reusable execution setup; new-example execution; full primitive audit remains later work |
+| 02, emission and HERE | S02's addresses/HERE/`c,`, S06's multi-byte writers, S08's call and inline-literal layout contracts | Full seed/compiler byte audit, remaining original practice reconciliation, and new-example execution |
+| 03, logic | S03's nand, and/or, flags and complement; S04's optional XOR | Remaining named-helper/legacy practice reconciliation and new-example execution; full primitive encoding audit |
+| 04, return stack and subtraction | S03's modular arithmetic; S04's return primitives/ownership; S10's `1+`/`1-`; S09/S10's early-exit cleanup | Full emitted-size/encoding comparison and original practice reconciliation; machine-code audit and new-example execution |
+| 05, syscalls | S07's five wrappers, register mapping, result/error/partial-transfer contracts, and `emit`/`key` limits | Complete retrying-write implementation with a stated policy, remaining original file/I/O practice, and execution; complete primitive byte audit remains S14 |
+| 06, character classification | S05's unsigned ranges and exact ASCII/whitespace sets | Remaining category/range extensions, original environment-specific checks, and new-example execution |
+| 07, comparisons | S05's equality/sign/ordering boundaries; S10 states bounded loop-count uses | Remaining original extension exercises and live seed probes; full arithmetic-primitive audit; no whole-project range audit claimed |
+| 08, shufflers | S04's named family, corrected `tuck`, inverse revisit, and fixed-depth copy | Pair/roll extensions and emitted-size comparisons; new-example execution and full primitive audit |
+| 09, memory/writers | S06's exact update order, widths/truncation and paper decoding; S08 applies writers to real instruction templates | Narrow-writer/four-byte-reader constructions and live round trips; complete source/byte audit |
+| 10, immediacy/constants | S08's dictionary/xt distinction, whole-byte immediate flag store, three defining phases, 19-byte body, relative calls, character literals and constants | Full dictionary/token-reader/colon-compiler instruction audit, remaining original practice and generated-memory inspection, and new-example execution |
+| 11, control-flow combinators | S09's nine definitions, complete conditional/countdown layouts, path traces, consumed-slot contract and exit cleanup | Remaining extension work such as `do`/`loop`, complete seed branch instruction audit, and new-example execution |
+| 12, storage/deferred words/bytes | S10's allocation/create/variable, guarded layout transition, deferred body/binding, token lifetime, byte loops, mismatch cleanup and recognizer | Complete legacy practice/capstone reconciliation and full-library load/integration execution; complete supporting seed audit |
+| `010-lib.fth` | All 63 colon definitions and 11 constant-created names have explicit draft homes below | Remaining legacy practice/source reconciliation, actual library loading and new-example execution, and full dependency byte audit; assigned homes do not certify every historical detail migrated |
+| `000-seed.hex0` | Selected contracts and mechanisms support S01–S10, including call/branch handling and literal layouts | The complete S11–S19 byte-level audit remains planned; these selected contracts are not complete source migration |
 
-The eight numbered chapter mappings and the selected library coverage stay **partial**; the complete `000-seed.hex0` audit stays **planned**. All other canonical chapters and appendices remain planned replacement coverage. The new reader/evidence/learning-path documents supply partial navigation and editorial coverage; they do not replace the complete old concept index, symbol index, or advanced profile reference. Related mechanisms do not mark Chapters 14, 15, 18, 20 or Appendix A migrated: their complete implementation and reference outcomes are separate debts. The six chapters also do not establish a reusable execution environment or verify the optional gforth route.
+The twelve numbered chapter mappings and library coverage remain **partial**; the complete `000-seed.hex0` audit remains **planned**. All other canonical chapters and appendices retain separate planned replacement coverage, including Chapters 13–20 even where a selected mechanism has been opened earlier. Reader/evidence/learning-path documents supply partial navigation and editorial coverage. No new manuscript example, syscall, library loading session, or capstone execution is claimed; the separate canonical CI result does not change that status. The optional gforth route remains unverified for this teaching edition.
+
+## Library-definition register
+
+This register accounts for every colon definition in the pinned [`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth). Each name has one primary teaching home; later reuse does not count it again. “Draft” means an actual contract/excerpt or mechanism is present, at the depth stated in the last column. It does not claim that every definition has its own full machine-code proof, independent exercise, or executed test. The source's 63 colon definitions are distinct from its 11 additional names made with `constant` and from the seed's primitives.
+
+| Home | Count | Colon definitions | Draft coverage and boundary |
+|---|---:|---|---|
+| S02 | 2 | `here-addr`, `c,` | Address/cursor contracts, exact definitions, and stack/memory trace |
+| S03 | 3 | `and`, `or`, `-` | Bitwise/modular derivations and full representative stack traces |
+| S04 | 5 | `over`, `nip`, `rot`, `2dup`, `2drop` | Shuffle compositions, two-stack traces, ownership and helper-call boundaries |
+| S05 | 14 | `digit?`, `alpha-lower?`, `alpha-upper?`, `alpha?`, `space?`, `true`, `=`, `<>`, `2^63`, `0<`, `<`, `>`, `<=`, `>=` | Domain-aware equality, sign/order and ASCII contracts; derived boundary and combined-predicate traces |
+| S06 | 4 | `+!`, `-!`, `,4`, `,8` | Complete representative update/writer traces, operand-order diagnosis, truncation and decoding |
+| S07 | 5 | `open`, `read`, `write`, `close`, `die` | All wrapper definitions and argument/result contracts; representative expansion and error/partial-I/O reasoning |
+| S08 | 9 | `immediate`, `ret,`, `push-imm64,`, `push-body,`, `constant`, `call,`, `tib`, `char`, `[char]` | Local dictionary/ISA contracts, defining phases, body and call layouts, input effects and character limits |
+| S09 | 9 | `if,`, `then,`, `else,`, `begin,`, `while,`, `repeat,`, `until,`, `again,`, `exit,` | All definitions; complete representative compile/runtime layouts; post-test and early-return contracts |
+| S10 | 12 | `1+`, `1-`, `allot`, `skip-vm-pages`, `create`, `variable`, `defer`, `is`, `token`, `bytes,`, `s,`, `bytes-eq` | Step helpers before loops; storage and dispatch layouts; token ownership/copy and byte-comparison traces; profile-specific cursor jump is an explicitly bounded depth section |
+| Total | 63 | Every colon definition in the pinned library | Draft library-level teaching coverage; source/execution debt remains above |
+
+The constant-created names have their own accountability:
+
+| Home | Names created with `constant` | What must remain distinct |
+|---|---|---|
+| S08 | `lit-xt`, `tab`, `nl`, `bl`, `lparen`, `backslash` | Captured code address versus execution; named byte values versus tokens the reader can return |
+| S09 | `branch-xt`, `0branch-xt` | Load-time capture of branch-code addresses versus generated program destinations |
+| S10 | `fetch-xt`, `execute-xt`, `defer-code-size` | Primitive addresses and the 29-byte body-size value versus the mutable dispatch-cell contents |
+
+The library's immediate-marking calls are also substantive: S08 explains what `immediate` changes; S09 explains why each control-flow helper runs while its caller is being compiled. An all-names inventory would be incomplete teaching if it omitted those load-time effects. The full seed primitives, executable mapping, decoding, token error paths, and interpreter implementation still belong to S11–S19.
 
 ## Giving the GCC story its actual ending
 

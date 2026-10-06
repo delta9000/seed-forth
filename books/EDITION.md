@@ -28,9 +28,9 @@ enough stack space and, for memory examples, a stated writable region. The
 seed does not check all those preconditions for you. Hypothetical addresses in
 memory exercises are paper examples, not a safe arbitrary-write recipe.
 
-The full seed register/layout audit, Linux executable loader, token reader
-and native call encodings are deferred behind named interfaces. Chapter 4
-opens the narrow call/return boundary needed for safe temporary borrowing. They are not
+The full seed instruction audit and Linux executable loader remain deferred
+behind named interfaces. Chapters 4 and 8–10 open the call/return, dictionary,
+input and emission contracts needed for the library-level mechanisms. They are not
 prerequisites for calculating the first three chapters' states.
 
 ## Claim ledger
@@ -45,6 +45,10 @@ prerequisites for calculating the first three chapters' states.
 | Return-stack borrowing and helper-call boundary | `000-seed.hex0`, `to_r_code`, `r_from_code`, `r_at_code`; `010-lib.fth`, `over` and shufflers | Inspected source and derived two-stack traces | Word-boundary pictures omit each completed primitive call's short-lived return destination unless explicitly shown |
 | Equality, sign extraction, bounded order and ASCII byte classes | `010-lib.fth`, `=`, `0<`, `<`, `digit?`, `alpha?`, `space?` | Inspected source and domain derivations | Shared signed-order safe domain is narrower than all cell pairs; character scope is the named byte sets |
 | Cell updates and four/eight-byte writers | `010-lib.fth`, `+!`, `-!`, `,4`, `,8` | Inspected source and derived stack/memory/byte traces | Valid non-aliasing storage assumed; four-byte output truncates a wider input |
+| Linux wrapper arguments and returned progress/errors | `000-seed.hex0`, `syscall6_code`, `emit_code`, `key_code`; `010-lib.fth`, `open`, `read`, `write`, `close`, `die` | Inspected implementation plus linked Linux interface documentation | Single raw calls; no invented retry, complete-transfer or safe-input guarantees |
+| Created words and immediate phase selection | `000-seed.hex0`, dictionary/STATE/literal routines; `010-lib.fth`, `immediate`, push-body helpers, `constant`, `call,`, character words | Inspected source and derived layout/phase traces | Minimal ISA contracts are opened before the full machine-code audit; encodable displacements and valid storage assumed |
+| Branch fixups and the countdown body | `010-lib.fth`, nine control-flow combinators; `000-seed.hex0`, branch primitives | Source-matched definitions and manual C/D/R traces | The 50-byte countdown is a derived body, not an executed compiled artifact |
+| Named data, deferred binding and byte-sequence capstone | `010-lib.fth`, `allot` through `bytes-eq` | Inspected source and derived lifetime/stack/memory traces | Bounded lengths, owned storage, valid bound execution tokens and timely copying of borrowed TIB data assumed |
 | Stack, byte and bit examples and exercise answers | Chapter and solution steps, plus document-check assertions | Derived from the stated model | An arithmetic assertion is not a seed execution |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | No seed binary was built or run in this pass |
 
