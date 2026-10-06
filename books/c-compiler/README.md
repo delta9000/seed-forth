@@ -21,8 +21,13 @@ first volume's machine-code audit before entering here.
    limits of I/O and error handling
 3. [Preprocessing regions and includes](chapters/03-preprocessing-regions-and-includes.md):
    preserve input ownership while nested files contribute to one output sink
+4. [Macro expansion and rescanning](chapters/04-macro-expansion-and-rescanning.md):
+   preserve definitions and arguments while replacement text is scanned again
+5. [Conditional preprocessing and profile extensions](chapters/05-conditionals-and-profile-extensions.md):
+   select active groups and distinguish physical, logical and diagnostic locations
 
-Each chapter has five exercises and a separate feedback companion. Try a
+These five chapters provide twenty-six exercises and separate feedback
+companions. Try a
 prediction, use a hint when a step is missing, then attempt a changed case
 without copying the worked answer. The purpose is to explain a mechanism,
 not to memorize the order of source filenames.
@@ -30,9 +35,12 @@ not to memorize the order of source filenames.
 The [first mixed return check](practice/return-check.md) revisits all three
 chapters without giving each problem a chapter title as its cue.
 
-The next unit opens macro expansion and rescanning. The
+The [second mixed check](practice/return-check-2.md) revisits replacement
+ownership, conditional state and source identity.
+
+The next unit opens tokens and reversible lookahead. The
 [coverage map](../COVERAGE.md#volume-2-a-c-compiler-in-forth) assigns the later
-macro, lexer, type, parser, emitter, assembler and bootstrap units. Planned
+lexer, type, parser, emitter, assembler and bootstrap units. Planned
 units are not chapters that already exist.
 
 ## Profile and evidence

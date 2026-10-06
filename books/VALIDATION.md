@@ -3,9 +3,9 @@
 This manuscript checkpoint, checked on 2026-10-06, contains the first
 volume's complete draft paper route: entry/motivation guides, nineteen
 teaching chapters, ninety-five exercises with separate feedback, six mixed
-return checks and a compact reference. The C volume adds three teaching
-chapters, fifteen exercises with feedback and its first four-question mixed
-check. These are not validated execution guides or a completed multi-volume
+return checks and a compact reference. The C volume adds five teaching
+chapters, twenty-six exercises with feedback and two four-question mixed
+checks. These are not validated execution guides or a completed multi-volume
 rewrite.
 
 ## Checks performed
@@ -22,15 +22,14 @@ Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
 The current document pass checks all local inline and reference-style links,
 the 74-row source inventory, the prerequisite graph of all 77 teaching units
-for cycles, 110 exercise pairs, thirty-five source blobs, all 63 library
+for cycles, 121 exercise pairs, thirty-five source blobs, all 63 library
 colon-definition excerpts and bounded mathematical assertions. It also
 checks all thirty-two primitive-reference names/body offsets and five complete
 predicted capstone-entry byte strings. The C additions check the canonical
-`tri.c` text, thirteen complete named Forth excerpts, bounded triangle/buffer
+`tri.c` text, eighteen complete named Forth excerpts, bounded triangle/buffer/include/macro/conditional
 calculations, all thirty-five arena/I/O definitions and the full 57-region /
-325-declaration preprocessor source map. That map explicitly distinguishes
-the drafted include/region mechanisms from planned macro and conditional
-explanations. The earlier units passed their smaller document passes. The exact source byte
+325-declaration preprocessor source map. All preprocessor regions now have drafted explanatory homes; the
+later lexer/evaluator/target providers retain their separate teaching scope. The earlier units passed their smaller document passes. The exact source byte
 sequence contains 1,772 bytes and has SHA-256
 `697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e`.
 That digest was calculated from source text; no executable was launched.
@@ -43,9 +42,9 @@ An independent document review compared the manuscript and solutions with
 `000-seed.hex0` and `010-lib.fth`, concentrating on operand order, memory
 widths, address/value roles, prerequisites and the scope of evidence. Findings
 were corrected before the final checkpoint. Separate C-unit reviews checked
-all fifteen exercises, changed cases, the four-question mixed check, actual
+all twenty-six exercises and changed cases, the mixed checks, actual
 profile/load boundaries, all thirty-five infrastructure definitions and the
-include-region traces. They also verified the added local prerequisite bridge.
+include-region, macro-lifetime and conditional/location traces. They also verified the added local prerequisite bridge.
 The source excerpts use plain
 fences and do not add a second literate-source authority.
 
@@ -69,10 +68,13 @@ paper draft passed [its Check run](https://github.com/delta9000/seed-forth/actio
 at `e4ebf723dbe8a251e19906aaca90454c7b51aa57`. All 57 files of that
 checkpoint were also retrieved and compared literally with the saved
 manuscript text, in addition to Git-tree scope and blob-identity checks.
-Later checkpoints have their own CI identity and must not inherit those results as a fresh run.
+The C01–C03 checkpoint passed [its Check run](https://github.com/delta9000/seed-forth/actions/runs/37428414147)
+at `b52175e665123da15bcef216a482daa471b4609f`; all 68 manuscript files
+also passed literal remote-content comparison. Later checkpoints have their
+own CI identity and must not inherit those results as a fresh run.
 
 The entry guide, motivation chapter, nineteen teaching chapters, reference,
-solutions and mixed checks, plus the first three C chapters and their feedback,
+solutions and mixed checks, plus the first five C chapters and their feedback,
 were converted from GitHub-flavored Markdown to
 HTML with Pandoc 3.1.11.1 to check parseability. A local
 headless Chromium layout check could not complete because the environment
@@ -107,9 +109,8 @@ that the prose or program is correct on every input.
 
 ## Next coherent unit
 
-The next manuscript work opens macro expansion/rescanning and conditional
-preprocessing, preserving the independent source-location and workspace
-profiles, before the lexer and parser units.
+The next manuscript work opens tokens/lookahead, type descriptors and names,
+preserving their storage and profile contracts before the parser units.
 The [coverage map](COVERAGE.md) distinguishes that planned material from
 the first volume's drafted mechanisms and its remaining verification work.
 Execution checks need a named, authorized seed profile before their status

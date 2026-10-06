@@ -279,7 +279,7 @@ Use paper state only; no compiler execution or source changes are needed. [Separ
 
 The compiler separates raw, expanded, output, and record storage; pointers and counts give each operation a local contract. Reads accumulate progress but reserve one byte of capacity. Output appends can fill their buffer, while patches rely on caller-established bounds. Arena sizes are rounded without initializing contents or individually freeing records. A line-numbered process exit is different from a recoverable error, and ignored I/O results limit what successful return tells us.
 
-The next planned chapter, C03, follows the preprocessor as it turns owned input and include spans into one expanded source stream. Keep the lifetime question with you: who preserves the bytes after a pointer to them has been saved?
+[C03: Preprocessing regions and includes](03-preprocessing-regions-and-includes.md) follows the preprocessor as it turns owned input and include spans into one expanded source stream. Keep the lifetime question with you: who preserves the bytes after a pointer to them has been saved?
 
 ### Evidence and remaining checks
 

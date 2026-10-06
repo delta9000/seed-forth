@@ -149,17 +149,20 @@ def check_documents():
             found = set(re.findall(rf"\bS{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
     c_chapters = sorted((ROOT / "c-compiler/chapters").glob("[0-9][0-9]-*.md"))
+    c_pairs = 0
     for chapter in c_chapters:
         number = int(chapter.name[:2])
         if number == 0:
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        expected = {f"C{number}-{i:02}" for i in range(1, 6)}
+        exercise_count = {5: 6, 6: 7, 7: 7}.get(number, 5)
+        c_pairs += exercise_count
+        expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
             found = set(re.findall(rf"\bC{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    pairs = 95 + 5*len([p for p in c_chapters if int(p.name[:2])])
+    pairs = 95 + c_pairs
     print(f"PASS: {len(files)} Markdown files; {checked_links} links; {pairs} exercise ID pairs")
 
 
@@ -420,7 +423,20 @@ def check_c_models(source_root):
     assert changed.count(b'\n') == 4
     assert len(b'Y\n\nX\n') == 5 and b'Y\n\nX\n'.count(b'\n') == 3
     assert len(b'tests/cc/') + len(b'a.h') + 1 == 13
-    print("PASS: canonical tri.c text and bounded C-entry/buffer/include paper calculations")
+    # C04/C05 byte/ownership examples remain bounded paper calculations.
+    assert len(b'((\x01\x00)+(\x01\x01))') == 11
+    prescan = b'  7  '
+    substitute = b' ' + prescan + b' '
+    final = b' ' + substitute + b' '
+    assert [len(prescan), len(substitute), len(final)] == [5,7,9]
+    assert 16*16 + 16 + len(prescan) == 277
+    assert 277 + len(substitute) == 284
+    assert len(b'  "a.h"  ') == 9
+    assert len(b'  1 &&  4  ') == 11
+    guarded = b'\n'*11 + b' 4 ' + b'\n'*4
+    assert len(guarded) == 18 and guarded.count(b'\n') == 15
+    assert 40-(1+1) == 38 and 2+38 == 40 and 3+38 == 41
+    print("PASS: canonical tri.c text and bounded C-entry/buffer/include/macro/conditional paper calculations")
 
 
 def check_audit_partition(source_root):

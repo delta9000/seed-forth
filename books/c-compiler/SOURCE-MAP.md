@@ -34,11 +34,15 @@ Its primary teaching homes are C03, C04 and C05. This is a separate source-line
 partition, not a machine-code byte audit.
 
 [C03](chapters/03-preprocessing-regions-and-includes.md) opens regions, sinks,
-ordinary walking, include storage, paths and parent restoration. It states
-the macro and conditional interfaces that C04/C05 must subsequently open.
-The inventory uses `drafted` for a represented region, `partial` where its
-listed later interface is still pending, and `planned` for a future teaching
-home. A planned manuscript path is a destination, not an available chapter.
+ordinary walking, include storage, paths and parent restoration. [C04](chapters/04-macro-expansion-and-rescanning.md) opens macro records,
+argument storage and rescanning; [C05](chapters/05-conditionals-and-profile-extensions.md)
+opens conditional, computed-include and location/profile mechanisms.
+All fifty-seven regions now have drafted explanatory homes. The lexer,
+expression evaluator and later target providers remain explicitly named
+external interfaces whose full implementations belong to later chapters.
+The inventory vocabulary is `drafted` for a represented region, `partial`
+where a listed teaching interface is still pending, and `planned` for a future
+home. These are manuscript states, not execution or correctness results.
 
 Some source regions serve more than one mechanism. The interface notes
 preserve those connections instead of pretending that a copied declaration
