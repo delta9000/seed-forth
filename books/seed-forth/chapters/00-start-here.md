@@ -24,7 +24,7 @@ states. Prior programming experience can help, but assembly, Forth, pointers
 and compiler construction are not assumed. Terms such as *cell*, *address*
 and *bitwise* are introduced before the exercises rely on them.
 
-The first three chapters require no installation. Their traces are worked by
+The paper route requires no installation. Their traces are worked by
 hand from a stated contract, then checked against the relevant source. They
 are not transcripts from a running seed. Code marked as a definition is real
 seed Forth syntax; a memory picture with invented addresses is an illustrative
@@ -35,6 +35,10 @@ not yet a complete execution guide. The pinned repository's build and driver
 documentation remains the operational reference. Keeping that distinction
 visible prevents a missing tool or an untested command from masquerading as
 a failure to understand the mechanism.
+
+The [motivation chapter](00-why-inspect-a-seed.md) gives a short map of the
+whole project and its trust questions. The [reference](../REFERENCE.md)
+provides quick contracts and a way back when a prerequisite is missing.
 
 ## Pick a route
 

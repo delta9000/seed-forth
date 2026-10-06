@@ -5,10 +5,20 @@ each piece. This book begins with questions you can answer from visible state:
 what is on the stack, which address is being written, and why does a sequence
 of primitive operations produce subtraction?
 
+The paper route is complete as a first draft: nineteen teaching chapters,
+ninety-five exercises with separate feedback, six mixed return checks and a
+[compact reference](REFERENCE.md). The new examples have not been executed,
+and the route still needs fresh-reader and presentation checks.
+
+## Before the first unit
+
+- [Start here](chapters/00-start-here.md): choose a route and establish the
+  evidence boundary
+- [Why inspect a seed?](chapters/00-why-inspect-a-seed.md): identify the
+  question this small system can answer, and the claims it cannot establish
+
 ## Unit one: values, memory, and bits
 
-0. [Start here](chapters/00-start-here.md): choose a route and establish the
-   evidence boundary
 1. [Values and words](chapters/01-values-and-words.md): predict what a short
    Forth program does
 2. [Addresses and bytes](chapters/02-addresses-and-bytes.md): explain a byte
@@ -46,7 +56,7 @@ of primitive operations produce subtraction?
     audit the arithmetic contracts down to register widths and instruction bytes
 
 The [byte audit ledger](AUDIT.md) accounts for all 1,772 source bytes and
-marks the remaining machine-code regions explicitly. The
+assigns every region to its audited chapter. The
 [fourth return check](practice/return-check-4.md) connects mapping, physical
 storage, register-width mistakes and arithmetic information loss.
 
@@ -62,6 +72,22 @@ storage, register-width mistakes and arithmetic information loss.
 The [fifth return check](practice/return-check-5.md) revisits stale input,
 early-bound calls, compiler-stack preservation and token-boundary failures.
 
+## Unit six: closing the seed audit
+
+17. [Inline branch operands](chapters/17-inline-branch-operands.md): follow
+    target cells and return-address ownership through both branch paths
+18. [Decimal parser and REPL](chapters/18-decimal-parser-and-repl.md): trace
+    number conversion, phase selection and the outer interpreter loop
+19. [Audit synthesis and capstone](chapters/19-audit-synthesis-and-capstone.md):
+    derive a complete new entry from input token to predicted machine bytes
+
+The [sixth return check](practice/return-check-6.md) combines branch ownership,
+numeric-token rules, dictionary layout and the limits of an evidence claim.
+The [reference](REFERENCE.md) collects all thirty-two primitive contracts,
+address conventions, library navigation and recovery routes.
+
+## Practice and scope
+
 Each chapter links to its own hints and worked solutions. The
 [return check](practice/return-check.md) mixes the three topics so that the
 chapter title no longer chooses the method for you.
@@ -72,9 +98,9 @@ with the first unit's contracts.
 The [third return check](practice/return-check-3.md) mixes I/O progress,
 compiled identity, patch locations, and borrowed-buffer lifetime.
 
-The library-level arc and machine-code audit through the native compiler
-are drafted. Execution practice and the promised complete machine-code audit remain
-outstanding. The
+The library-level arc, complete machine-code audit and integrated capstone
+are drafted. Executable practice, a tested fresh-reader setup and reader
+validation remain outstanding. The
 [learning path](../LEARNING-PATH.md) and [coverage map](../COVERAGE.md) show the
 remaining work. All implementation claims refer to the
 [pinned edition](../EDITION.md).

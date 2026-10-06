@@ -33,18 +33,23 @@ def visible_lines(text):
             yield line
 
 
-def forth_blocks(text):
+def all_fenced_blocks(text):
     language, lines = None, []
     for line in text.splitlines():
         if line.startswith("```"):
             if language is None:
                 language, lines = line[3:].strip(), []
             else:
-                if language in {"", "forth"}:
-                    yield "\n".join(lines)
+                yield language, "\n".join(lines)
                 language, lines = None, []
         elif language is not None:
             lines.append(line)
+
+
+def forth_blocks(text):
+    for language, block in all_fenced_blocks(text):
+        if language in {"", "forth"}:
+            yield block
 
 
 def slug(heading):
@@ -75,7 +80,12 @@ def check_documents():
         assert len(fences) % 2 == 0, f"Unbalanced fence: {path}"
         assert not any(re.search(r"(?:file|chunk)=", f) for f in fences), path
         prose = "\n".join(visible_lines(text))
-        for target in re.findall(r"\]\(([^\s)]+)\)", prose):
+        references = {name.strip().lower(): target for name, target in
+                      re.findall(r"^\[([^\]]+)\]:\s+(\S+)", prose, re.M)}
+        for used in re.findall(r"\[[^\]]+\]\[([^\]]+)\]", prose):
+            assert used.strip().lower() in references, f"Undefined reference {path.name}: {used}"
+        targets = re.findall(r"\]\(([^\s)]+)\)", prose) + list(references.values())
+        for target in targets:
             checked_links += 1
             url = urlsplit(target)
             if url.scheme:
@@ -96,14 +106,16 @@ def check_documents():
                          (9, "control-flow-by-patching"), (10, "storage-deferred-words-and-bytes"),
                          (11, "executable-and-entry"), (12, "physical-stacks-and-memory"),
                          (13, "arithmetic-in-instruction-bytes"), (14, "physical-io-and-exit"),
-                         (15, "dictionary-and-token-input"), (16, "native-colon-compiler")]:
+                         (15, "dictionary-and-token-input"), (16, "native-colon-compiler"),
+                         (17, "inline-branch-operands"), (18, "decimal-parser-and-repl"),
+                         (19, "audit-synthesis-and-capstone")]:
         chapter = ROOT / f"seed-forth/chapters/{number:02}-{name}.md"
         solutions = ROOT / f"seed-forth/practice/{number:02}-solutions.md"
         expected = {f"S{number}-{i:02}" for i in range(1, 6)}
         for file in [chapter, solutions]:
             found = set(re.findall(rf"\bS{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 80 exercise ID pairs")
+    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 95 exercise ID pairs")
 
 
 def check_coverage():
@@ -119,7 +131,7 @@ def check_coverage():
     assert appendices == set(range(1, 8)), appendices
     for row in rows:
         assert row["source_revision"] == REV, row["source_path"]
-        assert row["migration_status"] in {"partial", "planned"}, row
+        assert row["migration_status"] in {"draft_covered", "partial", "planned"}, row
         assert row["remaining_scope"], row["source_path"]
     print(f"PASS: {len(rows)} source inventory rows include all 50 chapters and 7 appendices")
 
@@ -252,7 +264,8 @@ def check_audit_listings(source_root):
         regions = list(csv.DictReader(stream))
     for number, filename in [(11, "executable-and-entry"), (12, "physical-stacks-and-memory"),
                               (13, "arithmetic-in-instruction-bytes"), (14, "physical-io-and-exit"),
-                              (15, "dictionary-and-token-input"), (16, "native-colon-compiler")]:
+                              (15, "dictionary-and-token-input"), (16, "native-colon-compiler"),
+                              (17, "inline-branch-operands"), (18, "decimal-parser-and-repl")]:
         path = ROOT / f"seed-forth/chapters/{number:02}-{filename}.md"
         expected = set()
         for row in regions:
@@ -317,6 +330,45 @@ def check_audit_listings(source_root):
         print(f"PASS: S{number} has {count} source-matched field/instruction rows covering {len(seen)} bytes")
 
 
+def check_reader_reference():
+    reference = (ROOT / "seed-forth/REFERENCE.md").read_text()
+    cards = []
+    for line in reference.splitlines():
+        word = re.match(r"^\| (\d+) `([^`]+)`", line)
+        body = re.search(r"\[`0x([0-9A-Fa-f]+)`\]\[([^\]]+)\]", line)
+        if word and body:
+            cards.append((int(word.group(1)), word.group(2), int(body.group(1), 16)))
+    with (ROOT / "seed-forth/source-audit.csv").open(newline="") as stream:
+        headers = [row for row in csv.DictReader(stream) if row["kind"] == "dictionary_header"]
+    assert len(cards) == len(headers) == 32
+    for number, (card, header) in enumerate(zip(cards, headers), 1):
+        assert card == (number, header["section"].split(":", 1)[1], int(header["end_offset_exclusive"], 16))
+    print("PASS: 32 primitive reference names and body offsets match the source ledger")
+
+
+def check_capstone():
+    def entry(name, start, link, value):
+        encoded = name.encode("ascii")
+        header = link.to_bytes(8, "little") + bytes([0, len(encoded)]) + encoded
+        at = start+len(header)
+        lit_call = bytes([0xE8]) + (0x4005A0-(at+5)).to_bytes(4, "little", signed=True)
+        add_call = bytes([0xE8]) + (0x4001B7-(at+13+5)).to_bytes(4, "little", signed=True)
+        return header + lit_call + value.to_bytes(8, "little") + add_call + bytes([0xC3])
+    expected = [entry("inc", 0x401000, 0x400617, 1),
+                entry("inc", 0x401000, 0x400617, 1),
+                entry("up", 0x401000, 0x400617, 2),
+                entry("inc", 0x401080, 0x400617, 1),
+                entry("bump", 0x401020, 0x401000, 7)]
+    found = []
+    for relative in ["chapters/19-audit-synthesis-and-capstone.md", "practice/19-solutions.md"]:
+        text = (ROOT / "seed-forth" / relative).read_text()
+        for language, block in all_fenced_blocks(text):
+            if language in {"text", ""} and re.fullmatch(r"(?:[0-9A-Fa-f]{2}\s*)+", block.strip()):
+                found.append(bytes.fromhex(block))
+    assert found == expected, "A displayed complete capstone entry differs from independent byte construction"
+    print("PASS: 5 complete displayed capstone entries match independent header/CALL/literal construction")
+
+
 def check_models():
     """Assertions on the written mathematical model, not on the Forth seed."""
     m = 1 << 64
@@ -363,6 +415,20 @@ def check_models():
     assert bytes((305419896 >> (8*i)) & 255 for i in range(4)) == bytes.fromhex("78 56 34 12")
     assert bytes((72623859790382856 >> (8*i)) & 255 for i in range(8)) == bytes.fromhex("08 07 06 05 04 03 02 01")
     assert ((1 << 32)+1) & ((1 << 32)-1) == 1
+    def decimal(token):
+        value = 0
+        if not token:
+            return 0, 0
+        for byte in token:
+            if not 48 <= byte <= 57:
+                return 0, 0
+            value = (value*10 + byte-48) & u
+        return value, u
+    assert decimal(b"407") == (407, u)
+    assert decimal(b"") == (0, 0) and decimal(b"1a") == (0, 0)
+    assert decimal(str(m).encode()) == (0, u)
+    assert decimal(str(u).encode()) == (u, u)
+    assert decimal(b"0007") == (7, u)
     # Definition and control-flow byte ledgers are arithmetic models too.
     assert 10 + len("seven") == 15
     assert 4+4+2+8 == 18 and 18+1 == 19
@@ -385,6 +451,8 @@ def main():
     check_models()
     check_audit_partition(args.source_root)
     check_audit_listings(args.source_root)
+    check_reader_reference()
+    check_capstone()
     print("These checks do not execute Forth, compile C, run a bootstrap, or establish reader learning.")
 
 

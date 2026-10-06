@@ -4,39 +4,50 @@ This is the editorial map for a new teaching edition in `books/`. It does not re
 
 **Edition:** `direct-gcc-overlay`, commit `7d7e1996d1753118181d43e1a413960d3a1ec24b`, inspected October 6, 2026. All source destinations in [coverage.csv](coverage.csv) are pinned to that commit. A floating branch name is not an edition identifier.
 
-## What exists, and what this map promises
+## Current result
 
-The first milestone introduced [S1 / S01: Values and words](seed-forth/chapters/01-values-and-words.md), [S2 / S02: Addresses and bytes](seed-forth/chapters/02-addresses-and-bytes.md), and [S3 / S03: Bits and subtraction](seed-forth/chapters/03-bits-and-subtraction.md). The second added [S4 / S04: Return stack and shuffles](seed-forth/chapters/04-return-stack-and-shuffles.md), [S5 / S05: Comparisons and characters](seed-forth/chapters/05-comparisons-and-characters.md), and [S6 / S06: Memory updates and writers](seed-forth/chapters/06-memory-updates-and-writers.md). The library-level arc now continues through [S7 / S07: Linux I/O contracts](seed-forth/chapters/07-linux-io-contracts.md), [S8 / S08: Defining words and phases](seed-forth/chapters/08-defining-words-and-phases.md), [S9 / S09: Control flow by patching](seed-forth/chapters/09-control-flow-by-patching.md), and [S10: Storage, deferred words, and bytes](seed-forth/chapters/10-storage-deferred-words-and-bytes.md).
+**Volume 1, Seed and Forth, has a complete draft teaching path.** Its [opening](seed-forth/chapters/00-why-inspect-a-seed.md), [route guide](seed-forth/chapters/00-start-here.md), chapters S01–S19, separate feedback, six mixed return checks and [compact reference](seed-forth/REFERENCE.md) cover the seed and its first library. The [audit ledger](seed-forth/source-audit.csv) assigns an explanation to all **76 regions / 1,772 original file bytes**, including all 32 dictionary headers. All **63 library colon definitions and 11 constant-created names** have substantive teaching homes.
 
-The first machine-code unit opened [S11: Executable and entry](seed-forth/chapters/11-executable-and-entry.md), [S12: Physical stacks and memory](seed-forth/chapters/12-physical-stacks-and-memory.md), and [S13: Arithmetic in instruction bytes](seed-forth/chapters/13-arithmetic-in-instruction-bytes.md): 375 file bytes across 20 regions, excluding their dictionary headers. The next unit adds [S14: Physical I/O and exit](seed-forth/chapters/14-physical-io-and-exit.md), [S15: Dictionary and token input](seed-forth/chapters/15-dictionary-and-token-input.md), and [S16: The native colon compiler](seed-forth/chapters/16-native-colon-compiler.md). Cumulative drafted audit explanation now covers **1,570 bytes across 72 regions**. The four remaining regions, totaling 202 bytes, belong to S17 and S18.
+The [S19 capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) derives a fresh 32-byte `inc` entry and its predicted stack/control behavior. Those are predicted **process-memory bytes**, not an observed execution or additional bytes in the original seed file. The hand-encoded native Forth colon compiler is distinct from the **C compiler written in Forth**, whose volume remains planned. Volumes 2–4 are plans, not completed manuscripts or verified chains.
 
-All sixteen chapters are **draft, source-inspected, and manually traced**. Their new examples are not execution-verified. The machine-code units also use bounded static disassembly with GNU objdump 2.44; source-decoded bytes were inspected as data, and no seed was executed. `S1`–`S16` are manuscript/exercise prefixes; `S01`–`S16` are the same units' editorial IDs here. The [start-here guide](seed-forth/chapters/00-start-here.md) provides their entrance; proposed S00 is a fuller future prologue, not another name for that guide. These drafts do not complete a volume, the canonical chapter migrations, or the full 1,772-byte seed audit. The native colon compiler in S16 is the seed's hand-encoded Forth-definition machinery. The later **C compiler written in Forth remains planned in Volume 2**; neither compiler has been executed for the new teaching examples. Separate feedback for [S14](seed-forth/practice/14-solutions.md), [S15](seed-forth/practice/15-solutions.md), and [S16](seed-forth/practice/16-solutions.md), the [fifth mixed return check](seed-forth/practice/return-check-5.md), and the [learning route](LEARNING-PATH.md) retain those evidence limits.
+Draft completeness is a teaching-coverage claim. The new examples have not been executed, the fresh-reader installation route has not been tested, and no real-reader learning validation, universal correctness proof, or security proof is claimed. The first volume supports source reading and paper derivation under its explicit Linux/x86-64, storage, input and call assumptions. It links the pinned build entry without presenting that link as a tested setup tutorial.
 
-All other teaching units below are **planned**. Volumes 2–4 are plans, not drafted books. A row assigning a source chapter to a new destination means that its mechanisms, limitations, examples, and practice have a home to be developed; it does not mean that text has migrated. In particular, an early word contract does not count as a byte audit. S13's separately identified `nand` body now supplies its drafted instruction account; S16 now supplies the native colon-compiler bodies, while parser and outer-loop internals remain planned in S18.
+## How to read coverage and evidence
 
-Root reader, edition, learning-path, and coverage documents are also drafted; navigator rows identify their limited coverage separately from chapter coverage.
+[coverage.csv](coverage.csv) is the exact source crosswalk: one row for every original prologue/numbered chapter, appendix and navigator, plus the supporting implementation/closure records. Its live columns contain current scope and actual remaining obligations. Earlier milestone snapshots stay in revision history rather than being repeated as stale scope columns.
 
-The source inventory contains all **50 numbered/prologue chapters (00–49), seven appendices (A1–A7), eight Markdown navigation/editorial files, and `playground.fth`**. The CSV has one row for each of these 66 items, plus five source/context records for the seed, library, direct-GCC closure, sorting, and historical route status. No old chapter or appendix is silently dropped. Selected source excerpts are not a substitute for the full canonical listings.
+The exact `migration_status` vocabulary is:
 
-### Reading the status fields
+- `draft_covered`: all substantive teaching mechanisms of the mapped item are represented in draft. This does not require identical wording, the original narrative order, or copying every optional exercise one-for-one
+- `partial`: some mapped teaching or reference content exists, but an explicit part remains elsewhere or unwritten
+- `planned`: a home and prerequisites are assigned, but replacement teaching content is not yet drafted
 
-- `partial`: a specific part is taught in S01–S16, or a limited navigator/editorial replacement is drafted; the CSV states both that scope and the remaining debt. It never means “whole chapter migrated”
-- `planned`: assigned a destination and prerequisites, but no replacement manuscript coverage is claimed
-- `source-inspected`: grounded in the pinned implementation or document; it is not a claim that a command ran
-- `manually traced`: predicted state changes derived from the stated contract; outputs remain predictions until the exact example is executed
-- `statically disassembled`: a tool decoded a source-matched byte range as instructions; this checks a listing, not behavior of an executed seed
-- A repository's recorded build/test result remains a **reported result**, with its original profile and lineage. Automatic canonical CI passed for the first checkpoint [`819de4d346c38623d8db741323bc92293273690a`](https://github.com/delta9000/seed-forth/commit/819de4d346c38623d8db741323bc92293273690a), [run 37416564070](https://github.com/delta9000/seed-forth/actions/runs/37416564070), and the six-chapter checkpoint [`d63b29b3f7f563bafb0de6056309e70cc0964e41`](https://github.com/delta9000/seed-forth/commit/d63b29b3f7f563bafb0de6056309e70cc0964e41), [run 37417624921](https://github.com/delta9000/seed-forth/actions/runs/37417624921), and the ten-chapter checkpoint [`bff03516d3b7202bb2ecbb0457192ec61cb9d9eb`](https://github.com/delta9000/seed-forth/commit/bff03516d3b7202bb2ecbb0457192ec61cb9d9eb), [run 37419018142](https://github.com/delta9000/seed-forth/actions/runs/37419018142). Those results concern the canonical workflow at those checkpoints, not execution of the new manuscript examples. No later CI result is asserted here; the described source edition remains pinned above
+`rewrite_concern` preserves the source issue or editorial policy behind a choice; `remaining_scope` is the authoritative list of what is still owed. These are migration states, **not test results**. `evidence_status` separately distinguishes pinned source inspection, manual derivation, static disassembly, recorded CI and the unexecuted new examples. A complete draft can still require editorial revision, execution and reader testing. Optional legacy extensions are listed as supplementary work where they remain useful; they do not turn represented core mechanisms back into unexplained ones.
 
-Coverage, technical evidence, and learning evidence are separate. No real target-reader study is claimed. Completing this map establishes an editorial plan, not correctness or demonstrated learnability.
+The inventory retains **50 prologue/numbered chapters (00–49), seven appendices (A1–A7), eight Markdown navigators/editorial files, and `playground.fth`**: 66 original items. Five additional records cover the seed, library, direct-GCC closure documentation, sorting, and historical route context, for 71 rows. No original source item is silently dropped.
+
+### Existing CI is separate evidence
+
+The following automatic canonical repository runs passed at their named rewrite checkpoints. They do not establish execution of the new teaching examples, a fresh-reader setup test, or results for later unlisted commits. The described implementation remains pinned to the edition above.
+
+| Checkpoint | Confirmed canonical run |
+|---|---|
+| `819de4d346c38623d8db741323bc92293273690a` | [37416564070](https://github.com/delta9000/seed-forth/actions/runs/37416564070) |
+| `d63b29b3f7f563bafb0de6056309e70cc0964e41` | [37417624921](https://github.com/delta9000/seed-forth/actions/runs/37417624921) |
+| `bff03516d3b7202bb2ecbb0457192ec61cb9d9eb` | [37419018142](https://github.com/delta9000/seed-forth/actions/runs/37419018142) |
+| `705e3f73a5f74c636b0f016d1e8f840acf6d747a` | [37420513780](https://github.com/delta9000/seed-forth/actions/runs/37420513780) |
+| `030bb0c8e5c8805f889bc00c3f8bb165e3631bbf` | [37422538095](https://github.com/delta9000/seed-forth/actions/runs/37422538095) |
+
+Native instruction listings were also checked by bounded GNU objdump 2.44 disassembly of source-decoded bytes. A static decoder reads the byte stream as data; that observation is not a running-seed trace. Manual predictions remain predictions until their exact inputs and environment are executed and recorded.
 
 ## Four books with independent outcomes
 
-1. **Seed and Forth (`seed-forth`)**: begin with small stack programs, make bytes and state visible, construct a useful library, and then open the full 1,772-byte seed. The intended finish is a reader-built Forth capstone plus a complete source/byte audit and a precise statement of the trusted Linux/CPU/input boundary
+1. **Seed and Forth (`seed-forth`)**: begin with small stack programs, make bytes and state visible, construct a useful library, and then open the full 1,772-byte seed. The draft now finishes with a reader-built paper capstone, complete source/byte explanations and a precise statement of the trusted Linux/CPU/input boundary
 2. **A C Compiler in Forth (`c-compiler`)**: enter with a pinned seed/library or an equivalent refresher; follow one C program through buffers, preprocessing, tokens, types, emitted instructions, and execution. Finish the legacy compiler/M2-Planet comparison, the Forth assembler handoff, and a distinctly labeled direct TinyCC extension
 3. **From Compiler to Closed Toolchain (`gcc-toolchain`)**: enter with the compiler mechanisms and a new direct-GCC target contract. Build the conceptual path through objects, ABI, runtime, generators, `cc1`, binutils, hosted musl/libgcc, and the recorded GCC 4.0.4 fixed point
 4. **Kernels and Linux (`kernels-linux`)**: begin from an explicitly identified direct-chain toolchain. The proposed finish is a newly evidenced kernel/Linux path with a chosen user-visible acceptance criterion. The current direct-GCC-to-Linux outcome is **pending**, and the technical route and scope still require their own pinned source inventory
 
-An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Those entry packages are planned; a directory name does not supply them. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
+An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. The later volumes' entry packages are planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
 
 ## Learning order is not source order
 
@@ -46,7 +57,7 @@ The source files remain authoritative and unchanged. The new order follows what 
 - Bit patterns and wraparound precede signed interpretations and range checks. A small-width drawing must say it illustrates a 64-bit operation; it must not silently replace the machine's width
 - Subtraction can be derived without first explaining the CPU return stack. `over` and `rot` wait for a proper two-stack trace
 - A word's operational contract may be used before its implementation is opened. Every such deferral names the later unit that discharges it
-- Dictionary-emission idioms precede the full ELF/encoding audit. S08 supplies the small header, immediate-dispatch, CALL, literal, and push-body contracts it uses locally; the later machine-code pass must still derive and audit the full seed
+- Dictionary-emission idioms precede the full ELF/encoding audit. S08 supplies the small header, immediate-dispatch, CALL, literal, and push-body contracts it uses locally; the machine-code pass then derives the complete seed account
 - The compiler's internal data stack/registers, generated program's registers, private TinyCC ABI, and direct-GCC System V ABI are distinct machines and profiles
 - In the toolchain book, scalar argument planning and floating representation move before the variadic/aggregate cases that use them. Ranked arrays stay with type identity; archive order stays with linking
 
@@ -65,11 +76,14 @@ The numbering below is an editorial route, not a requirement to alter file load 
 | S03/S04/S06/S08 → S09 | Keep compile-time fixups separate from runtime data and owned return-stack temporaries | S09's conditionals/loops and `exit,` cleanup use S04's ownership discipline |
 | S02/S04/S05/S06/S08/S09 → S10 | Track storage, bounded counts, input lifetime, generated bodies, and both stacks | S10 defines `1+`/`1-` before token/copy loops, then integrates named data, deferred dispatch, and byte comparison; the paper capstone needs no printer |
 | S02/S06/S08 → S11 | Distinguish bytes/addresses, little-endian fields, xts and relative calls | S11 supplies the instruction key, ELF mapping and startup; the later physical audit uses its actual coordinate system |
-| S04/S11 → S12 | Preserve logical stack and call ownership while tracking physical registers/memory | S12 derives the cached-TOS/dummy invariant and accounts for ten bodies; dictionary headers wait for S15 |
-| S03/S05/S12 → S13 | Track modular values, flags/comparison limits, and cached-TOS state | S13 explains five arithmetic bodies, partial-byte writes, unsigned DIV and low-half IMUL; headers remain S15's responsibility |
+| S04/S11 → S12 | Preserve logical stack and call ownership while tracking physical registers/memory | S12 derives the cached-TOS/dummy invariant and accounts for ten bodies; dictionary headers are opened separately in S15 |
+| S03/S05/S12 → S13 | Track modular values, flags/comparison limits, and cached-TOS state | S13 explains five arithmetic bodies, partial-byte writes, unsigned DIV and low-half IMUL; headers are S15's separate responsibility |
 | S07/S12/S13 → S14 | Track kernel-result meaning, cached-stack restoration, partial-register writes and ZF | S14 opens all I/O/exit bodies without promoting returned stack shape into successful I/O |
-| S08/S10/S12/S14 → S15 | Keep header identity, borrowed bytes, physical stack state and real input/error limits separate | S15 reconstructs every header and opens all eleven dictionary/input/error bodies/helpers; later REPL use remains a stated interface |
-| S08/S09/S10/S13/S15 → S16 | Distinguish compile/runtime state, copied names, operand widths, input results and xts | S16 opens the native colon/literal compiler and introduces DF=0 locally for REP MOVSB; decimal parsing remains an explicit S18 contract |
+| S08/S10/S12/S14 → S15 | Keep header identity, borrowed bytes, physical stack state and real input/error limits separate | S15 reconstructs every header and opens all eleven dictionary/input/error bodies/helpers; S18 subsequently opens the complete REPL use |
+| S08/S09/S10/S13/S15 → S16 | Distinguish compile/runtime state, copied names, operand widths, input results and xts | S16 opens the native colon/literal compiler and introduces DF=0 locally for REP MOVSB; S18 subsequently opens the decimal-parser contract |
+| S09/S12/S13/S16 → S17 | Separate branch call targets, inline program targets, saved flags and owner state | S17 opens all 34 branch bytes and restores the exact pre-call return-stack shape |
+| S13/S14/S15/S16/S17 → S18 | Combine byte grammar, raw-input limits, lookup and native compilation | S18 opens all 168 decimal-parser/REPL bytes, including failure and EOF behavior |
+| S11–S18 → S19 | Reconcile library contracts and every assigned native region | S19 adds no file bytes; it derives a fresh runtime-memory word and a bounded audit conclusion |
 | Seed → C compiler | Read the recurring C input; distinguish a C lvalue/type from a Forth value and distinguish builder from target | C01 refresher; C07/C13 make representation and lvalues explicit |
 | Compiler → toolchain | Name source/object/executable, symbol/relocation, ABI, host/builder/target, and profile | G01–G05 provide a new contract and a complete numerical two-object example |
 | Scalar → variadic/record ABI | Track independent register banks, stack slots, alignment, snapshots, and result lifetime | G04, G10, G12, G15; X87 is deferred explicitly until G15 |
@@ -80,31 +94,31 @@ Exercises inherit these edges. For example, a write-all implementation waits unt
 
 ## Destination ledger
 
-IDs below are stable editorial destinations. Except S01–S16, they are not existing chapter filenames. `entry` means the stated volume entrance; `or equivalent entry bridge` requires an explicit diagnostic/refresher, not an unexplained prerequisite. Semicolon-separated prerequisites are conjunctive. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
+IDs below are stable editorial destinations. S00–S19 now have drafted manuscripts; all C/G/K units remain planned destinations rather than existing chapter filenames. `entry` means the stated volume entrance; `or equivalent entry bridge` requires an explicit diagnostic/refresher, not an unexplained prerequisite. Semicolon-separated prerequisites are conjunctive. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
 
 ### Volume 1: Seed and Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
 |---|---|---|---|---|
-| S00 — Why inspect a seed? | entry | Distinguish an inspectable implementation, a compared artifact, and a correctness claim. | 00 | planned |
-| S01 — Values and words | entry | Predict a data stack; read stack effects; use explicit literals and a colon-definition contract. | 01 | draft; partial source coverage |
-| S02 — Addresses and bytes | S01 | Distinguish a value, its address, and a stored pointer; trace a byte write and HERE update. | 02 | draft; partial source coverage |
-| S03 — Bits and subtraction | S01 | Derive and/or from cell-wide nand; trace canonical flags, complement, and subtraction modulo the cell width. | 01, 03, 04 | draft; partial source coverage |
-| S04 — Two stacks and reusable shuffles | S01, S03 | Trace over, rot, nip, 2dup, and 2drop with owned return-stack temporaries; explain the helper-call boundary and optional XOR. | 01, 03, 04, 08 | draft; partial source coverage |
-| S05 — Comparisons and character classes | S03, S04 | Distinguish equality, sign extraction, bounded signed ordering, and ASCII classifiers, including the over-dependent space? trace. | 06, 07 | draft; partial source coverage |
-| S06 — Memory updates and little-endian writers | S02, S03, S04 | Trace +!, -!, ,4, and ,8 with exact operand order, truncation, and byte/cursor invariants. | 01, 02, 09 | draft; partial source coverage |
-| S07 — Calling Linux through a contract | S02, S03, S04, S05 | Trace Linux wrapper arguments and raw counts/errors; distinguish requested work, partial progress, and tiny-I/O limits. | 05 | draft; partial source coverage |
-| S08 — Words that create words | S02, S06 | Separate three defining-word phases using locally supplied header/ISA contracts; explain immediate metadata, calls, and character literals. | 01, 02, 09, 10 | draft; partial source coverage |
-| S09 — Control flow by remembered addresses | S03, S04, S06, S08 | Trace all nine control-flow combinators with separate compile/runtime states and owned-temporary cleanup at early exits. | 04, 11, 19, A4 | draft; partial source coverage |
-| S10 — Persistent storage and a classifier | S02, S04, S05, S06, S08, S09 | Introduce 1+/1- before loops; trace named storage, deferred dispatch, borrowed tokens, copying, and a byte-recognizer capstone. | 04, 07, 11, 12 | draft; partial source coverage |
-| S11 — From file bytes to an entry point | S02, S06, S08 | Decode both ELF headers and all startup instructions: five exact regions, 186 file bytes, under explicit loader/ISA assumptions. | 13 | draft; partial source coverage |
-| S12 — The physical stacks and memory operations | S04, S11 | Reconstruct cached TOS, deeper cells and dummy state; account for ten stack/memory bodies totaling 119 bytes, excluding headers. | 01, 04, 08, 14 | draft; partial source coverage |
-| S13 — Arithmetic in instruction bytes | S03, S05, S12 | Account for five arithmetic/logic bodies totaling 70 bytes, distinguishing flags, byte writes, unsigned division and retained product bits. | 01, 03, 04, 07, 15 | draft; partial source coverage |
-| S14 — The physical I/O boundary | S07, S12, S13 | Explain four I/O/exit bodies, 142 bytes, including result-independent cleanup, stale-input and NUL/EOF limits, and nonreturning exit. | 05, 16 | draft; partial source coverage |
-| S15 — Dictionary identity and token input | S08, S10, S12, S14 | Reconstruct all 32 headers and eleven dictionary/input/error bodies/helpers: 43 regions, 816 bytes, with borrowed-token and stale-state boundaries. | 02, 06, 10, 12, 14, 15, 16, 17, 18, 19 | draft; partial source coverage |
-| S16 — The native Forth colon compiler | S08, S09, S10, S13, S15 | Explain five native Forth colon-compiler bodies/helpers, 237 bytes, and derive a complete generated entry without confusing it with the later C compiler. | 02, 10, 12, 18, A4 | draft; partial source coverage |
-| S17 — Inline operands and branch returns | S09, S12, S16 | Show return-stack state before and after an inline cell or branch target is consumed. | 11, 19 | planned |
-| S18 — Closing the parser and interpreter loop | S13, S15, S16, S17 | Trace decimal parsing, immediate dispatch, and the REPL with the seed's actual number-input rules. | 20 | planned |
-| S19 — Seed audit and reader-built capstone | S10, S11, S12, S13, S14, S15, S16, S17, S18 | Account for the complete seed and library mechanisms, trace one reader-built word, and state remaining trust assumptions. | 00, 20, A1 | planned |
+| S00 — Why inspect a seed? | entry | Explain the seed-local outcome, public provenance and trust/evidence boundaries; distinguish the later planned volumes. | 00 | drafted |
+| S01 — Values and words | entry | Predict a data stack; read stack effects; use explicit literals and a colon-definition contract. | 01 | drafted |
+| S02 — Addresses and bytes | S01 | Distinguish a value, its address, and a stored pointer; trace a byte write and HERE update. | 02 | drafted |
+| S03 — Bits and subtraction | S01 | Derive and/or from cell-wide nand; trace canonical flags, complement, and subtraction modulo the cell width. | 01, 03, 04 | drafted |
+| S04 — Two stacks and reusable shuffles | S01, S03 | Trace over, rot, nip, 2dup, and 2drop with owned return-stack temporaries; explain the helper-call boundary and optional XOR. | 01, 03, 04, 08 | drafted |
+| S05 — Comparisons and character classes | S03, S04 | Distinguish equality, sign extraction, bounded signed ordering, and ASCII classifiers, including the over-dependent space? trace. | 06, 07 | drafted |
+| S06 — Memory updates and little-endian writers | S02, S03, S04 | Trace +!, -!, ,4, and ,8 with exact operand order, truncation, and byte/cursor invariants. | 01, 02, 09 | drafted |
+| S07 — Calling Linux through a contract | S02, S03, S04, S05 | Trace Linux wrapper arguments and raw counts/errors; distinguish requested work, partial progress, and tiny-I/O limits. | 05 | drafted |
+| S08 — Words that create words | S02, S06 | Separate three defining-word phases using locally supplied header/ISA contracts; explain immediate metadata, calls, and character literals. | 01, 02, 09, 10 | drafted |
+| S09 — Control flow by remembered addresses | S03, S04, S06, S08 | Trace all nine control-flow combinators with separate compile/runtime states and owned-temporary cleanup at early exits. | 04, 11, 19, A4 | drafted |
+| S10 — Persistent storage and a classifier | S02, S04, S05, S06, S08, S09 | Introduce 1+/1- before loops; trace named storage, deferred dispatch, borrowed tokens, copying, and a byte-recognizer capstone. | 04, 07, 11, 12, A2 | drafted |
+| S11 — From file bytes to an entry point | S02, S06, S08 | Decode both ELF headers and all startup instructions: five exact regions, 186 file bytes, under explicit loader/ISA assumptions. | 13, A1, A2 | drafted |
+| S12 — The physical stacks and memory operations | S04, S11 | Reconstruct cached TOS, deeper cells and dummy state; account for ten stack/memory bodies totaling 119 bytes, excluding headers. | 01, 04, 08, 14, A1, A2 | drafted |
+| S13 — Arithmetic in instruction bytes | S03, S05, S12 | Account for five arithmetic/logic bodies totaling 70 bytes, distinguishing flags, byte writes, unsigned division and retained product bits. | 01, 03, 04, 07, 15, A1 | drafted |
+| S14 — The physical I/O boundary | S07, S12, S13 | Explain four I/O/exit bodies, 142 bytes, including result-independent cleanup, stale-input and NUL/EOF limits, and nonreturning exit. | 05, 16, A1, A7 | drafted |
+| S15 — Dictionary identity and token input | S08, S10, S12, S14 | Reconstruct all 32 headers and eleven dictionary/input/error bodies/helpers: 43 regions, 816 bytes, with borrowed-token and stale-state boundaries. | 02, 06, 10, 12, 14, 15, 16, 17, 18, 19, A1, A7 | drafted |
+| S16 — The native Forth colon compiler | S08, S09, S10, S13, S15 | Explain five native Forth colon-compiler bodies/helpers, 237 bytes, and derive a complete generated entry without confusing it with the later C compiler. | 02, 10, 12, 18, A1, A4 | drafted |
+| S17 — Inline operands and branch returns | S09, S12, S13, S16 | Explain both branch bodies/34 bytes, including original-flag consumption, inline destinations and post-RET ownership. | 11, 19, A1 | drafted |
+| S18 — Closing the parser and interpreter loop | S13, S14, S15, S16, S17 | Explain all 168 parser/REPL bytes: bounded byte grammar, wrapped values, separate flags, dispatch, continuation and exit limits. | 20, A1, A7 | drafted |
+| S19 — Seed audit and reader-built capstone | S11, S12, S13, S14, S15, S16, S17, S18 | Reconcile all 76 regions/1772 file bytes; derive the 32-byte inc runtime entry and state the remaining evidence and trust boundaries. | 00, 20, A1 | drafted |
 
 ### Volume 2: A C Compiler in Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -128,7 +142,7 @@ IDs below are stable editorial destinations. Except S01–S16, they are not exis
 | C17 — Switches, labels, and nonlocal control | C16 | Trace switch dispatch and goto without confusing their saved control state with a loop's. | 30 | planned |
 | C18 — Functions and call-frame accounting | C08, C10, C14, C15, C17 | Trace parameters, nested calls, and frames under the named restricted calling convention. | 31 | planned |
 | C19 — Translation units and process entry | C11, C18 | Connect declarations, globals, prototypes, function definitions, and the entry stub. | 31 | planned |
-| C20 — The complete compiler and Stage-A comparison | C19 | Follow the complete byte path and identify the exact M1 outputs and inputs compared by Stage A. | 32, A3 | planned |
+| C20 — The complete compiler and Stage-A comparison | C19 | Follow the complete byte path and identify the exact M1 outputs and inputs compared by Stage A. | 00, 32, A3 | planned |
 | C21 — Assembler input and expansion | C02, C06, S10 | Expand M1 input and account for labels, fields, strings, and sigils. | 33 | planned |
 | C22 — Two-pass assembly and bootstrap handoff | C20, C21 | Explain why both passes agree on addresses, then identify the source-built assembler handoff. | 33, A3 | planned |
 | C23 — The direct TinyCC profile | C15, C18, C20 | Separate LP64 object layout and private stack calls from the legacy compiler and System V target. | 34 | planned |
@@ -181,13 +195,13 @@ These destinations are reference obligations. They are not extra volumes and the
 
 | Existing source | New destination | Preservation and revision obligation |
 |---|---|---|
-| `book/A1-32-seed-primitives.md` | R-primitives; S19 | Keep all primitive contracts, code/use sites, internal helpers, and byte budget with Volume 1 |
-| `book/A2-memory-map.md` | R-memory | Split by seed, compiler scratch, generated program, native, and direct-GCC ownership/lifetime |
+| `book/A1-32-seed-primitives.md` | R-primitives; S11–S19 | Draft-covered: REFERENCE.md plus all native body/helper explanations and the byte budget |
+| `book/A2-memory-map.md` | S10–S12; R-memory | Seed map drafted; compiler scratch, generated program, native and direct-GCC views remain planned |
 | `book/A3-reproducibility-chain.md` | R-lineage; C20/C22/C24; G25; K08 | Preserve every existing lineage and comparison; add the direct-GCC ending separately; keep kernel lineage pending |
 | `book/A4-worked-exercises.md` | R-solutions; S09/S16/C12 | Retain the three existing worked mechanisms, repair their premises/setup, and distribute expanded feedback by objective |
 | `book/A5-further-reading.md` | R-reading | Preserve purpose-based routes with durable primary links and explicit versions |
 | `book/A6-c-subset.md` | R-c-subsets | Give legacy, native TinyCC, and direct-GCC their own accepted/rejected/bounded contracts |
-| `book/A7-error-codes.md` | R-errors | Preserve phase/profile-scoped diagnostics and map a failure back to the responsible check |
+| `book/A7-error-codes.md` | S14/S15/S18; R-errors | Seed diagnostics drafted; later compiler/profile/assembler tables remain planned |
 | `book/CONCEPTS.md` | N-concepts | Replace stale source-order graph with first-use, revisit, and actual prerequisite edges |
 | `book/GLOSSARY.md` | N-glossary | Synchronize definitions with the profile and chapter that teaches them |
 | `book/LEARNING_STORY_PLAN.md` | N-editorial | Carry forward useful outcome/trace goals; do not import obsolete rollout statuses |
@@ -198,57 +212,52 @@ These destinations are reference obligations. They are not extra volumes and the
 | `book/where-this-fits.md` | S00; R-lineage | Preserve historical context while narrowing correctness and lineage claims |
 | `book/playground.fth` | R-playground | Retain by pinned link as an optional compatibility profile, with exact limitations |
 
-## Milestone history and current coverage debt
+## What is covered, and what remains
 
-The milestones are cumulative: S1–S3 established values/bytes/bits; S4–S6 added shuffles, comparisons and writers; S7–S10 reached the library paper capstone; S11–S13 opened 375 seed bytes; S14–S16 add physical I/O, all dictionary headers and input helpers, and the native colon compiler. The CSV preserves `first_milestone_scope` through `fourth_milestone_scope` as earlier snapshots. `current_draft_scope` records the sixteen-chapter state. Earlier snapshot fields are history, not current outstanding-work lists.
-
-| Canonical source | Current coverage | Explicitly still owed |
+| Source group | Migration state | Boundary |
 |---|---|---|
-| 01, stacks and words | S01's contracts, S03's subtraction, S04's shuffles, and later physical/defining mechanisms | Complete original practice reconciliation, usable execution setup and new-example execution; integrated audit closure |
-| 02, emission and HERE | S02/S06's memory writers; S08's call/literal models; S15/S16's native cursor, comma and literal machinery | Remaining original practice reconciliation and new-example execution; final parser/REPL and integrated closure |
-| 03, logic | S03's derivations, S04's XOR, and S13's physical arithmetic/logic bodies | Remaining helper/legacy practice reconciliation and new-example execution; integration |
-| 04, return stack and subtraction | S03/S04's arithmetic/ownership, S10's step helpers, S12's physical primitives and later cleanup examples | Remaining emitted-size/extension practice and new-example execution; integration |
-| 05, syscalls | S07's wrapper contracts plus S14's complete four-body physical account | Complete retrying-write implementation under a stated policy, remaining original I/O practice and actual execution |
-| 06, character classification | S05's ranges and exact byte categories; S15's related token-whitespace boundary | Remaining category/range extensions and original environment-specific checks; new-example execution |
-| 07, comparisons | S05's equality/sign/order limits, S10's bounded uses, S13's physical arithmetic account | Remaining extension/live-probe practice and new-example execution; no whole-project range audit |
-| 08, shufflers | S04's named shuffles and depth/balance reasoning; S12's constituent native bodies | Pair/roll extensions and size comparisons; new-example execution and integration |
-| 09, memory/writers | S06's exact widths/operand order; S08/S15/S16's physical emission applications | Narrow writer/four-byte reader constructions and live round trips; integration |
-| 10, immediacy/constants | S08's phases/templates/metadata plus S15 headers and S16 native definition/literal machinery | Remaining original practice and generated-memory inspection; S18 outer-loop audit and new-example execution |
-| 11, control-flow combinators | S09's nine combinators and path traces; S10 cleanup reuse; S16 shows preservation of compiling prefixes | Remaining extensions such as `do`/`loop`; S17's two native branch bodies; new-example execution |
-| 12, storage/deferred words/bytes | S10's storage/dispatch/token/copy/comparison capstone; S15/S16 open the supporting input and definition machinery | Remaining legacy practice/capstone reconciliation; library integration and new-example execution; S17/S18 closure |
-| 13, ELF and entry | S11's complete 186-byte header/startup account | Remaining legacy extension/live-loading checks and integration; source coverage is not whole-system correctness |
-| 14, stack primitives | S12's 119 body bytes plus S15's 123 corresponding header bytes | Remaining primitive-extension/size practice, integration and new-example execution |
-| 15, arithmetic and logic | S13's 70 body bytes plus S15's 59 corresponding header bytes | Remaining extension/assembler experiments, integration and new-example execution |
-| 16, I/O primitives | S14's 142 body bytes plus S15's 58 corresponding header bytes | Remaining original practice and actual I/O/error experiments; global integration |
-| 17, dictionary | S15's complete word/helper account and all native headers, including lookup, token lifetime, reporting and failure limits | Remaining original extension practice; S18's full consumer-loop audit; integration and new-example execution |
-| 18, colon compiler | S16's five bodies/helpers, 237 bytes, plus their 50 header bytes in S15; generated-entry derivation | S18's actual decimal parsing/outer-loop audit; remaining original practice, integration and new-example execution |
-| 19, branch bodies | Only the two headers, 33 bytes, are byte-accounted by S15; S09 supplies an earlier branch interface model | Both native branch bodies, 34 bytes, remain planned S17; their encoding and integrated execution are not credited yet |
-| `010-lib.fth` | All 63 colon definitions and 11 created constants have draft homes; S11–S16 open most supporting native mechanisms | Remaining practice reconciliation; actual library loading and new-example execution; S17/S18 and S19 integrated closure |
-| `000-seed.hex0` | 72 of 76 regions, 1,570 of 1,772 file bytes, have drafted explanations; all headers are included exactly once in S15 | Four regions/202 bytes remain: S17 branches 34, S18 decimal parser/REPL 168; S19 reconciliation and new-example execution remain unfinished |
+| Canonical Chapters 01–20 | `draft_covered` | Every substantive seed/library mechanism is represented across S01–S19; optional legacy extensions are supplementary, and new examples remain unexecuted |
+| Canonical prologue 00 | `partial` | S00 preserves seed motivation, provenance and trust boundaries; the original C/Fibonacci demonstration moves to planned C20 |
+| `000-seed.hex0` and `010-lib.fth` | `draft_covered` | Every seed region and every library definition has a teaching home; execution and reader validation remain separate |
+| Appendix A1 | `draft_covered` | [REFERENCE.md](seed-forth/REFERENCE.md), body/helper explanations and S19 supply the complete seed-contract reference and byte budget |
+| Appendices A2–A5 and A7 | `partial` | Seed-side material is represented; exact later-volume and supplementary obligations are retained below and in the CSV |
+| Chapters 21–49 and Appendix A6 | `planned` | C compiler, assembler, TinyCC and direct-GCC teaching still needs the planned later-volume manuscripts |
+| Navigation/editorial files | `partial` | First-volume routes and references exist; complete later-volume navigation, glossary, bibliography and generated index do not |
+| `playground.fth` | `planned` | Retained as a pinned optional compatibility profile, not promoted into a tested seed execution route |
 
-The nineteen numbered chapter mappings, library coverage, and seed-file coverage remain **partial**. Canonical Chapter 20 remains planned for its parser/REPL audit even though S16 uses a named decimal-parser contract. Other chapters and appendices retain their separate planned replacement coverage. Static disassembly and manual traces do not establish an executed example, a formal proof, a successful complete-seed audit, or a reader learning outcome. Canonical CI results do not change the new examples' status. The optional gforth route remains unverified for this teaching edition.
+The remaining first-volume release work is explicit: test the fresh-reader setup route in the named profile; execute and record the new examples and relevant boundary cases if authorized; conduct target-reader review; and revise from those observations. These are real unfinished verification and usability obligations, not missing byte-region ownership. This map does not authorize builds or tests by itself.
 
-## Seed byte-audit boundary
+The old appendices cross volume boundaries:
 
-The [audit guide](seed-forth/AUDIT.md) and [exact source-audit ledger](seed-forth/source-audit.csv) partition the pinned file into 76 nonoverlapping regions totaling 1,772 bytes. This summary excludes virtual zero-fill, generated dictionary entries, stacks and sysvars from the file-byte count.
+- **A2 memory map:** the seed view is in REFERENCE.md and S10–S12; compiler scratch, native TinyCC storage, direct-GCC allocation and generated-program heaps remain R-memory work for Volumes 2–3
+- **A3 reproducibility:** seed identity/trust distinctions and the inspected build entry are present; actual M2/assembler/pnut/TinyCC recipes and comparisons remain C20/C22/C24, direct-GCC closure G25, and kernel/route lineage K08/R-lineage
+- **A4 worked exercises:** seed return/exit mechanisms and new feedback are present; the C precedence exercise remains C12/R-solutions. The old worked variants are not all copied one-for-one
+- **A5 reading:** seed chapters cite the relevant implementation, ISA, ELF and Linux sources; the full purpose-based Forth/related-project bibliography and compiler/bootstrap/ABI reading routes remain R-reading
+- **A7 diagnostics:** seed reporting, token/numeric failures, continuation and EOF are in S14/S15/S18 and REFERENCE.md; compiler/native/direct-GCC/assembler diagnostic tables remain later R-errors work
 
-| Unit | Owned regions | File bytes | Current explanation status |
+No kernel/Linux completion follows from finishing the seed manuscript. The historical ladder and current direct-GCC route remain distinct, and the current direct-GCC-to-Linux outcome is still pending.
+
+## Complete seed file-byte account
+
+The [audit guide](seed-forth/AUDIT.md) and [exact source ledger](seed-forth/source-audit.csv) partition the pinned file into **76 nonoverlapping regions totaling 1,772 bytes**. Every region now has a drafted explanation. The partition excludes zero-filled mapped memory, runtime dictionary entries, stack storage and sysvars from the file-byte count.
+
+| Unit | Owned regions | File bytes | Explanation status |
 |---|---:|---:|---|
-| S11 | 5: ELF header, program header, and three startup sections | 186 | Drafted |
-| S12 | 10: stack and memory primitive bodies only | 119 | Drafted |
-| S13 | 5: arithmetic and logic primitive bodies only | 70 | Drafted |
-| S14 | 4: I/O and exit primitive bodies only | 142 | Drafted |
-| S15 | 43: all 32 headers (421 bytes) plus eleven dictionary/input/error bodies/helpers (395 bytes) | 816 | Drafted |
+| S11 | 5: both ELF headers and three startup sections | 186 | Drafted |
+| S12 | 10: stack and memory primitive bodies | 119 | Drafted |
+| S13 | 5: arithmetic and logic primitive bodies | 70 | Drafted |
+| S14 | 4: I/O and exit primitive bodies | 142 | Drafted |
+| S15 | 43: all 32 headers/421 bytes and eleven dictionary/input/error bodies/helpers/395 bytes | 816 | Drafted |
 | S16 | 5: native colon/semicolon/literal bodies and call-emission helper | 237 | Drafted |
-| S17 | 2: branch bodies | 34 | Planned |
-| S18 | 2: decimal parser and REPL | 168 | Planned |
-| Total | 76 | 1,772 | 1,570 drafted; 202 planned |
+| S17 | 2: branch bodies | 34 | Drafted |
+| S18 | 2: decimal parser and REPL | 168 | Drafted |
+| Total | 76 | 1,772 | All regions draft-covered |
 
-The first audit milestone's 375 bytes did not include the 123 stack/memory and 59 arithmetic header bytes counted by the original chapters' running total of 557. S15 now explains those 182 bytes as part of its complete 421-byte header account. They are added once, through S15, rather than retroactively inserted into S12 or S13. The same rule keeps I/O, colon-compiler and branch headers separate from their bodies.
+An independent category sum gives the same result: ELF headers 120, startup 66, dictionary headers 421, primitive bodies 760, six unnamed helpers 322, and REPL 83. Thus metadata totals 541 bytes and instruction regions 1,231. The CSV groups the REPL under its `helper` kind, while S19 names it separately; these are classification conventions, not an extra routine or a missing one.
 
-S15's non-header partition is explicit: `find`, `here`, comma, `execute`, `state`, `latest` and tick total 196 bytes; `read_word`, `read_char`, `report_token` and `fatal_token` total 199. Together with 421 header bytes that makes 816. S16's five bodies/helpers total `82+35+38+18+64=237`. Its generated 33-byte `lift` example belongs to process memory beyond the source file and does not increase the static audit count.
+Header ownership never moves into an earlier body chapter: S15 counts each of the 421 header bytes once. S17's 34 bytes and S18's 168 bytes close the four regions that were pending at the preceding checkpoint. S19 adds **no** original file-byte ownership. Its `inc` entry is a checked prediction of 32 newly generated process-memory bytes starting at `0x401000`, beyond the original file-backed end.
 
-The listings were checked against source-decoded bytes and GNU objdump 2.44 static disassembly. The byte stream was inspected as data; no seed behavior was executed. Drafted byte coverage measures scope, not a percentage of correctness. S19 will reconcile the complete ledger with an integrated word after S17/S18 exist. S16's compiler writes native bodies for Forth definitions; it is not the later C compiler written in Forth.
+Complete drafted byte coverage makes every region inspectable. It does not certify all arguments, inputs, tool observations, hardware behavior or system assumptions. Execution, reproducibility, semantic correctness, security and learner performance each need their own evidence.
 
 ## Library-definition register
 
@@ -275,7 +284,7 @@ The constant-created names have their own accountability:
 | S09 | `branch-xt`, `0branch-xt` | Load-time capture of branch-code addresses versus generated program destinations |
 | S10 | `fetch-xt`, `execute-xt`, `defer-code-size` | Primitive addresses and the 29-byte body-size value versus the mutable dispatch-cell contents |
 
-The library's immediate-marking calls are also substantive: S08 explains what `immediate` changes; S09 explains why each control-flow helper runs while its caller is being compiled. An all-names inventory would be incomplete teaching if it omitted those load-time effects. S11–S16 now explain executable/startup bytes, all 32 headers, and the assigned primitive/helper bodies. Two branch bodies and the decimal parser/REPL remain S17/S18 responsibilities; S19 retains the complete audit reconciliation.
+The library's immediate-marking calls are also substantive: S08 explains what `immediate` changes; S09 explains why each control-flow helper runs while its caller is being compiled. An all-names inventory would be incomplete teaching if it omitted those load-time effects. S11–S16 now explain executable/startup bytes, all 32 headers, and the assigned primitive/helper bodies. S17/S18 now complete the branch and decimal-parser/REPL explanations; S19 reconciles the whole audit.
 
 ## Giving the GCC story its actual ending
 
@@ -302,4 +311,4 @@ If source annotation changes are later authorized, propose them separately: exac
 
 Changes propagate through dependencies. A cell-width change reaches number examples, masks, memory maps, instruction encodings, solutions, and ABI explanations. A descriptor change reaches glossary, parser traces, field/array examples, recaps, and practice. A moved unit reaches first-use terms, prerequisite edges, next/previous navigation, index, and solutions. A profile or endpoint change reaches volume entrances, source links, run instructions, evidence ledgers, and trust claims.
 
-Before calling a mapped source chapter fully covered, check all of its mechanisms and limitations, source correspondence, worked traces, exercise premises, hints/solutions, recap, glossary/index references, and downstream prerequisites. Before calling its examples executed, retain the exact commands, inputs, environment, outputs, and failures. Before calling the book independently learnable, obtain appropriate reader evidence; an editorial map or expert read-through cannot establish that result.
+Before marking an item `draft_covered`, check that all substantive mechanisms and limitations have source-corresponding explanations, appropriate worked traces/practice, and sound prerequisite links. Preserve explicit homes for cross-volume material and note worthwhile optional legacy exercises; do not confuse exact prose/exercise replication with substantive teaching coverage. Before calling its examples executed, retain the exact commands, inputs, environment, outputs, and failures. Before calling the book independently learnable, obtain appropriate reader evidence; an editorial map or expert read-through cannot establish that result.

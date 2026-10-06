@@ -9,9 +9,10 @@ for knowledge of stack notation or addresses.
 
 The first unit has a concrete outcome: explain how a small vocabulary can
 transform values and write bytes, while keeping the data stack and memory
-state straight. Later units will reuse those capabilities to explain the
+state straight. Later units reuse those capabilities to explain the
 library, its control-flow words and finally the machine code that implements
-the seed.
+the seed. The complete first-volume paper route is drafted; the operational
+setup, execution and reader-validation obligations remain explicit.
 
 ## First-unit dependency graph
 
@@ -129,11 +130,33 @@ for S18; that deferral is not a circular prerequisite.
 | [S16 Native colon compiler](seed-forth/chapters/16-native-colon-compiler.md) | Derive a created entry while preserving compiler data and inline-literal return ownership | S16 exercises, [feedback](seed-forth/practice/16-solutions.md) |
 | [Fifth return check](seed-forth/practice/return-check-5.md) | Select the right input, identity, phase or boundary contract | Four mixed questions with separate answers |
 
+## Closing-audit dependencies
+
+```text
+S9 + S12 + S13 + S16 -> S17: inline branch targets and return ownership
+S13 + S14 + S15 + S16 + S17 -> S18: decimal parsing and outer dispatch
+S11 through S18 -> S19: complete seed ledger and integrated new-entry capstone
+```
+
+S17 uses S13's full-width test and flag discipline after physical stack
+cleanup. S18 joins the input, error, phase and return contracts instead of
+assuming that a token automatically means a number. S19 integrates existing
+mechanisms; its predicted runtime entry is not an additional region of the
+seed file.
+
+| Unit | Observable outcome | Practice and feedback |
+|---|---|---|
+| [S17 Inline branch operands](seed-forth/chapters/17-inline-branch-operands.md) | Track both paths of a conditional branch without confusing target cells and saved return addresses | S17 exercises, [feedback](seed-forth/practice/17-solutions.md) |
+| [S18 Decimal parser and REPL](seed-forth/chapters/18-decimal-parser-and-repl.md) | Explain conversion, overflow limits, lookup and phase dispatch for a complete input sequence | S18 exercises, [feedback](seed-forth/practice/18-solutions.md) |
+| [S19 Audit synthesis and capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) | Derive a new dictionary entry and relate a runtime trace to the exact byte ledger | S19 exercises, [feedback](seed-forth/practice/19-solutions.md) |
+| [Sixth return check](seed-forth/practice/return-check-6.md) | Select the correct branch, parser, layout and evidence contract without a topic cue | Four mixed questions with separate answers |
+| [Reference and recovery routes](seed-forth/REFERENCE.md) | Find a primitive contract or repair a specific missing prerequisite | All 32 primitive cards, memory map and library navigation |
+
 ## Interfaces opened in stages
 
 | Interface | Initial contract | Later explanation and remaining audit |
 |---|---|---|
-| `: name ... ;` | Define a word from the stated sequence, using the explicit literal syntax | S8 opens the phases; S15–S16 now audit headers and native compilation; S18 will finish outer-loop dispatch and numeric parsing |
+| `: name ... ;` | Define a word from the stated sequence, using the explicit literal syntax | S8 opens the phases; S15–S16 now audit headers and native compilation; S18 completes outer-loop dispatch and numeric parsing |
 | A data stack | Words consume and produce the documented topmost cells | S4 separates data and return stacks; S12 now audits the cached-top representation and primitive bodies |
 | `@ ! c@ c!` | Access the stated valid memory location with the stated width | S11 states the mapping contract and S12 audits access encodings; operating-system internals remain trusted |
 | `here` / `latest` | Their distinct value/address contracts at this pinned seed | S11 opens startup and mapping; S15 now audits dictionary and token input |
@@ -144,16 +167,17 @@ needed mechanisms in stages, and the full audit asks how every relevant
 source instruction realizes them. Source links are available now for readers who want
 that second question early, but exercises do not require solving it early.
 
-## What the next units must earn
+## What the next volume must earn
 
-1. The branch, decimal parser and REPL audit, followed by a whole-seed
-   synthesis and independent-volume reference/entry package
-2. A compiler-volume bridge that introduces C syntax, buffer ownership,
-   representation changes and the chosen build profile before implementation
-   detail
+A compiler-volume bridge must introduce C syntax, buffer ownership,
+representation changes and the chosen build profile before implementation
+detail. It should supply its own entry contract, recurring small program and
+explicit acceptance artifact. The first volume's new examples also need an
+authorized, named execution profile and fresh-reader setup check before
+its derived results can be relabeled as observed.
 
 The [full coverage map](COVERAGE.md) allocates all original material beyond
-this initial unit. A planned unit is not required reading that already exists.
+this first volume. A planned unit is not required reading that already exists.
 
 ## How to use practice
 

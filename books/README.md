@@ -1,10 +1,11 @@
 # Seed Forth teaching books
 
 This is the learning-first teaching edition of Seed Forth. Start with
-[Seed and Forth](seed-forth/README.md): a short entry chapter and sixteen
-worked chapters are available now. They take you through the library-level
-mechanisms and through the executable, physical stacks, arithmetic, I/O, dictionary and
-native colon-compiler bytes.
+[Seed and Forth](seed-forth/README.md): its first-volume paper route is drafted,
+with an entry guide, motivation chapter, nineteen worked chapters and a
+compact reference. It takes you from stack contracts through the library
+and all 1,772 bytes of the executable, then assembles the ideas in a
+whole-seed capstone.
 Each mechanism has a source-pinned trace and separate practice feedback.
 
 The edition is a draft, not a complete replacement for the original book.
@@ -15,7 +16,7 @@ and appendix, including material not rewritten yet.
 
 | Book | Intended completed outcome | Current state |
 |---|---|---|
-| [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Library arc and 1,570 audit bytes drafted; final 202 audit bytes planned |
+| [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
 | A C compiler in Forth | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Planned; existing chapters 21–34 remain the source material |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
