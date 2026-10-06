@@ -45,8 +45,8 @@ host build is an output oracle only.
 | make 3.82 | Builds and runs; matches host make on variables, functions, pattern rules, `-j` and errors |
 | sed 4.0.9 | Matches host sed on 15 scripts (groups, ERE, hold space, branches, `y`, ranges, `N`/`D`) |
 | grep 2.4 | No source changes; passes its 8 test scripts; 49/49 cases match the 2.4 oracle |
-| gawk 3.0.4 | Passes its suite except for the strftime/TZ gap; 63/64 cases match the oracle; generates GCC's `options.c`, `options.h` and `optionlist` byte-identically |
-| coreutils 5.0 | 70 programs; 363/376 cases match the oracle, and every difference is explained (floating `printf`, obsolete-option configuration) |
+| gawk 3.0.4 | Passes its suite except for the strftime/TZ gap; 63/64 cases match the oracle; generates GCC's `options.c`, `options.h` and `optionlist` byte-identically. Rebuilt with no stand-ins at all (no formatter, math or POSIX stubs; honest `HAVE_STRTOD`/`HAVE_FMOD`): `bigtest` passes, including `strftime` (only the documented `/dev/fd` test differs), and 64/64 cases match the oracle |
+| coreutils 5.0 | 70 programs; 363/376 cases match the oracle, and every difference is explained (floating `printf`, obsolete-option configuration). With the runtime's printf, strtod, libm, time zones and buffering, before the POSIX surface was merged (gnulib `mktime` and the `setvbuf`/`strtod`/`localtime` stubs removed, `paste`'s `FILE` hack dropped): 370/376, the 6 left being the obsolete-option configuration that the POSIX work resolves (not yet re-measured together); 20 `seq`/`printf` floating cases equal the glibc build; `cut`, `uniq` and `od` on 2 MB run 17-28x, 14x and 2.6x faster |
 | gzip 1.2.4 | Output byte-identical to the oracle; decompresses every input tarball to host gzip's sha256 |
 | tar 1.12 | Extracts every input tarball to host tar's tree; archives it creates are byte-identical to the oracle |
 | patch 2.5.9 | 20 cases identical to the oracle |
@@ -114,7 +114,8 @@ host build is an output oracle only.
   the same 49/49 and 63/64,
   make 3.82 builds without its `pwd.h`/`ar.h`/`getpwnam` stand-ins, and
   coreutils 5.0 (now with `stty`) passes 369 of 376 cases; all 7 remaining
-  differences are floating-point `printf`/`seq`. The obsolete-option
+  differences were floating-point `printf`/`seq`, which exact printf now
+  fixes (see the table above). The obsolete-option
   differences disappeared because `_POSIX2_VERSION` now matches glibc.
 - Still missing: `sscanf` `%n` (coreutils `stty` crashes restoring a saved
   `-g` setting). `FILE` is now a complete type, so coreutils' `paste.c`
