@@ -64,18 +64,20 @@ host build is an output oracle only.
 - Typedefs of function types (`typedef int Function ();`): **fixed**.
 - Floating-point initialisers for objects with static storage, including
   integer constants assigned to them: **fixed** (exact binary32/binary64).
-- Struct arguments passed by value to unprototyped or variadic functions
-  (error 232).
-- `_Bool` and `<stdbool.h>`.
-- Left shift of a negative value in a constant expression (error 242), as in
-  `TYPE_MINIMUM (time_t)`.
-- `__FILE__` expands to the absolute path rather than the spelling given on
-  the command line, so objects that use `assert` depend on the build
+- Struct arguments passed by value to unprototyped or variadic functions,
+  and `va_arg` of a struct: **fixed** for INTEGER, MEMORY and X87 records;
+  records with `float` or `double` members remain error 232 in every form.
+- `_Bool` and `<stdbool.h>`: **fixed**.
+- Left shift of a negative value in a constant expression, as in
+  `TYPE_MINIMUM (time_t)`: **fixed** (folded as two's complement, as GCC does).
+- `__FILE__` is now the spelling given on the command line, as with GCC:
+  **fixed**, so objects that use `assert` no longer depend on the build
   directory.
 - Calls to undeclared functions are accepted silently, which C89 allows. On
   LP64 this truncated pointer and `double` results (`popen`, `floor`,
-  `strtod`, `alloca`) and caused the hardest bugs. Plumbing builds should use
-  the census implicit-declaration lint.
+  `strtod`, `alloca`) and caused the hardest bugs. The driver now accepts
+  `-Werror=implicit-function-declaration`, which makes such a call error 228
+  naming the function, file and line; plumbing builds should pass it.
 
 ### Runtime (`runtime/gcc-seed`)
 
