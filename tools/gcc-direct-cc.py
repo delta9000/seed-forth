@@ -6,6 +6,9 @@ The seed runs all preprocessing, compilation, object writing and linking.
 Joined/separate -L DIR and -l NAME search only explicit directories for
 libNAME.a, at the library's input position. -lm falls back to Forth-built
 math when no explicit directory provides libm.a. -c/-E ignore -L/-l.
+A source file and each -I directory reach the preprocessor as spelled on the
+command line, so __FILE__ is the spelling GCC uses: the name as given, or the
+directory as given plus the include name for a header.
 """
 from __future__ import annotations
 
@@ -114,7 +117,8 @@ def parse(arguments):
             elif flag == "-I":
                 if value == "-":
                     raise Failure("-I- is unsupported", 2)
-                options["includes"].append(checked_path(Path(value).absolute(), True))
+                # Keep the spelling: it prefixes __FILE__ for headers found here.
+                options["includes"].append(checked_path(value, True))
             elif flag == "-L":
                 options["libraries"].append(Path(value).absolute())
             elif flag == "-l":
@@ -377,6 +381,7 @@ def main(arguments):
         if not options["inputs"] and not options["query"]:
             return
     inputs = []
+    spelled = {}
     stdin_seen = False
     for spelling, language in options["inputs"]:
         if language == "library":
@@ -402,6 +407,7 @@ def main(arguments):
                 raise Failure(f"unsupported input type: {spelling}; use -x c for C", 2)
             if kind in ("o", "a") and options["mode"] != "link":
                 raise Failure("object/archive inputs require link mode", 2)
+            spelled[len(inputs)] = spelling
             inputs.append((path, kind, path.read_bytes()))
     destinations = []
     if options["mode"] == "link" and inputs:
@@ -440,8 +446,8 @@ def main(arguments):
             if kind in ("o", "a"):
                 output.write_bytes(data)
             else:
-                toolchain.compile(data, b"" if kind == "stdin" else path, output, includes, options["macros"],
-                                  options["mode"] == "preprocess")
+                toolchain.compile(data, b"" if kind == "stdin" else spelled[index], output, includes,
+                                  options["macros"], options["mode"] == "preprocess")
             objects.append(output)
             results.append(output)
         if options["mode"] == "link":

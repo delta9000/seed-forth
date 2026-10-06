@@ -35,6 +35,16 @@ locations. Includes keep separate
 file cursors; returning from an include resumes the enclosing file's count.
 The opened filename is escaped as a C string token, including quotes,
 backslashes, and control bytes. With no supplied source name it is `<stdin>`.
+`tools/gcc-direct-cc.py` passes the source file and every `-I` directory
+spelled as on its command line, not made absolute, and the seed runs in the
+driver's directory, so the opened names are GCC's: `a.c`, `./a.c` or
+`sub/a.c` for the main file, the includer's directory plus the name for a
+quoted header (`sub/x.h`), and the `-I` directory as given plus the name
+otherwise (`inc/x.h`, `inc//x.h` for `-Iinc//`, as GCC). An object that uses
+`assert` then no longer depends on the directory it was built in.
+`python3 tests/gcc/file-spelling-check.py` compares thirty combinations of
+source and `-I` spellings with host GCC and builds one such object in two
+directories.
 
 This behavior follows the [GCC description of standard predefined
 macros](https://gcc.gnu.org/onlinedocs/cpp/Standard-Predefined-Macros.html).

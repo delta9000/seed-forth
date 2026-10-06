@@ -30,7 +30,9 @@ Object and fixed-parameter function macros are supported. Source-relative
 quoted includes are resolved by Forth; explicit `-I` directories precede the
 bounded runtime headers. `-nostdinc` removes that final runtime include
 directory. No host system headers or environment include directories are
-implicitly added. Paths containing spaces are byte-encoded safely for Forth;
+implicitly added. The source file and `-I` directories reach Forth as spelled,
+so `__FILE__` is GCC's: `sub/a.c` for `sub/a.c`, `inc/x.h` for a header found
+through `-Iinc`. Paths containing spaces are byte-encoded safely for Forth;
 the bounded preprocessor still limits source/include path lengths.
 
 Links are static Linux AMD64 LP64 executables. The default runtime consists

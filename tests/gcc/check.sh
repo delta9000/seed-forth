@@ -88,6 +88,7 @@ python3 tests/gcc/review-nonlocal-check.py
 python3 tests/gcc/target-macros-check.py
 python3 tests/gcc/source-location-check.py
 python3 tests/gcc/review-source-location-check.py
+python3 tests/gcc/file-spelling-check.py
 python3 tests/gcc/line-control-check.py
 python3 tests/gcc/macro-parameter-splices-check.py
 python3 tests/gcc/macro-suppression-check.py
