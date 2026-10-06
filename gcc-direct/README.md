@@ -518,14 +518,20 @@ GCC 4.0.4 three more times, each generation with the previous one, following
 `gcc64/build-gcc4.sh`: stage 2 by the stage-C GCC, stage 3 by stage 2, stage 4
 by stage 3. All builds share one source path, build path and prefix (stages 3
 and 4 install with `DESTDIR`), so embedded paths agree. The recipe passes only
-if stages 3 and 4 install identical files; archives are compared member by
+if stages 2, 3 and 4 all install identical files: the GCC compiled by the
+Forth-built cc1 is already the fixed point. Archives are compared member by
 member because binutils 2.30 `ar` records member timestamps.
 
-Stage 2 against stage 3 is reported but is not the criterion. Stage 2 was
-compiled by a cc1 that runs on the Forth-built bounded runtime instead of musl,
-and GCC 4.0.4's output can depend on such environment details (for example the
-order `qsort` gives equal elements); the differences observed are equivalent
-register-order choices such as `(%rax,%r10)` versus `(%r10,%rax)`.
+Stage 2 matches only because the runtime's `qsort` is musl's smoothsort. The
+stage-C cc1 runs on the Forth-built runtime rather than musl, and GCC 4.0.4
+sorts with comparators that tie; `simplify_plus_minus` in `simplify-rtx.c`,
+for example, orders two registers of equal `commutative_operand_precedence`.
+ISO C leaves the order of equal elements unspecified, so the `qsort` decides
+between `(%rbp,%rax)` and `(%rax,%rbp)`. With the runtime's earlier heapsort,
+stage 2 differed from stage 3 in seven executables, all by such equivalent
+choices. Relinking the stage-C cc1 with musl's algorithm, and nothing else,
+made stages 2, 3 and 4 identical. See
+[Source-built qsort](../runtime/gcc-seed/SORT.md).
 
 One source adaptation is applied, verified before and after: GCC 4.0.4's
 `gcc/system.h` treats Berkeley-yacc output (`YYBYACC`, defined by the

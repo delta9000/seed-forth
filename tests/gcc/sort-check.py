@@ -43,7 +43,8 @@ def main():
     frozen = work / "source"
     inputs = sorted(set([ROOT / "seed-forth", ROOT / "010-lib.fth",
                          ROOT / "tests/gcc/sysv-object-compile.sh",
-                         ROOT / "runtime/gcc-seed/sort.c"]
+                         ROOT / "runtime/gcc-seed/sort.c", ROOT / "runtime/gcc-seed/qsort.c",
+                         ROOT / "runtime/gcc-seed/memory.c"]
                         + list(ROOT.glob("[0-9][0-9][0-9]-cc-*.fth"))
                         + list((ROOT / "runtime/gcc-seed/include").rglob("*.h"))
                         + list((ROOT / "tests/gcc").glob("sort-*"))))
@@ -62,7 +63,8 @@ def main():
         run([frozen / "seed-forth"], input=source + b"\n" + driver.encode())
 
     objects = []
-    for source in ("runtime/gcc-seed/sort.c", "tests/gcc/sort-production.c"):
+    for source in ("runtime/gcc-seed/sort.c", "runtime/gcc-seed/qsort.c", "runtime/gcc-seed/memory.c",
+                   "tests/gcc/sort-production.c"):
         obj = work / (Path(source).stem + ".o")
         run([frozen / "tests/gcc/sysv-object-compile.sh", frozen / source, obj,
              frozen / "runtime/gcc-seed/include"])
@@ -92,7 +94,7 @@ def main():
                         "ascending/reverse/equal/organ-pipe/alternating/random/sawtooth",
                         "full-width comparator results", "byte records of widths 1..33 and 257",
                         "offsets 1..8 and complete byte-permutation oracle", "mode pointers",
-                        "nested callback sorting three levels", "guard pages at both edges"],
+                        "nested callback sorting three levels", "equal-key runs left in input order", "guard pages at both edges"],
               "artifacts": str(work), "source_sha256": hashes,
               "artifact_sha256": {p.name: sha(p) for p in objects + [executable]}}
     (work / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

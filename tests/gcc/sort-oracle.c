@@ -124,6 +124,34 @@ static int pointer_cases(sort_function sort)
     return 0;
 }
 
+/* Equal keys with distinct payloads: the Forth-compiled and host-compiled
+   objects of the same source must leave every tie in the same place. */
+static int key_order(const void *a, const void *b)
+{
+    int x = *(const int *)a / 1000;
+    int y = *(const int *)b / 1000;
+    return x < y ? -1 : x > y ? 1 : 0;
+}
+
+static int tie_cases(void)
+{
+    static int forth[600], host[600];
+    unsigned long state = 1;
+    size_t n, keys, i;
+    for (keys = 1; keys <= 9; keys += 2) {
+        for (n = 0; n <= 600; n += n < 70 ? 1 : 53) {
+            for (i = 0; i < n; ++i) {
+                state = state * 1103515245UL + 12345UL;
+                forth[i] = host[i] = (int)((state >> 16) % keys) * 1000 + (int)i;
+            }
+            seed_qsort(forth, n, sizeof(int), key_order);
+            host_seed_qsort(host, n, sizeof(int), key_order);
+            if (memcmp(forth, host, n * sizeof(int))) return 41;
+        }
+    }
+    return 0;
+}
+
 int main(void)
 {
     sort_function sorts[] = {seed_qsort, host_seed_qsort};
@@ -140,6 +168,10 @@ int main(void)
             fprintf(stderr, "sort oracle implementation %zu failure %d\n", implementation, result);
             return result;
         }
+    }
+    if (tie_cases()) {
+        fputs("sort oracle: Forth and host objects place equal keys differently\n", stderr);
+        return 41;
     }
     puts("PASS: Forth qsort and host-compiled source match independent host libc");
     return 0;

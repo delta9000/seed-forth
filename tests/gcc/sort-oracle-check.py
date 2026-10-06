@@ -39,7 +39,11 @@ def main():
     oracle = work / "oracle"
     oracle.mkdir(exist_ok=True)
     source = oracle / "seed-sort.c"
-    source.write_text("#define qsort seed_qsort\n#define bsearch seed_bsearch\n" + (frozen / "runtime/gcc-seed/sort.c").read_text())
+    # qsort.c's memcpy calls bind to the host libc's memcpy in this oracle link.
+    runtime = (frozen / "runtime/gcc-seed/sort.c").read_text() + (frozen / "runtime/gcc-seed/qsort.c").read_text()
+    source.write_text("#define qsort seed_qsort\n#define bsearch seed_bsearch\n" + runtime)
+    host_source = oracle / "host-seed-sort.c"
+    host_source.write_text(runtime)
     forth_object = oracle / "seed-sort.o"
     run([frozen / "tests/gcc/sysv-object-compile.sh", source, forth_object,
          frozen / "runtime/gcc-seed/include"])
@@ -49,8 +53,11 @@ def main():
         executable = oracle / ("oracle" + optimization[1:])
         flags = ["-std=c99", "-Wall", "-Wextra", "-Werror", "-fno-builtin",
                  "-fno-pie", "-fsanitize=undefined", "-fno-sanitize-recover=all", optimization]
-        run([cc, *flags, "-Dqsort=host_seed_qsort", "-Dbsearch=host_seed_bsearch", "-c",
-             frozen / "runtime/gcc-seed/sort.c", "-o", host_object])
+        # musl's smoothsort compares int shift counts with size_t and parks a
+        # local buffer's address in its caller's array; both are intended.
+        run([cc, *flags, "-Wno-sign-compare", "-Wno-dangling-pointer",
+             "-Dqsort=host_seed_qsort", "-Dbsearch=host_seed_bsearch", "-c",
+             host_source, "-o", host_object])
         run([cc, *flags, "-no-pie", "-Wl,-z,noexecstack",
              frozen / "tests/gcc/sort-oracle.c", forth_object, host_object, "-o", executable])
         result = run([executable])

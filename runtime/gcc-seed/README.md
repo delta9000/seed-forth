@@ -60,10 +60,11 @@ The source-built `process.c` and `stat.c` extend this boundary with terminating
 contracts, original GCC consumers, ABI references, limitations and independent
 verification are described in [Configure runtime contracts](CONFIGURE.md).
 
-The source-built `sort.c` supplies the `qsort` consumed by original GCC
-`genmodes.c`. Its constant-space heapsort, callback/reentrancy contract,
-arbitrary element representations and independent production/oracle checks
-are described in [Source-built qsort](SORT.md).
+The source-built `qsort.c` supplies the `qsort` consumed by original GCC
+`genmodes.c` and cc1. It is musl 1.1.24's smoothsort, used so that equal
+elements end where musl puts them and the Forth-built cc1 makes musl-linked
+GCC's choices. Its provenance, contract and independent production/oracle
+checks are described in [Source-built qsort](SORT.md).
 
 The same `sort.c` supplies `bsearch`, and `strerror.c` supplies `strerror`.
 Original GCC `tree-eh.c` and `tree-dump.c` call them; libiberty can provide

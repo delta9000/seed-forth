@@ -310,6 +310,34 @@ static int boundary_cases(void)
     return 0;
 }
 
+/* GCC 4.0.4 sorts with comparators that tie (simplify_plus_minus orders two
+   registers of equal precedence), so cc1's output depends on where qsort
+   leaves equal elements.  musl's smoothsort, used here, leaves a run of
+   equal keys in input order; a heapsort would exchange them. */
+static int compare_key(const void *a, const void *b)
+{
+    int left = *(const int *)a / 1000;
+    int right = *(const int *)b / 1000;
+    if (left < right) return -1;
+    if (left > right) return 1;
+    return 0;
+}
+
+static int tie_cases(void)
+{
+    int array[64];
+    int n;
+    int i;
+    for (n = 2; n <= 64; n = n + 1) {
+        for (i = 0; i < n; i = i + 1)
+            array[i] = 7000 + i;
+        qsort(array, (size_t)n, sizeof(int), compare_key);
+        for (i = 0; i < n; i = i + 1)
+            if (array[i] != 7000 + i) return 80;
+    }
+    return 0;
+}
+
 int main(void)
 {
     int result;
@@ -318,5 +346,6 @@ int main(void)
     result = byte_cases(); if (result != 0) return result;
     result = pointer_cases(); if (result != 0) return result;
     result = nested_cases(); if (result != 0) return result;
+    result = tie_cases(); if (result != 0) return result;
     return boundary_cases();
 }

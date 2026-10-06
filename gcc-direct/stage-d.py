@@ -17,16 +17,20 @@ with the previous generation as the compiler:
   stage 4  built by stage 3                installed with DESTDIR=WORK/stage4
 
 Every build uses the same source path, build path and prefix, so the paths
-compiled into the binaries agree.  The pass criterion is a fixed point:
-stage 3 and stage 4 must install the same files with the same bytes.  Archives
-are compared member by member (names, order, and member bytes), because
-binutils 2.30 `ar` stores member timestamps by default.
+compiled into the binaries agree.  The pass criterion is a fixed point
+reached at once: stages 2, 3 and 4 must install the same files with the same
+bytes, so the GCC compiled by the Forth-built cc1 is already the GCC that GCC
+compiles.  Archives are compared member by member (names, order, and member
+bytes), because binutils 2.30 `ar` stores member timestamps by default.
 
-Stage 2 is reported against stage 3 but is not part of the criterion: it was
-compiled by a cc1 that runs on the bounded Forth-built runtime rather than
-musl, and GCC 4.0.4's output can depend on such environment details (for
-example qsort's ordering of equal elements); observed differences have been
-equivalent register-order choices.
+Stage 2 can match only because the runtime's qsort is musl's.  The stage-C
+cc1 runs on the Forth-built runtime, not musl, and GCC 4.0.4 sorts with
+comparators that tie: simplify_plus_minus (simplify-rtx.c) orders two
+registers of equal commutative_operand_precedence, for example.  ISO C leaves
+the order of equal elements unspecified, so it is the qsort, not the source,
+that decides between `(%rbp,%rax)` and `(%rax,%rbp)`.  With the earlier
+heapsort, stage 2 differed from stage 3 in seven executables by exactly such
+choices; see runtime/gcc-seed/SORT.md.
 
 Source adaptation (applied to a fresh extraction, verified before and after):
 GCC 4.0.4's gcc/system.h treats Berkeley-yacc output (YYBYACC, which the
@@ -177,17 +181,17 @@ def main():
     tools = stage_c / "toolchain"
     fixed = compare(stage3, stage4, tools)
     second = compare(prefix, stage3, tools)
-    passed = not (fixed["differing"] or fixed["only_in_first"] or fixed["only_in_second"])
+    passed = not any(c["differing"] or c["only_in_first"] or c["only_in_second"] for c in (fixed, second))
     executables = {name: sha(stage4 / name) for name in ("bin/gcc", f"libexec/gcc/{TRIPLE}/4.0.4/cc1",
                                                           f"libexec/gcc/{TRIPLE}/4.0.4/collect2")}
-    report = {"scope": "GCC 4.0.4 fixed point from the Forth-built stage-C compiler, musl sysroot, Forth-built binutils",
+    report = {"scope": "GCC 4.0.4 fixed point (stages 2, 3 and 4 identical) from the Forth-built stage-C compiler, musl sysroot, Forth-built binutils",
               "stage_c": str(stage_c), "steps": steps, "stage3_vs_stage4": fixed,
               "stage2_vs_stage3": second, "fixed_point": passed, "stage4_sha256": executables}
     (work / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     lines = [f"# Stage D: {'fixed point reached' if passed else 'NO fixed point'}", "",
              f"Stage 3 vs stage 4: {fixed['files']} files, {len(fixed['differing'])} differ"
              + (" (" + ", ".join(fixed["differing"]) + ")" if fixed["differing"] else "") + ".",
-             f"Stage 2 vs stage 3 (informational): {len(second['differing'])} differ"
+             f"Stage 2 vs stage 3: {second['files']} files, {len(second['differing'])} differ"
              + (" (" + ", ".join(second["differing"]) + ")" if second["differing"] else "") + ".", ""]
     lines += [f"- {step['stage']}: {step['seconds']} s" for step in steps]
     lines += ["", *[f"- {name}: `{digest}`" for name, digest in executables.items()]]
