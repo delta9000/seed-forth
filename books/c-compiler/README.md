@@ -19,12 +19,14 @@ program before opening every implementation. Read C01's
 and [legacy profile](chapters/01-compiler-entry-and-profile.md#name-the-compiler-profile),
 then C19's [continuous entry story](chapters/19-translation-units-and-process-entry.md).
 Its source-derived result is a 556-byte buffer and a predicted return-seven
-path. The compact syntax/setup entrance still needs its own teaching packet.
+path. The [short syntax entrance](../FIRST-RESULTS.md#seven-goes-somewhere-else)
+is now drafted; its operational setup still needs validation.
 
 Return to the triangle for a concrete use of expressions, loops and copied
 arguments. C20/C22 then supply a short dependency-replacement case from the
 M2 branch. Their full M2/assembler lab is optional for the direct-GCC reader.
-The next mainline manuscript is the System V/object/link/runtime entrance;
+The [next mainline entrance](../gcc-toolchain/chapters/01-a-program-from-two-files.md)
+now follows the System V/object/link/runtime path on paper;
 C23/C24's private-profile TinyCC application is an alternate route. Shared
 native declarations and initializers retain named direct-route homes.
 

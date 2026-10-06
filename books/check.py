@@ -17,6 +17,9 @@ from urllib.parse import unquote, urlsplit
 REV = "7d7e1996d1753118181d43e1a413960d3a1ec24b"
 ROOT = Path(__file__).resolve().parent
 SOURCE_BLOBS = {
+    '141-archive.fth': 'c4e9091af15b787c6385b1a01127f537dcf0dcb3',
+    'runtime/gcc-seed/startup.c': '3cd5b0d45a64fa5b3a711496ba0e06802342fbcf',
+    'runtime/gcc-seed/environment.c': '55ea94386905ae2b5e2d92aad18d54cdb5a3201c',
     'gcc-direct/driver.py': '5db06a189474f8e90e46040e4409f093193f4e12',
     'gcc-direct/lexers.py': 'b238798ed0b421548f940ee00045d31481d3f4e6',
     'gcc-direct/stage-c.py': 'dc3152b6ad22c7c8994d8b702db76be88c069fe0',
@@ -195,8 +198,24 @@ def check_documents():
         for file in [chapter, solution]:
             found = set(re.findall(rf"\bC{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    pairs = 95 + c_pairs
-    print(f"PASS: {len(files)} Markdown files; {checked_links} links; {pairs} exercise ID pairs")
+    g_pairs = 0
+    for chapter in sorted((ROOT / "gcc-toolchain/chapters").glob("[0-9][0-9]-*.md")):
+        number = int(chapter.name[:2])
+        counts = {1: 7}
+        assert number in counts, f"Declare exercise coverage for toolchain chapter {number}"
+        expected = {f"G{number}-{i:02}" for i in range(1, counts[number]+1)}
+        solution = ROOT / f"gcc-toolchain/practice/{number:02}-solutions.md"
+        for file in [chapter, solution]:
+            assert file.is_file(), f"Missing toolchain companion: {file}"
+            found = set(re.findall(rf"\bG{number}-\d{{2}}\b", file.read_text()))
+            assert found == expected, (file, found)
+        g_pairs += counts[number]
+    entrance_ids = {"H1-01", "H1-02", "H2-01", "H2-02"}
+    for file in [ROOT / "FIRST-RESULTS.md", ROOT / "practice/first-results-solutions.md"]:
+        found = set(re.findall(r"\bH[12]-\d{2}\b", file.read_text()))
+        assert found == entrance_ids, (file, found)
+    pairs = 95 + c_pairs + g_pairs
+    print(f"PASS: {len(files)} Markdown files; {checked_links} links; {pairs} chapter exercise ID pairs; {len(entrance_ids)} entrance pairs")
 
 
 def check_pinned_source_links(source_root):
@@ -1239,6 +1258,44 @@ def check_models():
     print("PASS: bounded arithmetic, bitwise, byte-width, comparison, classifier and layout assertions")
 
 
+
+def check_entrance_paper_models():
+    """Bounded arithmetic only; no Forth, generated instructions or linker run."""
+    assert 32 * 2 + 1 == 65 and 321 % 256 == 65
+    assert 120 + 26 + 376 == 522 and 522 + 34 == 556
+    assert 522 - (130 + 4) == 388
+    assert 556 + 34 == 590 and 556 - (130 + 4) == 422
+    symbol, field, addend = 0x401090, 0x401081, -4
+    displacement = symbol + addend - field
+    assert displacement == 11 and (field + 4) + displacement == symbol
+    assert displacement.to_bytes(4, "little", signed=True).hex(" ").upper() == "0B 00 00 00"
+    assert symbol.to_bytes(8, "little").hex(" ").upper() == "90 10 40 00 00 00 00 00"
+    assert 0x401150 - (0x401121 + 4) == 43
+    assert (43).to_bytes(4, "little").hex(" ").upper() == "2B 00 00 00"
+    assert symbol + addend - (field + 0x20) == -21
+    assert (symbol + 0x30) + addend - field == 59
+    assert (symbol + 0x20) + addend - (field + 0x20) == 11
+    assert 0x8000 == 32768 and 0x8000 - 8 == 32760 == 0x7FF8
+    assert 0x8008 == 32776 and 0x8008 - 8 == 32768
+    assert 32768 % 16 == 0 and 32776 % 16 == 8
+    entrance = (ROOT / "FIRST-RESULTS.md").read_text()
+    g01 = (ROOT / "gcc-toolchain/chapters/01-a-program-from-two-files.md").read_text()
+    c_inputs = [block for language, block in all_fenced_blocks(g01) if language == "c"]
+    normalized = [" ".join(block.split()) for block in c_inputs]
+    assert normalized[:2] == ["int answer(void) { return 7; }",
+                              "extern int answer(void); int main(void) { return answer(); }"]
+    forth_inputs = [" ".join(block.split()) for language, block in all_fenced_blocks(entrance)
+                    if language == "forth"]
+    assert forth_inputs == [": twice-plus-one dup + [lit] 1 + ;",
+                            ": twice-plus-one dup + [lit] 1 + ; [lit] 99 [lit] 32 twice-plus-one emit bye"]
+    for fragment in ("0B 00 00 00", "90 10 40 00 00 00 00 00", "P=0x401121", "S=0x401150"):
+        assert fragment in g01, f"Review changed G01 model: {fragment}"
+    for command in ('-nostdinc -c answer.c -o answer.o',
+                    '-nostdinc -c main.c -o main.o', 'main.o answer.o -o seven'):
+        assert command in g01, f"Review changed G01 command card: {command}"
+    print("PASS: bounded H1/H2/G01 paper arithmetic, exact teaching inputs and displayed model fields")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=ROOT.parent)
@@ -1261,6 +1318,7 @@ def main():
     check_c_program_capstone()
     check_c_pipeline_models(args.source_root)
     check_assembler_paper_models()
+    check_entrance_paper_models()
     check_models()
     check_audit_partition(args.source_root)
     check_audit_listings(args.source_root)

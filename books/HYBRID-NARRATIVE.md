@@ -17,8 +17,10 @@ chapter. Complete implementation explanations and the full seed-byte audit
 remain available as connected depth routes. Their learning goals remain
 larger than those of an introductory slice.
 
-**Current state:** S01–S19 and C01–C22 are paper drafts. This page plans their
-new reading route and the unwritten toolchain volume. The new examples and
+**Current state:** S01–S19 and C01–C22 are paper drafts. The
+[short first-results entrance](FIRST-RESULTS.md) and
+[G01 two-file story](gcc-toolchain/chapters/01-a-program-from-two-files.md)
+now provide the first mainline bridges. This page plans the remaining route. The new examples and
 clean-start setup have not been executed. Existing implementation results
 retain their own [source and evidence identities](EDITION.md). All source
 links below use the same immutable edition.
@@ -66,11 +68,12 @@ mastery, and months of implementation detail before a reader sees a program.
 **Question:** How can a few words preserve an old value, calculate a new one,
 and send a byte out?
 
-Begin with [S1's stack and word story](seed-forth/chapters/01-values-and-words.md).
+Begin with [the short first-results story](FIRST-RESULTS.md#a-number-becomes-a-character),
+then use [S1](seed-forth/chapters/01-values-and-words.md) for the full composition lesson.
 The first stopping point is entirely on paper. Follow the existing
 `twice-plus-one` idea, starting with stack `[99, 32]`: doubling the top
-value and adding one gives 65. A short
-output bridge will supply the meaning of `emit`: request the low byte as
+value and adding one gives 65. The short
+output bridge supplies the meaning of `emit`: request the low byte as
 output, consuming the value. ASCII byte 65 is `A`. The complete I/O mechanism
 can wait until [S7](seed-forth/chapters/07-linux-io-contracts.md); the distinction
 between a request and successful output cannot.
@@ -106,7 +109,8 @@ the present trace does not stand in for that observation.
 **Question:** If the source says `int main(void) { return 7; }`, who calls
 `main`, and where does the seven go?
 
-Read C01's [two-process distinction](c-compiler/chapters/01-compiler-entry-and-profile.md#two-processes-with-a-boundary-between-them)
+The [short C entrance](FIRST-RESULTS.md#seven-goes-somewhere-else) now supplies
+the function/return and process bridge. Then read C01's [two-process distinction](c-compiler/chapters/01-compiler-entry-and-profile.md#two-processes-with-a-boundary-between-them)
 and [legacy profile](c-compiler/chapters/01-compiler-entry-and-profile.md#name-the-compiler-profile),
 then the continuous first story in [C19](c-compiler/chapters/19-translation-units-and-process-entry.md).
 It derives a 556-byte output buffer: 120 bytes of headers, a 26-byte entry
@@ -127,9 +131,9 @@ successful file writing, loading and execution are separate events.
 little-endian fields, file positions versus virtual addresses, and a small
 CALL/RET/frame contract. [C09's coordinate bridge](c-compiler/chapters/09-instructions-inside-an-executable.md#one-byte-three-coordinates)
 and C19's local key supply the existing coordinate and frame facts. The
-new H2 entrance packet must add the short function/return primer and a Forth
-excerpt-reading bridge before using them. The complete native seed audit is
-not required.
+short H2 entrance supplies its function/return primer without requiring a
+Forth implementation excerpt. A later excerpt-reading session needs its
+local Forth bridge. The complete native seed audit is not required.
 
 **Practice progression:** complete the layout with body lengths supplied;
 derive the call field; explain the entry-to-exit path without looking at the
@@ -175,11 +179,13 @@ lab are optional depth. None is a production prerequisite for direct GCC.
 **Question:** How can a caller refer to a function in another file, and how
 can the two agree about a call?
 
-The next substantial teaching packet will use two small sources: one defines
+The [G01 paper entrance](gcc-toolchain/chapters/01-a-program-from-two-files.md)
+now follows two small sources: one defines
 `answer()`, returning seven; the other declares and calls it. The direct
 profile produces separate **ET_REL objects**, then the Forth linker joins
-them with explicitly identified startup/runtime inputs. Exact object records
-and commands will come from the pinned implementation, not invented dumps.
+them with explicitly identified startup/runtime inputs. Its command card is source-checked but unexecuted; exact object dumps and
+actual fixture addresses remain to be established. The selected call record
+and illustrative placement teach the interface without inventing a dump.
 
 **By the end, you should be able to:** separate an object from an executable,
 identify a definition and unresolved use, explain a relocation's symbol,
@@ -195,7 +201,7 @@ explains why the legacy convention must not be silently reused.
 **Practice progression:** first label the two files' definitions and uses;
 then complete a relocation calculation; finally account for the joined
 program's producer chain. A clearly illustrative PC-relative field with
-`S=0x400090`, `P=0x400081`, `A=-4` gives `S+A-P=11`, hence four bytes
+`S=0x401090`, `P=0x401081`, `A=-4` gives `S+A-P=11`, hence four bytes
 `0B 00 00 00`. This is the
 [linker's stated formula](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L464-L493),
 not a claimed object dump from the proposed fixture.
@@ -208,8 +214,8 @@ symbol stays put. A missing-definition case follows once that distinction is
 secure.
 
 **What is supplied:** the rest of the object, archive, linker and target
-runtime implementation, behind named interfaces. The new G01/G02/G04/G05/G06
-first stories will open the minimum path; G03 and G09 will supply the needed
+runtime implementation, behind named interfaces. G01 supplies the first continuous path; G02/G04/G05/G06
+will open the needed implementations; G03 and G09 will supply the needed
 shared declaration/initializer mechanisms. Building TinyCC first is not an
 entrance condition.
 
@@ -373,12 +379,12 @@ another.
 
 ## Next writing and validation
 
-1. Add the short H1/H2 entrance and setup cards, reusing the existing stories.
-   The paper route must remain usable without installation. A runnable card
-   needs exact source, reset state, environment, command and retained output
-2. Write the G01 entrance and the G02/G04/G05/G06 two-object first-story packet.
-   Teach the shared native/LP64 interfaces locally; remove TinyCC closure as
-   the entrance gate. Preserve full source coverage under the existing homes
+1. Keep the completed H1/H2 paper entrance usable without installation.
+   Complete and validate its separate runnable setup cards with exact source,
+   reset state, environment, command and retained output
+2. Continue from G01 into G02/G04/G05/G06 implementation sessions. The first
+   two-file story now names the shared native/LP64 interfaces, runtime-aware
+   startup and lazy archive; preserve their full-depth source homes
 3. Continue generators → GCC output tools → hosted program → rebuild evidence.
    Open a mechanism when a concrete source or failure needs it, while naming
    all supplied production components from the start

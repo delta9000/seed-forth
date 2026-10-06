@@ -301,8 +301,8 @@ session practice now stays with the one-byte puzzle; the absolute four-byte
 exercise follows the sigil/emission session. This is model-assisted dependency
 checking, not measured human learning, retention or transfer.
 
-Current static checks cover 262 main exercise pairs, 91 source-inventory rows,
-59 pinned project source blobs and 576 Forth definitions across fourteen files.
+The C21/C22 snapshot's static checks covered 262 main exercise pairs, 91
+source-inventory rows, 59 pinned project source blobs and 576 Forth definitions across fourteen files.
 The new assembler companion verifies the complete 785-line partition, every
 declaration, both initialization forms and current teaching anchors. The
 checker also preserves the meaningful final space in the displayed expansion
@@ -326,10 +326,10 @@ destination; M2/pnut/TinyCC executable ancestry is not imposed on it. Shared
 native declaration/LP64 and initializer mechanisms remain in the direct
 profile's planned teaching homes. The source pin is unchanged.
 
-The manuscript checker now checks the narrative map against every declared
+The initial hybrid-plan snapshot added a check of the narrative map against every declared
 unit, draft status and current chapter path, in addition to the acyclic
-full-depth prerequisite graph. Nine newly included pinned source blobs bring
-that bounded identity check to 68 files. Those identity and line checks do
+full-depth prerequisite graph. Its nine additional pinned source blobs
+brought that bounded identity check to 68 files. Those identity and line checks do
 not establish complete implementation explanation or execution of those
 newly linked scripts. Negative checks rejected an omitted unit, a planned
 unit mislabeled drafted and a missing chapter path.
@@ -338,8 +338,8 @@ Separate read-only reviews checked the producer graph and the learning plan.
 Corrections distinguished object-mode selection from initializer-queue
 rejection, located musl-header installation before configuration, marked the
 new H2 syntax bridge as planned and kept a supplied-length helper problem
-separate from an existing fixture. Final route review accounted for all 77
-units, including 42 drafted and 35 planned. These checks assess the plan's
+separate from an existing fixture. That snapshot's route review accounted for all 77 units, including
+42 drafted and 35 planned. These checks assess the plan's
 consistency, not observed learner performance.
 
 The C21/C22 checkpoint at
@@ -349,6 +349,53 @@ All 117 manuscript files matched the saved manifest; all 15 changed contents
 were read back exactly, and all 1,535 entries outside `books/` were unchanged.
 The hybrid route's new setup cards and later fixtures are still planned;
 that CI result does not execute them or assess the reading order.
+
+## First-results and direct-profile entrances
+
+The short [first-results entrance](FIRST-RESULTS.md) now supplies its Forth
+stack/output and C function/return/process bridges, four prompts, graduated
+hints, worked answers and separate changed checks. Source review verified
+the exact Forth snippet, byte-store direction, output-versus-stack distinction,
+exit-value boundary and supplied legacy layout calculations. A fresh-context
+model-assisted attempt used only the page before feedback; its terminology
+findings led to explicit displacement, byte and token bridges. These checks
+do not establish actual novice learning.
+
+[G01](gcc-toolchain/chapters/01-a-program-from-two-files.md) supplies a complete
+bounded direct-profile entrance and seven original/changed exercise sets.
+Its full source/practice review checked the selected 131 call provider,
+LP64/scalar interfaces, explicit-addend relocation arithmetic, actual
+runtime-aware startup, lazy archive inputs, driver options and failure phases.
+The proposed two-file fixture and command card remain unexecuted. Qualitative
+object records and the numerical placement model are identified as predictions
+and illustration, rather than invented dumps or addresses of an observed file.
+
+The G01 reader-role audit saved all seven page-only attempts before opening
+feedback and then attempted two answer-free changes. It identified useful
+local definitions for headers/preprocessing and hexadecimal byte pairs.
+Those bridges are now in the chapter. Its successful model-based attempts
+establish that the needed facts could be located in this text, not that
+human readers will learn or retain them. The labeled changed cases are
+supported application; a later mixed check must separately test selection
+without naming the representation in its prompt.
+
+Current document checks cover 269 chapter exercise pairs plus four entrance
+pairs, 91 source rows, 77 stable units and 71 exact-pin project source blobs.
+The 576-definition inventory retains its previous scope; G01's supplied
+interfaces do not add complete implementation coverage for G02–G17. Static
+checks also protect the exact new teaching inputs, selected displayed fields,
+command spellings, and bounded relocation/alignment arithmetic. They do not
+run the command card, its generated programs or the linker.
+
+A separate local PDF layout pilot inspected all nine pages of FIRST-RESULTS
+and its feedback. All 169 parsed text segments survived conversion, with no
+clipped text, broken tables or missing glyphs found; the frozen manuscripts
+were unchanged. This used Pandoc parsing plus a bounded ReportLab renderer
+after the installed XeLaTeX path failed for missing format/configuration
+files. It is not a validated general book-export pipeline. Relative Markdown
+links were retained but are not portable PDF navigation, and the PDFs are
+untagged. No G01 visual rendering or accessibility certification follows from
+this limited pilot.
 
 ## Still unverified
 
@@ -360,18 +407,20 @@ that CI result does not execute them or assess the reading order.
   source documentation, not newly reproduced observations
 - No representative new reader has attempted the unit; learnability remains
   a reasoned design judgment awaiting reader feedback
-- Screen-reader behavior, mobile presentation, PDF/EPUB export and a complete
-  published-book rendering have not been validated
+- Screen-reader behavior, mobile presentation, complete PDF/EPUB export and
+  published-book rendering have not been validated; the entrance-only local
+  layout pilot above has a narrower scope
 - Planned later chapters and volumes do not yet supply their promised entry
   artifacts, implementation walkthroughs or acceptance checks
 
 ## Next coherent unit
 
-The next manuscript work adds the short H1/H2 entrance and then the
-direct-GCC two-object System V/link/runtime packet in the
-[hybrid narrative plan](HYBRID-NARRATIVE.md). The native/private-stack TinyCC
-application remains an optional complete route. Kernel work retains its own
-source, lineage and observed-boot obligations.
+The next manuscript work opens G02's object records and complete writer
+mechanisms, then the needed declaration, ABI, linker and runtime sessions
+behind G01's supplied interfaces. The [hybrid narrative plan](HYBRID-NARRATIVE.md)
+keeps the native/private-stack TinyCC application as an optional complete
+route. Kernel work retains its own source, lineage and observed-boot
+obligations. Fresh-start execution remains a separate validation task.
 The [coverage map](COVERAGE.md) distinguishes that planned material from
 the first volume's drafted mechanisms and its remaining verification work.
 Execution checks need a named, authorized seed profile before their status

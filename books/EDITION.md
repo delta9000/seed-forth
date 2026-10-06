@@ -27,8 +27,9 @@ moves onto the main route or becomes depth.
 Direct GCC has its own production branch. M2/M1/hex2, pnut and private-ABI
 TinyCC are useful alternate tracks, not compulsory executable ancestors.
 The direct target still uses shared LP64 declaration machinery from `115`
-and initializer traversal from `118`; G01/G03/G09 retain those planned
-teaching homes alongside the System V/object providers. Source provenance,
+and initializer traversal from `118`; G01 now states their profile/interface
+roles, while G03/G09 retain the planned complete mechanism homes alongside
+the System V/object providers. Source provenance,
 loaded definitions, selected providers and executed producers are distinct.
 
 For each proposed milestone, distinguish required production inputs, supplied
@@ -38,6 +39,37 @@ independent learner performance remain separate evidence states. The new
 first-reader setup, H3 two-file fixture and H4 generator lesson are not yet
 validated runnable checkpoints; this sequencing plan has no observed learning
 benefit or new execution result.
+
+## Current first-result and direct-profile entrances
+
+[Two small results](FIRST-RESULTS.md) and its [four feedback sets](practice/first-results-solutions.md)
+now supply the H1/H2 paper entrance. They keep stack state, requested output,
+stored bytes and process status separate, using C19's supplied layout rather
+than claiming another executed executable. A clean-start operational route
+still needs its own setup, reset, capture and execution record.
+
+[G01: A program from two files](gcc-toolchain/chapters/01-a-program-from-two-files.md)
+is a complete bounded profile entrance with seven [exercise/feedback sets](gcc-toolchain/practice/01-solutions.md).
+Its bounded source/practice and model-assisted prerequisite reviews are complete. The chosen profile
+is LP64 + AMD64 System V + ET_REL; the final `131` call provider, runtime-aware
+`start.o`, distinct C-built `startup.o`, and lazy `libseed.a` inputs remain
+visible. The `0x401...` placements are illustrative, not a fixture dump.
+The command card has not been executed, and full G02–G25 mechanisms remain
+planned even where G01 supplies their required interfaces.
+
+The bounded review checked all seven original and seven changed practice
+sets, 48 relevant source identities and source/local links. A model-assisted
+reader-role attempt exposed header/preprocessing and hexadecimal-byte
+terminology gaps; the chapter corrections were read back. This is a
+prerequisite/editorial check, not independent novice validation or observed
+human learning. G01 rendered-layout review, clean-start setup and all fixture
+execution remain unverified.
+
+This adds no full-definition inventory. The chapter total is 269 (95 seed,
+167 C, seven G01), plus four separate entrance prompts. Source-blob checks
+now cover 71 pinned project files, including the added `141-archive.fth`,
+`runtime/gcc-seed/startup.c` and `runtime/gcc-seed/environment.c`. The complete
+colon-definition inventory remains 576 across fourteen earlier files.
 
 ## First-volume profile
 
@@ -101,7 +133,7 @@ The separate [pipeline map](c-compiler/pipeline-map.csv) covers 33 regions and
 273 lines across five complete shell recipe files; all have teaching homes.
 The [assembler ledger](c-compiler/assembler-regions.csv) separately covers
 785 lines in 42 regions: 99 declarations, including its 50 colon definitions,
-plus two initialization forms. The source-blob check covers 68 pinned project
+plus two initialization forms. The source-blob check covers 71 pinned project
 files. These are distinct
 source-coverage counts, not execution counts. C20 covers the standalone
 Stage-A recipe and attributed result; C21/C22 cover full bounded Forth
@@ -142,6 +174,8 @@ as new measurements. More workspace does not change a C data model or ABI.
 | Complete standalone Forth assembler mechanisms | `130-asm.fth` at the pin; [42-region ledger](c-compiler/assembler-regions.csv); 50 definition spans in source-map.csv | Source/practice-reviewed explanations of all 785 lines, 99 declarations and two initialization forms | Narrow grammar and unchecked quote/number paths remain; supplied ELF envelope and output-write success are separate contracts; no new execution |
 | Expansion and assembly produce seven bytes; a supplied header/fixture describes 148 | C21/C22 worked fragments, pinned M2libc header/definitions and `m1-jump42.M1` | Manual text, layout, field and byte derivations | Arbitrary fragments are not runnable ELFs; predicted target exit is conditional; no file or execution observation |
 | Source-built tools have distinct handoff comparisons | Pinned `bootstrap.sh` bounded step/helper spans and named test predicates in C22 | Inspected recipes, with historical CI summaries separately attributed to head `764bdc4f4902d613145f361da6a7f33010dd37b4` | Step 5 ELF route equality, step 6 M1-text equality and step 7 tool rebuilds are different checks; neither full script coverage nor a fresh run is claimed |
+| H1/H2 distinguish state, output and process result | [FIRST-RESULTS.md](FIRST-RESULTS.md), pinned seed contracts and C19 layout | Source-derived entrance traces and four separate feedback sets | No fresh setup or observed fixture execution; supplied helper length is a layout premise |
+| G01 supplies a bounded direct-profile and two-object story | Pinned driver, selected `123`/`131` paths, `140` relative/absolute rules, `122` startup, `141` archive and named runtime sources | Inspected source contracts and illustrative placement arithmetic; bounded source/practice and model-assisted prerequisite reviews complete | No actual object dump, function size, final member set, file/run result or complete G-module coverage |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | An exact byte-decoded copy was inspected as data; no manual build-script run or seed execution is claimed |
 
 ## Existing results are attributed results

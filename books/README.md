@@ -6,15 +6,22 @@ joined into a program, GCC with its source-built output tools, then hosted
 closure and a bounded rebuild comparison. The [hybrid narrative](HYBRID-NARRATIVE.md)
 and [unit-by-unit route map](narrative-map.csv) distinguish the first sessions,
 supplied contracts, implementation depth and alternate routes. H1–H5 are
-learning milestones; their new fixtures and runnable entrances are still plans.
+learning milestones. The H1/H2 paper entrance and bounded G01 first story
+are drafted; operational setup and observed fixture runs remain pending.
 
-Begin with [S1's values and words](seed-forth/chapters/01-values-and-words.md).
-For the early C result, use C01's profile/builder contract and
-[C19's first program story](c-compiler/chapters/19-translation-units-and-process-entry.md).
-Its 556-byte result is a paper derivation. The complete
-[Seed and Forth](seed-forth/README.md) route remains available, including all
-1,772 original file bytes and its separate audit capstone. Finishing that
-audit is its own objective, rather than a gate before the first C result.
+Begin with [Two small results](FIRST-RESULTS.md): distinguish a Forth stack
+value, a requested output byte and a C process result. Its [four entrance
+prompts and feedback](practice/first-results-solutions.md) lead into S1 or
+C19's fuller derivation. Then continue to [G01: a program from two files](gcc-toolchain/chapters/01-a-program-from-two-files.md)
+to follow an unresolved call through objects, linking and real startup.
+G01's bounded source/practice and model-assisted prerequisite reviews are complete; its fixture and
+command card remain unexecuted.
+
+The complete [Seed and Forth](seed-forth/README.md) route remains available,
+including all 1,772 original file bytes and its separate audit capstone.
+Finishing that audit is its own objective, rather than a gate before the
+first C result. C19's 556-byte layout and G01's illustrative relocation are
+paper derivations, not measured artifacts.
 
 The [C-compiler volume](c-compiler/README.md) now has twenty-two paper chapters,
 from an independent entry bridge through preprocessing, representations,
@@ -22,8 +29,9 @@ emission/runtime, expressions/declarations, statements, function frames and
 translation-unit/process entry, the bounded Stage-A recipe and evidence,
 then the complete standalone Forth assembler and its source-built-tool handoff.
 Its 167 main exercises have separate feedback; six mixed checks add 24 questions.
-The edition has 262 main exercises including
-the seed volume. C19's full technical/practice manuscript review is complete; C16–C18's
+The edition now has 269 chapter exercises: 95 seed, 167 C and seven G01.
+The four H1/H2 entrance prompts are counted separately. The earlier 262
+chapter exercises remain intact. C19's full technical/practice manuscript review is complete; C16–C18's
 reported technical, practice and first-reading reviews are complete. C20 has
 complete source/recipe coverage; its source/practice review and final readback are complete.
 C21/C22 are also source/practice-reviewed paper drafts. New example execution,
@@ -56,7 +64,7 @@ and appendix, including material not rewritten yet.
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
 | [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default compiler, Stage-A recipe/evidence and complete bounded assembler/handoff drafted through C22; source/practice reviewed; native/TinyCC and broader bootstrap closure remain planned |
-| From compiler to toolchain | Follow the main objects/System V/link/runtime → generators/GCC/output tools → hosted/rebuild route | Planned; enter from the C19 capability through an explicit direct-profile bridge; shared frontend mechanisms and existing chapters 35–49 remain required source material |
+| [From compiler to toolchain](gcc-toolchain/README.md) | Follow the main objects/System V/link/runtime → generators/GCC/output tools → hosted/rebuild route | G01 bounded profile entrance drafted; source/practice and model-assisted prerequisite reviews complete; G02–G25 remain planned, including complete object/ABI/link/runtime mechanisms |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 
 The four-book division is an editorial plan. It can change as the dependency
@@ -80,6 +88,9 @@ units.
 
 ## Evidence and use
 
+- [Two small results](FIRST-RESULTS.md) supplies the H1/H2 paper entrance
+- [A program from two files](gcc-toolchain/chapters/01-a-program-from-two-files.md)
+  supplies G01's bounded object/profile story and [seven feedback sets](gcc-toolchain/practice/01-solutions.md)
 - [Edition and evidence](EDITION.md) pins the exact source and distinguishes
   source inspection, hand-derived traces and observed runs
 - [Hybrid narrative](HYBRID-NARRATIVE.md) and [route data](narrative-map.csv)
@@ -100,8 +111,10 @@ map](c-compiler/pipeline-map.csv) separately covers 33 regions/273 lines in five
 complete shell scripts. The [assembler ledger](c-compiler/assembler-regions.csv)
 adds all 785 lines in 42 regions, 99 declarations and two initialization
 forms; its 50 colon definitions are included in the 576 total. Source-blob
-checks cover 68 pinned project files;
+checks cover 71 pinned project files;
 none of these counts is a claim of whole-bootstrap implementation coverage.
+G01 adds three inspected source blobs and a bounded teaching story, not a new
+complete-definition or whole-module inventory.
 
 The new teaching examples have not been executed; repository CI results,
 where available, cover their separately named canonical checks.
