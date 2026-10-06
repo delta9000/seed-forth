@@ -48,11 +48,11 @@ runtime objects, the archive and two links. `tests/gcc/seed-cc-check.py`
 repeats this audit (with `--seccomp-bpf`) on every run.
 
 Recorded pins, for compiler and runtime inputs with seed-cc identity
-`4f672cc569d9a8074df2260742f4475679ca84b275ea0dbc31fd223298bfbab6`:
+`68650692039d279521c7cfdaff57849e4fc2ce2e463943b2f2952f0d8a6999c8`:
 
 | Output | Bytes | SHA-256 |
 |---|---|---|
-| `seed-cc` | 156,040 | `07479fe229dd1e777fdeeda38c6a9ae0c44261746ecc8e2574865efdcd4ffd67` |
+| `seed-cc` | 156,040 | `c1d406bfe31dcd771df52d9a9134106eaf47074cf43a8b12373293f699990b23` |
 | `seed-ar` | 94,528 | `6c1b81cfe59e5ba8379f917595c433e47e398b27d6b3c3624476546919ab8aff` |
 
 The bytes follow the compiler layers and runtime sources, so any change
@@ -65,7 +65,10 @@ bootstrap runtime objects also equal the Python driver's cached objects.
 ## Use
 
 `seed-cc` takes the same command line as `gcc-direct-cc.py`; see
-[the driver contract](../gcc-direct/README.md). For example:
+[the driver contract](../gcc-direct/README.md). Like it, it passes each source
+file and `-I` directory to the preprocessor as spelled, so `__FILE__` is GCC's
+spelling, and `-Werror=implicit-function-declaration` makes a call to an
+undeclared function error 228. For example:
 
 ```sh
 build-out/seed-cc/seed-cc -c example.c -o example.o
@@ -125,9 +128,13 @@ library-search test programs (`-I`/`-D`/`-U` ordering, stdin, `-x`, `-E` to
 stdout and files, multi-file links, `-L`/`-l` order and rescans, `-lm`
 precedence and fallback, `-nostdlib`, archive-only `main`, duplicate
 definitions), 44 error-path commands with their messages and statuses,
-and the seed-ar operations. With `--all-programs` it adds `-c`, `-E` and a
-link of each of the 200 `tests/gcc/*.c` files: 205 cases and 684 commands,
-all identical. The cache check starts eight `seed-cc` processes on an absent
+the seed-ar operations, `__FILE__` under five source and six `-I` spellings
+(`-E` output and `assert()` objects), and
+`-Werror=implicit-function-declaration` on and off, with undeclared calls in
+the main file, in a header and after `#line`, and with only declared calls.
+That default run is 13 cases and 206 commands. With `--all-programs` it adds
+`-c`, `-E` and a link of each of the 205 `tests/gcc/*.c` files: 212 cases and
+761 commands, all identical. The cache check starts eight `seed-cc` processes on an absent
 cache, requires identical executables equal to the Python driver's, then
 damages objects and the manifest and changes a runtime header, the driver
 source and the seed.

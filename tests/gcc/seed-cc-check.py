@@ -119,6 +119,7 @@ def replay(work, tools, files, steps):
     record = []
     for step in steps:
         command, data = (step[0], step[1]) if isinstance(step, tuple) else (step, None)
+        command = [part.replace("{W}", str(work)) if isinstance(part, str) else part for part in command]
         if command[0] in tools:
             command = tools[command[0]] + command[1:]
         elif command[0] == "RUN":
@@ -253,6 +254,47 @@ def corpus(all_programs):
         ["AR"], ["AR", "rc"], ["AR", "x", "a.a"], ["AR", "rcc", "a.a"], ["AR", "uc", "u.a", "ok.c"],
         ["AR", "s", "a.a", "ok.c"], ["AR", "cs", "a.a"], ["AR", "rcs", "new.a", "missing.o"],
         ["AR", "s", "broken.a"], ["AR", "--version"], ["AR", "rcs", "new.a", "ok.c"],
+    ]))
+    # __FILE__ as spelled: main file, quoted header beside it, angle header
+    # through -I, and assert() objects, for several source and -I spellings.
+    spelling = {"sub/a.c": '#include <assert.h>\n#include "q.h"\n#include <x.h>\n'
+                           'const char *main_file = __FILE__;\n'
+                           'int f(int v) { assert(v != 3); return v + Q + X; }\n'
+                           'int main(void) { return f(1) != 3; }\n',
+                "sub/q.h": "#define Q 1\nconst char *quoted_file = __FILE__;\n",
+                "inc/x.h": "#define X 1\nconst char *angle_file = __FILE__;\n"}
+    steps = []
+    for source in ("sub/a.c", "./sub/a.c", "sub//a.c", "sub/../sub/a.c", "{W}/sub/a.c"):
+        for include in (["-Iinc"], ["-Iinc/"], ["-I./inc"], ["-Iinc//"], ["-I", "inc"], ["-I{W}/inc"]):
+            steps.append(["CC", "-E", *include, source])
+        steps.append(["CC", "-c", "-Iinc", source, "-o", "spelled.o"])
+        steps.append(["CC", "-I./inc", source, "-o", "spelled"])
+        steps.append(["RUN", "spelled"])
+    steps += [["CC", "-c", "-Iinc", "-Isub", "sub/a.c", "-o", "two.o"],
+              ["CC", "-E", "-I" + "i" * 254, "sub/a.c"], ["CC", "-E", "-Iinc", "s" * 255 + ".c"]]
+    cases.append(("file-spelling", spelling, steps))
+    # -Werror=implicit-function-declaration on and off.
+    implicit = {"undeclared.c": "#include <stdio.h>\nint main(void) {\n  puts(\"x\");\n"
+                                "  return later(2);\n}\nint later(int v) { return v - 2; }\n",
+                "inc/h.h": "static int from_header(void) { return absent_fn(); }\n",
+                "header.c": "#include <h.h>\nint main(void) { return 0; }\n",
+                "declared.c": "#include <stdio.h>\n#include <stdarg.h>\n"
+                              "static int sum(int n, ...) { va_list a; int t = 0; va_start(a, n);\n"
+                              "  while (n--) t += va_arg(a, int); va_end(a); return t; }\n"
+                              "int main(void) { extern int puts(const char *); puts(\"ok\");\n"
+                              "  return sum(2, 1, 2) != 3; }\n",
+                "lined.c": "#line 40 \"renamed.c\"\nint main(void) { return gone(); }\n"}
+    flag = "-Werror=implicit-function-declaration"
+    cases.append(("implicit-error", implicit, [
+        ["CC", "-c", "undeclared.c"], ["CC", "-c", flag, "undeclared.c", "-o", "flagged.o"],
+        ["CC", flag, "undeclared.c", "-o", "flagged"], ["CC", "undeclared.c", "-o", "plain"], ["RUN", "plain"],
+        ["CC", "-c", flag, "-Iinc", "header.c"], ["CC", "-c", flag, "lined.c"],
+        ["CC", "-c", flag, "./undeclared.c", "-o", "dot.o"],
+        ["CC", "-c", flag, "declared.c", "-o", "declared-flag.o"], ["CC", "-c", "declared.c"],
+        ["CC", flag, "declared.c", "-o", "declared"], ["RUN", "declared"],
+        ["CC", "-E", flag, "declared.c", "-o", "declared.i"],
+        (["CC", "-x", "c", flag, "-c", "-", "-o", "stdin.o"], b"int main(void) { return nope(); }\n"),
+        ["CC", "-Werror=implicit", "declared.c"], ["CC", "-Werror", "declared.c"],
     ]))
     cases.append(("long-paths", {"ok.c": "int main(void) { return 0; }\n"}, [
         ["CC", "-I" + "d" * 260, "ok.c"], ["CC", "-c", "x" * 252 + ".c"],

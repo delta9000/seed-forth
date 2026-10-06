@@ -18,9 +18,10 @@
 /* Fixed per-translation-unit arena, as in the Python driver: 21 MiB. */
 #define ARENA_BYTES 22020096L
 
-/* Hook for -Werror=implicit-function-declaration: the Python driver does
-   not accept it on this branch.  When it does, accept the spelling in
-   parse() and add its driver words in compile_unit(), mirroring Python. */
+/* As in the Python driver, a source file and each -I directory reach the
+   preprocessor as spelled on the command line, so __FILE__ is GCC's
+   spelling; -Werror=implicit-function-declaration sets the compiler's
+   implicit-call error (228) and the preprocessor line map. */
 
 static char *root;
 
@@ -43,7 +44,7 @@ struct options {
     struct arg_input *inputs;
     unsigned long ninputs;
     struct names libraries;
-    int verbose, nostdinc, nostdlib, query;
+    int verbose, nostdinc, nostdlib, query, implicit_error;
 };
 
 static void add_input(struct options *o, char *spelling, int language)
@@ -202,6 +203,8 @@ static void parse(int argc, char **argv, struct options *o)
             o->nostdinc = 1;
         else if (strcmp(arg, "-nostdlib") == 0)
             o->nostdlib = 1;
+        else if (strcmp(arg, "-Werror=implicit-function-declaration") == 0)
+            o->implicit_error = 1;
         else if (arg[0] == '-' && arg[1] == 'x') {
             char *value;
             if (arg[2] == 0) {
@@ -239,7 +242,8 @@ static void parse(int argc, char **argv, struct options *o)
             } else if (flag[1] == 'I') {
                 if (strcmp(value, "-") == 0)
                     usage_fail("-I- is unsupported");
-                n_add(&o->includes, checked_path(st_pabs(value), 1));
+                /* Keep the spelling: it prefixes __FILE__ for headers found here. */
+                n_add(&o->includes, checked_path(value, 1));
             } else if (flag[1] == 'L')
                 n_add(&o->libraries, st_pabs(value));
             else if (flag[1] == 'l')
@@ -592,7 +596,7 @@ static void forth(struct names *modules, const struct buf *driver, const char *s
 
 static void compile_unit(const char *source, unsigned long nsource, char *source_name,
                          const char *output, struct names *includes, struct buf *macros,
-                         int preprocess)
+                         int preprocess, int implicit_error)
 {
     struct buf d;
     unsigned long i;
@@ -601,6 +605,8 @@ static void compile_unit(const char *source, unsigned long nsource, char *source
     b_str(&d, "cc-sysv-object-enable\n[lit] ");
     b_dec(&d, ARENA_BYTES);
     b_str(&d, " cc-arena-map\n");
+    if (implicit_error)
+        b_str(&d, "true cc-sysv-implicit-error ! true cc-pp-line-map-on !\n");
     b_str(&d, "cc-io-direct-workspace cc-prep-direct-workspace\n"
               "cc-om-direct-workspace cc-label-direct-workspace\n"
               "cc-obj-direct-workspace cc-gfixup-direct-workspace\n");
@@ -787,7 +793,7 @@ static void runtime_build(const char *build)
         char *object = st_cat3(build, "/", stem);
         char *output = st_cat3(object, ".o", "");
         struct buf *data = input_data(st_cat3(RUNTIME, "/", sources.items[i]));
-        compile_unit(data->data, data->len, source, output, &includes, 0, 0);
+        compile_unit(data->data, data->len, source, output, &includes, 0, 0, 0);
         free(source);
         free(stem);
         free(object);
@@ -947,7 +953,7 @@ static char *math_archive(void)
     memset(&includes, 0, sizeof includes);
     n_add(&includes, st_cat3(tc.runtime, "/", "include"));
     st_read_file(source, &data);
-    compile_unit(data.data, data.len, source, output, &includes, 0, 0);
+    compile_unit(data.data, data.len, source, output, &includes, 0, 0, 0);
     b_free(&data);
     memset(&objects, 0, sizeof objects);
     n_add(&objects, output);
@@ -1032,6 +1038,7 @@ static void publish(const char *source, const char *destination, long mode)
 
 struct input {
     char *path;
+    char *spelling;
     int kind;
     struct buf data;
 };
@@ -1126,6 +1133,7 @@ int main(int argc, char **argv)
             if ((in->kind == KIND_O || in->kind == KIND_A) && o.mode != MODE_LINK)
                 st_fail(2, "object/archive inputs require link mode");
             in->path = path;
+            in->spelling = spelling;
             st_read_file(path, &in->data);
         }
         ninputs = ninputs + 1;
@@ -1210,9 +1218,9 @@ int main(int argc, char **argv)
         if (in->kind == KIND_O || in->kind == KIND_A)
             st_write_file(output, in->data.data, in->data.len, 0666);
         else
-            compile_unit(in->data.data, in->data.len, in->kind == KIND_STDIN ? "" : in->path,
+            compile_unit(in->data.data, in->data.len, in->kind == KIND_STDIN ? "" : in->spelling,
                          output, &includes, o.have_macros ? &o.macros : 0,
-                         o.mode == MODE_PREPROCESS);
+                         o.mode == MODE_PREPROCESS, o.implicit_error);
         n_add(&objects, output);
         n_add(&results, output);
     }
