@@ -126,45 +126,10 @@ run(CC + [ROOT / 'tests/gcc/setbuf-check.c', '-o', stream])
 stream_file = OUT / 'stream.bin'
 assert run([stream, 'normal', stream_file]) == b'unbuffered stream contract passed\n'
 assert stream_file.read_bytes() == b'A\0B\xff'
-# A caller buffer is accepted and never used: bytes reach the file at once.
-assert run([stream, 'caller-buffer', stream_file]) == b'caller buffer accepted\n'
-assert stream_file.read_bytes() == b'written at once'
-assert run([stream, 'bad-buffer', stream_file]) == b'unused buffer pointer accepted\n'
-assert stream_file.read_bytes() == b'Z'
-message = b''
+assert run([stream, 'buffered', stream_file]) == b'caller buffer contract passed\n'
+assert stream_file.read_bytes() == b'held in the caller buffer'
 for mode in ('null-stream', 'closed-stream'):
-    assert run([stream, mode, stream_file], status=127, stderr=message) == b''
-# Terminal rejection performs no stderr I/O and cannot generate SIGPIPE.
-read_end, write_end = os.pipe()
-os.close(read_end)
-readonly = os.open(stream_file, os.O_RDONLY)
-try:
-    for fd in (write_end, readonly):
-        for mode in ('null-stream', 'closed-stream'):
-            assert run([stream, mode, stream_file], status=127, stderr_fd=fd) == b''
-finally:
-    os.close(write_end)
-    os.close(readonly)
-# No stderr write: file-size limits cannot generate SIGXFSZ here.
-for mode in ('null-stream', 'closed-stream'):
-    assert run([stream, mode, stream_file], status=127, file_limit=0) == b''
-# The full blocking pipe regression proves termination does not wait on stderr.
-read_end, write_end = os.pipe()
-os.set_blocking(write_end, False)
-filled = 0
-while True:
-    try:
-        filled += os.write(write_end, b'x' * 4096)
-    except BlockingIOError:
-        break
-os.set_blocking(write_end, True)
-try:
-    assert filled > 0
-    for mode in ('null-stream', 'closed-stream'):
-        assert run([stream, mode, stream_file], status=127, stderr_fd=write_end, timeout=3) == b''
-finally:
-    os.close(read_end)
-    os.close(write_end)
+    assert run([stream, mode, stream_file]) == b''
 for binary in (production, stream):
     data = binary.read_bytes()
     phoff = struct.unpack_from('<Q', data, 32)[0]
@@ -178,7 +143,7 @@ run(CC + ['-Dgetcwd=tested_getcwd', '-D__seed_syscall6=directory_fake', '-c', ge
 fault = OUT / 'forth-faults'
 run(CC + [ROOT / 'tests/gcc/getcwd-faults.c', fault_obj, '-o', fault])
 assert run([fault]) == b'cwd injected contracts passed\n'
-set_defines = ['-Dsetbuf=tested_setbuf', '-Dfileno=directory_fileno', '-D_exit=directory_exit']
+set_defines = ['-Dsetbuf=tested_setbuf', '-Dsetvbuf=directory_setvbuf']
 set_obj = OUT / 'forth-setbuf.o'
 run(CC + set_defines + ['-c', setbuf, '-o', set_obj])
 abi_fixture = ROOT / 'tests/gcc/setbuf-abi.c'
@@ -208,18 +173,15 @@ for opt in ('-O0', '-O2'):
         binary = OUT / (provider + '-setbuf-abi' + opt)
         run([host, opt] + flags + [abi_fixture, obj, '-o', binary])
         assert run([binary]) == b'setbuf public-call ABI passed\n'
-        assert run([binary, 'x']) == b'setbuf buffer ABI passed\n'
-        assert run([binary, 'i'], status=127) == b''
     set_caller = OUT / ('setbuf-caller' + opt + '.o')
     run(CC + ['-c', abi_fixture, '-o', set_caller])
     binary = OUT / ('setbuf-reverse' + opt)
     run([host, opt] + flags + [set_caller, host_set, '-o', binary])
     assert run([binary]) == b'setbuf public-call ABI passed\n'
-    assert run([binary, 'x']) == b'setbuf buffer ABI passed\n'
-    assert run([binary, 'i'], status=127) == b''
     libc_set = OUT / ('libc-setbuf' + opt)
     run([host, opt] + flags + ['-DDIRECTORY_LIBC', ROOT / 'tests/gcc/setbuf-check.c', '-o', libc_set])
     assert run([libc_set, 'normal', stream_file]) == b'unbuffered stream contract passed\n'
+    assert run([libc_set, 'buffered', stream_file]) == b'caller buffer contract passed\n'
 
 uapi = OUT / 'uapi.c'
 uapi.write_text('''#include <asm/unistd.h>
@@ -254,8 +216,8 @@ report = {'compiler_runtime_identity': identity, 'production': 'Forth only, stat
     'caller pointer identity, NUL, storage guards, errno', 'NULL allocating forms explicitly rejected',
     'real greater-than-4096 path boundary with independent libc fallback contrast', 'read-only/no-access/bad-pointer kernel EFAULT',
     'all 4095 kernel errors and full-width syscall argument forwarding', 'synthetic non-absolute result rejected',
-    'fopen/fdopen NULL setbuf immediate binary writes and reads', 'caller buffer accepted, never read or written, writes still immediate', 'setvbuf modes accepted, invalid mode EINVAL', 'NULL/closed stream immediate silent status 127',
-    'actual full-blocking-pipe/closed-pipe/read-only/file-size-limited stderr',
+    'fopen/fdopen NULL setbuf immediate binary writes and reads', 'non-NULL setbuf holds output in the caller buffer until fflush',
+    'invalid stream rejected with EBADF', 'setbuf forwards exactly to setvbuf',
     'public types and local UAPI constants', 'O0/O2 independent libc and host source', 'bidirectional getcwd/setbuf ABI',
     'timeout process-group cleanup branch with retained logs', 'unchanged seed and all Forth compiler layers'],
     'not_run': ['chroot/unreachable real cwd', 'credential/security changes', 'full component/broad suite', 'genuine configure replay', 'GCC link/execution/bootstrap'],

@@ -20,7 +20,7 @@ and [getrandom](https://man7.org/linux/man-pages/man2/getrandom.2.html).
 
 unlink makes the real Linux unlink call and preserves open descriptors to the
 file. _exit terminates the supported single-threaded process with the low eight
-status bits and no cleanup callbacks. Existing streams are unbuffered. The
+status bits, no cleanup callbacks and no stdio flush. The
 headers expose only implemented calls and actual Linux flag/command constants;
 paths.h deliberately selects /tmp/ as source policy. No general POSIX or full
 libc claim is made. ABI constants follow [Linux v6.12](https://github.com/torvalds/linux/blob/v6.12/include/uapi/asm-generic/fcntl.h).

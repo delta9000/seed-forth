@@ -1,4 +1,4 @@
-# Measured working-directory and unbuffered-stream interfaces
+# Measured working-directory and setbuf interfaces
 
 Original GCC 4.0.4 at `944765863eec87a9f37e297994fd2af960397138`
 uses `getcwd` in `libiberty/getpwd.c`. The historical configuration lacks
@@ -10,7 +10,7 @@ the fallback; neither original source edits nor forced macros are acceptable.
 `gcc/gcov-io.c:137` calls `setbuf(gcov_var.file, (char *)0)` immediately after
 opening its stream. A search of original gcc/libcpp/libiberty, excluding the
 compiler testsuite, found no other setbuf call. This consumer requests actual
-unbuffered operation, which the seed FILE already provides.
+unbuffered operation, which [buffered streams](STDIO-BUFFERING.md) provide.
 
 ## getcwd: caller-owned storage and a visible kernel bound
 
@@ -49,46 +49,17 @@ path. That rejection may leave the kernel-written bytes in caller storage.
 The corresponding synthetic path is tested; real chroot/mount/credential
 changes are not exercised or required by this focused proof.
 
-## setbuf and setvbuf: buffers accepted, streams stay unbuffered
+## setbuf
 
-*Update (POSIX runtime).* The non-NULL form described below is no longer
-rejected. patch 2.5.9 calls `setbuf(stderr, serrbuf)` and coreutils calls
-`setvbuf`, and C defines both as requests the implementation may honour in
-its own way. Every seed stream stays unbuffered: a caller's buffer is
-accepted but never read, written or retained, so output still reaches the
-kernel at once. `setvbuf(stream, buffer, mode, size)` returns 0 for
-`_IOFBF`, `_IOLBF` and `_IONBF` (now defined in `stdio.h`) and fails with
-`EOF`/`EINVAL` for any other mode. Real buffering, if it is added, belongs
-to the stdio implementation itself. A NULL or closed stream still ends the
-process with the silent status 127 described below. The gate now checks the
-accepted buffer (writes immediate, buffer bytes untouched, `setvbuf` modes)
-instead of the old terminations; the historical record below describes the
-superseded contract.
-
-## setbuf: only the observed NULL-buffer form (superseded)
-
-The public type is `void setbuf(FILE *, char *)`. The NULL form is the
-unbuffered operation described by the [GNU libc manual](https://www.gnu.org/software/libc/manual/2.34/html_node/Controlling-Buffering.html). Call it immediately after
-opening a live seed stream, before other stream operations. The NULL-buffer
-form preserves errno, descriptor identity, file position and stream state.
-No flag claims to enable buffering: the actual reads and writes remain
-unbuffered. `fileno` supplies existing public validation without duplicating
-private FILE fields. This FILE still has no host-libc layout compatibility.
-
-A non-NULL buffer requests unsupported buffering. Because setbuf has no
-error return, it calls _exit(127) immediately. NULL or closed standard streams
-use the same explicit failure. A dangling or arbitrary FILE pointer remains
-outside the live-object contract. The unsupported buffer is never read or
-retained. There is no diagnostic write, flush, allocation, signal-mask change,
-or continuation pretending that buffering succeeded. This is a documented
-bounded-runtime rejection, not libc-equivalent handling of the non-NULL form.
-
-Exit status is the explicit unsupported-operation failure. Avoiding diagnostic
-I/O is deliberate: a closed pipe can deliver SIGPIPE, a file-size limit can
-deliver SIGXFSZ, and a full blocking stderr pipe can prevent a write from
-returning. Silencing or blocking signals would not solve the last case and
-would add process-state changes just to print text. The terminal operation
-therefore does no I/O and leaves signal state untouched.
+The public type is `void setbuf(FILE *, char *)`, implemented as
+`setvbuf(stream, buffer, buffer ? _IOFBF : _IONBF, BUFSIZ)`; see
+[STDIO-BUFFERING.md](STDIO-BUFFERING.md). The NULL form is the unbuffered
+operation described by the [GNU libc manual](https://www.gnu.org/software/libc/manual/2.34/html_node/Controlling-Buffering.html);
+call it immediately after opening the stream, before other operations. It
+preserves errno, descriptor identity, file position and stream state. A
+non-NULL buffer of `BUFSIZ` bytes becomes the stream's buffer. A NULL or
+closed stream is rejected with `EBADF` (glibc would crash); a dangling or
+arbitrary FILE pointer remains outside the live-object contract.
 
 ## Focused evidence and limits
 
@@ -100,10 +71,10 @@ protected-page boundaries and an actually constructed overlong cwd exercise
 getcwd. Test doubles check all kernel errno values, full-width sizes and the
 non-absolute rejection without security-setting changes.
 
-Real fopen/fdopen streams prove immediate binary I/O with NULL setbuf.
-Unsupported cases assert silent status 127 and absence of later writes,
-including actual full-blocking-pipe, closed-pipe, read-only and file-size-limited
-stderr. Public-call doubles verify immediate termination and fileno forwarding. They do not assume either FILE layout. Each subprocess is serial,
+Real fopen/fdopen streams prove immediate binary I/O with NULL setbuf, and a
+caller buffer that holds output until `fflush` (also checked with host libc).
+NULL and closed streams return with `EBADF`. Public-call doubles verify that
+setbuf forwards exactly to setvbuf in both ABI directions. They do not assume either FILE layout. Each subprocess is serial,
 bounded to 1 GiB and 300 seconds, owns a process group, and retains its command
 record before reporting timeout failure. The timeout cleanup branch is tested.
 The original seed and all Forth layers are hashed before and after.

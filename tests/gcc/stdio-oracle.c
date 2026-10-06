@@ -7,6 +7,8 @@
 #include <stddef.h>
 int seed_vsnprintf(char *, size_t, const char *, va_list);
 int seed_snprintf(char *, size_t, const char *, ...);
+/* The seed exit() owns this hook (process.c); the host exit flushes. */
+void (*__seed_exit_flush)(void);
 
 static int cases;
 static int check(size_t size, const char *format, ...)

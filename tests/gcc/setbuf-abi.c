@@ -1,41 +1,33 @@
-/* Public-call test doubles do not assume either implementation's FILE layout. */
+/* Public-call test doubles do not assume either implementation's FILE layout.
+   setbuf must be exactly setvbuf(stream, buffer, buffer ? _IOFBF : _IONBF,
+   BUFSIZ); the double records each forwarded call. */
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
 extern void tested_setbuf(FILE *, char *);
 static char stream_token;
+static char buffer_token[BUFSIZ];
 static FILE *wanted;
+static char *wanted_buffer;
+static int wanted_mode;
 static int calls;
-static int invalid_stream;
-int directory_fileno(FILE *stream)
+int directory_setvbuf(FILE *stream, char *buffer, int mode, size_t size)
 {
     calls++;
-    if (stream != wanted) _exit(41);
-    return invalid_stream ? -1 : 9;
+    if (stream != wanted || buffer != wanted_buffer || mode != wanted_mode || size != BUFSIZ) _exit(41);
+    return 0;
 }
-void directory_exit(int status)
-{
-    if (status != 127 || calls != invalid_stream) _exit(42);
-    _exit(status);
-}
-int main(int argc, char **argv)
+int main(void)
 {
     wanted = (FILE *)&stream_token;
     errno = 97;
-    if (argc > 1 && argv[1][0] == 'x') {
-        /* A caller buffer is accepted after the same stream validation. */
-        tested_setbuf(wanted, (char *)1);
-        if (calls != 1 || errno != 97) return 43;
-        puts("setbuf buffer ABI passed");
-        return 0;
-    }
-    if (argc > 1 && argv[1][0] == 'i') {
-        invalid_stream = 1;
-        tested_setbuf(wanted, NULL);
-        return 44;
-    }
+    wanted_mode = _IONBF;
     tested_setbuf(wanted, NULL);
     if (calls != 1 || errno != 97) return 45;
+    wanted_buffer = buffer_token;
+    wanted_mode = _IOFBF;
+    tested_setbuf(wanted, buffer_token);
+    if (calls != 2 || errno != 97) return 46;
     puts("setbuf public-call ABI passed");
     return 0;
 }

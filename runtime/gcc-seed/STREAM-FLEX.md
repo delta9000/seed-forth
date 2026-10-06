@@ -3,7 +3,9 @@
 Flex2.5.11 main.c redirects stdout with freopen(path,"w+",stdout), seeks back
 to generate a header, and reads it through fgets. misc.c reads skeleton lines;
 the generated scanner asks fileno for its input descriptor. This stage adds
-those operations to the existing single-threaded, unbuffered Linux AMD64 FILE.
+those operations to the single-threaded Linux AMD64 FILE, which is now
+[buffered](STDIO-BUFFERING.md); the fault suite makes stdin unbuffered to
+script its one-byte reads.
 
 fgets preserves embedded NUL bytes, retains a newline, limits reads to n-1,
 terminates successful reads, and leaves the buffer unchanged on immediate EOF.
@@ -13,7 +15,7 @@ The explicit n=1 contract returns an empty string without reading; n<=0 fails
 with EINVAL. These small-count choices are checked separately from portability.
 
 fseek accepts the real Linux SEEK_SET/CUR/END values. Relative seeks account
-for one pushed byte, detect LONG_MIN subtraction overflow, and discard pushback
+for unread buffered and pushed-back bytes, detect LONG_MIN subtraction overflow, and discard pushback
 and EOF only after a successful seek. Existing error indicators remain set.
 Interrupted seeks retry; errors preserve errno and leave pushback/EOF intact.
 fileno returns the actual owned descriptor without changing stream indicators.

@@ -98,7 +98,9 @@ int main(int argc, char **argv)
     if (stream == NULL || ftell(stream) != 0 || feof(stream) || ferror(stream)) return 36;
     if (getc(stream) != 'a' || ftell(stream) != 1) return 37;
     if (ungetc('Z', stream) != 'Z' || ftell(stream) != 0) return 38;
-    if (ungetc('Q', stream) != EOF || getc(stream) != 'Z' || getc(stream) != 'b') return 39;
+    /* More than the one pushback C guarantees is available (as in glibc). */
+    if (ungetc('Q', stream) != 'Q' || getc(stream) != 'Q' || getc(stream) != 'Z'
+        || getc(stream) != 'b') return 39;
     if (ungetc('b', stream) != 'b' || fflush(stream) || ftell(stream) != 1 || getc(stream) != 'b') return 40;
     memset(buffer, 0, sizeof(buffer));
     if (fread(buffer, 3, 8, stream) != 3 || memcmp(buffer, "cdef\377\nend:9", 11)) return 41;
@@ -112,7 +114,9 @@ int main(int argc, char **argv)
     if (fopen(argv[1], "q") != NULL || errno != EINVAL) return 47;
     if (fopen(argv[1], "r++") != NULL || errno != EINVAL) return 48;
     stream = fopen("/dev/full", "w");
-    if (stream == NULL || fprintf(stream, "%d", 7) != -1 || errno != ENOSPC || !ferror(stream)) return 49;
+    /* A fully buffered file reports the write failure when it is flushed. */
+    if (stream == NULL || fprintf(stream, "%d", 7) != 1 || ferror(stream)) return 49;
+    if (fflush(stream) != EOF || errno != ENOSPC || !ferror(stream)) return 63;
     clearerr(stream);
     if (ferror(stream) || fclose(stream)) return 50;
     if (puts("generator stdio") < 0 || printf("#define %s_CHECK(t)\tTREE_CHECK (t, %s)\n", "PLUS_EXPR", "PLUS_EXPR") != 53) return 51;

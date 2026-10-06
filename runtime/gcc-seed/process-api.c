@@ -37,7 +37,7 @@ int dup2(int descriptor, int target)
 
 pid_t fork(void)
 {
-    /* Every runtime stream is unbuffered, so no output is duplicated. */
+    /* Like glibc, no stdio flush: callers fflush pending output first. */
     return (pid_t)seed_process_call(57, 0, 0, 0, 0);
 }
 

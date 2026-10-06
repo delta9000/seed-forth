@@ -1,17 +1,40 @@
 #ifndef SEED_GCC_STDIO_H
 #define SEED_GCC_STDIO_H
 /* Original seed-forth interface; see LICENSE. Linux AMD64, single-threaded.
-   FILE is opaque and unbuffered. There is no host-libc FILE compatibility.
+   Buffered streams (see ../STDIO-BUFFERING.md): stdout is line buffered on
+   a terminal and fully buffered otherwise, stderr is unbuffered, files are
+   fully buffered; exit() and return from main flush, _exit() does not.
+   FILE is complete so that programs can declare FILE objects, but its
+   members are private and have no host-libc layout compatibility.
    Formatting supports integer, pointer, narrow string/character, ASCII wide
    string/character, %n and exact floating conversions (../PRINTF-FLOAT.md);
    positional conversions fail. */
 #include <stddef.h>
 #include <stdarg.h>
 #include <sys/types.h>
+struct __seed_FILE {
+    unsigned char *__rpos;
+    unsigned char *__rend;
+    unsigned char *__wpos;
+    unsigned char *__wend;
+    unsigned char *__wbase;
+    unsigned char *__buf;
+    size_t __size;
+    int __fd;
+    int __flags;
+    int __mode;
+    int __error;
+    int __eof;
+    struct __seed_FILE *__next;
+    unsigned char __small[16];
+};
 typedef struct __seed_FILE FILE;
 #define EOF (-1)
-/* Recommended application I/O block size; FILE streams remain unbuffered. */
+/* Default stream buffer size, also a recommended application block size. */
 #define BUFSIZ 8192
+#define _IOFBF 0
+#define _IOLBF 1
+#define _IONBF 2
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
@@ -25,15 +48,12 @@ FILE *fopen(const char *path, const char *mode);
 FILE *freopen(const char *path, const char *mode, FILE *stream);
 /* Ownership transfers only on success; w modes never truncate the fd. */
 FILE *fdopen(int descriptor, const char *mode);
-/* Streams stay unbuffered; a caller buffer is accepted but never used.
-   See ../DIRECTORY-BUFFERING.md. */
-void setbuf(FILE *stream, char *buffer);
-#define _IOFBF 0
-#define _IOLBF 1
-#define _IONBF 2
-/* Valid MODE (_IOFBF, _IOLBF, _IONBF) returns 0; others fail with EINVAL. */
 int setvbuf(FILE *stream, char *buffer, int mode, size_t size);
+void setbuf(FILE *stream, char *buffer);
+void setbuffer(FILE *stream, char *buffer, size_t size);
+void setlinebuf(FILE *stream);
 int fclose(FILE *stream);
+/* fflush(NULL) flushes every output stream. */
 int fflush(FILE *stream);
 int ferror(FILE *stream);
 int feof(FILE *stream);
@@ -48,10 +68,21 @@ int puts(const char *text);
 int fgetc(FILE *stream);
 int getc(FILE *stream);
 int getchar(void);
+/* Single-threaded: the _unlocked forms and stream locks are trivial. */
+int getc_unlocked(FILE *stream);
+int getchar_unlocked(void);
+int putc_unlocked(int byte, FILE *stream);
+int putchar_unlocked(int byte);
+void flockfile(FILE *stream);
+int ftrylockfile(FILE *stream);
+void funlockfile(FILE *stream);
 char *fgets(char *buffer, int count, FILE *stream);
+/* At least eight bytes of pushback are available. */
 int ungetc(int byte, FILE *stream);
 long ftell(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
+off_t ftello(FILE *stream);
+int fseeko(FILE *stream, off_t offset, int whence);
 /* fseek to offset 0, then clear the error and end-of-file indicators. */
 void rewind(FILE *stream);
 int fileno(FILE *stream);

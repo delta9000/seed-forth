@@ -127,6 +127,9 @@ The [approximate exp/log contract](MATH.md) is implemented in a separate
 The plumbing tools (gawk, coreutils, make, the shells and lexers) need the
 numeric and stream services of an ordinary C library:
 
+- [Buffered streams](STDIO-BUFFERING.md): full, line and no buffering with
+  `setvbuf`/`setbuf`, `fflush(NULL)`, and a flush at `exit` and on return
+  from `main`. `FILE` is a complete (private-member) type.
 - [Exact floating printf](PRINTF-FLOAT.md): `%e %f %g %a` and their upper
   case forms with every flag, width and precision, for `double` and
   `long double`, byte-identical to glibc.

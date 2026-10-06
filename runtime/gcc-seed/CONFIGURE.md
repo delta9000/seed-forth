@@ -71,12 +71,11 @@ interfaces; passing a narrow configure probe does not imply full conformance.
 
 ## Process termination
 
-`exit` never returns. It invokes Linux syscall 60 with the status low byte.
-The supported runtime has one thread, unbuffered stdio and no `atexit` or
-`tmpfile` registration. Therefore all successful output writes are already
-issued; kernel process termination releases open file descriptors. No user
-cleanup callback or buffered flush is silently promised. Extending those
-features requires extending `exit` and the startup return path together.
+`exit` never returns. It writes out pending buffered stdio output (see
+[STDIO-BUFFERING.md](STDIO-BUFFERING.md)), then invokes Linux syscall 60 with
+the status low byte; the runtime-aware startup passes `main`'s result to this
+`exit`. The supported runtime has one thread and no `atexit` or `tmpfile`
+registration; kernel process termination releases open file descriptors.
 If an external syscall filter denies termination, `exit` keeps attempting
 termination instead of returning to its caller.
 
@@ -131,8 +130,8 @@ Forth-built syscall double checks argument registers, the raw-error bounds
 and EOVERFLOW. It is linked only into the fault-test executable.
 
 Exit is exercised with nine positive/negative statuses, verifies absence
-of post-exit output, and leaves an unbuffered file stream open to prove its
-bytes persist. The test runner and Python `os.stat` are orchestration and
+of post-exit output, and leaves a buffered file stream open to prove that
+exit writes its bytes. The test runner and Python `os.stat` are orchestration and
 independent observation, not producers of target code.
 
 The second command separately compiles the layout fixture against host

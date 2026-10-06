@@ -61,6 +61,8 @@ int main(int argc, char **argv)
     FILE *result;
     if (argc != 2) return 1;
     scenario = argv[1][0] - '0';
+    /* The read scenarios script one-byte reads: make stdin unbuffered. */
+    if (scenario >= 4 && setvbuf(stdin, NULL, _IONBF, 0)) return 17;
     if (scenario <= 3) {
         errno = EDOM;
         result = freopen("target","w+",stdout);

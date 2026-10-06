@@ -1,5 +1,5 @@
 /* Original seed-forth implementation; see LICENSE. Measured integer and
-   character scanf over a string (sscanf) or an unbuffered stream (fscanf). */
+   character scanf over a string (sscanf) or a stream (fscanf). */
 #include <stdio.h>
 #include <ctype.h>
 #include <limits.h>
@@ -7,7 +7,7 @@
 
 /* Input with one byte of lookahead. A string ends at its NUL; a stream at
    EOF or a read error. At most one byte is ever held, so fscanf can return
-   it with the stream's single ungetc slot. */
+   it with ungetc. */
 struct seed_scan_input {
     const char *text;
     FILE *stream;

@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = ROOT / "runtime/gcc-seed"
 NAMES = ("fopen fdopen freopen fclose fflush ferror feof clearerr fwrite fread fputc putc putchar "
          "fputs puts fgetc getc getwc getchar fgets ungetc ftell fseek fileno vfprintf fprintf vprintf printf "
-         "vsnprintf snprintf vsprintf sprintf perror").split()
+         "vsnprintf snprintf vsprintf sprintf perror setvbuf setbuffer setlinebuf fseeko ftello getc_unlocked "
+         "getchar_unlocked putc_unlocked putchar_unlocked flockfile ftrylockfile funlockfile").split()
 
 
 def run(command, **kwargs):

@@ -91,8 +91,8 @@ host build is an output oracle only.
 - `localtime` fails unless `TZ` is exactly `UTC0`. Upstream code that does not
   check for NULL then crashes (`tar -tv`, `gzip -l`, `ls -l`, `date`).
   `strftime` lacks `%a`, `%b`, `%c` and `%Z`.
-- `setbuf` with a non-NULL buffer exited with status 127: **fixed** (the
-  buffer is accepted and unused; `setvbuf` added).
+- `setbuf` with a non-NULL buffer exited with status 127: **fixed** with
+  real buffering (`setvbuf`, `setbuffer`, `setlinebuf`).
 - The POSIX surface: **added** to the runtime, each topic with a contract
   and a gate against host glibc (see
   [runtime/gcc-seed/README.md](../runtime/gcc-seed/README.md#posix-surface-for-the-plumbing-tools)).
@@ -116,10 +116,11 @@ host build is an output oracle only.
   differences are floating-point `printf`/`seq`. The obsolete-option
   differences disappeared because `_POSIX2_VERSION` now matches glibc.
 - Still missing: `sscanf` `%n` (coreutils `stty` crashes restoring a saved
-  `-g` setting), and coreutils' `paste.c` declares `static FILE` objects, so
-  `FILE` must become a complete type (left to the stdio buffering work).
-- Stdio is unbuffered, so tools that read or write one character at a time
-  run 10 to 40 times slower than with glibc. Output is correct.
+  `-g` setting). `FILE` is now a complete type, so coreutils' `paste.c`
+  needs no workaround for its `static FILE` objects.
+- Stdio was unbuffered, so tools that read or write one character at a time
+  ran 10 to 40 times slower than with glibc: **fixed**
+  ([STDIO-BUFFERING.md](../runtime/gcc-seed/STDIO-BUFFERING.md)).
 
 ## Next steps
 

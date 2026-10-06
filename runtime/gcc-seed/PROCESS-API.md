@@ -19,8 +19,8 @@ in `unistd.h`, `sys/wait.h`, `signal.h` (`kill`) and `string.h` (`strerror`).
 syscall (22, 33, 57, 59, 61 with a null rusage, 62) through `__seed_syscall6`.
 Raw values in `[-4095, -1]` become errno and `-1`; nothing is retried, and
 the kernel validates descriptors, process IDs, signals and options. `wait`
-is `waitpid(-1, status, 0)`. `fork` needs no stream flushing because every
-runtime stream is unbuffered. A successful `execve` does not return.
+is `waitpid(-1, status, 0)`. Like glibc, `fork` does not flush stdio: a program
+with pending buffered output calls `fflush` first ([STDIO-BUFFERING.md](STDIO-BUFFERING.md)). A successful `execve` does not return.
 `environ` is the existing runtime global set at startup (it is NULL under the
 raw entry, which Linux accepts as an empty environment). See
 [fork](https://man7.org/linux/man-pages/man2/fork.2.html),

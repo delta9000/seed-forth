@@ -66,5 +66,6 @@ int main(int argc, char **argv)
     printf("file-ns %lu %lu %lu\n", (unsigned long)status.st_atim.tv_nsec,
            (unsigned long)status.st_mtim.tv_nsec, (unsigned long)status.st_ctim.tv_nsec);
 #endif
-    return 0;
+    /* The test links the raw entry, which exits without C exit's flush. */
+    return fflush(stdout) != 0;
 }
