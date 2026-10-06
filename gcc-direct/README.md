@@ -508,3 +508,30 @@ U+0160 letter in its copyright comment to S because Heirloom's C-locale wide
 I/O rejects UTF-8. Both hashes and the rationale are recorded. The temporary
 restricted scanner is replaced by flex's own generated scanner. This recipe
 establishes the generator chain, not wide/EUC lex support or a GCC bootstrap.
+
+## Stage D: GCC rebuilds itself to a fixed point
+
+`gcc-direct/stage-d.py WORK --stage-c STAGE_C_WORK --oyacc OYACC --flex FLEX`
+takes a finished stage-C run (its installed GCC, whose cc1 and driver were built
+by the Forth compiler, its musl sysroot and its Forth-built binutils) and builds
+GCC 4.0.4 three more times, each generation with the previous one, following
+`gcc64/build-gcc4.sh`: stage 2 by the stage-C GCC, stage 3 by stage 2, stage 4
+by stage 3. All builds share one source path, build path and prefix (stages 3
+and 4 install with `DESTDIR`), so embedded paths agree. The recipe passes only
+if stages 3 and 4 install identical files; archives are compared member by
+member because binutils 2.30 `ar` records member timestamps.
+
+Stage 2 against stage 3 is reported but is not the criterion. Stage 2 was
+compiled by a cc1 that runs on the Forth-built bounded runtime instead of musl,
+and GCC 4.0.4's output can depend on such environment details (for example the
+order `qsort` gives equal elements); the differences observed are equivalent
+register-order choices such as `(%rax,%r10)` versus `(%r10,%rax)`.
+
+One source adaptation is applied, verified before and after: GCC 4.0.4's
+`gcc/system.h` treats Berkeley-yacc output (`YYBYACC`, defined by the
+Forth-built oyacc) as parser-generator code where it maps `malloc` to `xmalloc`,
+but its `malloc`/`realloc` poison exemption names only `FLEX_SCANNER` and
+`YYBISON`, so a byacc-family parser cannot be compiled by a real GCC. The
+exemption is made to match. The repository's collect2 patch is applied as in
+the gcc64 route. No host compiler, assembler, linker, C library or parser
+generator takes part.
