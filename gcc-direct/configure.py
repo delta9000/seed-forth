@@ -6,17 +6,15 @@ audited before feature answers are treated as compiler/runtime evidence.
 
 Host target tools (as, ld, nm, ...) are guarded by default: GCC is configured
 with --with-as/--with-ld naming the guards, so no host binutils answers a probe.
-That default also bakes the guard paths into the driver as DEFAULT_ASSEMBLER
-and DEFAULT_LINKER (auto-host.h), which gcc.c and collect2.c prefer over any
--B directory, so such a driver can never assemble or link.  --with-binutils DIR
+Those paths are also baked into the driver as DEFAULT_ASSEMBLER/DEFAULT_LINKER,
+which gcc.c and collect2.c prefer over any -B directory.  --with-binutils DIR
 instead names a directory of Forth-built binutils (as and ld required; nm,
-objdump, ar, ranlib optional) as the target tools: --with-as=DIR/as and
---with-ld=DIR/ld, *_FOR_TARGET for each present tool, and, for the gcc
-component, ./nm and ./objdump links in the build directory, which is how GCC
-4.0.4's configure and Makefile find in-tree target nm/objdump (there is no
-configure option for them).  Assembler/linker feature probes then run our
-tools, and the driver runs DIR/as and DIR/ld.  Every other host tool, including
-the host-side AS/LD/NM variables, stays guarded.
+objdump, ar, ranlib optional): --with-as=DIR/as, --with-ld=DIR/ld,
+*_FOR_TARGET for each present tool and, for the gcc component, ./nm and
+./objdump links in the build directory (how GCC 4.0.4's configure and Makefile
+find target nm/objdump).  --with-sysroot DIR passes GCC's own --with-sysroot,
+so the driver and cc1 search DIR/usr/include and DIR/usr/lib, never the host's
+/usr.  Every host-side tool stays guarded.
 """
 from __future__ import annotations
 
@@ -323,13 +321,15 @@ def main():
     parser.add_argument("--alloca-frame", action="store_true", help="apply the exact target-guarded C_alloca stable-frame adapter in a private source view")
     parser.add_argument("--with-binutils", type=Path, metavar="DIR",
                         help="GCC only: use DIR/as and DIR/ld (Forth-built binutils) as the target assembler/linker instead of the guards")
+    parser.add_argument("--with-sysroot", type=Path, metavar="DIR",
+                        help="GCC only: configure the target system root (target headers in DIR/usr/include)")
     arguments = parser.parse_args()
     if arguments.gencheck and arguments.component != "gcc":
         parser.error("--gencheck requires --component gcc")
     package = PACKAGES[arguments.package]
     if arguments.package != "gcc":
-        if arguments.gencheck or arguments.alloca_frame or arguments.with_binutils:
-            parser.error("--gencheck, --alloca-frame and --with-binutils apply to GCC only")
+        if arguments.gencheck or arguments.alloca_frame or arguments.with_binutils or arguments.with_sysroot:
+            parser.error("--gencheck, --alloca-frame, --with-binutils and --with-sysroot apply to GCC only")
         arguments.component = "top"
     target_tools = {}
     if arguments.with_binutils:
@@ -340,6 +340,9 @@ def main():
                 target_tools[name] = path
             elif name in ("as", "ld"):
                 parser.error(f"--with-binutils needs an executable {path}")
+    sysroot = arguments.with_sysroot.resolve() if arguments.with_sysroot else None
+    if sysroot and not (sysroot / "usr/include").is_dir():
+        parser.error(f"--with-sysroot needs target headers in {sysroot / 'usr/include'}")
     source = (arguments.source or ROOT / package["inputs"] / package["source"]).resolve()
     archive = (arguments.archive or ROOT / package["inputs"] / package["archive"]).resolve()
     source_proof = verify_source(source, archive, arguments.package)
@@ -387,16 +390,14 @@ def main():
     if arguments.forth_ar:
         environment["AR"] = shlex.join([sys.executable, str(archive_driver)])
         environment["RANLIB"] = environment["AR"] + " s"
-    if target_tools:
-        environment.update({TARGET_TOOLS[name]: str(path) for name, path in target_tools.items()})
+    environment.update({TARGET_TOOLS[name]: str(path) for name, path in target_tools.items()})
     target_as = target_tools.get("as", guards / "as")
     target_ld = target_tools.get("ld", guards / "ld")
     build = work / "build" / ("top" if arguments.component == "top" else arguments.component)
     build.mkdir(parents=True)
     if arguments.component == "gcc":
         # gcc/configure takes `test -x nm` / `test -x objdump` in its build
-        # directory first (the combined-tree route); the Makefile's
-        # NM_FOR_TARGET likewise prefers ./nm.
+        # directory first; the Makefile's NM_FOR_TARGET likewise prefers ./nm.
         for name in ("nm", "objdump"):
             if name in target_tools:
                 (build / name).symlink_to(target_tools[name])
@@ -407,6 +408,8 @@ def main():
                "--cache-file=/dev/null", "--with-as=" + str(target_as),
                "--with-ld=" + str(target_ld), "--program-transform-name="]
     command += package.get("options", [])
+    if sysroot:
+        command.append("--with-sysroot=" + str(sysroot))
     write_json(work / "configure-command.json", {"command": command, "cwd": str(build),
                "environment": {key: environment[key] for key in ("CC", "CPP", "CXX", "CXXCPP", "CC_FOR_BUILD",
                  "CFLAGS", "CPPFLAGS", "LDFLAGS", "LIBS", "CONFIG_SITE", "PATH", "AS", "LD", "AR", "RANLIB", "NM")},
@@ -420,6 +423,7 @@ def main():
               "compiler": "frozen Forth source snapshot", "host_target_tools": "guarded; attempts retained",
               "target_binutils": {name: {"path": str(path), "sha256": sha(path.read_bytes())}
                                   for name, path in target_tools.items()} or "guarded, unavailable",
+              "sysroot": str(sysroot) if sysroot else None,
               "archive_adapter": "Forth fresh indexed archives" if arguments.forth_ar else "guarded, unavailable",
               "alloca_adapter": "explicit Forth caller-frame depth" if arguments.alloca_frame else "unmodified original C_alloca",
               "probes": summarize(work)}

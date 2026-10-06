@@ -108,6 +108,10 @@ Use `--forth-ar` when the frozen Forth archive layer is available to select
 its genuine AR command and `AR s` index validation as RANLIB. Other host target
 tools remain guarded. The archive adapter currently creates fresh indexed
 archives; it explicitly rejects incremental replacement of an existing file.
+For GCC, `--with-binutils DIR` replaces the guarded target `as`/`ld` with
+Forth-built binutils in DIR (they become the driver's DEFAULT_ASSEMBLER and
+DEFAULT_LINKER), and `--with-sysroot DIR` passes GCC's own `--with-sysroot`
+so target headers and libraries come from DIR/usr, never the host's /usr.
 Those GCC source/archive defaults are under `build-out/direct-gcc-inputs/`.
 `--package binutils` selects pinned binutils 2.30 and always runs its top-level
 configure; its defaults are `build-out/stage-b-inputs/binutils-source` and
@@ -253,6 +257,32 @@ same `-S` output and their `.text` bytes are compared. `WORK/report.json` and
 result. cc1 still lists host `/usr/local/include` and `/usr/include` as its
 system include directories; the freestanding program includes nothing, and a
 real sysroot belongs to the next stage.
+
+## Stage C: libgcc and musl
+
+`gcc-direct/stage-c.py` takes a finished binutils stage-B work directory and
+the Forth-built parser generators, and goes from the Forth compiler to a static
+hosted program linked against a real libc:
+
+```sh
+ulimit -s 65536   # the Forth-built cc1 needs a deep stack on large inputs
+python3 gcc-direct/stage-c.py build-out/stage-c \
+  --binutils /path/to/binutils-stage-b-work \
+  --oyacc /path/to/forth-built/oyacc --flex /path/to/forth-built/flex -j 6
+```
+
+It installs musl 1.1.24's headers into `WORK/sysroot`, configures GCC 4.0.4
+with `configure.py --with-binutils WORK/toolchain --with-sysroot WORK/sysroot`
+(native, C only, target headers and libraries in the sysroot, our `as`/`ld`
+baked in as the driver's defaults), builds cc1 with `census.py --link` and then
+xgcc/cpp/collect2 with the Forth compiler. GCC's own Makefile then builds
+libgcc.a, libgcov.a and the crtbegin/crtend objects with that xgcc and cc1,
+`make install` installs the compiler, musl's original configure/Makefile build
+`libc.a`, `crt1.o`, `crti.o` and `crtn.o` with it, and
+`tests/gcc/stage-c-hello.c` is built with a plain `gcc -static -O2` and run.
+No GCC or musl source file is patched; the build-tree adjustments are listed in
+the script's docstring. Every step's commands, logs and output hashes are in
+`WORK/stage-c/report.{json,md}`; `--resume` continues an interrupted run.
 
 ## Original RTL generator checks
 
