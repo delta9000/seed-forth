@@ -174,6 +174,8 @@ python3 tests/gcc/driver-check.py
 python3 tests/gcc/driver-cache-check.py
 python3 tests/gcc/driver-archive-check.py
 python3 tests/gcc/driver-libsearch-check.py
+python3 tests/gcc/seed-cc-check.py
+python3 tests/gcc/seed-cc-cache-check.py
 python3 tests/gcc/review-sysv-check.py
 python3 tests/gcc/review-sysv-syscall-check.py
 ffs_status=0
