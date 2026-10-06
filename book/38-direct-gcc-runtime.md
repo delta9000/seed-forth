@@ -161,21 +161,24 @@ create cc-sysrt-runtime-start-code
 [lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
                                                  \ call main (RELA30)
 [lit] 72 c, [lit] 137 c, [lit] 199 c,             \ mov rdi,rax
-[lit] 184 c, [lit] 60 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
-                                                 \ mov eax,60
-[lit] 15 c, [lit] 5 c,                           \ syscall
+[lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
+                                                 \ call exit (RELA38)
 [lit] 15 c, [lit] 11 c,                          \ ud2 if exit returned
+create cc-sysrt-exit-name s, exit
 : cc-sysrt-runtime-start-object
   cc-obj-init
-  cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 46 cc-obj-bytes
+  cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 44 cc-obj-bytes
   cc-sysrt-init-name [lit] 19 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
   cc-obj-text [lit] 16 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-main-name [lit] 4 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
   cc-obj-text [lit] 30 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
+  cc-sysrt-exit-name [lit] 4 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
+  cc-obj-text [lit] 38 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-start-name [lit] 6 cc-obj-global cc-obj-func cc-obj-default
-  cc-obj-text [lit] 0 [lit] 46 cc-obj-symbol drop ;
+  cc-obj-text [lit] 0 [lit] 44 cc-obj-symbol drop ;
 ```
 
 The optional interoperability check is `python3 tests/gcc/syscall-check.py`.
@@ -200,13 +203,16 @@ aligns the outgoing call, and relocates a call to the C `main`. It then passes
 main's result to Linux `exit`. An unexpected return from exit traps with UD2.
 
 `cc-sysrt-runtime-start-object` is the entry the direct driver links. Its
-46-byte body pushes argc/argv, calls `__seed_init_runtime` (relocation at
+44-byte body pushes argc/argv, calls `__seed_init_runtime` (relocation at
 offset 16), and pops them back. It then sets RDX to `argv+argc+1` with the
 five-byte `lea rdx,[rsi+rdi*8+8]`, the kernel's environment vector. A C
 `main(int argc, char **argv, char **envp)` therefore sees the same pointer
 the initializer stored in `environ`, as glibc and musl provide. The call to
-`main` is relocated at offset 30. The raw entry passes no envp: it serves
-only minimal two-argument syscall proofs without the C runtime.
+`main` is relocated at offset 30. Its result goes to the C library's `exit`
+(relocated at offset 38), not straight to the kernel: returning from `main`
+must run `atexit` handlers and flush streams exactly as calling `exit` does.
+The raw entry passes no envp and still makes the Linux exit call itself: it
+serves only minimal two-argument syscall proofs without the C runtime.
 
 Run `python3 tests/gcc/syscall-runtime-check.py` for a fully Forth-produced
 C program, startup, errno storage, syscall bridge, and link. The check executes

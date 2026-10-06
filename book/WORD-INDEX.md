@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2750 names and 97 ideas.
+carry none.  2751 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -2097,6 +2097,7 @@ for which chapter depends on which, the
 - `cc-sysrt-errno-name` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-errno-object` — *compiler word (`122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-errno-storage` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
+- `cc-sysrt-exit-name` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-frame-code` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-frame-name` — *compiler word (create, `122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)
 - `cc-sysrt-frame-object` — *compiler word (`122-cc-sysv-runtime.fth`)* — [Ch 38](38-direct-gcc-runtime.md)

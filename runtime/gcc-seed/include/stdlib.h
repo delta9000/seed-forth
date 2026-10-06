@@ -36,8 +36,14 @@ char *getenv(const char *name);
 /* Inserts STRING itself (not a copy) into a runtime-owned environ vector;
    NAME without '=' removes NAME. See ../ENVIRONMENT.md. */
 int putenv(char *string);
-/* Terminates the supported single-threaded, unbuffered runtime; no atexit. */
+/* Runs atexit/on_exit handlers newest first, flushes stdio, then ends the
+   process; returning from main does the same. See ../PROCESS-POSIX.md. */
 void exit(int status);
+/* Ends the process at once: no handlers and no flushing. */
+void _Exit(int status);
+/* At most 64 handlers in total; a full table or NULL returns -1. */
+int atexit(void (*handler)(void));
+int on_exit(void (*handler)(int, void *), void *argument);
 void abort(void);
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1

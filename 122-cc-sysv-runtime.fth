@@ -119,21 +119,24 @@ create cc-sysrt-runtime-start-code
 [lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
                                                  \ call main (RELA30)
 [lit] 72 c, [lit] 137 c, [lit] 199 c,             \ mov rdi,rax
-[lit] 184 c, [lit] 60 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
-                                                 \ mov eax,60
-[lit] 15 c, [lit] 5 c,                           \ syscall
+[lit] 232 c, [lit] 0 c, [lit] 0 c, [lit] 0 c, [lit] 0 c,
+                                                 \ call exit (RELA38)
 [lit] 15 c, [lit] 11 c,                          \ ud2 if exit returned
+create cc-sysrt-exit-name s, exit
 : cc-sysrt-runtime-start-object
   cc-obj-init
-  cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 46 cc-obj-bytes
+  cc-obj-text cc-obj-use cc-sysrt-runtime-start-code [lit] 44 cc-obj-bytes
   cc-sysrt-init-name [lit] 19 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
   cc-obj-text [lit] 16 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-main-name [lit] 4 cc-obj-global cc-obj-func cc-obj-default
   cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
   cc-obj-text [lit] 30 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
+  cc-sysrt-exit-name [lit] 4 cc-obj-global cc-obj-func cc-obj-default
+  cc-obj-undef [lit] 0 [lit] 0 cc-obj-symbol >r
+  cc-obj-text [lit] 38 cc-obj-plt32 r> [lit] 0 [lit] 4 - cc-obj-reloc
   cc-sysrt-start-name [lit] 6 cc-obj-global cc-obj-func cc-obj-default
-  cc-obj-text [lit] 0 [lit] 46 cc-obj-symbol drop ;
+  cc-obj-text [lit] 0 [lit] 44 cc-obj-symbol drop ;
 
 \ Ordinary C90 nonlocal return. Layout: RBX,RBP,R12,R13,R14,R15,RSP,RIP.
 \ The saved RSP is the caller's value after this leaf would return.

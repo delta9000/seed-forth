@@ -43,6 +43,11 @@ void __seed_init_runtime(int count,char **args) {
  if (((unsigned long)__builtin_frame_address(0)&15UL)!=0) bad=1;
  saved_count=count; saved_args=args;
 }
+/* The runtime entry passes main's result to the C library exit. */
+void exit(int status) {
+ __asm__ volatile ("syscall" : : "a"(60L), "D"((long)status) : "rcx", "r11", "memory");
+ for (;;) { }
+}
 int main(int count,char **args,char **envp) {
  if (((unsigned long)__builtin_frame_address(0)&15UL)!=0) return 2;
  return bad || count!=saved_count || args!=saved_args || count!=3 || args[1][0]!='a' || args[2][0]!='b' || args[3]!=0 || envp!=args+count+1;
