@@ -23,7 +23,9 @@ keep their numbers.  Extra signed and unsigned integer kinds and
 floating storage kinds support the opt-in LP64 target.  Among them,
 `ty-llong` and `ty-ullong` give `long long` its own identity: the
 same eight-byte size and signedness as `long`, but a distinct kind, so
-type comparisons still tell `long *` from `long long *`.  Pointer depth
+type comparisons still tell `long *` from `long long *`.  `ty-bool` is
+C99's `_Bool`: one unsigned byte, of lowest rank, whose conversions test
+for nonzero (Ch 45).  Pointer depth
 generalises to any level (`T**`, `T***`, …).  Struct and union layouts
 live in descriptors allocated from Ch 21's arena.
 
@@ -75,6 +77,9 @@ to size locals, globals and struct fields.
 \ only the LP64 data model spells them, and they rank above long.
 [lit] 15 constant ty-llong
 [lit] 16 constant ty-ullong
+\ C99 _Bool: one byte holding 0 or 1, an unsigned type of lowest rank.
+\ Conversion to it tests for nonzero; storage and loads are a byte's.
+[lit] 17 constant ty-bool
 
 \ Array nodes carry element type/descriptor, dimensions, size and alignment.
 \ The last cell is the elements' qualifier set (110's cc-qualifier-bit:
@@ -114,12 +119,13 @@ variable cc-bootstrap-floatbits
 \ The caller resolves struct descriptors before asking their size/alignment.
 \ LP64 is the AMD64 System V model: int=4, long/pointer=8, long double=16.
 \ Both long long kinds take the final eight-byte answer, exactly as long.
-\ The default retains the original char=1 and other non-void scalars=8.
+\ The default retains the original char=1 and other non-void scalars=8;
+\ _Bool is one byte in both models.
 : ty-size
   dup ty-ptr [lit] 0 > if, drop [lit] 8 exit, then,
   ty-base
   dup ty-void = if, drop [lit] 0 exit, then,
-  dup ty-char = if, drop [lit] 1 exit, then,
+  dup ty-char = over ty-bool = or if, drop [lit] 1 exit, then,
   cc-target-lp64 @ if,
     cc-bootstrap-floatbits @ if,
       dup ty-float = over ty-double = or over ty-ldouble = or if,
@@ -142,6 +148,7 @@ variable cc-bootstrap-floatbits
   ty-base
   dup ty-uchar = over ty-ushort = or
   over ty-uint = or over ty-ulong = or over ty-ullong = or
+  over ty-bool = or
   swap ty-char = cc-target-lp64 @ 0= and or ;
 
 \ ty-long-long? ( ty -- flag )  Scalar long long, signed or unsigned.

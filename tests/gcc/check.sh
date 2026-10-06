@@ -73,6 +73,7 @@ python3 tests/gcc/long-double-check.py
 python3 tests/gcc/binary32-values-check.py
 python3 tests/gcc/conditional-values-check.py
 python3 tests/gcc/long-long-check.py
+python3 tests/gcc/bool-check.py
 python3 tests/gcc/if-unsigned-check.py
 python3 tests/gcc/switch-labels-check.py
 python3 tests/gcc/conditional-qualified-null-check.py

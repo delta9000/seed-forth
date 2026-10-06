@@ -122,7 +122,27 @@ variable cc-f64-scan-hex
   2dup = if, 2drop exit, then,
   swap cc-fp-prefix [lit] 15 cc-emit-byte [lit] 90 cc-emit-byte
   [lit] 192 cc-emit-byte drop ;
+\ C99 _Bool: any nonzero scalar converts to 1, and so does a NaN, which
+\ compares unequal to zero. A floating value is zero exactly when its bits
+\ without the sign are zero; an integer or pointer is tested at its width.
+: cc-bool-type? ( type -- flag ) dup ty-ptr 0= swap ty-base ty-bool = and ;
+: cc-bool-convert ( source -- )
+  dup cc-bool-type? if, drop exit, then,
+  dup cc-fp-type? if,
+    cc-f32-type? 0= if, [lit] 72 cc-emit-byte then,
+    [lit] 209 cc-emit-byte [lit] 231 cc-emit-byte    \ shl edi/rdi, 1
+  else,
+    ty-size
+    dup [lit] 2 = if, [lit] 102 cc-emit-byte then,
+    dup [lit] 8 = if, [lit] 72 cc-emit-byte then,
+    [lit] 1 = if, [lit] 64 cc-emit-byte [lit] 132 else, [lit] 133 then,
+    cc-emit-byte [lit] 255 cc-emit-byte              \ test dil/di/edi/rdi
+  then,
+  [lit] 64 cc-emit-byte [lit] 15 cc-emit-byte
+  [lit] 149 cc-emit-byte [lit] 199 cc-emit-byte    \ setne dil
+  cc-emit-zx-byte-rdi ;
 : cc-fp-convert ( source destination -- )
+  dup cc-bool-type? if, drop cc-bool-convert exit, then,
   2dup cc-fp-type? swap cc-fp-type? or 0= if,
     cc-emit-convert-value-default exit,
   then,
@@ -157,7 +177,9 @@ variable cc-f64-scan-hex
   [lit] 72 cc-emit-byte [lit] 135 cc-emit-byte [lit] 207 cc-emit-byte ;
 ' cc-fp-convert-right is cc-emit-convert-right
 : cc-fp-initialize ( source destination -- )
-  2dup cc-fp-type? swap cc-fp-type? or if, cc-fp-convert else, 2drop then, ;
+  2dup cc-fp-type? swap cc-fp-type? or over cc-bool-type? or if,
+    cc-fp-convert
+  else, 2drop then, ;
 ' cc-fp-initialize is cc-value-init-fwd
 : cc-fp-return
   cc-native-return-type @ cc-fp-type? if,

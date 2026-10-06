@@ -299,7 +299,10 @@ Forth compiler gates in [`tests/tcc/README.md`](https://github.com/delta9000/see
 ## Floating types in the direct-GCC System V target
 
 The direct-GCC target ([chapters 36](36-direct-gcc-calls.md)–[48](48-direct-gcc-aggregate-abi.md))
-keeps the three floating types apart:
+keeps the three floating types apart. It also has C99's `_Bool`, one
+unsigned byte that any nonzero scalar, pointer or floating value (NaN
+included) converts to 1, with `<stdbool.h>`, `_Bool` bitfields of one bit
+and static initializers ([Ch 45](45-direct-gcc-binary64.md)).
 
 | Type | Supported | Size / alignment | Boundary |
 |---|---|---|---|

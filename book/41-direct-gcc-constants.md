@@ -81,7 +81,12 @@ Division by zero reports error 124. Invalid shift counts report 241. Signed
 addition, subtraction, multiplication, negation, division overflow, and invalid
 signed left shifts report 242. Unsupported value forms and literal spellings
 report 240. These are target diagnostics, rather than substituted zero values.
-Unsigned arithmetic continues to wrap at the declared width.
+Unsigned arithmetic continues to wrap at the declared width. Conversion to
+`_Bool` keeps only whether the value is nonzero (`cc-const-convert`); a
+floating value converts to 1 unless all its bits but the sign are zero
+(`cc-const-float-bool`), and static `_Bool` leaves take the same
+conversion (`cc-const-initial`), so `static _Bool b = 256, h = 0.5;`
+stores 1 and 1.
 
 ## 3. Carry an address without knowing its final location
 
@@ -247,7 +252,7 @@ variable cc-const-used
   dup ty-char = over ty-uchar = or over ty-short = or
   over ty-ushort = or over ty-int = or over ty-uint = or
   over ty-long = or over ty-ulong = or
-  over ty-llong = or swap ty-ullong = or ;
+  over ty-llong = or over ty-ullong = or swap ty-bool = or ;
 : cc-const-check-integer ( record -- )
   dup cc-const-symbol swap cc-const-type cc-const-integer? 0= or if,
     cc-const-unsupported
@@ -290,8 +295,11 @@ defer cc-fp-truncate-fwd ( bits format -- magnitude negative? fits? )
 
 \ Narrowing keeps low bits, then sign extends signed integer targets.
 \ / is the seed's unsigned division, so a bit-63-set value stays intact.
+\ _Bool instead keeps whether the value is nonzero.
+: cc-const-bool? ( type -- flag ) dup ty-ptr 0= swap ty-base ty-bool = and ;
 : cc-const-convert ( value type -- value )
   dup cc-const-integer? 0= if, cc-const-unsupported then,
+  dup cc-const-bool? if, drop if, [lit] 1 else, [lit] 0 then, exit, then,
   dup ty-size [lit] 8 = if, drop exit, then,
   dup ty-unsigned? >r ty-size [lit] 8 * cc-pow2
   dup 1- rot and swap
@@ -331,8 +339,13 @@ defer cc-fp-truncate-fwd ( bits format -- magnitude negative? fits? )
       over swap cc-const-ult 0= if, cc-const-range then,
     then,
   then, r> drop ;
+\ A floating value is nonzero, NaN included, when any bit but the sign is set.
+: cc-const-float-bool ( bits from -- value )
+  ty-size [lit] 4 = if, [lit] 2147483647 else, [lit] 9223372036854775807 then,
+  and if, [lit] 1 else, [lit] 0 then, ;
 : cc-const-change ( value from to -- value )
   dup cc-const-float? if, cc-const-to-float exit, then,
+  over cc-const-float? over cc-const-bool? and if, drop cc-const-float-bool exit, then,
   over cc-const-float? if, cc-const-from-float exit, then,
   nip cc-const-convert ;
 : cc-const-arithmetic? ( type -- flag )
@@ -745,9 +758,10 @@ variable cc-const-b
 : cc-const-address-index ( -- value )
   cc-const-conditional dup cc-const-check-integer @ ;
 ' cc-const-address-cast is cc-om-address-cast-fwd
-\ Static leaves change representation only when a floating type is involved.
+\ Static leaves change representation only when a floating type or _Bool
+\ is involved.
 : cc-const-initial ( value source destination -- value )
-  2dup cc-const-float? swap cc-const-float? or if,
+  2dup cc-const-float? swap cc-const-float? or over cc-const-bool? or if,
     cc-const-change exit,
   then, 2drop ;
 ' cc-const-initial is cc-om-value-fwd

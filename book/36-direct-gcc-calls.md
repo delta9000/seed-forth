@@ -254,10 +254,11 @@ keywords, as C90 allows: `unsigned const char *q` in zlib's `gzread.c`,
 flag; the base comes from the counted keywords (Chapter 34). In this
 target `cc-sysv-spec-check` then applies C90's constraint on that
 keyword set in any order: only `long` may repeat (`long long`), at most
-one of `signed` and `unsigned`, `void` and `float` stand alone, `double`
-admits one `long`, `char` only a sign, `short` only `int` and a sign.
-`unsigned signed int`, `long char`, `short long`, `unsigned double` and a
-third `long` reject with error 233 instead of quietly selecting a type.
+one of `signed` and `unsigned`, `void`, `float` and `_Bool` stand alone,
+`double` admits one `long`, `char` only a sign, `short` only `int` and a sign.
+`unsigned signed int`, `long char`, `short long`, `unsigned double`,
+`unsigned _Bool` and a third `long` reject with error 233 instead of quietly
+selecting a type.
 
 Parameter declaration specifiers accept one `register` in any order with
 qualifiers and the base type, including `register const char *` from the
@@ -932,6 +933,9 @@ variable cc-sysv-spec-bad
   kw-unsigned cc-nspec-count kw-signed cc-nspec-count + dup >r
   [lit] 1 > cc-sysv-spec-fail
   kw-void cc-nspec-count if, kw-void cc-nspec-count cc-sysv-spec-only then,
+  cc-nspec-bool cc-nspec-count if,
+    cc-nspec-bool cc-nspec-count cc-sysv-spec-only
+  then,
   cc-nspec-float cc-nspec-count if,
     cc-nspec-float cc-nspec-count cc-sysv-spec-only
   then,
@@ -1081,10 +1085,11 @@ variable cc-sysv-spec-bad
   dup ty-char = over ty-uchar = or over ty-short = or
   over ty-ushort = or over ty-int = or over ty-uint = or
   over ty-long = or over ty-ulong = or
-  over ty-llong = or swap ty-ullong = or ;
+  over ty-llong = or over ty-ullong = or swap ty-bool = or ;
 \ Explicit LP64 integer/function-pointer representation conversions use
 \ all 64 bits. Only pointer-width integral destinations preserve a function
-\ address. Explicit function/object pointer casts keep all 64 bits too, as
+\ address, but any function pointer converts to _Bool by testing it.
+\ Explicit function/object pointer casts keep all 64 bits too, as
 \ POSIX dlsym and GCC allow; any other function-pointer partner rejects.
 \ The policy is pure so constant and runtime casts share it.
 \ This permits signal sentinels and address round trips, not arbitrary calls.
@@ -1095,7 +1100,8 @@ variable cc-sysv-spec-bad
     2drop exit,
   then,
   over cc-sysv-function-pointer? over cc-sysv-integral? and if,
-    ty-size [lit] 8 <> if, [lit] 230 cc-die then, drop exit,
+    dup ty-base ty-bool <> swap ty-size [lit] 8 <> and if, [lit] 230 cc-die then,
+    drop exit,
   then,
   over cc-sysv-function-pointer? over cc-sysv-function-pointer? = if,
     2drop exit,
@@ -1187,6 +1193,8 @@ defer cc-sysv-compatible-signatures-fwd
   then, ;
 : cc-sysv-value-shape ( source descriptor destination descriptor -- )
   cc-target-sysv @ 0= if, 2drop 2drop exit, then,
+  \ Every scalar, a function or array pointer included, converts to _Bool.
+  over dup ty-ptr 0= swap ty-base ty-bool = and if, 2drop 2drop exit, then,
   [lit] 3 cc-npick ty-base ty-array = [lit] 2 cc-npick ty-base ty-array = or
   [lit] 4 cc-npick ty-base ty-func = [lit] 3 cc-npick ty-base ty-func = or or if,
     [lit] 3 cc-npick ty-ptr 0= [lit] 2 cc-npick ty-ptr 0= or if,

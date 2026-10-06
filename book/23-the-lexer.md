@@ -11,7 +11,7 @@ After Ch 22, `tri.c` is 466 bytes of characters, but a parser does
 not want characters.  At line 12 it should not have to see `i`, `n`,
 `t`, a space, `w`, `[`, a space, `4`.  It wants to ask "what's
 next?" and hear "the keyword `int`", "the identifier `w`", "`[`",
-"the number 4".  The 689-line file `050-cc-lex.fth` answers that
+"the number 4".  The 691-line file `050-cc-lex.fth` answers that
 question through a single word, `cc-next-token`.
 
 Every later pass (types, symbols, expressions, declarations,
@@ -81,7 +81,7 @@ The file opens by naming everything a token can be:
 ```
 
 Seven token kinds (`eof`, `ident`, `num`, `str`, `chr`, `punct`,
-`kw`) and twenty-two multi-character punctuation IDs; the thirty C
+`kw`) and twenty-two multi-character punctuation IDs; the thirty-five C
 keywords follow in §2.  Everything else in the file builds on these
 constants.
 
@@ -103,7 +103,7 @@ the whole compilation.
 
 ## 2. The keyword table
 
-The thirty keywords are laid down by name, then numbered:
+The thirty-five keywords are laid down by name, then numbered:
 
 ```forth file=050-cc-lex.fth
 \ ===========================================================================
@@ -151,6 +151,7 @@ kw, union
 kw, float
 kw, double
 kw, inline
+kw, _Bool
 [lit] 0 c,                                      \ terminator
 
 \ Keyword IDs in declaration order.
@@ -188,6 +189,7 @@ kw, inline
 [lit] 31 constant kw-float
 [lit] 32 constant kw-double
 [lit] 33 constant kw-inline
+[lit] 34 constant kw-bool
 
 ```
 
@@ -197,7 +199,8 @@ entry from the next token with Ch 12's `token` and `bytes,`:
 `kw, int` lays down `3 'i' 'n' 't'`.  The length sits inline, so no
 parallel `[length, pointer]` table is needed.  The `kw-*` constants follow the entry order: `kw-int = 0`
 because `"int"` is first, `kw-char = 1` because `"char"` is second,
-and so on.
+and so on.  New keywords go at the end, so earlier IDs never move: C99's
+`_Bool` is `kw-bool = 34`, used only by the opt-in targets (Ch 45).
 
 Three small helpers come next.
 

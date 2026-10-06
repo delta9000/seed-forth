@@ -15,7 +15,7 @@ patched TinyCC 0.9.27 and portable-libc sources to compile them
 itself. The generated executable is a TinyCC seed; that TinyCC
 then compiles the next TinyCC and its runtime.
 
-This chapter owns `115-cc-native.fth` (638 lines),
+This chapter owns `115-cc-native.fth` (642 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
 (324 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
@@ -102,9 +102,9 @@ usual) to reach the next keyword: `unsigned const char` and
 `long volatile int` name the same types as `const unsigned char` and
 `volatile long int`. The keywords are counted in `cc-nspec-counts`
 rather than folded as they arrive, and `cc-nspec-base` derives the
-base from the counts (one slot per keyword, with `cc-nspec-float` and
-`cc-nspec-double` naming the two after `signed`), so their order cannot
-matter either
+base from the counts (one slot per keyword, with `cc-nspec-float`,
+`cc-nspec-double` and `cc-nspec-bool` naming the three after `signed`), so
+their order cannot matter either
 (`double long` is `long double`). Two `long`s select `long long` under
 LP64, whatever their order: `long unsigned long` and
 `unsigned long long int` are one type; the legacy data model has only
@@ -222,7 +222,7 @@ variable cc-ntag-u
 : cc-native-type-start
   cc-tok-is-basic-type-kw? cc-qualifier? or
   kw-struct cc-tok-kw? or kw-union cc-tok-kw? or kw-enum cc-tok-kw? or
-  kw-float cc-tok-kw? or kw-double cc-tok-kw? or
+  kw-float cc-tok-kw? or kw-double cc-tok-kw? or kw-bool cc-tok-kw? or
   tok-kind @ tk-ident = if,
     tok-str-addr @ tok-str-len @ cc-sym-find
     dup 0< if, drop else, cc-sym-kind-of sk-typedef = or then,
@@ -289,32 +289,36 @@ defer cc-nbase-specifiers-fwd
   repeat, ;
 
 \ Type keywords are counted per spelling: int .. signed use their keyword
-\ numbers 0-6 as slots; float and double have the named slots after them.
+\ numbers 0-6 as slots; float, double and _Bool have named slots after them.
 \ A target may check the multiset; native mode keeps its permissive
 \ keyword sequence.
 [lit] 7 constant cc-nspec-float
 [lit] 8 constant cc-nspec-double
-[lit] 9 constant cc-nspec-slots
+[lit] 9 constant cc-nspec-bool
+[lit] 10 constant cc-nspec-slots
 create cc-nspec-counts cc-nspec-slots [lit] 8 * allot
 : cc-nspec-count ( slot -- n ) cc-nspec-counts cell[] @ ;
 : cc-nspec-keyword? ( -- flag )
-  cc-tok-is-basic-type-kw? kw-float cc-tok-kw? or kw-double cc-tok-kw? or ;
+  cc-tok-is-basic-type-kw? kw-float cc-tok-kw? or kw-double cc-tok-kw? or
+  kw-bool cc-tok-kw? or ;
 : cc-nspec-note
   cc-nspec-keyword? 0= if, exit, then,
   tok-kw-id @
   dup kw-float = if, drop cc-nspec-float then,
   dup kw-double = if, drop cc-nspec-double then,
+  dup kw-bool = if, drop cc-nspec-bool then,
   cc-nspec-counts cell[] dup @ 1+ swap ! ;
 : cc-nspec-check-default ;
 defer cc-nspec-check-fwd
 ' cc-nspec-check-default is cc-nspec-check-fwd
 
 \ The base comes from the counted keywords. In native mode an invalid set
-\ still selects one base: the first of void, float, double, char, short and
-\ long that occurs, otherwise int. Long double is double with a long.
+\ still selects one base: the first of void, _Bool, float, double, char,
+\ short and long that occurs, otherwise int. Long double is double with a long.
 \ Two longs name long long only under LP64; the legacy model has one long.
 : cc-nspec-base ( -- base )
   kw-void cc-nspec-count if, ty-void exit, then,
+  cc-nspec-bool cc-nspec-count if, ty-bool exit, then,
   cc-nspec-float cc-nspec-count if, ty-float exit, then,
   cc-nspec-double cc-nspec-count if,
     kw-long cc-nspec-count if, ty-ldouble else, ty-double then, exit,

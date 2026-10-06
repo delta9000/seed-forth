@@ -92,6 +92,7 @@ kw, union
 kw, float
 kw, double
 kw, inline
+kw, _Bool
 [lit] 0 c,                                      \ terminator
 
 \ Keyword IDs in declaration order.
@@ -129,6 +130,7 @@ kw, inline
 [lit] 31 constant kw-float
 [lit] 32 constant kw-double
 [lit] 33 constant kw-inline
+[lit] 34 constant kw-bool
 
 \ ===========================================================================
 \ Helper: 2-byte peek

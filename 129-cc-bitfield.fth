@@ -1,7 +1,7 @@
 \ 129-cc-bitfield.fth -- AMD64 little-endian integer record bitfields.
 \ Only the explicit SysV target changes descriptor or member semantics.
 \ Named int/unsigned/long/unsigned long fields use their natural 4/8-byte
-\ allocation units. Stores preserve every bit outside the destination.
+\ allocation units; a _Bool field is at most one bit in a one-byte unit. Stores preserve every bit outside the destination.
 \ Volatile accesses use ordinary unit loads and RMW stores; no atomicity
 \ or inter-thread synchronization is provided, and compound updates can
 \ perform an operand load plus the preserving RMW load.
@@ -35,7 +35,7 @@ create cc-bf-enum-origin [lit] 0 ,
 : cc-bf-type? ( ty -- flag )
   dup ty-ptr if, drop [lit] 0 exit, then,
   ty-base dup ty-int = over ty-uint = or over ty-long = or over ty-ulong = or
-  over ty-llong = or swap ty-ullong = or ;
+  over ty-llong = or over ty-ullong = or swap ty-bool = or ;
 
 variable cc-bf-desc
 variable cc-bf-width
@@ -51,6 +51,7 @@ variable cc-bf-record
   nc-ty @ ty-size [lit] 8 * cc-bf-unit !
   cc-bf-width @ [lit] 0 < cc-bf-width @ cc-bf-unit @ > or if, cc-bf-die then,
   cc-bf-width @ [lit] 32 > cc-bf-width @ [lit] 64 < and if, cc-bf-die then,
+  nc-ty @ ty-base ty-bool = cc-bf-width @ [lit] 1 > and if, cc-bf-die then,
   cc-bf-width @ 0= nc-nlen @ [lit] 0 <> and if, cc-bf-die then,
   cc-bf-desc @ cc-sd-union? if, [lit] 0 else, cc-bf-desc @ cc-sd-bit-end @ then,
   cc-bf-position !
@@ -122,13 +123,17 @@ variable cc-bf-record
   dup cc-sf-bit-width [lit] 64 swap - [lit] 232 cc-bf-shift-r8
   dup cc-sf-bit-shift [lit] 224 cc-bf-shift-r8
   dup cc-sf-type ty-size [lit] 8 = if, [lit] 72 cc-emit-byte then,
-  [lit] 139 cc-emit-byte [lit] 1 cc-emit-byte  \ mov eax/rax,[rcx]
+  dup cc-sf-type ty-size [lit] 1 = if,
+    [lit] 15 cc-emit-byte [lit] 182 cc-emit-byte [lit] 1 cc-emit-byte \ movzx eax,byte [rcx]
+  else, [lit] 139 cc-emit-byte [lit] 1 cc-emit-byte then, \ mov eax/rax,[rcx]
   [lit] 73 cc-emit-byte [lit] 185 cc-emit-byte \ movabs r9,preserving mask
   dup cc-sf-bit-width cc-bf-mask over cc-sf-bit-shift cc-shl dup nand cc-emit-8le
   [lit] 76 cc-emit-byte [lit] 33 cc-emit-byte [lit] 200 cc-emit-byte \ and rax,r9
   [lit] 76 cc-emit-byte [lit] 9 cc-emit-byte [lit] 192 cc-emit-byte  \ or rax,r8
-  cc-sf-type ty-size [lit] 8 = if, [lit] 72 cc-emit-byte then,
-  [lit] 137 cc-emit-byte [lit] 1 cc-emit-byte ; \ mov [rcx],eax/rax
+  cc-sf-type ty-size
+  dup [lit] 8 = if, [lit] 72 cc-emit-byte then,
+  [lit] 1 = if, [lit] 136 else, [lit] 137 then,
+  cc-emit-byte [lit] 1 cc-emit-byte ; \ mov [rcx],al/eax/rax
 ' cc-bf-store is cc-field-store-fwd
 
 : cc-bf-value-type ( ty rec -- promoted-ty )
@@ -154,7 +159,7 @@ variable cc-bf-init-offset
   cc-bf-init-record !
   cc-putback-token cc-parse-static-const-fwd
   if, cc-bf-die then, drop
-  dup cc-const-float? if,
+  dup cc-const-float? cc-bf-init-record @ cc-sf-type cc-const-bool? or if,
     cc-bf-init-record @ cc-sf-type cc-const-change
   else, drop then,
   cc-bf-init-record @ cc-sf-bit-width cc-bf-mask and

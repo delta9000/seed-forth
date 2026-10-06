@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2732 names and 97 ideas.
+carry none.  2739 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -437,6 +437,8 @@ for which chapter depends on which, the
 - `cc-binop?` — *compiler word (`100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
 - `cc-binops` — *compiler word (create, `100-cc-expr.fth`)* — [Ch 27 §5 The operator table](27-expressions-part-1.md#5-the-operator-table)
 - `cc-block-end?` — *compiler word (`114-cc-func.fth`)* — [Ch 31 §1 Setup](31-functions-and-scope.md#1-setup)
+- `cc-bool-convert` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Conversion to `_Bool`](45-direct-gcc-binary64.md#conversion-to-_bool)
+- `cc-bool-type?` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
 - `cc-bootstrap-floatbits` — *compiler word (variable, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `cc-break-stack-head` — *compiler word (variable, `112-cc-stmt.fth`)* — [Ch 30 §3 Break/continue fixup lists](30-statements-if-while-for-return.md#3-breakcontinue-fixup-lists)
 - `cc-bss-alloc` — *compiler word (`090-cc-emit.fth`)* — [Ch 26 §5 File-scope globals and deferred vaddr fixups](26-codegen-part-2.md#5-file-scope-globals-and-deferred-vaddr-fixups)
@@ -487,6 +489,7 @@ for which chapter depends on which, the
 - `cc-const-b` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-binary` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-binary-apply` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
+- `cc-const-bool?` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-boolean` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §5 Floating constants are exact records](41-direct-gcc-constants.md#5-floating-constants-are-exact-records)
 - `cc-const-cap` — *compiler word (constant, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-cast` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
@@ -497,11 +500,12 @@ for which chapter depends on which, the
 - `cc-const-common` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-conditional` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-conditional-fwd` — *compiler word (defer, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
-- `cc-const-convert` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §5 Floating constants are exact records](41-direct-gcc-constants.md#5-floating-constants-are-exact-records)
+- `cc-const-convert` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §2 Keep the numeric boundary explicit](41-direct-gcc-constants.md#2-keep-the-numeric-boundary-explicit)
 - `cc-const-desc` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-divide` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-evaluate` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-float-binary` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §5 Floating constants are exact records](41-direct-gcc-constants.md#5-floating-constants-are-exact-records)
+- `cc-const-float-bool` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §2 Keep the numeric boundary explicit](41-direct-gcc-constants.md#2-keep-the-numeric-boundary-explicit)
 - `cc-const-float-compare` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-float-key` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-float-operand` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
@@ -509,7 +513,7 @@ for which chapter depends on which, the
 - `cc-const-float?` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §5 Floating constants are exact records](41-direct-gcc-constants.md#5-floating-constants-are-exact-records)
 - `cc-const-from-float` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-ident-fwd` — *compiler word (defer, `100-cc-expr.fth`)* — [Ch 28 §9 Constant expressions](28-expressions-part-2.md#9-constant-expressions)
-- `cc-const-initial` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §5 Floating constants are exact records](41-direct-gcc-constants.md#5-floating-constants-are-exact-records)
+- `cc-const-initial` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41 §2 Keep the numeric boundary explicit](41-direct-gcc-constants.md#2-keep-the-numeric-boundary-explicit)
 - `cc-const-int-type` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-integer?` — *compiler word (`125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
 - `cc-const-left` — *compiler word (variable, `125-cc-consteval.fth`)* — [Ch 41, Canonical source](41-direct-gcc-constants.md#canonical-source)
@@ -907,7 +911,7 @@ for which chapter depends on which, the
 - `cc-fp-common-type` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
 - `cc-fp-comparison` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
 - `cc-fp-complement` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
-- `cc-fp-convert` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
+- `cc-fp-convert` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Conversion to `_Bool`](45-direct-gcc-binary64.md#conversion-to-_bool)
 - `cc-fp-convert-right` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
 - `cc-fp-decimal-fwd` — *compiler word (defer, `125-cc-consteval.fth`)* — [Ch 41 §5 Floating constants are exact records](41-direct-gcc-constants.md#5-floating-constants-are-exact-records)
 - `cc-fp-double-to-u64` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
@@ -1336,6 +1340,7 @@ for which chapter depends on which, the
 - `cc-nqualified-move` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nsize` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nspec-base` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
+- `cc-nspec-bool` — *compiler word (constant, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nspec-check-default` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nspec-check-fwd` — *compiler word (defer, `115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `cc-nspec-count` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
@@ -2478,6 +2483,7 @@ for which chapter depends on which, the
 - **Keyword table** — [Ch 23 §2 The keyword table](23-the-lexer.md#2-the-keyword-table)
 - `kw,` — *compiler word (`050-cc-lex.fth`)* — [Ch 23 §2 The keyword table](23-the-lexer.md#2-the-keyword-table)
 - `kw-auto` — *compiler word (constant, `050-cc-lex.fth`)* — [Ch 23 §2 The keyword table](23-the-lexer.md#2-the-keyword-table)
+- `kw-bool` — *compiler word (constant, `050-cc-lex.fth`)* — [Ch 23 §2 The keyword table](23-the-lexer.md#2-the-keyword-table)
 - `kw-break` — *compiler word (constant, `050-cc-lex.fth`)* — [Ch 23 §2 The keyword table](23-the-lexer.md#2-the-keyword-table)
 - `kw-case` — *compiler word (constant, `050-cc-lex.fth`)* — [Ch 23 §2 The keyword table](23-the-lexer.md#2-the-keyword-table)
 - `kw-char` — *compiler word (constant, `050-cc-lex.fth`)* — [Ch 23 §2 The keyword table](23-the-lexer.md#2-the-keyword-table)
@@ -2885,6 +2891,7 @@ for which chapter depends on which, the
 - `ty-align` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-array` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-base` — *compiler word (`060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
+- `ty-bool` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-char` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-double` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)
 - `ty-float` — *compiler word (constant, `060-cc-types.fth`)* — [Ch 24 §1 The one-word type encoding](24-types-and-symbols.md#1-the-one-word-type-encoding)

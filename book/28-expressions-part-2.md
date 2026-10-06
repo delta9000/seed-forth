@@ -980,7 +980,9 @@ variable cc-change-delta
     cc-change-type @ cc-change-desc @ cc-expr-pointee-size
   else, [lit] 1 then,
   cc-change-delta @ * cc-emit-add-rdi-imm32
-  cc-change-type @ cc-emit-convert-rdi
+  \ The sum has the promoted type; converting it, not truncating it, lets a
+  \ _Bool's b++ and b-- produce 1 and !b as C requires.
+  cc-change-type @ dup cc-unary-type swap cc-emit-convert-value
   cc-change-postfix @ if, cc-emit-pop-rdx then,
   cc-emit-pop-rcx
   cc-change-type @ cc-change-field @ cc-field-store-fwd

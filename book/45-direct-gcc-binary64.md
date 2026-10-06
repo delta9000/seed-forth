@@ -46,6 +46,38 @@ For binary32-to-unsigned64, exact widening permits reuse of the binary64
 split. Arithmetic and narrowing assume the normal nearest-even SSE environment
 with gradual underflow; changing the floating environment is not provided.
 
+## Conversion to `_Bool`
+
+C99's `_Bool` (`ty-bool`, Ch 24) is an unsigned one-byte integer whose only
+values are 0 and 1. It promotes to `int` like `unsigned char` and loads,
+stores and passes like it, so most of the compiler needs nothing new. What
+differs is conversion *to* it: C99 6.3.1.2 gives 0 for a value that
+compares equal to zero and 1 for anything else, where truncation to a byte
+would turn 256 into 0. `cc-fp-convert`, the hook behind every conversion
+with a source type (assignment, initialization, argument, return and cast),
+hands a `_Bool` destination to `cc-bool-convert`. An integer or pointer is
+tested at its own width (`test dil`, `di`, `edi` or `rdi`), so the result
+does not depend on what the bits above that width hold. A binary32 or
+binary64 payload is shifted left by one, discarding the sign: the result is
+zero only for the two signed zeros, so a NaN, which compares unequal to
+zero, converts to 1, as do infinities and subnormals. `setne` and a zero
+extension then leave 0 or 1 in RDI. A `_Bool` source is already 0 or 1 and
+needs no code.
+
+The value hooks are not the only stores. `++` and `--` (Ch 28) used to
+truncate their sum to the operand's width; they now convert the sum from
+its promoted type, so `b++` leaves 1 and `b--` on 0 leaves 1, as for
+`b = b + 1`. A call result and an incoming argument are only zero-extended
+from their low byte, which the psABI defines as 0 or 1. Static
+initializers and constant casts use the same rule at compile time
+(Ch 41), bitfields of `_Bool` are at most one bit wide in a one-byte unit
+(Ch 47), and `<stdbool.h>` defines `bool`, `true`, `false` and
+`__bool_true_false_are_defined`. A function pointer converts to `_Bool` by
+the same test. An address constant converted to `_Bool` in a static
+initializer, which GCC folds to 1, is not implemented and stays error 238.
+`python3 tests/gcc/bool-check.py` runs a program of every conversion,
+promotion and storage form, and calls in both directions, against host GCC.
+
 ## Arithmetic, truth and storage
 
 Addition, subtraction, multiplication and division use scalar SSE2. Relational
@@ -251,7 +283,27 @@ variable cc-f64-scan-hex
   2dup = if, 2drop exit, then,
   swap cc-fp-prefix [lit] 15 cc-emit-byte [lit] 90 cc-emit-byte
   [lit] 192 cc-emit-byte drop ;
+\ C99 _Bool: any nonzero scalar converts to 1, and so does a NaN, which
+\ compares unequal to zero. A floating value is zero exactly when its bits
+\ without the sign are zero; an integer or pointer is tested at its width.
+: cc-bool-type? ( type -- flag ) dup ty-ptr 0= swap ty-base ty-bool = and ;
+: cc-bool-convert ( source -- )
+  dup cc-bool-type? if, drop exit, then,
+  dup cc-fp-type? if,
+    cc-f32-type? 0= if, [lit] 72 cc-emit-byte then,
+    [lit] 209 cc-emit-byte [lit] 231 cc-emit-byte    \ shl edi/rdi, 1
+  else,
+    ty-size
+    dup [lit] 2 = if, [lit] 102 cc-emit-byte then,
+    dup [lit] 8 = if, [lit] 72 cc-emit-byte then,
+    [lit] 1 = if, [lit] 64 cc-emit-byte [lit] 132 else, [lit] 133 then,
+    cc-emit-byte [lit] 255 cc-emit-byte              \ test dil/di/edi/rdi
+  then,
+  [lit] 64 cc-emit-byte [lit] 15 cc-emit-byte
+  [lit] 149 cc-emit-byte [lit] 199 cc-emit-byte    \ setne dil
+  cc-emit-zx-byte-rdi ;
 : cc-fp-convert ( source destination -- )
+  dup cc-bool-type? if, drop cc-bool-convert exit, then,
   2dup cc-fp-type? swap cc-fp-type? or 0= if,
     cc-emit-convert-value-default exit,
   then,
@@ -286,7 +338,9 @@ variable cc-f64-scan-hex
   [lit] 72 cc-emit-byte [lit] 135 cc-emit-byte [lit] 207 cc-emit-byte ;
 ' cc-fp-convert-right is cc-emit-convert-right
 : cc-fp-initialize ( source destination -- )
-  2dup cc-fp-type? swap cc-fp-type? or if, cc-fp-convert else, 2drop then, ;
+  2dup cc-fp-type? swap cc-fp-type? or over cc-bool-type? or if,
+    cc-fp-convert
+  else, 2drop then, ;
 ' cc-fp-initialize is cc-value-init-fwd
 : cc-fp-return
   cc-native-return-type @ cc-fp-type? if,

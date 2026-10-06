@@ -88,7 +88,7 @@ to its call site.
 | 47  | `040-cc-prep.fth:165,593,1986,1989,1997,2009,2080` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
 | 48  | `040-cc-prep.fth:1931,1987` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 49  | `040-cc-prep.fth` | Invalid or unsupported direct-profile directive syntax, including malformed `#line`, GNU numeric markers, unterminated comments in directives, splices splitting a directive name, and source-text continuations that would join two tokens (continuations inside or splitting comments follow phase two). See [C line control](22-the-preprocessor.md#c-line-control-for-generated-parser-sources). |
-| 50  | `060-cc-types.fth:308` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
+| 50  | `060-cc-types.fth:313` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
 | 60  | `070-cc-sym.fth:75` | `cc-sym-add`: more than 8,192 live symbols. |
 | 61  | `070-cc-sym.fth:155` | `cc-scope-push`: scopes nested more than 64 deep. |
 | 62  | `070-cc-sym.fth:164` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
@@ -103,35 +103,35 @@ to its call site.
 | 95  | `100-cc-expr.fth:926` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
 | 96  | `100-cc-expr.fth:935` | Parenthesised expression: missing `)`. |
 | 97  | `100-cc-expr.fth:966` | Primary expression: token can't start one (not a literal, identifier or `(`). |
-| 98  | `100-cc-expr.fth:1028` | Postfix `++`/`--`: operand isn't an lvalue. |
-| 99  | `100-cc-expr.fth:1073,1096` | Postfix `[` on any expression: missing `]`. |
-| 100 | `100-cc-expr.fth:1114` | `.` / `->` on an expression with no known struct descriptor. |
-| 101 | `100-cc-expr.fth:1126` | `.` / `->` not followed by an identifier (field name). |
-| 102 | `100-cc-expr.fth:1298` | `sizeof`: missing `(`. |
-| 103 | `100-cc-expr.fth:1306` | `sizeof(struct`: tag isn't an identifier. |
-| 104 | `100-cc-expr.fth:1310` | `sizeof(struct TAG`: tag not found. |
-| 105 | `100-cc-expr.fth:1313` | `sizeof(struct TAG`: name isn't a struct tag. |
-| 106 | `100-cc-expr.fth:1327` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
-| 107 | `100-cc-expr.fth:1337` | `sizeof(`: identifier not found. |
-| 108 | `100-cc-expr.fth:1366` | `sizeof(`: identifier found but neither a typedef nor a local. |
-| 109 | `100-cc-expr.fth:1370` | `sizeof(`: token is neither a keyword nor an identifier. |
-| 110 | `100-cc-expr.fth:1272,1275,1375` | `sizeof(...`: missing `)`. |
-| 113 | `100-cc-expr.fth:986,1426` | Prefix `++`/`--`: operand isn't an lvalue. |
-| 114 | `100-cc-expr.fth:1479` | Unary `&`: operand isn't an identifier. |
-| 115 | `100-cc-expr.fth:1484` | Unary `&`: identifier not found. |
-| 116 | `100-cc-expr.fth:1455,1463,1488` | Unary `&`: identifier isn't a local. |
-| 117 | `100-cc-expr.fth:2141` | Ternary `?`: missing `:`. |
-| 118 | `100-cc-expr.fth:2214` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
-| 120 | `100-cc-expr.fth:2235,2243,2263,2388` | Assignment: left-hand side isn't an lvalue. |
+| 98  | `100-cc-expr.fth:1030` | Postfix `++`/`--`: operand isn't an lvalue. |
+| 99  | `100-cc-expr.fth:1075,1098` | Postfix `[` on any expression: missing `]`. |
+| 100 | `100-cc-expr.fth:1116` | `.` / `->` on an expression with no known struct descriptor. |
+| 101 | `100-cc-expr.fth:1128` | `.` / `->` not followed by an identifier (field name). |
+| 102 | `100-cc-expr.fth:1300` | `sizeof`: missing `(`. |
+| 103 | `100-cc-expr.fth:1308` | `sizeof(struct`: tag isn't an identifier. |
+| 104 | `100-cc-expr.fth:1312` | `sizeof(struct TAG`: tag not found. |
+| 105 | `100-cc-expr.fth:1315` | `sizeof(struct TAG`: name isn't a struct tag. |
+| 106 | `100-cc-expr.fth:1329` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
+| 107 | `100-cc-expr.fth:1339` | `sizeof(`: identifier not found. |
+| 108 | `100-cc-expr.fth:1368` | `sizeof(`: identifier found but neither a typedef nor a local. |
+| 109 | `100-cc-expr.fth:1372` | `sizeof(`: token is neither a keyword nor an identifier. |
+| 110 | `100-cc-expr.fth:1274,1277,1377` | `sizeof(...`: missing `)`. |
+| 113 | `100-cc-expr.fth:986,1428` | Prefix `++`/`--`: operand isn't an lvalue. |
+| 114 | `100-cc-expr.fth:1481` | Unary `&`: operand isn't an identifier. |
+| 115 | `100-cc-expr.fth:1486` | Unary `&`: identifier not found. |
+| 116 | `100-cc-expr.fth:1457,1465,1490` | Unary `&`: identifier isn't a local. |
+| 117 | `100-cc-expr.fth:2143` | Ternary `?`: missing `:`. |
+| 118 | `100-cc-expr.fth:2216` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
+| 120 | `100-cc-expr.fth:2237,2245,2265,2390` | Assignment: left-hand side isn't an lvalue. |
 | 121 | `100-cc-expr.fth:527,613` | Call: argument list not closed by `)`. |
 | 122 | `100-cc-expr.fth:621` | Call: more than six arguments (the register-only calling convention). |
 | 123 | `100-cc-expr.fth:661` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
-| 124 | `100-cc-expr.fth:1573` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
-| 125 | `100-cc-expr.fth:2507` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
-| 126 | `100-cc-expr.fth:2516` | Constant expression: a token that can't start an operand. |
-| 127 | `100-cc-expr.fth:2513` | Constant expression: `(` not closed by `)`. |
-| 128 | `100-cc-expr.fth:2592` | Constant expression: `?` without its `:`. |
-| 129 | `100-cc-expr.fth:2623` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
+| 124 | `100-cc-expr.fth:1575` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
+| 125 | `100-cc-expr.fth:2509` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
+| 126 | `100-cc-expr.fth:2518` | Constant expression: a token that can't start an operand. |
+| 127 | `100-cc-expr.fth:2515` | Constant expression: `(` not closed by `)`. |
+| 128 | `100-cc-expr.fth:2594` | Constant expression: `?` without its `:`. |
+| 129 | `100-cc-expr.fth:2625` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
 | 140 | `110-cc-decl.fth:67` | `cc-expect-kw-id`: next token wasn't a keyword. |
 | 141 | `110-cc-decl.fth:70` | `cc-expect-kw-id`: keyword id mismatch. |
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
@@ -204,20 +204,20 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:470` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:474` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:760` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:394`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
 | 190 | `115-cc-native.fth:120` | Native enumerator is not an identifier. |
 | 192 | `115-cc-native.fth:128` | Native enumerator followed by neither `,` nor `}`. |
-| 194 | `115-cc-native.fth:210` | Native type identifier not found. |
-| 195 | `115-cc-native.fth:211` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:310,313,327,620` | Native declarator is missing its name, or a parenthesized inner name is not an identifier or names a typedef. |
-| 205 | `115-cc-native.fth:635` | Native declaration missing its final semicolon. |
+| 194 | `115-cc-native.fth:214` | Native type identifier not found. |
+| 195 | `115-cc-native.fth:215` | Native type identifier is not a typedef. |
+| 203 | `115-cc-native.fth:314,317,331,624` | Native declarator is missing its name, or a parenthesized inner name is not an identifier or names a typedef. |
+| 205 | `115-cc-native.fth:639` | Native declaration missing its final semicolon. |
 | 210 | `115-cc-native.fth:56` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:522`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
-| 213 | `060-cc-types.fth:331` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
-| 214 | `110-cc-decl.fth:396`, `115-cc-native.fth:226` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
+| 213 | `060-cc-types.fth:336` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
+| 214 | `110-cc-decl.fth:396`, `115-cc-native.fth:230` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:158` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:82,83,94,102` | Invalid or empty inferred array initializer. |
 | 221 | `118-cc-native-init.fth:99,106,126` | Malformed or unterminated inferred initializer. |
@@ -250,7 +250,8 @@ implemented. It must not silently supply incorrect `__FILE__`/`__LINE__` values.
 
 In the System V target, 233 rejects an invalid set of declaration
 specifiers (`cc-sysv-spec-check` and its neighbours in `121-cc-sysv.fth`): a
-type-keyword set C90 forbids, such as `long char` or a third `long`; a second
+type-keyword set C90 forbids, such as `long char` or a third `long`, or
+`_Bool` with any other type keyword (`unsigned _Bool`); a second
 storage class anywhere in one declaration, such as `static extern int x` or
 `int static static x`; and a storage class in an aggregate member, a type name,
 or a parameter other than its one `register`. A block-scope function
