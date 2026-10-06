@@ -1,72 +1,22 @@
-# Seed Forth: from a small program to a toolchain
+# Seed Forth to M2-Planet and TinyCC
 
-**Start with [Two small results](books/FIRST-RESULTS.md).** Follow a Forth
-word that requests an `A` byte, then a C program that returns seven without
-printing it. These are short paper traces; you do not need to install
-anything first.
+This directory contains a minimal x86-64 Linux Forth seed and the Forth-coded
+C-subset compiler needed to reach M2-Planet compatibility and, with
+an opt-in extension, compile TinyCC directly.
 
-Then open the [teaching-books guide](books/README.md) and follow the
-[main learning route](books/HYBRID-NARRATIVE.md). The route starts with useful
-results and opens their dependencies as questions arise:
-
-1. Make a Forth word, then follow a small C program from entry to exit
-2. See one named dependency replaced: on the M2 branch, source-built M1/hex2
-   take over an assembly job, with the same input and an explicit comparison
-3. Join separately compiled objects, learning how symbols, System V calls,
-   linking, startup and runtime turn two files into a program
-4. Reach the **direct GCC toolchain**, then follow its source-built output
-   tools, target libraries and bounded rebuild comparisons
-
-M2-Planet, pnut and TinyCC have useful alternate routes below. Their
-executables are not required compiler ancestors of direct GCC. The short M2
-handoff story teaches dependency replacement without requiring that whole
-build first. Direct GCC still needs its shared compiler, object, call and
-runtime machinery; later chapters open those mechanisms.
-
-## What you can read now
-
-- [Seed and Forth](books/seed-forth/README.md): S01–S19 form a complete paper
-  draft, from useful words to the separate audit of all 1,772 seed bytes
-- [A C compiler in Forth](books/c-compiler/README.md): C01–C22 are drafted,
-  through the default compiler, Stage-A comparison and Forth assembler/handoff
-- [From compiler to toolchain](books/gcc-toolchain/README.md): G01 follows a
-  program from two files, through object records, an illustrative relocation,
-  the selected call profile and runtime-aware startup
-
-G02–G25, the native/TinyCC teaching continuation and the kernel/Linux volume
-are not yet included in this published teaching path. The draft is not a
-finished direct-GCC course.
-New example runs, clean-start setup and actual-reader validation remain
-unverified; source inspection and paper traces are not execution evidence.
-The [edition record](books/EDITION.md) pins the implementation and separates
-these evidence types; the [coverage map](books/COVERAGE.md) shows what still
-needs a teaching treatment.
-
-For source-guided depth, keep the original [literate book](book/SUMMARY.md)
-nearby. Its source-bearing blocks and the root implementation files retain
-their canonical relationship; `books/` is the new explanatory teaching edition.
-You can read the [annotated seed](000-seed.hex0),
-[Forth library](010-lib.fth), or [direct compiler driver](tools/gcc-direct-cc.py)
-without completing the full seed-byte audit first.
-
-## Build a particular route
-
-This repository starts from `000-seed.hex0`, an annotated hex0 file encoding
-a 1,772-byte x86-64 Linux ELF/Forth image. Numbered Forth layers build its C
-compiler and toolchain support. The existing build recipes below have
-different destinations and prerequisites; their order is not the learning
-sequence above. Start with the [direct compiler instructions](gcc-direct/README.md)
-for that profile. The M2, TinyCC and older GCC continuation recipes remain
-available here as separate routes, with their own checks and trust boundaries.
+The trust root is `000-seed.hex0`: an annotated hex0 file that encodes a
+1772-byte hand-written ELF/Forth image.  The seed is intentionally small: it
+provides only the primitives needed to load the numbered Forth files and
+compile a M2-Planet monolith.  The main check is
+byte-identical M1 output against a GCC-built M2-Planet reference.
 
 ## Get the sources
 
-Platform: **amd64 (x86-64) Linux only**. For the M2/TinyCC recipes below,
-you need `git`, `bash` and coreutils; `python3` for the book checks and `gcc`
-for the comparisons against GCC-built references (`check-all.sh` skips
-those steps without them; `verify.sh` requires gcc). Allow about 400 MB
-of disk for those routes' build outputs. This setup and disk estimate do
-not cover the full direct-GCC route; see its [instructions](gcc-direct/README.md).
+Platform: **amd64 (x86-64) Linux only**.  You need `git`, `bash` and
+coreutils; `python3` for the book checks and `gcc` for the comparisons
+against GCC-built references (`check-all.sh` skips those steps without
+them; `verify.sh` requires gcc).  About 400 MB of disk with every
+build output.
 
 ```sh
 git clone https://github.com/delta9000/seed-forth
@@ -74,10 +24,6 @@ cd seed-forth
 git -c url.https://github.com/oriansj/mescc-tools.git.insteadOf=https://git.savannah.nongnu.org/git/mescc-tools.git \
     submodule update --init --recursive       # ~25 s with the clone
 ```
-
-The clone command selects the repository's default branch. For this teaching
-edition, select `book/learning-first-rewrite` after cloning; the
-[edition record](books/EDITION.md) gives its implementation pin.
 
 The `-c url…insteadOf=…` part matters: `vendor/stage0-posix`'s own
 `.gitmodules` fetches its nested `mescc-tools` from
@@ -107,7 +53,7 @@ git -C vendor/stage0-posix submodule update --init bootstrap-seeds
 ```
 
 `vendor/pnut` (pnut at `abc34a5`, no nested submodules) supplies the TinyCC archive, kit patches, and portable-libc sources used by
-the direct TinyCC route. It is also needed by `tests/pnut/sf-pnut-check.sh` and
+the direct route. It is also needed by `tests/pnut/sf-pnut-check.sh` and
 `tests/pnut/sf-pnut-amd64-check.sh`, which build pnut with the Forth C
 compiler (and go on to TinyCC); both controls report SKIP without it:
 
@@ -116,9 +62,6 @@ git submodule update --init vendor/pnut
 ```
 
 ## Bootstrap it (no GCC)
-
-This is the M2-Planet route and its fixed-point check. It is an alternate
-build destination, not a prerequisite for the direct GCC learning route.
 
 From the repository root, with the submodules fetched as above:
 
@@ -321,10 +264,6 @@ The script checks its sha256 before unpacking it.  `REPRODUCIBLE.md`
 
 ### On to GCC 15.2, on amd64
 
-This continuation starts from TinyCC. It is distinct from the direct Forth-to-GCC
-route in [the teaching plan](books/HYBRID-NARRATIVE.md) and
-[direct compiler instructions](gcc-direct/README.md).
-
 [`gcc64/run-gcc64.sh`](gcc64/README.md) carries the amd64 route's
 `tcc-boot2` on through musl-1.1.24 to GCC 15.2.0, with no host compiler,
 assembler or linker:
@@ -455,28 +394,16 @@ per-arch closure chain, M2-Planet's test suite, mescc-tools), plus
 
 Generated binaries such as `seed-forth`, `/tmp/cc-out` and `build-out/` are not source.
 
-The direct GCC profile also uses shared declaration and initializer machinery
-from `115-cc-native.fth` and `118-cc-native-init.fth`; these files are not
-TinyCC-only. The [direct driver](tools/gcc-direct-cc.py) selects that profile's
-object and call providers.
-
 ## Reading Order
 
-For learning, begin with [Two small results](books/FIRST-RESULTS.md), then
-use the [teaching-books guide](books/README.md). You can follow a program
-before auditing every byte of its compiler. The full seed and compiler
-implementation routes remain available when you want that depth.
-
-**Source and load order answer a different question.** The annotated
-[`000-seed.hex0`](000-seed.hex0) and numbered `.fth` files let you inspect the
-implementation in source order. The C-compiler loader globs `010-lib.fth` plus
+The checked-in files are the source of record.  Start with `000-seed.hex0`, which
+annotates the hand-written ELF bytes, then read the numbered `.fth` files in
+lexical order.  The C-compiler loader globs `010-lib.fth` plus
 `[0-9][0-9][0-9]-cc-*.fth` in numeric order, with the executing
-`120-cc-main.fth` held until last by
-[`tools/compiler-layers.sh`](tools/compiler-layers.sh). Optional library layers
-numbered after 120 must be defined before main reads C input. This loader order
-does not make every profile or executable route a learner prerequisite.
-The assembler [`130-asm.fth`](130-asm.fth) ([canonical chapter 33](book/33-the-assembler.md))
-lives outside that pattern: it loads on `010-lib.fth` alone.
+`120-cc-main.fth` held until last by `tools/compiler-layers.sh`. Optional
+library layers numbered after 120 must be defined before main reads C input.
+The assembler `130-asm.fth` (book Ch 33) lives outside that pattern:
+it loads on `010-lib.fth` alone.
 
 ## Seed Vocabulary
 
@@ -535,14 +462,7 @@ See `REPRODUCIBLE.md` for the full fixed-point chain.
 
 ## Reading the book
 
-The [new teaching edition](books/README.md) is readable as Markdown under
-`books/`; its first stop is [Two small results](books/FIRST-RESULTS.md).
-
-The original literate book remains under `book/`. Its
-[table of contents](book/SUMMARY.md) includes the seed, default compiler,
-assembler, TinyCC and direct-GCC material, plus the appendices. Use that
-contents page rather than treating source order as a required learning order.
-The following commands render that original book, not the new `books/` edition,
+The 34-chapter book lives under `book/` as Markdown.  Render it
 with [mdBook](https://rust-lang.github.io/mdBook/):
 
 ```sh

@@ -1,5 +1,12 @@
 # Validation record
 
+The live repository README now serves the teaching edition's entrance.
+The checker's historical README input is the exact pinned
+[source-edition copy](source-edition/README-7d7e199.md.txt), independently
+checked against its original Git blob identity. This keeps old source
+citations stable while the reader gateway changes; the other source inputs
+still come from the supplied source root.
+
 This manuscript checkpoint contains the first volume's complete draft paper
 route: entry/motivation guides, nineteen teaching chapters, ninety-five
 exercises with separate feedback, six mixed return checks and a compact
@@ -14,13 +21,13 @@ recorded separately near the end.
 
 ## Checks performed
 
-The included checker is intentionally small and inspectable:
+The included checker performs bounded manuscript and source-identity checks:
 
 ```sh
 python3 books/check.py
 ```
 
-It uses Python's standard library. It checks fifty-nine relevant source blob
+It uses Python's standard library. It checks 71 relevant pinned source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.

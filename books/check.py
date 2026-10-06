@@ -218,6 +218,18 @@ def check_documents():
     print(f"PASS: {len(files)} Markdown files; {checked_links} links; {pairs} chapter exercise ID pairs; {len(entrance_ids)} entrance pairs")
 
 
+def pinned_source_path(source_root, name):
+    """Keep historical README evidence separate from the live reader gateway."""
+    if name == "README.md":
+        path = (ROOT / "source-edition/README-7d7e199.md.txt").resolve()
+        assert path.is_relative_to(ROOT), "README evidence escaped the manuscript tree"
+    else:
+        path = (source_root / name).resolve()
+        assert path.is_relative_to(source_root.resolve()), name
+    assert path.is_file(), f"Missing pinned source: {name}"
+    return path
+
+
 def check_pinned_source_links(source_root):
     """Check source locators against the pinned files, without network or execution."""
     prefix = f"https://github.com/delta9000/seed-forth/blob/{REV}/"
@@ -227,8 +239,7 @@ def check_pinned_source_links(source_root):
         prose = "\n".join(visible_lines(path.read_text()))
         for match in pattern.finditer(prose):
             name = unquote(match.group(1))
-            source = (source_root / name).resolve()
-            assert source.is_relative_to(source_root.resolve()) and source.is_file(), (path, name)
+            source = pinned_source_path(source_root, name)
             if name not in lengths:
                 lengths[name] = len(source.read_text().splitlines())
             start = int(match.group(2))
@@ -379,7 +390,7 @@ def check_sources(source_root):
     assert source_words("char ( ( comment )") == ["char", "("]
     assert source_words(": f ( stack comment ) dup ;") == [":", "f", "dup", ";"]
     for name, wanted in SOURCE_BLOBS.items():
-        data = (source_root / name).read_bytes()
+        data = pinned_source_path(source_root, name).read_bytes()
         actual = hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
         assert actual == wanted, f"Source edition mismatch: {name} {actual}"
     seed = (source_root / "000-seed.hex0").read_text()

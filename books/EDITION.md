@@ -1,5 +1,11 @@
 # Edition and evidence
 
+The repository's current README is the reader gateway and can evolve with
+this teaching edition. Historical README claims in these books still refer
+to the pinned source revision below. An [exact copy of that README](source-edition/README-7d7e199.md.txt)
+is retained as evidence; the manuscript checker verifies its original Git
+blob identity rather than expecting the live gateway to remain unchanged.
+
 ## Source boundary
 
 This teaching draft describes `delta9000/seed-forth` at commit
@@ -9,7 +15,8 @@ The `direct-gcc-overlay` branch pointed to that commit when checked on
 silently change the edition.
 
 The original implementation and literate book are inherited unchanged.
-Only paths under `books/` belong to this rewrite milestone. There is no promise
+The teaching manuscripts live under `books/`; the repository README is
+their reader gateway. There is no promise
 that a checkout of `master`, a different Forth, or a later compiler profile
 has the same behavior.
 
