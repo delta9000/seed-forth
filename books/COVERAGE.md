@@ -8,11 +8,13 @@ This is the editorial map for a new teaching edition in `books/`. It does not re
 
 **Volume 1, Seed and Forth, has a complete draft teaching path.** Its [opening](seed-forth/chapters/00-why-inspect-a-seed.md), [route guide](seed-forth/chapters/00-start-here.md), chapters S01–S19, separate feedback, six mixed return checks and [compact reference](seed-forth/REFERENCE.md) cover the seed and its first library. The [audit ledger](seed-forth/source-audit.csv) assigns an explanation to all **76 regions / 1,772 original file bytes**, including all 32 dictionary headers. All **63 library colon definitions and 11 constant-created names** have substantive teaching homes.
 
-The [S19 capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) derives a fresh 32-byte `inc` entry and its predicted stack/control behavior. Those are predicted **process-memory bytes**, not an observed execution or additional bytes in the original seed file. The hand-encoded native Forth colon compiler is distinct from the **C compiler written in Forth**. Volume 2 now has drafted chapters C01–C05, reaching the complete bounded preprocessor mechanism; the remainder of that volume and Volumes 3–4 remain planned. No complete C-compiler, toolchain or kernel manuscript, or newly verified chain, is claimed.
+The [S19 capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) derives a fresh 32-byte `inc` entry and its predicted stack/control behavior. Those are predicted **process-memory bytes**, not an observed execution or additional bytes in the original seed file. The hand-encoded native Forth colon compiler is distinct from the **C compiler written in Forth**. Volume 2 now has drafted chapters C01–C08, reaching the bounded preprocessor, lexer, types/descriptors and symbol/scope mechanisms; the remainder of that volume and Volumes 3–4 remain planned. No complete C-compiler, toolchain or kernel manuscript, or newly verified chain, is claimed.
 
 Draft completeness is a teaching-coverage claim. The new examples have not been executed, the fresh-reader installation route has not been tested, and no real-reader learning validation, universal correctness proof, or security proof is claimed. The first volume supports source reading and paper derivation under its explicit Linux/x86-64, storage, input and call assumptions. It links the pinned build entry without presenting that link as a tested setup tutorial.
 
-The [C-volume entrance](c-compiler/README.md) leads through [C01: the compiler/profile contract](c-compiler/chapters/01-compiler-entry-and-profile.md), [C02: buffers, arenas and failure](c-compiler/chapters/02-buffers-arenas-and-failure.md), [C03: preprocessing regions and includes](c-compiler/chapters/03-preprocessing-regions-and-includes.md), [C04: macro expansion and rescanning](c-compiler/chapters/04-macro-expansion-and-rescanning.md), and [C05: conditionals and profile extensions](c-compiler/chapters/05-conditionals-and-profile-extensions.md). Five feedback companions supply 26 chapter exercises. The [first mixed return check](c-compiler/practice/return-check.md) revisits C01–C03, and a [second mixed check](c-compiler/practice/return-check-2.md) combines macro lifetime, conditional selection and source identity. The draft now explains the infrastructure and all 57 source regions of the bounded preprocessor; the later compiler passes and closing bootstrap comparisons remain planned.
+The [C-volume entrance](c-compiler/README.md) leads through [C01: the compiler/profile contract](c-compiler/chapters/01-compiler-entry-and-profile.md), [C02: buffers, arenas and failure](c-compiler/chapters/02-buffers-arenas-and-failure.md), [C03: preprocessing regions and includes](c-compiler/chapters/03-preprocessing-regions-and-includes.md), [C04: macro expansion and rescanning](c-compiler/chapters/04-macro-expansion-and-rescanning.md), and [C05: conditionals and profile extensions](c-compiler/chapters/05-conditionals-and-profile-extensions.md). 
+
+The representation route continues with [C06: tokens and lookahead](c-compiler/chapters/06-tokens-and-lookahead.md), [C07: types and stable descriptors](c-compiler/chapters/07-types-and-stable-descriptors.md), and [C08: names and lexical scope](c-compiler/chapters/08-names-and-lexical-scope.md). Eight feedback companions supply 48 chapter exercises. The [first mixed return check](c-compiler/practice/return-check.md) revisits C01–C03, a [second mixed check](c-compiler/practice/return-check-2.md) combines macro lifetime, conditional selection and source identity; and a [third mixed check](c-compiler/practice/return-check-3.md) contrasts token rollback, descriptor growth and symbol visibility. The draft now explains infrastructure, all 57 source regions of the bounded preprocessor, all 39 lexer definitions, 52 type-layer definitions and 19 symbol definitions. C09 onward and the closing bootstrap comparisons remain planned at this checkpoint.
 
 ## How to read coverage and evidence
 
@@ -26,7 +28,7 @@ The exact `migration_status` vocabulary is:
 
 `rewrite_concern` preserves the source issue or editorial policy behind a choice; `remaining_scope` is the authoritative list of what is still owed. These are migration states, **not test results**. `evidence_status` separately distinguishes pinned source inspection, manual derivation, static disassembly, recorded CI and the unexecuted new examples. A complete draft can still require editorial revision, execution and reader testing. Optional legacy extensions are listed as supplementary work where they remain useful; they do not turn represented core mechanisms back into unexplained ones.
 
-The inventory retains **50 prologue/numbered chapters (00–49), seven appendices (A1–A7), eight Markdown navigators/editorial files, and `playground.fth`**: 66 original items. Eight additional records cover the seed, library, compiler arena/I/O/preprocessor sources, direct-GCC closure documentation, sorting, and historical route context, for 74 rows. No original source item is silently dropped.
+The inventory retains **50 prologue/numbered chapters (00–49), seven appendices (A1–A7), eight Markdown navigators/editorial files, and `playground.fth`**: 66 original items. Eleven additional records cover the seed, library, compiler arena/I/O/preprocessor/lexer/type/symbol sources, direct-GCC closure documentation, sorting, and historical route context, for 77 source rows. That source-row count is independent of the 77-unit editorial graph. No original source item is silently dropped.
 
 ### Existing CI is separate evidence
 
@@ -41,6 +43,7 @@ The following automatic canonical repository runs passed at their named rewrite 
 | `030bb0c8e5c8805f889bc00c3f8bb165e3631bbf` | [37422538095](https://github.com/delta9000/seed-forth/actions/runs/37422538095) |
 | `e4ebf723dbe8a251e19906aaca90454c7b51aa57` | [37425847949](https://github.com/delta9000/seed-forth/actions/runs/37425847949) |
 | `b52175e665123da15bcef216a482daa471b4609f` | [37428414147](https://github.com/delta9000/seed-forth/actions/runs/37428414147) |
+| `67d35652c230b0fe744be50b0f9fdb42977ccdd1` | [37429742852](https://github.com/delta9000/seed-forth/actions/runs/37429742852) |
 
 Native instruction listings were also checked by bounded GNU objdump 2.44 disassembly of source-decoded bytes. A static decoder reads the byte stream as data; that observation is not a running-seed trace. Manual predictions remain predictions until their exact inputs and environment are executed and recorded.
 
@@ -51,7 +54,7 @@ Native instruction listings were also checked by bounded GNU objdump 2.44 disass
 3. **From Compiler to Closed Toolchain (`gcc-toolchain`)**: enter with the compiler mechanisms and a new direct-GCC target contract. Build the conceptual path through objects, ABI, runtime, generators, `cc1`, binutils, hosted musl/libgcc, and the recorded GCC 4.0.4 fixed point
 4. **Kernels and Linux (`kernels-linux`)**: begin from an explicitly identified direct-chain toolchain. The proposed finish is a newly evidenced kernel/Linux path with a chosen user-visible acceptance criterion. The current direct-GCC-to-Linux outcome is **pending**, and the technical route and scope still require their own pinned source inventory
 
-An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. Volume 2 now supplies its contract bridges, profile comparison, infrastructure/preprocessor route and local source maps; its later teaching and tested setup remain outstanding. Volumes 3–4's entry packages are planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
+An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. Volume 2 now supplies its contract bridges, profile comparison, infrastructure/preprocessor/representation route and local source maps; its later teaching and tested setup remain outstanding. Volumes 3–4's entry packages are planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
 
 ## Learning order is not source order
 
@@ -92,7 +95,10 @@ The numbering below is an editorial route, not a requirement to alter file load 
 | C01 → C02 | Read shuffles, balanced return borrowing, compiled choices/loops/exits, bounded comparisons, stored updates, raw I/O and deferred selection | C02 supplies a local contract bridge; S04/S05/S06/S07/S09/S10 are targeted equivalent refresher routes, not six mandatory whole-chapter prerequisites |
 | C02 → C03 | Distinguish a borrowed span from owned bytes, input from output positions, capacity from accepted length, and live storage from reusable storage | C03 derives regions, shared sinks, retained newlines, literal includes and physical search paths; C04 opens macro storage/rescanning and C05 opens conditional/location interfaces |
 | C03 → C04 | Keep input regions, parked sinks, persistent definitions and temporary byte ownership separate | C04 derives stored recipes, argument prescan, substitution/rescan, busy state, token shadows and the final-token tail rule |
-| C03/C04 → C05 | Distinguish membership from replacement value; keep scratch text alive until its consumer returns | C05 supplies the local evaluator/profile contracts and opens conditional, computed-header, location, continuation and reset mechanisms; the lexer and evaluator implementations remain later lessons |
+| C03/C04 → C05 | Distinguish membership from replacement value; keep scratch text alive until its consumer returns | C05 supplies local evaluator/profile contracts; C06 opens its lexer snapshot dependency, while the evaluator implementation remains a later lesson |
+| C02/C05 → C06 | Track the flattened source span, byte cursor, retained spelling and limited state restoration | C06 derives token validity, byte boundaries, one-token replay and the eight-cell mark; floating recognition/decoding stays behind named target interfaces |
+| C02 → C07 | Distinguish an address from a stored pointer, reserved storage from initialized bytes, and builder metadata from generated objects | C07 teaches bit/type notation and the numeric-token contract locally; C06 is helpful background rather than an additional prerequisite |
+| C02/C06/C07 → C08 | Keep borrowed token names, descriptor identity, field-record addresses and arena lifetime separate | C08 derives symbol rows, namespace hooks, scope-count restoration, metadata and qualifier associations; later fixup/declaration providers stay separate |
 | Compiler → toolchain | Name source/object/executable, symbol/relocation, ABI, host/builder/target, and profile | G01–G05 provide a new contract and a complete numerical two-object example |
 | Scalar → variadic/record ABI | Track independent register banks, stack slots, alignment, snapshots, and result lifetime | G04, G10, G12, G15; X87 is deferred explicitly until G15 |
 | `cc1` → closed toolchain | Distinguish emitted assembly, a runnable program, a hosted runtime, and a reproducible compiler generation | G20–G25 add downstream production tools, sysroot, lineage, and comparisons |
@@ -102,7 +108,7 @@ Exercises inherit these edges. For example, a write-all implementation waits unt
 
 ## Destination ledger
 
-IDs below are stable editorial destinations. S00–S19 and C01–C05 now have drafted manuscripts; C06–C24 and all G/K units remain planned at this checkpoint. `entry` means the stated volume entrance; an equivalent entry bridge requires an explicit diagnostic/refresher, not an unexplained prerequisite. Named local bridges are required contracts supplied in that unit; their targeted refresher links are alternative ways to acquire those contracts. Listed prerequisites are conjunctive, with semicolons used in the CSV. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
+IDs below are stable editorial destinations. S00–S19 and C01–C08 now have drafted manuscripts; C09–C24 and all G/K units remain planned at this checkpoint. `entry` means the stated volume entrance; an equivalent entry bridge requires an explicit diagnostic/refresher, not an unexplained prerequisite. Named local bridges are required contracts supplied in that unit; their targeted refresher links are alternative ways to acquire those contracts. Listed prerequisites are conjunctive, with semicolons used in the CSV. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
 
 ### Volume 1: Seed and Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -136,9 +142,9 @@ IDs below are stable editorial destinations. S00–S19 and C01–C05 now have dr
 | C03 — Preprocessing regions and includes | C02 | Trace nested literal includes, shared sinks, retained newlines, bounded search paths and live storage; name deferred macro/conditional/location mechanisms. | 22, A2, A7 | drafted |
 | C04 — Macro expansion and rescanning | C03 | Derive stored macro recipes, raw/expanded argument lifetimes, substitution and rescans; distinguish busy state, token unavailability and tail calls. | 22, A2, A7 | drafted |
 | C05 — Conditional preprocessing and profile extensions | C03, C04, local evaluator/profile contracts | Trace conditional selection, computed headers, physical/logical locations, continuation rules and independent profile/reset gates while preserving evaluator lifetime. | 22, A2, A7 | drafted |
-| C06 — Tokens and reversible lookahead | C05 | Decode a token and restore all relevant lexer state after lookahead. | 23 | planned |
-| C07 — Types and stable descriptors | C02 | Separate a type encoding from descriptor identity and mutable storage. | 24 | planned |
-| C08 — Names and lexical scope | C07 | Trace parallel symbol records, lookup, and scope restoration. | 24 | planned |
+| C06 — Tokens and reversible lookahead | C02, C05 | Derive valid token payloads and byte endpoints; distinguish replay from eight-cell rollback and retained spelling from decoded values across all 39 lexer definitions. | 23, A2, A7 | drafted |
+| C07 — Types and stable descriptors | C02, local bit/type/token contracts | Pack types, preserve literal identity and profile sizes, trace stable headers and growing tables, and use named aggregate/array producer contracts across all 52 definitions. | 24, A2, A7 | drafted |
+| C08 — Names and lexical scope | C02, C06, C07 | Trace all 19 symbol definitions: parallel records, namespace selection, scope-count restoration, metadata/fixup heads and qualifier lifetime. | 24, A2, A7 | drafted |
 | C09 — Instructions inside an executable | C02, S11 | Derive representative instruction bytes, file/virtual addresses, and branch reference points. | 25 | planned |
 | C10 — Calls, literals, and deferred addresses | C08, C09 | Resolve forward-call and global-address fixups while tracking data and BSS ownership. | 26 | planned |
 | C11 — A bounded legacy runtime | C09, C10, S07 | Explain each shim's supported behavior and deviations from an ordinary libc contract. | 26 | planned |
@@ -204,12 +210,12 @@ These destinations are reference obligations. They are not extra volumes and the
 | Existing source | New destination | Preservation and revision obligation |
 |---|---|---|
 | `book/A1-32-seed-primitives.md` | R-primitives; S11–S19 | Draft-covered: REFERENCE.md plus all native body/helper explanations and the byte budget |
-| `book/A2-memory-map.md` | S10–S12; C02–C05; R-memory | Seed, arena/I/O and preprocessor storage/lifetime mechanisms drafted; later compiler records, generated program, native and direct-GCC views remain incomplete |
+| `book/A2-memory-map.md` | S10–S12; C02–C08; R-memory | Seed, buffers/preprocessor, lexer marks, type descriptors and symbol storage drafted; later generated-program, native and direct-GCC views remain incomplete |
 | `book/A3-reproducibility-chain.md` | R-lineage; C20/C22/C24; G25; K08 | Preserve every existing lineage and comparison; add the direct-GCC ending separately; keep kernel lineage pending |
 | `book/A4-worked-exercises.md` | R-solutions; S09/S16/C12 | Retain the three existing worked mechanisms, repair their premises/setup, and distribute expanded feedback by objective |
 | `book/A5-further-reading.md` | R-reading | Preserve purpose-based routes with durable primary links and explicit versions |
 | `book/A6-c-subset.md` | R-c-subsets | Give legacy, native TinyCC, and direct-GCC their own accepted/rejected/bounded contracts |
-| `book/A7-error-codes.md` | S14/S15/S18; C02–C05; R-errors | Seed, infrastructure and bounded preprocessor failures drafted; later compiler-phase/profile/assembler tables remain planned |
+| `book/A7-error-codes.md` | S14/S15/S18; C02–C08; R-errors | Seed, infrastructure/preprocessor, lexical limits and type/symbol failures drafted; later compiler-phase/profile/assembler tables remain planned |
 | `book/CONCEPTS.md` | N-concepts | Replace stale source-order graph with first-use, revisit, and actual prerequisite edges |
 | `book/GLOSSARY.md` | N-glossary | Synchronize definitions with the profile and chapter that teaches them |
 | `book/LEARNING_STORY_PLAN.md` | N-editorial | Carry forward useful outcome/trace goals; do not import obsolete rollout statuses |
@@ -226,24 +232,28 @@ These destinations are reference obligations. They are not extra volumes and the
 |---|---|---|
 | Canonical Chapters 01–20 | `draft_covered` | Every substantive seed/library mechanism is represented across S01–S19; optional legacy extensions are supplementary, and new examples remain unexecuted |
 | Canonical Chapter 21; `020-cc-arena.fth` and `030-cc-io.fth` | `draft_covered` | C01/C02 represent the entry/infrastructure mechanisms and all 35 colon definitions, including selectable storage and failure limits |
-| Canonical Chapter 22; `040-cc-prep.fth` | `draft_covered` | C03–C05 cover all 57 regions and 325 declaration homes, including shared interfaces and profile limits; the later lexer/evaluator/provider implementations remain separately planned |
+| Canonical Chapter 22; `040-cc-prep.fth` | `draft_covered` | C03–C05 cover all 57 regions and 325 declaration homes; C06 now opens lexer marking, while later evaluator/target providers remain planned |
+| Canonical Chapter 23; `050-cc-lex.fth` | `draft_covered` | C06 explains all 39 lexer definitions, eight token kinds, 34 keywords, decoding boundaries and replay/snapshot contracts; later floating providers remain interfaces |
+| Canonical Chapter 24 | `draft_covered` | C07/C08 explain type/descriptor and symbol/scope mechanisms, including actual profile, growing-table and ownership boundaries |
+| `060-cc-types.fth` | `draft_covered` | C07 explains all 52 definitions and supporting representations; later declaration, member-lookup and target producers remain named interfaces |
+| `070-cc-sym.fth` | `draft_covered` | C08 explains all 19 definitions, ten columns, six kinds, scope markers, qualifiers and deferred interfaces; later consumers/providers remain explicit |
 | Canonical prologue 00 | `partial` | S00 preserves seed motivation, provenance and trust boundaries; the original C/Fibonacci demonstration moves to planned C20 |
 | `000-seed.hex0` and `010-lib.fth` | `draft_covered` | Every seed region and every library definition has a teaching home; execution and reader validation remain separate |
 | Appendix A1 | `draft_covered` | [REFERENCE.md](seed-forth/REFERENCE.md), body/helper explanations and S19 supply the complete seed-contract reference and byte budget |
 | Appendices A2–A5 and A7 | `partial` | Seed-side material is represented; exact later-volume and supplementary obligations are retained below and in the CSV |
-| Chapters 23–49 and Appendix A6 | `planned` | Later C passes, assembler, bootstrap comparisons, full subset catalogues, TinyCC and direct-GCC teaching still need their mapped manuscripts; early contract previews do not migrate those chapters |
-| Navigation/editorial files | `partial` | Complete first-volume routes and the C01–C05 entrance/source maps exist; the edition-wide glossary, bibliography, later routes and generated index remain incomplete |
+| Chapters 25–49 and Appendix A6 | `planned` | Later C passes, assembler, bootstrap comparisons, full subset catalogues, TinyCC and direct-GCC teaching still need their mapped manuscripts; supplied provider contracts do not migrate those chapters |
+| Navigation/editorial files | `partial` | Complete first-volume routes and the C01–C08 entrance/source maps exist; the edition-wide glossary, bibliography, later routes and generated index remain incomplete |
 | `playground.fth` | `planned` | Retained as a pinned optional compatibility profile, not promoted into a tested seed execution route |
 
 The remaining first-volume release work is explicit: test the fresh-reader setup route in the named profile; execute and record the new examples and relevant boundary cases if authorized; conduct target-reader review; and revise from those observations. These are real unfinished verification and usability obligations, not missing byte-region ownership. This map does not authorize builds or tests by itself.
 
 The old appendices cross volume boundaries:
 
-- **A2 memory map:** the seed view is in REFERENCE.md and S10–S12; C02 adds arena/I/O buffers and lexer-state storage; C03–C05 add include pools, macro arrays/text, temporary sinks, token shadows, conditional/location records and their lifetimes. Later compiler records, native TinyCC and direct-GCC allocation, generated-program heaps and the complete cross-profile reference remain R-memory work for Volumes 2–3
+- **A2 memory map:** the seed view is in REFERENCE.md and S10–S12; C02 adds arena/I/O buffers and lexer-state storage; C03–C05 add include pools, macro arrays/text, temporary sinks, token shadows, conditional/location records and their lifetimes. C06–C08 add token snapshots, stable descriptors/current tables, symbol columns, scope markers and qualifier nodes. Later compiler records, full native/target allocation, generated-program storage and the complete cross-profile reference remain R-memory work for Volumes 2–3
 - **A3 reproducibility:** seed identity/trust distinctions and the inspected build entry are present; actual M2/assembler/pnut/TinyCC recipes and comparisons remain C20/C22/C24, direct-GCC closure G25, and kernel/route lineage K08/R-lineage
 - **A4 worked exercises:** seed return/exit mechanisms and new feedback are present; the C precedence exercise remains C12/R-solutions. The old worked variants are not all copied one-for-one
 - **A5 reading:** seed chapters cite the relevant implementation, ISA, ELF and Linux sources; the full purpose-based Forth/related-project bibliography and compiler/bootstrap/ABI reading routes remain R-reading
-- **A7 diagnostics:** seed reporting, token/numeric failures, continuation and EOF are in S14/S15/S18 and REFERENCE.md. C02–C05 add infrastructure/preprocessor reporting, capacities, raw-I/O limits, macro/include/group failures, line-control/continuation errors and the evaluator's leftover-token interface; later compiler/native/direct-GCC/assembler diagnostic tables remain R-errors work
+- **A7 diagnostics:** seed reporting, token/numeric failures, continuation and EOF are in S14/S15/S18 and REFERENCE.md. C02–C05 add infrastructure/preprocessor reporting, capacities, raw-I/O limits, macro/include/group failures, line-control/continuation errors and the evaluator's leftover-token interface; C06–C08 add actual lexical validation limits, suffix/descriptor/member and symbol/scope failure contracts. Later parser/emitter/native/direct-GCC/assembler diagnostic tables remain R-errors work
 
 No kernel/Linux completion follows from finishing the seed manuscript. The historical ladder and current direct-GCC route remain distinct, and the current direct-GCC-to-Linux outcome is still pending.
 
@@ -265,14 +275,34 @@ The completed preprocessor account deliberately uses these named external contra
 
 | Contract used now | What is supplied in the draft | Later implementation home |
 |---|---|---|
-| Lexer state marking/restoration | C02's eight-cell state and C05's successful evaluator-return preservation contract | C06 opens `050-cc-lex.fth`; it remains planned |
+| Lexer state marking/restoration | C02's eight-cell state and C05's successful evaluator-return preservation contract | C06 now opens all `050-cc-lex.fth` definitions, including replay/mark/reset and their limits |
 | `cc-pp-eval ( a u -- n )` and `cc-pp-eval-text` | C05 gives the caller lifetime, supported small-expression model, remaining-identifier rule, end-of-input check and the provider's state-preservation outline | C14 opens the constant-expression/provider mechanism in `100-cc-expr.fth`; G09 develops typed target constants and conversions |
 | Target predefines and selectors | C05 explains the bounded `124` hook effects, dynamic tags and separate LP64/System V/workspace choices used by its traces | G01–G04 develop the full target/ABI machinery; G08 owns target-header/predefine integration |
-| Whole compiler pipeline | C01 names the driver contract; C03–C05 finish the preprocessing transformation under its explicit interfaces | C06 onward opens tokens, types, parsing, emission, runtime and bootstrap closure |
+| Whole compiler pipeline | C01 names the driver contract; C03–C05 finish the preprocessing transformation under its explicit interfaces | C06–C08 open tokens, types and names; C09 onward still owes instruction emission, parsing, runtime and bootstrap closure |
 
-Using a supplied contract is not a missing explanation of the preprocessor's own call site. It also does not migrate the whole provider module or require a reader to learn a later parser first. These interfaces avoid a circular learning dependency while preserving the obligations of the later lessons. C06/C07 remain planned at this checkpoint.
+Using a supplied contract is not a missing explanation of the preprocessor's own call site. It also does not migrate the whole provider module or require a reader to learn a later parser first. These interfaces avoid a circular learning dependency while preserving the obligations of the later lessons. C06–C08 now discharge the base lexer/type/symbol-layer obligations; their later provider interfaces remain bounded contracts.
 
-The [source-map guide](c-compiler/SOURCE-MAP.md), five feedback companions and two mixed return checks make the current route navigable. They are source-inspected, manually derived drafts with technical review. New compiler examples, fresh-reader setup and target-reader learning remain unverified by execution or reader observation. The implementation's bounded grammar, macro-lookahead/token-joining limitations and flattened-diagnostic caveats remain explicit; draft coverage does not turn those limitations into claimed fixes.
+The [source-map guide](c-compiler/SOURCE-MAP.md), eight feedback companions and three mixed return checks make the current route navigable. They are source-inspected, manually derived drafts with technical review. New compiler examples, fresh-reader setup and target-reader learning remain unverified by execution or reader observation. The implementation's bounded grammar, macro-lookahead/token-joining limitations and flattened-diagnostic caveats remain explicit; draft coverage does not turn those limitations into claimed fixes.
+
+### Representation and reversible-state boundary
+
+The [definition map](c-compiler/source-map.csv) now names every colon definition in five implementation files: **145 definitions** in total. Their teaching homes are 6 arena plus 29 I/O definitions in C02, 39 lexer definitions in C06, 52 type definitions in C07, and 19 symbol definitions explained in C08. Supporting constants, tables, scratch state, buffers and deferred entries belong with those definitions; the separate 040 region ledger remains complete.
+
+C06 derives the classified token record, all kind/keyword/punctuation IDs, integer spelling/value, borrowed string bodies versus decoded character values, comment and EOF boundaries, one-token replay and eight-cell snapshots. Its seven exercises include separate answer-free changed-case prompts. A lexer mark excludes source bytes/length, arena/output/symbol effects and other saved marks. The 121→127 floating-token hook and 128 decoder remain later G10/G11 implementations, with the active-target contract supplied locally.
+
+C07 derives type packing, profile-dependent scalar results, suffix/literal selection, the 56-byte stable descriptor, separate growing field tables, recursive identity and array-node readers. Its seven exercises likewise expose changed-case attempts separately from feedback. All 52 definitions have teaching homes. The local token and bit contracts permit entry from C02; reading the whole lexer lesson is not silently required.
+
+C08 explains ten physical columns behind each symbol ID, kind-aware payloads including tagged global-storage slots, newest-first lookup versus namespace policy, scope markers that restore only a live count, profile-selected metadata, writable fixup-head cells and qualifier-list keys. Its eight exercises and answer-free changed cases separate reusable symbol identity, stable descriptor identity, current field-record location and borrowed source bytes. All 19 definitions and their supporting declarations have teaching homes.
+
+| Representation interface used now | Drafted contract | Later implementation home |
+|---|---|---|
+| Field layout and recursive completion | C07 compares legacy slot layout with native LP64 placement while preserving stable descriptor identity | C15 opens declaration producers; C23 opens native extensions |
+| Field lookup and expression metadata | C07 derives `cc-find-field`'s named interface and distinguishes the generated-object address from the builder record | C13/C14 open the expression implementation |
+| Ranked/qualified array construction | C07 derives the supplied System V node/qualification contract; accessors alone do not validate nodes | G03 opens the full array/declarator representation |
+| Field stride and advanced aggregates | C07 names default 40/48-byte records and the explicit 72-byte provider, plus the moved-table hook | G14 opens bitfields; G15 opens aggregate transport |
+| Scope and fixup consumers | C08 explains symbol lifetime and supplied provider behavior; later clients must preserve kind/profile and writable-cell meanings | C10/C15/C18 and G03/G04 open the relevant producers, calls and target policy |
+
+These examples explain the representation used at the current boundary. They do not complete the named provider modules, establish a generated program's execution, or supply a general rollback transaction.
 
 ## Complete seed file-byte account
 

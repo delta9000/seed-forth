@@ -167,7 +167,7 @@ needed mechanisms in stages, and the full audit asks how every relevant
 source instruction realizes them. Source links are available now for readers who want
 that second question early, but exercises do not require solving it early.
 
-## C-volume entry and first dependency unit
+## C-volume entry and representation units
 
 The [compiler volume](c-compiler/README.md) offers a contract-based entrance.
 C01 teaches the C syntax it uses and checks four small Forth contracts; it
@@ -182,6 +182,9 @@ C01 + C02's local library-contract bridge -> C02: buffers, arena, ownership
 C02 -> C03: active regions, output sinks and nested include lifetimes
 C03 -> C04: macro records, arguments and rescans
 C03 + C04 + local evaluator/profile contracts -> C05: conditionals and extensions
+C05 -> C06: token records and reversible lookahead
+C02 + local type/bit contracts -> C07: type identity and stable descriptors
+C02 + C06 + C07 -> C08: names, reusable symbols and scope visibility
 ```
 
 | Unit | Observable outcome | Practice and feedback |
@@ -193,6 +196,10 @@ C03 + C04 + local evaluator/profile contracts -> C05: conditionals and extension
 | [C04 Macro expansion and rescanning](c-compiler/chapters/04-macro-expansion-and-rescanning.md) | Reconstruct definition recipes and preserve raw/expanded arguments through rescan and suppression boundaries | Five exercises and [feedback](c-compiler/practice/04-solutions.md) |
 | [C05 Conditional preprocessing and profiles](c-compiler/chapters/05-conditionals-and-profile-extensions.md) | Trace group decisions and separate computed includes, logical locations and profile selection | Six exercises and [feedback](c-compiler/practice/05-solutions.md) |
 | [Second C mixed check](c-compiler/practice/return-check-2.md) | Choose the relevant lifetime, membership, conditional or provenance state | Four mixed questions, hints and separate answers |
+| [C06 Tokens and lookahead](c-compiler/chapters/06-tokens-and-lookahead.md) | Trace kind-dependent payloads, borrowed spelling and exact snapshot boundaries | Seven exercises and [feedback](c-compiler/practice/06-solutions.md) |
+| [C07 Types and descriptors](c-compiler/chapters/07-types-and-stable-descriptors.md) | Separate type bits, scalar representation, aggregate identity, table movement and object layout | Seven exercises and [feedback](c-compiler/practice/07-solutions.md) |
+| [C08 Names and scope](c-compiler/chapters/08-names-and-lexical-scope.md) | Trace name borrowing, lookup policy, row reuse and count-based visibility | Eight exercises and [feedback](c-compiler/practice/08-solutions.md) |
+| [Third C mixed check](c-compiler/practice/return-check-3.md) | Identify the exact state restored or preserved across token, type and name boundaries | Four mixed questions, hints and separate answers |
 
 The preprocessor's macro and conditional handlers are named interfaces in
 C03. C04/C05 now open those mechanisms; the earlier include exercise
@@ -201,8 +208,8 @@ keeps both the current explanations and the deferred regions inspectable.
 
 ## What the next units must earn
 
-The next C units open token records, reversible lookahead, type identity,
-stable descriptors and lexical scope. The later compiler still needs complete type/parser/emitter chapters,
+The next C units connect the representation contracts to executable
+instruction bytes, calls, deferred addresses and the bounded legacy runtime. The later compiler still needs complete type/parser/emitter chapters,
 a named end-to-end artifact comparison and its assembler/extended-profile
 handoffs. Existing repository results have their own evidence scope.
 

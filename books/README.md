@@ -8,10 +8,10 @@ and all 1,772 bytes of the executable, then assembles the ideas in a
 whole-seed capstone.
 Each mechanism has a source-pinned trace and separate practice feedback.
 
-The [C-compiler volume](c-compiler/README.md) also has its first five teaching
-chapters: an independent entry bridge, storage/ownership, and the complete
-preprocessor teaching arc. Its lexer, type, parser, emitter and closure units
-remain planned.
+The [C-compiler volume](c-compiler/README.md) also has its first eight teaching
+chapters: an independent entry bridge, storage/ownership, complete
+preprocessing, tokens, types and name/scope records. Its parser, emitter
+and closure units remain planned.
 
 The edition is a draft, not a complete replacement for the original book.
 The [coverage map](COVERAGE.md) accounts for every original numbered chapter
@@ -22,7 +22,7 @@ and appendix, including material not rewritten yet.
 | Book | Intended completed outcome | Current state |
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
-| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Entry, infrastructure and preprocessor arc drafted; lexer/type/parser/emitter/closure units remain planned |
+| [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Entry, infrastructure, preprocessing and lexer/type/symbol representations drafted; parser/emitter/closure units remain planned |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 

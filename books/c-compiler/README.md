@@ -25,8 +25,14 @@ first volume's machine-code audit before entering here.
    preserve definitions and arguments while replacement text is scanned again
 5. [Conditional preprocessing and profile extensions](chapters/05-conditionals-and-profile-extensions.md):
    select active groups and distinguish physical, logical and diagnostic locations
+6. [Tokens and reversible lookahead](chapters/06-tokens-and-lookahead.md):
+   classify borrowed bytes and restore exactly the reader/token state you saved
+7. [Types and stable descriptors](chapters/07-types-and-stable-descriptors.md):
+   separate encoded types, aggregate identity, current field tables and object layout
+8. [Names and lexical scope](chapters/08-names-and-lexical-scope.md):
+   track borrowed names, reusable IDs and the visibility restored by a scope count
 
-These five chapters provide twenty-six exercises and separate feedback
+These eight chapters provide forty-eight exercises and separate feedback
 companions. Try a
 prediction, use a hint when a step is missing, then attempt a changed case
 without copying the worked answer. The purpose is to explain a mechanism,
@@ -38,9 +44,14 @@ chapters without giving each problem a chapter title as its cue.
 The [second mixed check](practice/return-check-2.md) revisits replacement
 ownership, conditional state and source identity.
 
-The next unit opens tokens and reversible lookahead. The
+The [third mixed check](practice/return-check-3.md) combines token snapshots,
+type identity, table movement and name visibility. The newer chapters also
+provide answer-free changed-case prompts so you can keep feedback closed
+while finding the task.
+
+The next unit opens executable instruction bytes, calls and deferred addresses. The
 [coverage map](../COVERAGE.md#volume-2-a-c-compiler-in-forth) assigns the later
-lexer, type, parser, emitter, assembler and bootstrap units. Planned
+parser, emitter, assembler and bootstrap units. Planned
 units are not chapters that already exist.
 
 ## Profile and evidence

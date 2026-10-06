@@ -156,7 +156,7 @@ def check_documents():
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        exercise_count = {5: 6, 6: 7, 7: 7}.get(number, 5)
+        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8}.get(number, 5)
         c_pairs += exercise_count
         expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
@@ -330,11 +330,12 @@ def check_c_source_map(source_root):
         assert chapter.is_relative_to(ROOT) and chapter.is_file(), row
         expected = f"https://github.com/delta9000/seed-forth/blob/{REV}/{row['source_path']}#L{start}-L{end}"
         assert row["source_url"] == expected, row
-    for name in ["020-cc-arena.fth", "030-cc-io.fth"]:
+    for name in ["020-cc-arena.fth", "030-cc-io.fth", "050-cc-lex.fth",
+                 "060-cc-types.fth", "070-cc-sym.fth"]:
         expected = set(re.findall(r"^:\s+(\S+)", (source_root/name).read_text(), re.M))
         actual = {word for file, word in seen if file == name}
         assert actual == expected, (name, actual ^ expected)
-    print(f"PASS: {len(rows)} C source-map definitions; complete arena/I/O definition inventory")
+    print(f"PASS: {len(rows)} C source-map definitions; complete arena/I/O/lexer/type/symbol definition inventories")
 
 
 def check_preprocessor_regions(source_root):
@@ -436,7 +437,22 @@ def check_c_models(source_root):
     guarded = b'\n'*11 + b' 4 ' + b'\n'*4
     assert len(guarded) == 18 and guarded.count(b'\n') == 15
     assert 40-(1+1) == 38 and 2+38 == 40 and 3+38 == 41
-    print("PASS: canonical tri.c text and bounded C-entry/buffer/include/macro/conditional paper calculations")
+    # C06–C08 representation calculations, not a substitute lexer/compiler.
+    assert 8*8 == 64
+    assert int("2147483648") == int("80000000", 16)
+    assert len("2147483648") == len("0x80000000") == 10
+    assert 6*65536 == 393216 and 11*65536 == 720896 and 2*65536 == 131072
+    assert 56 + 8*40 + 16*40 == 1016
+    assert 8*40 == 320 and 8*48 == 384
+    capacities = [8,16,32,64,128,256,512,1023]
+    assert sum(capacities) == 2039 and sum(capacities)*72+56 == 146864
+    assert 1023*72 == 73656
+    names = ["rows", "drawing", "rows"]
+    find_name = lambda text: next((i for i in range(len(names)-1,-1,-1) if names[i] == text), -1)
+    assert find_name("rows") == 2 and find_name("draw") == -1
+    assert len("rows") == len("draw") == 4
+    assert 8192*8 == 65536 and 64*8 == 512
+    print("PASS: canonical tri.c text and bounded C-unit paper calculations through token/type/symbol representations")
 
 
 def check_audit_partition(source_root):
