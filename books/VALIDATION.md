@@ -1,9 +1,8 @@
 # Validation record
 
-This is a manuscript milestone, checked on 2026-10-06. It contains an entry
-chapter, three teaching chapters, fifteen exercises with separate feedback,
-and a four-question mixed return check. It is not a completed book or a
-reproduced compiler build.
+This manuscript checkpoint, checked on 2026-10-06, contains an entry
+chapter, six teaching chapters, thirty exercises with separate feedback,
+and two four-question mixed return checks. It is not a completed book.
 
 ## Checks performed
 
@@ -17,9 +16,10 @@ It uses Python's standard library. It checks the two relevant source blob
 identities, the static seed-byte count, selected excerpt tokens, all local
 Markdown links and anchors, paired exercise IDs, complete original-chapter
 inventory, and a bounded set of mathematical assertions for worked results.
-All 14 Markdown files and 86 links passed at the first complete-unit check,
-alongside the 71-row inventory, 15 exercise pairs, two source blobs, five
-excerpt comparisons and mathematical assertions. The exact source byte
+The current document pass checks 21 Markdown files, 155 links, the 71-row
+source inventory, the prerequisite graph of all 77 teaching units for cycles, thirty
+exercise pairs, two source blobs, 28 definition excerpts and mathematical
+assertions. The first unit previously passed its smaller fourteen-file pass. The exact source byte
 sequence contains 1,772 bytes and has SHA-256
 `697e340e38cabeecbff430d6626e29f4ed3a55498f89d7bda16d8f65e4de774e`.
 That digest was calculated from source text; no executable was launched.
@@ -35,10 +35,17 @@ were corrected before the final checkpoint. The source excerpts use plain
 fences and do not add a second literate-source authority.
 
 The canonical `book/` tree, root source, build scripts and `book.toml` are
-unchanged. Remote tree comparison is the evidence for that boundary; the
-existing compiler and literate-source suites were not rerun in this pass.
+unchanged. Remote tree comparison is the evidence for that boundary.
 
-The entry chapter and three teaching chapters were converted from GitHub-
+The repository's automatic push-triggered [Check run for the first milestone](https://github.com/delta9000/seed-forth/actions/runs/37416564070)
+completed successfully at commit
+`819de4d346c38623d8db741323bc92293273690a`. Both `check-all + verify` and
+`mdbook build + links` passed. Those existing jobs exercise the canonical
+repository and original literate book; they do not execute this new edition's
+examples or render the separate `books/` tree. Subsequent checkpoints have
+their own CI identity and must not inherit that result as a fresh run.
+
+The entry chapter and six teaching chapters were converted from GitHub-
 flavored Markdown to HTML with Pandoc 3.1.11.1 to check parseability. A local
 headless Chromium layout check could not complete because the environment
 refused its process-singleton socket. No browser screenshot inspection is
@@ -47,7 +54,9 @@ claimed; GitHub and published-book layout still need visual review.
 ## Still unverified
 
 - The seed examples have not been executed for this edition
-- No compiler, bootstrap, GCC stage or Linux boot was run for this manuscript
+- No manual compiler, bootstrap, GCC-stage or Linux-boot reproduction was
+  performed for the new chapters; the automatic canonical CI run above has
+  its own narrower record
 - Existing reported build comparisons remain attributed to their pinned
   source documentation, not newly reproduced observations
 - No representative new reader has attempted the unit; learnability remains
@@ -59,9 +68,9 @@ claimed; GitHub and published-book layout still need visual review.
 
 ## Next coherent unit
 
-The next manuscript work is S04–S05 in [the coverage map](COVERAGE.md):
-return-stack discipline and reusable shuffles, then comparisons and character
-classes with explicit signed/unsigned boundaries. It should preserve the same
+The next manuscript work is S07–S10 in [the coverage map](COVERAGE.md):
+Linux I/O contracts, definition phases, immediate control-flow construction,
+and persistent storage with a library capstone. It should preserve the same
 contracts, recurring state notation, source pins and separate feedback.
 Execution checks need a named, authorized seed profile before their status
 can change from derived to observed.

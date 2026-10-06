@@ -13,7 +13,7 @@ Only paths under `books/` belong to this rewrite milestone. There is no promise
 that a checkout of `master`, a different Forth, or a later compiler profile
 has the same behavior.
 
-## First-unit profile
+## Foundation-unit profile
 
 The mechanism being described is the supplied x86-64 Linux seed. A cell holds
 64 bits, memory is byte-addressed, cell loads and stores are little-endian,
@@ -23,13 +23,14 @@ zero or an all-ones cell. `[lit]` reads an unsigned decimal token; bare numeric
 tokens are not interpreted as numbers by the seed's outer loop.
 
 These are source-inspected contracts, not a claim that the examples were run.
-The first unit is usable with pencil and paper. It assumes valid word inputs,
+The foundation units are usable with pencil and paper. It assumes valid word inputs,
 enough stack space and, for memory examples, a stated writable region. The
 seed does not check all those preconditions for you. Hypothetical addresses in
 memory exercises are paper examples, not a safe arbitrary-write recipe.
 
-The seed's machine register layout, Linux executable loader, token reader and
-native call encodings are deferred behind named interfaces. They are not
+The full seed register/layout audit, Linux executable loader, token reader
+and native call encodings are deferred behind named interfaces. Chapter 4
+opens the narrow call/return boundary needed for safe temporary borrowing. They are not
 prerequisites for calculating the first three chapters' states.
 
 ## Claim ledger
@@ -41,6 +42,9 @@ prerequisites for calculating the first three chapters' states.
 | `@`/`!` transfer a cell; `c@`/`c!` transfer a byte | Same file, `fetch_code`, `store_code`, `cfetch_code`, `cstore_code` | Inspected instructions | Valid readable/writable address assumed |
 | `here` reads the cursor; `latest` returns a sysvar address | Same file, `here_code`, `latest_code`, `sysvar_init` | Inspected source | Layout is edition-specific |
 | `here-addr`, `c,`, `and`, `or` and `-` definitions | [`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth), named definitions | Inspected source, with excerpt comparisons | Explains selected definitions, not the whole loaded library |
+| Return-stack borrowing and helper-call boundary | `000-seed.hex0`, `to_r_code`, `r_from_code`, `r_at_code`; `010-lib.fth`, `over` and shufflers | Inspected source and derived two-stack traces | Word-boundary pictures omit each completed primitive call's short-lived return destination unless explicitly shown |
+| Equality, sign extraction, bounded order and ASCII byte classes | `010-lib.fth`, `=`, `0<`, `<`, `digit?`, `alpha?`, `space?` | Inspected source and domain derivations | Shared signed-order safe domain is narrower than all cell pairs; character scope is the named byte sets |
+| Cell updates and four/eight-byte writers | `010-lib.fth`, `+!`, `-!`, `,4`, `,8` | Inspected source and derived stack/memory/byte traces | Valid non-aliasing storage assumed; four-byte output truncates a wider input |
 | Stack, byte and bit examples and exercise answers | Chapter and solution steps, plus document-check assertions | Derived from the stated model | An arithmetic assertion is not a seed execution |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | No seed binary was built or run in this pass |
 

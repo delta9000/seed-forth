@@ -76,14 +76,15 @@ def check_documents():
                     f"Missing anchor {path.name} -> {target}"
                 )
     for number, name in [(1, "values-and-words"), (2, "addresses-and-bytes"),
-                         (3, "bits-and-subtraction")]:
+                         (3, "bits-and-subtraction"), (4, "return-stack-and-shuffles"),
+                         (5, "comparisons-and-characters"), (6, "memory-updates-and-writers")]:
         chapter = ROOT / f"seed-forth/chapters/{number:02}-{name}.md"
         solutions = ROOT / f"seed-forth/practice/{number:02}-solutions.md"
         expected = {f"S{number}-{i:02}" for i in range(1, 6)}
         for file in [chapter, solutions]:
             found = set(re.findall(rf"\bS{number}-\d{{2}}\b", file.read_text()))
             assert found == expected, (file, found)
-    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 15 exercise ID pairs")
+    print(f"PASS: {len(files)} Markdown files; {checked_links} links; 30 exercise ID pairs")
 
 
 def check_coverage():
@@ -104,8 +105,35 @@ def check_coverage():
     print(f"PASS: {len(rows)} source inventory rows include all 50 chapters and 7 appendices")
 
 
+def check_prerequisites():
+    graph = {}
+    for line in (ROOT / "COVERAGE.md").read_text().splitlines():
+        if not re.match(r"^\| [SCGK]\d{2} —", line):
+            continue
+        fields = line.split("|")
+        unit = re.search(r"[SCGK]\d{2}", fields[1]).group()
+        graph[unit] = set(re.findall(r"[SCGK]\d{2}", fields[2]))
+    assert len(graph) == 77, f"Expected 77 teaching units, got {len(graph)}"
+    for unit, required in graph.items():
+        assert required <= graph.keys(), (unit, required - graph.keys())
+    done, visiting = set(), set()
+    def visit(unit):
+        assert unit not in visiting, f"Prerequisite cycle at {unit}"
+        if unit in done:
+            return
+        visiting.add(unit)
+        for prerequisite in graph[unit]:
+            visit(prerequisite)
+        visiting.remove(unit)
+        done.add(unit)
+    for unit in graph:
+        visit(unit)
+    print(f"PASS: {len(graph)} defined teaching units; acyclic prerequisite graph")
+
+
 def source_words(text):
     text = re.sub(r"\\[^\n]*", "", text)
+    text = re.sub(r"\([^)]*\)", "", text)
     return text.split()
 
 
@@ -123,7 +151,9 @@ def check_sources(source_root):
     # Token-level comparison permits omitted comments/formatting in excerpts.
     library = source_words((source_root / "010-lib.fth").read_text())
     count = 0
-    for name in ["here-addr", "c,", "and", "or", "-"]:
+    for name in ["here-addr", "c,", "and", "or", "-", "over", "rot", "nip",
+                 "2dup", "2drop", "true", "=", "<>", "2^63", "0<", "<", ">", "<=", ">=",
+                 "digit?", "alpha-lower?", "alpha-upper?", "alpha?", "space?", "+!", "-!", ",4", ",8"]:
         start = next(i for i in range(len(library)-1)
                      if library[i:i+2] == [":", name])
         end = library.index(";", start)
@@ -132,9 +162,13 @@ def check_sources(source_root):
         for path in (ROOT / "seed-forth/chapters").glob("*.md"):
             for block in re.findall(r"```forth\n(.*?)\n```", path.read_text(), re.S):
                 words = source_words(block)
-                if words[:2] == [":", name] and "___" not in block:
-                    assert words == expected, f"Changed excerpt for {name}: {path}"
-                    found = True
+                if "___" in block:
+                    continue
+                for i in range(len(words)-1):
+                    if words[i:i+2] == [":", name]:
+                        end = words.index(";", i)
+                        assert words[i:end+1] == expected, f"Changed excerpt for {name}: {path}"
+                        found = True
         assert found, f"Missing source excerpt: {name}"
         count += 1
     print(f"PASS: 2 pinned source blobs; 1772 source bytes; 32 primitive headers; {count} excerpts")
@@ -166,7 +200,28 @@ def check_models():
     assert (4660 % 256, 4660//256) == (52, 18)
     assert (256 % 256, 256//256) == (0, 1)
     assert (1023 & ~255) | (1024 & 255) == 768
-    print("PASS: bounded arithmetic, bitwise, byte-width and boundary assertions")
+    # The second unit extends the same stated model; these are not VM runs.
+    h = 1 << 63
+    less = lambda a, b: bool(((a-b) & u) // h)
+    for a in [-h, -10, -1, 0, 1, 10, h-1]:
+        for b in [-h, -10, -1, 0, 1, 10, h-1]:
+            if -h <= a-b <= h-1:
+                assert less(a, b) == (a < b)
+            if abs(a-b) < h:
+                assert less(b, a) == (a > b)
+    assert less(h-1, -1) is True  # Deliberate out-of-domain counterexample.
+    assert less(-h, 0) and less(0, -h)
+    interval = lambda c, base, width: ((c-base) & u) // width == 0
+    for c in range(256):
+        assert interval(c, 48, 10) == (48 <= c <= 57)
+        assert interval(c, 97, 26) == (97 <= c <= 122)
+        assert interval(c, 65, 26) == (65 <= c <= 90)
+        assert interval(c, 48, 8) == (48 <= c <= 55)
+    assert ((7+3) & u) == 10 and subtract(7, 4) == 3
+    assert bytes((305419896 >> (8*i)) & 255 for i in range(4)) == bytes.fromhex("78 56 34 12")
+    assert bytes((72623859790382856 >> (8*i)) & 255 for i in range(8)) == bytes.fromhex("08 07 06 05 04 03 02 01")
+    assert ((1 << 32)+1) & ((1 << 32)-1) == 1
+    print("PASS: bounded arithmetic, bitwise, byte-width, comparison and byte-classifier assertions")
 
 
 def main():
@@ -175,6 +230,7 @@ def main():
     args = parser.parse_args()
     check_documents()
     check_coverage()
+    check_prerequisites()
     check_sources(args.source_root)
     check_models()
     print("These checks do not execute Forth, compile C, run a bootstrap, or establish reader learning.")

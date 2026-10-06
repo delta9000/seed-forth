@@ -327,7 +327,8 @@ being stretched beyond its contract.
 For a short stopping point, save the trace `[7, 2] -> [5]` and label the
 different roles of its two additions. On return, try `[2, 7]` without opening
 that trace. Then use the [mixed return check](../practice/return-check.md),
-which also revisits addresses and the byte writer.
+which also revisits addresses and the byte writer. Continue the reading route
+with [Return stack and shuffles](04-return-stack-and-shuffles.md).
 
 ## Source and evidence
 

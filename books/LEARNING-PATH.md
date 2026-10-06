@@ -40,6 +40,28 @@ and `c,` for library load-order reasons.
 | [S3 Bits and subtraction](seed-forth/chapters/03-bits-and-subtraction.md) | Derive `and`, `or` and subtraction; distinguish truth from a mask | S1 composition; binary and wraparound refreshed locally | S3 exercises, [feedback](seed-forth/practice/03-solutions.md) |
 | [Return check](seed-forth/practice/return-check.md) | Select and apply the right contract after intervening material | S1–S3 | Mixed prompts with separate answer section |
 
+
+## Second-unit dependency graph
+
+```text
+S1 + S3 -> S4: two stacks, balanced borrowing, reusable shuffles
+S3 + S4 -> S5: comparisons and character classes, including space?
+S2 + S3 + S4 -> S6: read-modify-write helpers and multi-byte writers
+```
+
+The XOR extension in S4 uses S3's bit operations; it is not a hidden new
+prerequisite. The character-class combinations in S5 use `over`, so the
+shuffle mechanism must precede them even though some simpler predicates do
+not need it. S6's exact byte-width work builds on S2 rather than reopening
+addresses without warning.
+
+| Unit | Observable outcome | Practice and feedback |
+|---|---|---|
+| [S4 Return stack and shuffles](seed-forth/chapters/04-return-stack-and-shuffles.md) | Trace temporary borrowing, helper-call boundaries and reusable shuffles | S4 exercises, [feedback](seed-forth/practice/04-solutions.md) |
+| [S5 Comparisons and characters](seed-forth/chapters/05-comparisons-and-characters.md) | Explain equality, bounded signed order and byte-range classification | S5 exercises, [feedback](seed-forth/practice/05-solutions.md) |
+| [S6 Memory updates and writers](seed-forth/chapters/06-memory-updates-and-writers.md) | Trace a cell update and four/eight-byte emission with truncation limits | S6 exercises, [feedback](seed-forth/practice/06-solutions.md) |
+| [Second return check](seed-forth/practice/return-check-2.md) | Select the right stack, comparison or memory contract without a chapter-specific cue | Four mixed prompts with separate answers |
+
 ## Interfaces opened later
 
 | Interface usable now | Promise the first unit permits | Mechanism deliberately deferred |
@@ -56,10 +78,9 @@ that second question early, but exercises do not require solving it early.
 
 ## What the next units must earn
 
-1. Return-stack discipline, shufflers, comparisons and I/O contracts, with
-   unsigned/signed limits and a clear error boundary
-2. Byte/cell writers, dictionary/definition phases, immediacy and control-flow
-   patching, followed by a library-level capstone
+1. Linux I/O contracts, argument placement and error/partial-I/O boundaries
+2. Dictionary/definition phases, immediacy and control-flow patching, followed
+   by persistent storage and a library-level capstone
 3. An x86-64 instruction-reading primer, then an invariant-led audit of the
    ELF, stack primitives, token reader, dictionary, compiler and REPL
 4. A compiler-volume bridge that introduces C syntax, buffer ownership,

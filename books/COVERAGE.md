@@ -6,7 +6,9 @@ This is the editorial map for a new teaching edition in `books/`. It does not re
 
 ## What exists, and what this map promises
 
-The first manuscript milestone consists of [S1 / S01: Values and words](seed-forth/chapters/01-values-and-words.md), [S2 / S02: Addresses and bytes](seed-forth/chapters/02-addresses-and-bytes.md), and [S3 / S03: Bits and subtraction](seed-forth/chapters/03-bits-and-subtraction.md). `S1`–`S3` are the manuscript and exercise prefixes used in the [learning path](LEARNING-PATH.md); `S01`–`S03` are the same units' zero-padded editorial IDs here. The [start-here guide](seed-forth/chapters/00-start-here.md) provides their entrance; the proposed S00 below is a fuller future prologue, not another name for that guide. They are **draft, source-inspected, and manually traced**, not execution-verified. They introduce a deliberately small learning path. They do not finish canonical Chapters 1–4, the Forth library, or the seed audit.
+The first milestone introduced [S1 / S01: Values and words](seed-forth/chapters/01-values-and-words.md), [S2 / S02: Addresses and bytes](seed-forth/chapters/02-addresses-and-bytes.md), and [S3 / S03: Bits and subtraction](seed-forth/chapters/03-bits-and-subtraction.md). Current coverage also includes [S4 / S04: Return stack and shuffles](seed-forth/chapters/04-return-stack-and-shuffles.md), [S5 / S05: Comparisons and characters](seed-forth/chapters/05-comparisons-and-characters.md), and [S6 / S06: Memory updates and writers](seed-forth/chapters/06-memory-updates-and-writers.md).
+
+All six are **draft, source-inspected, and manually traced**, not execution-verified. `S1`–`S6` are the manuscript and exercise prefixes used in the [learning path](LEARNING-PATH.md); `S01`–`S06` are the same units' zero-padded editorial IDs here. The [start-here guide](seed-forth/chapters/00-start-here.md) provides their entrance; the proposed S00 below is a fuller future prologue, not another name for that guide. The six chapters do not complete any volume, the Forth library, the canonical chapter migrations, or the seed audit. Separate feedback is available for [S4](seed-forth/practice/04-solutions.md), [S5](seed-forth/practice/05-solutions.md), and [S6](seed-forth/practice/06-solutions.md), with a [mixed return check](seed-forth/practice/return-check-2.md); their solutions are manual derivations too.
 
 All other teaching units below are **planned**. Volumes 2–4 are plans, not drafted books. A row assigning a source chapter to a new destination means that its mechanisms, limitations, examples, and practice have a home to be developed; it does not mean that text has migrated. In particular, early contracts for `:` or `nand` do not count as coverage of their complete machine-code implementation.
 
@@ -16,7 +18,7 @@ The source inventory contains all **50 numbered/prologue chapters (00–49), sev
 
 ### Reading the status fields
 
-- `partial`: a specific part is taught in S01–S03, or a limited navigator/editorial replacement is drafted; the CSV states both that scope and the remaining debt. It never means “whole chapter migrated”
+- `partial`: a specific part is taught in S01–S06, or a limited navigator/editorial replacement is drafted; the CSV states both that scope and the remaining debt. It never means “whole chapter migrated”
 - `planned`: assigned a destination and prerequisites, but no replacement manuscript coverage is claimed
 - `source-inspected`: grounded in the pinned implementation or document; it is not a claim that a command ran
 - `manually traced`: predicted state changes derived from the stated contract; outputs remain predictions until the exact example is executed
@@ -53,7 +55,8 @@ The numbering below is an editorial route, not a requirement to alter file load 
 |---|---|---|
 | Entry → S01 | Read small decimal numbers and follow a left-to-right state trace; no Forth assumed | S01 supplies stack direction, effects, words, and explicit literals |
 | S01 → S02 | Distinguish the stack's value from a byte-addressed memory location | S02 supplies a labeled memory picture and fetch/store contracts |
-| S01/S03 → S04/S05 | Track operand order, cell width, unsigned values, and flags | S04 opens temporary return-stack use; S05 introduces division and signed-boundary limits before practice |
+| S01/S03 → S04 | Track word calls, cell width, and bitwise operations for the optional application | S04 teaches owned return-stack temporaries, shuffles, the helper-call boundary, and optional XOR |
+| S03/S04 → S05 | Track modular subtraction, canonical flags, unsigned division, and `over` | S05 distinguishes equality, sign detection, bounded ordering, and ASCII membership; `space?` uses S04's `over` |
 | S02/S06 → S08/S09 | Distinguish bytes emitted now from code executed later | S08's three-phase timeline; S09's separate compile/runtime traces |
 | Library → byte audit | Read hex bytes, simple register moves, CALL/RET, offsets, and virtual addresses | S11 instruction key; S12 cached-TOS invariant; S16–S18 reopen deferred compiler/parser contracts |
 | Seed → C compiler | Read the recurring C input; distinguish a C lvalue/type from a Forth value and distinguish builder from target | C01 refresher; C07/C13 make representation and lvalues explicit |
@@ -66,7 +69,7 @@ Exercises inherit these edges. For example, a write-all implementation waits unt
 
 ## Destination ledger
 
-IDs below are stable editorial destinations. Except S01–S03, they are not existing chapter filenames. `entry` means the stated volume entrance; `or equivalent entry bridge` requires an explicit diagnostic/refresher, not an unexplained prerequisite. Semicolon-separated prerequisites are conjunctive. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
+IDs below are stable editorial destinations. Except S01–S06, they are not existing chapter filenames. `entry` means the stated volume entrance; `or equivalent entry bridge` requires an explicit diagnostic/refresher, not an unexplained prerequisite. Semicolon-separated prerequisites are conjunctive. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
 
 ### Volume 1: Seed and Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -75,9 +78,9 @@ IDs below are stable editorial destinations. Except S01–S03, they are not exis
 | S01 — Values and words | entry | Predict a data stack; read stack effects; use explicit literals and a colon-definition contract. | 01 | draft; partial source coverage |
 | S02 — Addresses and bytes | S01 | Distinguish a value, its address, and a stored pointer; trace a byte write and HERE update. | 02 | draft; partial source coverage |
 | S03 — Bits and subtraction | S01 | Derive and/or from cell-wide nand; trace canonical flags, complement, and subtraction modulo the cell width. | 01, 03, 04 | draft; partial source coverage |
-| S04 — Two stacks and reusable shuffles | S01 | Trace over and rot with balanced temporary use of the return stack. | 01, 03, 04, 08 | planned |
-| S05 — Comparisons and character classes | S03 | Derive unsigned range checks and state the subtraction-based signed-comparison limit. | 06, 07 | planned |
-| S06 — Memory updates and little-endian writers | S02, S03, S04 | Trace +!, -!, ,4, and ,8, keeping cell arithmetic distinct from stored byte order. | 01, 02, 09 | planned |
+| S04 — Two stacks and reusable shuffles | S01, S03 | Trace over, rot, nip, 2dup, and 2drop with owned return-stack temporaries; explain the helper-call boundary and optional XOR. | 01, 03, 04, 08 | draft; partial source coverage |
+| S05 — Comparisons and character classes | S03, S04 | Distinguish equality, sign extraction, bounded signed ordering, and ASCII classifiers, including the over-dependent space? trace. | 06, 07 | draft; partial source coverage |
+| S06 — Memory updates and little-endian writers | S02, S03, S04 | Trace +!, -!, ,4, and ,8 with exact operand order, truncation, and byte/cursor invariants. | 01, 02, 09 | draft; partial source coverage |
 | S07 — Calling Linux through a contract | S01, S02 | Map seven stack inputs to six syscall arguments and a number; reason about partial I/O and errors. | 05 | planned |
 | S08 — Words that create words | S02, S06 | Separate defining constant, creating a constant, and running its result; explain immediate execution. | 10 | planned |
 | S09 — Control flow by remembered addresses | S03, S06, S08 | Build and trace forward fixups and backward branches in separate compile-time and runtime states. | 11, A4 | planned |
@@ -184,16 +187,24 @@ These destinations are reference obligations. They are not extra volumes and the
 | `book/where-this-fits.md` | S00; R-lineage | Preserve historical context while narrowing correctness and lineage claims |
 | `book/playground.fth` | R-playground | Retain by pinned link as an optional compatibility profile, with exact limitations |
 
-## The first milestone's remaining coverage debt
+## Milestone history and current coverage debt
 
-| Canonical chapter | Covered by the pilot | Explicitly still owed |
+The first milestone, S1–S3, gave partial coverage of canonical Chapters 01–04. The next unit, S4–S6, expands those mappings and adds partial coverage of canonical Chapters 06–09. The CSV preserves `first_milestone_scope` as that earlier snapshot and records `current_draft_scope` separately. Current scope is cumulative; remaining scope is the debt after the six drafts, not an obsolete list of topics already taught in S4–S6.
+
+| Canonical source | Current six-chapter coverage | Explicitly still owed |
 |---|---|---|
-| 01, stacks and words | S01's stack/cell model, explicit literals, and word/colon contracts | Return-stack implementation of `over`, complete shuffler family, full source walkthrough, environment-specific practice |
-| 02, emission and HERE | S02's byte/cell/address distinction, pointer storage, and `c,` trace | Inline-literal implementation behind the contract, complete emission family, byte audit, old exercise reconciliation and execution checks |
-| 03, logic | S03's nand, and/or derivations, flags, and complement | Optional XOR/named-helper constructions and their shuffle-dependent practice; complete old exercise reconciliation and execution checks |
-| 04, return stack and subtraction | S03's subtraction model and operand order | Two-stack mechanism, balance, `over`, emitted-size tradeoff, and remaining practice |
+| 01, stacks and words | S01's stack/cell, literal and colon contracts; S03's subtraction; S04's `over` and shuffle family | Complete legacy exercise/source reconciliation, reusable execution setup, and execution checks; byte-level implementations remain later audit work |
+| 02, emission and HERE | S02's addresses, pointer storage, `here-addr`, and `c,`; S06's multi-byte emission | Inline-literal mechanism behind the contract, full byte audit, remaining legacy exercise reconciliation and execution checks |
+| 03, logic | S03's nand, and/or, flags and complement; S04's optional XOR construction | Remaining optional named-helper/source-practice reconciliation and execution checks; full primitive encoding audit remains planned |
+| 04, return stack and subtraction | S03's subtraction; S04's return destinations, `>r`/`r>`/`r@`, balanced `over`, and call-boundary limitation | Complete emitted-size/encoding tradeoff and legacy exercise reconciliation; execution checks and full seed-byte audit |
+| 06, character classification | S05's unsigned range argument, digit/letter classifiers, `alpha?`, and exact four-byte `space?` set | Remaining original extension exercises and environment-specific checks; classifier-consumer integration and execution verification |
+| 07, comparisons from division | S05's equality, canonical flags, sign-bit extraction, and directional signed-difference bounds | Remaining original extension/representation exercises, actual seed probes, and later primitive machine-code audit; no whole-project range audit claimed |
+| 08, stack shufflers | S04's complete named shuffle family, corrected `tuck`, fixed-depth copy practice, and rejection of the old impossibility claim | Remaining pair/roll constructions and emitted-size comparisons; execution verification and full primitive audit |
+| 09, memory and cell writers | S06's `+!`, `-!`, `,4`, `,8`, corrected operand-order diagnosis, truncation, and paper decoding | Remaining narrow-writer/four-byte-reader constructions and live round-trip checks; generated-instruction uses and byte audit |
+| `010-lib.fth` | Selected definitions and contract-level mechanisms taught across S01–S06 | Syscall wrappers; immediacy and defining words; control-flow emitters; persistent/deferred words; full-library integration, source reconciliation, and execution checks |
+| `000-seed.hex0` | Selected primitive contracts support the six drafts; S04 opens the return primitives' call handling | The complete S11–S19 byte-level audit remains planned; no full-source migration or execution is claimed |
 
-All other canonical chapters and appendices remain planned replacement coverage. The new root reader/evidence/learning-path documents supply partial navigation and editorial coverage; they do not replace the complete old concept index, symbol index, or advanced profile reference. Related concepts in a pilot do not mark Chapters 09, 14, 15, 18, 20 or Appendix A migrated: their implementation and reference outcomes are separate debts. The first three chapters also do not establish a reusable teaching environment or verify the optional gforth route.
+The eight numbered chapter mappings and the selected library coverage stay **partial**; the complete `000-seed.hex0` audit stays **planned**. All other canonical chapters and appendices remain planned replacement coverage. The new reader/evidence/learning-path documents supply partial navigation and editorial coverage; they do not replace the complete old concept index, symbol index, or advanced profile reference. Related mechanisms do not mark Chapters 14, 15, 18, 20 or Appendix A migrated: their complete implementation and reference outcomes are separate debts. The six chapters also do not establish a reusable execution environment or verify the optional gforth route.
 
 ## Giving the GCC story its actual ending
 

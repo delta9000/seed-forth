@@ -1,10 +1,10 @@
 # Seed Forth teaching books
 
 This is the learning-first teaching edition of Seed Forth. Start with
-[Seed and Forth](seed-forth/README.md): a short entry chapter and three
-worked chapters are available now. They teach you to trace a word, distinguish
-an address from the value stored there, explain a byte writer, and derive
-subtraction from the seed's smaller vocabulary.
+[Seed and Forth](seed-forth/README.md): a short entry chapter and six
+worked chapters are available now. They teach you to trace words and two
+stacks, distinguish addresses from values, reason about comparison limits,
+and construct byte and cell writers from the seed's smaller vocabulary.
 
 The edition is a draft, not a complete replacement for the original book.
 The [coverage map](COVERAGE.md) accounts for every original numbered chapter
@@ -14,7 +14,7 @@ and appendix, including material not rewritten yet.
 
 | Book | Intended completed outcome | Current state |
 |---|---|---|
-| [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | First learning unit drafted; later library and machine-code units planned |
+| [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Two foundation units drafted; later library and machine-code units planned |
 | A C compiler in Forth | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Planned; existing chapters 21–34 remain the source material |
 | From compiler to toolchain | Explain objects, linking, runtime contracts and the direct GCC rebuild comparisons | Planned; existing chapters 35–49 and the newer driver documentation remain the source material |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
@@ -35,8 +35,8 @@ This separation lets a teaching sequence follow prerequisites while the source
 keeps its operational order. Small source annotations can later point to stable
 chapter sections; they should explain invariants and contracts without making
 the implementation depend on a manuscript build. Replacing the original
-canonical-source arrangement is a separate migration, not part of this first
-unit.
+canonical-source arrangement is a separate migration, not part of these foundation
+units.
 
 ## Evidence and use
 
@@ -48,7 +48,8 @@ unit.
   unverified
 - [Coverage data](coverage.csv) makes remaining migration work sortable
 
-No compiler, bootstrap or kernel build is claimed for this manuscript pass.
+The new teaching examples have not been executed; repository CI results,
+where available, cover their separately named canonical checks.
 The worked states are derived from the stated contracts and inspected source.
 An expert review or a document checker cannot establish how well a new reader
 will learn from them; that needs reader attempts and revision.
