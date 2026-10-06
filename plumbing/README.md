@@ -1,3 +1,143 @@
+# Plumbing: the build tools, from the seed
+
+Stages A to D build GCC with no host compiler, but configure scripts and
+Makefiles still need a shell, make, sed, awk, grep and the file utilities.
+This directory builds those tools from their pinned upstream tarballs with
+the project's own C compiler, driven by [kaem](../vendor/mescc-tools/Kaem)
+scripts. No host program runs: not a shell, not a host compiler. Status and
+history are in [gcc-direct/PLUMBING.md](../gcc-direct/PLUMBING.md).
+
+## Running it
+
+From the repository root, after `./build.sh`, with the tarballs listed in
+[SOURCES](SOURCES) in `build-out/plumbing-inputs/`:
+
+```sh
+./seed-forth < tools/seed-cc-start.fth          # build-out/seed-cc/{seed-cc,seed-ar}
+mkdir -p build-out/plumbing/bin
+build-out/seed-cc/seed-cc -static vendor/mescc-tools/Kaem/kaem.c \
+  vendor/mescc-tools/Kaem/variable.c vendor/mescc-tools/Kaem/kaem_globals.c \
+  vendor/stage0-posix/mescc-tools-extra/M2libc/bootstrappable.c \
+  -o build-out/plumbing/bin/kaem
+build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage1.kaem
+build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage2.kaem
+```
+
+Stage 1 takes about a minute and stage 2 about eight (four parallel jobs).
+Everything is written under `build-out/plumbing/`: sources unpack into
+`src/`, programs install into `bin/`.
+
+## Stage 1: [stage1.kaem](stage1.kaem)
+
+1. seed-cc compiles stage0-posix's small tools: `mkdir`, `sha256sum`,
+   `unbz2`, `ungz`, `untar`, `cp`, `chmod`, `rm`.
+2. Every tarball is checked against [SOURCES](SOURCES).
+3. GNU make 3.82 is built from an explicit file list with
+   [make-3.82/config.h](make-3.82/config.h); no configure runs.
+
+## Stage 2: [stage2.kaem](stage2.kaem)
+
+Each package is unpacked by the stage0 tools, given its `config.h`, and built
+by our make from `plumbing/PKG/Makefile`:
+
+| Package | Installed | Source changes |
+|---|---|---|
+| [sed 4.0.9](sed-4.0.9) | `sed` | none |
+| [gzip 1.2.4](gzip-1.2.4) | `gzip`, `gunzip`, `zcat` | none |
+| [patch 2.5.9](patch-2.5.9) | `patch` | none |
+| [diffutils 2.7](diffutils-2.7) | `cmp`, `diff`, `diff3`, `sdiff` | none |
+| [grep 2.4](grep-2.4) | `grep`, `egrep`, `fgrep` | none |
+| [gawk 3.0.4](gawk-3.0.4) | `gawk`, `awk` | none |
+| [tar 1.12](tar-1.12) | `tar` | none |
+| [coreutils 5.0](coreutils-5.0) | 80 programs (below) | two patches |
+
+The coreutils programs are `[` `basename` `cat` `chgrp` `chmod` `chown`
+`chroot` `cksum` `comm` `cp` `csplit` `cut` `date` `dd` `dir` `dircolors`
+`dirname` `du` `echo` `env` `expand` `expr` `factor` `false` `fmt` `fold`
+`head` `hostname` `id` `install` `join` `kill` `link` `ln` `logname` `ls`
+`md5sum` `mkdir` `mkfifo` `mknod` `mv` `nice` `nl` `od` `paste` `pathchk`
+`pr` `printenv` `printf` `ptx` `pwd` `readlink` `rm` `rmdir` `seq`
+`sha1sum` `shred` `sleep` `sort` `split` `stty` `sum` `sync` `tac` `tail`
+`tee` `test` `touch` `tr` `true` `tsort` `tty` `uname` `unexpand` `uniq`
+`unlink` `vdir` `wc` `whoami` `yes`. They replace the stage0 `cp`, `rm`,
+`mkdir` and `chmod`. Not built: `df` and `stat` (no `statfs` or mount list),
+`hostid`, `who`, `users`, `pinky`, `uptime` (no utmp), `su` (no crypt), and
+the shell scripts `groups` and `nohup`.
+
+### How the packages are configured
+
+No configure script runs, because no shell exists yet. Each `config.h`
+holds the answers configure would give for `runtime/gcc-seed`: every
+`HAVE_` that is defined is true of the runtime, and a feature that is left
+undefined makes the package use its own portable code. Each file says why
+any answer departs from what configure would print. Values that the
+upstream Makefiles pass as quoted `-D` options (program and data paths) are
+in `config.h` too, set as a `/usr` prefix gives them.
+
+Our make runs a recipe line without a shell only when the line has no shell
+metacharacters, so every Makefile here uses plain command lines: one
+compile per object, `seed-ar` for archives, links with objects before
+archives, and `cp` for the few headers configure would copy. Every compile
+passes `-Werror=implicit-function-declaration`, which turns each call of an
+undeclared function into an error instead of a silent LP64 truncation. Where
+an upstream source calls a function without including its header (GNU libc
+declares more than POSIX asks), `config.h` includes the real header and
+says which file needed it.
+
+### The coreutils patches
+
+Both are applied by the `patch` built earlier in stage 2, and each file
+carries its provenance and reason:
+
+- [canonicalize-realloc.diff](coreutils-5.0/canonicalize-realloc.diff): an
+  upstream bug. `canonicalize.c` keeps a pointer into a buffer across a
+  `realloc` that may move it; glibc's in-place growth hides it, the runtime's
+  moving `realloc` exposes it (`readlink -f RELATIVE` crashed). Later gnulib
+  makes the same correction.
+- [human-long-double.diff](coreutils-5.0/human-long-double.diff): a compiler
+  gap. `human.c` computes its rare floating fallback in `long double`, which
+  the Forth compiler cannot yet do (error 249). The patch uses `double`; it
+  is needed by `ls`, `du`, `sum` and `shred`, and goes away when the
+  compiler gains `long double` arithmetic.
+
+## Known limits
+
+- `sed -f FILE` fails: sed opens its script with `fopen (name, "rt")`, and
+  the runtime's `fopen` rejects the `t` that glibc ignores. `sed -e` and
+  inline scripts work.
+- `diff3` and `sdiff` run `DIFF_PROGRAM`, `/usr/bin/diff`, as a `/usr`
+  build does; until these tools are installed there they use whatever diff
+  the host has at that path.
+- Upstream `getline.h` in coreutils declares `int getline`, while the
+  runtime's returns `ssize_t`; coreutils calls it only on lines shorter than
+  2 GiB.
+
+## Verification
+
+The host is used only as an oracle: the same upstream versions built by host
+GCC during discovery, and host GNU tools where versions agree.
+
+| Tool | Result |
+|---|---|
+| sed | 31 of 35 scripts identical to host GNU sed 4.9; the 4 others are version differences (`-E`, message wording) and the `sed -f` gap above |
+| grep | 49/49 cases identical to grep 2.4 built by GCC |
+| gawk | 63/64 cases identical to gawk 3.0.4 built by GCC (the one difference is `017`, which ours reads as 17 like mawk; the oracle prints 0); the upstream `bigtest` suite passes except the `/dev/fd` test it marks as allowed to fail |
+| coreutils | 376/376 differential cases identical to coreutils 5.0 built by GCC |
+| gzip | output byte-identical to gzip 1.2.4 built by GCC at levels 1, 6, 9; decompresses every input tarball to host gzip's bytes; `-l`, `-t`, mode and time preservation, `-r` identical |
+| tar | lists every input tarball as tar 1.12 built by GCC does; extracts them to host tar's trees (except `patch-2.5.9`'s setgid directories, which tar 1.12 keeps, as the oracle does); archives it creates are byte-identical to the oracle's; `-z`, `-r`, `--delete`, `-d` work |
+| patch | 20-case transcript identical to patch 2.5.9 built by GCC |
+| diffutils | 50-case transcript (`diff` formats and options, `cmp`, `diff3`, `sdiff`) identical to diffutils 2.7 built by GCC |
+
+[tests/plumbing/stage2-check.sh](../tests/plumbing/stage2-check.sh) is the
+repeatable part: an opt-in check (about ten minutes; not in `check-all.sh`)
+that builds stages 1 and 2 from a clean `build-out/plumbing`, traces every
+`execve` with strace and requires each to be kaem, `seed-cc`/`seed-ar`, the
+seed they run, or a program the stages built (in particular, no shell), then
+runs the fixed cases in
+[tests/plumbing/stage2-cases.sh](../tests/plumbing/stage2-cases.sh) with
+`PATH` holding only `build-out/plumbing/bin`, and checks that our `gzip` and
+`tar` read every input tarball as the stage0 tools do.
+
 ## Parser generators without host plumbing
 
 `lexers.kaem` builds oyacc 6.6, ordinary Heirloom lex 070527 and its

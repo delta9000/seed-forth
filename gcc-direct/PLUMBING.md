@@ -130,6 +130,12 @@ host build is an output oracle only.
 1. Land the remaining compiler fixes, then the runtime additions above, each
    with tests and book updates.
 2. Turn the scratch builds into pinned recipes with no workaround patches.
+   **Done** for make (stage 1) and for sed, gzip, patch, diffutils, grep,
+   gawk, tar and 80 coreutils programs (stage 2): see
+   [plumbing/README.md](../plumbing/README.md). All build from pristine
+   sources except two reviewed coreutils patches (an upstream `realloc` bug
+   in `canonicalize.c`, and `long double` in `human.c`), and no shell runs.
+   Open: the runtime's `fopen` rejects mode `"rt"`, so `sed -f` fails.
 3. Build bash, then rerun GCC 4.0.4's, binutils' and musl's configure and make
    with a `PATH` that contains only these tools.
    The compiler and archiver on that `PATH` can be the native
