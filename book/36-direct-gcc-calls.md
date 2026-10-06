@@ -210,6 +210,24 @@ external function rejects with 237.
 calls `getenv`, `open` and a second translation unit only through such
 declarations against host GCC, and checks each rejection.
 
+Bash and readline name function types rather than pointers:
+`typedef int Function ();`, `typedef char *CPFunction ();`. A typedef whose
+declarator ends in a parameter list records base `ty-func` with no star and
+the signature as its descriptor, which is the pointer-to-function
+representation one star short. `Function *p`, `CPFunction *table[3]` and a
+member `VFunction *cb` therefore add their star and become ordinary function
+pointers, calling through the recorded signature, so a `char *` result is
+not truncated. `cc-sysv-function-typedef` runs as each declarator ends: a
+declarator of that type with no star declares a function, `Function g;` at
+file or block scope. `nc-func` then holds the typedef's signature in place
+of `true`, nc-ty and nc-desc hold the return type, and
+`cc-sysv-declarator-signature` returns that signature where a written suffix
+would be reparsed. A parameter `sh_fn_t f` adjusts to a pointer through the
+same word. An array or member of function type, a function returning one,
+and a definition `Function g { ... }` reject with 238; a typedef with an
+identifier list rejects with 233. `python3 tests/gcc/function-typedef-check.py`
+compares a program using each form with host GCC.
+
 C90 distinguishes `f()` from `f(void)`: the first leaves the parameter
 list unspecified and applies default integer promotions, while the second
 is a prototype requiring zero arguments. Identifier-list definitions
@@ -724,9 +742,35 @@ create cc-ld-error-prefix s, long-double: bl c,
 defer cc-sysv-implicit-declarator-fwd
 ' cc-sysv-implicit-declarator-noop is cc-sysv-implicit-declarator-fwd
 
+defer cc-sysv-signature-fwd
+\ A function declarator's signature: its saved suffix reparsed, or the one
+\ a function typedef supplied, which nc-func then holds in place of true.
+: cc-sysv-declarator-signature ( -- signature )
+  nc-func @ true <> if, nc-func @ exit, then,
+  cc-lex-state-size cc-alloc dup cc-lex-mark >r
+  nc-params cc-lex-reset
+  nc-ty @ nc-desc @ cc-sysv-signature-fwd
+  r> cc-lex-reset ;
+\ `typedef int F (char *);` names a function type: base ty-func with no
+\ star, its signature as descriptor, so `F *p` is a function pointer. A
+\ declarator of that type with no star declares a function, `F g;`.
+: cc-sysv-function-typedef
+  nc-func @ nc-ty @ ty-func [lit] 0 ty-make = and if, [lit] 238 cc-die then,
+  nc-td @ nc-func @ and if,
+    cc-sysv-declarator-signature
+    dup cc-sysv-sig-varargs [lit] 4 and if, [lit] 233 cc-die then,
+    nc-desc ! ty-func [lit] 0 ty-make nc-ty ! [lit] 0 nc-func !
+  then,
+  nc-ty @ ty-func [lit] 0 ty-make = if,
+    nc-array @ nc-inner @ or if, [lit] 238 cc-die then,
+    nc-td @ 0= if,
+      nc-desc @ dup nc-func ! dup cc-sysv-sig-return nc-ty !
+      cc-sysv-sig-desc nc-desc !
+    then,
+  then, ;
 : cc-sysv-check-declarator
   cc-target-sysv @ if,
-    nc-td @ nc-func @ and if, [lit] 238 cc-die then,
+    cc-sysv-function-typedef
     cc-sysv-implicit-declarator-fwd
     cc-sysv-inherit-array
     nc-ty @ nc-desc @ cc-sysv-array-rank
@@ -769,7 +813,6 @@ defer cc-sysv-implicit-declarator-fwd
   else, cc-putback-token then, ;
 ' cc-sysv-fnptr-name is cc-nfnptr-name-fwd
 
-defer cc-sysv-signature-fwd
 : cc-sysv-fnptr
   cc-target-sysv @ 0= if, cc-nfnptr-default exit, then,
   1+ dup [lit] 255 > if, [lit] 231 cc-die then, >r
@@ -914,10 +957,7 @@ variable cc-sysv-spec-bad
 \ an explicit (*callback) declarator, then restore the enclosing delimiter.
 : cc-sysv-adjust-function-parameter
   nc-func @ if,
-    cc-lex-state-size cc-alloc dup cc-lex-mark >r
-    nc-params cc-lex-reset
-    nc-ty @ nc-desc @ cc-sysv-signature-fwd nc-desc !
-    r> cc-lex-reset
+    cc-sysv-declarator-signature nc-desc !
     ty-func [lit] 1 ty-make nc-ty ! [lit] 0 nc-func !
   then, ;
 
@@ -1610,10 +1650,7 @@ variable cc-sysv-function-signature
 : cc-sysv-block-function
   nc-static @ nc-storage @ nc-extern @ 0= and or if, [lit] 233 cc-die then,
   [char] { cc-tok-punct? if, [lit] 238 cc-die then,
-  cc-lex-state-size cc-alloc dup cc-lex-mark >r
-  nc-params cc-lex-reset
-  nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !
-  r> cc-lex-reset
+  cc-sysv-declarator-signature cc-sysv-function-signature !
   cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 4 and if,
     [lit] 233 cc-die
   then,
@@ -1635,10 +1672,9 @@ variable cc-sysv-function-signature
 : cc-sysv-function
   cc-target-sysv @ 0= if, cc-native-function exit, then,
   nc-top @ 0= if, cc-sysv-block-function exit, then,
-  cc-lex-state-size cc-alloc dup cc-lex-mark >r
-  nc-params cc-lex-reset
-  nc-ty @ nc-desc @ cc-sysv-signature cc-sysv-function-signature !
-  r> cc-lex-reset
+  \ A function type from a typedef declares; C defines only with a suffix.
+  nc-func @ true <> [char] { cc-tok-punct? and if, [lit] 238 cc-die then,
+  cc-sysv-declarator-signature cc-sysv-function-signature !
   cc-sysv-function-signature @ cc-sysv-sig-varargs [lit] 4 and if,
     cc-sysv-function-signature @ cc-sysv-old-parameters
   then,

@@ -256,7 +256,7 @@ storage class anywhere in one declaration, such as `static extern int x` or
 or a parameter other than its one `register`. A block-scope function
 declaration admits only `extern` (`static int g();`, `auto` or `register`
 inside a function body is 233), and its parameter list cannot be an
-identifier list. Storage classes may otherwise
+identifier list, nor can a function typedef's. Storage classes may otherwise
 appear among the type specifiers in any order (`int static x`). See
 [chapter 36](36-direct-gcc-calls.md).
 
@@ -282,7 +282,10 @@ In the System V target, 238 also rejects a function definition nested inside
 a block, which C does not have. A block-scope function declaration, such as
 `extern char *getenv ();` in a function body, is accepted; one whose type
 disagrees with another declaration of the same function is 237
-([chapter 36](36-direct-gcc-calls.md)).
+([chapter 36](36-direct-gcc-calls.md)). A typedef of a function type, such
+as `typedef int Function ();`, is accepted; 238 rejects an array or member
+of that type, a function returning it, and a definition written through it,
+`Function g { ... }`.
 
 The compiler's typed constant evaluator reports 240 for an unsupported
 constant form, 241 for an invalid shift count, and 242 for signed arithmetic
