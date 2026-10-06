@@ -94,7 +94,7 @@ int vsnprintf(char *buffer, size_t size, const char *format, va_list arguments);
 int snprintf(char *buffer, size_t size, const char *format, ...);
 int vsprintf(char *buffer, const char *format, va_list arguments);
 int sprintf(char *buffer, const char *format, ...);
-/* Measured input: plain %d/%o/%x/%c, literals, %% and whitespace.
+/* Measured input: plain %d/%o/%x/%c, literals, %%, whitespace and %n.
    fscanf leaves the first unmatched byte unread in the stream. */
 int sscanf(const char *text, const char *format, ...);
 int fscanf(FILE *stream, const char *format, ...);

@@ -13,6 +13,7 @@ struct seed_scan_input {
     FILE *stream;
     int held;
     int byte;
+    long consumed;
 };
 
 static int seed_scan_peek(struct seed_scan_input *input)
@@ -30,6 +31,7 @@ static void seed_scan_next(struct seed_scan_input *input)
 {
     if (input->stream == NULL) input->text++;
     else input->held = 0;
+    input->consumed++;
 }
 
 static int seed_scan_digit(int byte)
@@ -83,14 +85,20 @@ static int seed_scan(struct seed_scan_input *input, const char *format, va_list 
         conversion = (unsigned char)*format;
         if ((conversion != '%' && conversion != 'd' && conversion != 'u' &&
              conversion != 'o' && conversion != 'x' && conversion != 'c' &&
-             conversion != 's')
+             conversion != 's' && conversion != 'n')
             || (wide && conversion != 'd' && conversion != 'u' && conversion != 'o'
-                && conversion != 'x')
+                && conversion != 'x' && conversion != 'n')
             || (given && (width == 0 || conversion != 's'))) {
             errno = EINVAL;
             return assigned ? assigned : EOF;
         }
         format++;
+        if (conversion == 'n') {
+            /* Bytes consumed so far; no input, no assignment count. */
+            if (wide) *va_arg(arguments, long *) = input->consumed;
+            else *va_arg(arguments, int *) = (int)input->consumed;
+            continue;
+        }
         if (conversion == 'c') {
             /* One byte, whitespace included, as ISO C %c without a width. */
             if (seed_scan_peek(input) == EOF) return assigned ? assigned : EOF;
@@ -180,6 +188,7 @@ int sscanf(const char *text, const char *format, ...)
     input.stream = NULL;
     input.held = 0;
     input.byte = EOF;
+    input.consumed = 0;
     va_start(arguments, format);
     result = seed_scan(&input, format, arguments);
     va_end(arguments);
@@ -196,6 +205,7 @@ int fscanf(FILE *stream, const char *format, ...)
     input.stream = stream;
     input.held = 0;
     input.byte = EOF;
+    input.consumed = 0;
     va_start(arguments, format);
     result = seed_scan(&input, format, arguments);
     va_end(arguments);

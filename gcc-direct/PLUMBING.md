@@ -117,9 +117,10 @@ host build is an output oracle only.
   differences were floating-point `printf`/`seq`, which exact printf now
   fixes (see the table above). The obsolete-option
   differences disappeared because `_POSIX2_VERSION` now matches glibc.
-- Still missing: `sscanf` `%n` (coreutils `stty` crashes restoring a saved
-  `-g` setting). `FILE` is now a complete type, so coreutils' `paste.c`
-  needs no workaround for its `static FILE` objects.
+- `sscanf` `%n` (coreutils `stty` crashed restoring a saved `-g` setting):
+  **fixed** ([INTEGER-INPUT.md](../runtime/gcc-seed/INTEGER-INPUT.md#consumed-byte-count-n)).
+  `FILE` is now a complete type, so coreutils' `paste.c` needs no
+  workaround for its `static FILE` objects.
 - Stdio was unbuffered, so tools that read or write one character at a time
   ran 10 to 40 times slower than with glibc: **fixed**
   ([STDIO-BUFFERING.md](../runtime/gcc-seed/STDIO-BUFFERING.md)).

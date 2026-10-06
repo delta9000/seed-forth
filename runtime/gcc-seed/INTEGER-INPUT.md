@@ -62,3 +62,16 @@ now lists `%i`, `%hd`, `%lc`, `%2d`, `%*d` and `%0s` as unsupported.
 patterns, `ULONG_MAX`, `LONG_MIN`, negative unsigned fields, `%3s` splitting
 and a stream with an embedded NUL with host glibc
 ([FILE-METADATA.md](FILE-METADATA.md)).
+
+## Consumed-byte count: %n
+
+coreutils `stty` restores a saved `-g` setting with
+`sscanf(text, "%x:%x:%x:%x%n", ..., &n)` and then checks that `n` reaches
+the end of the text. `%n` (and `%ln` for a `long`) stores the number of
+input bytes consumed so far by this call, reads no input, skips no white
+space, and does not count as an assignment, as ISO C specifies; it works in
+`sscanf` and `fscanf`, including after the last input byte.
+`tests/gcc/scanf-count-check.py` compares a Forth-built fixture with its
+host-glibc build: the `stty` pattern on complete, longer, short, empty and
+nonmatching text, `%n` around white space, literals, `%s` and `%d`, at
+empty input, and through `fscanf` with the following byte left unread.

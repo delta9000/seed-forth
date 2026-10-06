@@ -172,6 +172,7 @@ python3 tests/gcc/stream-flex-fault-check.py
 python3 tests/gcc/isatty-check.py
 python3 tests/gcc/integer-input-check.py
 python3 tests/gcc/scanf-percent-check.py
+python3 tests/gcc/scanf-count-check.py
 python3 tests/gcc/configure-runtime-check.py
 python3 tests/gcc/configure-runtime-oracle-check.py
 python3 tests/gcc/abort-check.py
