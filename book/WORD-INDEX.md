@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2751 names and 97 ideas.
+carry none.  2757 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -466,12 +466,16 @@ for which chapter depends on which, the
 - `cc-cast-types-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-value-default` — *compiler word (`110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
 - `cc-cast-value-fwd` — *compiler word (defer, `110-cc-decl.fth`)* — [Ch 29 §5 Type names and casts](29-declarations-types-globals.md#5-type-names-and-casts)
+- `cc-change-check-default` — *compiler word (`100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
+- `cc-change-check-fwd` — *compiler word (defer, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-delta` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-desc` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-field` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-postfix` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-qualified` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-change-type` — *compiler word (variable, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
+- `cc-change-value-default` — *compiler word (`100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
+- `cc-change-value-fwd` — *compiler word (defer, `100-cc-expr.fth`)* — [Ch 28, The postfix operators](28-expressions-part-2.md#the-postfix-operators)
 - `cc-char-ptr?` — *compiler word (`100-cc-expr.fth`)* — [Ch 28 §1 Lvalue tracking: four globals, four kinds](28-expressions-part-2.md#1-lvalue-tracking-four-globals-four-kinds)
 - `cc-check-cap` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Failing: `cc-die`](21-arena-and-io-buffers.md#failing-cc-die)
 - `cc-check-fns-defined` — *compiler word (`116-cc-prog.fth`)* — [Ch 31 §8 The entry stub and the top-level driver](31-functions-and-scope.md#8-the-entry-stub-and-the-top-level-driver)
@@ -908,6 +912,8 @@ for which chapter depends on which, the
 - `cc-for-top-vaddr` — *compiler word (variable, `112-cc-stmt.fth`)* — [Ch 30 §3 Break/continue fixup lists](30-statements-if-while-for-return.md#3-breakcontinue-fixup-lists)
 - `cc-fp-arith-fwd` — *compiler word (defer, `125-cc-consteval.fth`)* — [Ch 41 §5 Floating constants are exact records](41-direct-gcc-constants.md#5-floating-constants-are-exact-records)
 - `cc-fp-binop` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
+- `cc-fp-change-check` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
+- `cc-fp-change-value` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Checked boundaries](45-direct-gcc-binary64.md#checked-boundaries)
 - `cc-fp-common-type` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
 - `cc-fp-comparison` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)
 - `cc-fp-complement` — *compiler word (`127-cc-binary64.fth`)* — [Ch 45, Canonical source](45-direct-gcc-binary64.md#canonical-source)

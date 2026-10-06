@@ -73,6 +73,7 @@ fi
 python3 tests/gcc/binary64-arguments-check.py
 python3 tests/gcc/long-double-check.py
 python3 tests/gcc/binary32-values-check.py
+python3 tests/gcc/float-inc-dec-check.py
 python3 tests/gcc/conditional-values-check.py
 python3 tests/gcc/long-long-check.py
 python3 tests/gcc/bool-check.py

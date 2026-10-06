@@ -103,35 +103,35 @@ to its call site.
 | 95  | `100-cc-expr.fth:926` | Primary expression: identifier names something that isn't a variable, function or enum constant (a typedef name or struct tag used as a value). |
 | 96  | `100-cc-expr.fth:935` | Parenthesised expression: missing `)`. |
 | 97  | `100-cc-expr.fth:966` | Primary expression: token can't start one (not a literal, identifier or `(`). |
-| 98  | `100-cc-expr.fth:1030` | Postfix `++`/`--`: operand isn't an lvalue. |
-| 99  | `100-cc-expr.fth:1075,1098` | Postfix `[` on any expression: missing `]`. |
-| 100 | `100-cc-expr.fth:1116` | `.` / `->` on an expression with no known struct descriptor. |
-| 101 | `100-cc-expr.fth:1128` | `.` / `->` not followed by an identifier (field name). |
-| 102 | `100-cc-expr.fth:1300` | `sizeof`: missing `(`. |
-| 103 | `100-cc-expr.fth:1308` | `sizeof(struct`: tag isn't an identifier. |
-| 104 | `100-cc-expr.fth:1312` | `sizeof(struct TAG`: tag not found. |
-| 105 | `100-cc-expr.fth:1315` | `sizeof(struct TAG`: name isn't a struct tag. |
-| 106 | `100-cc-expr.fth:1329` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
-| 107 | `100-cc-expr.fth:1339` | `sizeof(`: identifier not found. |
-| 108 | `100-cc-expr.fth:1368` | `sizeof(`: identifier found but neither a typedef nor a local. |
-| 109 | `100-cc-expr.fth:1372` | `sizeof(`: token is neither a keyword nor an identifier. |
-| 110 | `100-cc-expr.fth:1274,1277,1377` | `sizeof(...`: missing `)`. |
-| 113 | `100-cc-expr.fth:986,1428` | Prefix `++`/`--`: operand isn't an lvalue. |
-| 114 | `100-cc-expr.fth:1481` | Unary `&`: operand isn't an identifier. |
-| 115 | `100-cc-expr.fth:1486` | Unary `&`: identifier not found. |
-| 116 | `100-cc-expr.fth:1457,1465,1490` | Unary `&`: identifier isn't a local. |
-| 117 | `100-cc-expr.fth:2143` | Ternary `?`: missing `:`. |
-| 118 | `100-cc-expr.fth:2216` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
-| 120 | `100-cc-expr.fth:2237,2245,2265,2390` | Assignment: left-hand side isn't an lvalue. |
+| 98  | `100-cc-expr.fth:1041` | Postfix `++`/`--`: operand isn't an lvalue. |
+| 99  | `100-cc-expr.fth:1086,1109` | Postfix `[` on any expression: missing `]`. |
+| 100 | `100-cc-expr.fth:1127` | `.` / `->` on an expression with no known struct descriptor. |
+| 101 | `100-cc-expr.fth:1139` | `.` / `->` not followed by an identifier (field name). |
+| 102 | `100-cc-expr.fth:1311` | `sizeof`: missing `(`. |
+| 103 | `100-cc-expr.fth:1319` | `sizeof(struct`: tag isn't an identifier. |
+| 104 | `100-cc-expr.fth:1323` | `sizeof(struct TAG`: tag not found. |
+| 105 | `100-cc-expr.fth:1326` | `sizeof(struct TAG`: name isn't a struct tag. |
+| 106 | `100-cc-expr.fth:1340` | `sizeof(`: keyword other than `struct`, `int`, `char` or `void`. |
+| 107 | `100-cc-expr.fth:1350` | `sizeof(`: identifier not found. |
+| 108 | `100-cc-expr.fth:1379` | `sizeof(`: identifier found but neither a typedef nor a local. |
+| 109 | `100-cc-expr.fth:1383` | `sizeof(`: token is neither a keyword nor an identifier. |
+| 110 | `100-cc-expr.fth:1285,1288,1388` | `sizeof(...`: missing `)`. |
+| 113 | `100-cc-expr.fth:1003,1439` | Prefix `++`/`--`: operand isn't an lvalue. |
+| 114 | `100-cc-expr.fth:1492` | Unary `&`: operand isn't an identifier. |
+| 115 | `100-cc-expr.fth:1497` | Unary `&`: identifier not found. |
+| 116 | `100-cc-expr.fth:1468,1476,1501` | Unary `&`: identifier isn't a local. |
+| 117 | `100-cc-expr.fth:2154` | Ternary `?`: missing `:`. |
+| 118 | `100-cc-expr.fth:2227` | Compound-assignment dispatcher saw an operator it doesn't know (internal; not reachable from valid tokens). |
+| 120 | `100-cc-expr.fth:2248,2256,2276,2401` | Assignment: left-hand side isn't an lvalue. |
 | 121 | `100-cc-expr.fth:527,613` | Call: argument list not closed by `)`. |
 | 122 | `100-cc-expr.fth:621` | Call: more than six arguments (the register-only calling convention). |
 | 123 | `100-cc-expr.fth:661` | Call target is neither a function nor a function-pointer local (internal: `cc-parse-primary` already checks, with 94). |
-| 124 | `100-cc-expr.fth:1575` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
-| 125 | `100-cc-expr.fth:2509` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
-| 126 | `100-cc-expr.fth:2518` | Constant expression: a token that can't start an operand. |
-| 127 | `100-cc-expr.fth:2515` | Constant expression: `(` not closed by `)`. |
-| 128 | `100-cc-expr.fth:2594` | Constant expression: `?` without its `:`. |
-| 129 | `100-cc-expr.fth:2625` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
+| 124 | `100-cc-expr.fth:1586` | `cc-divisor`: a constant expression divides by zero (`/` or `%`). |
+| 125 | `100-cc-expr.fth:2520` | Constant expression: a name that isn't an enum constant (a variable, say, in an array size). |
+| 126 | `100-cc-expr.fth:2529` | Constant expression: a token that can't start an operand. |
+| 127 | `100-cc-expr.fth:2526` | Constant expression: `(` not closed by `)`. |
+| 128 | `100-cc-expr.fth:2605` | Constant expression: `?` without its `:`. |
+| 129 | `100-cc-expr.fth:2636` | `cc-pp-eval-text`: an `#if` or `#elif` expression followed by more text. |
 | 140 | `110-cc-decl.fth:67` | `cc-expect-kw-id`: next token wasn't a keyword. |
 | 141 | `110-cc-decl.fth:70` | `cc-expect-kw-id`: keyword id mismatch. |
 | 142 | `110-cc-decl.fth:78` | `cc-expect-punct-c`: next token wasn't punctuation. |
@@ -327,7 +327,7 @@ parameters disagrees with it (237).
 The System V target prints a `long-double: ` prefix before code 249. It means
 an operation that would need x87 computation on a `long double`: arithmetic,
 comparison, a unary operator, a condition or integer use, compound assignment
-or increment, a conversion or cast between long double and any other type
+or prefix/postfix increment/decrement, a conversion or cast between long double and any other type
 (in an assignment, argument, result, initializer or `?:` arm), or a static
 initializer. Long double data movement itself is accepted;
 [chapter 48](48-direct-gcc-aggregate-abi.md) §4 states the boundary.

@@ -38,7 +38,6 @@ REJECTIONS = {
     'extended-field-read': (249, 'struct S{long double d;}; int f(struct S *s){return s->d;}'),
     'extended-field-write': (249, 'struct S{long double d;}; int f(struct S *s){s->d=1;return 0;}'),
     'extended-cast': (249, 'int main(void){return (int)(long double)1;}'),
-    'floating-postincrement': (232, 'int f(double *p){(*p)++;return 0;}'),
     'extended-comparison': (249, 'int f(long double *p){return *p==0;}'),
     'extended-static-local': (249, 'int main(void){static long double d=0;return sizeof(d)!=16;}'),
     'extended-static-array': (249, 'long double f[2]={0,0}; int main(void){return sizeof(f)!=8;}'),

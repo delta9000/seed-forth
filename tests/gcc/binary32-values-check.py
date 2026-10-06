@@ -56,8 +56,6 @@ def main():
   'knr-float-unused':('int f(x) float x; {return 0;}',232),
   'hexfloat':('float f(void){return 0x1p0;}',248),
   'long-double':('double f(long double x){return x;}',249),
-  'increment-float':('float f(float *x){return ++*x;}',232),
-  'decrement-float':('float f(float *x){return (*x)--;}',232),
   'float-index':('float f(float *x,float y){return x[y];}',232),
   'float-switch':('int f(float x){switch(x){case 1:return 1;}return 0;}',232),
   'float-remainder':('float f(float x,float y){return x%y;}',232),

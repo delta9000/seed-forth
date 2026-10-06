@@ -118,7 +118,15 @@ without computing, and every long double arithmetic operation or conversion
 to or from these types is error 249. Static floating initializers in object
 mode are compile-time constants (Ch 41 §5); in the older mapped mode they still
 reject with 232, because there they would run as code before `main`.
-Floating increment/decrement remains rejected. Conditional arithmetic arms use
+Prefix and postfix `++`/`--` accept float and double lvalues, including
+locals, globals, members, array elements and pointer targets. The shared
+lvalue path saves the address once and stores the rounded result at the
+object width. Postfix restores the saved old payload; prefix returns the
+new payload. `cc-fp-change-value` adds or subtracts a same-width `1.0` in
+XMM0/XMM1, so the expression keeps its floating type inside larger
+expressions. Long double remains data movement only: these operators
+retain error 249. `tests/gcc/float-inc-dec-check.py` compares executable
+output with host GCC. Conditional arithmetic arms use
 the common type and convert only the selected value: integer with float gives
 float, and either type with double gives double. Separate conversion tails
 preserve branch laziness even when one conversion changes the payload format.
@@ -247,6 +255,26 @@ variable cc-f64-scan-hex
   [lit] 15 cc-emit-byte [lit] 44 cc-emit-byte [lit] 248 cc-emit-byte ;
 : cc-fp-sse ( opcode type -- )
   cc-fp-prefix [lit] 15 cc-emit-byte cc-emit-byte [lit] 193 cc-emit-byte ;
+\ Admit floating updates while retaining other targets' scalar-use checks.
+: cc-fp-change-check
+  cc-last-expr-type @ cc-fp-type? 0= if, cc-change-check-default then, ;
+' cc-fp-change-check is cc-change-check-fwd
+
+\ ++/-- use a same-width 1.0 and retain the operand's floating type.
+\ RAX/XMM1 are scratch; the shared lvalue path owns address and old value.
+: cc-fp-change-value
+  cc-change-type @ cc-fp-type? 0= if, cc-change-value-default exit, then,
+  cc-fp-xmm0-from-rdi
+  [lit] 72 cc-emit-byte [lit] 184 cc-emit-byte
+  cc-change-type @ cc-f32-type? if,
+    [lit] 1065353216
+  else, [lit] 4607182418800017408 then,
+  cc-emit-8le cc-fp-xmm1-from-rax
+  cc-change-delta @ [lit] 1 = if, [lit] 88 else, [lit] 92 then,
+  cc-change-type @ cc-fp-sse cc-fp-rdi-from-xmm0
+  cc-change-type @ cc-emit-convert-rdi ;
+' cc-fp-change-value is cc-change-value-fwd
+
 : cc-fp-jcc ( opcode -- patch )
   [lit] 15 cc-emit-byte cc-emit-byte cc-out-pos @ [lit] 0 cc-emit-4le ;
 : cc-fp-flip-sign ( type -- )

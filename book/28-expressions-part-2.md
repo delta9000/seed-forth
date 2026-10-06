@@ -960,12 +960,29 @@ variable cc-change-field
 variable cc-change-postfix
 variable cc-change-delta
 
+\ Validate before inspecting lvalue form: long double uses an address value.
+: cc-change-check-default cc-last-expr-type @ cc-value-integer-use-fwd ;
+defer cc-change-check-fwd
+' cc-change-check-default is cc-change-check-fwd
+
+\ Update RDI's value; the shared caller saves the address and old payload.
+: cc-change-value-default
+  cc-change-type @ ty-ptr if,
+    cc-change-type @ cc-change-desc @ cc-expr-pointee-size
+  else, [lit] 1 then,
+  cc-change-delta @ * cc-emit-add-rdi-imm32
+  \ The sum has the promoted type; converting it, not truncating it, lets a
+  \ _Bool's b++ and b-- produce 1 and !b as C requires.
+  cc-change-type @ dup cc-unary-type swap cc-emit-convert-value ;
+defer cc-change-value-fwd
+' cc-change-value-default is cc-change-value-fwd
+
 \ cc-native-inc-dec ( delta postfix? -- )  Mutate one typed lvalue.
 : cc-native-inc-dec
-  cc-check-static-init
+  cc-check-static-init cc-change-check-fwd
   cc-change-postfix ! cc-change-delta !
   cc-last-expr-qualified @ cc-change-qualified !
-  cc-last-expr-type @ dup cc-value-integer-use-fwd cc-change-type !
+  cc-last-expr-type @ cc-change-type !
   cc-last-struct-desc @ cc-change-desc !
   cc-last-field-rec @ cc-change-field !
   cc-last-lvalue-kind @ lv-local = if,
@@ -976,13 +993,7 @@ variable cc-change-delta
   cc-emit-push-rdi
   cc-change-type @ cc-change-field @ cc-field-load-fwd
   cc-change-postfix @ if, cc-emit-push-rdi then,
-  cc-change-type @ ty-ptr if,
-    cc-change-type @ cc-change-desc @ cc-expr-pointee-size
-  else, [lit] 1 then,
-  cc-change-delta @ * cc-emit-add-rdi-imm32
-  \ The sum has the promoted type; converting it, not truncating it, lets a
-  \ _Bool's b++ and b-- produce 1 and !b as C requires.
-  cc-change-type @ dup cc-unary-type swap cc-emit-convert-value
+  cc-change-value-fwd
   cc-change-postfix @ if, cc-emit-pop-rdx then,
   cc-emit-pop-rcx
   cc-change-type @ cc-change-field @ cc-field-store-fwd

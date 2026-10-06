@@ -99,10 +99,6 @@ def main():
         rejects={
             'extended-value':'double f(long double *p){return *p;}',
             'long-double-value':'long double f(double *p){return *p;}',
-            'prefix-increment':'double f(double *p){return ++*p;}',
-            'postfix-increment':'double f(double *p){return (*p)++;}',
-            'prefix-decrement':'double f(double *p){return --*p;}',
-            'postfix-decrement':'double f(double *p){return (*p)--;}',
             'floating-array-index':'double f(double *p,double *i){return p[*i];}',
             'floating-switch':'int f(double *p){switch(*p){case 1:return 1;}return 0;}',
             'double-to-pointer':'void *f(double *p){return (void *)*p;}',
