@@ -59,7 +59,7 @@ static int formats(void)
     if (snprintf(buffer, sizeof(buffer), "%c%c%c", 'A', 0, 'B') != 3 || memcmp(buffer, "A\0B\0", 4)) return 13;
     if (sprintf(buffer, "%#X/%#o/% .3d/%%", 42U, 9U, 7) != 15 || strcmp(buffer, "0X2A/011/ 007/%")) return 14;
     errno = 0;
-    if (snprintf(buffer, sizeof(buffer), "ok%f") != -1 || errno != EINVAL || strcmp(buffer, "ok")) return 15;
+    if (snprintf(buffer, sizeof(buffer), "ok%k") != -1 || errno != EINVAL || strcmp(buffer, "ok")) return 15;
     errno = 0;
     if (snprintf(buffer, sizeof(buffer), "%lls") != -1 || errno != EINVAL) return 16;
     if (snprintf(NULL, 0, "%2147483647s", "") != INT_MAX) return 17;

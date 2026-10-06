@@ -125,6 +125,7 @@ python3 tests/gcc/varargs-binary64-check.py
 python3 tests/gcc/review-binary64-va-arg-check.py
 python3 tests/gcc/stdio-check.py
 python3 tests/gcc/stdio-oracle-check.py
+python3 tests/gcc/printf-float-check.py
 python3 tests/gcc/strtod-check.py
 python3 tests/gcc/startup-check.py
 python3 tests/gcc/descriptor-check.py

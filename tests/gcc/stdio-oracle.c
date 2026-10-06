@@ -68,6 +68,8 @@ int main(void)
         if (check(sizes[i], "%d%d%d%d%d%d%d%d%d%d", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)) return 7;
         if (check(sizes[i], "%c%c%c %%", 'A', 0, 'B')) return 8;
         if (check(sizes[i], "%p", (void *)(uintptr_t)0xabcdef123456UL)) return 9;
+        if (check(sizes[i], "%e|%.3f|%g|%#.0e|%-+10.2E|%a|%Lg", 1.0 / 3.0, -2.5, 1e-5, 9.5,
+                  6.02e23, 0.75, (long double)1e300)) return 12;
     }
     hn = -1; sn = -1; hln = -1; sln = -1;
     if (snprintf(expected, 4, "abcde%nZ%ln", &hn, &hln) !=

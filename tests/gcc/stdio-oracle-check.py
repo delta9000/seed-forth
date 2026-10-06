@@ -35,6 +35,8 @@ def main():
                        + source.read_text())
     obj = work / "stdio.o"
     run([ROOT / "tests/gcc/sysv-object-compile.sh", renamed, obj, *includes])
+    floating = work / "floatfmt.o"
+    run([ROOT / "tests/gcc/sysv-object-compile.sh", RUNTIME / "floatfmt.c", floating, *includes])
     syscall = work / "syscall.o"
     driver = "create syscall-output\n" + "".join(
         f"[lit] {byte} c,\n" for byte in bytes(syscall) + b"\0")
@@ -47,7 +49,7 @@ def main():
         executable = work / ("oracle" + optimization[1:])
         run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", optimization, "-U_FORTIFY_SOURCE",
              "-fno-builtin", "-fno-pie", "-no-pie", "-Wl,-z,noexecstack",
-             ROOT / "tests/gcc/stdio-oracle.c", obj, syscall, "-o", executable])
+             ROOT / "tests/gcc/stdio-oracle.c", obj, floating, syscall, "-o", executable])
         print(run([executable]).stdout.decode().strip(), optimization)
     print("Oracle only: host GCC/linker/libc; the compared seed stdio object is Forth-built.")
     print(work)

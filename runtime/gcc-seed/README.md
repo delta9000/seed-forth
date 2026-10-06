@@ -127,6 +127,9 @@ The [approximate exp/log contract](MATH.md) is implemented in a separate
 The plumbing tools (gawk, coreutils, make, the shells and lexers) need the
 numeric and stream services of an ordinary C library:
 
+- [Exact floating printf](PRINTF-FLOAT.md): `%e %f %g %a` and their upper
+  case forms with every flag, width and precision, for `double` and
+  `long double`, byte-identical to glibc.
 - [Correctly rounded floating input](DECIMAL-INPUT.md): `strtod`, `strtof`,
   `strtold` and `atof` with C99 decimal and hexadecimal syntax, infinities,
   NaN payloads, end pointer and glibc's `ERANGE` rules.

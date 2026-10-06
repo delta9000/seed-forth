@@ -1,5 +1,6 @@
 /* Original seed-forth implementation; distributed under ../../LICENSE.
-   Unbuffered Linux AMD64 streams and bounded integer/pointer formatting. */
+   Unbuffered Linux AMD64 streams and the printf family, including exact
+   floating conversions (../PRINTF-FLOAT.md). */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,7 @@
 #include <seed-syscall.h>
 #include <fcntl.h>
 #include <wchar.h>
+#include <seed-float.h>
 
 #define SEED_READ 1
 #define SEED_WRITE 2
@@ -512,6 +514,34 @@ static int seed_print_wide(struct seed_print *output, const wchar_t *text,
     return !left || seed_print_padding(output, ' ', padding);
 }
 
+/* Write one floating conversion: '0' pads after the sign and any 0x
+   prefix, except for infinities and NaNs, which pad with spaces. */
+static int seed_print_float(struct seed_print *output, struct __seed_float_text *text,
+                            int width, int left, int zero)
+{
+    long total;
+    long padding;
+    size_t prefix = strlen(text->prefix);
+    total = (text->sign != 0) + (long)prefix + text->lead_len + (long)text->lead_zeros
+            + text->point + (long)text->frac_zeros + text->frac_len
+            + (long)text->trail_zeros + text->suffix_len;
+    if (total > INT_MAX) return seed_print_error(output, SEED_EOVERFLOW);
+    padding = width > total ? width - total : 0;
+    if (text->special) zero = 0;
+    if (!left && !zero && !seed_print_padding(output, ' ', (int)padding)) return 0;
+    if (text->sign && !seed_print_bytes(output, &text->sign, 1)) return 0;
+    if (!seed_print_bytes(output, text->prefix, prefix)) return 0;
+    if (!left && zero && !seed_print_padding(output, '0', (int)padding)) return 0;
+    if (!seed_print_bytes(output, text->lead, (size_t)text->lead_len)) return 0;
+    if (!seed_print_padding(output, '0', text->lead_zeros)) return 0;
+    if (text->point && !seed_print_bytes(output, ".", 1)) return 0;
+    if (!seed_print_padding(output, '0', text->frac_zeros)) return 0;
+    if (!seed_print_bytes(output, text->frac, (size_t)text->frac_len)) return 0;
+    if (!seed_print_padding(output, '0', text->trail_zeros)) return 0;
+    if (!seed_print_bytes(output, text->suffix, (size_t)text->suffix_len)) return 0;
+    return !left || seed_print_padding(output, ' ', (int)padding);
+}
+
 static int seed_format(struct seed_print *output, const char *format, va_list arguments)
 {
     const char *begin;
@@ -586,6 +616,9 @@ static int seed_format(struct seed_print *output, const char *format, va_list ar
             if (*format == 'l') { format = format + 1; length = 4; }
         } else if (*format == 'z' || *format == 't' || *format == 'j') {
             length = 3; format = format + 1;
+        } else if (*format == 'L') {
+            /* long double for floating conversions; long long otherwise. */
+            length = 4; format = format + 1;
         }
         conversion = (unsigned char)*format;
         if (*format) format = format + 1;
@@ -627,6 +660,23 @@ static int seed_format(struct seed_print *output, const char *format, va_list ar
             if (!left && !seed_print_padding(output, ' ', padding)) break;
             if (!seed_print_bytes(output, text, size)) break;
             if (left && !seed_print_padding(output, ' ', padding)) break;
+            continue;
+        }
+        if (conversion == 'e' || conversion == 'E' || conversion == 'f' || conversion == 'F'
+            || conversion == 'g' || conversion == 'G' || conversion == 'a' || conversion == 'A') {
+            struct __seed_float_text float_text;
+            unsigned char float_bytes[16];
+            if (length == 4) {
+                /* L and ll select long double, as in glibc. */
+                long double long_value = va_arg(arguments, long double);
+                memcpy(float_bytes, &long_value, 10);
+            } else {
+                double double_value = va_arg(arguments, double);
+                memcpy(float_bytes, &double_value, 8);
+            }
+            __seed_float_format(&float_text, float_bytes, length == 4, conversion, precision,
+                                alternate, plus, blank);
+            if (!seed_print_float(output, &float_text, width, left, zero)) break;
             continue;
         }
         if (conversion != 'd' && conversion != 'i' && conversion != 'u' &&

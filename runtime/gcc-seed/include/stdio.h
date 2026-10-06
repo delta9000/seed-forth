@@ -3,7 +3,8 @@
 /* Original seed-forth interface; see LICENSE. Linux AMD64, single-threaded.
    FILE is opaque and unbuffered. There is no host-libc FILE compatibility.
    Formatting supports integer, pointer, narrow string/character, ASCII wide
-   string/character, and %n; floating and positional conversions fail. */
+   string/character, %n and exact floating conversions (../PRINTF-FLOAT.md);
+   positional conversions fail. */
 #include <stddef.h>
 #include <stdarg.h>
 #include <sys/types.h>

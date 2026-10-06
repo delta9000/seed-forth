@@ -81,10 +81,9 @@ host build is an output oracle only.
 
 ### Runtime (`runtime/gcc-seed`)
 
-- `printf` and related functions lack `%e`, `%f`, `%g`, `%E` and `%G`. gawk
-  prints every non-integer this way and `seq` relies on it. A scratch exact
-  formatter (base-10^9 bignum digits, round half to even, 600/601 cases equal
-  to glibc) is a starting point.
+- `printf` and related functions lacked `%e`, `%f`, `%g`, `%E` and `%G`:
+  **fixed**, exact and byte-identical to glibc
+  ([PRINTF-FLOAT.md](../runtime/gcc-seed/PRINTF-FLOAT.md)).
 - `math.h` declares only `exp` and `log`. Also missing are `floor`, `ceil`,
   `modf`, `fmod`, `pow`, `sqrt`, `sin`, `cos` and `atan2`. (`strtod`,
   `strtof` and `strtold` are **fixed**:

@@ -46,7 +46,7 @@ def main():
     stdio = RUNTIME / "stdio.c"
     includes = [RUNTIME / "include"]
     # perror reports through strerror (see runtime/gcc-seed/ERRNO.md).
-    sources = [RUNTIME / (name + ".c") for name in ("memory", "string", "alloc", "strerror")]
+    sources = [RUNTIME / (name + ".c") for name in ("memory", "string", "alloc", "strerror", "floatfmt")]
     sources += [stdio, ROOT / "tests/gcc/stdio-production.c", ROOT / "tests/gcc/stdio-faults.c"]
     objects = {}
     for source in sources:
@@ -62,7 +62,7 @@ def main():
         driver += f"{builder} {name}-output cc-obj-write\n"
         objects[name] = obj
     forth(BASE + ["081-cc-object.fth", "122-cc-sysv-runtime.fth"], driver + "bye\n")
-    common = [objects[name] for name in ("memory", "string", "alloc", "strerror", "stdio", "errno", "start")]
+    common = [objects[name] for name in ("memory", "string", "alloc", "strerror", "floatfmt", "stdio", "errno", "start")]
     production = work / "stdio-production"
     faults = work / "stdio-faults"
     link(common + [objects["stdio-production"], objects["syscall"]], production)
