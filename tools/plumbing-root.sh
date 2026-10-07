@@ -77,12 +77,18 @@ status=0
 enter 4 /build-out/plumbing/bin/kaem --verbose --strict --file plumbing/chain.kaem > "$T/entry4.log" 2>&1 || status=$?
 echo "plumbing-root: entry 4 exit $status after $(( $(date +%s) - start )) s"
 
-# Summary: every successful execve path, counted; failed ones listed apart.
-cat "$T"/execve[1-4].txt | grep 'execve(' | grep -v 'resumed>' > "$T/execve-all.txt" || true
-grep ' = 0$' "$T/execve-all.txt" | sed -E 's/^[0-9]+ +execve\("([^"]*)".*/\1/' > "$T/execve-paths.txt" || true
-grep -v ' = 0$' "$T/execve-all.txt" | grep -v '<unfinished' > "$T/execve-failed.txt" || true
-sort "$T/execve-paths.txt" | uniq -c | sort -rn > "$T/execve-programs.txt"
-hosts=$(grep -cE '^/usr/bin/bwrap$' "$T/execve-paths.txt" || true)
-echo "plumbing-root: $(wc -l < "$T/execve-paths.txt") execve calls, $(wc -l < "$T/execve-programs.txt") distinct paths, $hosts of them the host's bwrap entries; $(wc -l < "$T/execve-failed.txt") failed lookups"
+# Summary.  strace -f splits an execve that another process interrupts into
+# an "<unfinished ...>" line holding the path and a "resumed" line holding the
+# result; join them by pid, then count each path executed.
+cat "$T"/execve[1-4].txt | awk '
+/execve\(/ && /<unfinished/ { match($0, /execve\("[^"]*"/); p[$1] = substr($0, RSTART + 8, RLENGTH - 9); next }
+/<\.\.\. execve resumed>/ { path = p[$1]; delete p[$1]; r = $0; sub(/.*= /, "", r); print (r ~ /^0/ ? "ok " : "fail ") path; next }
+/execve\(/ { match($0, /execve\("[^"]*"/); path = substr($0, RSTART + 8, RLENGTH - 9); r = $0; sub(/.*= /, "", r); print (r ~ /^0/ ? "ok " : "fail ") path }
+' > "$T/execve-joined.txt"
+sed -n 's/^ok //p' "$T/execve-joined.txt" | sort | uniq -c | sort -rn > "$T/execve-programs.txt"
+sed -n 's/^fail //p' "$T/execve-joined.txt" | sort | uniq -c | sort -rn > "$T/execve-failed.txt"
+ok=$(grep -c '^ok ' "$T/execve-joined.txt" || true)
+hosts=$(grep -c '^ok /usr/bin/bwrap$' "$T/execve-joined.txt" || true)
+echo "plumbing-root: $ok successful execve calls ($hosts of them the host's bwrap entering the root), $(wc -l < "$T/execve-programs.txt") distinct paths; $(grep -c '^fail ' "$T/execve-joined.txt" || true) failed lookups of absent programs"
 tail -20 "$T/entry4.log"
 exit $status

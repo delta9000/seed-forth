@@ -102,3 +102,31 @@ used the host's perl there).
 - stage C: 220 of 220 cc1 objects; libgcc, musl and the hosted hello pass;
   2 blocked host-tool attempts, both configure probes.
 - stage D: stage 2 == stage 3 == stage 4, 54 installed files, 0 differ.
+
+## The traced run (2026-10-07)
+
+`tools/plumbing-root.sh` copied the repository's 4,028 tracked files and the
+pinned archives into `build-out/plumbing-root`, cleared every execute bit
+except `hex0-seed`'s (the script checks that the root's only executable file
+is `hex0-seed`), and entered the root four times through bwrap under
+`strace -f -e trace=execve`:
+
+| Entry | Program | Successful execve |
+|---|---|---|
+| 1 | `/hex0-seed /000-seed.hex0 /seed-forth` | 2 |
+| 2 | `/seed-forth < tools/seed-cc-start.fth` | 107 |
+| 3 | seed-cc builds kaem | 108 |
+| 4 | `kaem --file plumbing/chain.kaem` | 63,327 |
+
+Entry 4 ran plumbing stages 1 and 2, the lexers, bash, binutils, stage C and
+stage D in 4,053 seconds and ended with `Stage 3 vs stage 4: 54 files, 0
+differ` and `Stage 2 vs stage 3: 54 files, 0 differ`. Of the 63,544
+successful `execve` calls, 4 are the host's `bwrap` entering the root; every
+other program was inside a root that began with `hex0-seed` as its only
+executable, so each one was written during the run: the seed and its private
+copies, seed-cc and seed-ar, kaem, the plumbing tools (`/bin/sh` is the
+chain's bash; 2,581 distinct paths in all, `cat`, `sed`, `rm` and `bash`
+most often), binutils, the GCC build-tree programs and each GCC generation.
+The 249 failed lookups are of programs that do not exist there, mostly
+`config.guess` probing for `uname` variants of other systems and configure
+scripts searching `PATH` past the guard directories.
