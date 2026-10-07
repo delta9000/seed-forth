@@ -39,6 +39,10 @@ while IFS='|' read -r label code source; do
   printf 'previous artifact\n' > "$work/reject.o"
   rc=0
   tests/gcc/sysv-object-compile.sh "$work/reject.c" "$work/reject.o" >"$work/reject.log" 2>&1 || rc=$?
+  if [ "$code" = 0 ] && [ "$rc" = 0 ]; then
+    echo "PASS: extended scalar conversion accepted"
+    continue
+  fi
   if [ "$rc" != "$code" ] || [ "$(cat "$work/reject.o")" != 'previous artifact' ]; then
     cat "$work/reject.log" >&2
     echo "FAIL: $label returned $rc, expected $code with preserved output" >&2
@@ -60,5 +64,5 @@ callback-array-argument-count|235|struct X{int (*f[3])(int);}; int g(struct X *p
 function-double-cast|230|int f(void); double g(void){return (double)f;}
 grouped-function-object-assignment|237|int f(void); int g(void){char (**p);p=f;return 0;}
 aggregate-callback-argument|232|struct S{double x;}; struct X{int (*f[3])(struct S);}; int g(struct X *p){struct S s;return p->f[0](s);}
-long-double-callback-argument|249|struct X{int (*f[3])(long double);}; int g(struct X *p){return p->f[0](1);}
+long-double-callback-argument|0|struct X{int (*f[3])(long double);}; int g(struct X *p){return p->f[0](1);}
 CASES

@@ -165,7 +165,7 @@ discards the value. Supported casts still enforce call checks.
 
 Later chapters add scalar binary32/binary64 arguments and INTEGER/MEMORY
 record values through the shared plan. Chapter 48 adds long double X87 data
-transport; its arithmetic rejects with 249. Records containing binary32 or
+transport and scalar x87 computations. Records containing binary32 or
 binary64 members still reject with 232 at the call boundary. Negative
 fixtures verify that rejected compilation preserves an existing output file.
 
@@ -398,9 +398,10 @@ descriptor from `cc-ld-descriptor`. `cc-ld?` recognizes it. The value is then
 carried by address and copied whole, like a record, and never loaded into a
 register, so no x87 computation is ever needed to move it. The same
 descriptor makes it one leaf for initializers (`cc-opaque-scalar-fwd`).
-`cc-ld-mismatch` and `cc-ld-die` give every operation that would compute or
-convert the prefixed error 249; [Ch48](48-direct-gcc-aggregate-abi.md) applies
-them and gives the type its X87 calling convention. `sizeof` may inspect their types without
+`cc-ld-mismatch` provides the transport-only default. Layer 132 replaces its
+scalar conversion policy; `cc-ld-die` retains prefixed error 249 for invalid
+integer-only uses. [Ch48](48-direct-gcc-aggregate-abi.md) gives the type its
+X87 calling convention and scalar computations. `sizeof` may inspect their types without
 creating a call or a value operation. Existing aggregate byte copies remain
 supported; aggregate values still cannot cross this scalar call boundary.
 
@@ -701,10 +702,10 @@ defer cc-sysv-check-scalar
 ' cc-sysv-float-types is cc-native-float-types-fwd
 
 \ Long double is the x87 80-bit extended format in sixteen bytes, aligned
-\ to sixteen. This target moves its bytes and never computes with them:
+\ to sixteen. The transport representation is an opaque record:
 \ the value is an opaque record with one shared, memberless descriptor, so
 \ it travels by address as records do and every spelling has one identity.
-\ Arithmetic, conversion, tests and casts reach error 249 instead (131).
+\ Layer 132 adds x87 computations and exact constants to this transport.
 variable cc-ld-desc
 [lit] 0 cc-ld-desc !
 : cc-ld-descriptor ( -- descriptor )

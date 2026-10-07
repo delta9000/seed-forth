@@ -161,7 +161,7 @@ The source demand is binutils 2.30 `bfd/bfd.c`. Its positional `printf` keeps
 format the value is under `HAVE_LONG_DOUBLE`, which bfd's configuration leaves
 undefined. The unit needs the type's layout and its bytes, not its arithmetic.
 
-So this compiler moves long double and never computes with it. Layer 121
+Long double computations retain the same transport representation. Layer 121
 replaces the keyword-spelled base with an opaque record: type `ty-struct`
 with one shared, memberless sixteen-byte descriptor, so every spelling and
 typedef has one identity. A long double expression is then its object's
@@ -198,14 +198,41 @@ later one-eightbyte record still comes from a register, as the caller placed
 it. The result is the record's address, which an assignment or initializer
 copies whole.
 
-Everything that would need x87 computation is a checked boundary with its
-own diagnostic, `long-double: cc: line N: error 249`. That covers
-arithmetic, comparison, unary operators, conditions, integer-only uses,
-compound assignment and increment, every conversion to or from another type
-(assignment, argument, result, initializer, `?:` arm or cast), and static
-initializers, which would need encoded x87 bytes at compile time. A cast of
-long double to itself is accepted and moves nothing. `L`-suffixed literals
-are rejected earlier, with the literal decoder's 248.
+Layer 132 supplies the scalar computation hooks. `fld` loads the two
+address operands; `faddp`, `fsubrp`, `fmulp` and `fdivrp` compute the result,
+and `fstp tbyte` saves it into a private sixteen-byte frame slot. Unary minus
+uses `fchs`. Comparisons use `fucomip` and the same parity-aware flag handling
+as binary64: NaNs are unequal and unordered. Conditions convert this comparison
+with zero to a Boolean. Both signed zeros are false. Each expression leaves
+the x87 stack empty, including comparisons, conversions and ignored results.
+
+The shared lvalue path evaluates an update address once. Materialization
+freezes an extended operand before later side effects; postfix increments
+therefore keep an independent old object. `fld1` and `faddp` or `fsubp` implement
+increment and decrement. Compound assignments use the usual arithmetic
+conversions, then store ten significant bytes at the destination address.
+Padding bytes have no numeric meaning.
+
+Integer inputs are normalized at their declared width and loaded with `fild`.
+An unsigned input above the signed range is loaded as signed, then has exact
+2^64 added. Conversion back saves the x87 control word, selects truncation,
+uses `fistp`, and restores the caller's word. Unsigned 64-bit destinations split
+at 2^63, subtract that power in the upper half, and restore the high integer
+bit after signed truncation. Float and double use their corresponding `fld`
+and `fstp` memory widths, rounding directly at the destination precision.
+As in C, nonfinite and out-of-range integer conversions have no defined result.
+
+Static constants use [chapter 46](46-direct-gcc-float-literals.md)'s exact
+integer ratios. Extended constants carry a 64-bit explicit significand and a
+sign/exponent field. Decimal and hexadecimal `l/L` literals, arithmetic, casts,
+comparisons and selected conditional arms round to nearest, ties to even.
+Extended overflow and division by zero fold to infinity or a quiet NaN,
+and comparisons of NaN constants remain unordered.
+Initializers write the ten significant bytes and zero padding into sixteen-byte
+storage. Invalid integer-only uses, such as complement, a subscript or a switch
+condition, retain `long-double: cc: line N: error 249`. Casts to pointers or
+actual records are also rejected. Floating members of by-value records still
+lack the mixed SSE aggregate classifier.
 
 ## 5. Check both sides independently
 
@@ -288,7 +315,12 @@ unprototyped declaration and an identifier-list definition. Its reduction of
 bfd's union and `va_arg` loop passes the `va_list` to a helper as bfd does.
 Sizes and offsets are compared with host GCC's. A Forth-only build repeats the
 movement without a host object, and host-only builds prove the fixtures. Each
-rejected operation keeps its exact code and leaves outputs untouched.
+rejected operation keeps its exact code and leaves outputs untouched. The separate
+`python3 tests/gcc/long-double-arithmetic-check.py` builds and runs a static
+program with this compiler and GCC, requiring identical output for random
+operands over the extended exponent range, subnormals, signed zeros, NaNs,
+all arithmetic and updates, comparisons and conditions, integer edge conversions,
+float/double conversions, ABI calls, exact literal ties and static arithmetic.
 
 ## Canonical source
 
@@ -494,6 +526,10 @@ variable cc-ag-plan
     ag-count @ cc-ag-locate
     ag-count @ ag-arg >r
     r@ ag-type cc-ag-type? if,
+      cc-last-expr-type @ r@ ag-type cc-emit-convert-value
+      r@ ag-type r@ ag-desc cc-ld? if,
+        r@ ag-type cc-last-expr-type ! r@ ag-desc cc-last-struct-desc !
+      then,
       cc-last-expr-type @ r@ ag-type <>
       cc-last-struct-desc @ r@ ag-desc <> or if, cc-ag-die then,
       r@ ag-size r@ ag-slot cc-ag-copy-to-slot
@@ -671,6 +707,8 @@ variable cc-ag-sret-slot
   cc-last-expr-type @ cc-ag-type?
   cc-native-return-type @ ty-void [lit] 0 ty-make = and if, cc-ag-die then,
   cc-native-return-type @ cc-ag-type? 0= if, cc-fp-return exit, then,
+  cc-native-return-type @ cc-native-return-desc @ cc-ld? if,
+    [lit] 219 cc-emit-byte [lit] 47 cc-emit-byte exit, then,
   cc-last-expr-type @ cc-native-return-type @ <>
   cc-last-struct-desc @ cc-native-return-desc @ <> or if, cc-ag-die then,
   cc-native-return-type @ cc-native-return-desc @ cc-ag-class
@@ -691,7 +729,7 @@ variable cc-ag-sret-slot
 
 \ An address representation is not permission to use a record as a scalar.
 \ Explicit record casts remain outside this value contract. Long double
-\ shares the representation; every computing use is error 249 instead.
+\ shares the representation; 132 replaces the scalar computation hooks.
 : cc-ag-scalar-use ( type -- ) dup cc-ag-type? if, cc-ag-die then, drop ;
 : cc-ld-scalar-use ( type descriptor -- )
   over swap cc-ld? if, cc-ld-die then, cc-ag-scalar-use ;
@@ -743,7 +781,9 @@ variable cc-ag-sret-slot
   over cc-sysv-sig-count over > [lit] 2 cc-npick cc-sysv-prototype? and if,
     cc-sysv-parameter-type
     2dup >r >r cc-last-expr-type @ cc-last-struct-desc @ r> r> cc-value-shape-fwd
-    over cc-ag-type? cc-last-expr-type @ cc-ag-type? or if,
+    over cc-ag-type? cc-last-expr-type @ cc-ag-type? or
+    [lit] 2 cc-npick [lit] 2 cc-npick cc-ld?
+    cc-last-expr-type @ cc-last-struct-desc @ cc-ld? or 0= and if,
       cc-last-expr-type @ cc-last-struct-desc @
       cc-sysv-compatible-types 0= if, cc-ag-die then,
     else, 2drop then,
@@ -811,9 +851,8 @@ variable cc-ag-sret-slot
   cc-mark-typed-value ;
 ' cc-ag-va-record is cc-va-record-fwd
 
-\ Long double crosses no type boundary: assignment, arguments, results and
-\ initializers accept only long double, copied whole. A static initializer
-\ would need its x87 bytes at compile time, so it is rejected too.
+\ Transport-only defaults, replaced by 132 for scalar computations and
+\ exact static initialization. Other records retain their copy contract.
 : cc-ld-value-shape ( source descriptor destination descriptor -- )
   [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick
   cc-ld-mismatch cc-sysv-value-shape ;
@@ -830,4 +869,248 @@ variable cc-ag-sret-slot
 ' cc-ld-mismatch is cc-return-shape-fwd
 : cc-ld-compound ( type descriptor -- ) cc-ld? if, cc-ld-die then, ;
 ' cc-ld-compound is cc-aggregate-compound-fwd
+```
+
+## Scalar computation source
+
+```forth file=132-cc-long-double.fth
+\ 132-cc-long-double.fth -- x87 scalar computations on address values.
+\ Every result is popped into a private sixteen-byte frame object. No x87
+\ value survives a call, expression boundary or branch. Record ABI is 131.
+\ Type-only conversion sites are preceded by descriptor shape checks.
+\ Actual records use whole-object copies and never scalar conversions.
+' cc-f80-allocate is cc-f80-new
+: cc-x87-type? ( type -- flag )
+  ty-struct [lit] 0 ty-make = cc-target-sysv @ and ;
+: cc-x87-last? cc-last-expr-type @ cc-last-struct-desc @ cc-ld? ;
+: cc-x87-op ( opcode modrm -- ) swap cc-emit-byte cc-emit-byte ;
+: cc-x87-load [lit] 219 [lit] 47 cc-x87-op ; \ fld tbyte [rdi]
+: cc-x87-save
+  [lit] 16 cc-ag-frame cc-emit-lea-rdi-local
+  [lit] 219 [lit] 63 cc-x87-op ;              \ fstp tbyte [rdi]
+: cc-x87-stage ( opcode modrm -- )
+  [lit] 8 cc-ag-frame dup cc-emit-store-local cc-emit-lea-rdi-local cc-x87-op ;
+: cc-x87-power ( exponent -- )
+  \ Exact power of two in extended format, constructed in a frame object.
+  [lit] 16383 + >r 2^63 cc-emit-movabs-rdi-imm64
+  [lit] 16 cc-ag-frame dup >r cc-emit-store-local
+  r@ 1- r> r> cc-emit-mov-rdi-int
+  >r cc-emit-store-local r> cc-emit-lea-rdi-local cc-x87-load ;
+: cc-x87-truncate
+  \ Save caller's control word, select truncation, fistp, then restore it.
+  [lit] 16 cc-ag-frame dup >r cc-emit-lea-rdi-local
+  [lit] 217 [lit] 63 cc-x87-op                \ fnstcw [rdi]
+  [lit] 15 [lit] 183 cc-x87-op [lit] 7 cc-emit-byte
+  [lit] 128 [lit] 204 cc-x87-op [lit] 12 cc-emit-byte \ or ah,12
+  [lit] 102 [lit] 137 cc-x87-op [lit] 71 cc-emit-byte [lit] 2 cc-emit-byte
+  [lit] 217 [lit] 111 cc-x87-op [lit] 2 cc-emit-byte \ fldcw [rdi+2]
+  [lit] 223 [lit] 127 cc-x87-op [lit] 8 cc-emit-byte \ fistp qword [rdi+8]
+  [lit] 217 [lit] 47 cc-x87-op                \ fldcw [rdi]
+  r> 1- cc-emit-load-local ;
+: cc-x87-to-u64
+  [lit] 63 cc-x87-power                     \ st0=2^63, st1=x
+  [lit] 223 [lit] 233 cc-x87-op              \ fucomip st0,st1
+  [lit] 135 cc-fp-jcc >r                    \ ja: x < 2^63
+  [lit] 63 cc-x87-power
+  [lit] 222 [lit] 233 cc-x87-op              \ fsubp st1,st0
+  cc-x87-truncate ty-ulong [lit] 0 ty-make cc-fp-flip-sign
+  cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
+  cc-x87-truncate r> cc-patch-rel32-to-here ;
+: cc-x87-convert ( source destination -- )
+  2dup cc-x87-type? swap cc-x87-type? or 0= if, cc-fp-convert exit, then,
+  2dup = if, 2drop exit, then,
+  dup cc-x87-type? if,
+    over cc-fp-type? if,
+      over cc-f32-type? if, [lit] 217 else, [lit] 221 then,
+      [lit] 7 cc-x87-stage
+    else,
+      over cc-const-integer? 0= if, cc-ld-die then,
+      over cc-emit-convert-rdi
+      over ty-unsigned? [lit] 2 cc-npick ty-size [lit] 8 = and if,
+        cc-emit-test-rdi [lit] 137 cc-fp-jcc >r
+        [lit] 223 [lit] 47 cc-x87-stage
+        [lit] 64 cc-x87-power [lit] 222 [lit] 193 cc-x87-op
+        cc-emit-jmp-rel32-placeholder r> cc-patch-rel32-to-here >r
+        [lit] 223 [lit] 47 cc-x87-stage r> cc-patch-rel32-to-here
+      else, [lit] 223 [lit] 47 cc-x87-stage then,
+    then,
+    2drop cc-x87-save
+  else,
+    dup ty-void [lit] 0 ty-make = if, 2drop exit, then,
+    cc-x87-load
+    dup cc-fp-type? if,
+      [lit] 8 cc-ag-frame dup >r cc-emit-lea-rdi-local
+      dup cc-f32-type? if, [lit] 217 else, [lit] 221 then,
+      [lit] 31 cc-x87-op r> cc-emit-load-local
+    else,
+      dup cc-bool-type? if,
+        [lit] 217 [lit] 238 cc-x87-op        \ fldz
+        [lit] 223 [lit] 233 cc-x87-op
+        [lit] 221 [lit] 216 cc-x87-op        \ fstp st0
+        [lit] 15 [lit] 149 cc-x87-op [lit] 192 cc-emit-byte
+        [lit] 15 [lit] 154 cc-x87-op [lit] 194 cc-emit-byte
+        [lit] 8 [lit] 208 cc-x87-op
+        [lit] 15 [lit] 182 cc-x87-op [lit] 248 cc-emit-byte
+      else,
+        dup cc-const-integer? 0= if, cc-ld-die then,
+        dup ty-unsigned? over ty-size [lit] 8 = and if,
+          cc-x87-to-u64 else, cc-x87-truncate then,
+      then,
+    then, nip cc-emit-convert-rdi
+  then, ;
+' cc-x87-convert is cc-emit-convert-value
+\ Initializers store integers at their destination width without a separate
+\ conversion. Preserve that byte sequence unless an x87 value participates.
+\ The shared record type code is insufficient: bitfield leaves do not run
+\ a descriptor shape check, so reject actual records here as before 132.
+: cc-x87-initialize ( source destination -- )
+  over cc-ag-type? if,
+    over cc-last-struct-desc @ cc-ld? 0= if, cc-ag-die then,
+  then,
+  2dup cc-x87-type? swap cc-x87-type? or if,
+    cc-x87-convert
+  else, cc-ag-initialize then, ;
+' cc-x87-initialize is cc-value-init-fwd
+: cc-x87-right
+  2dup cc-x87-type? swap cc-x87-type? or 0= if, cc-fp-convert-right exit, then,
+  cc-emit-push-rdi
+  [lit] 72 [lit] 137 cc-x87-op [lit] 207 cc-emit-byte
+  cc-x87-convert cc-emit-mov-rcx-rdi cc-emit-pop-rdi ;
+' cc-x87-right is cc-emit-convert-right
+: cc-x87-arithmetic? ( type descriptor -- flag )
+  2dup cc-ld? >r drop dup cc-const-integer? swap cc-fp-type? or r> or ;
+: cc-x87-common ( left right -- type )
+  over cc-expr-left-desc @ cc-ld? over cc-expr-right-desc @ cc-ld? or if,
+    over cc-expr-left-desc @ cc-x87-arithmetic?
+    over cc-expr-right-desc @ cc-x87-arithmetic? and 0= if, cc-ld-die then,
+    2dup cc-x87-type? swap cc-x87-type? or if,
+      2drop ty-struct [lit] 0 ty-make exit,
+    then,
+  then, cc-ag-common-type ;
+' cc-x87-common is cc-expr-common-type
+: cc-x87-binop-check
+  cc-expr-left-type @ cc-expr-left-desc @ cc-ld?
+  cc-expr-right-type @ cc-expr-right-desc @ cc-ld? or if,
+    cc-expr-op-row @ bo-op + @
+    dup [char] + = over [char] - = or over [char] * = or over [char] / = or
+    over [char] < = or over [char] > = or over pt-le = or over pt-ge = or
+    over pt-eq-eq = or swap pt-bang-eq = or 0= if, cc-ld-die then,
+  then, cc-sysv-array-binop ;
+' cc-x87-binop-check is cc-array-binop-fwd
+: cc-x87-binop
+  cc-expr-common @ cc-x87-type? 0= if, cc-fp-binop exit, then,
+  [lit] 219 [lit] 41 cc-x87-op cc-x87-load \ right then left
+  cc-expr-op-row @ bo-op + @
+  dup [char] + = if, drop [lit] 193 else,
+  dup [char] - = if, drop [lit] 225 else,
+  dup [char] * = if, drop [lit] 201 else,
+  dup [char] / = if, drop [lit] 241 else,
+    \ Reuse IEEE unordered comparison handling after x87 sets EFLAGS.
+    [lit] 223 [lit] 233 cc-x87-op [lit] 221 [lit] 216 cc-x87-op
+    dup [char] < = over [char] > = or over pt-le = or over pt-ge = or
+    over pt-eq-eq = or over pt-bang-eq = or 0= if, cc-ld-die then,
+    cc-fp-comparison-flags exit,
+  then, then, then, then,
+  [lit] 222 swap cc-x87-op cc-x87-save ;
+' cc-x87-binop is cc-native-binop-emit
+: cc-x87-test
+  cc-x87-last? if,
+    cc-last-expr-type @ ty-bool [lit] 0 ty-make cc-x87-convert cc-emit-test-rdi
+  else, cc-ag-test then, ;
+: cc-x87-not
+  cc-x87-last? if,
+    cc-x87-test cc-emit-not-zero-flag
+  else, cc-ag-not then, ;
+: cc-x87-negate
+  cc-x87-last? if, cc-x87-load [lit] 217 [lit] 224 cc-x87-op cc-x87-save
+  else, cc-ag-negate then, ;
+: cc-x87-plus cc-x87-last? 0= if, cc-ag-plus then, ;
+' cc-x87-test is cc-value-test-fwd
+' cc-x87-not is cc-value-not-fwd
+' cc-x87-negate is cc-value-negate-fwd
+' cc-x87-plus is cc-value-plus-fwd
+: cc-x87-change-check cc-x87-last? 0= if, cc-fp-change-check then, ;
+: cc-x87-change
+  cc-change-type @ cc-change-desc @ cc-ld? if,
+    cc-x87-load [lit] 217 [lit] 232 cc-x87-op \ fld1
+    cc-change-delta @ [lit] 1 = if, [lit] 193 else, [lit] 233 then,
+    [lit] 222 swap cc-x87-op cc-x87-save
+  else, cc-fp-change-value then, ;
+' cc-x87-change-check is cc-change-check-fwd
+' cc-x87-change is cc-change-value-fwd
+: cc-x87-field-load ( type field -- )
+  over cc-last-struct-desc @ cc-ld? if,
+    2drop [lit] 16 cc-ag-frame dup >r [lit] 16 swap cc-ag-copy-to-slot r> cc-emit-lea-rdi-local
+  else, cc-ag-field-load then, ;
+: cc-x87-field-store ( type field -- )
+  over cc-x87-type? if,
+    2drop cc-x87-load [lit] 219 [lit] 57 cc-x87-op \ fstp tbyte [rcx]
+  else, cc-bf-store then, ;
+' cc-x87-field-load is cc-field-load-fwd
+' cc-x87-field-store is cc-field-store-fwd
+: cc-x87-shape ( source descriptor destination descriptor -- )
+  [lit] 3 cc-npick [lit] 3 cc-npick cc-ld? [lit] 2 cc-npick [lit] 2 cc-npick cc-ld? or if,
+    2dup cc-x87-arithmetic? [lit] 4 cc-npick [lit] 4 cc-npick cc-x87-arithmetic? and 0= if,
+      cc-ld-die
+    then,
+  else,
+    [lit] 3 cc-npick cc-ag-type? [lit] 2 cc-npick cc-ag-type? <> if, cc-ag-die then,
+  then, cc-sysv-value-shape ;
+' cc-x87-shape is cc-value-shape-fwd
+' cc-x87-shape is cc-return-shape-fwd
+: cc-x87-cast ( source destination -- )
+  dup ty-void [lit] 0 ty-make = if, cc-ag-cast-types exit, then,
+  over cc-last-struct-desc @ cc-ld? over cc-cast-desc @ cc-ld? or if,
+    over cc-last-struct-desc @ [lit] 2 cc-npick cc-cast-desc @ cc-x87-shape
+    2drop exit,
+  then, cc-ag-cast-types ;
+' cc-x87-cast is cc-cast-types-fwd
+: cc-x87-ternary ( left-type left-desc inner null qualified patch -- handled? )
+  [lit] 5 cc-npick [lit] 5 cc-npick cc-ld? cc-x87-last? or if,
+    [lit] 0 exit,
+  then, cc-ag-ternary ;
+' cc-x87-ternary is cc-aggregate-ternary-fwd
+: cc-x87-scalar-check ( type -- )
+  dup cc-x87-type? if, drop else, cc-fp-scalar-check then, ;
+' cc-x87-scalar-check is cc-sysv-check-scalar
+: cc-x87-ni-scalar
+  ni-type @ ni-desc @ cc-ld? 0= if, cc-om-scalar-initializer exit, then,
+  cc-ni-static @ if, cc-ld-die then,
+  ni-offset @ cc-ni-address cc-emit-push-rdi
+  cc-putback-token cc-parse-assign cc-emit-materialize
+  cc-last-expr-type @ cc-last-struct-desc @ ni-type @ ni-desc @ cc-value-shape-fwd
+  cc-last-expr-type @ ni-type @ cc-x87-convert
+  cc-ni-mov-rsi-rdi cc-emit-pop-rdi [lit] 16 cc-ni-copy-bytes
+  cc-next-token-keep ;
+' cc-x87-ni-scalar is cc-ni-scalar-fwd
+: cc-x87-literal
+  cc-target-sysv @ tok-kind @ tk-float = and 0= if, [lit] 0 exit, then,
+  cc-const-float-spelling
+  dup ty-base ty-ldouble = if,
+    drop dup @ cc-emit-movabs-rdi-imm64
+    [lit] 16 cc-ag-frame dup >r cc-emit-store-local
+    [lit] 8 + @ cc-emit-movabs-rdi-imm64 r@ 1- cc-emit-store-local
+    r> cc-emit-lea-rdi-local
+    ty-struct [lit] 0 ty-make cc-ld-descriptor cc-mark-typed-value
+  else, swap cc-emit-movabs-rdi-imm64 [lit] 0 cc-mark-typed-value then,
+  true ;
+' cc-x87-literal is cc-value-literal-fwd
+: cc-x87-initializer
+  ni-type @ ni-desc @ cc-ld? 0= if, cc-om-scalar-initializer exit, then,
+  cc-ni-static @ if,
+    cc-putback-token cc-parse-static-const-fwd
+    if, cc-const-unsupported then, drop
+    ty-ldouble [lit] 0 ty-make cc-const-change
+    cc-sysv-object-mode @ if,
+      dup @ cc-obj-data nc-slot @ om-offset @ ni-offset @ + [lit] 8 cc-obj-patch
+      [lit] 8 + @ cc-obj-data nc-slot @ om-offset @ ni-offset @ + [lit] 8 +
+      [lit] 8 cc-obj-patch
+    else,
+      dup @ >r ni-offset @ cc-ni-address cc-emit-mov-rcx-rdi
+      r> cc-emit-movabs-rdi-imm64 ty-ulong [lit] 0 ty-make cc-emit-store-typed-via-rcx
+      [lit] 8 + @ >r ni-offset @ [lit] 8 + cc-ni-address cc-emit-mov-rcx-rdi
+      r> cc-emit-movabs-rdi-imm64 ty-ulong [lit] 0 ty-make cc-emit-store-typed-via-rcx
+    then, cc-next-token-keep exit,
+  then, cc-x87-ni-scalar ;
+' cc-x87-initializer is cc-ni-scalar-fwd
 ```

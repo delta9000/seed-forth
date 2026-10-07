@@ -51,7 +51,6 @@ def main():
                            'executable_sha256': sha(exe)})
     negatives = {
         'typedef-float': (247, 'typedef float F; void f(va_list a){va_arg(a,F);}'),
-        'typedef-long-double': (249, 'typedef long double F; double f(va_list a){return va_arg(a,F);}'),
         'qualified-float': (247, 'void f(va_list a){va_arg(a,const float);}'),
         'narrow-char': (247, 'void f(va_list a){va_arg(a,char);}'),
         'narrow-short': (247, 'void f(va_list a){va_arg(a,short);}'),
@@ -61,13 +60,13 @@ def main():
         'aggregate-result': (232, 'struct X {double x;}; void f(va_list a){va_arg(a,struct X);}'),
         'wrong-record': (246, 'struct X {unsigned int a,b;void *c,*d;}; void f(struct X *a){va_arg(a,double);}'),
         'integer-list': (246, 'void f(long a){va_arg(a,double);}'),
-        # Long double retrieval and passing are data movement (long-double-check.py);
-        # these cases convert the value, which needs x87 code.
-        'named-extended': (249, 'double f(long double x,...){va_list a;va_start(a,x);return x;}'),
-        'outbound-fixed-extended': (249, 'void g(long double);void f(double *x){g(*x);}'),
-        'outbound-variadic-extended': (249, 'void g(int,...);void f(long double *x){g(0,(double)*x);}'),
         'pointer-to-list-array': (246, 'void f(va_list **list){va_arg(list,double);}'),
     }
+    for name, body in [('typedef-long-double', 'typedef long double F; double f(va_list a){return va_arg(a,F);}'), ('named-extended', 'double f(long double x,...){va_list a;va_start(a,x);return x;}'), ('outbound-fixed-extended', 'void g(long double);void f(double *x){g(*x);}'), ('outbound-variadic-extended', 'void g(int,...);void f(long double *x){g(0,(double)*x);}')]:
+        source = work / (name + ".c")
+        source.write_text("#include <stdarg.h>\n" + body + "\n")
+        run([compiler, source, work / (name + ".o"), ROOT / "runtime/gcc-seed/include"])
+
     diagnostic_records = []
     for name, (status, body) in negatives.items():
         source = work / (name + '.c')

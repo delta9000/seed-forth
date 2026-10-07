@@ -113,9 +113,8 @@ K&R definitions with declared float parameters reject with232: their incoming
 ABI values are promoted doubles, so accepting them requires a separate entry
 conversion. Ordinary unspecified-prototype outgoing calls still promote float
 to double correctly. Long double is not a binary64 extension: chapter 36
-represents it as an opaque sixteen-byte X87 object that chapter 48 moves
-without computing, and every long double arithmetic operation or conversion
-to or from these types is error 249. Static floating initializers in object
+represents it as an opaque sixteen-byte X87 object. Chapter 48 supplies its
+transport and x87 arithmetic, conditions, updates and numeric conversions. Static floating initializers in object
 mode are compile-time constants (Ch 41 §5); in the older mapped mode they still
 reject with 232, because there they would run as code before `main`.
 Prefix and postfix `++`/`--` accept float and double lvalues, including
@@ -124,8 +123,7 @@ lvalue path saves the address once and stores the rounded result at the
 object width. Postfix restores the saved old payload; prefix returns the
 new payload. `cc-fp-change-value` adds or subtracts a same-width `1.0` in
 XMM0/XMM1, so the expression keeps its floating type inside larger
-expressions. Long double remains data movement only: these operators
-retain error 249. `tests/gcc/float-inc-dec-check.py` compares executable
+expressions. Chapter 48 extends the same shared lvalue path to long double. `tests/gcc/float-inc-dec-check.py` compares executable
 output with host GCC. Conditional arithmetic arms use
 the common type and convert only the selected value: integer with float gives
 float, and either type with double gives double. Separate conversion tails
@@ -146,7 +144,7 @@ decoder performs no host floating evaluation. A binary32 `f`/`F` suffix
 decodes straight to binary32: parsing as binary64 then narrowing would
 double-round certain decimal literals. Explicitly converting an unsuffixed
 double literal to float has C's specified two-type semantics. Long double
-`l`/`L` suffixes still reject with 248.
+`l`/`L` suffixes select the extended format directly (chapter 48).
 
 The independent `tests/gcc/review-floating-check.py` gate compares Forth-built
 objects with host ABI oracles at O0 and O2. It exercises conversion boundaries,
@@ -171,8 +169,8 @@ proofs, not a linked GCC compiler or a same-epoch configuration bootstrap.
 \ Raw payloads occupy RDI/RCX and eight-byte expression/frame slots.
 \ Binary32 storage is four bytes; arithmetic rounds at its own precision.
 \ XMM0/XMM1 are transient arithmetic registers; XMM0 carries ABI results.
-\ Long double moves as X87 data (121, 131). Static binary32/binary64
-\ initializers are exact compile-time constants (125, 128).
+\ Long double uses X87 transport (121, 131) and computations (132).
+\ Static floating initializers are exact compile-time constants (125, 128).
 \ No native/TinyCC mode is changed.
 
 : cc-f64-type? ( type -- flag )
@@ -389,9 +387,7 @@ variable cc-f64-scan-hex
     [lit] 0 ty-make
   else, cc-expr-common-type-default then, ;
 ' cc-fp-common-type is cc-expr-common-type
-: cc-fp-comparison ( op -- )
-  cc-expr-common @ cc-f64-type? if, [lit] 102 cc-emit-byte then, [lit] 15 cc-emit-byte
-  [lit] 46 cc-emit-byte [lit] 193 cc-emit-byte
+: cc-fp-comparison-flags ( op -- )
   dup [char] > = if, drop [lit] 151 else,
   dup pt-ge = if, drop [lit] 147 else,
   dup [char] < = if, drop [lit] 146 else,
@@ -409,6 +405,10 @@ variable cc-f64-scan-hex
     [lit] 8 cc-emit-byte [lit] 208 cc-emit-byte
   then,
   [lit] 15 cc-emit-byte [lit] 182 cc-emit-byte [lit] 248 cc-emit-byte ;
+: cc-fp-comparison ( op -- )
+  cc-expr-common @ cc-f64-type? if, [lit] 102 cc-emit-byte then, [lit] 15 cc-emit-byte
+  [lit] 46 cc-emit-byte [lit] 193 cc-emit-byte
+  cc-fp-comparison-flags ;
 : cc-fp-binop
   cc-expr-left-type @ cc-fp-type? cc-expr-right-type @ cc-fp-type? or 0= if,
     cc-native-binop-emit-default exit,

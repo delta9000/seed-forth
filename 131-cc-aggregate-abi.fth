@@ -199,6 +199,10 @@ variable cc-ag-plan
     ag-count @ cc-ag-locate
     ag-count @ ag-arg >r
     r@ ag-type cc-ag-type? if,
+      cc-last-expr-type @ r@ ag-type cc-emit-convert-value
+      r@ ag-type r@ ag-desc cc-ld? if,
+        r@ ag-type cc-last-expr-type ! r@ ag-desc cc-last-struct-desc !
+      then,
       cc-last-expr-type @ r@ ag-type <>
       cc-last-struct-desc @ r@ ag-desc <> or if, cc-ag-die then,
       r@ ag-size r@ ag-slot cc-ag-copy-to-slot
@@ -376,6 +380,8 @@ variable cc-ag-sret-slot
   cc-last-expr-type @ cc-ag-type?
   cc-native-return-type @ ty-void [lit] 0 ty-make = and if, cc-ag-die then,
   cc-native-return-type @ cc-ag-type? 0= if, cc-fp-return exit, then,
+  cc-native-return-type @ cc-native-return-desc @ cc-ld? if,
+    [lit] 219 cc-emit-byte [lit] 47 cc-emit-byte exit, then,
   cc-last-expr-type @ cc-native-return-type @ <>
   cc-last-struct-desc @ cc-native-return-desc @ <> or if, cc-ag-die then,
   cc-native-return-type @ cc-native-return-desc @ cc-ag-class
@@ -396,7 +402,7 @@ variable cc-ag-sret-slot
 
 \ An address representation is not permission to use a record as a scalar.
 \ Explicit record casts remain outside this value contract. Long double
-\ shares the representation; every computing use is error 249 instead.
+\ shares the representation; 132 replaces the scalar computation hooks.
 : cc-ag-scalar-use ( type -- ) dup cc-ag-type? if, cc-ag-die then, drop ;
 : cc-ld-scalar-use ( type descriptor -- )
   over swap cc-ld? if, cc-ld-die then, cc-ag-scalar-use ;
@@ -448,7 +454,9 @@ variable cc-ag-sret-slot
   over cc-sysv-sig-count over > [lit] 2 cc-npick cc-sysv-prototype? and if,
     cc-sysv-parameter-type
     2dup >r >r cc-last-expr-type @ cc-last-struct-desc @ r> r> cc-value-shape-fwd
-    over cc-ag-type? cc-last-expr-type @ cc-ag-type? or if,
+    over cc-ag-type? cc-last-expr-type @ cc-ag-type? or
+    [lit] 2 cc-npick [lit] 2 cc-npick cc-ld?
+    cc-last-expr-type @ cc-last-struct-desc @ cc-ld? or 0= and if,
       cc-last-expr-type @ cc-last-struct-desc @
       cc-sysv-compatible-types 0= if, cc-ag-die then,
     else, 2drop then,
@@ -516,9 +524,8 @@ variable cc-ag-sret-slot
   cc-mark-typed-value ;
 ' cc-ag-va-record is cc-va-record-fwd
 
-\ Long double crosses no type boundary: assignment, arguments, results and
-\ initializers accept only long double, copied whole. A static initializer
-\ would need its x87 bytes at compile time, so it is rejected too.
+\ Transport-only defaults, replaced by 132 for scalar computations and
+\ exact static initialization. Other records retain their copy contract.
 : cc-ld-value-shape ( source descriptor destination descriptor -- )
   [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick [lit] 3 cc-npick
   cc-ld-mismatch cc-sysv-value-shape ;

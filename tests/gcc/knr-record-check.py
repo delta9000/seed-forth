@@ -91,10 +91,8 @@ def main():
       'float-entry-prior-double':(232,A+'long f(struct A,double);long f(a,x) float x;struct A a;{return a.x;}'),
       'scalar-float-entry':(232,'long f(x)float x;{return 0;}'),
       'floating-record':(232,'struct A{double x;};long f(a)struct A a;{return 0;}'),
-      # Long double entry is X87 data movement (long-double-check.py); a binary64
-      # member or a conversion of the parameter remains a checked boundary.
+      # Records containing binary64 members still lack an ABI classifier.
       'long-double-record':(232,'struct A{long double x;double d;};long f(a)struct A a;{return 0;}'),
-      'long-double-entry':(249,A+'long f(a,x)struct A a;long double x;{return x;}'),
       'prior-record-identity':(237,A+B+'long f(struct B);long f(a)struct A a;{return a.x;}'),
       'prior-return-identity':(237,A+B+'struct B f(struct A);struct A f(a)struct A a;{return a;}'),
       'prior-count':(237,A+'long f(struct A,long);long f(a)struct A a;{return a.x;}'),
@@ -109,6 +107,7 @@ def main():
     # Records cross unprototyped and variadic boundaries unchanged by default
     # promotions (record-varargs-check.py runs them against host GCC).
     accepts={
+      "long-double-entry":A+"long f(a,x)struct A a;long double x;{return x;}",
       'no-prototype-after-definition':A+'long f(a) struct A a;{return a.x;}long g(void){struct A a;return f(a);}',
       'no-prototype-result':A+'struct A f(a) struct A a;{return a;}void g(void){struct A a;a=f(a);}',
       'unprototyped-pointer':A+'long f(a) struct A a;{return a.x;}long g(void){long(*p)();struct A a;p=f;return p(a);}',

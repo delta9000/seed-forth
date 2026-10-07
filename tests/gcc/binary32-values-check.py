@@ -47,6 +47,7 @@ def main():
   'float-suffix':'float f(void){return 1.25f;}',
   'float-suffix-uppercase':'float f(void){return 1.25F;}',
   'static-float':'float x=0;',
+  'long-double':'double f(long double x){return x;}',
  }.items():
   src=w/(name+'.c');src.write_text(body+'\n');out=w/(name+'.o')
   run([ROOT/'tools/gcc-direct-cc.py','-c',src,'-o',out])
@@ -55,7 +56,6 @@ def main():
   'knr-float-parameter':('float f(x) float x; {return x;}',232),
   'knr-float-unused':('int f(x) float x; {return 0;}',232),
   'hexfloat':('float f(void){return 0x1p0;}',248),
-  'long-double':('double f(long double x){return x;}',249),
   'float-index':('float f(float *x,float y){return x[y];}',232),
   'float-switch':('int f(float x){switch(x){case 1:return 1;}return 0;}',232),
   'float-remainder':('float f(float x,float y){return x%y;}',232),

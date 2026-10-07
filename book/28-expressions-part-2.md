@@ -186,6 +186,10 @@ defer cc-value-shape-fwd
 defer cc-value-init-fwd
 ' cc-value-init-default is cc-value-init-fwd
 
+: cc-opaque-scalar-default ( type descriptor -- flag ) 2drop [lit] 0 ;
+defer cc-opaque-scalar-fwd
+' cc-opaque-scalar-default is cc-opaque-scalar-fwd
+
 : cc-mark-typed-deref                             ( ty desc -- )
   over ty-base ty-array = if,
     over ty-ptr 0= if,
@@ -199,7 +203,9 @@ defer cc-value-init-fwd
   then,
   over ty-base ty-struct = over [lit] 0 <> and
   if,
-    over ty-ptr 0= if, cc-mark-typed-value exit, then,
+    over ty-ptr 0= if,
+      2dup cc-opaque-scalar-fwd 0= if, cc-mark-typed-value exit, then,
+    then,
   then,
   over ty-size [lit] 1 = cc-mark-deref
   cc-last-struct-desc ! cc-last-expr-type ! ;
@@ -863,6 +869,9 @@ defer cc-native-local-load-fwd
         dup cc-sym-type-of swap cc-expr-symbol-desc
         r@ if, swap [lit] 1 + swap then,
         cc-mark-typed-value
+        cc-last-expr-type @ cc-last-struct-desc @ cc-opaque-scalar-fwd if,
+          lv-deref cc-last-lvalue-kind !
+        then,
         r> cc-last-expr-array-len !
         r> cc-last-expr-array-inner ! r> cc-last-expr-qualified ! exit,
       then,
@@ -1576,7 +1585,7 @@ defer cc-array-address-fwd
     cc-target-lp64 @ if,
       cc-last-expr-type @ cc-unary-type
       cc-value-negate-fwd dup cc-emit-convert-rdi
-      [lit] 0 cc-mark-typed-value exit,
+      cc-last-struct-desc @ cc-mark-typed-value exit,
     then,
     cc-emit-neg-rdi cc-mark-not-lvalue exit,
   then,
@@ -1598,7 +1607,7 @@ defer cc-array-address-fwd
       cc-parse-unary cc-emit-materialize
       cc-value-plus-fwd
       cc-last-expr-type @ cc-unary-type dup cc-emit-convert-rdi
-      [lit] 0 cc-mark-typed-value exit,
+      cc-last-struct-desc @ cc-mark-typed-value exit,
     then,
   then,
   \ Not a unary operator — putback so primary sees the same token.
@@ -1843,7 +1852,8 @@ defer cc-aggregate-compound-fwd
     cc-last-expr-type @ cc-last-struct-desc @
     cc-assign-type @ cc-assign-desc @ cc-value-shape-fwd
   then,
-  cc-assign-type @ ty-base ty-struct = cc-assign-type @ ty-ptr 0= and if,
+  cc-assign-type @ ty-base ty-struct = cc-assign-type @ ty-ptr 0= and
+  cc-assign-type @ cc-assign-desc @ cc-opaque-scalar-fwd 0= and if,
     cc-assign-op @ [char] = <> if,
       cc-assign-type @ cc-assign-desc @ cc-aggregate-compound-fwd
       [lit] 120 cc-die

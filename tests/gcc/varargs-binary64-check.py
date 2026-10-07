@@ -48,12 +48,13 @@ def main():
     rejects = {
         "single": (247, "int f(int n,...){va_list a;va_start(a,n);va_arg(a,float);return 0;}"),
         # Long double retrieval and passing are data movement (long-double-check.py);
-        # any conversion of the retrieved or named value needs x87 code.
-        "extended": (249, "int f(int n,...){va_list a;va_start(a,n);return va_arg(a,long double);}"),
-        "named-extended": (249, "double f(long double n,...){return n;}"),
-        "variadic-extended-call": (249, "extern int f(int,...);int g(long double *p){return f(0,(double)*p);}"),
-        "indirect-extended-call": (249, "int g(int (*f)(int,...),long double *p){return f(0,-*p);}"),
+        # Extended values also support numeric conversions.
     }
+    for name, code in {'extended': 'int f(int n,...){va_list a;va_start(a,n);return va_arg(a,long double);}', 'named-extended': 'double f(long double n,...){return n;}', 'variadic-extended-call': 'extern int f(int,...);int g(long double *p){return f(0,(double)*p);}', 'indirect-extended-call': 'int g(int (*f)(int,...),long double *p){return f(0,-*p);}'}.items():
+        source = work / (name + ".c")
+        source.write_text("#include <stdarg.h>\n" + code + "\n")
+        output = work / (name + ".o")
+        run([compile, source, output, ROOT / "runtime/gcc-seed/include"])
     for name, (status, code) in rejects.items():
         source = work / (name + ".c")
         source.write_text("#include <stdarg.h>\n" + code + "\n")

@@ -34,17 +34,20 @@ def main():
   exe=work/('interop'+opt);run(['gcc',opt,'-fno-builtin','-fno-pie','-no-pie','-I'+str(TEST),TEST/'binary64-arguments-main.c',provider,TEST/'binary64-arguments-al.S',pobj,cobj,'-o',exe]);run([exe])
   report['executions'].append({'name':'host inbound/outbound '+opt,'sha256':sha(exe),'al_observation':True})
  print('PASS: host O0/O2 inbound/outbound ABI, exact %al count and 16-byte call alignment',flush=True)
- # Long double moves as X87 data (long-double-check.py); converting a
- # binary64 or integer argument to it still needs x87 code and is rejected.
+ # Integer and binary64 arguments convert to extended values before copying.
+ for name,body in {
+  "extended-call":"void f(long double);void g(void){f(1);}",
+  "extended-from-double":"void f(long double);void g(double x){f(x);}",
+ }.items():
+  src=work/(name+".c");src.write_text(body+"\n")
+  run([cc,"-c",src,"-o",work/(name+".o")])
  rejects={
-  'extended-call':'void f(long double);void g(void){f(1);}',
-  'extended-from-double':'void f(long double);void g(double x){f(x);}',
   'floating-record':'struct A{double x;};void f(struct A x){}',
   'too-many':'void f(double);void g(void){f(1.0,2.0);}',
   'too-few':'void f(double,double);void g(void){f(1.0);}',
  }
  for name,body in rejects.items():
-  src=work/(name+'.c');src.write_text(body+'\n');out=work/(name+'.o');status=235 if name.startswith('too-') else 249 if name.startswith('extended-') else 232
+  src=work/(name+'.c');src.write_text(body+'\n');out=work/(name+'.o');status=235 if name.startswith('too-') else 232
   for existing in (False,True):
    out.unlink(missing_ok=True)
    if existing:out.write_bytes(b'previous-object\x00\xff')

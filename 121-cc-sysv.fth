@@ -251,10 +251,10 @@ defer cc-sysv-check-scalar
 ' cc-sysv-float-types is cc-native-float-types-fwd
 
 \ Long double is the x87 80-bit extended format in sixteen bytes, aligned
-\ to sixteen. This target moves its bytes and never computes with them:
+\ to sixteen. The transport representation is an opaque record:
 \ the value is an opaque record with one shared, memberless descriptor, so
 \ it travels by address as records do and every spelling has one identity.
-\ Arithmetic, conversion, tests and casts reach error 249 instead (131).
+\ Layer 132 adds x87 computations and exact constants to this transport.
 variable cc-ld-desc
 [lit] 0 cc-ld-desc !
 : cc-ld-descriptor ( -- descriptor )

@@ -162,7 +162,7 @@ Error 247 means an unsupported requested result type. The numbers overlap
 errors in other bounded compiler components, so the prefix identifies the
 phase. Unsupported floating types can be named, so `va_arg(list, float)`
 reaches the intrinsic's error 247. Binary64 and long double retrieval are
-accepted; converting a retrieved long double is error 249 of chapter 48.
+accepted; chapter 48 also supports numeric conversions of the retrieved value.
 The negative checks require exit status 247, exactly one
 `varargs: cc: line N: error 247`
 diagnostic, empty stdout, and preservation of an existing output file.

@@ -73,10 +73,12 @@ rejects = {
                     "int f(int n, ...) { va_list a; va_start(a, n); return va_arg(a, _Bool); }\n"),
     # Not implemented: an address constant converted to _Bool at compile time.
     "static-address": (238, "int x; static _Bool b = &x;\n"),
-    # Converting long double or a record is outside the value contract.
-    "long-double": (249, "_Bool f(long double *x) { _Bool b; b = *x; return b; }\n"),
+    # Records have no scalar truth conversion.
     "record": (232, "struct A { int a; }; void f(struct A a) { _Bool b = a; }\n"),
 }
+source = work / "long-double.c"
+source.write_text("_Bool f(long double *x) { _Bool b; b = *x; return b; }\n")
+run([sys.executable, DRIVER, "-c", source, "-o", work / "long-double.o"])
 for name, (code, text) in rejects.items():
     source = work / (name + ".c")
     source.write_text(text)

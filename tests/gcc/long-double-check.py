@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Long double as an x87 data-movement type; host GCC is only an ABI oracle.
+"""Long double data movement, conversion acceptance and invalid C constraints.
 
 Forth-built and host-built translation units call each other in both
 directions with long double named and variadic arguments, X87/MEMORY records
 and the bfd.c union/va_arg pattern. Values are made by host arithmetic or
-explicit bytes and compared over their ten significant bytes. Every
-operation that would need x87 computation is rejected with an exact code and
-leaves any previous output untouched.
+explicit bytes and compared over their ten significant bytes. Invalid scalar operations are rejected with an exact code and leave any
+previous output untouched. Scalar computation has a separate GCC oracle.
 """
 from pathlib import Path
 import argparse, hashlib, json, subprocess, tempfile
@@ -29,39 +28,18 @@ def run(command, status=0):
     return p
 
 
-# name: (source, exit status, stderr prefix). 249 is this layer's boundary.
+# Invalid C uses of an extended scalar retain checked diagnostics.
 REJECT = {
-    'add': ('long double x; long double f(void){return x+x;}', 249, b'long-double: '),
-    'multiply-assign': ('long double x; void f(void){x*=x;}', 249, b'long-double: '),
-    'compound-add': ('long double x; void f(void){x+=1;}', 249, b'long-double: '),
-    'increment': ('long double x; void f(void){x++;}', 249, b'long-double: '),
-    'negate': ('long double x; void f(void){x=-x;}', 249, b'long-double: '),
+    "integer-shift-extended": ("long double x; int f(void){return 1<<x;}",249,b"long-double: "),
+    "remainder": ("long double x; void f(void){x%=1;}",249,b"long-double: "),
+    "record-initializer": ("struct A{long x,y;};void f(struct A a){long double x=a;}",249,b"long-double: "),
+    "pointer-initializer": ("void f(void *p){long double x=p;}",249,b"long-double: "),
+    "extended-to-pointer": ("void *f(long double x){return (void *)x;}",249,b"long-double: "),
+    "pointer-to-extended": ("long double f(void *x){return (long double)x;}",249,b"long-double: "),
     'complement': ('long double x; void f(void){x=~x;}', 249, b'long-double: '),
-    'not': ('long double x; int f(void){return !x;}', 249, b'long-double: '),
-    'condition': ('long double x; int f(void){if(x)return 1;return 0;}', 249, b'long-double: '),
-    'logical': ('long double x; int f(void){return x&&1;}', 249, b'long-double: '),
-    'compare': ('long double x,y; int f(void){return x<y;}', 249, b'long-double: '),
-    'equal': ('long double x; int f(void){return x==x;}', 249, b'long-double: '),
     'subscript': ('long double x; int f(int *a){return a[x];}', 249, b'long-double: '),
     'switch': ('long double x; int f(void){switch(x){default:return 0;}}', 249, b'long-double: '),
-    'to-int-cast': ('long double x; int f(void){return (int)x;}', 249, b'long-double: '),
-    'to-double-cast': ('long double x; double f(void){return (double)x;}', 249, b'long-double: '),
-    'from-int-cast': ('long double f(int i){return (long double)i;}', 249, b'long-double: '),
-    'nested-cast': ('long double f(long i){return (long double)(int)i;}', 249, b'long-double: '),
-    'to-double-assign': ('long double x; double y; void f(void){y=x;}', 249, b'long-double: '),
-    'from-double-assign': ('long double x; void f(double d){x=d;}', 249, b'long-double: '),
-    'to-double-return': ('long double x; double f(void){return x;}', 249, b'long-double: '),
-    'from-int-return': ('long double f(void){return 1;}', 249, b'long-double: '),
-    'to-int-argument': ('void h(int); long double x; void f(void){h(x);}', 249, b'long-double: '),
-    'from-double-argument': ('void h(long double); void f(double d){h(d);}', 249, b'long-double: '),
-    'local-initializer': ('void f(int i){long double y=i;}', 249, b'long-double: '),
-    'mixed-conditional': ('long double x; void f(int c){long double y=c?x:1.0;}', 249, b'long-double: '),
-    'static-initializer': ('void f(void){static long double z=0;}', 249, b'long-double: '),
-    'global-initializer': ('long double g=0;', 249, b'long-double: '),
-    'global-copy-initializer': ('long double x; long double g=x;', 249, b'long-double: '),
-    'static-array-initializer': ('long double g[2]={0,0};', 249, b'long-double: '),
-    'braced-element-conversion': ('void f(int i){long double a[1]={i};}', 249, b'long-double: '),
-    'literal': ('long double f(void){return 1.0L;}', 248, b'cc-f64-literal: suffix-unsupported'),
+    'global-copy-initializer': ('long double x; long double g=x;', 240, b'cc: '),
     'floating-member-record': ('struct A{long double a;double d;};void f(struct A a){}', 232, b'aggregate-abi: '),
     'member-of-scalar': ('long double x; void f(void){x.a;}', 90, b'cc: line 1: error 90'),
 }
@@ -70,6 +48,36 @@ REJECT = {
 ACCEPT = {
     'record-vararg': 'struct A{long double a;};void h(int,...);void f(struct A a){h(1,a);}',
 }
+ACCEPT.update({
+    'add': 'long double x; long double f(void){return x+x;}',
+    'multiply-assign': 'long double x; void f(void){x*=x;}',
+    'compound-add': 'long double x; void f(void){x+=1;}',
+    'increment': 'long double x; void f(void){x++;}',
+    'negate': 'long double x; void f(void){x=-x;}',
+    'not': 'long double x; int f(void){return !x;}',
+    'condition': 'long double x; int f(void){if(x)return 1;return 0;}',
+    'logical': 'long double x; int f(void){return x&&1;}',
+    'compare': 'long double x,y; int f(void){return x<y;}',
+    'equal': 'long double x; int f(void){return x==x;}',
+    'to-int-cast': 'long double x; int f(void){return (int)x;}',
+    'to-double-cast': 'long double x; double f(void){return (double)x;}',
+    'from-int-cast': 'long double f(int i){return (long double)i;}',
+    'nested-cast': 'long double f(long i){return (long double)(int)i;}',
+    'to-double-assign': 'long double x; double y; void f(void){y=x;}',
+    'from-double-assign': 'long double x; void f(double d){x=d;}',
+    'to-double-return': 'long double x; double f(void){return x;}',
+    'from-int-return': 'long double f(void){return 1;}',
+    'to-int-argument': 'void h(int); long double x; void f(void){h(x);}',
+    'from-double-argument': 'void h(long double); void f(double d){h(d);}',
+    'local-initializer': 'void f(int i){long double y=i;}',
+    'mixed-conditional': 'long double x; void f(int c){long double y=c?x:1.0;}',
+    'static-initializer': 'void f(void){static long double z=0;}',
+    'global-initializer': 'long double g=0;',
+    'static-array-initializer': 'long double g[2]={0,0};',
+    'braced-element-conversion': 'void f(int i){long double a[1]={i};}',
+    'literal': 'long double f(void){return 1.0L;}',
+})
+
 
 
 def main():

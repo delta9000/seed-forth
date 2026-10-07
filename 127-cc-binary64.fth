@@ -2,8 +2,8 @@
 \ Raw payloads occupy RDI/RCX and eight-byte expression/frame slots.
 \ Binary32 storage is four bytes; arithmetic rounds at its own precision.
 \ XMM0/XMM1 are transient arithmetic registers; XMM0 carries ABI results.
-\ Long double moves as X87 data (121, 131). Static binary32/binary64
-\ initializers are exact compile-time constants (125, 128).
+\ Long double uses X87 transport (121, 131) and computations (132).
+\ Static floating initializers are exact compile-time constants (125, 128).
 \ No native/TinyCC mode is changed.
 
 : cc-f64-type? ( type -- flag )
@@ -220,9 +220,7 @@ variable cc-f64-scan-hex
     [lit] 0 ty-make
   else, cc-expr-common-type-default then, ;
 ' cc-fp-common-type is cc-expr-common-type
-: cc-fp-comparison ( op -- )
-  cc-expr-common @ cc-f64-type? if, [lit] 102 cc-emit-byte then, [lit] 15 cc-emit-byte
-  [lit] 46 cc-emit-byte [lit] 193 cc-emit-byte
+: cc-fp-comparison-flags ( op -- )
   dup [char] > = if, drop [lit] 151 else,
   dup pt-ge = if, drop [lit] 147 else,
   dup [char] < = if, drop [lit] 146 else,
@@ -240,6 +238,10 @@ variable cc-f64-scan-hex
     [lit] 8 cc-emit-byte [lit] 208 cc-emit-byte
   then,
   [lit] 15 cc-emit-byte [lit] 182 cc-emit-byte [lit] 248 cc-emit-byte ;
+: cc-fp-comparison ( op -- )
+  cc-expr-common @ cc-f64-type? if, [lit] 102 cc-emit-byte then, [lit] 15 cc-emit-byte
+  [lit] 46 cc-emit-byte [lit] 193 cc-emit-byte
+  cc-fp-comparison-flags ;
 : cc-fp-binop
   cc-expr-left-type @ cc-fp-type? cc-expr-right-type @ cc-fp-type? or 0= if,
     cc-native-binop-emit-default exit,

@@ -89,11 +89,9 @@ def main():
         for expr in ['x++', '++x', 'x--', '--x']:
             source.write_text(f'long double x; void f(void) {{ {expr}; }}\n')
             output = work / 'reject.o'
-            result = run(CC + ['-c', source, '-o', output], expected=249)
-            if b'long-double: ' not in result.stderr or b'error 249' not in result.stderr or output.exists():
-                raise RuntimeError(f'{expr}: missing long double rejection')
+            run(CC + ['-c', source, '-o', output])
         print(f'PASS: {cases} floating increment/decrement cases, direct and larger expressions, '
-              'match GCC -O0/-O2; four long double forms retain error 249')
+              'match GCC -O0/-O2; four long double forms compile')
 
 
 if __name__ == '__main__':

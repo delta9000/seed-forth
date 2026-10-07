@@ -55,6 +55,7 @@ bash tests/gcc/sysv-declarator-edges-check.sh
 python3 tests/gcc/review-declarator-check.py
 SF_GCC_CAST_ORACLE=1 bash tests/gcc/sysv-function-integer-casts-check.sh
 python3 tests/gcc/aggregate-check.py --oracle
+python3 tests/gcc/initializer-conversion-check.py
 python3 tests/gcc/knr-record-check.py
 python3 tests/gcc/record-varargs-check.py
 knr_source=${GCC4_SOURCE_ROOT:-build-out/direct-gcc-inputs/gcc-source}
@@ -72,6 +73,7 @@ else
 fi
 python3 tests/gcc/binary64-arguments-check.py
 python3 tests/gcc/long-double-check.py
+python3 tests/gcc/long-double-arithmetic-check.py
 python3 tests/gcc/binary32-values-check.py
 python3 tests/gcc/float-inc-dec-check.py
 python3 tests/gcc/conditional-values-check.py

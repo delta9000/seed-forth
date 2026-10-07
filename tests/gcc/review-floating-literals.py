@@ -182,6 +182,11 @@ def main():
             for t in ('0.0','1e3'):
                 expressions.append('+'+t)
                 source_expected.append(expected_bits(rational(t)))
+            # Extended source literals convert exactly to the double return type.
+            for t,value in (('1.0l',Fraction(1)), ('1.L',Fraction(1)),
+                            ('0x1.8p0L',Fraction(3,2)), ('0X1P0l',Fraction(1))):
+                expressions.append(t)
+                source_expected.append(expected_bits(value))
             production.write_text(''.join(f'double review_literal_{i}(void){{return {t};}}\n' for i,t in enumerate(expressions)))
             obj=work/'literals.o'
             subprocess.run([ROOT/'tests/gcc/sysv-object-compile.sh',production,obj],check=True)
@@ -202,9 +207,9 @@ def main():
                 print(f'PASS: source literals -> Forth object -> host {opt} XMM0 oracle {len(expressions)} values')
             # Markerless/sign-only strings are decoder-only: in actual C the
             # lexer recognizes integer literals and the parser owns unary sign.
-            # f/F now select an exact binary32 literal in source; the bare
-            # binary64 decoder above still rejects them.
-            source_rejects=('suffix-l','suffix-L','hex-lower','hex-upper',
+            # f/F and l/L select binary32 and extended literals in source;
+            # the bare binary64 decoder above still rejects both suffixes.
+            source_rejects=('hex-lower','hex-upper',
                          'positive-exponent-bound','negative-exponent-bound','digit-bound',
                          'token-bound','obvious-overflow','round-to-infinity')
             for name in source_rejects:
@@ -220,8 +225,8 @@ def main():
         raise RuntimeError('Decoder changed during review; rerun after source freeze')
     if compiler_hashes()!=compiler_snapshot:
         raise RuntimeError('Compiler changed during review; rerun after source freeze')
-    report={'compiler_sha256':compiler_snapshot,'source_object_sha256':object_hash,'decoder_sha256':decoder_hash,'accepted':len(tokens),'decoder_rejections':len(rejects),'source_rejections':10 if integrated else 0,
-            'integrated_host_optimizations':integrated,'source_values':len(tokens)+7 if integrated else 0,'reference':'Python exact integer rational rounding; no float parser'}
+    report={'compiler_sha256':compiler_snapshot,'source_object_sha256':object_hash,'decoder_sha256':decoder_hash,'accepted':len(tokens),'decoder_rejections':len(rejects),'source_rejections':len(source_rejects) if integrated else 0,
+            'integrated_host_optimizations':integrated,'source_values':len(expressions) if integrated else 0,'reference':'Python exact integer rational rounding; no float parser'}
     if args.report: args.report.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
 
 if __name__=='__main__': main()

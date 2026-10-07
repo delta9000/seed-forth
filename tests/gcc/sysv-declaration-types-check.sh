@@ -14,6 +14,10 @@ while IFS='|' read -r label code source; do
   printf 'previous artifact\n' > "$work/reject.o"
   rc=0
   tests/gcc/sysv-object-compile.sh "$work/reject.c" "$work/reject.o" >"$work/reject.log" 2>&1 || rc=$?
+  if [ "$code" = 0 ] && [ "$rc" = 0 ]; then
+    echo "PASS: extended scalar conversion accepted"
+    continue
+  fi
   if [ "$rc" != "$code" ] || [ "$(cat "$work/reject.o")" != 'previous artifact' ]; then
     cat "$work/reject.log" >&2
     echo "FAIL: $label returned $rc, expected $code with preserved output" >&2
@@ -21,16 +25,16 @@ while IFS='|' read -r label code source; do
   fi
   echo "PASS: $label rejects with $code and preserves output"
 done <<'CASES'
-extended-return-call|249|long double f(void); int g(void){return f();}
-extended-argument-call|249|void f(long double); int g(void){f(1); return 0;}
+extended-return-call|0|long double f(void); int g(void){return f();}
+extended-argument-call|0|void f(long double); int g(void){f(1); return 0;}
 aggregate-return-call|232|struct S{double x;}; struct S f(void); int g(void){f(); return 0;}
 aggregate-argument-call|232|struct S{double x;}; void f(struct S); int g(void){struct S s={1}; f(s); return 0;}
-extended-return-definition|249|long double f(void){return 0;}
-extended-parameter-definition|249|int f(long double x){return x;}
-extended-local-load|249|int f(void){long double x; return x;}
-extended-global-load|249|extern long double x; int f(void){return x;}
-extended-pointer-load|249|int f(long double *p){return *p;}
-extended-pointer-store|249|int f(long double *p){*p=0; return 0;}
-extended-runtime-cast|249|int f(void){return (int)(long double)1;}
+extended-return-definition|0|long double f(void){return 0;}
+extended-parameter-definition|0|int f(long double x){return x;}
+extended-local-load|0|int f(void){long double x; return x;}
+extended-global-load|0|extern long double x; int f(void){return x;}
+extended-pointer-load|0|int f(long double *p){return *p;}
+extended-pointer-store|0|int f(long double *p){*p=0; return 0;}
+extended-runtime-cast|0|int f(void){return (int)(long double)1;}
 default-float-promotion-conflict|237|int f(); int f(float x);
 CASES

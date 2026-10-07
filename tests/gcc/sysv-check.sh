@@ -11,6 +11,10 @@ while IFS='|' read -r name code source; do
   printf '%s\n' "$source" > "$work/reject.c"
   rc=0
   tests/gcc/sysv-compile.sh "$work/reject.c" "$work/reject" >"$work/reject.log" 2>&1 || rc=$?
+  if [ "$code" = 0 ] && [ "$rc" = 0 ]; then
+    echo "PASS: extended scalar conversion accepted"
+    continue
+  fi
   if [ "$rc" != "$code" ]; then
     cat "$work/reject.log" >&2
     echo "FAIL: $name returned $rc, expected $code" >&2
@@ -20,7 +24,7 @@ while IFS='|' read -r name code source; do
 done <<'CASES'
 aggregate-parameter|232|struct S { double x; }; int f(struct S s) { return s.x; } int main(void) { return 0; }
 aggregate-return|232|struct S { double x; }; struct S f(void) { struct S s={1}; return s; } int main(void) { return 0; }
-extended-parameter-value|249|int f(long double x) { return x; } int main(void) { return 0; }
+extended-parameter-value|0|int f(long double x) { return x; } int main(void) { return 0; }
 missing-argument|235|int f(int x) { return x; } int main(void) { return f(); }
 excess-argument|235|int f(void) { return 0; } int main(void) { return f(1); }
 conflicting-prototype|237|int f(int x); long f(int x) { return x; } int main(void) { return 0; }

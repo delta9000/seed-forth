@@ -13,34 +13,15 @@ TESTS = ROOT / 'tests/gcc'
 INCLUDES = [TESTS, ROOT / 'runtime/gcc-seed/include']
 MODES = ('sysv-compile.sh', 'sysv-object-compile.sh')
 # Long double moves as X87 data (long-double-check.py); each extended case
-# below converts or computes with one and is rejected with 249. Static
+# below now accepts scalar conversions. Static
 # binary32/binary64 initializers and casts of floating constants are exact
 # compile-time values now; static-float-check.py checks them.
 REJECTIONS = {
-    'extended-parameter-definition': (249, 'int f(long double x){return x;}'),
-    'extended-return-definition': (249, 'long double f(void){return 0;}'),
     'aggregate-parameter-definition': (232, 'struct S{double x;}; int f(struct S s){return 0;}'),
     'aggregate-return-definition': (232, 'struct S{double x;}; struct S f(void){struct S s; return s;}'),
-    'extended-direct-call': (249, 'int f(long double); int main(void){return f(1);}'),
-    'extended-return-call': (249, 'long double f(void); int main(void){return f();}'),
     'aggregate-direct-call': (232, 'struct S{double x;}; int f(struct S); int main(void){struct S s;return f(s);}'),
     'aggregate-return-call': (232, 'struct S{double x;}; struct S f(void); int main(void){f();return 0;}'),
-    'extended-pointer-call': (249, 'int main(void){int (*f)(long double);f=0;return f(1);}'),
     'aggregate-pointer-call': (232, 'struct S{double x;}; int main(void){int (*f)(struct S);struct S s;f=0;return f(s);}'),
-    'extended-local-read': (249, 'int main(void){long double f;return f;}'),
-    'extended-discarded-read': (249, 'int main(void){long double d;!d;return 0;}'),
-    'extended-local-write': (249, 'int main(void){long double d;d=1;return 0;}'),
-    'extended-local-initializer': (249, 'int main(void){long double d=1;return 0;}'),
-    'extended-global-read': (249, 'long double d; int main(void){return d;}'),
-    'extended-global-write': (249, 'long double f; int main(void){f=1;return 0;}'),
-    'extended-dereference-read': (249, 'int f(long double *p){return *p;}'),
-    'extended-dereference-write': (249, 'int f(long double *p){*p=1;return 0;}'),
-    'extended-field-read': (249, 'struct S{long double d;}; int f(struct S *s){return s->d;}'),
-    'extended-field-write': (249, 'struct S{long double d;}; int f(struct S *s){s->d=1;return 0;}'),
-    'extended-cast': (249, 'int main(void){return (int)(long double)1;}'),
-    'extended-comparison': (249, 'int f(long double *p){return *p==0;}'),
-    'extended-static-local': (249, 'int main(void){static long double d=0;return sizeof(d)!=16;}'),
-    'extended-static-array': (249, 'long double f[2]={0,0}; int main(void){return sizeof(f)!=8;}'),
     'floating-va-arg': (247, '#include <stdarg.h>\nint f(int n,...){va_list a;va_start(a,n);va_arg(a,float);return 0;}'),
 }
 
@@ -90,6 +71,12 @@ def main():
         assert {name: sizes.get(name) for name in expected_sizes} == expected_sizes
         relocations = run(['readelf', '-rW', target]).stdout.decode()
         assert 'unevaluated' not in relocations, 'sizeof(call) emitted a call relocation'
+        for name, source in {'extended-parameter-definition': 'int f(long double x){return x;}', 'extended-return-definition': 'long double f(void){return 0;}', 'extended-direct-call': 'int f(long double); int main(void){return f(1);}', 'extended-return-call': 'long double f(void); int main(void){return f();}', 'extended-pointer-call': 'int main(void){int (*f)(long double);f=0;return f(1);}', 'extended-local-read': 'int main(void){long double f;return f;}', 'extended-discarded-read': 'int main(void){long double d;!d;return 0;}', 'extended-local-write': 'int main(void){long double d;d=1;return 0;}', 'extended-local-initializer': 'int main(void){long double d=1;return 0;}', 'extended-global-read': 'long double d; int main(void){return d;}', 'extended-global-write': 'long double f; int main(void){f=1;return 0;}', 'extended-dereference-read': 'int f(long double *p){return *p;}', 'extended-dereference-write': 'int f(long double *p){*p=1;return 0;}', 'extended-field-read': 'struct S{long double d;}; int f(struct S *s){return s->d;}', 'extended-field-write': 'struct S{long double d;}; int f(struct S *s){s->d=1;return 0;}', 'extended-cast': 'int main(void){return (int)(long double)1;}', 'extended-comparison': 'int f(long double *p){return *p==0;}', 'extended-static-local': 'int main(void){static long double d=0;return sizeof(d)!=16;}', 'extended-static-array': 'long double f[2]={0,0}; int main(void){return sizeof(f)!=8;}'}.items():
+            path = work / (name + ".c")
+            path.write_text(source + "\n")
+            output = work / (name + ".o")
+            run([TESTS / MODES[1], path, output, *INCLUDES])
+            print("PASS:", name, "accepted as an object", flush=True)
         sentinel = b'previous valid artifact\n'
         for name, (code, source) in REJECTIONS.items():
             path = work / (name + '.c')

@@ -183,6 +183,8 @@ def main():
                      capture_output=True, timeout=30)
         assert p.returncode == 0 and not p.stderr, (label,p)
         # These are the accepted integrated baseline's unchanged emitted bytes.
+        # In particular, native-basics pins integer initializer stores: loading
+        # the x87 layer must not add general conversions before those stores.
         pins = {'legacy-conditionals':'91f05862be21595d354e46ad248b69bb8a6770a4bd67e251bea9b11eb4bf4499',
                 'legacy-libc':'581c4f676df46fa61b00d33b52f5dee854fa34fd6d769727b87d4eaf71349477',
                 'native-basics':'5764f1d9acda186d3dff3502b8aa81820ee59b06ba1cf3bb96196be052d06daa',

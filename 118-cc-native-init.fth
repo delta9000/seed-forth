@@ -23,9 +23,6 @@ variable cc-ni-entry-patch
 
 \ A target may represent a scalar as an opaque record (121: long double);
 \ initializers treat it as one scalar leaf, never as a brace list.
-: cc-opaque-scalar-default ( type descriptor -- flag ) 2drop [lit] 0 ;
-defer cc-opaque-scalar-fwd
-' cc-opaque-scalar-default is cc-opaque-scalar-fwd
 : cc-ni-aggregate?
   ni-type @ ty-base ty-struct = ni-type @ ty-ptr 0= and
   ni-type @ ni-desc @ cc-opaque-scalar-fwd 0= and ;

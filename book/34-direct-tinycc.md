@@ -17,7 +17,7 @@ then compiles the next TinyCC and its runtime.
 
 This chapter owns `115-cc-native.fth` (642 lines),
 `117-cc-native-program.fth` (100 lines), `118-cc-native-init.fth`
-(324 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
+(321 lines), and `119-cc-native-runtime.fth` (111 lines), each in full.
 The existing chapters retain canonical coverage of the shared
 preprocessor, types, expressions, and statement code they extend.
 The compiler files still load in numerical order: the native words
@@ -974,9 +974,6 @@ variable cc-ni-entry-patch
 
 \ A target may represent a scalar as an opaque record (121: long double);
 \ initializers treat it as one scalar leaf, never as a brace list.
-: cc-opaque-scalar-default ( type descriptor -- flag ) 2drop [lit] 0 ;
-defer cc-opaque-scalar-fwd
-' cc-opaque-scalar-default is cc-opaque-scalar-fwd
 : cc-ni-aggregate?
   ni-type @ ty-base ty-struct = ni-type @ ty-ptr 0= and
   ni-type @ ni-desc @ cc-opaque-scalar-fwd 0= and ;

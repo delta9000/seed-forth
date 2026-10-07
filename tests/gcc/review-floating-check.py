@@ -108,13 +108,18 @@ def main():
             'double-shift':'double f(double *p){return *p << 1;}',
             'single-va-arg':'#include <stdarg.h>\ndouble f(int n,...){va_list a;va_start(a,n);return va_arg(a,float);}',
         }
+        for name in ('extended-value', 'long-double-value'):
+            path=work/(name+'.c');path.write_text(rejects.pop(name)+'\n')
+            run([ROOT/'tests/gcc/sysv-object-compile.sh',path,work/(name+'.o'),
+                 ROOT/'runtime/gcc-seed/include'])
+            results.append({'kind':'accepted','name':name,'exit':0})
         for name,source in rejects.items():
             path=work/(name+'.c'); path.write_text(source+'\n')
             rejected=work/(name+'.o')
             run([ROOT/'tests/gcc/sysv-object-compile.sh',path,rejected,
-                 ROOT/'runtime/gcc-seed/include'],247 if name=='single-va-arg' else 249 if name.endswith('-value') else 232)
+                 ROOT/'runtime/gcc-seed/include'],247 if name=='single-va-arg' else 232)
             if rejected.exists(): raise RuntimeError(f'{name}: rejected object was published')
-            code=247 if name=='single-va-arg' else 249 if name.endswith('-value') else 232
+            code=247 if name=='single-va-arg' else 232
             print('PASS:',name,'rejects with',code)
             results.append({'kind':'fail-closed','name':name,'exit':code})
 

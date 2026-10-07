@@ -21,7 +21,6 @@ REJECTS = {
     'callback-too-many': 'struct X{int (*f[2])(void);};int g(struct X *p){return (*p->f[0])(1);}',
     'callback-record-arg': 'struct R{double x;};struct X{int (*f[2])(struct R);};int g(struct X *p){struct R r;return p->f[0](r);}',
     'callback-record-return': 'struct R{double x;};struct X{struct R (*f[2])(void);};int g(struct X *p){p->f[0]();return 0;}',
-    'callback-long-double-arg': 'struct X{int (*f[2])(long double);};int g(struct X *p){return p->f[0](1);}',
     'nested-callback-too-few': 'typedef int (*leaf)(int);struct X{leaf (*f[2])(void);};int g(struct X *p){return p->f[0]()();}',
     'nested-callback-too-many': 'typedef int (*leaf)(void);struct X{leaf (*f[2])(void);};int g(struct X *p){return p->f[0]()(1);}',
     'array-of-pointer-to-array': 'int (*a[2])[3];',
@@ -79,12 +78,17 @@ def main():
     narrow_count=len(re.findall(r'movzbl\s+%dil,%edi',calls))
     assert narrow_count==14,('caller uchar conversion count',narrow_count)
     (work/'caller-conversions.txt').write_text(calls)
+    src=work/"callback-long-double-arg.c"
+    src.write_text('struct X{int (*f[2])(long double);};int g(struct X *p){return p->f[0](1);}'+"\n")
+    checked([cc,"-c",src,"-o",work/"callback-long-double-arg.o"])
+    src.write_text(src.read_text()+"int main(void){return 0;}\n")
+    checked([TEST/"sysv-compile.sh",src,work/"callback-long-double-arg"])
     results={}
     for name,source in REJECTS.items():
         src=work/(name+'.c');src.write_text(source+'\n')
         out=work/(name+'.o');out.unlink(missing_ok=True)
         checks=[]
-        expected=237 if name.endswith('conflict') else 235 if 'too-few' in name or 'too-many' in name else 249 if name=='callback-long-double-arg' else 232 if name in ('callback-record-arg','callback-record-return') else 230 if name=='fnptr-object-call' else 143 if name.startswith('missing-') else 238
+        expected=237 if name.endswith('conflict') else 235 if 'too-few' in name or 'too-many' in name else 232 if name in ('callback-record-arg','callback-record-return') else 230 if name=='fnptr-object-call' else 143 if name.startswith('missing-') else 238
         for mode in ('object','mapped'):
             out.unlink(missing_ok=True)
             for exists in (False,True):
