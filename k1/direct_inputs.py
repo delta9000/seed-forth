@@ -2,10 +2,11 @@
 
 k0_tree(): what K0 needs to build K1 from the seed (tools/k1-direct-start.fth
 and tools/k1-direct.recipe); k0/mkfs.py adds seed-forth itself.
-k1_tree(smoke): K1's starting tree for k1/direct-smoke.recipe or, without
+k1_tree(smoke, linux): K1's starting tree for k1/direct-smoke.recipe or, without
 smoke, k1/direct.recipe: sources only, plus hex0-seed (the only executable,
 added by k1/mkdisk.py) and, for the full route, the pinned tarballs the
-plumbing stages unpack.  Paths map image names to host files.
+plumbing stages unpack; with linux, also what k1/direct-linux.recipe needs
+after bash 2.05b.  Paths map image names to host files.
 """
 from pathlib import Path
 
@@ -35,7 +36,7 @@ def k0_tree():
     return tree
 
 
-def k1_tree(smoke):
+def k1_tree(smoke, linux=False):
     tree = {"000-seed.hex0": ROOT / "000-seed.hex0"}
     tree.update(_layers())
     tree.update(_files("tools/seed-cc-start.fth", "tools/seed-cc-boot/*.fth",
@@ -48,6 +49,15 @@ def k1_tree(smoke):
     if not smoke:
         tree.update(_files("tools/*", "plumbing/**/*", "gcc-direct/lexer-inputs/**/*",
                            "build-out/plumbing-inputs/*", "build-out/lexer-inputs/archives/*"))
+    if linux:
+        # After bash 2.05b (k1/direct-linux.recipe): the GCC chain, the late tools,
+        # gcc64's bridge to gcc-10.5.0 and Linux.  build-out/distfiles holds the
+        # archives of k1/chain-inputs.sha256; chain.SOURCES' plain binutils tar
+        # is the one input that is not a release archive as published.
+        tree.update(_files("k1/direct-full.sh", "gcc-direct/*.sh", "gcc-direct/patches/**/*", "ladder/**/*",
+                           "gcc64/*", "patches/**/*", "tests/gcc/stage-c-hello.*",
+                           "tests/gcc64/**/*", "build-out/distfiles/*",
+                           "build-out/stage-b-inputs/binutils-2.30.tar"))
     missing = [n for n in ("vendor/mescc-tools/M2libc/bootstrappable.c",
                            "vendor/stage0-posix/mescc-tools-extra/M2libc/bootstrappable.c")
                if n not in tree]

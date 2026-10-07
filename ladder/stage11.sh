@@ -1,5 +1,6 @@
 # ladder/stage11.sh: binutils and GCC (gcc64 stages 4-10) inside the chain
-# root, with only stage 10's tools on PATH.  tools/ladder.recipe's stage 8
+# root, with only stage 10's tools on PATH (with --direct, after
+# ladder/stage10-direct.sh: gcc64's bridge instead of stages 4 and 5).  tools/ladder.recipe's stage 8
 # already built tcc-musl exactly as gcc64's stages 1-2 do (same pinned
 # libc.a), so gcc64's tc/ is that build.
 set -eu
@@ -9,8 +10,18 @@ export lt_cv_sys_max_cmd_len=1572864
 B=/build-out/g64
 mkdir -p $B $B/src
 chmod 755 /gcc64/*.sh            # copied into the root as plain files
-[ -e $B/tc ] || ln -s /build-out/pnut-amd64/gcc64/tc $B/tc
-[ $# -gt 0 ] || set -- stage4 stage5 stage6 stage7 stage8 stage9 stage10
+if [ "${1:-}" = --direct ]; then
+    # The direct-GCC route (k1/direct.recipe): no tcc.  gcc64's bridge stage
+    # takes stage D's GCC 4.0.4, its stage-C binutils and musl, and the
+    # Forth-built oyacc and flex 2.5.11 in place of stages 0 to 5.
+    shift
+    export GCC64_DIRECT=/build-out/chain/stage-d GCC64_OYACC=/build-out/plumbing/bin/oyacc \
+        GCC64_FLEX=/build-out/plumbing/bin/flex
+    [ $# -gt 0 ] || set -- bridge stage6 stage7 stage8 stage9 stage10
+else
+    [ -e $B/tc ] || ln -s /build-out/pnut-amd64/gcc64/tc $B/tc
+    [ $# -gt 0 ] || set -- stage4 stage5 stage6 stage7 stage8 stage9 stage10
+fi
 GCC64_CACHE=/build-out/distfiles BUILDROOT=$B JOBS=${JOBS:-16} \
     bash /gcc64/run-gcc64.sh "$@" || {
     # Show the failing stage's log on the console (it is inside the build).
