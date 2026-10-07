@@ -111,9 +111,13 @@ cache_values() {
           -e "s#$LOG/host-#WORK-#g; s#$LOG/ours-#WORK-#g"
 }
 
-# known: drop the lines that carry the two expected differences.
+# known: drop the lines that carry the two expected differences, and empty
+# lines (libtool's portable func_append is followed by one, the += form not).
+# The empty lines go in a separate sed: ugrep 7.8, a host grep, misses them
+# in an alternation ending in '|^$'.
 known() {
-  grep -Ev 'lt_shell_append=|eval "\$1\+=|eval "\$1=\\\$\$1|^ *(MKDIR_P|mkdir_p) *=|^S\["(MKDIR_P|mkdir_p)"\]=|ac_cv_path_mkdir=|^MKDIR_P=' || true
+  { grep -Ev 'lt_shell_append=|eval "\$1\+=|eval "\$1=\\\$\$1|^ *(MKDIR_P|mkdir_p) *=|^S\["(MKDIR_P|mkdir_p)"\]=|ac_cv_path_mkdir=|^MKDIR_P=' || true; } \
+    | sed '/^$/d'
 }
 
 status=0
