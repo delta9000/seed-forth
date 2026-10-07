@@ -1,0 +1,42 @@
+{
+  "LINK_FOLLOWS_SYMLINKS": {
+    "value": 0,
+    "evidence": "Linux link() links the symlink itself; linkat flags are explicit."
+  },
+  "major_t/minor_t": {
+    "value": "unsigned int",
+    "evidence": "m4/jm-macros.m4 fallback; musl sys/sysmacros.h uses unsigned major/minor."
+  },
+  "MAJOR_IN_SYSMACROS": {
+    "value": 1,
+    "evidence": "sysroot sys/sysmacros.h declares major/minor/makedev; mountlist.c needs that header."
+  },
+  "MOUNTED_GETMNTENT1/HAVE_SETMNTENT/HAVE_HASMNTOPT": {
+    "value": 1,
+    "evidence": "sysroot mntent.h and static compiler/link/runtime probe: setmntent/getmntent/endmntent on /proc/mounts."
+  },
+  "STAT_STATVFS/HAVE_FSTATFS/HAVE_STRUCT_STATFS_F_FRSIZE/F_NAMELEN/F_TYPE": {
+    "value": 1,
+    "evidence": "sysroot sys/statfs.h/sys/statvfs.h and static compiler/link/runtime probe on /."
+  },
+  "HAVE_STRUCT_UTMP[X]_*": {
+    "value": 1,
+    "evidence": "sysroot utmpx.h: ut_type/id/pid/user/host/session/exit fields and e_exit/e_termination GNU aliases; utmp.h aliases utmpx; ut_tv exists."
+  },
+  "HAVE_UTMPNAME/HAVE_UTMPXNAME": {
+    "value": 1,
+    "evidence": "Declarations and link symbols exist, but iteration is stubbed; skip who/users/pinky. uptime uses gnulib Linux boot-time fallback."
+  },
+  "gmp.h": {
+    "value": "#include \"mini-gmp.h\"",
+    "evidence": "lib/gnulib.mk GL_GENERATE_MINI_GMP_H rule when external GMP is unavailable."
+  },
+  "stdbuf/libstdbuf.so": {
+    "value": "skipped",
+    "evidence": "sysroot usr/lib has only static libc.a and compatibility archives, no libc.so; LD_PRELOAD helper cannot work with static programs."
+  },
+  "TIME_H_DEFINES_STRUCT_TIMESPEC": {
+    "value": 1,
+    "evidence": "musl time.h includes native struct timespec and itimerspec. Wrong 0 generated rpl_timespec, conflicting with native itimerspec.it_value in timeout. Retain native timers."
+  }
+}

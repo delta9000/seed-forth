@@ -10,14 +10,16 @@ recipe development; this is not an audited seed-only bootstrap stage.
 | --- | --- | --- |
 | [make 4.4.1](make-4.4.1/NOTES.md) | Builds; version and parallel small makefile checks pass | 8.829 s, 2 jobs |
 | [bash 5.2.37](bash-5.2.37/NOTES.md) | Builds; version and script checks pass | 32.407 s, 2 jobs |
-| [coreutils 9.5](coreutils-9.5/NOTES.md) | Eight requested programs build and pass smoke checks; remaining programs not supplied | 15.893 s, 4 jobs |
+| [coreutils 9.5](coreutils-9.5/NOTES.md) | 102 default Linux programs build; four commands and one helper skipped; wider smoke checks pass | 35.54 s, 4 jobs |
 
 Times are elapsed compile/generate/archive/link time, excluding unpacking,
 configuration discovery and smoke tests. They are observations on this
 checkout, not performance guarantees. All three results come from fresh
 extractions, not incremental links. Detailed evidence is retained under
 `build-out/modern-work/` (`clean-results.json`, `*-clean.log`, `*-check.log`,
-`header-probes.json`, `source-audit.json`).
+`header-probes.json`, `source-audit.json`). The expanded coreutils run uses
+`coreutils-full-clean.log`, `coreutils-full-check.log`,
+`coreutils-full-extra-check.log` and `coreutils-full-audit.json`.
 
 ## Rebuild
 
@@ -65,8 +67,21 @@ assertion/checked-arithmetic headers, SELinux stubs, configmake.h, and glibc
 scratch-buffer/dynarray headers transformed according to gnulib.mk. It uses
 GCC's supported GNU99 mode for loop declarations, native libc allocation and
 most POSIX APIs, bundled GNU getopt, and no optional ACL/xattr/NLS/security
-libraries. The selected object/feature matrix builds the eight requested programs.
-It is not a complete configure-result equivalence claim. See its NOTES.md and header-answers.json.
+libraries. The expanded object/feature matrix builds 102 of the 106 default Linux
+commands, including bundled mini-GMP for expr/factor and bundled regex.
+The complete built list is in [programs.txt](coreutils-9.5/programs.txt) and
+[NOTES.md](coreutils-9.5/NOTES.md). It is not a complete configure-result
+equivalence claim. See header-answers.json and feature-answers.json.
+
+The skipped commands are pinky, users and who (musl's getutxent is a null-returning
+stub, so no session records), and stdbuf (its preload mechanism needs a shared
+runtime absent from this static sysroot). Its libstdbuf.so helper is also
+skipped. uptime builds using upstream's Linux boot-time fallback; its user
+count is zero. chcon and runcon build with disabled-security behavior.
+arch, hostname and the single-binary coreutils wrapper are not installed by
+upstream's default build. The recipe names ginstall's output src/install.
+The generated time.h now retains musl's native timespec, fixing timeout's
+itimerspec type mismatch while keeping native POSIX timers enabled.
 
 ## Validation and limits
 
@@ -78,14 +93,18 @@ are the only source-tree additions. No patches were applied.
 The make smoke test checks two parallel prerequisites and variable expansion.
 The bash smoke test checks variables, indexed arrays, arithmetic, a function,
 command substitution and case matching. ELF program-header inspection confirms
-all ten executables have no dynamic interpreter or dynamic segment. This is smoke
-coverage, not the upstream regression suites.
+all 104 executables (make, bash and 102 coreutils commands) have no dynamic
+interpreter or dynamic segment. This is smoke coverage, not the upstream
+regression suites.
 
-Coreutils smoke coverage checks mkdir/cp/cat round trips,
-sort order, wc line count, ls output, printf output and date at Unix epoch.
-This recipe targets those eight programs; other coreutils programs, tests,
-documentation and installation are not yet supplied. Neither successful
-smoke tests nor declaration probes imply all gnulib semantic tests pass.
+Coreutils smoke coverage retains mkdir/cp/cat, sort/wc/ls/printf and epoch
+date checks, and adds head/tail/cut/tr/uniq/join/paste/comm/od, MD5/SHA-256,
+basename/dirname, test/[, expr, factor, seq, env/printenv and
+install/ln/mv/rm/touch/stat/du/df. Additional development checks cover all
+digest variants, base encoders, regex consumers, timeout and uptime. The
+expanded fresh build took 35.54 seconds with four jobs. All 1,559 shipped
+coreutils C/header members match the archive. Neither smoke checks nor
+declaration probes imply all gnulib semantic tests pass.
 
 During discovery, absent headers defined to 0 triggered `#ifdef` paths;
 missing Bash build definitions/types and archive ordering blocked its build;
@@ -93,7 +112,7 @@ incomplete gnulib type/limit answers and missing replacement objects blocked
 coreutils. These failures were resolved with configuration, generated headers
 and object/link rules. No compatibility source patches were required.
 
-The remaining partial result is package coverage: coreutils is an
-eight-program recipe, not a full coreutils installation recipe. The GNU
-configure behavior-test matrix, optional services and upstream tests have
+Coreutils now covers the default Linux command set with the four explicit
+functional skips above. The GNU configure behavior-test matrix, optional
+services, upstream regression tests, documentation and installation have
 not been reproduced. ladder/stage10.sh and ladder/PACKAGES are unchanged.

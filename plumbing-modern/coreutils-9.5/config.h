@@ -1784,7 +1784,7 @@
 #define HAVE_FSTATAT 1
 
 /* Define to 1 if you have the 'fstatfs' function. */
-/* #undef HAVE_FSTATFS */
+#define HAVE_FSTATFS 1
 
 /* Define to 1 if you have the 'fsync' function. */
 #define HAVE_FSYNC 1
@@ -1933,7 +1933,7 @@
 #define HAVE_GRP_H 1
 
 /* Define to 1 if you have the 'hasmntopt' function. */
-/* #undef HAVE_HASMNTOPT */
+#define HAVE_HASMNTOPT 1
 
 /* Define to 1 if you have the <hurd.h> header file. */
 /* #undef HAVE_HURD_H */
@@ -2459,7 +2459,7 @@
 #define HAVE_SETITIMER 1
 
 /* Define to 1 if you have the `setmntent' function. */
-/* #undef HAVE_SETMNTENT */
+#define HAVE_SETMNTENT 1
 
 /* Define to 1 if you have the 'setrlimit' function. */
 #define HAVE_SETRLIMIT 1
@@ -2638,19 +2638,19 @@
 #define HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY 1
 
 /* Define to 1 if 'f_frsize' is a member of 'struct statfs'. */
-/* #undef HAVE_STRUCT_STATFS_F_FRSIZE */
+#define HAVE_STRUCT_STATFS_F_FRSIZE 1
 
 /* Define to 1 if 'f_fstypename' is a member of 'struct statfs'. */
 /* #undef HAVE_STRUCT_STATFS_F_FSTYPENAME */
 
 /* Define to 1 if 'f_namelen' is a member of 'struct statfs'. */
-/* #undef HAVE_STRUCT_STATFS_F_NAMELEN */
+#define HAVE_STRUCT_STATFS_F_NAMELEN 1
 
 /* Define to 1 if 'f_namemax' is a member of 'struct statfs'. */
 /* #undef HAVE_STRUCT_STATFS_F_NAMEMAX */
 
 /* Define to 1 if 'f_type' is a member of 'struct statfs'. */
-/* #undef HAVE_STRUCT_STATFS_F_TYPE */
+#define HAVE_STRUCT_STATFS_F_TYPE 1
 
 /* Define to 1 if 'f_basetype' is a member of 'struct statvfs'. */
 /* #undef HAVE_STRUCT_STATVFS_F_BASETYPE */
@@ -2701,13 +2701,13 @@
 #define HAVE_STRUCT_TM_TM_ZONE 1
 
 /* Define to 1 if 'ut_exit' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_EXIT */
+#define HAVE_STRUCT_UTMPX_UT_EXIT 1
 
 /* Define to 1 if 'ut_exit.e_exit' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_EXIT_E_EXIT */
+#define HAVE_STRUCT_UTMPX_UT_EXIT_E_EXIT 1
 
 /* Define to 1 if 'ut_exit.e_termination' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_EXIT_E_TERMINATION */
+#define HAVE_STRUCT_UTMPX_UT_EXIT_E_TERMINATION 1
 
 /* Define to 1 if 'ut_exit.ut_exit' is a member of 'struct utmpx'. */
 /* #undef HAVE_STRUCT_UTMPX_UT_EXIT_UT_EXIT */
@@ -2716,58 +2716,58 @@
 /* #undef HAVE_STRUCT_UTMPX_UT_EXIT_UT_TERMINATION */
 
 /* Define to 1 if 'ut_host' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_HOST */
+#define HAVE_STRUCT_UTMPX_UT_HOST 1
 
 /* Define to 1 if 'ut_id' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_ID */
+#define HAVE_STRUCT_UTMPX_UT_ID 1
 
 /* Define to 1 if 'ut_name' is a member of 'struct utmpx'. */
 /* #undef HAVE_STRUCT_UTMPX_UT_NAME */
 
 /* Define to 1 if 'ut_pid' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_PID */
+#define HAVE_STRUCT_UTMPX_UT_PID 1
 
 /* Define to 1 if 'ut_session' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_SESSION */
+#define HAVE_STRUCT_UTMPX_UT_SESSION 1
 
 /* Define to 1 if 'ut_type' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_TYPE */
+#define HAVE_STRUCT_UTMPX_UT_TYPE 1
 
 /* Define to 1 if 'ut_user' is a member of 'struct utmpx'. */
-/* #undef HAVE_STRUCT_UTMPX_UT_USER */
+#define HAVE_STRUCT_UTMPX_UT_USER 1
 
 /* Define to 1 if 'ut_exit' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_EXIT */
+#define HAVE_STRUCT_UTMP_UT_EXIT 1
 
 /* Define to 1 if 'ut_exit.e_exit' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_EXIT_E_EXIT */
+#define HAVE_STRUCT_UTMP_UT_EXIT_E_EXIT 1
 
 /* Define to 1 if 'ut_exit.e_termination' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_EXIT_E_TERMINATION */
+#define HAVE_STRUCT_UTMP_UT_EXIT_E_TERMINATION 1
 
 /* Define to 1 if 'ut_host' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_HOST */
+#define HAVE_STRUCT_UTMP_UT_HOST 1
 
 /* Define to 1 if 'ut_id' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_ID */
+#define HAVE_STRUCT_UTMP_UT_ID 1
 
 /* Define to 1 if 'ut_name' is a member of 'struct utmp'. */
 /* #undef HAVE_STRUCT_UTMP_UT_NAME */
 
 /* Define to 1 if 'ut_pid' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_PID */
+#define HAVE_STRUCT_UTMP_UT_PID 1
 
 /* Define to 1 if 'ut_session' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_SESSION */
+#define HAVE_STRUCT_UTMP_UT_SESSION 1
 
 /* Define to 1 if 'ut_tv' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_TV */
+#define HAVE_STRUCT_UTMP_UT_TV 1
 
 /* Define to 1 if 'ut_type' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_TYPE */
+#define HAVE_STRUCT_UTMP_UT_TYPE 1
 
 /* Define to 1 if 'ut_user' is a member of 'struct utmp'. */
-/* #undef HAVE_STRUCT_UTMP_UT_USER */
+#define HAVE_STRUCT_UTMP_UT_USER 1
 
 /* Define to 1 if the system has the type 'struct utsname'. */
 #define HAVE_STRUCT_UTSNAME 1
@@ -2992,10 +2992,10 @@
 #define HAVE_UTIME_H 1
 
 /* Define to 1 if you have the 'utmpname' function. */
-/* #undef HAVE_UTMPNAME */
+#define HAVE_UTMPNAME 1
 
 /* Define to 1 if you have the 'utmpxname' function. */
-/* #undef HAVE_UTMPXNAME */
+#define HAVE_UTMPXNAME 1
 
 /* Define to 1 if you have the <utmpx.h> header file. */
 #define HAVE_UTMPX_H 1
@@ -3292,7 +3292,7 @@
 /* Define to 1 if 'link(2)' dereferences symbolic links, 0 if it creates hard
    links to symlinks, -1 if it depends on the variable __xpg4, and -2 if
    unknown. */
-/* #undef LINK_FOLLOWS_SYMLINKS */
+#define LINK_FOLLOWS_SYMLINKS 0
 
 /* Define if localename.c overrides newlocale(), duplocale(), freelocale(). */
 /* #undef LOCALENAME_ENHANCE_LOCALE_FUNCS */
@@ -3313,7 +3313,7 @@
 
 /* Define to 1 if 'major', 'minor', and 'makedev' are declared in
    <sysmacros.h>. */
-/* #undef MAJOR_IN_SYSMACROS */
+#define MAJOR_IN_SYSMACROS 1
 
 /* If malloc(0) is != NULL, define this to 1. Otherwise define this to 0. */
 #define MALLOC_0_IS_NONNULL 1
@@ -3397,7 +3397,7 @@
 /* Define if there is a function named getmntent for reading the list of
    mounted file systems, and that function takes a single argument. (4.3BSD,
    SunOS, HP-UX, Irix) */
-/* #undef MOUNTED_GETMNTENT1 */
+#define MOUNTED_GETMNTENT1 1
 
 /* Define if there is a function named getmntent for reading the list of
    mounted file systems, and that function takes two arguments. (SVR4) */
@@ -3699,7 +3699,7 @@
 /* #undef STAT_STATFS4 */
 
 /* Define if there is a function named statvfs. (SVR4) */
-/* #undef STAT_STATVFS */
+#define STAT_STATVFS 1
 
 /* Define if statvfs64 should be preferred over statvfs. */
 /* #undef STAT_STATVFS64 */
@@ -4623,7 +4623,7 @@
 /* #undef lint */
 
 /* Define to 'unsigned int' if <sys/types.h> does not define. */
-/* #undef major_t */
+#define major_t unsigned int
 
 /* Define to a type if <wchar.h> does not define. */
 /* #undef mbstate_t */
@@ -4645,7 +4645,7 @@
 
 
 /* Define to 'unsigned int' if <sys/types.h> does not define. */
-/* #undef minor_t */
+#define minor_t unsigned int
 
 /* Define to the real name of the mktime_internal function. */
 /* #undef mktime_internal */

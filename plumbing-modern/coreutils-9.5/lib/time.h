@@ -591,7 +591,7 @@ _GL_WARN_EXTERN_C int _gl_warn_on_use
    Or they define it with the wrong member names or define it in <sys/time.h>
    (e.g., FreeBSD circa 1997).  Stock Mingw prior to 3.0 does not define it,
    but the pthreads-win32 library defines it in <pthread.h>.  */
-# if ! 0
+# if ! 1
 #  if 0
 #   include <sys/time.h>
 #  elif 0

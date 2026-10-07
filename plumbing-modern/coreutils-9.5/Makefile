@@ -9,7 +9,22 @@ RECIPE_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 CFLAGS = -O2 -std=gnu99 -Werror-implicit-function-declaration -DHAVE_CONFIG_H -I. -Isrc -Ilib
 .SUFFIXES:
 
-all: src/ls src/cat src/sort src/cp src/mkdir src/date src/printf src/wc
+# Default Linux programs, excluding unsupported session/preload features.
+# install is upstream PROGRAMS ginstall after its install-name transform.
+PROGRAMS = src/[ src/b2sum src/base32 src/base64 src/basename src/basenc src/cat src/chcon src/chgrp \
+  src/chmod src/chown src/chroot src/cksum src/comm src/cp src/csplit src/cut src/date src/dd \
+  src/df src/dir src/dircolors src/dirname src/du src/echo src/env src/expand src/expr \
+  src/factor src/false src/fmt src/fold src/groups src/head src/hostid src/id src/install \
+  src/join src/kill src/link src/ln src/logname src/ls src/md5sum src/mkdir src/mkfifo \
+  src/mknod src/mktemp src/mv src/nice src/nl src/nohup src/nproc src/numfmt src/od src/paste \
+  src/pathchk src/pr src/printenv src/printf src/ptx src/pwd src/readlink src/realpath src/rm \
+  src/rmdir src/runcon src/seq src/sha1sum src/sha224sum src/sha256sum src/sha384sum \
+  src/sha512sum src/shred src/shuf src/sleep src/sort src/split src/stat src/stty src/sum \
+  src/sync src/tac src/tail src/tee src/test src/timeout src/touch src/tr src/true \
+  src/truncate src/tsort src/tty src/uname src/unexpand src/uniq src/unlink src/uptime \
+  src/vdir src/wc src/whoami src/yes
+
+all: $(PROGRAMS)
 
 config.h: $(RECIPE_DIR)/config.h
 	cp $< $@
@@ -194,7 +209,7 @@ lib/wchar.h: $(RECIPE_DIR)/lib/wchar.h
 lib/wctype.h: $(RECIPE_DIR)/lib/wctype.h
 	cp $< $@
 
-HEADERS = lib/malloc/dynarray.gl.h lib/malloc/dynarray-skeleton.gl.h lib/malloc/scratch_buffer.gl.h lib/configmake.h lib/alloca.h lib/arpa/inet.h lib/assert.h lib/byteswap.h lib/ctype.h lib/dirent.h lib/errno.h lib/error.h lib/fcntl.h lib/float.h lib/fnmatch.h lib/getopt-cdefs.h lib/getopt.h lib/iconv.h lib/inttypes.h lib/langinfo.h lib/limits.h lib/locale.h lib/math.h lib/netdb.h lib/netinet/in.h lib/obstack.h lib/pthread.h lib/sched.h lib/selinux/context.h lib/selinux/label.h lib/selinux/selinux.h lib/signal.h lib/stdarg.h lib/stdckdint.h lib/stddef.h lib/stdint.h lib/stdio.h lib/stdlib.h lib/string.h lib/sys/ioctl.h lib/sys/random.h lib/sys/resource.h lib/sys/select.h lib/sys/socket.h lib/sys/stat.h lib/sys/time.h lib/sys/types.h lib/sys/uio.h lib/sys/utsname.h lib/sys/wait.h lib/termios.h lib/time.h lib/uchar.h lib/unicase.h lib/unictype.h lib/uninorm.h lib/unistd.h lib/unistr.h lib/unitypes.h lib/uniwidth.h lib/utime.h lib/wchar.h lib/wctype.h
+HEADERS = lib/gmp.h lib/malloc/dynarray.gl.h lib/malloc/dynarray-skeleton.gl.h lib/malloc/scratch_buffer.gl.h lib/configmake.h lib/alloca.h lib/arpa/inet.h lib/assert.h lib/byteswap.h lib/ctype.h lib/dirent.h lib/errno.h lib/error.h lib/fcntl.h lib/float.h lib/fnmatch.h lib/getopt-cdefs.h lib/getopt.h lib/iconv.h lib/inttypes.h lib/langinfo.h lib/limits.h lib/locale.h lib/math.h lib/netdb.h lib/netinet/in.h lib/obstack.h lib/pthread.h lib/sched.h lib/selinux/context.h lib/selinux/label.h lib/selinux/selinux.h lib/signal.h lib/stdarg.h lib/stdckdint.h lib/stddef.h lib/stdint.h lib/stdio.h lib/stdlib.h lib/string.h lib/sys/ioctl.h lib/sys/random.h lib/sys/resource.h lib/sys/select.h lib/sys/socket.h lib/sys/stat.h lib/sys/time.h lib/sys/types.h lib/sys/uio.h lib/sys/utsname.h lib/sys/wait.h lib/termios.h lib/time.h lib/uchar.h lib/unicase.h lib/unictype.h lib/uninorm.h lib/unistd.h lib/unistr.h lib/unitypes.h lib/uniwidth.h lib/utime.h lib/wchar.h lib/wctype.h
 
 lib/acl-errno-valid.o: lib/acl-errno-valid.c config.h $(HEADERS) src/version.h
 	$(CC) $(CFLAGS) -c lib/acl-errno-valid.c -o lib/acl-errno-valid.o
@@ -1015,33 +1030,17 @@ src/sort.o: src/sort.c config.h $(HEADERS) src/version.h
 src/wc.o: src/wc.c config.h $(HEADERS) src/version.h
 	$(CC) $(CFLAGS) -c src/wc.c -o src/wc.o
 
-lib/libcoreutils.a: lib/qsort.o lib/time_rz.o lib/getprogname.o lib/reallocarray.o lib/rawmemchr.o lib/setlocale-lock.o lib/unistr/u8-uctomb.o lib/parse-datetime.o src/version.o lib/acl-errno-valid.o lib/acl-internal.o lib/af_alg.o lib/alignalloc.o lib/allocator.o lib/areadlink-with-size.o lib/areadlink.o lib/areadlinkat-with-size.o lib/areadlinkat.o lib/argmatch.o lib/argv-iter.o lib/backup-find.o lib/backup-rename.o lib/backupfile.o lib/base32.o lib/base64.o lib/basename-lgpl.o lib/basename.o lib/binary-io.o lib/bitrotate.o lib/btoc32.o lib/buffer-lcm.o lib/c-ctype.o lib/c-file-type.o lib/c-strcasecmp.o lib/c-strncasecmp.o lib/c-strtod.o lib/c-strtold.o lib/c32_apply_type_test.o lib/c32_get_type_test.o lib/c32isalnum.o lib/c32isalpha.o lib/c32isblank.o lib/c32iscntrl.o lib/c32isdigit.o lib/c32isgraph.o lib/c32islower.o lib/c32isprint.o lib/c32ispunct.o lib/c32isspace.o lib/c32isupper.o lib/c32isxdigit.o lib/c32tolower.o lib/c32width.o lib/canon-host.o lib/canonicalize.o lib/careadlinkat.o lib/chmodat.o lib/chownat.o lib/cl-strtod.o lib/cl-strtold.o lib/cloexec.o lib/close-stream.o lib/closein.o lib/closeout.o lib/copy-acl.o lib/count-leading-zeros.o lib/creat-safer.o lib/cycle-check.o lib/di-set.o lib/dirchownmod.o lib/dirname-lgpl.o lib/dirname.o lib/dtoastr.o lib/dtotimespec.o lib/dup-safer-flag.o lib/dup-safer.o lib/error.o lib/exclude.o lib/exitfail.o lib/fadvise.o lib/fd-hook.o lib/fd-reopen.o lib/fd-safer-flag.o lib/fd-safer.o lib/fdutimensat.o lib/file-has-acl.o lib/file-set.o lib/file-type.o lib/filemode.o lib/filenamecat-lgpl.o lib/filenamecat.o lib/filevercmp.o lib/fopen-safer.o lib/fprintftime.o lib/freading.o lib/freadseek.o lib/freopen-safer.o lib/ftoastr.o lib/fts.o lib/full-read.o lib/full-write.o lib/get-permissions.o lib/gethrxtime.o lib/getndelim2.o lib/getopt.o lib/getopt1.o lib/gettime-res.o lib/gettime.o lib/getugroups.o lib/glthread/lock.o lib/glthread/threadlib.o lib/glthread/tls.o lib/hard-locale.o lib/hash-pjw.o lib/hash-triple-simple.o lib/hash-triple.o lib/hash.o lib/heap.o lib/human.o lib/i-ring.o lib/ialloc.o lib/idcache.o lib/imaxtostr.o lib/ino-map.o lib/inttostr.o lib/ldtoastr.o lib/linebuffer.o lib/localcharset.o lib/long-options.o lib/malloc/dynarray_at_failure.o lib/malloc/dynarray_emplace_enlarge.o lib/malloc/dynarray_finalize.o lib/malloc/dynarray_resize.o lib/malloc/dynarray_resize_clear.o lib/malloc/scratch_buffer_grow.o lib/malloc/scratch_buffer_grow_preserve.o lib/malloc/scratch_buffer_set_array_size.o lib/malloca.o lib/math.o lib/mbscasecmp.o lib/mbschr.o lib/mbslen.o lib/mbsrtoc32s.o lib/mbswidth.o lib/mbszero.o lib/mcel.o lib/md5-stream.o lib/md5.o lib/memcasecmp.o lib/memchr2.o lib/memcmp2.o lib/memcoll.o lib/mgetgroups.o lib/mkancesdirs.o lib/mkdir-p.o lib/mkstemp-safer.o lib/modechange.o lib/mpsort.o lib/nproc.o lib/nstrftime.o lib/obstack.o lib/offtostr.o lib/open-safer.o lib/openat-die.o lib/openat-proc.o lib/openat-safer.o lib/opendir-safer.o lib/opendirat.o lib/physmem.o lib/pipe-safer.o lib/pipe2.o lib/posixtm.o lib/posixver.o lib/printf-frexp.o lib/printf-frexpl.o lib/priv-set.o lib/progname.o lib/propername-lite.o lib/qcopy-acl.o lib/qset-acl.o lib/quotearg.o lib/rand-isaac.o lib/randint.o lib/randperm.o lib/randread.o lib/read-file.o lib/readtokens.o lib/readtokens0.o lib/readutmp.o lib/renameatu.o lib/root-dev-ino.o lib/safe-read.o lib/safe-write.o lib/same-inode.o lib/same.o lib/save-cwd.o lib/savedir.o lib/savewd.o lib/se-context.o lib/se-label.o lib/se-selinux.o lib/selinux-at.o lib/set-acl.o lib/set-permissions.o lib/setlocale_null-unlocked.o lib/setlocale_null.o lib/settime.o lib/sha1-stream.o lib/sha1.o lib/sha256-stream.o lib/sha256.o lib/sha512-stream.o lib/sha512.o lib/sig-handler.o lib/skipchars.o lib/sm3-stream.o lib/sm3.o lib/sockets.o lib/stat-time.o lib/strintcmp.o lib/stripslash.o lib/strnlen1.o lib/strnumcmp.o lib/sys_socket.o lib/targetdir.o lib/tempname.o lib/timespec.o lib/tmpdir.o lib/u64.o lib/uinttostr.o lib/umaxtostr.o lib/unicodeio.o lib/unistd.o lib/unlinkdir.o lib/userspec.o lib/utimecmp.o lib/utimens.o lib/verror.o lib/version-etc-fsf.o lib/version-etc.o lib/wctype-h.o lib/write-any-file.o lib/xalignalloc.o lib/xalloc-die.o lib/xasprintf.o lib/xbinary-io.o lib/xdectoimax.o lib/xdectoumax.o lib/xfts.o lib/xgetcwd.o lib/xgetgroups.o lib/xgethostname.o lib/xmalloc.o lib/xmemcoll.o lib/xnanosleep.o lib/xprintf.o lib/xreadlink.o lib/xsize.o lib/xstrtod.o lib/xstrtoimax.o lib/xstrtol-error.o lib/xstrtol.o lib/xstrtold.o lib/xstrtoul.o lib/xstrtoumax.o lib/xtime.o lib/xvasprintf.o lib/yesno.o
-	$(AR) cr $@ lib/qsort.o lib/time_rz.o lib/getprogname.o lib/reallocarray.o lib/rawmemchr.o lib/setlocale-lock.o lib/unistr/u8-uctomb.o lib/parse-datetime.o src/version.o lib/acl-errno-valid.o lib/acl-internal.o lib/af_alg.o lib/alignalloc.o lib/allocator.o lib/areadlink-with-size.o lib/areadlink.o lib/areadlinkat-with-size.o lib/areadlinkat.o lib/argmatch.o lib/argv-iter.o lib/backup-find.o lib/backup-rename.o lib/backupfile.o lib/base32.o lib/base64.o lib/basename-lgpl.o lib/basename.o lib/binary-io.o lib/bitrotate.o lib/btoc32.o lib/buffer-lcm.o lib/c-ctype.o lib/c-file-type.o lib/c-strcasecmp.o lib/c-strncasecmp.o lib/c-strtod.o lib/c-strtold.o lib/c32_apply_type_test.o lib/c32_get_type_test.o lib/c32isalnum.o lib/c32isalpha.o lib/c32isblank.o lib/c32iscntrl.o lib/c32isdigit.o lib/c32isgraph.o lib/c32islower.o lib/c32isprint.o lib/c32ispunct.o lib/c32isspace.o lib/c32isupper.o lib/c32isxdigit.o lib/c32tolower.o lib/c32width.o lib/canon-host.o lib/canonicalize.o lib/careadlinkat.o lib/chmodat.o lib/chownat.o lib/cl-strtod.o lib/cl-strtold.o lib/cloexec.o lib/close-stream.o lib/closein.o lib/closeout.o lib/copy-acl.o lib/count-leading-zeros.o lib/creat-safer.o lib/cycle-check.o lib/di-set.o lib/dirchownmod.o lib/dirname-lgpl.o lib/dirname.o lib/dtoastr.o lib/dtotimespec.o lib/dup-safer-flag.o lib/dup-safer.o lib/error.o lib/exclude.o lib/exitfail.o lib/fadvise.o lib/fd-hook.o lib/fd-reopen.o lib/fd-safer-flag.o lib/fd-safer.o lib/fdutimensat.o lib/file-has-acl.o lib/file-set.o lib/file-type.o lib/filemode.o lib/filenamecat-lgpl.o lib/filenamecat.o lib/filevercmp.o lib/fopen-safer.o lib/fprintftime.o lib/freading.o lib/freadseek.o lib/freopen-safer.o lib/ftoastr.o lib/fts.o lib/full-read.o lib/full-write.o lib/get-permissions.o lib/gethrxtime.o lib/getndelim2.o lib/getopt.o lib/getopt1.o lib/gettime-res.o lib/gettime.o lib/getugroups.o lib/glthread/lock.o lib/glthread/threadlib.o lib/glthread/tls.o lib/hard-locale.o lib/hash-pjw.o lib/hash-triple-simple.o lib/hash-triple.o lib/hash.o lib/heap.o lib/human.o lib/i-ring.o lib/ialloc.o lib/idcache.o lib/imaxtostr.o lib/ino-map.o lib/inttostr.o lib/ldtoastr.o lib/linebuffer.o lib/localcharset.o lib/long-options.o lib/malloc/dynarray_at_failure.o lib/malloc/dynarray_emplace_enlarge.o lib/malloc/dynarray_finalize.o lib/malloc/dynarray_resize.o lib/malloc/dynarray_resize_clear.o lib/malloc/scratch_buffer_grow.o lib/malloc/scratch_buffer_grow_preserve.o lib/malloc/scratch_buffer_set_array_size.o lib/malloca.o lib/math.o lib/mbscasecmp.o lib/mbschr.o lib/mbslen.o lib/mbsrtoc32s.o lib/mbswidth.o lib/mbszero.o lib/mcel.o lib/md5-stream.o lib/md5.o lib/memcasecmp.o lib/memchr2.o lib/memcmp2.o lib/memcoll.o lib/mgetgroups.o lib/mkancesdirs.o lib/mkdir-p.o lib/mkstemp-safer.o lib/modechange.o lib/mpsort.o lib/nproc.o lib/nstrftime.o lib/obstack.o lib/offtostr.o lib/open-safer.o lib/openat-die.o lib/openat-proc.o lib/openat-safer.o lib/opendir-safer.o lib/opendirat.o lib/physmem.o lib/pipe-safer.o lib/pipe2.o lib/posixtm.o lib/posixver.o lib/printf-frexp.o lib/printf-frexpl.o lib/priv-set.o lib/progname.o lib/propername-lite.o lib/qcopy-acl.o lib/qset-acl.o lib/quotearg.o lib/rand-isaac.o lib/randint.o lib/randperm.o lib/randread.o lib/read-file.o lib/readtokens.o lib/readtokens0.o lib/readutmp.o lib/renameatu.o lib/root-dev-ino.o lib/safe-read.o lib/safe-write.o lib/same-inode.o lib/same.o lib/save-cwd.o lib/savedir.o lib/savewd.o lib/se-context.o lib/se-label.o lib/se-selinux.o lib/selinux-at.o lib/set-acl.o lib/set-permissions.o lib/setlocale_null-unlocked.o lib/setlocale_null.o lib/settime.o lib/sha1-stream.o lib/sha1.o lib/sha256-stream.o lib/sha256.o lib/sha512-stream.o lib/sha512.o lib/sig-handler.o lib/skipchars.o lib/sm3-stream.o lib/sm3.o lib/sockets.o lib/stat-time.o lib/strintcmp.o lib/stripslash.o lib/strnlen1.o lib/strnumcmp.o lib/sys_socket.o lib/targetdir.o lib/tempname.o lib/timespec.o lib/tmpdir.o lib/u64.o lib/uinttostr.o lib/umaxtostr.o lib/unicodeio.o lib/unistd.o lib/unlinkdir.o lib/userspec.o lib/utimecmp.o lib/utimens.o lib/verror.o lib/version-etc-fsf.o lib/version-etc.o lib/wctype-h.o lib/write-any-file.o lib/xalignalloc.o lib/xalloc-die.o lib/xasprintf.o lib/xbinary-io.o lib/xdectoimax.o lib/xdectoumax.o lib/xfts.o lib/xgetcwd.o lib/xgetgroups.o lib/xgethostname.o lib/xmalloc.o lib/xmemcoll.o lib/xnanosleep.o lib/xprintf.o lib/xreadlink.o lib/xsize.o lib/xstrtod.o lib/xstrtoimax.o lib/xstrtol-error.o lib/xstrtol.o lib/xstrtold.o lib/xstrtoul.o lib/xstrtoumax.o lib/xtime.o lib/xvasprintf.o lib/yesno.o
+lib/libcoreutils.a: lib/chdir-long.o lib/regex.o lib/fsusage.o lib/mountlist.o lib/sig2str.o lib/memset_explicit.o lib/isapipe.o lib/mini-gmp-gnulib.o lib/qsort.o lib/time_rz.o lib/getprogname.o lib/reallocarray.o lib/rawmemchr.o lib/setlocale-lock.o lib/unistr/u8-uctomb.o lib/parse-datetime.o src/version.o lib/acl-errno-valid.o lib/acl-internal.o lib/af_alg.o lib/alignalloc.o lib/allocator.o lib/areadlink-with-size.o lib/areadlink.o lib/areadlinkat-with-size.o lib/areadlinkat.o lib/argmatch.o lib/argv-iter.o lib/backup-find.o lib/backup-rename.o lib/backupfile.o lib/base32.o lib/base64.o lib/basename-lgpl.o lib/basename.o lib/binary-io.o lib/bitrotate.o lib/btoc32.o lib/buffer-lcm.o lib/c-ctype.o lib/c-file-type.o lib/c-strcasecmp.o lib/c-strncasecmp.o lib/c-strtod.o lib/c-strtold.o lib/c32_apply_type_test.o lib/c32_get_type_test.o lib/c32isalnum.o lib/c32isalpha.o lib/c32isblank.o lib/c32iscntrl.o lib/c32isdigit.o lib/c32isgraph.o lib/c32islower.o lib/c32isprint.o lib/c32ispunct.o lib/c32isspace.o lib/c32isupper.o lib/c32isxdigit.o lib/c32tolower.o lib/c32width.o lib/canon-host.o lib/canonicalize.o lib/careadlinkat.o lib/chmodat.o lib/chownat.o lib/cl-strtod.o lib/cl-strtold.o lib/cloexec.o lib/close-stream.o lib/closein.o lib/closeout.o lib/copy-acl.o lib/count-leading-zeros.o lib/creat-safer.o lib/cycle-check.o lib/di-set.o lib/dirchownmod.o lib/dirname-lgpl.o lib/dirname.o lib/dtoastr.o lib/dtotimespec.o lib/dup-safer-flag.o lib/dup-safer.o lib/error.o lib/exclude.o lib/exitfail.o lib/fadvise.o lib/fd-hook.o lib/fd-reopen.o lib/fd-safer-flag.o lib/fd-safer.o lib/fdutimensat.o lib/file-has-acl.o lib/file-set.o lib/file-type.o lib/filemode.o lib/filenamecat-lgpl.o lib/filenamecat.o lib/filevercmp.o lib/fopen-safer.o lib/fprintftime.o lib/freading.o lib/freadseek.o lib/freopen-safer.o lib/ftoastr.o lib/fts.o lib/full-read.o lib/full-write.o lib/get-permissions.o lib/gethrxtime.o lib/getndelim2.o lib/getopt.o lib/getopt1.o lib/gettime-res.o lib/gettime.o lib/getugroups.o lib/glthread/lock.o lib/glthread/threadlib.o lib/glthread/tls.o lib/hard-locale.o lib/hash-pjw.o lib/hash-triple-simple.o lib/hash-triple.o lib/hash.o lib/heap.o lib/human.o lib/i-ring.o lib/ialloc.o lib/idcache.o lib/imaxtostr.o lib/ino-map.o lib/inttostr.o lib/ldtoastr.o lib/linebuffer.o lib/localcharset.o lib/long-options.o lib/malloc/dynarray_at_failure.o lib/malloc/dynarray_emplace_enlarge.o lib/malloc/dynarray_finalize.o lib/malloc/dynarray_resize.o lib/malloc/dynarray_resize_clear.o lib/malloc/scratch_buffer_grow.o lib/malloc/scratch_buffer_grow_preserve.o lib/malloc/scratch_buffer_set_array_size.o lib/malloca.o lib/math.o lib/mbscasecmp.o lib/mbschr.o lib/mbslen.o lib/mbsrtoc32s.o lib/mbswidth.o lib/mbszero.o lib/mcel.o lib/md5-stream.o lib/md5.o lib/memcasecmp.o lib/memchr2.o lib/memcmp2.o lib/memcoll.o lib/mgetgroups.o lib/mkancesdirs.o lib/mkdir-p.o lib/mkstemp-safer.o lib/modechange.o lib/mpsort.o lib/nproc.o lib/nstrftime.o lib/obstack.o lib/offtostr.o lib/open-safer.o lib/openat-die.o lib/openat-proc.o lib/openat-safer.o lib/opendir-safer.o lib/opendirat.o lib/physmem.o lib/pipe-safer.o lib/pipe2.o lib/posixtm.o lib/posixver.o lib/printf-frexp.o lib/printf-frexpl.o lib/priv-set.o lib/progname.o lib/propername-lite.o lib/qcopy-acl.o lib/qset-acl.o lib/quotearg.o lib/rand-isaac.o lib/randint.o lib/randperm.o lib/randread.o lib/read-file.o lib/readtokens.o lib/readtokens0.o lib/readutmp.o lib/renameatu.o lib/root-dev-ino.o lib/safe-read.o lib/safe-write.o lib/same-inode.o lib/same.o lib/save-cwd.o lib/savedir.o lib/savewd.o lib/se-context.o lib/se-label.o lib/se-selinux.o lib/selinux-at.o lib/set-acl.o lib/set-permissions.o lib/setlocale_null-unlocked.o lib/setlocale_null.o lib/settime.o lib/sha1-stream.o lib/sha1.o lib/sha256-stream.o lib/sha256.o lib/sha512-stream.o lib/sha512.o lib/sig-handler.o lib/skipchars.o lib/sm3-stream.o lib/sm3.o lib/sockets.o lib/stat-time.o lib/strintcmp.o lib/stripslash.o lib/strnlen1.o lib/strnumcmp.o lib/sys_socket.o lib/targetdir.o lib/tempname.o lib/timespec.o lib/tmpdir.o lib/u64.o lib/uinttostr.o lib/umaxtostr.o lib/unicodeio.o lib/unistd.o lib/unlinkdir.o lib/userspec.o lib/utimecmp.o lib/utimens.o lib/verror.o lib/version-etc-fsf.o lib/version-etc.o lib/wctype-h.o lib/write-any-file.o lib/xalignalloc.o lib/xalloc-die.o lib/xasprintf.o lib/xbinary-io.o lib/xdectoimax.o lib/xdectoumax.o lib/xfts.o lib/xgetcwd.o lib/xgetgroups.o lib/xgethostname.o lib/xmalloc.o lib/xmemcoll.o lib/xnanosleep.o lib/xprintf.o lib/xreadlink.o lib/xsize.o lib/xstrtod.o lib/xstrtoimax.o lib/xstrtol-error.o lib/xstrtol.o lib/xstrtold.o lib/xstrtoul.o lib/xstrtoumax.o lib/xtime.o lib/xvasprintf.o lib/yesno.o
+	$(AR) cr $@ lib/chdir-long.o lib/regex.o lib/fsusage.o lib/mountlist.o lib/sig2str.o lib/memset_explicit.o lib/isapipe.o lib/mini-gmp-gnulib.o lib/qsort.o lib/time_rz.o lib/getprogname.o lib/reallocarray.o lib/rawmemchr.o lib/setlocale-lock.o lib/unistr/u8-uctomb.o lib/parse-datetime.o src/version.o lib/acl-errno-valid.o lib/acl-internal.o lib/af_alg.o lib/alignalloc.o lib/allocator.o lib/areadlink-with-size.o lib/areadlink.o lib/areadlinkat-with-size.o lib/areadlinkat.o lib/argmatch.o lib/argv-iter.o lib/backup-find.o lib/backup-rename.o lib/backupfile.o lib/base32.o lib/base64.o lib/basename-lgpl.o lib/basename.o lib/binary-io.o lib/bitrotate.o lib/btoc32.o lib/buffer-lcm.o lib/c-ctype.o lib/c-file-type.o lib/c-strcasecmp.o lib/c-strncasecmp.o lib/c-strtod.o lib/c-strtold.o lib/c32_apply_type_test.o lib/c32_get_type_test.o lib/c32isalnum.o lib/c32isalpha.o lib/c32isblank.o lib/c32iscntrl.o lib/c32isdigit.o lib/c32isgraph.o lib/c32islower.o lib/c32isprint.o lib/c32ispunct.o lib/c32isspace.o lib/c32isupper.o lib/c32isxdigit.o lib/c32tolower.o lib/c32width.o lib/canon-host.o lib/canonicalize.o lib/careadlinkat.o lib/chmodat.o lib/chownat.o lib/cl-strtod.o lib/cl-strtold.o lib/cloexec.o lib/close-stream.o lib/closein.o lib/closeout.o lib/copy-acl.o lib/count-leading-zeros.o lib/creat-safer.o lib/cycle-check.o lib/di-set.o lib/dirchownmod.o lib/dirname-lgpl.o lib/dirname.o lib/dtoastr.o lib/dtotimespec.o lib/dup-safer-flag.o lib/dup-safer.o lib/error.o lib/exclude.o lib/exitfail.o lib/fadvise.o lib/fd-hook.o lib/fd-reopen.o lib/fd-safer-flag.o lib/fd-safer.o lib/fdutimensat.o lib/file-has-acl.o lib/file-set.o lib/file-type.o lib/filemode.o lib/filenamecat-lgpl.o lib/filenamecat.o lib/filevercmp.o lib/fopen-safer.o lib/fprintftime.o lib/freading.o lib/freadseek.o lib/freopen-safer.o lib/ftoastr.o lib/fts.o lib/full-read.o lib/full-write.o lib/get-permissions.o lib/gethrxtime.o lib/getndelim2.o lib/getopt.o lib/getopt1.o lib/gettime-res.o lib/gettime.o lib/getugroups.o lib/glthread/lock.o lib/glthread/threadlib.o lib/glthread/tls.o lib/hard-locale.o lib/hash-pjw.o lib/hash-triple-simple.o lib/hash-triple.o lib/hash.o lib/heap.o lib/human.o lib/i-ring.o lib/ialloc.o lib/idcache.o lib/imaxtostr.o lib/ino-map.o lib/inttostr.o lib/ldtoastr.o lib/linebuffer.o lib/localcharset.o lib/long-options.o lib/malloc/dynarray_at_failure.o lib/malloc/dynarray_emplace_enlarge.o lib/malloc/dynarray_finalize.o lib/malloc/dynarray_resize.o lib/malloc/dynarray_resize_clear.o lib/malloc/scratch_buffer_grow.o lib/malloc/scratch_buffer_grow_preserve.o lib/malloc/scratch_buffer_set_array_size.o lib/malloca.o lib/math.o lib/mbscasecmp.o lib/mbschr.o lib/mbslen.o lib/mbsrtoc32s.o lib/mbswidth.o lib/mbszero.o lib/mcel.o lib/md5-stream.o lib/md5.o lib/memcasecmp.o lib/memchr2.o lib/memcmp2.o lib/memcoll.o lib/mgetgroups.o lib/mkancesdirs.o lib/mkdir-p.o lib/mkstemp-safer.o lib/modechange.o lib/mpsort.o lib/nproc.o lib/nstrftime.o lib/obstack.o lib/offtostr.o lib/open-safer.o lib/openat-die.o lib/openat-proc.o lib/openat-safer.o lib/opendir-safer.o lib/opendirat.o lib/physmem.o lib/pipe-safer.o lib/pipe2.o lib/posixtm.o lib/posixver.o lib/printf-frexp.o lib/printf-frexpl.o lib/priv-set.o lib/progname.o lib/propername-lite.o lib/qcopy-acl.o lib/qset-acl.o lib/quotearg.o lib/rand-isaac.o lib/randint.o lib/randperm.o lib/randread.o lib/read-file.o lib/readtokens.o lib/readtokens0.o lib/readutmp.o lib/renameatu.o lib/root-dev-ino.o lib/safe-read.o lib/safe-write.o lib/same-inode.o lib/same.o lib/save-cwd.o lib/savedir.o lib/savewd.o lib/se-context.o lib/se-label.o lib/se-selinux.o lib/selinux-at.o lib/set-acl.o lib/set-permissions.o lib/setlocale_null-unlocked.o lib/setlocale_null.o lib/settime.o lib/sha1-stream.o lib/sha1.o lib/sha256-stream.o lib/sha256.o lib/sha512-stream.o lib/sha512.o lib/sig-handler.o lib/skipchars.o lib/sm3-stream.o lib/sm3.o lib/sockets.o lib/stat-time.o lib/strintcmp.o lib/stripslash.o lib/strnlen1.o lib/strnumcmp.o lib/sys_socket.o lib/targetdir.o lib/tempname.o lib/timespec.o lib/tmpdir.o lib/u64.o lib/uinttostr.o lib/umaxtostr.o lib/unicodeio.o lib/unistd.o lib/unlinkdir.o lib/userspec.o lib/utimecmp.o lib/utimens.o lib/verror.o lib/version-etc-fsf.o lib/version-etc.o lib/wctype-h.o lib/write-any-file.o lib/xalignalloc.o lib/xalloc-die.o lib/xasprintf.o lib/xbinary-io.o lib/xdectoimax.o lib/xdectoumax.o lib/xfts.o lib/xgetcwd.o lib/xgetgroups.o lib/xgethostname.o lib/xmalloc.o lib/xmemcoll.o lib/xnanosleep.o lib/xprintf.o lib/xreadlink.o lib/xsize.o lib/xstrtod.o lib/xstrtoimax.o lib/xstrtol-error.o lib/xstrtol.o lib/xstrtold.o lib/xstrtoul.o lib/xstrtoumax.o lib/xtime.o lib/xvasprintf.o lib/yesno.o
 	$(RANLIB) $@
 
-src/ls: src/ls.o src/ls-ls.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/ls.o src/ls-ls.o lib/libcoreutils.a -lm -pthread
 
-src/cat: src/cat.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/cat.o lib/libcoreutils.a -lm -pthread
 
-src/sort: src/sort.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/sort.o lib/libcoreutils.a -lm -pthread
 
-src/cp: src/cp.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/cp.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a -lm -pthread
 
-src/mkdir: src/mkdir.o src/prog-fprintf.o src/selinux.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/mkdir.o src/prog-fprintf.o src/selinux.o lib/libcoreutils.a -lm -pthread
 
-src/date: src/date.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/date.o lib/libcoreutils.a -lm -pthread
 
-src/printf: src/printf.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/printf.o lib/libcoreutils.a -lm -pthread
 
-src/wc: src/wc.o lib/libcoreutils.a
-	$(CC) -static -o $@ src/wc.o lib/libcoreutils.a -lm -pthread
 
 src/version.h: $(RECIPE_DIR)/version.h
 	cp $< $@
@@ -1090,3 +1089,684 @@ lib/unistr/u8-uctomb.o: lib/unistr/u8-uctomb.c config.h $(HEADERS)
 
 lib/qsort.o: lib/qsort.c config.h $(HEADERS)
 	$(CC) $(CFLAGS) -c lib/qsort.c -o $@
+
+src/lbracket.o: src/lbracket.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/lbracket.c -o src/lbracket.o
+
+src/[: src/lbracket.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/lbracket.o lib/libcoreutils.a -lm -pthread
+
+src/b2sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_BLAKE2=1 -c src/digest.c -o src/b2sum-digest.o
+
+src/b2sum-blake2-blake2b-ref.o: src/blake2/blake2b-ref.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_BLAKE2=1 -c src/blake2/blake2b-ref.c -o src/b2sum-blake2-blake2b-ref.o
+
+src/b2sum-blake2-b2sum.o: src/blake2/b2sum.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_BLAKE2=1 -c src/blake2/b2sum.c -o src/b2sum-blake2-b2sum.o
+
+src/b2sum: src/b2sum-digest.o src/b2sum-blake2-blake2b-ref.o src/b2sum-blake2-b2sum.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/b2sum-digest.o src/b2sum-blake2-blake2b-ref.o src/b2sum-blake2-b2sum.o lib/libcoreutils.a -lm -pthread
+
+src/base64-basenc.o: src/basenc.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DBASE_TYPE=64 -c src/basenc.c -o src/base64-basenc.o
+
+src/base64: src/base64-basenc.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/base64-basenc.o lib/libcoreutils.a -lm -pthread
+
+src/base32-basenc.o: src/basenc.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DBASE_TYPE=32 -c src/basenc.c -o src/base32-basenc.o
+
+src/base32: src/base32-basenc.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/base32-basenc.o lib/libcoreutils.a -lm -pthread
+
+src/basenc-basenc.o: src/basenc.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DBASE_TYPE=42 -c src/basenc.c -o src/basenc-basenc.o
+
+src/basenc: src/basenc-basenc.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/basenc-basenc.o lib/libcoreutils.a -lm -pthread
+
+src/basename.o: src/basename.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/basename.c -o src/basename.o
+
+src/basename: src/basename.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/basename.o lib/libcoreutils.a -lm -pthread
+
+src/cat: src/cat.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/cat.o lib/libcoreutils.a -lm -pthread
+
+src/chcon.o: src/chcon.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/chcon.c -o src/chcon.o
+
+src/chcon: src/chcon.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/chcon.o lib/libcoreutils.a -lm -pthread
+
+src/chown.o: src/chown.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/chown.c -o src/chown.o
+
+src/chown-core.o: src/chown-core.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/chown-core.c -o src/chown-core.o
+
+src/chown-chgrp.o: src/chown-chgrp.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/chown-chgrp.c -o src/chown-chgrp.o
+
+src/chgrp: src/chown.o src/chown-core.o src/chown-chgrp.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/chown.o src/chown-core.o src/chown-chgrp.o lib/libcoreutils.a -lm -pthread
+
+src/chmod.o: src/chmod.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/chmod.c -o src/chmod.o
+
+src/chmod: src/chmod.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/chmod.o lib/libcoreutils.a -lm -pthread
+
+src/chown-chown.o: src/chown-chown.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/chown-chown.c -o src/chown-chown.o
+
+src/chown: src/chown.o src/chown-core.o src/chown-chown.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/chown.o src/chown-core.o src/chown-chown.o lib/libcoreutils.a -lm -pthread
+
+src/cksum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_CKSUM=1 -c src/digest.c -o src/cksum-digest.o
+
+src/cksum-blake2-blake2b-ref.o: src/blake2/blake2b-ref.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_CKSUM=1 -c src/blake2/blake2b-ref.c -o src/cksum-blake2-blake2b-ref.o
+
+src/cksum-blake2-b2sum.o: src/blake2/b2sum.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_CKSUM=1 -c src/blake2/b2sum.c -o src/cksum-blake2-b2sum.o
+
+src/cksum-sum.o: src/sum.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_CKSUM=1 -c src/sum.c -o src/cksum-sum.o
+
+src/cksum-cksum.o: src/cksum.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_CKSUM=1 -c src/cksum.c -o src/cksum-cksum.o
+
+src/cksum-crctab.o: src/crctab.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_CKSUM=1 -c src/crctab.c -o src/cksum-crctab.o
+
+src/cksum: src/cksum-digest.o src/cksum-blake2-blake2b-ref.o src/cksum-blake2-b2sum.o src/cksum-sum.o src/cksum-cksum.o src/cksum-crctab.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/cksum-digest.o src/cksum-blake2-blake2b-ref.o src/cksum-blake2-b2sum.o src/cksum-sum.o src/cksum-cksum.o src/cksum-crctab.o lib/libcoreutils.a -lm -pthread
+
+src/comm.o: src/comm.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/comm.c -o src/comm.o
+
+src/comm: src/comm.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/comm.o lib/libcoreutils.a -lm -pthread
+
+src/cp: src/cp.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/cp.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a -lm -pthread
+
+src/csplit.o: src/csplit.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/csplit.c -o src/csplit.o
+
+src/csplit: src/csplit.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/csplit.o lib/libcoreutils.a -lm -pthread
+
+src/cut.o: src/cut.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/cut.c -o src/cut.o
+
+src/set-fields.o: src/set-fields.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/set-fields.c -o src/set-fields.o
+
+src/cut: src/cut.o src/set-fields.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/cut.o src/set-fields.o lib/libcoreutils.a -lm -pthread
+
+src/date: src/date.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/date.o lib/libcoreutils.a -lm -pthread
+
+src/dd.o: src/dd.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/dd.c -o src/dd.o
+
+src/dd: src/dd.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/dd.o lib/libcoreutils.a -lm -pthread
+
+src/ls-dir.o: src/ls-dir.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/ls-dir.c -o src/ls-dir.o
+
+src/dir: src/ls.o src/ls-dir.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/ls.o src/ls-dir.o lib/libcoreutils.a -lm -pthread
+
+src/dircolors.o: src/dircolors.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/dircolors.c -o src/dircolors.o
+
+src/dircolors: src/dircolors.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/dircolors.o lib/libcoreutils.a -lm -pthread
+
+src/dirname.o: src/dirname.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/dirname.c -o src/dirname.o
+
+src/dirname: src/dirname.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/dirname.o lib/libcoreutils.a -lm -pthread
+
+src/du.o: src/du.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/du.c -o src/du.o
+
+src/du: src/du.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/du.o lib/libcoreutils.a -lm -pthread
+
+src/echo.o: src/echo.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/echo.c -o src/echo.o
+
+src/echo: src/echo.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/echo.o lib/libcoreutils.a -lm -pthread
+
+src/env.o: src/env.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/env.c -o src/env.o
+
+src/operand2sig.o: src/operand2sig.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/operand2sig.c -o src/operand2sig.o
+
+src/env: src/env.o src/operand2sig.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/env.o src/operand2sig.o lib/libcoreutils.a -lm -pthread
+
+src/expand.o: src/expand.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/expand.c -o src/expand.o
+
+src/expand-common.o: src/expand-common.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/expand-common.c -o src/expand-common.o
+
+src/expand: src/expand.o src/expand-common.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/expand.o src/expand-common.o lib/libcoreutils.a -lm -pthread
+
+src/expr.o: src/expr.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/expr.c -o src/expr.o
+
+src/expr: src/expr.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/expr.o lib/libcoreutils.a -lm -pthread
+
+src/factor.o: src/factor.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/factor.c -o src/factor.o
+
+src/factor: src/factor.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/factor.o lib/libcoreutils.a -lm -pthread
+
+src/false.o: src/false.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/false.c -o src/false.o
+
+src/false: src/false.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/false.o lib/libcoreutils.a -lm -pthread
+
+src/fmt.o: src/fmt.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/fmt.c -o src/fmt.o
+
+src/fmt: src/fmt.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/fmt.o lib/libcoreutils.a -lm -pthread
+
+src/fold.o: src/fold.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/fold.c -o src/fold.o
+
+src/fold: src/fold.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/fold.o lib/libcoreutils.a -lm -pthread
+
+src/install.o: src/install.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/install.c -o src/install.o
+
+src/install: src/install.o src/prog-fprintf.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/install.o src/prog-fprintf.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a -lm -pthread
+
+src/groups.o: src/groups.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/groups.c -o src/groups.o
+
+src/group-list.o: src/group-list.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/group-list.c -o src/group-list.o
+
+src/groups: src/groups.o src/group-list.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/groups.o src/group-list.o lib/libcoreutils.a -lm -pthread
+
+src/head.o: src/head.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/head.c -o src/head.o
+
+src/head: src/head.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/head.o lib/libcoreutils.a -lm -pthread
+
+src/id.o: src/id.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/id.c -o src/id.o
+
+src/id: src/id.o src/group-list.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/id.o src/group-list.o lib/libcoreutils.a -lm -pthread
+
+src/join.o: src/join.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/join.c -o src/join.o
+
+src/join: src/join.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/join.o lib/libcoreutils.a -lm -pthread
+
+src/kill.o: src/kill.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/kill.c -o src/kill.o
+
+src/kill: src/kill.o src/operand2sig.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/kill.o src/operand2sig.o lib/libcoreutils.a -lm -pthread
+
+src/link.o: src/link.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/link.c -o src/link.o
+
+src/link: src/link.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/link.o lib/libcoreutils.a -lm -pthread
+
+src/ln.o: src/ln.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/ln.c -o src/ln.o
+
+src/relpath.o: src/relpath.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/relpath.c -o src/relpath.o
+
+src/ln: src/ln.o src/force-link.o src/relpath.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/ln.o src/force-link.o src/relpath.o lib/libcoreutils.a -lm -pthread
+
+src/logname.o: src/logname.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/logname.c -o src/logname.o
+
+src/logname: src/logname.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/logname.o lib/libcoreutils.a -lm -pthread
+
+src/ls: src/ls.o src/ls-ls.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/ls.o src/ls-ls.o lib/libcoreutils.a -lm -pthread
+
+src/md5sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_MD5=1 -c src/digest.c -o src/md5sum-digest.o
+
+src/md5sum: src/md5sum-digest.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/md5sum-digest.o lib/libcoreutils.a -lm -pthread
+
+src/mkdir: src/mkdir.o src/prog-fprintf.o src/selinux.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/mkdir.o src/prog-fprintf.o src/selinux.o lib/libcoreutils.a -lm -pthread
+
+src/mkfifo.o: src/mkfifo.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/mkfifo.c -o src/mkfifo.o
+
+src/mkfifo: src/mkfifo.o src/selinux.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/mkfifo.o src/selinux.o lib/libcoreutils.a -lm -pthread
+
+src/mknod.o: src/mknod.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/mknod.c -o src/mknod.o
+
+src/mknod: src/mknod.o src/selinux.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/mknod.o src/selinux.o lib/libcoreutils.a -lm -pthread
+
+src/mktemp.o: src/mktemp.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/mktemp.c -o src/mktemp.o
+
+src/mktemp: src/mktemp.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/mktemp.o lib/libcoreutils.a -lm -pthread
+
+src/mv.o: src/mv.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/mv.c -o src/mv.o
+
+src/remove.o: src/remove.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/remove.c -o src/remove.o
+
+src/mv: src/mv.o src/remove.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/mv.o src/remove.o src/copy.o src/cp-hash.o src/force-link.o src/selinux.o lib/libcoreutils.a -lm -pthread
+
+src/nl.o: src/nl.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/nl.c -o src/nl.o
+
+src/nl: src/nl.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/nl.o lib/libcoreutils.a -lm -pthread
+
+src/nproc.o: src/nproc.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/nproc.c -o src/nproc.o
+
+src/nproc: src/nproc.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/nproc.o lib/libcoreutils.a -lm -pthread
+
+src/nohup.o: src/nohup.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/nohup.c -o src/nohup.o
+
+src/nohup: src/nohup.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/nohup.o lib/libcoreutils.a -lm -pthread
+
+src/numfmt.o: src/numfmt.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/numfmt.c -o src/numfmt.o
+
+src/numfmt: src/numfmt.o src/set-fields.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/numfmt.o src/set-fields.o lib/libcoreutils.a -lm -pthread
+
+src/od.o: src/od.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/od.c -o src/od.o
+
+src/od: src/od.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/od.o lib/libcoreutils.a -lm -pthread
+
+src/paste.o: src/paste.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/paste.c -o src/paste.o
+
+src/paste: src/paste.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/paste.o lib/libcoreutils.a -lm -pthread
+
+src/pathchk.o: src/pathchk.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/pathchk.c -o src/pathchk.o
+
+src/pathchk: src/pathchk.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/pathchk.o lib/libcoreutils.a -lm -pthread
+
+src/pr.o: src/pr.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/pr.c -o src/pr.o
+
+src/pr: src/pr.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/pr.o lib/libcoreutils.a -lm -pthread
+
+src/printenv.o: src/printenv.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/printenv.c -o src/printenv.o
+
+src/printenv: src/printenv.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/printenv.o lib/libcoreutils.a -lm -pthread
+
+src/printf: src/printf.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/printf.o lib/libcoreutils.a -lm -pthread
+
+src/ptx.o: src/ptx.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/ptx.c -o src/ptx.o
+
+src/ptx: src/ptx.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/ptx.o lib/libcoreutils.a -lm -pthread
+
+src/pwd.o: src/pwd.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/pwd.c -o src/pwd.o
+
+src/pwd: src/pwd.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/pwd.o lib/libcoreutils.a -lm -pthread
+
+src/readlink.o: src/readlink.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/readlink.c -o src/readlink.o
+
+src/readlink: src/readlink.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/readlink.o lib/libcoreutils.a -lm -pthread
+
+src/realpath.o: src/realpath.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/realpath.c -o src/realpath.o
+
+src/realpath: src/realpath.o src/relpath.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/realpath.o src/relpath.o lib/libcoreutils.a -lm -pthread
+
+src/rm.o: src/rm.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/rm.c -o src/rm.o
+
+src/rm: src/rm.o src/remove.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/rm.o src/remove.o lib/libcoreutils.a -lm -pthread
+
+src/rmdir.o: src/rmdir.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/rmdir.c -o src/rmdir.o
+
+src/rmdir: src/rmdir.o src/prog-fprintf.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/rmdir.o src/prog-fprintf.o lib/libcoreutils.a -lm -pthread
+
+src/runcon.o: src/runcon.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/runcon.c -o src/runcon.o
+
+src/runcon: src/runcon.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/runcon.o lib/libcoreutils.a -lm -pthread
+
+src/seq.o: src/seq.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/seq.c -o src/seq.o
+
+src/seq: src/seq.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/seq.o lib/libcoreutils.a -lm -pthread
+
+src/sha1sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_SHA1=1 -c src/digest.c -o src/sha1sum-digest.o
+
+src/sha1sum: src/sha1sum-digest.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sha1sum-digest.o lib/libcoreutils.a -lm -pthread
+
+src/sha224sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_SHA224=1 -c src/digest.c -o src/sha224sum-digest.o
+
+src/sha224sum: src/sha224sum-digest.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sha224sum-digest.o lib/libcoreutils.a -lm -pthread
+
+src/sha256sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_SHA256=1 -c src/digest.c -o src/sha256sum-digest.o
+
+src/sha256sum: src/sha256sum-digest.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sha256sum-digest.o lib/libcoreutils.a -lm -pthread
+
+src/sha384sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_SHA384=1 -c src/digest.c -o src/sha384sum-digest.o
+
+src/sha384sum: src/sha384sum-digest.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sha384sum-digest.o lib/libcoreutils.a -lm -pthread
+
+src/sha512sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_SHA512=1 -c src/digest.c -o src/sha512sum-digest.o
+
+src/sha512sum: src/sha512sum-digest.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sha512sum-digest.o lib/libcoreutils.a -lm -pthread
+
+src/shred.o: src/shred.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/shred.c -o src/shred.o
+
+src/shred: src/shred.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/shred.o lib/libcoreutils.a -lm -pthread
+
+src/shuf.o: src/shuf.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/shuf.c -o src/shuf.o
+
+src/shuf: src/shuf.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/shuf.o lib/libcoreutils.a -lm -pthread
+
+src/sleep.o: src/sleep.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/sleep.c -o src/sleep.o
+
+src/sleep: src/sleep.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sleep.o lib/libcoreutils.a -lm -pthread
+
+src/sort: src/sort.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sort.o lib/libcoreutils.a -lm -pthread
+
+src/split.o: src/split.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/split.c -o src/split.o
+
+src/temp-stream.o: src/temp-stream.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/temp-stream.c -o src/temp-stream.o
+
+src/split: src/split.o src/temp-stream.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/split.o src/temp-stream.o lib/libcoreutils.a -lm -pthread
+
+src/stat.o: src/stat.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/stat.c -o src/stat.o
+
+src/find-mount-point.o: src/find-mount-point.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/find-mount-point.c -o src/find-mount-point.o
+
+src/stat: src/stat.o src/find-mount-point.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/stat.o src/find-mount-point.o lib/libcoreutils.a -lm -pthread
+
+src/sum-digest.o: src/digest.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_SUM=1 -c src/digest.c -o src/sum-digest.o
+
+src/sum-sum.o: src/sum.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -DHASH_ALGO_SUM=1 -c src/sum.c -o src/sum-sum.o
+
+src/sum: src/sum-digest.o src/sum-sum.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sum-digest.o src/sum-sum.o lib/libcoreutils.a -lm -pthread
+
+src/sync.o: src/sync.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/sync.c -o src/sync.o
+
+src/sync: src/sync.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/sync.o lib/libcoreutils.a -lm -pthread
+
+src/tac.o: src/tac.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/tac.c -o src/tac.o
+
+src/tac: src/tac.o src/temp-stream.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/tac.o src/temp-stream.o lib/libcoreutils.a -lm -pthread
+
+src/tail.o: src/tail.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/tail.c -o src/tail.o
+
+src/iopoll.o: src/iopoll.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/iopoll.c -o src/iopoll.o
+
+src/tail: src/tail.o src/iopoll.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/tail.o src/iopoll.o lib/libcoreutils.a -lm -pthread
+
+src/tee.o: src/tee.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/tee.c -o src/tee.o
+
+src/tee: src/tee.o src/iopoll.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/tee.o src/iopoll.o lib/libcoreutils.a -lm -pthread
+
+src/test.o: src/test.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/test.c -o src/test.o
+
+src/test: src/test.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/test.o lib/libcoreutils.a -lm -pthread
+
+src/touch.o: src/touch.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/touch.c -o src/touch.o
+
+src/touch: src/touch.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/touch.o lib/libcoreutils.a -lm -pthread
+
+src/tr.o: src/tr.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/tr.c -o src/tr.o
+
+src/tr: src/tr.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/tr.o lib/libcoreutils.a -lm -pthread
+
+src/true.o: src/true.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/true.c -o src/true.o
+
+src/true: src/true.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/true.o lib/libcoreutils.a -lm -pthread
+
+src/truncate.o: src/truncate.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/truncate.c -o src/truncate.o
+
+src/truncate: src/truncate.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/truncate.o lib/libcoreutils.a -lm -pthread
+
+src/tsort.o: src/tsort.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/tsort.c -o src/tsort.o
+
+src/tsort: src/tsort.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/tsort.o lib/libcoreutils.a -lm -pthread
+
+src/tty.o: src/tty.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/tty.c -o src/tty.o
+
+src/tty: src/tty.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/tty.o lib/libcoreutils.a -lm -pthread
+
+src/uname.o: src/uname.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/uname.c -o src/uname.o
+
+src/uname-uname.o: src/uname-uname.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/uname-uname.c -o src/uname-uname.o
+
+src/uname: src/uname.o src/uname-uname.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/uname.o src/uname-uname.o lib/libcoreutils.a -lm -pthread
+
+src/unexpand.o: src/unexpand.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/unexpand.c -o src/unexpand.o
+
+src/unexpand: src/unexpand.o src/expand-common.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/unexpand.o src/expand-common.o lib/libcoreutils.a -lm -pthread
+
+src/uniq.o: src/uniq.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/uniq.c -o src/uniq.o
+
+src/uniq: src/uniq.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/uniq.o lib/libcoreutils.a -lm -pthread
+
+src/unlink.o: src/unlink.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/unlink.c -o src/unlink.o
+
+src/unlink: src/unlink.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/unlink.o lib/libcoreutils.a -lm -pthread
+
+src/uptime.o: src/uptime.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/uptime.c -o src/uptime.o
+
+src/uptime: src/uptime.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/uptime.o lib/libcoreutils.a -lm -pthread
+
+src/ls-vdir.o: src/ls-vdir.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/ls-vdir.c -o src/ls-vdir.o
+
+src/vdir: src/ls.o src/ls-vdir.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/ls.o src/ls-vdir.o lib/libcoreutils.a -lm -pthread
+
+src/wc: src/wc.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/wc.o lib/libcoreutils.a -lm -pthread
+
+src/whoami.o: src/whoami.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/whoami.c -o src/whoami.o
+
+src/whoami: src/whoami.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/whoami.o lib/libcoreutils.a -lm -pthread
+
+src/yes.o: src/yes.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/yes.c -o src/yes.o
+
+src/yes: src/yes.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/yes.o lib/libcoreutils.a -lm -pthread
+
+src/chroot.o: src/chroot.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/chroot.c -o src/chroot.o
+
+src/chroot: src/chroot.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/chroot.o lib/libcoreutils.a -lm -pthread
+
+src/df.o: src/df.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/df.c -o src/df.o
+
+src/df: src/df.o src/find-mount-point.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/df.o src/find-mount-point.o lib/libcoreutils.a -lm -pthread
+
+src/hostid.o: src/hostid.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/hostid.c -o src/hostid.o
+
+src/hostid: src/hostid.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/hostid.o lib/libcoreutils.a -lm -pthread
+
+src/nice.o: src/nice.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/nice.c -o src/nice.o
+
+src/nice: src/nice.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/nice.o lib/libcoreutils.a -lm -pthread
+
+
+
+src/stty.o: src/stty.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/stty.c -o src/stty.o
+
+src/stty: src/stty.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/stty.o lib/libcoreutils.a -lm -pthread
+
+src/timeout.o: src/timeout.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c src/timeout.c -o src/timeout.o
+
+src/timeout: src/timeout.o src/operand2sig.o lib/libcoreutils.a
+	$(CC) -static -o $@ src/timeout.o src/operand2sig.o lib/libcoreutils.a -lm -pthread
+
+
+
+
+
+lib/gmp.h: $(RECIPE_DIR)/lib/gmp.h
+	cp $< $@
+
+lib/chdir-long.o: lib/chdir-long.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/chdir-long.c -o lib/chdir-long.o
+
+lib/regex.o: lib/regex.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/regex.c -o lib/regex.o
+
+lib/fsusage.o: lib/fsusage.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/fsusage.c -o lib/fsusage.o
+
+lib/mountlist.o: lib/mountlist.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/mountlist.c -o lib/mountlist.o
+
+lib/sig2str.o: lib/sig2str.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/sig2str.c -o lib/sig2str.o
+
+lib/memset_explicit.o: lib/memset_explicit.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/memset_explicit.c -o lib/memset_explicit.o
+
+lib/isapipe.o: lib/isapipe.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/isapipe.c -o lib/isapipe.o
+
+lib/mini-gmp-gnulib.o: lib/mini-gmp-gnulib.c config.h $(HEADERS) src/version.h
+	$(CC) $(CFLAGS) -c lib/mini-gmp-gnulib.c -o lib/mini-gmp-gnulib.o
