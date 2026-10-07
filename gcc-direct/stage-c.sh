@@ -15,7 +15,10 @@
 #               source adjustment is configure.py's --alloca-frame adapter:
 #               gcc-direct/patches/alloca-frame.patch applied to
 #               libiberty/alloca.c with no fuzz, both hashes checked before
-#               and after (gcc-direct/patches/alloca-frame.json).
+#               and after (gcc-direct/patches/alloca-frame.json).  The
+#               collect2 patch in patches/gcc64/gcc-4.0.4/ is applied too (as
+#               stage D does): unpatched, a failed link probe with -o /dev/null
+#               makes collect2 unlink /dev/null, which as root destroys it.
 # 2. headers    musl's Makefile installs its headers into
 #               WORK/sysroot/usr/include (`install-headers`, no compiler).
 # 3. configure  configure.sh runs the original libiberty, libcpp and gcc
@@ -45,9 +48,9 @@
 # Every make after step 3 runs with WORK/gcc/configure-env.sh, whose PATH
 # starts with the guards, so a host compiler, assembler or linker use is
 # blocked and logged in WORK/gcc/host-tool-attempts.log.  No GCC or musl
-# source is patched beyond the alloca adapter (see stage-c.py for why
-# linux-unwind.h's `struct ucontext` builds against musl).  Build-tree
-# adjustments: the combined-tree links ../libiberty, ../libcpp,
+# source is patched beyond the alloca adapter and the collect2 patch (see
+# stage-c.py for why linux-unwind.h's `struct ucontext` builds against musl).
+# Build-tree adjustments: the combined-tree links ../libiberty, ../libcpp,
 # ../build-TRIPLE/libiberty and ../binutils/{ar,ranlib}; STMP_FIXINC emptied
 # in the configured Makefile; gsyslimits.h as include/syslimits.h;
 # install-tools/include created before `make install`.
@@ -121,6 +124,19 @@ step_inputs() {
   result gcc_archive "$(pinned "${GCC_TAR##*/}")"
   result musl_archive "$(pinned "${MUSL_TGZ##*/}")"
   alloca_frame "$gcc_source"
+  collect2_patch "$gcc_source"
+}
+
+# collect2_patch SOURCE: the collect2 patch stage D and gcc64 apply.  An
+# unpatched 4.0.4 collect2 unlinks its -o output whenever a link fails; musl's
+# configure probes linker flags with -o /dev/null, so as root a failed probe
+# would replace the /dev/null device with a regular file.
+collect2_patch() {
+  local patch
+  for patch in "$ROOT"/patches/gcc64/gcc-4.0.4/*.diff; do
+    (cd "$1" && run "$out/inputs.log" patch -t -N -F0 -p1 -i "$patch")
+    result patch "${patch##*/} $(sha "$patch")"
+  done
 }
 
 # alloca_frame SOURCE: configure.py's --alloca-frame adapter, applied exactly.

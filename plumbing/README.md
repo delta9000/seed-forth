@@ -25,7 +25,7 @@ build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage1.kaem
 build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage2.kaem
 ```
 
-Stage 1 takes about a minute and stage 2 about eight (four parallel jobs).
+Stage 1 takes about a minute and stage 2 about three (four parallel jobs).
 Everything is written under `build-out/plumbing/`: sources unpack into
 `src/`, programs install into `bin/`.
 

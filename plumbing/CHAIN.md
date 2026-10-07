@@ -62,6 +62,12 @@ tracing every `execve`.
 - **binutils' top-level make.** It always fails (the WARN_ overrides do not
   reach the tool directories); binutils.sh requires only the configure and
   the three direct per-directory makes to succeed.
+- **collect2 patch in stage C.** stage-c.py builds collect2 unpatched; when a
+  link fails, that collect2 unlinks its `-o` file, and musl's configure probes
+  linker flags with `-o /dev/null`, so as root a failed probe replaces the
+  device with a regular file. stage-c.sh applies the patch stage D already
+  uses (`patches/gcc64/gcc-4.0.4/01-collect2-unlink-if-ordinary.diff`); the
+  fixed point is unchanged with it.
 - **Reports** are plain text, not JSON.
 
 ## What running on the chain's tools found
