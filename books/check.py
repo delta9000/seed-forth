@@ -151,7 +151,8 @@ def check_documents():
         prose = "\n".join(visible_lines(text))
         references = {name.strip().lower(): target for name, target in
                       re.findall(r"^\[([^\]]+)\]:\s+(\S+)", prose, re.M)}
-        for used in re.findall(r"\[[^\]]+\]\[([^\]]+)\]", prose):
+        # Inline code such as `m[2][3]` is not a reference link.
+        for used in re.findall(r"\[[^\]]+\]\[([^\]]+)\]", re.sub(r"`[^`\n]*`", "", prose)):
             assert used.strip().lower() in references, f"Undefined reference {path.name}: {used}"
         targets = re.findall(r"\]\(([^\s)]+)\)", prose) + list(references.values())
         for target in targets:
@@ -192,7 +193,7 @@ def check_documents():
             continue
         solution = ROOT / f"c-compiler/practice/{number:02}-solutions.md"
         assert solution.is_file(), f"Missing practice companion: {chapter}"
-        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9, 19: 7, 20: 8, 21: 10, 22: 12}.get(number, 5)
+        exercise_count = {5: 6, 6: 7, 7: 7, 8: 8, 9: 8, 10: 9, 11: 8, 12: 8, 13: 7, 14: 10, 15: 7, 16: 8, 17: 8, 18: 9, 19: 7, 20: 8, 21: 10, 22: 12, 23: 10, 24: 10}.get(number, 5)
         c_pairs += exercise_count
         expected = {f"C{number}-{i:02}" for i in range(1, exercise_count+1)}
         for file in [chapter, solution]:
@@ -510,7 +511,8 @@ def check_c_source_map(source_root):
     for name in ["020-cc-arena.fth", "030-cc-io.fth", "050-cc-lex.fth",
                  "060-cc-types.fth", "070-cc-sym.fth", "080-cc-elf.fth",
                  "090-cc-emit.fth", "100-cc-expr.fth", "110-cc-decl.fth",
-                 "112-cc-stmt.fth", "114-cc-func.fth", "116-cc-prog.fth", "120-cc-main.fth", "130-asm.fth"]:
+                 "112-cc-stmt.fth", "114-cc-func.fth", "116-cc-prog.fth", "117-cc-native-program.fth",
+                 "118-cc-native-init.fth", "119-cc-native-runtime.fth", "120-cc-main.fth", "130-asm.fth"]:
         expected = set(re.findall(r"^:\s+(\S+)", (source_root/name).read_text(), re.M))
         actual = {word for file, word in seen if file == name}
         assert actual == expected, (name, actual ^ expected)
@@ -882,6 +884,55 @@ def check_assembler_paper_models():
     assert len(b"/tmp/asm-out\0") == 13
     assert 8192*24 == 196608
     print("PASS: exact displayed assembler expansion, raw slices, and bounded field/header arithmetic agree")
+
+
+def check_tinycc_paper_models(source_root):
+    """C23/C24 image offsets rebuilt from 117/118/119 emission rules (paper only)."""
+    c23 = ROOT / "c-compiler/chapters/23-the-direct-tinycc-profile.md"
+    c24 = ROOT / "c-compiler/chapters/24-tinycc-initialization-runtime-and-closure.md"
+    if not (c23.exists() and c24.exists()):
+        return
+    text23 = c23.read_text() + (ROOT / "c-compiler/practice/23-solutions.md").read_text()
+    text24 = c24.read_text() + (ROOT / "c-compiler/practice/24-solutions.md").read_text()
+    runtime = (source_root / "119-cc-native-runtime.fth").read_text()
+    counts = [int(k) for k in re.findall(
+        r"cc-native-name-\S+\s+\[lit\] \d+ ty-\S+ \[lit\] \d+ \[lit\] (\d) cc-native-primitive", runtime)]
+    refused = [int(n) for n in re.findall(
+        r"cc-native-name-\S+ \[lit\] (\d+) ty-\S+ \[lit\] \d ty-make cc-native-unavailable", runtime)]
+    assert len(counts) == 13 and len(refused) == 3, (counts, refused)
+    prefix = len(b"seed-forth bootstrap: unsupported ")
+    stub, kernels = 31, sum(23 + 5*k for k in counts)
+    refusals = sum(prefix + n + 1 + 41 for n in refused)
+    assert (prefix, kernels, refusals) == (34, 434, 249)
+    def fields(main_at, dispatcher_at):
+        return f"{dispatcher_at}−125={dispatcher_at-125}", f"{main_at}−141={main_at-141}"
+    for floatbits in (1, 0):
+        main_at = 120 + stub + kernels + refusals*floatbits
+        dispatcher, size = main_at + 37, main_at + 38
+        for shown in fields(main_at, dispatcher) + (str(size),):
+            assert shown in text23, (floatbits, shown)
+    # C24: a five-byte jmp before each queued routine, then main, CALLs, data.
+    def image(routines, main_size=70):
+        at, starts = 834, []
+        for size in routines:
+            starts.append(at + 5)
+            at += 5 + size
+        main_at = at
+        dispatcher = main_at + main_size
+        calls = [f"{start}−{dispatcher+5*(i+1)}=−{dispatcher+5*(i+1)-start}"
+                 for i, start in enumerate(starts)]
+        return main_at, dispatcher, dispatcher + 5*len(starts) + 1, calls
+    scalar, pointer, byte = 10+1+7+1+2+1, 10+1+10+1+3+1, 10+1+7+1+3+1
+    main_at, dispatcher, data, calls = image([scalar, pointer])
+    assert (main_at, dispatcher, data) == (892, 962, 973)
+    assert data + 8 + 8 == 989 and hex(0x400000 + data) == "0x4003cd"
+    for shown in calls + list(fields(main_at, dispatcher)) + ["861−839=22", "892−866=26"]:
+        assert shown in text24, shown
+    main_at, dispatcher, data, calls = image([scalar, pointer, byte])
+    assert (main_at, dispatcher, data, data + 17) == (920, 990, 1006, 1023)
+    for shown in calls + list(fields(main_at, dispatcher)):
+        assert shown in text24, shown
+    print("PASS: C23/C24 image offsets and rel32 fields match rules rebuilt from 117/118/119")
 
 
 def check_c_models(source_root):
@@ -1329,6 +1380,7 @@ def main():
     check_c_program_capstone()
     check_c_pipeline_models(args.source_root)
     check_assembler_paper_models()
+    check_tinycc_paper_models(args.source_root)
     check_entrance_paper_models()
     check_models()
     check_audit_partition(args.source_root)

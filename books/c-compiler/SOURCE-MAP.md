@@ -23,6 +23,9 @@ immutable file, not an edition identifier by themselves.
 | `112-cc-stmt.fth` | 45 | [C16](chapters/16-conditions-and-loops.md), [C17](chapters/17-switches-labels-and-nonlocal-control.md) | Recursive statement dispatch, loop/token state, switch selection and cleanup, label storage and goto completion |
 | `114-cc-func.fth` | 7 | [C18](chapters/18-functions-and-call-frame-accounting.md) | Function registration, copied parameters, fixed frames, body parsing and explicit/fallback return paths |
 | `116-cc-prog.fth` | 29 | [C19](chapters/19-translation-units-and-process-entry.md) | File-scope products, prototypes, entry/runtime ordering, deferred-use closure, global placement and entry patch |
+| `117-cc-native-program.fth` | 5 | [C23](chapters/23-the-direct-tinycc-profile.md) | Private parameters and definitions, the two-call entry stub, runtime hook and program order |
+| `118-cc-native-init.fth` | 30 | [C24](chapters/24-tinycc-initialization-runtime-and-closure.md) | Recursive initializer frames, inference scan, static routines and their queue, local zeroing, string copies and target hooks |
+| `119-cc-native-runtime.fth` | 6 | [C24](chapters/24-tinycc-initialization-runtime-and-closure.md) (bodies counted in [C23](chapters/23-the-direct-tinycc-profile.md)) | Thirteen kernel bodies, error normalization, pre-registered result types and three fail-closed bodies |
 | `120-cc-main.fth` | 1 | [C19](chapters/19-translation-units-and-process-entry.md) | Output-path bytes, driver ordering and the final executing form |
 | `130-asm.fth` | 50 | [C21](chapters/21-assembler-input-and-expansion.md), [C22](chapters/22-two-pass-assembly-and-bootstrap-handoff.md) | Standalone buffers/cursor, one-pass definitions and strings, numeric/label fields, two-pass accounting and output |
 
@@ -32,11 +35,13 @@ open emission/finalization and the bounded runtime. C12–C15 open expression
 and declaration mechanisms. C16–C19 join statements, functions and the
 top-level driver into a complete source-derived program trace. C20 explains
 the actual compiler/Stage-A artifact recipe and reads an identified comparison
-record. Reading a call's
+record. C23/C24 open the private TinyCC program, initializer and runtime files
+`117`–`119`. Reading a call's
 name is not the same as auditing its implementation.
 
-The inventory currently covers all 576 colon definitions in `020`, `030`,
-`050`, `060`, `070`, `080`, `090`, `100`, `110`, `112`, `114`, `116`, `120` and `130`.
+The inventory currently covers all 617 colon definitions in `020`, `030`,
+`050`, `060`, `070`, `080`, `090`, `100`, `110`, `112`, `114`, `116`, `117`,
+`118`, `119`, `120` and `130`.
 It does not yet claim a complete word inventory for all compiler layers.
 Small accessors may share one explanation; substantial state transitions get
 worked examples. Definitions need not be copied in full into the prose to
@@ -169,7 +174,7 @@ accepted correctly.
 ## What the checks establish
 
 The [document checker](../check.py) verifies pinned source blobs, definition
-names and spans, inventory completeness for the fourteen files above, the full
+names and spans, inventory completeness for the seventeen files above, the full
 preprocessor region/declaration partition, emission, parser and control/program declaration
 inventories, the five-script and standalone-assembler region partitions,
 bounded source-line locators, and complete

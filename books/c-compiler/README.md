@@ -83,8 +83,12 @@ separates first stories, bridges, audit depth and alternate-route capstones.
     follow definitions and quoted strings into exact expanded text while preserving the borrowed names
 22. [Two-pass assembly and bootstrap handoff](chapters/22-two-pass-assembly-and-bootstrap-handoff.md):
     count positions, resolve fields, supply the executable envelope and identify the source-built tool comparisons
+23. [The direct TinyCC profile](chapters/23-the-direct-tinycc-profile.md) (alternate route):
+    name the profile before any byte, then follow private stack calls from caller-owned slots to typed callee loads
+24. [TinyCC initialization, runtime and closure](chapters/24-tinycc-initialization-runtime-and-closure.md) (alternate route):
+    turn initializers into queued routines, normalize kernel failures, and bound each check from raw archives to the TinyCC fixed point
 
-These twenty-two chapters provide 167 exercises and separate feedback
+These twenty-four chapters provide 187 exercises and separate feedback
 companions. Try a
 prediction, use a hint when a step is missing, then attempt a changed case
 without copying the worked answer. The purpose is to explain a mechanism,
@@ -125,7 +129,8 @@ technical and reading-flow checks, C19's complete reference/practice review,
 and the bounded reader attempts. C19 and the sixth mixed check have passed
 source-derived checks. C20's full recipe, evidence account and eight exercise
 sets have also received independent source-based review. C21/C22 add a reviewed
-expansion/two-pass unit and 22 more exercise sets. All twenty-two chapters
+expansion/two-pass unit and 22 more exercise sets. C23/C24 add 20 exercise
+sets in new drafts that have not yet been reviewed. All twenty-four chapters
 remain teaching drafts;
 source and model-assisted reviews do not establish real-reader learning.
 

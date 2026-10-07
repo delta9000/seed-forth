@@ -102,7 +102,7 @@ prerequisites for calculating the first three chapters' states.
 
 ## Compiler-volume entrance
 
-The first twenty-two C-volume chapters use the same exact source revision.
+The twenty-four C-volume chapters use the same exact source revision.
 [C01](c-compiler/chapters/01-compiler-entry-and-profile.md) distinguishes the
 legacy direct-ELF builder from the separate generated program and from the
 optional TinyCC/System V profiles. [C02](c-compiler/chapters/02-buffers-arenas-and-failure.md)
@@ -131,8 +131,17 @@ feedback sets exist; source/practice review and final readback are complete.
 open the complete standalone Forth assembler and bounded source-built-tool
 handoff. Their 10 and 12 main practice/feedback sets passed source/practice
 review. This adds no observed execution or actual-reader learning result.
+[C23](c-compiler/chapters/23-the-direct-tinycc-profile.md) and
+[C24](c-compiler/chapters/24-tinycc-initialization-runtime-and-closure.md)
+now draft the alternate direct TinyCC profile: its entry, kernel and refusal
+bodies, private stack calls, queued initializer routines and static guard,
+kernel-error normalization, and the recipe from raw archives to the TinyCC
+fixed point. Each has ten practice/feedback sets. Their image offsets are
+source-derived and agreed with an unretained drafting-time compile; the
+recipe is read, not run, and its pass results are attributed. Neither has
+yet received source/practice review.
 
-The source maps assign 576 colon definitions across fourteen non-preprocessor
+The source maps assign 617 colon definitions across seventeen non-preprocessor
 compiler/assembler files, all 333 declarations in `100`/`110`, and 170 control/function/
 program rows: 160 declarations plus ten top-level forms in `112`/`114`/`116`/
 `120`. The separate preprocessor inventory remains 57 regions/325 declarations.
@@ -144,7 +153,8 @@ plus two initialization forms. The source-blob check covers 71 pinned project
 files. These are distinct
 source-coverage counts, not execution counts. C20 covers the standalone
 Stage-A recipe and attributed result; C21/C22 cover full bounded Forth
-assembly and the source-built-tool handoff. Native/private-stack, System V,
+assembly and the source-built-tool handoff; C23/C24 cover the `117`–`119`
+private program, initializer and runtime definitions. System V,
 full upstream implementations, broader bootstrap lineages and later target
 providers retain separate homes.
 

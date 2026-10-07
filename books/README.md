@@ -23,18 +23,20 @@ Finishing that audit is its own objective, rather than a gate before the
 first C result. C19's 556-byte layout and G01's illustrative relocation are
 paper derivations, not measured artifacts.
 
-The [C-compiler volume](c-compiler/README.md) now has twenty-two paper chapters,
+The [C-compiler volume](c-compiler/README.md) now has twenty-four paper chapters,
 from an independent entry bridge through preprocessing, representations,
 emission/runtime, expressions/declarations, statements, function frames and
 translation-unit/process entry, the bounded Stage-A recipe and evidence,
-then the complete standalone Forth assembler and its source-built-tool handoff.
-Its 167 main exercises have separate feedback; six mixed checks add 24 questions.
-The edition now has 269 chapter exercises: 95 seed, 167 C and seven G01.
+then the complete standalone Forth assembler and its source-built-tool handoff,
+and the alternate direct TinyCC profile with its route to a TinyCC fixed point.
+Its 187 main exercises have separate feedback; six mixed checks add 24 questions.
+The edition now has 289 chapter exercises: 95 seed, 187 C and seven G01.
 The four H1/H2 entrance prompts are counted separately. The earlier 262
 chapter exercises remain intact. C19's full technical/practice manuscript review is complete; C16–C18's
 reported technical, practice and first-reading reviews are complete. C20 has
 complete source/recipe coverage; its source/practice review and final readback are complete.
-C21/C22 are also source/practice-reviewed paper drafts. New example execution,
+C21/C22 are also source/practice-reviewed paper drafts. C23/C24 are new,
+unreviewed paper drafts. New example execution,
 rendered-layout review and actual-reader learning remain unverified.
 
 C19 derives a small program's 556-byte output-buffer layout and predicted exit
@@ -43,7 +45,10 @@ the next producer executions and exact M1 comparison, with a separately
 attributed remote result. [C21](c-compiler/chapters/21-assembler-input-and-expansion.md)
 and [C22](c-compiler/chapters/22-two-pass-assembly-and-bootstrap-handoff.md)
 now open expansion, two-pass assembly and the exact source-built-tool
-comparisons. Native/TinyCC work remains C23/C24; broader bootstrap lineages
+comparisons. [C23](c-compiler/chapters/23-the-direct-tinycc-profile.md) and
+[C24](c-compiler/chapters/24-tinycc-initialization-runtime-and-closure.md)
+now open the alternate direct TinyCC profile, its initializers and runtime, and
+the recipe's attributed fixed point; broader bootstrap lineages
 keep their own unfinished reference obligations. The earlier reviewed C01–C15 checkpoint and
 [continuation-draft notes](c-compiler/DRAFTS.md) retain their historical scope.
 
@@ -103,14 +108,14 @@ units.
 - [Seed byte audit](seed-forth/AUDIT.md) assigns every file byte and shows
   which regions are explained so far
 
-The source maps account for 576 colon definitions across fourteen compiler/assembler
+The source maps account for 617 colon definitions across seventeen compiler/assembler
 files, plus the separate preprocessor-region inventory. The control/function/
 program ledger distinguishes 160 declarations from ten top-level forms;
 coverage does not mean those forms were executed here. The [pipeline
 map](c-compiler/pipeline-map.csv) separately covers 33 regions/273 lines in five
 complete shell scripts. The [assembler ledger](c-compiler/assembler-regions.csv)
 adds all 785 lines in 42 regions, 99 declarations and two initialization
-forms; its 50 colon definitions are included in the 576 total. Source-blob
+forms; its 50 colon definitions are included in the 617 total. Source-blob
 checks cover 71 pinned project files;
 none of these counts is a claim of whole-bootstrap implementation coverage.
 G01 adds three inspected source blobs and a bounded teaching story, not a new
