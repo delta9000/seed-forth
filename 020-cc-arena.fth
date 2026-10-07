@@ -187,10 +187,19 @@ immediate
 : 1-  compiling? if, [lit] 72 c, [lit] 131 c, [lit] 239 c, [lit] 1 c,
   else, native-1- execute then, ; immediate
 \ The return stack is the x86 stack, so inline >r, r> and r@ are push,
-\ pop and a load from [rsp].  They are compile-only, as in any Forth.
-: >r  [lit] 87 c, pop-tos, ; immediate                   \ push rdi
-: r>  push-tos, [lit] 95 c, ; immediate                  \ pop rdi
-: r@  push-tos, [lit] 72 c, [lit] 139 c, [lit] 60 c, [lit] 36 c, ; immediate  \ mov rdi, [rsp]
+\ pop and a load from [rsp].  Interpreted, they must not add a call frame
+\ of their own, so they end in a jump to the seed's word (jmp-xt,).
+: jmp-xt,  ( xt -- )  [lit] 233 c, here [lit] 4 + - ,4 ;
+' >r constant seed->r
+' r> constant seed-r>
+' r@ constant seed-r@
+: jmp-seed->r,  seed->r jmp-xt, ; immediate
+: jmp-seed-r>,  seed-r> jmp-xt, ; immediate
+: jmp-seed-r@,  seed-r@ jmp-xt, ; immediate
+: >r  compiling? if, [lit] 87 c, pop-tos, exit, then, jmp-seed->r, ; immediate  \ push rdi
+: r>  compiling? if, push-tos, [lit] 95 c, exit, then, jmp-seed-r>, ; immediate \ pop rdi
+: r@  compiling? if, push-tos, [lit] 72 c, [lit] 139 c, [lit] 60 c, [lit] 36 c, exit, then,
+  jmp-seed-r@, ; immediate                                                    \ mov rdi, [rsp]
 
 \ More primitives copied in: *, /, 0=, nand, and, or.
 ' * constant seed-star

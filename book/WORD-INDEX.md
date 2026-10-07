@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2904 names and 97 ideas.
+carry none.  2911 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -2590,6 +2590,10 @@ for which chapter depends on which, the
 
 - `jmp-back,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `jmp-fwd,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
+- `jmp-seed->r,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
+- `jmp-seed-r>,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
+- `jmp-seed-r@,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
+- `jmp-xt,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `jmp_repl` — *seed label* — [Ch 13 §6 `JMP repl` at `0x0B5`](13-elf-and-entry.md#6-jmp-repl-at-0x0b5)
 - `jz-back,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `jz-fwd,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
@@ -2976,6 +2980,7 @@ for which chapter depends on which, the
 - `sar63,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - **Scope stack** — [Ch 24 §4 Scopes are a stack of integers](24-types-and-symbols.md#4-scopes-are-a-stack-of-integers)
 - `seed-0=` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
+- `seed->r` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-cfetch` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-cstore` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-drop` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
@@ -2985,6 +2990,8 @@ for which chapter depends on which, the
 - `seed-nand` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-over` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-plus` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
+- `seed-r>` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
+- `seed-r@` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-slash` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-star` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)
 - `seed-store` — *compiler word (constant, `020-cc-arena.fth`)* — [Ch 21, Arithmetic, input and a light optimizing compile](21-arena-and-io-buffers.md#arithmetic-input-and-a-light-optimizing-compile)

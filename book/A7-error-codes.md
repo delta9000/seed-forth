@@ -64,7 +64,7 @@ to its call site.
 
 | Code | File:line(s) | Triggered by |
 |---:|---|---|
-| 10  | `020-cc-arena.fth:428,447` | Arena allocation past its configured cap (32 KiB by default), or failure to map the opt-in larger workspace. |
+| 10  | `020-cc-arena.fth:437,456` | Arena allocation past its configured cap (32 KiB by default), or failure to map the opt-in larger workspace. |
 | 20  | `030-cc-io.fth:88` | `cc-load-stdin`: the source fills the selected input buffer (default 1 MiB, direct GCC 3 MiB), or its workspace mapping fails. |
 | 21  | `030-cc-io.fth:132` | `cc-emit-byte`: the output fills its selected buffer (default 1 MiB, direct GCC 4 MiB). |
 | 22  | `030-cc-io.fth:192` | `cc-write-output`: `open(2)` on the output path returned an error. |
