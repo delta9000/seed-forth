@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2830 names and 97 ideas.
+carry none.  2838 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -63,6 +63,7 @@ for which chapter depends on which, the
 
 ## A
 
+- `add-rbp-8,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
 - `ag-arg` — *compiler word (`131-cc-aggregate-abi.fth`)* — [Ch 48, Canonical source](48-direct-gcc-aggregate-abi.md#canonical-source)
 - `ag-class` — *compiler word (`131-cc-aggregate-abi.fth`)* — [Ch 48, Canonical source](48-direct-gcc-aggregate-abi.md#canonical-source)
 - `ag-count` — *compiler word (`131-cc-aggregate-abi.fth`)* — [Ch 48, Canonical source](48-direct-gcc-aggregate-abi.md#canonical-source)
@@ -2467,6 +2468,8 @@ for which chapter depends on which, the
 - **Chained fixups (else,)** — [Ch 11 §6 `else,`: chained fixups](11-control-flow-combinators.md#6-else-chained-fixups)
 - `char` — *Forth word (`010-lib.fth`)* — [Ch 10 §7 `call,` and `[char]`: compiling by hand](10-immediacy-and-constants.md#7-call-and-char-compiling-by-hand)
 - `close` — *Forth word (`010-lib.fth`)* — [Ch 5 §4 `close`: one real arg, five padding zeros](05-syscalls.md#4-close-one-real-arg-five-padding-zeros)
+- `code-start` — *compiler word (variable, `020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
+- `code:` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
 - `colon_code` — *seed label* — [Ch 18 §1 `colon_code`'s anatomy](18-the-colon-compiler.md#1-colon_codes-anatomy)
 - `comma_code` — *seed label* — [Ch 17 §3 `here_code` and `comma_code`](17-the-dictionary.md#3-here_code-and-comma_code)
 - `compile_call` — *seed label* — [Ch 18 §4 `compile_call`: one `CALL`, laid down at HERE](18-the-colon-compiler.md#4-compile_call-one-call-laid-down-at-here)
@@ -2780,11 +2783,14 @@ for which chapter depends on which, the
 
 - **Macro table** — [Ch 22 §2 The macro table](22-the-preprocessor.md#2-the-macro-table)
 - **Memory map** — [App. B, The seed-Forth memory map (`PT_LOAD` covers `0x400000..0x1400000`)](A2-memory-map.md#the-seed-forth-memory-map-pt_load-covers-0x4000000x1400000) · [App. B, The optional native compiler arena](A2-memory-map.md#the-optional-native-compiler-arena) · [App. B, The legacy runtime heap (compiled-program memory)](A2-memory-map.md#the-legacy-runtime-heap-compiled-program-memory)
+- `mov-rax-[rbp],` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
+- `mov-rdi-rax,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
 
 ## N
 
 - `nand` — *seed primitive* — [Ch 15 §2 `nand` in 12 bytes](15-arithmetic-and-logic.md#2-nand-in-12-bytes) · [App. A, The table](A1-32-seed-primitives.md#the-table)
 - `nand_code` — *seed label* — [Ch 15 §2 `nand` in 12 bytes](15-arithmetic-and-logic.md#2-nand-in-12-bytes)
+- `native!` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
 - `nc-array` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `nc-base` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
 - `nc-base-array` — *compiler word (`115-cc-native.fth`)* — [Ch 34 §2 Native declarations and aligned storage](34-direct-tinycc.md#2-native-declarations-and-aligned-storage)
@@ -2915,6 +2921,7 @@ for which chapter depends on which, the
 ## S
 
 - `s,` — *Forth word (`010-lib.fth`)* — [Ch 12 §5 `s,`: names as data](12-defining-words-and-bytes-eq.md#5-s-names-as-data)
+- `sar63,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
 - **Scope stack** — [Ch 24 §4 Scopes are a stack of integers](24-types-and-symbols.md#4-scopes-are-a-stack-of-integers)
 - `semicolon_code` — *seed label* — [Ch 18 §2 `semicolon_code` in five operations](18-the-colon-compiler.md#2-semicolon_code-in-five-operations)
 - **Short-circuit && and ||** — [Ch 27 §11 Short-circuit `&&` and `||`](27-expressions-part-1.md#11-short-circuit--and-)
@@ -2938,6 +2945,7 @@ for which chapter depends on which, the
 - **Static initializer lowering** — [Ch 34 §4 Initializers reuse expression fixups](34-direct-tinycc.md#4-initializers-reuse-expression-fixups)
 - `store_code` — *seed label* — [Ch 14, `!` ( value addr -- )](14-stack-primitives.md#--value-addr----)
 - **Struct descriptor** — [Ch 24 §5 How types and symbols connect](24-types-and-symbols.md#5-how-types-and-symbols-connect) · [Ch 29 §3 Struct definitions](29-declarations-types-globals.md#3-struct-definitions)
+- `sub-rax-rdi,` — *compiler word (`020-cc-arena.fth`)* — [Ch 21, Arithmetic in machine code](21-arena-and-io-buffers.md#arithmetic-in-machine-code)
 - **Subroutine threading** — [Ch 18 §4 `compile_call`: one `CALL`, laid down at HERE](18-the-colon-compiler.md#4-compile_call-one-call-laid-down-at-here)
 - `swap` — *seed primitive* — [Ch 14 §4 `swap` in 12 bytes](14-stack-primitives.md#4-swap-in-12-bytes) · [App. A, The table](A1-32-seed-primitives.md#the-table)
 - `swap_code` — *seed label* — [Ch 14 §4 `swap` in 12 bytes](14-stack-primitives.md#4-swap-in-12-bytes)

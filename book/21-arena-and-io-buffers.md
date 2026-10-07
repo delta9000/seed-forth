@@ -111,17 +111,32 @@ before the parser runs, with the size fields left at zero, and
 
 ## 1. The ground floor: `020-cc-arena.fth`
 
-The 107-line file `020-cc-arena.fth` holds the three things every later
-compiler file leans on: one block of memory holding the lexer's
+The 150-line file `020-cc-arena.fth` first gives the arithmetic words
+machine-code bodies, then holds the three things every later compiler
+file leans on: one block of memory holding the lexer's
 state, the word every failure ends in, and an allocator for data with
 no fixed size.
 
-### The lexer's state block
+### Arithmetic in machine code
 
-The reader in section 2 keeps a cursor into the source and a line
-count; the lexer (Ch 23) keeps the token it has just read.  Those
-eight cells are everything that changes as the compiler moves through
-the program, so they live side by side in one block:
+Part I built `-` from `nand` and `+`, and the sign test `0<` from the
+unsigned `/`: every comparison is a 64-bit divide.  That was the point
+there, since 32 primitives were enough.  But the compiler compares and
+subtracts hundreds of millions of times when it builds GCC, and a
+profile of seed-cc compiling GCC's `combine.c` put most of what was
+left of its time in those words.  So the compiler's first act is to
+give `-`, `0<`, `<`, `=`, `1+` and `1-` bodies of x86 code, with the
+same answers: `<` is still the sign of `a - b`, wrapping exactly as
+Ch 7's does.
+
+`code:` makes a header whose body `c,` then lays down; it is
+`constant`'s trick (Ch 10) without the push body.  `native!` writes a
+5-byte `JMP` over the start of the old definition, so every word
+compiled earlier, in `010-lib.fth` included, runs the new code without
+being compiled again.  It works the jump out before writing it,
+because the first word it patches is `-`, which it also uses.  The
+registers are the seed's: the top of stack is in `rdi`, the rest of
+the data stack grows down from `rbp` (Ch 15's `+`).
 
 ```forth file=020-cc-arena.fth
 \ 020-cc-arena.fth — the compiler's ground floor: the lexer's state block,
@@ -135,6 +150,59 @@ the program, so they live side by side in one block:
 \ if,/then,, begin,/until,, swap, dup, over, nip, drop, >r, r>, +, -, /, *,
 \ >, !, @, c!, c,, write, die.
 
+\ ----- The compiler's arithmetic in machine code -----
+\ 010-lib.fth builds - from nand and +, and the sign test 0< from the
+\ unsigned / (a 64-bit divide per comparison).  The compiler runs them
+\ hundreds of millions of times, so here they become x86 code with the
+\ same answers: < is still (a - b)'s sign bit, wrapping as before.  Each
+\ native word gets a fresh header (code:), and native! turns the first
+\ definition into a jump to it, so every word compiled earlier, in
+\ 010-lib.fth too, runs the new code.  TOS is in rdi and the data stack
+\ grows down from rbp, as in the seed's + (Ch 15).
+: code:  : [lit] 0 state ! ;             \ header only; c, lays the body
+: native!  ( old new -- )                \ old's first bytes: JMP rel32 new
+  over [lit] 5 + -  swap                 \ rel32 first: old may be - itself
+  here >r  here-addr !  [lit] 233 c, ,4
+  r> here-addr ! ;
+variable code-start
+: mov-rax-[rbp],  [lit] 72 c, [lit] 139 c, [lit] 69 c, [lit] 0 c, ;
+: add-rbp-8,      [lit] 72 c, [lit] 131 c, [lit] 197 c, [lit] 8 c, ;
+: sub-rax-rdi,    [lit] 72 c, [lit] 41 c, [lit] 248 c, ;
+: mov-rdi-rax,    [lit] 72 c, [lit] 137 c, [lit] 199 c, ;
+: sar63,  ( modrm -- )  [lit] 72 c, [lit] 193 c, c, [lit] 63 c, ;
+' - code: -  here code-start !            \ ( a b -- a-b )
+  mov-rax-[rbp], add-rbp-8, sub-rax-rdi, mov-rdi-rax, ret,
+  code-start @ native!
+' 0< code: 0<  here code-start !          \ ( n -- f )  sar rdi, 63
+  [lit] 255 sar63, ret,
+  code-start @ native!
+' < code: <  here code-start !            \ ( a b -- f )  sign of a - b
+  mov-rax-[rbp], add-rbp-8, sub-rax-rdi, [lit] 248 sar63, mov-rdi-rax, ret,
+  code-start @ native!
+' = code: =  here code-start !            \ ( a b -- f )  a - b = 0
+  mov-rax-[rbp], add-rbp-8, sub-rax-rdi,
+  [lit] 15 c, [lit] 148 c, [lit] 192 c,   \ sete al
+  [lit] 72 c, [lit] 15 c, [lit] 182 c, [lit] 248 c,   \ movzx rdi, al
+  [lit] 72 c, [lit] 247 c, [lit] 223 c,   \ neg rdi
+  ret,
+  code-start @ native!
+' 1+ code: 1+  here code-start !          \ add rdi, 1
+  [lit] 72 c, [lit] 131 c, [lit] 199 c, [lit] 1 c, ret,
+  code-start @ native!
+' 1- code: 1-  here code-start !          \ sub rdi, 1
+  [lit] 72 c, [lit] 131 c, [lit] 239 c, [lit] 1 c, ret,
+  code-start @ native!
+
+```
+
+### The lexer's state block
+
+The reader in section 2 keeps a cursor into the source and a line
+count; the lexer (Ch 23) keeps the token it has just read.  Those
+eight cells are everything that changes as the compiler moves through
+the program, so they live side by side in one block:
+
+```forth file=020-cc-arena.fth
 \ ----- The lexer's state: one block -----
 \ Everything the source reader (030) and the lexer (050) change as they move
 \ through the program lives in this one 8-cell block, so a parser that wants
