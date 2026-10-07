@@ -64,10 +64,10 @@ to its call site.
 
 | Code | File:line(s) | Triggered by |
 |---:|---|---|
-| 10  | `020-cc-arena.fth:130,149` | Arena allocation past its configured cap (32 KiB by default), or failure to map the opt-in larger workspace. |
-| 20  | `030-cc-io.fth:84` | `cc-load-stdin`: the source fills the selected input buffer (default 1 MiB, direct GCC 3 MiB), or its workspace mapping fails. |
-| 21  | `030-cc-io.fth:128` | `cc-emit-byte`: the output fills its selected buffer (default 1 MiB, direct GCC 4 MiB). |
-| 22  | `030-cc-io.fth:188` | `cc-write-output`: `open(2)` on the output path returned an error. |
+| 10  | `020-cc-arena.fth:428,447` | Arena allocation past its configured cap (32 KiB by default), or failure to map the opt-in larger workspace. |
+| 20  | `030-cc-io.fth:88` | `cc-load-stdin`: the source fills the selected input buffer (default 1 MiB, direct GCC 3 MiB), or its workspace mapping fails. |
+| 21  | `030-cc-io.fth:132` | `cc-emit-byte`: the output fills its selected buffer (default 1 MiB, direct GCC 4 MiB). |
+| 22  | `030-cc-io.fth:192` | `cc-write-output`: `open(2)` on the output path returned an error. |
 | 30  | `040-cc-prep.fth:906,1825,1830,1835,1882` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
 | 31  | `040-cc-prep.fth:894` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
 | 32  | `040-cc-prep.fth:912,916` | Included file fills its legacy 256 KiB slot, or the live include stack fills the selected direct pool (default 1 MiB; the direct-GCC workspace maps 7 MiB, the same bound as its expanded source). The raw reader keeps one byte free, so the largest live stack is the capacity minus one. A failed mapping of the direct pool uses this code too. |
@@ -204,20 +204,20 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:474` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:479` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:760` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:394`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
-| 190 | `115-cc-native.fth:120` | Native enumerator is not an identifier. |
-| 192 | `115-cc-native.fth:128` | Native enumerator followed by neither `,` nor `}`. |
-| 194 | `115-cc-native.fth:214` | Native type identifier not found. |
-| 195 | `115-cc-native.fth:215` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:314,317,331,624` | Native declarator is missing its name, or a parenthesized inner name is not an identifier or names a typedef. |
-| 205 | `115-cc-native.fth:639` | Native declaration missing its final semicolon. |
-| 210 | `115-cc-native.fth:56` | Aggregate object size requested without a descriptor. |
+| 190 | `115-cc-native.fth:125` | Native enumerator is not an identifier. |
+| 192 | `115-cc-native.fth:133` | Native enumerator followed by neither `,` nor `}`. |
+| 194 | `115-cc-native.fth:219` | Native type identifier not found. |
+| 195 | `115-cc-native.fth:220` | Native type identifier is not a typedef. |
+| 203 | `115-cc-native.fth:319,322,336,629` | Native declarator is missing its name, or a parenthesized inner name is not an identifier or names a typedef. |
+| 205 | `115-cc-native.fth:644` | Native declaration missing its final semicolon. |
+| 210 | `115-cc-native.fth:61` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:528`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
 | 213 | `060-cc-types.fth:336` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
-| 214 | `110-cc-decl.fth:396`, `115-cc-native.fth:230` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
+| 214 | `110-cc-decl.fth:396`, `115-cc-native.fth:235` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:155` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:79,80,91,99` | Invalid or empty inferred array initializer. |
 | 221 | `118-cc-native-init.fth:96,103,123` | Malformed or unterminated inferred initializer. |

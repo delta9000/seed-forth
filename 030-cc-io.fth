@@ -68,6 +68,10 @@ variable cc-ra-n
 : cc-read-all
   cc-ra-code ! cc-ra-cap ! cc-ra-buf ! cc-ra-fd !
   [lit] 0 cc-ra-n !
+  cc-ra-fd @ 0= if,                    \ stdin: first what key-fill holds (020)
+    cc-ra-buf @ cc-ra-cap @ key-drain cc-ra-n !
+    cc-ra-n @ 1+ cc-ra-cap @ cc-ra-code @ cc-check-cap
+  then,
   begin,
     cc-ra-fd @  cc-ra-buf @ cc-ra-n @ +  cc-ra-cap @ cc-ra-n @ -  read
     dup [lit] 0 >
