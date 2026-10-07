@@ -9,8 +9,7 @@
 
 #include "k1.h"
 
-struct e820 { u64 addr, len; u32 type; } __attribute__((packed));
-extern struct e820 e820_map[];
+extern u8 e820_raw[];
 extern int e820_n;
 u64 palloc_contig(u64 bytes, u64 align, u64 min);
 
@@ -94,7 +93,7 @@ i64 boot_linux(const char *kernel, const char *initrd, const char *cmdline)
         *(u32 *)(bp + 0x0C4) = (u32)(rdsize >> 32);
     }
     bp[0x1E8] = e820_n;                         /* e820_entries */
-    memcpy(bp + 0x2D0, e820_map, e820_n * 20);
+    memcpy(bp + 0x2D0, e820_raw, e820_n * 20);
     /* identity map of the first 512 GiB, plus the direct map so this code
      * keeps its stack until the jump */
     pml4 = P2V(palloc_contig(PAGE, PAGE, 16UL << 20));
@@ -108,13 +107,6 @@ i64 boot_linux(const char *kernel, const char *initrd, const char *cmdline)
         pml4[i] = kpml4[i];
     kprintf("k1: booting Linux (protocol %x, load %lx, init_size %lx, initrd %lu bytes)\n",
             *(u16 *)(hdr + 0x206), load, init_size, rdsize);
-    __asm__ volatile(
-        "cli\n"
-        "mov %0, %%cr3\n"
-        "mov %1, %%rsi\n"
-        "xor %%ebp, %%ebp\n"
-        "xor %%edi, %%edi\n"
-        "jmp *%2\n"
-        :: "r"(V2P(pml4)), "r"(V2P(bp)), "r"(load + 0x200) : "memory");
+    linux_jump(V2P(pml4), V2P(bp), load + 0x200);
     return 0;
 }

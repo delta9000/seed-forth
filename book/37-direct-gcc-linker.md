@@ -77,7 +77,9 @@ Four passes place all text, all rodata, all data, then all BSS. Each input's
 alignment is applied independently. The executable uses one read/execute
 `PT_LOAD` segment for its headers, text and rodata and a page-aligned
 read/write `PT_LOAD` for data and BSS. The image starts at virtual address
-`0x400000`; `_start` is merely the test's chosen name, not a hard-coded entry.
+`0x400000` unless the driver stores another address in `lnk-base-address`
+first (K1, the kernel, links at `0x200000`); `_start` is merely the test's
+chosen name, not a hard-coded entry.
 
 The data segment's file extent ends after initialized data. Its memory extent
 continues through BSS alignment and storage. Linux therefore supplies zeroed
@@ -130,8 +132,12 @@ range, and 255 for file I/O or an input/output alias.
 [lit] 131072 constant lnk-hash-cap
 [lit] 268435456 constant lnk-byte-cap
 [lit] 1048576 constant lnk-align-cap
-[lit] 4194304 constant lnk-base
 [lit] 128 constant lnk-object-size
+\ The image's virtual address: 4 MiB unless a driver stores another
+\ 2 MiB-aligned address here before lnk-link (K1 links at 2 MiB).
+variable lnk-base-address
+[lit] 4194304 lnk-base-address !
+: lnk-base ( -- address ) lnk-base-address @ ;
 create lnk-objects  lnk-object-cap lnk-object-size * allot
 variable lnk-count
 variable lnk-globals

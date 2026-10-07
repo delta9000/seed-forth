@@ -494,6 +494,15 @@ static i64 sys_readlinkat(int dfd, const char *path, char *buf, u64 n)
     struct inode *ip;
     u64 l;
     int r;
+    if (!strcmp(path, "/proc/self/exe")) {
+        if (!cur->exe[0])
+            return -ENOENT;
+        l = strlen(cur->exe);
+        if (l > n)
+            l = n;
+        memcpy(buf, cur->exe, l);
+        return l;
+    }
     if (!memcmp(path, "/proc/self/fd/", 14)) {  /* the open file's canonical path */
         static char p[4096];
         const char *q = path + 14;
@@ -755,7 +764,7 @@ static i64 sleep_ns(u64 ns)
         if (signal_pending())
             return -EINTR;
         yield();
-        __asm__ volatile("pause");
+        cpu_pause();
     }
     return 0;
 }

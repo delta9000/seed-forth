@@ -1,0 +1,33 @@
+# direct-smoke.kaem -- seed-cc, seed-ar and kaem under K1 (the direct route).
+#
+# k1/direct-smoke.recipe runs this from K1's root, with the kaem that seed-cc
+# built, after creating build-out/k1-smoke:
+#   build-out/plumbing/bin/kaem --verbose --strict --file k1/direct-smoke.kaem
+# It compiles programs with seed-cc, archives one with seed-ar, and runs
+# them: the gcc-seed runtime's system calls (k1/tests/direct-smoke.c) and two
+# stage0-posix tools, as plumbing/stage1.kaem starts.  Works on Linux too.
+
+set -ex
+
+CC=./build-out/seed-cc/seed-cc
+AR=./build-out/seed-cc/seed-ar
+X=vendor/stage0-posix/mescc-tools-extra
+O=build-out/k1-smoke
+
+# A program from an archive: compile, archive, link with -L and -l.
+${CC} -c -Werror=implicit-function-declaration k1/tests/direct-smoke.c -o ${O}/direct-smoke.o
+${AR} rcs ${O}/libsmoke.a ${O}/direct-smoke.o
+${CC} -static -L${O} -lsmoke -o ${O}/direct-smoke
+
+# The runtime's system calls, from a scratch directory, with an environment
+# variable set here.
+K1_SMOKE=from-kaem
+cd ${O}
+./direct-smoke
+cd ../..
+
+# stage0-posix tools, as plumbing/stage1.kaem builds them first.
+${CC} -static ${X}/mkdir.c ${X}/M2libc/bootstrappable.c -o ${O}/mkdir
+${CC} -static ${X}/sha256sum.c ${X}/M2libc/bootstrappable.c -o ${O}/sha256sum
+./build-out/k1-smoke/mkdir -p ${O}/made/two/levels
+./build-out/k1-smoke/sha256sum --check k1/tests/direct-smoke.sha256

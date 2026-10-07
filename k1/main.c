@@ -7,13 +7,14 @@
 
 #include "k1.h"
 
-/* ---- memory primitives (tcc emits calls to these) ---- */
+/* ---- memory primitives (the compilers emit calls to these) ---- */
+/* memset and the forward copy are rep stosb/movsb in k1.S. */
 void *memmove(void *d, const void *s, unsigned long n)
 {
     u8 *a = d;
     const u8 *b = s;
     if (a < b || a >= b + n) {
-        __asm__ volatile("rep movsb" : "+D"(a), "+S"(b), "+c"(n) :: "memory");
+        copy_forward(a, b, n);
     } else {
         a += n;
         b += n;
@@ -21,12 +22,6 @@ void *memmove(void *d, const void *s, unsigned long n)
             *--a = *--b;
     }
     return d;
-}
-void *memset(void *d, int c, unsigned long n)
-{
-    void *r = d;
-    __asm__ volatile("rep stosb" : "+D"(d), "+c"(n) : "a"(c) : "memory");
-    return r;
 }
 void *memcpy(void *d, const void *s, unsigned long n) { return memmove(d, s, n); }
 int memcmp(const void *a, const void *b, u64 n)
@@ -68,7 +63,8 @@ char *strcpy(char *d, const char *s)
     return r;
 }
 
-/* ---- varargs, as tcc's stdarg.h defines them for x86-64 ---- */
+/* ---- varargs: tcc's stdarg.h for x86-64, or the Forth compiler's builtins ---- */
+#ifdef __TINYC__
 typedef struct {
     unsigned int gp_offset, fp_offset;
     union { unsigned int overflow_offset; char *overflow_arg_area; };
@@ -80,38 +76,18 @@ void *__va_arg(__va_list_struct *ap, int arg_type, int size, int align);
 #define va_start(ap, last) __va_start(ap, __builtin_frame_address(0))
 #define va_arg(ap, type) \
     (*(type *)(__va_arg(ap, __builtin_va_arg_types(type), sizeof(type), __alignof__(type))))
+#else                           /* as runtime/gcc-seed/include/stdarg.h */
+typedef struct __seed_va_list_tag {
+    unsigned int gp_offset;
+    unsigned int fp_offset;
+    void *overflow_arg_area;
+    void *reg_save_area;
+} va_list[1];
+#define va_start(ap, last) __builtin_va_start((ap), last)
+#define va_arg(ap, type) __builtin_va_arg((ap), type)
+#endif
 
-/* ---- ports, MSRs ---- */
-void outb(u16 port, u8 v) { __asm__ volatile("outb %0, %1" :: "a"(v), "d"(port)); }
-u8 inb(u16 port)
-{
-    u8 v;
-    __asm__ volatile("inb %1, %0" : "=a"(v) : "d"(port));
-    return v;
-}
-static void outw(u16 port, u16 v) { __asm__ volatile("outw %0, %1" :: "a"(v), "d"(port)); }
-void wrmsr(u32 msr, u64 v)
-{
-    __asm__ volatile("wrmsr" :: "c"(msr), "a"((u32)v), "d"((u32)(v >> 32)));
-}
-u64 rdmsr(u32 msr)
-{
-    u32 lo, hi;
-    __asm__ volatile("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
-    return lo | (u64)hi << 32;
-}
-static u64 rdtsc(void)
-{
-    u32 lo, hi;
-    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    return lo | (u64)hi << 32;
-}
-
-/* ---- console: COM1, output only ---- */
-void console_write(const char *s, u64 n)
-{
-    __asm__ volatile("rep outsb" : "+S"(s), "+c"(n) : "d"(0x3F8) : "memory");
-}
+/* Ports, MSRs, the TSC and the console (rep outsb to COM1) are in k1.S. */
 
 static void kput(char *buf, u64 *n, char c)
 {
@@ -182,7 +158,7 @@ void qemu_exit(int code)
 {
     outb(0xF4, code);           /* isa-debug-exit: qemu exits (code << 1) | 1 */
     for (;;)
-        __asm__ volatile("hlt");
+        cpu_halt();
 }
 
 void panic(const char *msg)
@@ -242,7 +218,9 @@ static void rtc_read(void)
 }
 
 /* ---- QEMU fw_cfg: the e820 memory map ---- */
-struct e820 { u64 addr, len; u32 type; } __attribute__((packed));
+/* fw_cfg's entries are packed 20-byte records; e820_raw keeps them as they
+ * came (Linux's boot_params wants that form) and e820_map unpacks them. */
+u8 e820_raw[32 * 20];
 struct e820 e820_map[32];
 int e820_n;
 
@@ -269,7 +247,12 @@ static void e820_read(void)
             e820_n = sz / 20;
             if (e820_n > 32)
                 e820_n = 32;
-            fwcfg_read(e820_map, e820_n * 20);
+            fwcfg_read(e820_raw, e820_n * 20);
+            for (i = 0; i < e820_n; i++) {
+                memcpy(&e820_map[i].addr, e820_raw + i * 20, 8);
+                memcpy(&e820_map[i].len, e820_raw + i * 20 + 8, 8);
+                memcpy(&e820_map[i].type, e820_raw + i * 20 + 16, 4);
+            }
             return;
         }
     }
@@ -289,7 +272,6 @@ void set_rsp0(u64 v) { *(u64 *)(tss + 4) = v; }
 
 static void tables_init(void)
 {
-    struct { u16 lim; u64 base; } __attribute__((packed)) d;
     u64 t = (u64)tss;
     int i;
     gdt[0] = 0;
@@ -301,32 +283,14 @@ static void tables_init(void)
     gdt[6] = 0x0020FA0000000000UL;      /* 0x30 user code 64 */
     gdt[7] = 103 | (t & 0xFFFFFF) << 16 | 0x89UL << 40 | (t >> 24 & 0xFF) << 56;
     gdt[8] = t >> 32;                   /* 0x38: 64-bit TSS */
-    d.lim = sizeof gdt - 1;
-    d.base = (u64)gdt;
-    __asm__ volatile("lgdt %0" :: "m"(d));
-    /* reload CS with a far return, then the data segments */
-    __asm__ volatile(
-        "pushq $0x10\n"
-        "leaq 1f(%%rip), %%rax\n"
-        "pushq %%rax\n"
-        ".byte 0x48, 0xcb\n"            /* lretq */
-        "1:\n"
-        "movw $0x18, %%ax\n"
-        "movw %%ax, %%ds\n"
-        "movw %%ax, %%es\n"
-        "movw %%ax, %%ss\n"
-        "movw $0, %%ax\n"
-        "movw %%ax, %%fs\n"
-        "movw %%ax, %%gs\n" ::: "rax", "memory");
-    __asm__ volatile("ltr %w0" :: "r"(0x38));
+    load_gdt((u64)gdt, sizeof gdt - 1);  /* and reload CS and the data segments */
+    load_tr(0x38);
     for (i = 0; i < 48; i++) {
         u64 h = isr_table[i];
         idt[2 * i] = (h & 0xFFFF) | 0x10UL << 16 | 0x8EUL << 40 | (h >> 16 & 0xFFFF) << 48;
         idt[2 * i + 1] = h >> 32;
     }
-    d.lim = sizeof idt - 1;
-    d.base = (u64)idt;
-    __asm__ volatile("lidt %0" :: "m"(d));
+    load_idt((u64)idt, sizeof idt - 1);
     /* SYSCALL: CS 0x10/SS 0x18 in; SYSRET: CS 0x33/SS 0x2B out */
     wrmsr(0xC0000080, rdmsr(0xC0000080) | 1);  /* EFER.SCE */
     wrmsr(0xC0000081, 0x10UL << 32 | 0x23UL << 48);  /* base 0x23: RPL 3 in SS too */
@@ -492,7 +456,7 @@ void trap_c(struct trapframe *f)
 
 /* ---- entry ---- */
 u8 boot_stack[65536];
-u8 fx_default[512] __attribute__((aligned(16)));
+u8 fx_default[512];
 static char argbuf[4096];
 static char *args[64];
 
@@ -519,7 +483,7 @@ void k1_main(u64 *k0sp)
     timer_init();
     tsc_calibrate();
     rtc_read();
-    __asm__ volatile("fninit");
+    fpu_init();
     fx_save(fx);
     *(u32 *)(fx + 24) = 0x1F80;         /* MXCSR default */
     memcpy(fx_default, fx, 512);

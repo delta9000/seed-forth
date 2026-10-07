@@ -325,7 +325,11 @@ sys_write:                              ; rdi fd, rsi buf, rdx count
         dec eax
         jnz .file
         mov dx, 0x3F8
-        rep outsb
+        jrcxz .wdone                    ; a byte loop, not rep outsb: QEMU 8.2's
+.wout:  lodsb                           ; TCG aborts on K0's rep outsb
+        out dx, al
+        loop .wout
+.wdone:
         pop rax
         ret
 .file:  inc eax

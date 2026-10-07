@@ -1,0 +1,6 @@
+# ---- under K0 only: hand the machine to the K1 that seed Forth built ----
+# k1/mkboot.py --direct appends this to tools/k1-direct.recipe in K0's boot
+# image.  K1 never returns: it takes over the machine, imports its starting
+# tree from the input disk, and runs /k1.recipe.
+say "k0: K1 built by seed Forth (no TinyCC); handing over"
+run 0 - ${K}/k1-run.out ${K}/k1-run.err ${K}/k1
