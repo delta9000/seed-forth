@@ -362,6 +362,12 @@ class Toolchain:
 def publish(source, destination, mode):
     # Sibling private temporary plus rename: preserve an existing destination
     # on errors, and do not follow destination symlinks during publication.
+    # A destination that is a character device (configure scripts link with
+    # -o /dev/null) is written in place, as GCC does.
+    if destination.is_char_device() and not destination.is_symlink():
+        with open(destination, "wb") as stream:
+            stream.write(source.read_bytes())
+        return
     creation_mask = os.umask(0)
     os.umask(creation_mask)
     with tempfile.NamedTemporaryFile(prefix=".seed-cc-", dir=destination.parent, delete=False) as stream:

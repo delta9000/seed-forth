@@ -11,7 +11,11 @@
 # bash, make and strace.  CONFIGURE_LOG_DIR keeps the work trees (default: a
 # temporary directory).  Both runs use seed-cc as CC (MUSL_CC overrides it for
 # musl, e.g. stage C's GCC 4.0.4, whose programs EXTRA_EXEC, an extended
-# regular expression, then admits to the execve audit), so only the shell and the tools differ.
+# regular expression, then admits to the execve audit), so only the shell and
+# the tools differ.  Both runs see the same program names on PATH: a directory
+# of symlinks, to the host's programs or to ours, for each plumbing program
+# the host also has (otherwise results differ only because the host has ld,
+# nm, getconf, m4, perl... and the plumbing has flex).
 # Both export _POSIX2_VERSION=199209, as gcc-direct/chain-lib.sh does, so that
 # coreutils 5.0 accepts the obsolete `tail -3` forms configure scripts use.
 #
@@ -20,8 +24,20 @@
 # directories and the two shell and make paths are replaced by fixed
 # names, and every config.cache holding the same values when read back by a
 # shell (bash 2.05b's `set` does not quote values the way bash 5 does).
+# config.log (dates, host name, PATH) is not compared.  Two differences are
+# expected and reported as KNOWN, not failures:
+#   - bash 2.05b has no `+=`, so libtool's configure sets lt_shell_append=no
+#     and libtool appends with the portable `eval "$1=\$$1\$2"`;
+#   - when the host's mkdir is not GNU's (uutils coreutils, say),
+#     AC_PROG_MKDIR_P rejects it and the host run uses `install-sh -c -d`,
+#     while ours finds coreutils 5.0's `mkdir -p`.
 # The run with our tools is traced: every execve must be a plumbing program,
-# seed-cc/seed-ar and the seed they run, or a configure test program.
+# seed-cc/seed-ar and the seed they run, a configure test program, or the
+# uname and arch that config.log's header runs by absolute path.  Programs
+# that configure scripts and tools run by absolute path are reported as WARN:
+# libtool's `/usr/bin/file` (LT_ENABLE_LOCK) and the `/bin/sh` that gawk's
+# system() runs.  Inside tools/plumbing-root.sh's root, /bin/sh is our bash
+# and /usr/bin/file does not exist.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 ROOT=$PWD
@@ -41,14 +57,20 @@ done
 test -x "$CC" && test -x "$AR" || fail "seed-cc/seed-ar missing"
 HOSTBASH=$(command -v bash)
 HOSTMAKE=$(command -v make)
-HOSTPATH=/usr/bin:/bin
 
 pin() { grep "^$1 " gcc64/SOURCES | awk '{print $2}'; }
 for f in musl-1.1.24.tar.gz binutils-2.30.tar.xz; do
   test -f "$CACHE/$f" || fail "$CACHE/$f missing (gcc64/SOURCES)"
   [ "$(sha256sum < "$CACHE/$f" | cut -d' ' -f1)" = "$(pin $f)" ] || fail "$f differs from gcc64/SOURCES"
 done
-mkdir -p "$LOG/src"
+mkdir -p "$LOG/src" "$LOG/path-host" "$LOG/path-ours"
+for tool in "$BIN"/*; do
+  name=${tool##*/}
+  host=$(PATH=/usr/bin:/bin command -v "$name") || continue
+  case $host in /*) ;; *) continue ;; esac
+  ln -sf "$host" "$LOG/path-host/$name"
+  ln -sf "$tool" "$LOG/path-ours/$name"
+done
 tar -C "$LOG/src" -xzf "$CACHE/musl-1.1.24.tar.gz"
 tar -C "$LOG/src" -xJf "$CACHE/binutils-2.30.tar.xz"
 
@@ -77,33 +99,43 @@ configure() {
 }
 
 normalize() {
-  sed -e "s#$LOG/host-#WORK-#g; s#$LOG/ours-#WORK-#g" \
+  sed -e "s#$LOG/path-host/#TOOL/#g; s#$LOG/path-ours/#TOOL/#g" \
+      -e "s#$LOG/host-#WORK-#g; s#$LOG/ours-#WORK-#g" \
       -e "s#$BIN/bash#SHELL#g; s#$HOSTBASH#SHELL#g" \
       -e "s#$BIN/make#MAKE#g; s#$HOSTMAKE#MAKE#g" "$1"
 }
 
 cache_values() {
   env -i "$HOSTBASH" -c ". '$1'; set" | grep -E '^[a-z]+_cv_' \
-    | sed "s#$LOG/host-#WORK-#g; s#$LOG/ours-#WORK-#g"
+    | sed -e "s#$LOG/path-host/#TOOL/#g; s#$LOG/path-ours/#TOOL/#g" \
+          -e "s#$LOG/host-#WORK-#g; s#$LOG/ours-#WORK-#g"
+}
+
+# known: drop the lines that carry the two expected differences.
+known() {
+  grep -Ev 'lt_shell_append=|eval "\$1\+=|eval "\$1=\\\$\$1|^ *(MKDIR_P|mkdir_p) *=|^S\["(MKDIR_P|mkdir_p)"\]=|ac_cv_path_mkdir=|^MKDIR_P=' || true
 }
 
 status=0
 for package in musl binutils; do
   mkdir "$LOG/host-$package" "$LOG/ours-$package"
-  configure host "$HOSTBASH" "$HOSTPATH" "$HOSTMAKE" $package "$(command -v env)" \
+  configure host "$HOSTBASH" "$LOG/path-host" "$HOSTMAKE" $package "$(command -v env)" \
     || fail "$package configure with the host shell (see host-$package.log)"
   strace -f -qq --seccomp-bpf -e trace=execve -o "$LOG/execve-$package.txt" \
-    bash -c "$(declare -f configure); LOG='$LOG' CC='$CC' AR='$AR' MUSL_CC='$MUSL_CC'; configure ours '$BIN/bash' '$BIN' '$BIN/make' $package '$BIN/env'" \
+    bash -c "$(declare -f configure); LOG='$LOG' CC='$CC' AR='$AR' MUSL_CC='$MUSL_CC'; configure ours '$BIN/bash' '$LOG/path-ours' '$BIN/make' $package '$BIN/env'" \
     || fail "$package configure with our tools (see ours-$package.log)"
 
   # The strace wrapper itself runs host bash once; everything else must be ours.
   grep 'execve(' "$LOG/execve-$package.txt" | grep ' = 0$' \
     | sed -E 's/^[0-9]+ +execve\("([^"]*)".*/\1/' | tail -n +2 > "$LOG/execve-$package-paths.txt"
-  allowed="^($BIN/[a-z0-9_.+-]+|$CC|$AR|/.*/seed-(gcc|ar)-[^/]+/seed-forth|(\./)?conftest|$LOG/ours-$package/.*conftest${EXTRA_EXEC:+|$EXTRA_EXEC})$"
-  if grep -Ev "$allowed" "$LOG/execve-$package-paths.txt" | sort -u > "$LOG/execve-$package-unexpected.txt" \
-     && [ -s "$LOG/execve-$package-unexpected.txt" ]; then
-    echo "FAIL $package: unexpected execve: $(head -5 "$LOG/execve-$package-unexpected.txt" | tr '\n' ' ')"
+  allowed="^($BIN/[a-z0-9_.+-]+|$LOG/path-ours/[a-z0-9_.+-]+|$CC|$AR|/.*/seed-(gcc|ar)-[^/]+/seed-forth|(\./)?(conftest|a\.out)|/(usr/)?bin/(uname|arch)|$LOG/ours-$package/.*conftest${EXTRA_EXEC:+|$EXTRA_EXEC})$"
+  grep -Ev "$allowed" "$LOG/execve-$package-paths.txt" | sort | uniq -c > "$LOG/execve-$package-unexpected.txt" || true
+  if grep -Ev ' (/bin/sh|/usr/bin/file)$' "$LOG/execve-$package-unexpected.txt" > "$LOG/execve-$package-bad.txt"; then
+    echo "FAIL $package: unexpected execve: $(head -5 "$LOG/execve-$package-bad.txt" | tr -s ' \n' ' ')"
     status=1
+  fi
+  if grep -E ' (/bin/sh|/usr/bin/file)$' "$LOG/execve-$package-unexpected.txt" > /dev/null; then
+    echo "WARN $package: absolute-path host programs: $(grep -E ' (/bin/sh|/usr/bin/file)$' "$LOG/execve-$package-unexpected.txt" | tr -s ' \n' ' ')"
   fi
   echo "$package execve audit: $(wc -l < "$LOG/execve-$package-paths.txt") calls"
 
@@ -113,20 +145,25 @@ for package in musl binutils; do
   if ! diff "$LOG/$package-host.files" "$LOG/$package-ours.files" > "$LOG/$package-files.diff"; then
     echo "FAIL $package: different file sets (see $package-files.diff)"; status=1
   fi
-  same=0; differ=0
+  same=0; differ=0; expected=0
   while read -r f; do
     h=$LOG/host-$package/$f o=$LOG/ours-$package/$f
     [ -f "$o" ] || continue
     if cmp -s "$h" "$o"; then same=$((same + 1)); continue; fi
     case $f in
+      */config.log|./config.log) continue ;;
       */config.cache|./config.cache)
-        if [ "$(cache_values "$h")" = "$(cache_values "$o")" ]; then same=$((same + 1)); continue; fi ;;
+        a=$(cache_values "$h"); b=$(cache_values "$o") ;;
       *)
-        if [ "$(normalize "$h")" = "$(normalize "$o")" ]; then same=$((same + 1)); continue; fi ;;
+        a=$(normalize "$h"); b=$(normalize "$o") ;;
     esac
+    if [ "$a" = "$b" ]; then same=$((same + 1)); continue; fi
+    if [ "$(known <<< "$a")" = "$(known <<< "$b")" ]; then
+      expected=$((expected + 1)); echo "KNOWN $package $f"; continue
+    fi
     differ=$((differ + 1)); echo "DIFF $package $f"; status=1
   done < "$LOG/$package-host.files"
-  echo "$package: $same files equivalent, $differ differ"
+  echo "$package: $same files equivalent, $expected with only the known differences, $differ differ"
 done
 [ $status = 0 ] || fail "configure results differ"
 echo "PASS: musl and binutils configure identically under our bash and tools"
