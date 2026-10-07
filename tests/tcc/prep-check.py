@@ -92,6 +92,20 @@ def main():
         for i in range(7):
             (w / f'inc1/depth{i}.h').write_text(f'#include "depth{i+1}.h"\n' if i < 6 else 'deep_found\n')
         expect('#include <depth0.h>\n', 'deep_found', **settings)
+        # #include_next resumes after the directory that held the current file.
+        (w / 'inc1/wrap.h').write_text('#include_next <wrap.h>\ninc1_wrap\n')
+        (w / 'inc2/wrap.h').write_text('inc2_wrap\n')
+        (w / 'inc1/qwrap.h').write_text('#include_next "wrap.h"\nqwrap\n')
+        (w / 'local/wrap.h').write_text('#include_next <wrap.h>\nlocal_wrap\n')
+        (w / 'inc1/last.h').write_text('#include_next <last.h>\n')
+        (w / 'inc2/last.h').write_text('#include_next <last.h>\n')
+        expect('#include <wrap.h>\nafter\n', 'inc2_wrap inc1_wrap after', **settings)
+        expect('#include <qwrap.h>\n', 'inc2_wrap qwrap', **settings)
+        # From a file found without a directory it searches as #include does.
+        expect('#include "wrap.h"\n', 'inc2_wrap inc1_wrap local_wrap', **settings)
+        expect('#include_next "header.h"\nWHICH\n', '1', **settings)
+        run('#include <last.h>\n', code=30, **settings)
+        expect('#include_next "header.h"\nkept\n', 'kept', direct=False)
         expect('#include <missing-system-header.h>\nNULL EOF stdin stdout stderr\n',
                '0 0xFFFFFFFFFFFFFFFF 0 1 2', direct=False)
         expect('NULL EOF stdin stdout stderr\n', 'NULL EOF stdin stdout stderr')
@@ -103,7 +117,7 @@ def main():
     for name, digest in legacy.items():
         out = run((ROOT / 'tests/cc' / name).read_text(), direct=False)
         assert hashlib.sha256(out.encode()).hexdigest() == digest, name
-    print('PASS: direct includes, repeated includes, macro operators, rescanning, and legacy preprocessing')
+    print('PASS: direct includes, include_next, repeated includes, macro operators, rescanning, and legacy preprocessing')
     if args.legacy_pnut:
         src = '#define target_x86_64_linux 1\n#define ONE_PASS_GENERATOR 1\n'
         src += (ROOT / 'vendor/pnut/pnut.c').read_text()
