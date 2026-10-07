@@ -16,7 +16,7 @@ A quick check: from `[99, 7, 3]`, what does `swap dup` leave? Which value remain
 
 If you already use Forth, try S4-01 and S4-03 first. Explain the return destinations as well as the data values. If both explanations hold up, skim the source definitions and try S4-05. Knowing a standard word's name does not settle this seed's call boundary.
 
-**Edition and evidence.** We use the Linux/x86-64 seed at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`, the pinned `direct-gcc-overlay` edition. Cells are 64 bits. Every trace here is manually derived from inspected source, not executed output. These are paper studies of definitions, not instructions to experiment with an unbalanced return stack in a running seed.
+**Edition and evidence.** We use the Linux/x86-64 seed at revision `bbcc1732152af2d884737272eed870d2410ffe8e`, the pinned `direct-gcc-overlay` edition. Cells are 64 bits. Every trace here is manually derived from inspected source, not executed output. These are paper studies of definitions, not instructions to experiment with an unbalanced return stack in a running seed.
 
 ## Why a call needs a destination
 
@@ -89,7 +89,7 @@ The routine also removes 7 from the data stack before returning. `r>` uses the c
 
 `r@` does not remove the borrowed cell. At entry, its own destination is on top, so it reads **one cell below** that destination. In the source this is `[rsp+8]`: one 8-byte cell past the top address. It copies that value to the data stack, then returns normally.
 
-These are the mechanisms in [`to_r_code`, `r_from_code`, and `r_at_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L107-L145). Their explicit treatment of their own call is why the word-boundary contracts work. They do not skip an arbitrary number of caller destinations.
+These are the mechanisms in [`to_r_code`, `r_from_code`, and `r_at_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L107-L145). Their explicit treatment of their own call is why the word-boundary contracts work. They do not skip an arbitrary number of caller destinations.
 
 ## Derive `over`: expose, copy, restore, order
 
@@ -112,7 +112,7 @@ Its contract is `( a b -- a b a )`. We trace the actual body with a lower value,
 
 The two stacks answer different correctness questions. The data column proves that the requested copy is in the right place. The return column proves that `over` can return with its caller's older entries intact. A correct-looking data result alone is insufficient.
 
-Replace 7 and 3 with `a` and `b` in the table. Nothing depends on their numeric values. We only need two data inputs, enough space, and intact call state. The library definition is at [`010-lib.fth`, `over`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L34-L36).
+Replace 7 and 3 with `a` and `b` in the table. Nothing depends on their numeric values. We only need two data inputs, enough space, and intact call state. The library definition is at [`010-lib.fth`, `over`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L34-L36).
 
 ## Derive `rot`: move the third value to the top
 
@@ -147,7 +147,7 @@ The library also defines:
 
 `2dup ( a b -- a b a b )` duplicates a pair. Its first `over` gives `[a, b, a]`. The second sees **b** as second-from-top in that new stack, so it gives `[a, b, a, b]`. Each call has its own `ret(over)`, borrows and restores its own slot, then returns to `2dup`. The second call is not retrieving anything parked by the first.
 
-`2drop ( a b -- )` removes the pair: `[99, a, b]` becomes `[99, a]`, then `[99]`. The `2` in these names describes two cells, not a change to the 64-bit cell width. These definitions and `rot` appear in [`010-lib.fth`, stack shuffles](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L139-L153).
+`2drop ( a b -- )` removes the pair: `[99, a, b]` becomes `[99, a]`, then `[99]`. The `2` in these names describes two cells, not a change to the 64-bit cell width. These definitions and `rot` appear in [`010-lib.fth`, stack shuffles](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L139-L153).
 
 ## A helper call changes what `r@` sees
 
@@ -232,4 +232,4 @@ We have learned to rearrange data while keeping the path back to the caller inta
 
 ## Source boundary
 
-In addition to the linked primitive and library definitions, the call account uses [`compile_call` and `semicolon_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L538-L561); the two-stack representation follows the [register conventions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L53-L61). The compiler's byte emission and full machine-call encoding remain later topics. The [edition record](../../EDITION.md) states the wider evidence limits. No build, seed execution, or source change is claimed here.
+In addition to the linked primitive and library definitions, the call account uses [`compile_call` and `semicolon_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L538-L561); the two-stack representation follows the [register conventions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L53-L61). The compiler's byte emission and full machine-call encoding remain later topics. The [edition record](../../EDITION.md) states the wider evidence limits. No build, seed execution, or source change is claimed here.

@@ -21,6 +21,18 @@ supplies conditional parsing and unevaluated expressions. A **symbolic value**
 here consists of one symbol identity and an addend, not a guessed process
 address.
 
+## Floating static leaves
+
+Layer 125 now carries binary32/binary64 encodings and extended constants in its
+value records. Layer 128 performs exact ratio arithmetic and rounds once to the
+selected width; integer-to-float conversion and width changes use those hooks,
+while float-to-integer truncates toward zero and must fit (242). Static leaves
+convert to the destination before object patching. For example `static float
+x=1;` stores the binary32 encoding 0x3f800000. `_Bool` conversion tests nonzero,
+including floating NaN. Relocations remain symbolic and cannot become floating
+payloads. See [constant conversions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L61-L160),
+[static leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L207-L248).
+
 ## Normalize before the next operator
 
 For `0xffffffffU + 2U`, both operands are unsigned int. Four-byte normalization
@@ -40,7 +52,7 @@ division implements unsigned C division; signed division has a separate path
 with truncation toward zero and overflow checks.
 
 Sources: [typed records and integer
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L1-L160).
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L1-L266).
 
 ## Reject an impossible constant instead of substituting zero
 
@@ -50,7 +62,8 @@ suffixes, invalid octal digits, unsupported floating spellings and values beyond
 the unsigned range must not become plausible integer prefixes.
 
 Division by zero reports 124; invalid shift counts report 241; signed arithmetic
-overflow and invalid signed left shifts report 242; unsupported constant forms
+overflow reports 242; negative signed left operands are folded as two’s
+complement with destination-width normalization; unsupported constant forms
 report 240. Unsigned wrapping is intentional at the converted width. A caller
 cannot infer a successful C value from a rejected operation.
 
@@ -60,9 +73,9 @@ consume the enclosing declaration’s comma or permanently spend its temporary
 records. Syntax state and workspace state need distinct restoration.
 
 Sources: [literal and arithmetic
-guards](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L161-L260),
+guards](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L267-L372),
 [public constant entry
-points](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L380-L417).
+points](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L566-L610).
 
 ## Keep the destination symbolic
 
@@ -85,9 +98,9 @@ object’s runtime contents and is rejected, even when it has a static
 initializer.
 
 Sources: [symbolic address leaves and
-categories](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L244-L413),
+categories](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L249-L418),
 [symbolic arithmetic and conditional
-parsing](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L261-L379).
+parsing](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L373-L565).
 
 ## Reuse the tree, replace the leaf action
 
@@ -110,9 +123,9 @@ The object adapter refuses that queue. Reusing its recursive traversal therefore
 does not mean this object needs hidden executable initializer calls before main.
 
 Sources: [strings and recursive
-traversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L135-L283),
+traversal](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L132-L280),
 [object initializer
-leaves](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L179-L243).
+leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L178-L248).
 
 ## Parse the arm without performing its effects
 
@@ -131,9 +144,9 @@ than executing it. This is different from runtime branching in generated code. A
 source-derived constant value is not an observed result of running the target.
 
 Sources: [skip state and entry
-restoration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L300-L417),
+restoration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L484-L610),
 [dead symbolic
-leaves](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L246-L274).
+leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L251-L279).
 
 ## Follow one initializer to its destination
 
@@ -162,13 +175,13 @@ traversal structure, but their completion events and required inputs differ.
 Reading only the walker would not identify which one is selected.
 
 Sources: [symbolic address leaves and
-categories](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L244-L413),
+categories](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L249-L418),
 [symbolic arithmetic and conditional
-parsing](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L261-L379),
+parsing](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L373-L565),
 [strings and recursive
-traversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L135-L283),
+traversal](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L132-L280),
 [object initializer
-leaves](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L179-L243).
+leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L178-L248).
 
 ## Normalize at the operation's type boundary
 
@@ -191,11 +204,11 @@ supplied typed calculation, not a claim that every overflow expression is valid
 C.
 
 Sources: [typed records and integer
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L1-L160),
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L1-L266),
 [literal and arithmetic
-guards](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L161-L260),
+guards](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L267-L372),
 [public constant entry
-points](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L380-L417).
+points](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L566-L610).
 
 ## Parse a dead branch without performing its work
 
@@ -218,9 +231,9 @@ the reader to predict both and to recognize whether the mismatch belongs to
 traversal, typed evaluation, symbolic recording or final placement.
 
 Sources: [skip state and entry
-restoration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L300-L417),
+restoration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L484-L610),
 [dead symbolic
-leaves](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L246-L274).
+leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L251-L279).
 
 ## Ask the symbolic value what work it still needs
 
@@ -268,17 +281,17 @@ with supplied addresses and types; it has not recorded a new object or relocated
 pointer value.
 
 Sources: [symbolic address leaves and
-categories](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L244-L413),
+categories](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L249-L418),
 [symbolic arithmetic and conditional
-parsing](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L261-L379),
+parsing](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L373-L565),
 [strings and recursive
-traversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L135-L283),
+traversal](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L132-L280),
 [object initializer
-leaves](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L179-L243),
+leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L178-L248),
 [skip state and entry
-restoration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L300-L417),
+restoration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L484-L610),
 [dead symbolic
-leaves](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L246-L274).
+leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L251-L279).
 
 ## Restore two kinds of temporary state at the delimiter
 
@@ -321,7 +334,7 @@ normalized arithmetic depend on them. A future static-initializer check should
 retain both the expected data/relocation and rejection status for invalid
 inputs. No such new compilation or pool-exhaustion experiment was executed here.
 
-Sources: [typed records and integer operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L1-L160), [literal and arithmetic guards](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L161-L260), [public constant entry points](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L380-L417), [symbolic address leaves and categories](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L244-L413), [symbolic arithmetic and conditional parsing](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L261-L379), [strings and recursive traversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L135-L283), [object initializer leaves](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L179-L243).
+Sources: [typed records and integer operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L1-L266), [literal and arithmetic guards](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L267-L372), [public constant entry points](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L566-L610), [symbolic address leaves and categories](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L249-L418), [symbolic arithmetic and conditional parsing](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L373-L565), [strings and recursive traversal](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L132-L280), [object initializer leaves](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L178-L248).
 
 ## Stop, then change the boundary
 

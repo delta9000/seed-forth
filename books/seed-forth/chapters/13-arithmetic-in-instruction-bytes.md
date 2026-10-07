@@ -20,7 +20,7 @@ invariant from [Chapter 12](12-physical-stacks-and-memory.md). We also revisit
 not need to open the input loop or run the seed.
 
 **Evidence boundary.** The source is the Linux/x86-64 seed at
-[revision 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b).
+[revision bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e).
 Each decoded listing was checked against its exact source bytes and against
 bounded static disassembly with GNU objdump 2.44. The state traces and
 boundary arguments are manual derivations. Neither disassembly nor a paper
@@ -81,7 +81,7 @@ byte makes `[rbp+0]` equivalent to `[rbp]`; it is still part of the encoding.
 
 ## Addition: compute, then release a slot
 
-The [nine-byte `plus_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L196-L199)
+The [nine-byte `plus_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L196-L199)
 starts at virtual address `0x4001B7`:
 
 ```text
@@ -122,7 +122,7 @@ in `rdi`. This is why a subsequent `0=` must test that cell itself.
 
 ## NAND: two machine operations, one Forth result
 
-The [twelve-byte `nand_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L206-L210)
+The [twelve-byte `nand_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L206-L210)
 starts at `0x4001CE`:
 
 ```text
@@ -162,7 +162,7 @@ choice or that a derived word has a particular execution time.
 
 ## Zero test: a one-byte answer becomes a whole-cell flag
 
-The [fifteen-byte `zeq_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L217-L222)
+The [fifteen-byte `zeq_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L217-L222)
 starts at `0x4001E6`. Unlike the other four words, its contract is unary:
 `( n -- flag )`. From `[99,n]`, `rdi=n` and `[rbp]=99`. It must preserve
 `rbp`, because no memory-backed operand is consumed.
@@ -232,7 +232,7 @@ them. That one transition is more useful than memorizing all fifteen bytes.
 
 ## Division: arrange an unsigned dividend, then keep its quotient
 
-The [eighteen-byte `divide_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L229-L237)
+The [eighteen-byte `divide_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L229-L237)
 starts at `0x400200`:
 
 ```text
@@ -295,7 +295,7 @@ become a signed comparison.
 
 ## Multiplication: why the low half is enough for this contract
 
-The [sixteen-byte `star_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L244-L249)
+The [sixteen-byte `star_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L244-L249)
 starts at `0x40021D`:
 
 ```text

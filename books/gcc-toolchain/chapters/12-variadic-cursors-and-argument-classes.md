@@ -21,6 +21,14 @@ default promotions for that tail, while the callee’s va_arg type tells it whic
 class to consume. A wrong requested type cannot be repaired by inspecting the
 stored bits.
 
+## A two-eightbyte tail record
+
+Supply gp_offset=32 and an admitted sixteen-byte INTEGER record. Two GP slots
+remain, so retrieval uses reg_save_area+32 and advances gp_offset to 48. Change
+only gp_offset to 40: one slot is insufficient, so the whole record comes from
+overflow and gp_offset stays 40. This is a derived state, not an executed
+varargs fixture. See [record retrieval](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L490-L523).
+
 ## Use the record the header actually declares
 
 stdarg.h declares __seed_va_list_tag with unsigned int gp_offset and fp_offset
@@ -40,9 +48,9 @@ positions; eight XMM values occupy sixteen-byte positions. Only the low eight
 bytes of each XMM save slot carry a double payload.
 
 Sources: [array identity and intrinsic
-macros](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18),
+macros](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18),
 [save area and descriptor
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L1-L66).
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L1-L66).
 
 ## Advance the bank selected by the requested type
 
@@ -63,9 +71,9 @@ multi-eightbyte named records. The simple one-int example does not justify
 applying gp_offset=8 to every signature with one named parameter.
 
 Sources: [start and GP/SSE cursor
-paths](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L67-L157),
+paths](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L67-L157),
 [named-argument variadic
-offsets](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L463-L519).
+offsets](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L451-L544).
 
 ## Let either bank overflow on its own
 
@@ -85,7 +93,7 @@ outside this supported retrieval surface; the provider admits promoted integers,
 pointers, double and the separate X87 transport.
 
 Sources: [bank exhaustion and result-type
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L93-L184).
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L93-L191).
 
 ## Copy a cursor without copying its arguments
 
@@ -105,19 +113,20 @@ builtin spelling does not smuggle evaluated varargs access into an object’s
 constant initializer.
 
 Sources: [copy, end and intrinsic
-dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L185-L227).
+dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L192-L234).
 
 ## Leave wider transport’s boundary explicit
 
 Long double uses class X87 and always retrieves from overflow storage aligned to
 sixteen, consuming sixteen bytes. It returns an address to the opaque object
-instead of a binary64 payload. Its argument transport is supported even though
-long-double arithmetic and conversion are not.
+instead of a binary64 payload. Layer 132 separately supplies long-double arithmetic and conversion.
 
-Ordinary aggregate va_arg is not supplied by the final provider. Named aggregate
-arguments can affect the starting offsets, but that does not imply arbitrary
-unnamed record retrieval. G15 opens the classifier and hidden-result rules that
-explain the distinction.
+The final 131 provider also supplies aggregate va_arg. An INTEGER record uses
+consecutive GP save slots only if every eightbyte fits; otherwise the whole
+record uses aligned overflow storage. Other admitted classes use overflow.
+Named offsets alone do not establish tail retrieval: its separate provider and
+classifier do. Records with float/double members remain unsupported. G15 opens
+that classifier and hidden-result rules.
 
 The paper walk has shown which field changes for each admitted type. A future
 runtime test should interleave banks, exhaust each independently, copy a cursor
@@ -125,9 +134,9 @@ and inspect lifetime-sensitive cases. Correct printf output for three integers
 alone would leave the floating and overflow contracts untested.
 
 Sources: [X87 overflow
-retrieval](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L158-L184),
+retrieval](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L158-L191),
 [aggregate-varargs
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L1-L5).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L1-L6).
 
 ## Walk two cursors through one argument sequence
 
@@ -159,13 +168,13 @@ argument count are different facts. A large save buffer is not a license to
 request arguments that were never passed.
 
 Sources: [array identity and intrinsic
-macros](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18),
+macros](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18),
 [save area and descriptor
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L1-L66),
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L1-L66),
 [start and GP/SSE cursor
-paths](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L67-L157),
+paths](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L67-L157),
 [named-argument variadic
-offsets](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L463-L519).
+offsets](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L451-L544).
 
 ## Reach overflow without merging the classes
 
@@ -188,7 +197,7 @@ originally written in the caller's expression. G10's distinction between storage
 width and numeric conversion matters here.
 
 Sources: [bank exhaustion and result-type
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L93-L184).
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L93-L191).
 
 ## Copy traversal state without duplicating the arguments
 
@@ -211,11 +220,11 @@ implementation. The cursor states here are supplied paper inputs, with runtime
 checks pending.
 
 Sources: [copy, end and intrinsic
-dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L185-L227),
+dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L192-L234),
 [X87 overflow
-retrieval](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L158-L184),
+retrieval](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L158-L191),
 [aggregate-varargs
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L1-L5).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L1-L6).
 
 ## Read the cursor record as four pieces of state
 
@@ -249,9 +258,9 @@ to 0x1010 for sixteen-byte alignment, consume sixteen bytes, and obtain next
 payload. Integer-only cursor arithmetic cannot be reused blindly for this class.
 
 Named aggregate parameters can affect where va_start begins, because the
-selected planner knows their class consumption. That does not supply unnamed
-aggregate retrieval. The provider's unsupported va_arg forms remain unsupported
-even when another call path knows how to transport a record.
+selected planner knows their class consumption. A separate 131 hook supplies unnamed
+aggregate retrieval with whole-record GP-fit or aligned-overflow placement;
+unsupported floating-member classes remain rejected.
 
 A future cursor fixture should retain the declared named parameters, actual
 promoted argument types, initial cursor record and each requested type. The
@@ -260,17 +269,17 @@ spelling. Our offsets and pointer addresses are supplied states and
 calculations, not captured live varargs storage.
 
 Sources: [array identity and intrinsic
-macros](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18),
+macros](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18),
 [save area and descriptor
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L1-L66),
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L1-L66),
 [start and GP/SSE cursor
-paths](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L67-L157),
+paths](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L67-L157),
 [named-argument variadic
-offsets](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L463-L519),
+offsets](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L451-L544),
 [bank exhaustion and result-type
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L93-L184),
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L93-L191),
 [copy, end and intrinsic
-dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L185-L227).
+dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L192-L234).
 
 ## A builtin still needs a real descriptor
 
@@ -321,7 +330,7 @@ rejection, independent floating exhaustion and wider overflow alignment
 untested. The chapter's field offsets and retrieval walks are supplied
 derivations, with no new live variadic invocation.
 
-Sources: [array identity and intrinsic macros](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18), [save area and descriptor checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L1-L66), [start and GP/SSE cursor paths](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L67-L157), [named-argument variadic offsets](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L463-L519), [bank exhaustion and result-type checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L93-L184), [copy, end and intrinsic dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L185-L227), [X87 overflow retrieval](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L158-L184), [aggregate-varargs boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L1-L5).
+Sources: [array identity and intrinsic macros](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18), [save area and descriptor checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L1-L66), [start and GP/SSE cursor paths](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L67-L157), [named-argument variadic offsets](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L451-L544), [bank exhaustion and result-type checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L93-L191), [copy, end and intrinsic dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L192-L234), [X87 overflow retrieval](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L158-L191), [aggregate-varargs boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L1-L6).
 
 ## Stop, then change the boundary
 

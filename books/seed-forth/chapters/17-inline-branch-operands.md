@@ -24,7 +24,7 @@ stack? The answers are A+5 and none. If uncertain, recover the literal
 trace first. Otherwise, try S17-02 and S17-03 before the worked examples.
 
 **Evidence boundary.** We inspect `000-seed.hex0` at
-[revision 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0).
+[revision bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0).
 Both body listings were checked against the source bytes and bounded GNU
 objdump 2.44 disassembly of the source-decoded image. The traces below are
 manual derivations, not seed executions. No build or timing measurement
@@ -65,7 +65,7 @@ at `0x400628`. Its relative distance is measured from S. Separately, the
 cell at S holds the absolute destination T chosen by the compiling word.
 The target cell is neither part of CALL's displacement nor a data-stack
 operand. Its full thirteen-byte layout is the contract established by
-[the library's branch combinators](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L299-L358).
+[the library's branch combinators](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L299-L358).
 
 CALL saves S on R. The primitive obtains S with POP, then selects an
 address Q: always T for `branch`; T for zero or S+8 for nonzero in
@@ -81,7 +81,7 @@ benefit or a particular speed from this instruction sequence.
 
 ## Four instructions: replace a return destination
 
-The complete [`branch_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L607-L611)
+The complete [`branch_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L607-L611)
 contains no native JMP instruction:
 
 ```text
@@ -128,7 +128,7 @@ reused on every loop iteration.
 
 ## Eleven instructions: consume the flag before choosing
 
-The complete [`zbranch_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L618-L631)
+The complete [`zbranch_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L618-L631)
 first restores the data-stack representation, then makes its choice:
 
 ```text
@@ -252,7 +252,7 @@ Suppose `Rbase=[…,ret(owner),saved]` because the surrounding word used
 `exit,` compiles a RET in the surrounding word; it would consume `saved`
 as a destination if the word had not first retrieved it with `r>`.
 Chapter 9's `saved-or-zero` supplies cleanup on both paths, consistent
-with the [library's early-return contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L366-L372).
+with the [library's early-return contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L366-L372).
 Branch balance and owner cleanup are separate obligations.
 
 ## Two ways a plausible demonstration can miss the contract

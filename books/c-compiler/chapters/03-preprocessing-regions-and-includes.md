@@ -12,7 +12,7 @@ Our question is: **what changes when the input changes, and what must remain?** 
 
 Cells are eight bytes; addresses and positions count bytes; stacks have their top at the right. Arithmetic below stays within the small nonnegative range of the library comparisons. `nl` is byte 10, `bl` byte 32, and `tab` byte 9. We write `\n` for one newline byte, not a backslash followed by `n`. Symbolic bases such as R and I0 name distinct, valid storage, not suggested machine addresses.
 
-**Evidence and profile.** The definitions are from inspected [040-cc-prep.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/040-cc-prep.fth), with [020](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth) and [030](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth), at commit `7d7e1996d1753118181d43e1a413960d3a1ec24b`. All traces and predicted outputs are manually derived, unexecuted. They assume successful file opens/reads unless a failure is stated, sufficient output capacity, and no matching user macro definitions.
+**Evidence and profile.** The definitions are from inspected [040-cc-prep.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/040-cc-prep.fth), with [020](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/020-cc-arena.fth) and [030](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth), at commit `bbcc1732152af2d884737272eed870d2410ffe8e`. All traces and predicted outputs are manually derived, unexecuted. They assume successful file opens/reads unless a failure is stated, sufficient output capacity, and no matching user macro definitions.
 
 The main path is **legacy preprocessing**, with `cc-prep-direct=0` and `cc-pp-location-enabled=0`. Keep three choices distinct:
 
@@ -20,7 +20,7 @@ The main path is **legacy preprocessing**, with `cc-prep-direct=0` and `cc-pp-lo
 - `cc-pp-location-enabled` selects source-location and several directive/splice rules. `cc-preprocess` clears it; the target hook can enable it through `cc-prep-location-builtins`
 - Workspace selectors choose addresses and limits. Setting a policy flag does not select the larger workspace
 
-The [SysV setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth) and [target predefines](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/124-cc-target.fth) combine the first two, but one flag does not imply the other. C05, *Conditional preprocessing and profile extensions*, opens the second gate and its limits.
+The [SysV setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth) and [target predefines](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/124-cc-target.fth) combine the first two, but one flag does not imply the other. C05, *Conditional preprocessing and profile extensions*, opens the second gate and its limits.
 
 ## One active region, one output sink
 
@@ -266,7 +266,7 @@ C04 will reuse these operations for macro text, but with a different lifetime pr
 
 ### Source-scope and evidence ledger
 
-This ledger accounts for the substantive C03 mechanisms rather than treating a quoted subset as the whole file. It uses the pinned `040` named sections and linked supporting source; derived states above remain unexecuted. The [historical chapter 22](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/22-the-preprocessor.md) supplies context, not a substitute for current definitions or a new validation run.
+This ledger accounts for the substantive C03 mechanisms rather than treating a quoted subset as the whole file. It uses the pinned `040` named sections and linked supporting source; derived states above remain unexecuted. The [historical chapter 22](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/22-the-preprocessor.md) supplies context, not a substitute for current definitions or a new validation run.
 
 | Source group | Teaching here | Explicit later boundary |
 |---|---|---|

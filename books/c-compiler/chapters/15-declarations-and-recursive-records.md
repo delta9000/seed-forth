@@ -10,7 +10,7 @@ By the end, you should be able to construct `tri`'s descriptor and the local row
 
 **Prerequisites.** C06 supplies current versus pending tokens and full lexer marks. C07 supplies packed type words and stable descriptor headers; C08 supplies symbol rows and scope markers. C12 distinguishes a place from a value, and [C14](14-expressions-and-constant-evaluation.md) supplies the runtime-expression, constant-expression, and type-query interfaces used here. You do not need to predict function prologues, switch labels, or native argument placement yet.
 
-**Evidence boundary.** This is an inspected-source account of [110-cc-decl.fth at revision 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth). The main traces use the legacy profile, with `cc-target-lp64` false, eight-byte frame slots, valid retained source-name spans, sufficient compiler storage, and bounded arithmetic. They are manual predictions, not executed C or Forth examples. They describe these parser paths, not a general C grammar or a conformance claim. Native differences are explicitly named.
+**Evidence boundary.** This is an inspected-source account of [110-cc-decl.fth at revision bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth). The main traces use the legacy profile, with `cc-target-lp64` false, eight-byte frame slots, valid retained source-name spans, sufficient compiler storage, and bounded arithmetic. They are manual predictions, not executed C or Forth examples. They describe these parser paths, not a general C grammar or a conformance claim. Native differences are explicitly named.
 
 ## Keep five questions separate
 
@@ -49,7 +49,7 @@ For a requested semicolon, a `)` is the right token kind with the wrong payload:
 
 The distinction matters at a declaration's end. Some words finish with the semicolon already current; others require an expectation helper to fetch it. Fetching again in the first case would consume the following declaration's token. Keep a small token ledger: “current and consumed,” “pending for reread,” or “not yet read.” A token's continued presence in `tok-*` alone does not make it pending.
 
-Source: [`cc-expect-kw-id`, `cc-expect-punct-c`, and `cc-expect-ident`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L62-L89).
+Source: [`cc-expect-kw-id`, `cc-expect-punct-c`, and `cc-expect-ident`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L62-L89).
 
 ## Scan prefixes, then count stars for each name
 
@@ -86,7 +86,7 @@ The admitted **basic-type spellings** are also bounded. `cc-tok-is-basic-type-kw
 
 Read this as the algorithm that exists, not a list of every legal C declaration. In particular, the presence of `void` in the keyword recognizer is not a complete object-type validity check. Qualifiers handled before a base or after a star do not imply arbitrary qualifier placement in every legacy branch. `enum` used as a type has a separate small helper: it consumes an optional identifier tag and puts back a nonidentifier; its callers supply integer type. Enumerator definitions belong to C19.
 
-Sources: [qualifiers and star counting](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L95-L140), [storage-prefix and enum-tag scanning](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L142-L190), [legacy basic-type parsing](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L531-L571), and [native qualifier recording](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L37-L43).
+Sources: [qualifiers and star counting](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L95-L140), [storage-prefix and enum-tag scanning](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L142-L190), [legacy basic-type parsing](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L531-L571), and [native qualifier recording](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L37-L43).
 
 ## One declarator, then the comma loop
 
@@ -116,7 +116,7 @@ The loop's exit contract is precise: `cc-parse-local-declarator` returns with th
 
 The special function-pointer branch runs before this ordinary loop and returns separately. The ordinary array branch also has its own stopping point; it is not a universal initializer parser. In `int a[2]={1,2};`, that branch returns with `=` current after `]`, and the outer comma/semicolon check fails. This contrasts a missing brace-initializer mechanism with the supported scalar comma list.
 
-Sources: [local declarators and their comma loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L450-L529), [typedef-name dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L835-L846), and [symbol append initialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L69-L91).
+Sources: [local declarators and their comma loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L450-L529), [typedef-name dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L835-L846), and [symbol append initialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth#L69-L91).
 
 ## Arrays reserve a range; the base is its deepest slot
 
@@ -161,7 +161,7 @@ A scope pop does not lower `cc-fn-local-count`. It only changes which symbols ar
 
 When `cc-target-lp64` is true, this helper consults `cc-native-frame-limit`, initialized to 131072 **slots**. Native frames are sized and patched after body parsing by later machinery. This number is not a byte count or a promise that every native frame uses all that space. C18 opens frame construction; C23 opens the richer target paths.
 
-Sources: [slot counting and limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L20-L52), [array production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L462-L485), and [scope restoration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L152-L167).
+Sources: [slot counting and limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L20-L52), [array production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L462-L485), and [scope restoration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth#L152-L167).
 
 ## A local static changes storage, not scope bookkeeping
 
@@ -181,7 +181,7 @@ Both names are appended within the current lexical scope. When that scope closes
 
 This example belongs to the scalar/array legacy path. Do not infer that all specialized legacy declarators inspect `cc-decl-static`: the function-pointer and struct-local words below have their own fixed local-storage behavior. Statement dispatch and provider choice determine which consumer receives the prefix facts.
 
-Sources: [static array/scalar branches](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L475-L503) and [global initialization, allocation, and little-endian storage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1168-L1210).
+Sources: [static array/scalar branches](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L475-L503) and [global initialization, allocation, and little-endian storage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1168-L1210).
 
 ## Function-pointer lookahead recognizes a bounded shape
 
@@ -217,7 +217,7 @@ The skipped list is **not a checked function signature**. The resulting symbol h
 
 One profile-dependent test exists even within the skipping helper: in LP64 mode, if `cc-native-float-types-fwd` is false, encountering `float` or `double` dies with 214. The default hook returns `cc-bootstrap-floatbits`. Allowing a type spelling through this gate does not establish executable floating arithmetic. Full signature descriptors, declarator precedence, and signature checking belong to the native provider lessons.
 
-Source: [lookahead, balanced skipping, and the restricted local function-pointer producer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L356-L446), with [the default floating-spelling hook](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L25-L30).
+Source: [lookahead, balanced skipping, and the restricted local function-pointer producer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L356-L446), with [the default floating-spelling hook](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L25-L30).
 
 ## Construct the records behind `tri`
 
@@ -277,7 +277,7 @@ We have now constructed the exact earlier local premises: `w` starts at `RBP−3
 
 **Pause point.** Save these facts if you stop here: D has fields `(rows,0)` and `(stars,8)`, total size sixteen; `w` has slot three/length four; `r` has slot four; next free slot is five. The next question is how a field can store D while D is still being built.
 
-Sources: [struct scratch state and append](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L196-L223), [pre-registration and the complete field loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L271-L354), [stable header/table allocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/060-cc-types.fth#L204-L310), and [top-level definition/object discrimination](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L517-L558).
+Sources: [struct scratch state and append](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L196-L223), [pre-registration and the complete field loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L271-L354), [stable header/table allocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/060-cc-types.fth#L209-L315), and [top-level definition/object discrimination](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L517-L558).
 
 ## One descriptor can refer to itself
 
@@ -319,7 +319,7 @@ Given valid, separately declared pointer locals `struct A *pa` and `struct B *pb
 
 The failure is not that all self-reference is impossible. It is that “no descriptor found” was stored as zero rather than as a stable identity awaiting completion. The native `cc-naggregate` provider in `115` follows the latter approach: for an unknown named tag it allocates/registers a descriptor, and a later body can reuse that descriptor. C23/G03 open its context management and completion rules. A stable-header representation enables that strategy; it does not retroactively make the legacy zero into a descriptor.
 
-Sources: [strict and soft tag lookup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L235-L269), [field descriptor production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L304-L348), [field consumption and error 100](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1107-L1158), and [native named-aggregate identity](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L446-L475).
+Sources: [strict and soft tag lookup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L235-L269), [field descriptor production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L304-L348), [field consumption and error 100](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1129-L1180), and [native named-aggregate identity](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L450-L479).
 
 ## Value locals and pointer locals reserve different things
 
@@ -338,7 +338,7 @@ For `head`, depth is one. The object being stored is a pointer, so it needs one 
 
 The distinction generalizes within this word: positive pointer depth reserves one slot; depth zero reserves descriptor-size divided by eight. It does not become a comma-list parser, and its value branch does not gain aggregate initialization from the pointer branch's scalar initializer. The same associated-descriptor accessor serves different consumers: dot uses the local object's base, while arrow uses the stored pointer value.
 
-Source: [struct-local value and pointer branches](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L672-L738), with [profile-selected associated-descriptor storage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L115-L127).
+Source: [struct-local value and pointer branches](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L672-L738), with [profile-selected associated-descriptor storage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth#L115-L127).
 
 ## Reuse the type-query interface; identify the dispatcher
 
@@ -359,7 +359,7 @@ The three declaration-provider hooks have concrete owners in `115`: `cc-native-t
 
 At top level, `116` distinguishes `struct TAG {` from a use of `struct TAG`. Only the definition shape enters `cc-parse-struct-def`; other declarations are classified into function definition, prototype, or global object. That is the missing producer boundary for `struct tri t;`. Full native declarators and aggregates belong to C23/G03; complete file-scope production belongs to C19. These boundaries explain the present caller without claiming those later mechanisms are identical to the legacy ones.
 
-Sources: [type queries and final bindings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L573-L624), [the final `sizeof` adapter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L805-L808), [statement dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L865-L902), and [`115`'s type-name and local declaration providers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L478-L638).
+Sources: [type queries and final bindings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L573-L624), [the final `sizeof` adapter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L805-L808), [statement dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L865-L902), and [`115`'s type-name and local declaration providers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L482-L642).
 
 ## A short complete reading of return
 
@@ -376,7 +376,7 @@ For a bounded paper state with legacy result value seven and switch depth two, t
 
 C17 derives how switch obligations arise and how different exits choose counts: return uses the full depth, continue uses the difference from loop-entry depth, and the legacy goto rule targets labels outside switches. C18 joins parameters, locals, prologue, result, and epilogue into a full call/frame trace. Here the completed reading is deliberately local: every branch and callback in `cc-parse-return` has a stated job without importing those later lessons.
 
-Sources: [switch-unwind helper and return parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L740-L803) and [shared epilogue](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L349-L359).
+Sources: [switch-unwind helper and return parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L740-L803) and [shared epilogue](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L349-L359).
 
 ## Practice: construct, explain, then change one condition
 

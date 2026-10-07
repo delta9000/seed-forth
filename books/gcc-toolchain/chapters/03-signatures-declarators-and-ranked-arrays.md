@@ -25,6 +25,16 @@ type; it is separate from the bytes of a target C object. A **prototype** gives
 parameter types, while a definition additionally needs parameter names for its
 body.
 
+## Additional declaration forms
+
+The selected System V provider now admits function-type typedefs and
+block-scope function declarations, retaining and checking signatures. `_Bool`
+is a one-byte unsigned scalar of lowest rank. Empty parentheses on a function
+definition mean zero parameters when checked against a prior prototype. K&R
+float parameter entry conversion remains rejected by the aggregate provider.
+See [function typedefs](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L315-L344),
+[block declarations and definition entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1263-L1357).
+
 ## Read outward from the name
 
 For `int answer(void);`, the name denotes a function with no parameters and an
@@ -46,9 +56,9 @@ order. The address carrier is eight bytes in both pointer cases, but its use
 still needs the retained signature.
 
 Sources: [signature
-fields](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L54-L78),
+fields](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L54-L78),
 [parameter lists and
-signatures](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L351-L560).
+signatures](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L377-L585).
 
 ## Give recursive parsing its own frame
 
@@ -71,9 +81,9 @@ saved lexer mark restores the reader, not newly allocated descriptors or symbol
 rows.
 
 Sources: [native contexts and counted
-bases](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L1-L246),
+bases](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L1-L250),
 [type-name
-context](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L562-L619).
+context](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L587-L644).
 
 ## Build a layout before allocating an instance
 
@@ -95,9 +105,9 @@ stable while its mutable table moves. G14 will add bitfield metadata without
 redefining that distinction.
 
 Sources: [field layout, promotion and tag
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L384-L477),
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L388-L481),
 [ordinary and tag
-namespaces](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L10-L30).
+namespaces](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L10-L30).
 
 ## Retain a row instead of flattening its shape
 
@@ -120,9 +130,9 @@ assignment may add the permitted outer qualifier but may not silently discard
 it.
 
 Sources: [bounded ranked arrays and
-qualification](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L79-L218),
+qualification](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L79-L218),
 [shape
-compatibility](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L682-L790).
+compatibility](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L709-L819).
 
 ## Keep storage production separate from declaration shape
 
@@ -146,11 +156,11 @@ queuing executable initialization routines. Source provenance and selected
 behavior are separate questions.
 
 Sources: [symbol/storage and declaration
-consumers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L496-L638),
+consumers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L500-L642),
 [initializer frames and
-inference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L15-L134),
+inference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L15-L131),
 [recursive child
-traversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L182-L283).
+traversal](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L179-L280).
 
 ## Compare what the compiler actually retains
 
@@ -174,7 +184,7 @@ and rebuild the affected objects; linking cannot reconstruct lost source-level
 type facts.
 
 Sources: [signature compatibility and implicit
-records](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L837-L939).
+records](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L866-L990).
 
 ## Follow a type through a declaration and a use
 
@@ -207,9 +217,9 @@ where it is attached rather than writing one undifferentiated “const” flag
 beside the whole declaration.
 
 Sources: [bounded ranked arrays and
-qualification](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L79-L218),
+qualification](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L79-L218),
 [shape
-compatibility](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L682-L790).
+compatibility](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L709-L819).
 
 ## Keep recursive work inside its frame
 
@@ -243,19 +253,19 @@ sized descriptor. Keep the shared traversal separate from the selected consumer
 that writes constants or schedules execution.
 
 Sources: [native contexts and counted
-bases](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L1-L246),
+bases](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L1-L250),
 [type-name
-context](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L562-L619),
+context](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L587-L644),
 [field layout, promotion and tag
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L384-L477),
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L388-L481),
 [ordinary and tag
-namespaces](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L10-L30),
+namespaces](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L10-L30),
 [symbol/storage and declaration
-consumers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L496-L638),
+consumers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L500-L642),
 [initializer frames and
-inference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L15-L134),
+inference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L15-L131),
 [recursive child
-traversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L182-L283).
+traversal](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L179-L280).
 
 ## Compare interfaces before comparing names
 
@@ -280,11 +290,11 @@ arithmetic and the selected parser's contracts; they do not record a new run of
 a mismatched-interface program.
 
 Sources: [signature
-fields](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L54-L78),
+fields](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L54-L78),
 [parameter lists and
-signatures](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L351-L560),
+signatures](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L377-L585),
 [signature compatibility and implicit
-records](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L837-L939).
+records](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L866-L990).
 
 ## Change a declaration without changing its storage width
 
@@ -329,19 +339,19 @@ dimensions; a future compiled fixture should retain actual descriptors or
 emitted storage evidence before reporting agreement.
 
 Sources: [field layout, promotion and tag
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L384-L477),
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L388-L481),
 [ordinary and tag
-namespaces](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L10-L30),
+namespaces](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L10-L30),
 [bounded ranked arrays and
-qualification](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L79-L218),
+qualification](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L79-L218),
 [shape
-compatibility](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L682-L790),
+compatibility](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L709-L819),
 [symbol/storage and declaration
-consumers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L496-L638),
+consumers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L500-L642),
 [initializer frames and
-inference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L15-L134),
+inference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L15-L131),
 [recursive child
-traversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L182-L283).
+traversal](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/118-cc-native-init.fth#L179-L280).
 
 ## Stop, then change the boundary
 

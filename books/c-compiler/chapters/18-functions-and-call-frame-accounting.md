@@ -4,7 +4,7 @@ At zero-based row two (`r=2`) of the recurring `tri.c`, `main` calls `line(1, 5)
 
 If those two names referred to the same cell, `n = n - 1` would change the array element too. Keep that prediction in mind as we locate both cells and follow the return.
 
-**Profile and evidence.** We use the legacy, fixed-address Linux/x86-64 compiler in [`114-cc-func.fth`, revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth): `cc-target-lp64=0`, `cc-target-sysv=0`, and default emission/lookup hooks. The traces are manual derivations; no compiler or generated program was run. This is a restricted register-calling convention, despite source comments naming “SYS-V.” Later sections distinguish the native providers and account for all 310 source lines.
+**Profile and evidence.** We use the legacy, fixed-address Linux/x86-64 compiler in [`114-cc-func.fth`, revision `bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth): `cc-target-lp64=0`, `cc-target-sysv=0`, and default emission/lookup hooks. The traces are manual derivations; no compiler or generated program was run. This is a restricted register-calling convention, despite source comments naming “SYS-V.” Later sections distinguish the native providers and account for all 310 source lines.
 
 For this first call, recall [C09's CALL/RET, prologue, and slot addressing](09-instructions-inside-an-executable.md) and [C14's argument staging](14-expressions-and-constant-evaluation.md). We will supply the particular array and stack coordinates rather than ask you to reconstruct them from earlier chapters.
 
@@ -75,7 +75,7 @@ The sequence puts zero in RAX, discards the frame, restores the caller's frame b
 
 These bytes are present even after `main`'s explicit returns. An executed explicit RET has already left the function, so it cannot run into this later zero and overwrite its result. A path that does reach the tail returns zero. The compiler does not remove unreachable copies of the tail.
 
-Source: [implicit return plus scope pop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L304-L310).
+Source: [implicit return plus scope pop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L304-L310).
 
 ## Follow `line(1, 5)` across the boundary
 
@@ -195,7 +195,7 @@ After reading `line`, the compiler will read `int`, `pad`, and `n`. Each new tok
 
 The name variables copy an address and length, not the name bytes. Their validity still depends on C06's retained source-buffer lifetime. `cc-main-name-bytes` supplies four comparison bytes beginning with `main`; `cc-is-main? ( address length -- flag )` first requires length four, then compares exactly four bytes. `mainly`, `Main`, and a non-four-byte name fail that test. A length mismatch drops both inputs and returns zero; equal bytes return the comparison's true flag.
 
-Source: [bookkeeping and name test](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L12-L30).
+Source: [bookkeeping and name test](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L12-L30).
 
 ## Consume a return spelling without inventing a signature
 
@@ -213,7 +213,7 @@ The star scanner leaves the next token pending. Thus after consuming `const char
 
 The eventual function symbol is always registered with legacy `int`, pointer depth zero. A source return spelling such as `char *` is not preserved there. Every result still uses one RAX-sized value under this path, and there is no full parameter signature recorded for argument checking. This explains why recognizing `(void)` below should not be mistaken for storing the standard distinction between old-style and prototype declarations.
 
-Source: [return-spelling consumer and function-name entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L173-L230).
+Source: [return-spelling consumer and function-name entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L173-L230).
 
 ## Publish the function before opening its scope
 
@@ -257,7 +257,7 @@ The saved prior ID can name something other than a function. Resolution runs onl
 
 At this point no parameter or body instructions have been appended. Parameter parsing adds compiler metadata but no target code, so the current output address remains the first byte of the forthcoming prologue. Patching existing fields also leaves the append cursor unchanged. Recording `cc-main-vaddr` uses that same address only when `cc-is-main?` succeeds. It does not invoke `main`, patch the entry CALL, or create the process-entry stub; C19 owns those operations.
 
-Source: [publication, both fixup walks, and main detection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L232-L271). C19's prototype producer supplies an unresolved `sk-func` value zero and avoids re-adding an already-visible function; see [`cc-register-fn-proto`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L290-L330).
+Source: [publication, both fixup walks, and main detection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L232-L271). C19's prototype producer supplies an unresolved `sk-func` value zero and avoids re-adding an already-visible function; see [`cc-register-fn-proto`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L290-L330).
 
 ## Begin each function with clean control bookkeeping
 
@@ -284,7 +284,7 @@ The C16/C17 body parsers supply these operations:
 
 The reset does not preserve some outer function context on a stack. This top-level definition path is not a nested-function compiler. It relies on the body consumers restoring their nested control state on normal parser return.
 
-Sources: [function resets](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L273-L284), [compound entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L18-L35), [statement dispatcher](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L860-L905), and [switch-unwind interface](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L740-L803).
+Sources: [function resets](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L273-L284), [compound entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L18-L35), [statement dispatcher](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L860-L905), and [switch-unwind interface](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L740-L803).
 
 ## Give each parameter a local identity
 
@@ -344,7 +344,7 @@ For a contrasting parameter `const struct tri *p`, strict lookup obtains descrip
 
 **Pause point.** Save “function marker includes its definition; `pad` slot 0, `n` slot 1; both counts 2; `)` consumed.” On returning, predict the first emitted byte and which target instruction first writes parameter storage. This checkpoint separates completed compiler metadata from target work that has not happened yet.
 
-Sources: [ordinary parameter loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L42-L119), [empty/void cases](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L121-L147), and C15's [qualifier/star helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L121-L140) and [basic keyword scanner](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L531-L554).
+Sources: [ordinary parameter loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L42-L119), [empty/void cases](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L121-L147), and C15's [qualifier/star helpers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L121-L140) and [basic keyword scanner](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L531-L554).
 
 ## Parameter limits are three different limits
 
@@ -360,7 +360,7 @@ Meanwhile C14's legacy caller rejects **more than six argument expressions** wit
 
 The missing step is the transfer of a seventh incoming value. Allocating a slot and accepting a name do not supply it.
 
-Sources: [spills](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L149-L170), [fixed-frame selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L286-L292), [slot limit](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L29-L46), [register-store encoders](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L180-L216), and [legacy caller](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L580-L666).
+Sources: [spills](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L149-L170), [fixed-frame selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L286-L292), [slot limit](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L29-L46), [register-store encoders](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L180-L216), and [legacy caller](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L586-L672).
 
 ## Let statements consume their own interiors
 
@@ -380,7 +380,7 @@ There is no extra compound-parser scope for the function's outer braces: the fun
 
 The loop does not stop when it emits an explicit return. It keeps compiling later statements until the matching brace, even if some emitted instructions will be unreachable. It also has no separate end-of-file escape or missing-brace recovery path in `114`; malformed input is not granted a synthetic closing brace.
 
-Source: [`cc-block-end?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L32-L36) and [body loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L294-L302).
+Source: [`cc-block-end?`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L32-L36) and [body loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L294-L302).
 
 ## Every normal route out needs a result and a return destination
 
@@ -393,7 +393,7 @@ In the stated legacy profile there is no return-shape check or typed conversion 
 
 Switch unwind is runtime register/stack work. If two switch saves are open, a valued return emits the result transfer, two `POP RBX` instructions, and then the epilogue. The contract assumes expression evaluation has removed its own temporaries so those POPs reach the actual switch-save cells. Resetting RSP from RBP alone would discard storage but would not restore RBX's saved contents. The default epilogue's callee-restore hook emits no additional bytes; the switch consumer owns these saves.
 
-Source: [explicit-return implementation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L770-L803).
+Source: [explicit-return implementation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L770-L803).
 
 ### Add a body local and an explicit result
 
@@ -432,7 +432,7 @@ In `117`, parameter index i is represented as slot `−(i+3)`. C09's slot formul
 
 `121`'s `cc-sysv-function` falls back to `cc-native-function` when `cc-target-sysv` is false. Active System V selects signature checks, parameter/varargs hooks, saved-callee state, and tracked temporary depth; merely loading its name or setting LP64 does not make `114` acquire those behaviors.
 
-Sources: [`117`, native parameter/frame seams](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L1-L77) and [`121`, function/signature driver](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1193-L1260).
+Sources: [`117`, native parameter/frame seams](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/117-cc-native-program.fth#L1-L77) and [`121`, function/signature driver](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1244-L1341).
 
 ## Practice: join the records, bytes, and lifetimes
 

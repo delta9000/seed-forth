@@ -28,7 +28,7 @@ For the separate expectation question, `)` is punctuation, so it passes the kind
 
 **Next step.** If only the delimiter was wrong, trace current/pending status without calculating types. If types were wrong, keep the shared initial depth in one column and each declarator's added stars in another, then retry with an already-defined pointer typedef.
 
-Source check: [prefix and star scanners](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L95-L183), [basic spellings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L531-L571), and [expectation helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L62-L89).
+Source check: [prefix and star scanners](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L95-L183), [basic spellings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L531-L571), and [expectation helpers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L62-L89).
 
 ## C15-02 — Move the starting slot
 
@@ -57,7 +57,7 @@ Leaving the block removes its appended symbol rows from lookup. It does not redu
 
 **Next step.** If offsets were wrong, draw only the newly reserved slot interval and label its high and low addresses. If reuse was wrong, keep separate columns for symbol count and local-slot count across the scope pop.
 
-Source check: [array payload and reservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L462-L503), [capacity helper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L36-L46), and [scope pop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L160-L167).
+Source check: [array payload and reservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L462-L503), [capacity helper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L36-L46), and [scope pop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth#L160-L167).
 
 ## C15-03 — Separate visibility from storage duration
 
@@ -81,7 +81,7 @@ Changing the static scalar to `static int count[3];` selects `cc-bss-alloc` with
 
 **Next step.** Retry with an initializer containing arithmetic and identify its phase before calculating the arithmetic. If the phases are clear, compare block exit, function return, and compiler completion without assigning all three the same lifetime effect.
 
-Source check: [static and ordinary branches](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L475-L503) and [global storage contracts](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1168-L1210).
+Source check: [static and ordinary branches](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L475-L503) and [global storage contracts](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1168-L1210).
 
 ## C15-04 — Explain the two descriptor chains
 
@@ -120,7 +120,7 @@ Table relocation is different: the stable header still exists and points to the 
 
 **Next step.** If you lost the descriptor during materialization, replay only the two cells “generated RDI meaning” and “compiler associated descriptor.” If you filled in a future descriptor early, annotate every lookup with which tags currently exist, then retry the reversed order.
 
-Source check: [soft lookup and pre-registration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L251-L354) and [field-consumer order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1108-L1158).
+Source check: [soft lookup and pre-registration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L251-L354) and [field-consumer order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1130-L1180).
 
 ## C15-05 — Allocate an object or allocate its pointer
 
@@ -158,7 +158,7 @@ Both pointer rows still associate L; tail's descriptor remains zero. The changed
 
 **Next step.** If depth caused confusion, draw only the bytes allocated by each declaration, excluding all objects merely pointed to. If the base was wrong, number members from zero and require their addresses to increase within one contiguous reservation.
 
-Source check: [struct-local production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L690-L738).
+Source check: [struct-local production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L690-L738).
 
 ## C15-06 — A lookahead is not a signature checker
 
@@ -197,7 +197,7 @@ The separate helper-gate question gives LP64 true and `cc-native-float-types-fwd
 
 **Next step.** If reset was missed, write the reader state before and after the entire peek as the same symbol L, with only its Boolean result new. If nesting was missed, trace parentheses alone first, then reinsert non-parenthesis tokens without changing their counts.
 
-Source check: [function-pointer detector and skip loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L368-L446).
+Source check: [function-pointer detector and skip loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L368-L446).
 
 ## C15-07 — Finish the local contract
 
@@ -225,7 +225,7 @@ For the final dispatch question, `cc-parse-stmt` first scans prefixes and reads 
 
 **Next step.** If token handling was wrong, compare bare and valued branches using only “read/put back/expect.” If code order was wrong, label every action as compiler parsing, generated result placement, generated register restoration, or generated frame teardown, then merge the sequences.
 
-Source check: [return and unwind](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L759-L803), [epilogue](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L349-L359), and [native-first statement dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L865-L890).
+Source check: [return and unwind](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L759-L803), [epilogue](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L349-L359), and [native-first statement dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L865-L890).
 
 ## A later independent check
 

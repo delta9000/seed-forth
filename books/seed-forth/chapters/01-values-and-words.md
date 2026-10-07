@@ -4,7 +4,7 @@ How can a program compute twice a number, then add one, without naming a variabl
 
 By the end of this chapter, you should be able to predict those intermediate results, define a reusable word, and notice when a program asks for an operation its starting stack cannot support. These skills will let you read the language that builds the next layers of the system.
 
-This chapter assumes ordinary arithmetic. We will follow each program one step at a time. It does not assume Forth or machine code. It describes `delta9000/seed-forth` at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`, the source snapshot used by this edition's `direct-gcc-overlay` profile. Here we use only the seed's existing primitives; no GCC knowledge or library loading is needed.
+This chapter assumes ordinary arithmetic. We will follow each program one step at a time. It does not assume Forth or machine code. It describes `delta9000/seed-forth` at revision `bbcc1732152af2d884737272eed870d2410ffe8e`, the source snapshot used by this edition's `direct-gcc-overlay` profile. Here we use only the seed's existing primitives; no GCC knowledge or library loading is needed.
 
 **Evidence boundary:** every stack trace below is a manual derivation from the inspected source. The snippets have not been executed for this chapter. Stack pictures are reasoning aids, not terminal output; setup and execution are deferred.
 
@@ -38,7 +38,7 @@ Each value occupies a **cell**. In this seed, a cell is 64 bits, or eight bytes;
 
 The number `7` still occupies one whole cell. Small values do not make narrower stack entries. Conversely, `300` fits in a cell even though it exceeds a single byte's unsigned range, `0` through `255`.
 
-For now, distinguish the unit from the value: **eight bytes per cell; one number per stack entry**. Where bytes live, and how to read or write them using addresses, is the next chapter's subject. The seed's actual stack representation follows its [register convention and eight-byte stack operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L53-L105); you do not need to decode those instructions yet.
+For now, distinguish the unit from the value: **eight bytes per cell; one number per stack entry**. Where bytes live, and how to read or write them using addresses, is the next chapter's subject. The seed's actual stack representation follows its [register convention and eight-byte stack operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L53-L105); you do not need to decode those instructions yet.
 
 ## Words describe changes to the stack
 
@@ -61,15 +61,15 @@ For example, `dup` changes `[9, 7]` to `[9, 7, 7]`. Then `+` changes it to `[9, 
 
 Stack effects are a contract to check while reading. They are not automatic checks performed by the seed. In particular, `dup` needs at least one input and `+` needs at least two.
 
-The implementations are short enough to locate directly: [`dup_code`, `drop_code`, and `swap_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L76-L105), [`plus_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L191-L199), and [`divide_code` and `star_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L224-L249).
+The implementations are short enough to locate directly: [`dup_code`, `drop_code`, and `swap_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L76-L105), [`plus_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L191-L199), and [`divide_code` and `star_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L224-L249).
 
 ## Getting a number onto the stack
 
 In this seed, write `[lit] 7` to push the number seven. `[lit]` is one word, brackets included. It reads the next token as unsigned decimal digits. A **token** is a piece of input text separated from its neighbors by whitespace; here, `[lit]` and `7` are two tokens, with the first telling the system how to handle the second.
 
-Do not omit `[lit]`. The ordinary input loop looks up names; it has no fallback that interprets an unknown name as a number. A bare `7` does not push seven. The source makes this division of work explicit in [`bracket_lit_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L577-L600) and the [`repl` input loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L664-L689).
+Do not omit `[lit]`. The ordinary input loop looks up names; it has no fallback that interprets an unknown name as a number. A bare `7` does not push seven. The source makes this division of work explicit in [`bracket_lit_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L577-L600) and the [`repl` input loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L664-L689).
 
-Use digits without a sign or a base prefix: `[lit] 15` is valid; `[lit] -1` and `[lit] 0xF` are not. This restriction comes from [`parse_decimal_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L633-L662). Our examples use decimal values within the cell's range.
+Use digits without a sign or a base prefix: `[lit] 15` is valid; `[lit] -1` and `[lit] 0xF` are not. This restriction comes from [`parse_decimal_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L633-L662). Our examples use decimal values within the cell's range.
 
 These study inputs execute their operations from left to right:
 
@@ -126,7 +126,7 @@ dup            [n, n]
 
 Here `2n` and `2n+1` are mathematical labels in a paper trace, not seed input. One value enters and one leaves. Deeper values survive: starting with `[99, 7]` would leave `[99, 15]`.
 
-This is the definition contract we need now. The machine mechanism that builds and calls a definition comes later. The relevant source boundaries are [`colon_code` and `semicolon_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L515-L549). The library uses the same composition pattern in its small [`1+` definition](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L42-L45); we have written those operations explicitly rather than assuming that library word is loaded.
+This is the definition contract we need now. The machine mechanism that builds and calls a definition comes later. The relevant source boundaries are [`colon_code` and `semicolon_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L515-L549). The library uses the same composition pattern in its small [`1+` definition](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L42-L45); we have written those operations explicitly rather than assuming that library word is loaded.
 
 ## Division reveals the order
 
@@ -146,7 +146,7 @@ Seven divided by fifteen has integer quotient zero. This is why “take the top 
 
 The same stack contracts hold for large cells, but their arithmetic is not unbounded. `+` and `*` retain only the low 64 bits of their result. Equivalently, an unsigned result wraps around at 2 raised to the power 64. Thus adding one to `18446744073709551615` leaves zero. Multiplication retains one cell, not an arbitrarily large product.
 
-The source uses a multiply instruction named `imul`; retaining only its low half gives the same 64-bit result for signed and unsigned interpretations of the inputs. Division is different: the seed explicitly uses unsigned division. Do not import signed-division behavior from another Forth implementation. These properties follow from the [arithmetic implementations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L191-L249).
+The source uses a multiply instruction named `imul`; retaining only its low half gives the same 64-bit result for signed and unsigned interpretations of the inputs. Division is different: the seed explicitly uses unsigned division. Do not import signed-division behavior from another Forth implementation. These properties follow from the [arithmetic implementations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L191-L249).
 
 ## Where a trace must stop
 

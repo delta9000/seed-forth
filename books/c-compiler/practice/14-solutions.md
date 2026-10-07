@@ -2,7 +2,7 @@
 
 [Back to the chapter](../chapters/14-expressions-and-constant-evaluation.md)
 
-These are checked **manual source derivations** for revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`. They are not compiler runs, generated-program observations, or conformance tests. Every memory value, valid pointer, and symbol record is a supplied premise. Use as much help as is useful; a partial state trace is enough to identify the next repair.
+These are checked **manual source derivations** for revision `bbcc1732152af2d884737272eed870d2410ffe8e`. They are not compiler runs, generated-program observations, or conformance tests. Every memory value, valid pointer, and symbol record is a supplied premise. Use as much help as is useful; a partial state trace is enough to identify the next repair.
 
 ## Entry check
 

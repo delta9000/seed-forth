@@ -22,7 +22,7 @@ Here and in the feedback, logical stacks have their top at the right. Machine-st
 
 **Quick diagnostic.** A CALL begins at file offset 100, and its target is at file offset 140. Which offset must be saved, how many bytes are patched, and what displacement is stored? The answers are 101, four, and `140−105=35`. An arena node that stores 101 is neither at target address `0x400065` nor necessarily at builder address 101. If that last distinction is uncertain, use the coordinate table below. If all three answers and their reasons are clear, skim the call and node traces, then try the mixed exercises.
 
-**Source boundary.** The primary source is [090-cc-emit.fth at revision 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth). We open small consumers in `100`, `112`, `114`, and `116` so every deferred-address promise here reaches a patch. Later chapters still own their full parsing, scope, and control flow. Numerical states and produced bytes below are manually derived from those definitions, not observed compiler output.
+**Source boundary.** The primary source is [090-cc-emit.fth at revision bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth). We open small consumers in `100`, `112`, `114`, and `116` so every deferred-address promise here reaches a patch. Later chapters still own their full parsing, scope, and control flow. Numerical states and produced bytes below are manually derived from those definitions, not observed compiler output.
 
 ## First make a call whose destination is already known
 
@@ -35,7 +35,7 @@ The main path is the **restricted legacy convention**: `cc-target-lp64` is zero,
 
 This matches the familiar integer-register order without establishing a complete System V ABI implementation. Register order alone says nothing about aggregate classification, preservation of every required register, variadic calls, or alignment through arbitrary nested expressions. Our call traces begin at a stated valid call boundary. Restoring a stack depth after argument staging is not a proof about every intermediate nested call.
 
-In the restricted branch of [`cc-parse-call`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L589-L666), each argument is parsed left-to-right and its RDI value is pushed. This is this implementation's evaluation order, not a general C-language guarantee. After checking the count, the compiler emits pops in reverse index order. Why reverse? The last evaluated argument is nearest the machine stack's top, but it belongs in the last argument register.
+In the restricted branch of [`cc-parse-call`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L595-L672), each argument is parsed left-to-right and its RDI value is pushed. This is this implementation's evaluation order, not a general C-language guarantee. After checking the count, the compiler emits pops in reverse index order. Why reverse? The last evaluated argument is nearest the machine stack's top, but it belongs in the last argument register.
 
 For a call with values `(2,3,42)`, start with machine RSP=S and no outstanding staging values:
 
@@ -66,7 +66,7 @@ CALL bytes at 1024 = E8 8D FC FF FF
 result move afterward = 48 89 C7
 ```
 
-[`cc-emit-call-vaddr`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L444-L483) emits E8 first. At that point the current position names the operand's first byte, so it subtracts `cc-here-vaddr+4` from the target and emits the low four bytes.
+[`cc-emit-call-vaddr`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L450-L489) emits E8 first. At that point the current position names the operand's first byte, so it subtracts `cc-here-vaddr+4` from the target and emits the low four bytes.
 
 For the small runtime bridge, assume a successful one-byte write. At shim entry the return address is already on the CPU stack. `putchar` pushes RDI to make a scratch area whose first byte is `2A`, asks Linux to write one byte to file descriptor 1, removes its scratch, and returns. RAX then contains 1, so the caller's result move makes RDI=1. It does not return 42 on this path. C11 opens the syscall bytes, failures, and the contrasting `fputc` contract; no actual write is performed here.
 
@@ -155,7 +155,7 @@ Adding `0x400000` to a builder pointer is not an address translation. Nor does p
 
 ### Open the patch walkers now
 
-The two loops in [`112-cc-stmt.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L139-L171) accept a head **value**, not the head cell's address. Both save the target in `cc-fixup-target-tmp`, a shared builder scratch cell. Their bodies differ at the patch:
+The two loops in [`112-cc-stmt.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L139-L171) accept a head **value**, not the head cell's address. Both save the target in `cc-fixup-target-tmp`, a shared builder scratch cell. Their bodies differ at the patch:
 
 ```forth
 : cc-walk-and-patch-to-vaddr                      ( head target -- )
@@ -205,11 +205,11 @@ Use fresh, chosen paper coordinates, separate from the two-node demonstration:
 
 The CALL displacement becomes `0x400300−(0x400000+513+4)=251`, so bytes at 513–516 become `FB 00 00 00`. The MOVABS field at 530–537 becomes `00 03 40 00 00 00 00 00`. The target is identical; both width and representation differ.
 
-[`cc-parse-function` in 114](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L232-L264) captures the prior symbol ID before registering the new definition. With a prior function symbol, it fetches the call head, runs the relative walker at `cc-here-vaddr`, and writes zero to that owner cell. It then does the corresponding address walk and clears that head. The target is the next emitted byte, the start of the function, rather than an address guessed from the prototype.
+[`cc-parse-function` in 114](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L232-L264) captures the prior symbol ID before registering the new definition. With a prior function symbol, it fetches the call head, runs the relative walker at `cc-here-vaddr`, and writes zero to that owner cell. It then does the corresponding address walk and clears that head. The target is the next emitted byte, the start of the function, rather than an address guessed from the prototype.
 
 Clearing belongs to the definition consumer, not to the walkers. It marks those promises discharged; it does not reclaim their 32 arena bytes. The head cells must remain valid until this operation, and the arena nodes must remain intact while reachable. Resetting or reusing arena storage before walking would destroy the records. C02's arena lifetime and C08's symbol lifetime remain separate responsibilities.
 
-There is another real completion route. [`cc-emit-late-shims` in 116](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L788-L804) checks whether either function head is nonzero, assigns a target, patches both lists, clears both heads, then emits the body. Address-taking alone can demand a late shim. After that opportunity, `cc-check-fns-defined` rejects remaining call or address uses with error 206; absence of `main` is error 207. An unused unresolved prototype with both heads zero is not the same situation. No promise here waits for a separate external linker.
+There is another real completion route. [`cc-emit-late-shims` in 116](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L788-L804) checks whether either function head is nonzero, assigns a target, patches both lists, clears both heads, then emits the body. Address-taking alone can demand a late shim. After that opportunity, `cc-check-fns-defined` rejects remaining call or address uses with error 206; absence of `main` is error 207. An unused unresolved prototype with both heads zero is not the same situation. No promise here waits for a separate external linker.
 
 **Pause point.** To resume, keep the two offsets 513 and 530, the target `0x400300`, and the question “which walker belongs to each?” Recompute one patch before moving to data placement. You need not memorize the Forth loop to preserve its invariant.
 
@@ -234,7 +234,7 @@ This is the emitter's two-way choice, not a proof that it finds the shortest pos
 
 A string token retains source spelling. Its pointer is a borrowed builder address into source storage. The generated program needs a target address pointing to **decoded output bytes**. `cc-emit-string-bytes ( source-address source-length -- )` provides the copy-and-decode step; `cc-parse-string-literal` provides the control-flow wrapper.
 
-The legacy wrapper in [`100`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L677-L723) emits a JMP placeholder, captures the current target address as the string start, emits decoded bytes plus a terminator, patches the JMP to the current position, and finally emits MOVABS of the saved string address. Runtime control skips the bytes and lands on the address load. The bytes remain readable at the saved address.
+The legacy wrapper in [`100`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L683-L729) emits a JMP placeholder, captures the current target address as the string start, emits decoded bytes plus a terminator, patches the JMP to the current position, and finally emits MOVABS of the saved string address. Runtime control skips the bytes and lands on the address load. The bytes remain readable at the saved address.
 
 Use source body `*\n`, whose three source bytes are star, backslash, and `n`. Start at chosen output offset 600:
 
@@ -248,7 +248,7 @@ The saved JMP field offset is 601. Its displacement is `608−(601+4)=3`, the em
 
 ### Escape consumption is not “skip two”
 
-C06's shared [`cc-decode-escape`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L387-L428) receives an address immediately after a backslash and returns `(byte,n)`, where n counts consumed source bytes **after** that backslash. The emitter outputs the byte, advances the source pointer by `n+1`, and reduces the remaining length by the same amount. Ordinary bytes advance by one. A trailing backslash with no following byte is copied literally by the emitter's fallback; that is not a claim that malformed C is diagnosed or valid.
+C06's shared [`cc-decode-escape`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L389-L430) receives an address immediately after a backslash and returns `(byte,n)`, where n counts consumed source bytes **after** that backslash. The emitter outputs the byte, advances the source pointer by `n+1`, and reduces the remaining length by the same amount. Ordinary bytes advance by one. A trailing backslash with no following byte is copied literally by the emitter's fallback; that is not a claim that malformed C is diagnosed or valid.
 
 The decoder already handles `\n`, `\t`, `\r`, `\a`, `\b`, `\f`, and `\v`; one through three octal digits; and hexadecimal digits following `x`. Other escaped characters yield themselves. Numeric results are masked to one byte. For source body `A\101\x2A!`:
 
@@ -269,7 +269,7 @@ An explicit `\0` contributes a payload zero; the emitter still adds the implicit
 
 Inline strings are settled while their wrapper is emitted. Globals require a later placement event, because more code and demanded runtime bodies may still precede the data area.
 
-The storage definitions in [`090`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1098-L1232) describe two areas:
+The storage definitions in [`090`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1098-L1232) describe two areas:
 
 | Area | Builder state | Slot returned | File bytes later? |
 |---|---|---|---|
@@ -282,7 +282,7 @@ The storage definitions in [`090`](https://github.com/delta9000/seed-forth/blob/
 
 `cc-globals-init` sets data position, BSS position, fixup count, and data-base variable to zero, then explicitly clears all 65,536 bytes of `cc-globals-buf`. Reserving data therefore exposes zero bytes until initializers replace them. `cc-globals-store-8le ( value slot -- )` writes eight successive low bytes of the value into that buffer, dividing unsigned by 256 between bytes. It expects a data slot and valid extent; it is not a generic typed aggregate initializer or a BSS writer.
 
-The legacy declaration consumer in [`116`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L369-L431) gives ordinary scalars eight data bytes, whether or not they have initializers. A known struct value receives its descriptor size rounded to eight. Its array form reserves N×8 BSS bytes and records the array length. These are this restricted consumer's forms, not a universal claim that every array under every profile belongs in BSS. Native initialized aggregates and their declaration policy are later material.
+The legacy declaration consumer in [`116`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L369-L431) gives ordinary scalars eight data bytes, whether or not they have initializers. A known struct value receives its descriptor size rounded to eight. Its array form reserves N×8 BSS bytes and records the array length. These are this restricted consumer's forms, not a universal claim that every array under every profile belongs in BSS. Native initialized aggregates and their declaration policy are later material.
 
 ### One reference, two parallel cells
 
@@ -308,7 +308,7 @@ int main(void) {
 
 Now use a fully stated paper layout rather than inventing a parser dump. The restricted declaration contract gives `t` data slot 0, `spare` data slot 8, and `blanks` BSS slot `2^40`. Data length is 16; BSS length is 24. The first eight data bytes are `04 00 00 00 00 00 00 00`; the remaining eight remain zero. Suppose address fields have been recorded at 802 for `t`, 818 for `blanks`, and 834 for `spare`, and finalization begins at output position 1003.
 
-[`cc-finalize-globals`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L489-L515) performs five concrete steps:
+[`cc-finalize-globals`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L489-L515) performs five concrete steps:
 
 1. Save `cc-here-vaddr` in `cc-globals-base-vaddr`: `0x400000+1003 = 0x4003EB`
 2. Append data-buffer indices 0 through 15. Output position becomes 1019
@@ -361,9 +361,9 @@ Appending and patching have different safety contracts. `cc-out-patch-4le` and `
 
 ### Keep profile switches explicit
 
-The legacy path above uses `cc-target-lp64=0` and `cc-target-sysv=0`. The TinyCC recipe in [`tools/tcc-compile.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/tcc-compile.fth) explicitly enables LP64 and direct preprocessing, sets bootstrap floatbits to 1, maps an 8 MiB arena, and chooses `cc-native-program`. Its private call ABI passes arguments in eight-byte stack slots, with argument zero nearest the return address. That is not System V merely because it shares MOV and CALL emitters.
+The legacy path above uses `cc-target-lp64=0` and `cc-target-sysv=0`. The TinyCC recipe in [`tools/tcc-compile.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/tcc-compile.fth) explicitly enables LP64 and direct preprocessing, sets bootstrap floatbits to 1, maps an 8 MiB arena, and chooses `cc-native-program`. Its private call ABI passes arguments in eight-byte stack slots, with argument zero nearest the return address. That is not System V merely because it shares MOV and CALL emitters.
 
-Conversely, [`cc-sysv-enable` in 121](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1256-L1260) explicitly enables System V, LP64, and direct preprocessing, sets bootstrap floatbits to zero, and clears named target state. An appropriate System V program or object driver must also be selected. Its scheduling and complete ABI policy belong later.
+Conversely, [`cc-sysv-enable` in 121](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1337-L1341) explicitly enables System V, LP64, and direct preprocessing, sets bootstrap floatbits to zero, and clears named target state. An appropriate System V program or object driver must also be selected. Its scheduling and complete ABI policy belong later.
 
 Loading provider definitions alone does not select their target. The `121` fixup-head providers use offsets 32 and 40 of a matching persistent implicit-function record only when System V is enabled and that record exists; otherwise they delegate to the default symbol cells. The common node representation survives this owner-cell change. Similarly, push/pop tracking hooks can gain builder bookkeeping without adding instructions to the simple POP encodings above. Do not infer a whole ABI from one hook or one shared emitter.
 

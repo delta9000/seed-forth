@@ -119,7 +119,7 @@ The successfully processed prefix still obeys the invariant. For A, after emitti
 
 **Solution.** Each label record contains an expanded-buffer address, a length, and a target IP. Overwriting the expanded buffer destroys the bytes used by name comparison and also removes the input the second pass must reread. A correct lifetime rule is: retain the unchanged expanded buffer, along with its length and complete label table, until both assembly passes finish. Rewinding the cursor preserves that storage.
 
-Given the capacity scenario, pass 2 can append exactly 1,048,576 bytes. The attempted 1,048,577th append fails with 241 before writing that byte. Its successful first-pass size did not reserve a larger output buffer. The 8,192nd label store succeeds; the 8,193rd fails with 242 before its record is stored.
+Given the capacity scenario, pass 2 can append exactly 1,048,579 bytes. The attempted 1,048,577th append fails with 241 before writing that byte. Its successful first-pass size did not reserve a larger output buffer. The 8,192nd label store succeeds; the 8,193rd fails with 242 before its record is stored.
 
 **Common wrong path.** Assuming `n < cap` rather than the actual `n <= cap` rejects the last valid slot. Applying C21's special raw-input `length+1` post-read rule to every buffer invents a restriction the output appender does not have.
 

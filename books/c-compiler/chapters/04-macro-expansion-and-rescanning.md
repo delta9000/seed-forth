@@ -20,9 +20,9 @@ Our goal is to explain those transitions, including the bytes between them. By t
 
 Cells remain eight bytes; positions and lengths count bytes; stack tops are at the right. `cell[]` computes `array + index*8`. In byte displays, `␠` means one ASCII space, `\n` means one LF byte, and `[1,0]` means two numeric bytes, not printed bracket characters. A zero inside a stored body is permitted because spans carry lengths. Where we say **normalized token spelling**, redundant separating whitespace is deliberately omitted; that is not a byte-for-byte output claim.
 
-**Evidence boundary.** All implementation descriptions refer to inspected [040-cc-prep.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/040-cc-prep.fth) at commit `7d7e1996d1753118181d43e1a413960d3a1ec24b`. The examples are manually derived, unexecuted preprocessing fixtures, not necessarily complete C programs. Unless stated otherwise, storage is sufficient, names have only the definitions shown, and conditional suppression is inactive. No build, conformance comparison, or compiler execution is claimed.
+**Evidence boundary.** All implementation descriptions refer to inspected [040-cc-prep.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/040-cc-prep.fth) at commit `bbcc1732152af2d884737272eed870d2410ffe8e`. The examples are manually derived, unexecuted preprocessing fixtures, not necessarily complete C programs. Unless stated otherwise, storage is sufficient, names have only the definitions shown, and conditional suppression is inactive. No build, conformance comparison, or compiler execution is claimed.
 
-The identifier helpers from [030](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth) recognize a letter or underscore at the start and allow digits afterward. Reading a name returns a borrowed span; comparing it checks length before bytes. No copied zero terminator is needed.
+The identifier helpers from [030](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth) recognize a letter or underscore at the start and allow digits afterward. Reading a name returns a borrowed span; comparing it checks length before bytes. No copied zero terminator is needed.
 
 The main path uses legacy preprocessing: `cc-prep-direct=0`, `cc-pp-location-enabled=0`. Later depth sections explicitly enable `cc-prep-direct`. That switch selects operator encoding, selective argument prescan, token shadows, and tail rescanning. The target-owned `cc-pp-location-enabled` independently selects location and stricter parameter-list behavior. Workspace selection independently chooses storage addresses and capacities. None is shorthand for the other two.
 
@@ -89,7 +89,7 @@ The pool advances by six bytes and the count by two. M need not be zero: the leg
 
 ### Newest wins; undef does not uncover an older version
 
-`cc-macro-find` delegates to [030's `cc-name-find`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth): search from count−1 downward, compare length first, then bytes. A later `#define N 8` appends a record. Lookup finds that record before the earlier `N`.
+`cc-macro-find` delegates to [030's `cc-name-find`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth): search from count−1 downward, compare length first, then bytes. A later `#define N 8` appends a record. Lookup finds that record before the earlier `N`.
 
 `#undef N` repeatedly performs the same search and sets each matching name length to zero. It forgets both versions. It neither uncovers the earlier value nor reduces count nor reclaims pool bytes. Definitions and hidden records occupy storage until the next pass resets count and pool position.
 
@@ -197,7 +197,7 @@ A macro-region newline becomes one space and increments `cc-pp-pending-nl`. A ma
 
 For the exact invocation bytes `ID(\nN)`, the raw argument is LF then N. Prescan produces `␠␠␠7␠␠`, length six, and owes one newline: one leading scan space, one space replacing LF, then N's `␠7␠`, then the closing scan space. Substitution and replacement scanning add two spaces each. The call therefore contributes five leading spaces, `7`, four trailing spaces, and then the owed LF. A following source newline is still separate.
 
-Do not infer a universal original-file diagnostic mapping. [020's emitter/error contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth) tracks the flattened progress counter, and emitting internal marker byte 10 can spuriously increment it, an inherited limitation documented in the historical chapter. Location macros have their own C05 contract.
+Do not infer a universal original-file diagnostic mapping. [020's emitter/error contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/020-cc-arena.fth) tracks the flattened progress counter, and emitting internal marker byte 10 can spuriously increment it, an inherited limitation documented in the historical chapter. Location macros have their own C05 contract.
 
 ## Direct depth: two spellings of an argument
 
@@ -295,7 +295,7 @@ For this case the rewind is O+1, retaining ALIAS's initial separator. F consumes
 
 Function expansion uses the same tail hook after its call scratch has been released. The text needed for tail lookup is already in the output sink. Location-rescan state is bracketed separately so C05's location interface can distinguish this cross-region call. `cc-pp-rescan-tail-fwd` is bound to the real tail word after its definition, just as the scanner uses a deferred entry.
 
-This is a final-token strategy, not general rescanning of every emitted token against every future input. The [historical chapter's suppression discussion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/22-the-preprocessor.md) records remaining boundaries involving deferred-empty tails, stringification of inserted argument padding, and preprocessing numbers with exponent signs. Arbitrary token joins in replacement bodies and complete variadic/hide-set behavior are outside the established contract. Our small derivations do not remove those limitations.
+This is a final-token strategy, not general rescanning of every emitted token against every future input. The [historical chapter's suppression discussion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/22-the-preprocessor.md) records remaining boundaries involving deferred-empty tails, stringification of inserted argument padding, and preprocessing numbers with exponent signs. Arbitrary token joins in replacement bodies and complete variadic/hide-set behavior are outside the established contract. Our small derivations do not remove those limitations.
 
 ## Reassemble the identifier decision
 
@@ -309,9 +309,9 @@ The pieces now give an inspectable order for `cc-pp-ident-work`:
 6. For a negative parameter tag, enter object dispatch; otherwise look ahead for a call and expand only on success
 7. After expansion returns to a file region, flush owed newlines
 
-C03's scanner protects literals, comments, and digit-starting runs before reaching this decision. Its macro-text branches replace newlines/comments with separators and retain the appropriate newline debt. The later [050 lexer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth) then receives expanded bytes and skips separating whitespace/comments; this chapter has not evaluated a C expression.
+C03's scanner protects literals, comments, and digit-starting runs before reaching this decision. Its macro-text branches replace newlines/comments with separators and retain the appropriate newline debt. The later [050 lexer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth) then receives expanded bytes and skips separating whitespace/comments; this chapter has not evaluated a C expression.
 
-One additional reusable operation, `cc-pp-line-slice`, borrows the rest of a directive up to its terminating newline, advancing the caller there without consuming that terminator. It walks literals, comments, and recognized continuations in drop mode to find the boundary; their original bytes remain in the borrowed slice. C05 uses that span with these same temporary sinks and expansion regions for conditional expressions, computed includes, and line-control operands. Its expression evaluator is supplied by the later [100 module](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth), not by the macro engine.
+One additional reusable operation, `cc-pp-line-slice`, borrows the rest of a directive up to its terminating newline, advancing the caller there without consuming that terminator. It walks literals, comments, and recognized continuations in drop mode to find the boundary; their original bytes remain in the borrowed slice. C05 uses that span with these same temporary sinks and expansion regions for conditional expressions, computed includes, and line-control operands. Its expression evaluator is supplied by the later [100 module](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth), not by the macro engine.
 
 ## Practice: predict the intermediate representation
 

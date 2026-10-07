@@ -32,7 +32,7 @@ the byte-range proof and `space?` trace. The overflow boundary matters even
 if familiar Forth names make the definitions look routine.
 
 **Edition and evidence.** This is the Linux/x86-64 seed at
-[commit 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b).
+[commit bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e).
 All examples below are manual derivations from inspected source, not executed
 observations. Assume the named library words are available when tracing a
 call. These excerpts explain their behavior; they are not a build procedure.
@@ -416,12 +416,12 @@ contracts forward.
 ## Source and evidence
 
 The exact library definitions are in
-[`010-lib.fth`, character classifiers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L71-L95)
-and [comparison operators](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L97-L137).
+[`010-lib.fth`, character classifiers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L71-L95)
+and [comparison operators](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L97-L137).
 The primitive contracts come from
-[`zeq_code` and unsigned `divide_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L212-L237),
+[`zeq_code` and unsigned `divide_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L212-L237),
 with the unsigned literal reader in
-[`parse_decimal_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L633-L662).
+[`parse_decimal_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L633-L662).
 The domain arguments and examples are derived under those contracts. No
 build, seed execution, timing comparison, or whole-project range audit is
 claimed. See the [edition record](../../EDITION.md) for the shared boundary.

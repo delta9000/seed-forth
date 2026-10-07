@@ -12,13 +12,13 @@ Bring the [logical stack](01-values-and-words.md), [memory widths](02-addresses-
 
 Quick check: from `[99, 7, 3]`, `swap drop` leaves `[99, 3]`. A store uses `[value, address]`; `r@` copies a borrowed value but leaves it parked. Revisit the relevant contract if any answer needs unpacking. Experienced readers can attempt S12-01 and S12-04 before deciding which traces to skim.
 
-**Evidence boundary.** We inspect `000-seed.hex0` at [revision 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0). GNU objdump 2.44 independently decoded these exact body ranges from the source-decoded 1,772-byte image, as x86-64 binary in Intel syntax with base `0x400000`. That is a static disassembler observation, not a seed execution. State tables are manual derivations; the ISA references support instruction meanings. Nothing here requires building or running the seed.
+**Evidence boundary.** We inspect `000-seed.hex0` at [revision bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0). GNU objdump 2.44 independently decoded these exact body ranges from the source-decoded 1,772-byte image, as x86-64 binary in Intel syntax with base `0x400000`. That is a static disassembler observation, not a seed execution. State tables are manual derivations; the ISA references support instruction meanings. Nothing here requires building or running the seed.
 
 ## The rule that a primitive must restore
 
 Here “physical” means the registers-and-memory representation; displayed memory addresses are process virtual addresses, not physical RAM locations. Assume enough real operands and usable stack space, intact return destinations, and no accidental writes into live stack storage. The bodies do not enforce these preconditions.
 
-Let `B = 0x411000`, the initial data-stack pointer. At startup, `rbp=B` and `rdi=0`, but the logical data stack is empty. Zero is the **dummy cache value**, not a user-supplied zero. These facts follow from the [startup and register convention](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L53-L65).
+Let `B = 0x411000`, the initial data-stack pointer. At startup, `rbp=B` and `rdi=0`, but the logical data stack is empty. Zero is the **dummy cache value**, not a user-supplied zero. These facts follow from the [startup and register convention](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L53-L65).
 
 At completed word boundaries during valid stack use:
 
@@ -44,7 +44,7 @@ Memory entries here are eight-byte little-endian cells. The table lists increasi
 
 ### Derive those two values
 
-A push saves the old cache before replacing it. The [literal implementation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L568-L575) and Chapter 8's generated constant body both use that shape. Below we isolate its **data-stack actions**, omitting literal reading and call bookkeeping:
+A push saves the old cache before replacing it. The [literal implementation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L568-L575) and Chapter 8's generated constant body both use that shape. Below we isolate its **data-stack actions**, omitting literal reading and call bookkeeping:
 
 | Action completed | `rbp` | `rdi` | Memory written |
 |---|---|---:|---|
@@ -66,7 +66,7 @@ Source labels distinguish a dictionary header from executable code. We audit onl
 
 ### `dup`: save the cache without replacing it
 
-[`dup_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L81-L84), `[0x0C7, 0x0D0)`, 9 bytes:
+[`dup_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L81-L84), `[0x0C7, 0x0D0)`, 9 bytes:
 
 ```text
 0C7  48 83 ED 08    sub rbp, 8
@@ -93,7 +93,7 @@ From our two-value reset, subtraction gives `rbp=B-24`; the store writes 3 there
 
 ### `drop`: change which cells are live
 
-[`drop_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L91-L94), `[0x0DE, 0x0E7)`, 9 bytes:
+[`drop_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L91-L94), `[0x0DE, 0x0E7)`, 9 bytes:
 
 ```text
 0DE  48 8B 7D 00    mov rdi, [rbp+0]
@@ -109,7 +109,7 @@ Two further valid drops restore 7, then the dummy, ending with `D=[]`, `rbp=B`. 
 
 ### `swap`: preserve a value before overwriting its home
 
-[`swap_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L101-L105), `[0x0F5, 0x101)`, 12 bytes:
+[`swap_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L101-L105), `[0x0F5, 0x101)`, 12 bytes:
 
 ```text
 0F5  48 8B 45 00    mov rax, [rbp+0]
@@ -130,7 +130,7 @@ Keep Chapter 4's ownership boundary: an executing colon invocation may borrow sl
 
 ### `>r`: put the value under this call's destination
 
-[`to_r_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L112-L118), `[0x10D, 0x119)`, 12 bytes:
+[`to_r_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L112-L118), `[0x10D, 0x119)`, 12 bytes:
 
 ```text
 10D  58             pop rax
@@ -157,7 +157,7 @@ The final two data instructions remove 3 from D, leaving `[7]`. Restoring the de
 
 ### `r>`: recover the value without losing the continuation
 
-[`r_from_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L125-L131), `[0x125, 0x131)`, 12 bytes:
+[`r_from_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L125-L131), `[0x125, 0x131)`, 12 bytes:
 
 ```text
 125  48 83 ED 08    sub rbp, 8
@@ -174,7 +174,7 @@ Then `pop rax` removes this call's destination, advancing `rsp` to `S-8`. `pop r
 
 ### `r@`: skip exactly one destination
 
-[`r_at_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L138-L145), `[0x13D, 0x14E)`, 17 bytes:
+[`r_at_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L138-L145), `[0x13D, 0x14E)`, 17 bytes:
 
 ```text
 13D  48 8B 44 24 08 mov rax, [rsp+8]
@@ -199,7 +199,7 @@ The same `[rsp+8]` now contains `ret(helper)`. `r@` does not search for the call
 
 ## Fetches replace the address in the cache
 
-[`fetch_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L152-L154), `[0x159, 0x15D)`, 4 bytes:
+[`fetch_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L152-L154), `[0x159, 0x15D)`, 4 bytes:
 
 ```text
 159  48 8B 3F       mov rdi, [rdi]
@@ -210,7 +210,7 @@ The same `[rsp+8]` now contains `ret(helper)`. `r@` does not search for the call
 
 For paper memory at address `A` containing hex bytes `34 12 00 00 00 00 00 00`, `[99,A]` becomes `[99,4660]`. The eight-byte load uses little-endian order.
 
-[`cfetch_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L174-L176), `[0x188, 0x18D)`, 5 bytes:
+[`cfetch_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L174-L176), `[0x188, 0x18D)`, 5 bytes:
 
 ```text
 188  48 0F B6 3F    movzx rdi, byte [rdi]
@@ -230,7 +230,7 @@ rdi=A       rbp=B-24
 [B-24]=4660     [B-16]=99     [B-8]=dummy
 ```
 
-[`store_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L161-L167), `[0x168, 0x17C)`, 20 bytes:
+[`store_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L161-L167), `[0x168, 0x17C)`, 20 bytes:
 
 ```text
 168  48 8B 45 00    mov rax, [rbp+0]
@@ -254,7 +254,7 @@ Follow all six instructions:
 
 The two additions remove two inputs, but neither frees an “address slot”: the address was in `rdi`. One passes the value's memory slot; the other passes the slot whose contents become the new cache. If there were no older logical values, step 4 would load the dummy instead, leaving the empty representation. If the older prefix had several values, only its top would move into the cache; the rest would remain in memory.
 
-[`cstore_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L183-L189), `[0x199, 0x1AC)`, 19 bytes:
+[`cstore_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L183-L189), `[0x199, 0x1AC)`, 19 bytes:
 
 ```text
 199  48 8B 45 00    mov rax, [rbp+0]

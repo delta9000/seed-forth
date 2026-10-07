@@ -126,7 +126,7 @@ boundary, and the third supplies a starting step.
 
 1. Separate named planning from tail retrieval.
 2. Check which classes the retrieval provider implements.
-3. A later fixed-signature aggregate planner does not add aggregate va_arg.
+3. Inspect cc-ag-va-record separately from named-argument planning.
 
 ## Worked solutions
 
@@ -228,8 +228,9 @@ extent.
 The original question asks: Does a named record’s effect on va_start imply
 unnamed aggregate va_arg?
 
-No. The planner computes named class consumption, while aggregate variadic
-retrieval remains unsupported.
+Named planning alone does not imply retrieval. At this pin a separate 131
+provider supplies it: all INTEGER chunks must fit remaining GP slots, otherwise
+the whole record uses aligned overflow. Floating-member records still reject.
 
 **Check your explanation:** Separate named planning from tail retrieval. A
 matching final answer without that reason leaves the mechanism uncertain. If
@@ -284,7 +285,8 @@ execution claim merely because the paper result is consistent.
 
 ### Check G12-07 — Bound aggregate support
 
-Its size alone does not add a missing retrieval contract. Accept an explanation
+Size alone does not determine class. An admitted two-eightbyte INTEGER record
+uses two consecutive GP slots only if both fit; otherwise it uses overflow. Accept an explanation
 that follows the changed premise and retains the unmodified contracts. Do not
 accept a new execution claim merely because the paper result is consistent.
 

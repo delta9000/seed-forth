@@ -41,7 +41,7 @@ here supply zero arguments. Its value is whatever `answer` returns.
 `return answer();` therefore calls `answer`, then returns its result from
 `main`. Do not replace `(void)` in the declaration with `()`: at this pin,
 an empty declaration list leaves the parameter specification unspecified.
-The [signature parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L512-L534)
+The [signature parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L537-L559)
 makes that distinction.
 
 Predict two things before going further: what should `main` return, and
@@ -50,6 +50,16 @@ which source asks to print it?
 `main` should return seven. Neither source requests output. Moving the
 calculation to another function changes who supplies the value, not its
 destination.
+
+## The native driver entrance
+
+The command card below keeps the Python adapter's spelling. At this edition,
+`./seed-forth < tools/seed-cc-start.fth` also builds
+`build-out/seed-cc/seed-cc` and `seed-ar`; substituting that native compiler
+path gives the same admitted seed input and outputs. These C drivers organize
+arguments, snapshots and publication; Forth still produces objects and links.
+Their separate cache is `build-out/seed-cc-cache`. This is a source-inspected
+alternative, not an executed command card. See [the native contract and reported equivalence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/SEED-CC.md#L1-L146).
 
 ## Stop compilation with one obligation open
 
@@ -94,7 +104,7 @@ compilation contracts. This route selects three distinct things:
 LP64 does not tell us which register carries a result. A calling convention
 does not tell us whether compilation stops at an object. The driver selects
 all three through
-[`cc-sysv-object-enable`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L436-L457),
+[`cc-sysv-object-enable`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L441-L462),
 which also enables System V and LP64.
 
 One byte contains eight bits: four bytes are 32 bits, and eight bytes are
@@ -120,14 +130,14 @@ four-byte field. It does not treat the field as the destination's absolute
 address.
 
 While compiling the call to `answer`, the
-[selected call provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L235-L320)
+[selected call provider](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L221-L306)
 emits `E8` and four zero placeholder bytes. It remembers the field's position
 on a list of unfinished calls associated with the declared function. The
-[emitter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L414-L422)
+[emitter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L414-L422)
 returns the field position, one byte after the opcode.
 
 At object finalization,
-[`cc-om-function-calls`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L421-L457)
+[`cc-om-function-calls`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L426-L462)
 turns the surviving obligation into a record with these meanings:
 
 | Part | Meaning for our call |
@@ -195,7 +205,7 @@ calling another file. It accounts for the consumer's next-instruction base.
 The opcode address is not `P` either.
 
 The
-[linker's relocation code](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L448-L494)
+[linker's relocation code](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L448-L494)
 implements this rule and checks that the result fits a signed four-byte
 field. It does not repair an out-of-range displacement by silently discarding
 high bits. Here `PLT32` does not imply a dynamic procedure-linkage table:
@@ -216,8 +226,8 @@ side, the compiler moves the returned value back to RDI and converts it to
 the declared result type. For signed `int`, that includes extending the
 32-bit signed value to its wider internal carrier. Seven survives each
 step unchanged. The
-[return hook](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L391-L413)
-and [scalar carrier operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L166-L173)
+[return hook](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L377-L401)
+and [scalar carrier operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L204-L211)
 connect those stages.
 
 The machine stack has its own rule. **RSP** is its pointer; before this CALL,
@@ -250,25 +260,25 @@ members; its members are selected when an unresolved name needs them. This
 is **lazy selection**, in contrast to including every ordinary object.
 
 The selected startup builder is
-[`cc-sysrt-runtime-start-object`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L103-L133).
+[`cc-sysrt-runtime-start-object`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L103-L139).
 It defines `_start`, the process entry explicitly requested by the driver.
 It gets the argument count and argument-vector address from Linux's initial
 stack, aligns the stack, and preserves those inputs while calling
-`__seed_init_runtime`. Only after that call returns does it call `main`.
+`__seed_init_runtime`. After restoring argc/argv it computes envp in RDX, then calls `main`.
 Our `main(void)` does not consume the prepared arguments.
 
 The initializer comes from
-[`runtime/gcc-seed/startup.c`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/startup.c#L1-L25).
+[`runtime/gcc-seed/startup.c`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/startup.c#L1-L25).
 It establishes the program basename and the environment-vector pointer,
 `environ`. Its object is named **`startup.o`**, distinct from **`start.o`**.
 The unresolved initializer in `start.o` causes the archive to supply
 `startup.o`. That member's need for `environ` brings in `environment.o`, whose
-[source defines that name](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/environment.c#L1-L20);
+[source defines that name](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/environment.c#L1-L20);
 other uses in the selected object can demand further members.
 
 Selection is at whole-object granularity. A function need not run during
 `seven` for references elsewhere in its selected object to need definitions.
-The [archive scan](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L413)
+The [archive scan](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L413)
 repeats until that archive supplies no newly needed member. We can explain why the two-file program has runtime inputs
 without pretending to have measured its final member selection.
 
@@ -278,12 +288,12 @@ Now follow the target's control flow, after a successful build and load:
 2. Startup calls the runtime initializer, then calls `main`
 3. `main` calls `answer`; `answer` returns seven in RAX
 4. `main` receives seven and returns seven in RAX to startup
-5. Startup moves the value to RDI, places Linux exit syscall number 60 in
-   EAX, and executes the syscall instruction
+5. Startup moves the value to RDI and calls the C `exit` function, which
+   runs handlers, flushes pending streams and reaches `_Exit`/syscall 60
 
-RDI now has a third role: the argument to Linux exit. This startup exits
-directly; it does not call the C function `exit` or the runtime's syscall
-wrapper. The predicted collected exit status is seven. Nothing in this
+RDI now carries the C exit status. The runtime-aware startup uses the ordinary
+exit path; the smaller raw startup has a separate direct-syscall contract.
+The predicted collected exit status is seven. Nothing in this
 path requests a printed `7`.
 
 The source's smaller raw startup builder calls `main` directly. It is a
@@ -339,9 +349,9 @@ leaving these two objects without `_start`. This is a bounded driver, not a
 promise to accept every GCC option; for example, `-O2` is rejected.
 
 The driver
-[checks the existing seed against the annotated seed bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L205).
+[checks the existing seed against the annotated seed bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L214).
 It does not build the seed. The
-[seed construction entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/build.sh#L14-L29)
+[seed construction entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/build.sh#L14-L29)
 requires an identified starting hex0 translator. A supplied matching seed
 with that producer record is a valid entrance; repeating the full byte audit
 is not required to read this chapter.
@@ -361,7 +371,7 @@ execution of `seven` is another process. The phrase “Python driver” does not
 make Python the C code generator.
 
 The
-[compiler stream](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L242)
+[compiler stream](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L254)
 loads the shared frontend and later providers through `131`; it omits the
 executing `120-cc-main.fth` and separates linker `140`. A **provider** is an
 implementation selected for a shared compiler operation. Later Forth loads
@@ -388,7 +398,7 @@ bytes/relocations and rejects a leftover executable-initializer queue.
 Optional TinyCC study does not make this shared machinery optional.
 
 On a runtime cache miss, the
-[driver](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L244-L320)
+[driver](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L256-L332)
 compiles its runtime C sources, excluding the separate math path, using its
 runtime headers. A **header** is source text that supplies shared
 interface information, such as declarations and type definitions.
@@ -416,7 +426,7 @@ sources, and the existing seed remain real supplied dependencies. Comparison
 programs used by a later test have a different role from these producers.
 
 The selected target is C90-oriented with bounded extensions. Its
-[predefines](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/124-cc-target.fth#L1-L21)
+[predefines](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/124-cc-target.fth#L1-L21)
 identify Linux, x86-64, LP64, and `__STDC_HOSTED__=0`; they do not advertise
 GNU C identity or general C99/C11 conformance. Successful linking also does
 not compare the C signatures in different translation units. Matching

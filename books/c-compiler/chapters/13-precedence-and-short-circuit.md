@@ -8,7 +8,7 @@ There is a second problem hiding in `p && *p`. The builder must read the whole e
 
 This chapter follows both jobs from tokens to instructions. By the end, you should be able to identify which parser owns an operator, track a saved left operand through nested parsing, explain left association using subtraction, and connect each short-circuit branch to the builder that patches it. You will also be able to distinguish an unchanged operand state from the new value published after an operation.
 
-**Edition and evidence.** All implementation links pin [`7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b). The central source is [`100-cc-expr.fth`, operator table through conditional parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1606-L2176). Traces are manual derivations from inspected source, not compiler or generated-program runs. No build, Forth example, C example, or bootstrap was executed for this chapter. Bounded numerical examples avoid overflow, invalid shifts, and division faults; they are not a general correctness or language-conformance claim.
+**Edition and evidence.** All implementation links pin [`bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e). The central source is [`100-cc-expr.fth`, operator table through conditional parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1628-L2198). Traces are manual derivations from inspected source, not compiler or generated-program runs. No build, Forth example, C example, or bootstrap was executed for this chapter. Bounded numerical examples avoid overflow, invalid shifts, and division faults; they are not a general correctness or language-conformance claim.
 
 ## Choose your route
 
@@ -28,6 +28,15 @@ Try this entry check before reading the refresh:
 
 The [entry-check feedback](../practice/13-solutions.md#entry-check) is separate. If one answer is uncertain, repair that particular contract; you do not need to restart the compiler book.
 
+## Typed updates now have two seams
+
+`cc-native-inc-dec` calls `cc-change-check-fwd` before inspecting the lvalue
+and delegates the new payload to `cc-change-value-fwd`. The default still scales
+pointer steps by pointee size. It converts from the promoted type back to the
+destination: for `_Bool b=1`, `b++` stores 1 and `b--` stores 0. Floating and
+x87 providers replace these hooks; the existing integer/pointer traces keep
+their inputs. See [the update path](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L984-L1026).
+
 ## One builder, one future program
 
 Our recurring fixture supplies the symbol and storage facts that C15 will later construct. In the legacy profile, local `r` occupies slot 4 and contains two; its address is `RBP−40`. A global `struct tri` object `t` has target address G. Its `rows` field is at offset zero and contains four. Its `stars` field is at offset eight. All referenced storage is valid. Declaration syntax is not a prerequisite for this trace.
@@ -36,7 +45,7 @@ Use C12's metadata notation: K is lvalue kind, S is local slot, T is encoded typ
 
 For bare `r`, the legacy producer appends a load and publishes K=`lv-local`, S=4, T=int, D=0. Future RDI therefore holds two. Materialization ordinarily adds nothing for this already-loaded local. For `t.rows`, future RDI initially holds G, with K=`lv-deref`, S=sentinel, T=int, D=0. Here materialization appends a qword load and changes K to `lv-value`, retaining the type. The sentinel is Forth `true`, whose value is −1; it is not a target address.
 
-The [`cc-emit-materialize` contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L253-L291) calls the array-decay hook, then loads only a pending dereference. It is not a universal reset of assignability. An actual default binary operation later calls `cc-mark-not-lvalue`, which writes K=`lv-value`, S=sentinel and clears the other seven cells. Keep those two transitions separate.
+The [`cc-emit-materialize` contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L259-L297) calls the array-decay hook, then loads only a pending dereference. It is not a universal reset of assignability. An actual default binary operation later calls `cc-mark-not-lvalue`, which writes K=`lv-value`, S=sentinel and clears the other seven cells. Keep those two transitions separate.
 
 We also need separate stack names:
 
@@ -91,14 +100,14 @@ The eight repeated shapes differ in which tokens they accept and how they combin
 
 Thus `bo-size` is **40 bytes**, not five bytes. The ordinary rows occupy 640 bytes. A final zero `bo-op` cell terminates the table; the lookup checks that cell before inspecting another field, so the sentinel needs no complete forty-byte record.
 
-Here are the adjacent addition and subtraction rows, exactly as they occur in [`cc-binops`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1642-L1660):
+Here are the adjacent addition and subtraction rows, exactly as they occur in [`cc-binops`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1664-L1682):
 
 ```forth
 char +      pt-plus-eq     level-add      cc-binop, cc-emit-add-rdi-rcx    +
 char -      pt-minus-eq    level-add      cc-binop, cc-emit-sub-rdi-rcx    -
 ```
 
-[`cc-binop,`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1641-L1643) receives the first three fields on the builder data stack. `rot , swap , ,` stores them in op/compound/level order. The two following `' ,` operations read the emitter and evaluator names, resolve their Forth execution tokens, and store those tokens. This happens while the compiler's table is being defined, not when a generated C program evaluates addition.
+[`cc-binop,`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1663-L1665) receives the first three fields on the builder data stack. `rot , swap , ,` stores them in op/compound/level order. The two following `' ,` operations read the emitter and evaluator names, resolve their Forth execution tokens, and store those tokens. This happens while the compiler's table is being defined, not when a generated C program evaluates addition.
 
 The two last columns answer different questions:
 
@@ -113,9 +122,9 @@ The compound field lets C14 locate the same arithmetic operation for `+=` or `-=
 
 ## One token can pass through several levels
 
-[`cc-binop-row`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1665-L1677) takes a key and field offset. It saves the offset on the builder return stack, starts at `cc-binops`, checks the sentinel, and compares the selected field. A match returns that row's builder address. A miss advances forty bytes; reaching the sentinel returns zero. Its temporary field offset is removed on either return.
+[`cc-binop-row`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1687-L1699) takes a key and field offset. It saves the offset on the builder return stack, starts at `cc-binops`, checks the sentinel, and compares the selected field. A match returns that row's builder address. A miss advances forty bytes; reaching the sentinel returns zero. Its temporary field offset is removed on either return.
 
-[`cc-binop?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1678-L1694) adds three decisions:
+[`cc-binop?`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1700-L1716) adds three decisions:
 
 1. Call `cc-next-token-keep`
 2. If the token is punctuation, look up `tok-num` in `bo-op`
@@ -125,11 +134,11 @@ A nonpunctuation token, an unknown operator, or another level's operator returns
 
 For `1 + r * 2;`, after the first operand the multiplication parser inspects `+`. The token has an additive row, so it is the wrong level. The multiplication parser sets the pending flag and returns. The addition parser's next-token call clears that flag and sees the same `+`, without advancing source bytes, then consumes it as its own operator.
 
-After parsing the final `2`, the semicolon can similarly be inspected and handed back by multiple enclosing levels. There is still one current token record and one pending bit, not a stack of copied semicolons. Each next-token call either replays the current record or obtains a new one. C06's [two small interface words](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L644-L664) implement that distinction.
+After parsing the final `2`, the semicolon can similarly be inspected and handed back by multiple enclosing levels. There is still one current token record and one pending bit, not a stack of copied semicolons. Each next-token call either replays the current record or obtains a new one. C06's [two small interface words](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L646-L666) implement that distinction.
 
 ## One complete binary template
 
-This is [`cc-parse-add`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1876-L1892), with its source comments retained:
+This is [`cc-parse-add`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1898-L1914), with its source comments retained:
 
 ```forth
 : cc-parse-add
@@ -166,7 +175,7 @@ After the child returns, `r>` restores the saved row. Legacy application follows
   cc-mark-not-lvalue ;
 ```
 
-The [source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1840-L1848) therefore establishes a strict operand order: materialize right, copy it to RCX, recover left into RDI, apply left OP right, publish a plain value. Subtraction will make a reversed copy/pop unmistakable.
+The [source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1862-L1870) therefore establishes a strict operand order: materialize right, copy it to RCX, recover left into RDI, apply left OP right, publish a plain value. Subtraction will make a reversed copy/pop unmistakable.
 
 All eight levels use this shape. Multiplication's child is unary; each next level uses the preceding level in the ladder. This explains precedence: a tighter child must finish before its caller can apply the waiting operator. Repeating the caller's loop explains **left association**: the completed result becomes the left operand of the next operator at the same level. Recursion and iteration do different jobs.
 
@@ -220,7 +229,7 @@ The key placement is next: the first conditional jump is appended **before the R
 
 ### Three fixups, one owner
 
-Name the offsets of the three displacement fields fL, fR, and fE. Each is a builder-side output-file offset returned by a placeholder emitter. The [`&&` body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2054-L2078) owns them until their targets are known:
+Name the offsets of the three displacement fields fL, fR, and fE. Each is a builder-side output-file offset returned by a placeholder emitter. The [`&&` body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2076-L2100) owns them until their targets are known:
 
 | Emission point | Builder return-stack saved items | Purpose |
 |---|---|---|
@@ -244,7 +253,7 @@ At the false-block boundary, the source performs:
 
 The first `r>` recovers fE onto the builder data stack; the second places fR above it. Patching consumes fR and leaves fE. Recovering and patching fL still leaves fE. Only after appending the zero result does the final patch consume fE. Both conditional jumps reach the same false block; the unconditional jump reaches the join after that block. The original return-stack saves are balanced.
 
-C09's [patch contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L388-L439) writes displacement `target−(field_offset+4)`. A JZ placeholder has two opcode bytes followed by the field; JMP has one. The returned offset identifies the field, not the opcode, and is neither a target virtual address nor an address to be evaluated by the C program.
+C09's [patch contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L388-L439) writes displacement `target−(field_offset+4)`. A JZ placeholder has two opcode bytes followed by the field; JMP has one. The returned offset identifies the field, not the opcode, and is neither a target virtual address nor an address to be evaluated by the C program.
 
 ### Follow the future branches
 
@@ -260,7 +269,7 @@ Replacing `&&` with bitwise `&` removes this branch protection: both operands ar
 
 ### OR reverses the decisive branch
 
-[`cc-parse-log-or`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2080-L2104) uses the same three-fixup ownership pattern but emits JNZ to a **true** block. It emits zero on the fall-through path, jumps over that block, and emits one at the shared true target.
+[`cc-parse-log-or`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2102-L2126) uses the same three-fixup ownership pattern but emits JNZ to a **true** block. It emits zero on the fall-through path, jumps over that block, and emits one at the shared true target.
 
 For `a || b`, nonzero `a` skips `b`; zero `a` reaches it. The child is logical AND, so `a || b && c` gives AND the tighter grouping. Each logical parser also loops: after one operation, its normalized result becomes the left side of another operation at the same level. Additional branches may be emitted, but no ordinary operand-stack push is needed merely to retain a logical left value. Its truth has already selected a branch.
 
@@ -283,7 +292,7 @@ There are two saved fixups. After the true arm, the parser checks for `:`; a wro
 
 Both arms are parsed. Their complete grammar is C14's next lesson: legacy uses assignment grammar for both; LP64 uses comma grammar for the true arm and assignment grammar for the false arm. Those recursive calls also support a conditional nested in an arm. We are establishing the branch skeleton here, not substituting “two arbitrary unary operands” for the actual grammar.
 
-The [LP64 continuation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2123-L2176) must retain the true arm's five metadata fields while parsing the false arm. After both types are available, a scalar conversion join or an aggregate handler completes the result. The aggregate handler's protocol is “consume the saved metadata and end fixup and publish the result if handled; otherwise leave them for the scalar continuation.” Its default returns false. C14 opens the scalar split/join sequence; G15 opens the record snapshot provider. Do not apply the legacy one-jump join as an exact instruction layout for every native conditional.
+The [LP64 continuation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2145-L2198) must retain the true arm's five metadata fields while parsing the false arm. After both types are available, a scalar conversion join or an aggregate handler completes the result. The aggregate handler's protocol is “consume the saved metadata and end fixup and publish the result if handled; otherwise leave them for the scalar continuation.” Its default returns false. C14 opens the scalar split/join sequence; G15 opens the record snapshot provider. Do not apply the legacy one-jump join as an exact instruction layout for every native conditional.
 
 ## Typed depth: preserve meanings across the same recursion
 
@@ -299,7 +308,7 @@ These scratch cells become safe to use only **after** recursive operand parsing 
 
 ### The default common-type algorithm
 
-The inspected [helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1696-L1768) implement these steps:
+The inspected [helpers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1718-L1790) implement these steps:
 
 1. `cc-expr-promote` leaves a pointer unchanged; a nonpointer smaller than four bytes becomes int
 2. `cc-expr-common-type-default` promotes both operands, then chooses a pointer if either is a pointer, preferring the left when both are pointers
@@ -315,7 +324,7 @@ Shifts have a local override: after the initial common-type calculation and arra
 
 ### Scaling happens at a particular register boundary
 
-The [native application body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1796-L1838) follows this order:
+The [native application body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1818-L1860) follows this order:
 
 1. Materialize right, recover left/right metadata, and invoke `cc-array-binop-fwd`
 2. Apply the shift-type override if needed
@@ -332,7 +341,7 @@ Take valid LP64 int pointers into one array, with p=P and q=P+12. Then `p+2` sca
 
 ### Conversion, operation, publication
 
-The default conversion hooks in [`090`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1286-L1338) receive source and destination types. Their integer defaults use the destination width and signedness to truncate and sign- or zero-extend RDI or RCX. Later floating providers need both types. A final `cc-emit-convert-rdi` normalizes the selected result representation before `cc-mark-typed-value` resets metadata and republishes T and D.
+The default conversion hooks in [`090`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1286-L1338) receive source and destination types. Their integer defaults use the destination width and signedness to truncate and sign- or zero-extend RDI or RCX. Later floating providers need both types. A final `cc-emit-convert-rdi` normalizes the selected result representation before `cc-mark-typed-value` resets metadata and republishes T and D.
 
 `cc-native-binop-emit-default` chooses unsigned alternatives when `cc-expr-common` is unsigned: unsigned quotient/remainder, logical right shift, or unsigned `< <= > >=`. Other operations use the table emitter. The default table's `>>` row is arithmetic right shift, but the logical-shift emitter already exists and is selected here. Pointers are unsigned for this chooser. Equality needs no separate signed comparison.
 
@@ -346,15 +355,15 @@ The callback boundaries are concrete contracts, not unexplained replacements for
 
 | Boundary | Default and inputs | Named provider and gate |
 |---|---|---|
-| `cc-array-binop-fwd` | No-op; reads completed left/right metadata and operator scratch | [`121`, `cc-sysv-array-binop`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L748-L776), active for System V operands with array base types; checks ranked-pointer operation/shape compatibility, or raises 237; G03 opens descriptor policy |
-| `cc-array-compound-fwd` | No-op; reads completed operand scratch during compound assignment | [`121`, `cc-sysv-array-compound`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L777-L782); its array gate requires pointer left/integral right; C14 owns the caller |
-| `cc-array-ternary-fwd` | No-op; receives completed arm metadata through scratch and may adjust common type/descriptor | [`121`, `cc-sysv-array-ternary`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L783-L814), System V gated; checks void/pointer/null/shape cases and combines row qualifiers; C14/G03 open the join/policy |
-| Common type, conversions, binary emission | Integer defaults described above | [`127`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L129-L230) supplies floating choices when its System V-gated scalar float/double predicate matches; otherwise falls back; G10 opens arithmetic and conversion |
-| Truth test and final common-type wrapper | Default test emits `TEST RDI,RDI`; common type returns a selected type | [`131`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L416-L459) checks record/opaque-scalar use before chaining to floating providers; its conditional handler can consume the saved-arm protocol; G15 opens value transport |
+| `cc-array-binop-fwd` | No-op; reads completed left/right metadata and operator scratch | [`121`, `cc-sysv-array-binop`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L777-L805), active for System V operands with array base types; checks ranked-pointer operation/shape compatibility, or raises 237; G03 opens descriptor policy |
+| `cc-array-compound-fwd` | No-op; reads completed operand scratch during compound assignment | [`121`, `cc-sysv-array-compound`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L806-L811); its array gate requires pointer left/integral right; C14 owns the caller |
+| `cc-array-ternary-fwd` | No-op; receives completed arm metadata through scratch and may adjust common type/descriptor | [`121`, `cc-sysv-array-ternary`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L812-L843), System V gated; checks void/pointer/null/shape cases and combines row qualifiers; C14/G03 open the join/policy |
+| Common type, conversions, binary emission | Integer defaults described above | [`127`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L164-L270) supplies floating choices when its System V-gated scalar float/double predicate matches; otherwise falls back; G10 opens arithmetic and conversion |
+| Truth test and final common-type wrapper | Default test emits `TEST RDI,RDI`; common type returns a selected type | [`131`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L404-L447) checks record/opaque-scalar use before chaining to floating providers; its conditional handler can consume the saved-arm protocol; G15 opens value transport |
 
 With these providers loaded, the final common-type binding is `cc-ag-common-type`, which checks scalar eligibility and delegates to `cc-fp-common-type`; that falls back to the default integer helper. The final truth-test binding similarly chains `cc-ag-test` to `cc-fp-test` to the integer test when appropriate. A record's address representation does not authorize treating the record as a scalar truth value.
 
-For an ordinary System V scalar local, [`cc-sysv-local-load`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L285-L290) publishes a pending address instead of immediately loading. The binary loop's materialization still occurs at the right point: after matching an operator, before saving a value. For a typed field, C12's field-load/value-type callbacks can extract and promote it first; G14 owns the bitfield provider. The precedence mechanism remains recognizable precisely because its operand contract included delayed loads from the beginning.
+For an ordinary System V scalar local, [`cc-sysv-local-load`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L285-L290) publishes a pending address instead of immediately loading. The binary loop's materialization still occurs at the right point: after matching an operator, before saving a value. For a typed field, C12's field-load/value-type callbacks can extract and promote it first; G14 owns the bitfield provider. The precedence mechanism remains recognizable precisely because its operand contract included delayed loads from the beginning.
 
 ## Practice without looking ahead
 

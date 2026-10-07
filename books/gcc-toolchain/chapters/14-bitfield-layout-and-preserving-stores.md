@@ -21,6 +21,15 @@ place/value separation. A **unit** is the four- or eight-byte storage accessed
 for a field; field width counts bits inside that unit. Bit zero is the low-order
 bit.
 
+## Boolean bitfields
+
+`_Bool` bitfields use a one-byte allocation unit and allow width at most one
+(zero width only for unnamed fields). Stores load and write that byte while
+preserving other bits; conversion yields 0/1. For example assigning 2 to a
+one-bit `_Bool` field stores 1. Other integer-field exercises retain their
+4/8-byte units. See [admission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L35-L76)
+and [preserving stores and static conversion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L119-L181).
+
 ## Describe a field before reading its unit
 
 A System V field record expands to 72 bytes. Its ordinary type, descriptor, name
@@ -41,7 +50,7 @@ implying every width up to 64 works. Final record size and padding are checked
 against the target object-size limit.
 
 Sources: [record extension, type guards and
-layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L1-L106).
+layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L1-L107).
 
 ## Extract only the field’s signed value
 
@@ -60,7 +69,7 @@ remains unsigned int. The underlying unit width does not alone determine
 expression type.
 
 Sources: [field extraction, truncation and
-promotion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L108-L155).
+promotion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L109-L160).
 
 ## Clear just the destination bits
 
@@ -79,7 +88,7 @@ expression and the destination address are separate carriers. The unit can be
 wider than the field without making the assignment affect all its bits.
 
 Sources: [preserving read-modify-write
-store](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L118-L143).
+store](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L119-L148).
 
 ## Apply the same rule to static bytes
 
@@ -100,7 +109,7 @@ identities refer to whole stored objects, while the bitfield descriptor
 identifies a bit range inside one.
 
 Sources: [static and local initializer
-callbacks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L156-L185).
+callbacks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L161-L193).
 
 ## Keep volatility and atomicity separate
 
@@ -121,7 +130,7 @@ successful masking puzzle is not evidence that every aggregate call or source
 program was compiled.
 
 Sources: [volatile and synchronization
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L1-L8).
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L1-L8).
 
 ## Label the bits before changing a field
 
@@ -148,9 +157,9 @@ expression-value interpretation are two successive steps, not one unqualified
 shift.
 
 Sources: [preserving read-modify-write
-store](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L118-L143),
+store](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L119-L148),
 [static and local initializer
-callbacks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L156-L185).
+callbacks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L161-L193).
 
 ## Let layout own the unit boundaries
 
@@ -172,9 +181,9 @@ cannot erase this parser/provider limit. The chapter teaches what this source
 accepts, not every arrangement a different C compiler could lay out.
 
 Sources: [record extension, type guards and
-layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L1-L106),
+layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L1-L107),
 [field extraction, truncation and
-promotion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L108-L155).
+promotion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L109-L160).
 
 ## Preserve neighboring fields through updates
 
@@ -198,9 +207,9 @@ state is an isolated supplied unit. No concurrent test, target layout dump or
 executed bitfield update has been recorded here.
 
 Sources: [static and local initializer
-callbacks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L156-L185),
+callbacks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L161-L193),
 [volatile and synchronization
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L1-L8).
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L1-L8).
 
 ## Give the expression a value and the storage a mask
 
@@ -248,13 +257,13 @@ concurrent-update guarantee. No new target field dump or update execution is
 recorded here.
 
 Sources: [record extension, type guards and
-layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L1-L106),
+layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L1-L107),
 [field extraction, truncation and
-promotion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L108-L155),
+promotion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L109-L160),
 [preserving read-modify-write
-store](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L118-L143),
+store](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L119-L148),
 [static and local initializer
-callbacks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L156-L185).
+callbacks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L161-L193).
 
 ## Let an unnamed field change placement without changing lookup
 
@@ -304,7 +313,7 @@ neighboring bits. A future compiler fixture should retain declared layout,
 actual target unit, expression result and rejected variants. No new bitfield
 declaration or volatile update was compiled or run.
 
-Sources: [record extension, type guards and layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L1-L106), [field extraction, truncation and promotion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L108-L155), [preserving read-modify-write store](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L118-L143), [static and local initializer callbacks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L156-L185), [volatile and synchronization limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L1-L8).
+Sources: [record extension, type guards and layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L1-L107), [field extraction, truncation and promotion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L109-L160), [preserving read-modify-write store](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L119-L148), [static and local initializer callbacks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L161-L193), [volatile and synchronization limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L1-L8).
 
 ## Stop, then change the boundary
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check this teaching edition's document contracts; never execute seed code.
 
-Run from any directory: python3 books/check.py
+Run from any directory: python3 books/check.py (reads the pin from local Git)
 Use --source-root PATH when checking a separately materialized source snapshot.
 This is a bounded manuscript checker, not a compiler test or learning study.
 """
@@ -10,13 +10,16 @@ import argparse
 import csv
 import hashlib
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 
-REV = "7d7e1996d1753118181d43e1a413960d3a1ec24b"
+REV = "bbcc1732152af2d884737272eed870d2410ffe8e"
 ROOT = Path(__file__).resolve().parent
 SOURCE_BLOBS = {
+    "132-cc-long-double.fth": "d56fa1dbc19910eb39059e06d7b204da81e4601c",
     '141-archive.fth': 'c4e9091af15b787c6385b1a01127f537dcf0dcb3',
     'runtime/gcc-seed/startup.c': '3cd5b0d45a64fa5b3a711496ba0e06802342fbcf',
     'runtime/gcc-seed/environment.c': '55ea94386905ae2b5e2d92aad18d54cdb5a3201c',
@@ -27,7 +30,7 @@ SOURCE_BLOBS = {
     'k1/README.md': 'd02441ae729e4089efed80b2a603b3c96ce9250f',
     'tests/pnut/sf-pnut-check.sh': '067f2f4bc367276b7ecf04092d9e170ecc4dc919',
     'tools/amd64.recipe': 'fd525c5e478266aff55e3e102af34aea0567349d',
-    'tools/gcc-direct-cc.py': '9fd1d063b2984d979cde7c89b75e9b557b9b5a07',
+    'tools/gcc-direct-cc.py': '1d3bc99fae025aaeb1134d2051df57b14127e0a5',
     'tools/tcc.recipe': '9efffbd59dcc223e13ccc35ad73004a5d3d5bac7',
     '130-asm.fth': 'f1aec439017467a377af636b3b619e7cbb72188a',
     'book/33-the-assembler.md': '6e3d80fcbcd1247c59eb627d361445cd40d9e2d8',
@@ -43,7 +46,7 @@ SOURCE_BLOBS = {
     'README.md': 'b4a167739d8c47dc2338cfde5f915bb9aca566f7',
     'REPRODUCIBLE.md': '5bfd46d7bbdc90e375fe378da30cae3fa617af32',
     'book/00-prologue.md': '91b3ee2a06373f3d1b6234d9abed0a6c0008184b',
-    'book/32-main-and-bootstrap-chain.md': 'dc0666d9b8da3e61ccdd953309dfe371f3aa719e',
+    'book/32-main-and-bootstrap-chain.md': '996785a48c36f01a94f928c24c38e04f84e98857',
     'book/A3-reproducibility-chain.md': 'e044d26829ac588354cdaaf7b3021ea59b0d4b4b',
     'bootstrap.sh': '14986352c5ee2d24746dabf038099d9e430fc11a',
     'build.sh': '47b9c426aaa17bed389119b89f313a7107b9d15c',
@@ -56,36 +59,36 @@ SOURCE_BLOBS = {
     "tools/tcc-compile.fth": "c7804bdcb5ef7ebb6b1d774af175558013eb50be",
     "book/21-arena-and-io-buffers.md": "55d0af2ee7e885fd8f9f100e2be8376422c30559",
     "140-cc-link.fth": "57d274b12b643dda55400967c953ff42b0553875",
-    "131-cc-aggregate-abi.fth": "1189822f2d8b5c79875aad99d046656b8e1d68ca",
-    "129-cc-bitfield.fth": "2c959b8f86f2269da089775573e0822676f2a4fa",
-    "128-cc-float-literal.fth": "31d954c700e1f82b0647898193af446e07fb4889",
-    "127-cc-binary64.fth": "9ab64f4538ca10effae0167345cb79ae71d1d4fa",
-    "126-cc-varargs.fth": "be1d9358ca78310addc8115d8e12549c86d5c357",
-    "125-cc-consteval.fth": "cfb027acbd3502e4853847b629918702f2119693",
-    "123-cc-object-program.fth": "0cb9ae99d22e6d05b827fb8559842746173b63b9",
-    "122-cc-sysv-runtime.fth": "40c378cc6daae1210cd61c3d5569a6e97b00729f",
-    "118-cc-native-init.fth": "f744a33e34982966e484178a8e94af9891792904",
+    "131-cc-aggregate-abi.fth": "68bb8310dd13e6b003c37f760fc38310f6bd573a",
+    "129-cc-bitfield.fth": "5180bf67dce66bdc9713fc1fcc7f964482b9fb6b",
+    "128-cc-float-literal.fth": "7ef4dbe5842a21a9d9dd503b14fe209ede334b5a",
+    "127-cc-binary64.fth": "a5abc983ff6532350225f2fe255dbe63c8b407d2",
+    "126-cc-varargs.fth": "3c93c210019bacdb18821cdc56adc5148a056ed8",
+    "125-cc-consteval.fth": "30b93daec6fa8b6164095b6ee80be8eed41ea27d",
+    "123-cc-object-program.fth": "8e08c60977409ea87ac9e3721251860e4df61d58",
+    "122-cc-sysv-runtime.fth": "c2e4233ffd2865f44f0d6b07a06bdbc1cfe35720",
+    "118-cc-native-init.fth": "760d0876b568c344a585cc5465bf513839201004",
     "116-cc-prog.fth": "28ef4a5db2bf7fec9ea3e4f324b79e42b534866f",
     "114-cc-func.fth": "031ca4a33124b075f4416c5f38781673616af8c4",
     "112-cc-stmt.fth": "ff9f637d7f2d617ef85bbaad2bbd6ba28da519f2",
     "110-cc-decl.fth": "779eeac5c753c141cb7e50b8454f42e666518a3b",
-    "100-cc-expr.fth": "29ca0e38f19907fc4fd18286e22a0518072ad181",
+    "100-cc-expr.fth": "15633557822e04c75db95b7607caf9a6221ae178",
     "090-cc-emit.fth": "55d922e8f36c1367fe27629cbd2edd8d8a577b84",
     "081-cc-object.fth": "5e5baa07cd19962f5f4a21eddb8e915abb7f69eb",
     "000-seed.hex0": "67df9029071a6513a20b3c7695e057925b4f4b9a",
     "010-lib.fth": "f0d58f4f90fc462db97fbc0028f1318fe6d94fc0",
     "020-cc-arena.fth": "7b4b41d4bc252eb6bbe65b99e8e69c1c39e631d1",
     "030-cc-io.fth": "b06d403c546f143a66b25add8ebb9568da3a2e17",
-    "040-cc-prep.fth": "72ddd8beb9aeed867fdfe5cc1c62ab09cf41bb91",
-    "050-cc-lex.fth": "72e785b9c996da9ebaf7db93b3ff360692bf40e3",
-    "060-cc-types.fth": "b71cfd5e88ee99a94f8ebc0ac5b5e2dffb5d5c0d",
+    "040-cc-prep.fth": "9a9852f9d00bbdb692406145a5b83253de034121",
+    "050-cc-lex.fth": "751aa7eb33887f215fb741d2a7a7345e504d90e7",
+    "060-cc-types.fth": "d026ecf6f581593407899136045da7a9c541007f",
     "070-cc-sym.fth": "c9bc6dde33ea1cd30bae9965e9119c2540d4b6a5",
     "080-cc-elf.fth": "f4946890c4a2fde5a1e809ce6ae649fd20f6ca0e",
-    "115-cc-native.fth": "bae8d62dfb9abe96da9b09c3e0ff413bd50f938d",
+    "115-cc-native.fth": "19de3ff7274168b3136587be9ca5bfc463df01af",
     "117-cc-native-program.fth": "dd17a74854225da077aeb627b660749898e72ad4",
     "119-cc-native-runtime.fth": "072cd8f8e8aa64260e28bc79e1c8b08a75faa250",
     "120-cc-main.fth": "3ce930098c5f6c97db0e6b6d358e8a862d2389e3",
-    "121-cc-sysv.fth": "69a923a1356032e7c684abfdedb90c40516905c7",
+    "121-cc-sysv.fth": "afa5a0c6356827f5236070d64a63b53ab71934b5",
     "124-cc-target.fth": "072acd33f8dbeb5335ec3bac3c96821f8661019c",
     "tools/compiler-layers.sh": "2a55fa711df62bf3ac43b674009a0db057b66496",
 }
@@ -222,7 +225,7 @@ def check_documents():
 def pinned_source_path(source_root, name):
     """Keep historical README evidence separate from the live reader gateway."""
     if name == "README.md":
-        path = (ROOT / "source-edition/README-7d7e199.md.txt").resolve()
+        path = (ROOT / "source-edition/README-bbcc173.md.txt").resolve()
         assert path.is_relative_to(ROOT), "README evidence escaped the manuscript tree"
     else:
         path = (source_root / name).resolve()
@@ -555,7 +558,7 @@ def check_preprocessor_regions(source_root):
             assert (ROOT / "c-compiler" / row["manuscript_path"]).is_file(), row
         assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/040-cc-prep.fth#L{start}-L{end}"
     assert next_line == len(source)+1
-    assert len(rows) == 57 and len(names) == 325
+    assert len(rows) == 57 and len(names) == 331
     print(f"PASS: {len(rows)} preprocessor regions partition {len(source)} lines and {len(names)} declarations; states {states}")
 
 
@@ -627,7 +630,7 @@ def check_parser_map(source_root):
         assert (ROOT / "c-compiler" / row["manuscript_path"]).is_file(), row
         assert row["source_url"] == f"https://github.com/delta9000/seed-forth/blob/{REV}/{row['source_path']}#L{row['source_line']}"
     assert seen == expected.keys()
-    assert len(rows) == 333
+    assert len(rows) == 339
     print(f"PASS: {len(rows)} expression/declaration names have source-matched teaching homes")
 
 
@@ -748,9 +751,9 @@ def check_c_pipeline_models(source_root):
     blocks = list(all_fenced_blocks(path.read_text()))
     text_blocks = [block.strip().splitlines() for language, block in blocks if language == "text"]
     layers = sorted(p.name for p in source_root.glob("[0-9][0-9][0-9]-cc-*.fth"))
-    assert len(layers) == 30 and "120-cc-main.fth" in layers
+    assert len(layers) == 31 and "120-cc-main.fth" in layers
     ordered = ["010-lib.fth"] + [name for name in layers if name != "120-cc-main.fth"] + ["120-cc-main.fth"]
-    assert ordered in text_blocks and len(ordered) == 31
+    assert ordered in text_blocks and len(ordered) == 32
     # Read shell text as data. These expressions do not execute either helper.
     mono = (source_root / "tests/cc/build-m2planet-monolith.sh").read_text()
     header_line = next(line for line in mono.splitlines() if line.strip().startswith('cat "$M2/cc.h"'))
@@ -1308,10 +1311,32 @@ def check_entrance_paper_models():
     print("PASS: bounded H1/H2/G01 paper arithmetic, exact teaching inputs and displayed model fields")
 
 
-def main():
+def main(snapshot=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source-root", type=Path, default=ROOT.parent)
+    parser.add_argument("--source-root", type=Path, default=None)
     args = parser.parse_args()
+    if snapshot is not None:
+        args.source_root = snapshot
+    if args.source_root is None:
+        # Verify the edition even when the working checkout is another revision.
+        # Materialize only inspected files; no source program is executed.
+        with tempfile.TemporaryDirectory(prefix="seed-book-source-") as directory:
+            snapshot = Path(directory)
+            names = set(SOURCE_BLOBS)
+            names.update(subprocess.check_output(
+                ["git", "ls-tree", "--name-only", REV], cwd=ROOT.parent,
+                text=True).splitlines())
+            names = {name for name in names if name in SOURCE_BLOBS or name.endswith(".fth")}
+            prefix = f"https://github.com/delta9000/seed-forth/blob/{REV}/"
+            for document in ROOT.rglob("*.md"):
+                names.update(re.findall(re.escape(prefix) + r"([^\s)#]+)", document.read_text()))
+            for name in names:
+                destination = snapshot / name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(subprocess.check_output(
+                    ["git", "show", f"{REV}:{name}"], cwd=ROOT.parent))
+            main(snapshot)
+        return
     check_documents()
     check_coverage()
     check_prerequisites()

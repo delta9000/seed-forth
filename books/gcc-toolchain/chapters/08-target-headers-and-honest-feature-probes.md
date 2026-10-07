@@ -24,6 +24,14 @@ includes, macros and conditional/location state. Locally, a **probe** is a small
 attempted compilation, link or execution whose result a configuration script
 consumes.
 
+## Spelled paths and undeclared calls
+
+Source and `-I` paths now reach the preprocessor as written: `sub/a.c` remains
+that `__FILE__` spelling, and `-Iinc` can produce `inc/x.h`. The optional
+`-Werror=implicit-function-declaration` reports error 228 with function, source
+file and line. Without it C90 implicit `extern int f()` remains accepted;
+on LP64 that int return can truncate pointers or doubles. See [the driver contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L28-L80).
+
 ## Advertise the selected target
 
 System V mode defines __STDC__=1, __STDC_HOSTED__=0 and __SEED_FORTH__=1, plus
@@ -44,16 +52,16 @@ builtins. __STDC_HOSTED__=0 also does not imply there are no runtime C
 functions; it describes the advertised environment contract.
 
 Sources: [target
-predefines](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/124-cc-target.fth#L1-L21),
+predefines](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/124-cc-target.fth#L1-L21),
 [include and macro
-ordering](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L28-L43).
+ordering](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L28-L45).
 
 ## Use the headers belonging to this runtime
 
 stddef.h declares size_t as unsigned long, ptrdiff_t as long and the target’s
 offsetof spelling. stdarg.h declares the real array-of-one record consumed by
-G12’s intrinsic provider. stdio.h declares an opaque FILE and says its streams
-are unbuffered with no host-FILE compatibility.
+G12’s intrinsic provider. stdio.h defines a complete FILE type with reserved members. Streams now have
+full/line/unbuffered modes, with no host-FILE layout compatibility.
 
 Those declarations do not create implementations. A caller must compile with the
 appropriate header and link the selected source-built runtime members.
@@ -68,11 +76,11 @@ direct Forth compiler driver. G21’s first GCC driver has a different include
 situation, and G22 supplies its actual target sysroot.
 
 Sources: [LP64 header
-types](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stddef.h#L1-L9),
+types](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stddef.h#L1-L9),
 [variadic header
-ABI](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18),
+ABI](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18),
 [stream surface and
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdio.h#L1-L66).
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdio.h#L1-L120).
 
 ## Let an unsupported option fail honestly
 
@@ -92,11 +100,11 @@ and the reason. Setting __GNUC__ just to get through a header or probe would
 send consumers down branches whose promised semantics may be absent.
 
 Sources: [accepted and rejected
-flags](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L66-L74),
+flags](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L68-L80),
 [Makefile flag
-override](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L164-L168),
+override](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L188-L192),
 [warning selection
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L24).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L24).
 
 ## Retain the question that produced an answer
 
@@ -117,7 +125,7 @@ executed test supplies its named behavior. We have not run new probes or copied
 their expected answers into configuration.
 
 Sources: [verified configure source and trace
-contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L102-L148).
+contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L126-L172).
 
 ## Keep logical location separate from the opened path
 
@@ -139,9 +147,9 @@ missing contract. Source acceptance must be earned by the provider implementing
 that form, not by silently changing all inputs.
 
 Sources: [generated-parser production
-context](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L471-L510),
+context](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L495-L534),
 [location policy and bounded line
-control](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/40-direct-gcc-target.md#L22-L69).
+control](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/40-direct-gcc-target.md#L22-L79).
 
 ## A feature probe is a question with a consumer
 
@@ -171,15 +179,15 @@ merely syntax-checked, emitted as an object, linked or executed. Configure can
 ask several kinds of questions, each with its own acceptance event.
 
 Sources: [target
-predefines](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/124-cc-target.fth#L1-L21),
+predefines](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/124-cc-target.fth#L1-L21),
 [include and macro
-ordering](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L28-L43),
+ordering](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L28-L45),
 [LP64 header
-types](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stddef.h#L1-L9),
+types](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stddef.h#L1-L9),
 [variadic header
-ABI](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18),
+ABI](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18),
 [stream surface and
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdio.h#L1-L66).
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdio.h#L1-L120).
 
 ## Follow a diagnostic back to the prepared source
 
@@ -200,7 +208,7 @@ directive, keep that preparation too. A report containing only the logical
 filename could otherwise hide which generated view was actually compiled.
 
 Sources: [verified configure source and trace
-contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L102-L148).
+contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L126-L172).
 
 ## Keep command admission alongside language admission
 
@@ -224,15 +232,15 @@ phase-specific success. Its probes are paper questions; no new configure outcome
 was measured here.
 
 Sources: [accepted and rejected
-flags](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L66-L74),
+flags](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L68-L80),
 [Makefile flag
-override](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L164-L168),
+override](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L188-L192),
 [warning selection
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L24),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L24),
 [generated-parser production
-context](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L471-L510),
+context](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L495-L534),
 [location policy and bounded line
-control](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/40-direct-gcc-target.md#L22-L69).
+control](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/40-direct-gcc-target.md#L22-L79).
 
 ## Make a probe report answer the question actually asked
 
@@ -281,23 +289,23 @@ needs its own retained input, invocation and phase outcome. No new probe report
 or configuration was produced for the book.
 
 Sources: [LP64 header
-types](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stddef.h#L1-L9),
+types](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stddef.h#L1-L9),
 [variadic header
-ABI](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18),
+ABI](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18),
 [stream surface and
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdio.h#L1-L66),
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdio.h#L1-L120),
 [accepted and rejected
-flags](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L66-L74),
+flags](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L68-L80),
 [Makefile flag
-override](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L164-L168),
+override](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L188-L192),
 [warning selection
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L24),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L24),
 [verified configure source and trace
-contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L102-L148),
+contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L126-L172),
 [generated-parser production
-context](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L471-L510),
+context](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L495-L534),
 [location policy and bounded line
-control](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/40-direct-gcc-target.md#L22-L69).
+control](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/40-direct-gcc-target.md#L22-L79).
 
 ## Read an include as a producer decision
 
@@ -338,7 +346,7 @@ phase the probe reached and which runtime would complete the declared use. Its
 examples are supplied alternatives and source inspection, with a fresh
 include/probe transcript still pending.
 
-Sources: [target predefines](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/124-cc-target.fth#L1-L21), [include and macro ordering](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L28-L43), [LP64 header types](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stddef.h#L1-L9), [variadic header ABI](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdarg.h#L1-L18), [stream surface and limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/include/stdio.h#L1-L66), [accepted and rejected flags](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L66-L74), [Makefile flag override](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L164-L168), [warning selection boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L24), [verified configure source and trace contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L102-L148).
+Sources: [target predefines](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/124-cc-target.fth#L1-L21), [include and macro ordering](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L28-L45), [LP64 header types](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stddef.h#L1-L9), [variadic header ABI](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdarg.h#L1-L18), [stream surface and limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/include/stdio.h#L1-L120), [accepted and rejected flags](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L68-L80), [Makefile flag override](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L188-L192), [warning selection boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L24), [verified configure source and trace contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L126-L172).
 
 ## Stop, then change the boundary
 

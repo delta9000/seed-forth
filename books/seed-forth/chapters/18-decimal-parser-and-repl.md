@@ -33,7 +33,7 @@ If comfortable, attempt S18-03 and S18-05 before reading their worked
 explanations. A disagreement tells you where to slow down.
 
 **Evidence boundary.** The authority is
-[`000-seed.hex0` at 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0).
+[`000-seed.hex0` at bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0).
 Every instruction below was compared with those bytes and bounded GNU
 objdump 2.44 disassembly. State traces and output requests are checked
 static derivations. No seed execution, build, or compiler reproduction is
@@ -63,7 +63,7 @@ headers; there are no extra name, flag, or link bytes to count here.
 
 ## A parser consumes a pair and returns a pair
 
-The [decimal helper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L633-L662)
+The [decimal helper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L633-L662)
 implements `( c-addr u -- n true | 0 false )`. It accepts a nonempty
 sequence of ASCII bytes `0` through `9`. It handles unsigned decimal only:
 no leading sign, no base prefix, and no spaces inside the supplied token.
@@ -242,7 +242,7 @@ limit of the contract, not a hidden rejection path.
 
 ## The final loop decides what a found name means now
 
-The [REPL](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L664-L689)
+The [REPL](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L664-L689)
 is entered by startup's jump. It never returns to startup. Its name does
 not guarantee an interactive prompt, echo of successful input, or printing
 of the stack; no such operations appear in this loop.
@@ -303,7 +303,7 @@ Start this iteration with `D=[88,99]`, `rdi=99`, `rbp=P`. For an unknown
 `[88,99,0]` with `rbp=P-8`. The saved 99 is now at `[rbp]`.
 
 `find` leaves the token buffer and its length in RBX available to
-[`report_token`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L468-L483).
+[`report_token`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L468-L483).
 That routine appends question mark and newline and requests a write of
 `wobble?\n` to stdout. This is an output request under the earlier syscall
 contract, not a guarantee of a complete successful write.
@@ -394,7 +394,7 @@ that the intended word was compiled.
 Contrast three routes rather than merging all bad input into one error.
 An unknown dictionary name takes the report-and-continue route just shown.
 A bad token consumed by
-[`[lit]`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L582-L600)
+[`[lit]`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L582-L600)
 takes another route: for `[lit] 12x4`, the parser returns zero and false;
 `[lit]` tests the false flag and jumps to `fatal_token`. It reports the
 whole token and invokes `exit(2)`. It does not compile a successful literal

@@ -3,7 +3,7 @@
 The [source audit ledger](source-audit.csv) partitions the pinned seed's
 1,772 file bytes into 76 consecutive regions. Every byte belongs to exactly
 one row. The ranges come from the annotated offsets in
-[`000-seed.hex0`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0),
+[`000-seed.hex0`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0),
 checked against the number of preceding decoded hex bytes. No gap or overlap
 is hidden by the grouping.
 

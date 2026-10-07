@@ -31,9 +31,9 @@ implement it.
 ## Small enough to ask about every part
 
 The starting object is the annotated
-[`000-seed.hex0`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0)
+[`000-seed.hex0`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0)
 in `delta9000/seed-forth`, pinned to revision
-`7d7e1996d1753118181d43e1a413960d3a1ec24b`. Its hexadecimal byte pairs
+`bbcc1732152af2d884737272eed870d2410ffe8e`. Its hexadecimal byte pairs
 describe a **1,772-byte executable** for Linux on x86-64. The comments and
 annotations are reading material; they are not additional executable bytes.
 The executable begins with file headers and startup instructions, then
@@ -43,7 +43,7 @@ provides 32 named primitive operations and a few supporting routines.
 code. It does not mean that the operation is indivisible inside the
 processor, or that 32 is a universal minimum. Above this chosen starting
 vocabulary,
-[`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth)
+[`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth)
 defines more operations in Forth itself. Those definitions include
 subtraction, useful stack rearrangements, byte writers, named storage, and
 conditional and looping control flow.
@@ -121,7 +121,7 @@ of a stack exercise.
 This is also a source-reading volume, not a fresh installation tutorial.
 Paper traces require no Linux machine. Executing this seed requires the
 stated Linux/x86-64 environment and its loading assumptions. The pinned
-[`build.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/build.sh)
+[`build.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/build.sh)
 is the repository's build entry: it invokes a hex0 assembler, normally the
 vendored stage0-posix seed, to translate the annotated source. Linking that
 script does not mean its setup or this volume's examples were exercised
@@ -131,7 +131,7 @@ while preparing these pages. The [edition record](../../EDITION.md) and
 ## Authorship is part of the record
 
 The original project's
-[prologue](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/00-prologue.md)
+[prologue](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/00-prologue.md)
 discloses that most of its code was written by AI. The seed source credits
 an ensemble of Claude, Gemini, Codex, DeepSeek, Qwen, Kimi, Gemma, and
 MiniMax under human architectural direction, and identifies the license

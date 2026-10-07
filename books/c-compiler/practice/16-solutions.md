@@ -2,7 +2,7 @@
 
 [Back to the chapter](../chapters/16-conditions-and-loops.md)
 
-These are checked manual derivations against revision `7d7e1996d1753118181d43e1a413960d3a1ec24b` and the chapter's explicit source/profile contracts. No compiler, Forth, C example, generated executable, or build was run. Numeric layouts are stipulated paper coordinates. The solutions establish predictions and source-reading criteria, not execution or learning-study results.
+These are checked manual derivations against revision `bbcc1732152af2d884737272eed870d2410ffe8e` and the chapter's explicit source/profile contracts. No compiler, Forth, C example, generated executable, or build was run. Numeric layouts are stipulated paper coordinates. The solutions establish predictions and source-reading criteria, not execution or learning-study results.
 
 Use the first hint to locate the relevant distinction, the second to expose the decisive state, and the third for a partial step. You can open the complete solution immediately if that is more useful. After feedback, use a changed prompt from the chapter with this page covered; repeating a visible answer is supported practice rather than an independent check. Each solution gives a targeted next move without requiring a full reread.
 
@@ -43,7 +43,7 @@ With `if (pad) { if (n) pad=pad-1; } else n=n-1;`, the inner optional-else read 
 
 **Changed reattempt check.** In `if (pad) ; else if (n) pad=pad-1; return;`, the outer consumes its own `else` before invoking the inner parser. The inner has no else, so its optional-else read sees `return` and leaves it pending. The outer returns after its else-body completes; it does not perform a second optional-else read. Therefore the inner performs the read beyond the entire construct. “Every if peeks once more after its whole statement is complete” is not the algorithm.
 
-Source check: [if parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L49-L70) and [compound parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L22-L33).
+Source check: [if parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L49-L70) and [compound parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L22-L33).
 
 ## C16-02 — Calculate both branch origins
 
@@ -79,7 +79,7 @@ Both API calls receive a target virtual address, but both encodings contain a re
 
 **Changed reattempt check.** A zero-byte else-body leaves its start and end both at 1025. The JZ remains 19, `13 00 00 00`. The separating JMP now has displacement zero, `00 00 00 00`, reaching the immediately following position. Its five bytes are still present by the changed premise.
 
-Source check: [if layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L49-L70), [direct branch emitters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L79-L101), and C09's operand-offset patch contract.
+Source check: [if layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L49-L70), [direct branch emitters](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L79-L101), and C09's operand-offset patch contract.
 
 ## C16-03 — Separate three kinds of nesting
 
@@ -103,7 +103,7 @@ A newly entered valid loop has empty exit lists. An invalid-context statement ma
 
 **Changed reattempt check.** `(3,2)` emits one restore. Both switch obligations already open when the loop was entered remain; only the innermost newly entered switch is crossed. A response that says merely “keep the outermost” is incomplete because two saved obligations remain here.
 
-Source check: [list adapters and walkers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L104-L176), [while save/restore](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L192-L226), and [continue adapter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L605-L620).
+Source check: [list adapters and walkers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L104-L176), [while save/restore](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L192-L226), and [continue adapter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L605-L620).
 
 ## C16-04 — Complete a loop layout
 
@@ -132,7 +132,7 @@ Patching breaks before emitting the backward JMP would target 1000, where execut
 
 **Changed reattempt check.** Moving the final JMP to 1007 moves its field to 1008 and the end to 1012. Condition JZ becomes 86 (`56 00 00 00`); continue stays −48 (`D0 FF FF FF`); break becomes 43 (`2B 00 00 00`); final JMP becomes −112 (`90 FF FF FF`). The continue edge is unchanged because both its own field and destination stayed fixed.
 
-Source check: [while closure](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L201-L226) and [do layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L367-L400).
+Source check: [while closure](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L201-L226) and [do layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L367-L400).
 
 ## C16-05 — Repair a replay account
 
@@ -158,7 +158,7 @@ The real order is:
 
 Replay leaves its generated step instructions in the output. Restoring lexer state rolls back the input view, not output position. The copied mark remains allocated; there is no local free in this algorithm.
 
-Using `cc-peek-mark` is not an equivalent general replacement. A valid legacy step `++r`, with r a local, takes the [prefix-update path through `cc-name-alone?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1380-L1410). That helper writes its own lexer snapshot into `cc-peek-mark`, overwriting an outer snapshot stored in the same buffer. A dedicated allocated block preserves the post-body state independently. This counterexample establishes the general ownership problem; it does not claim the particular `r=r+1` fixture itself performs that overwrite.
+Using `cc-peek-mark` is not an equivalent general replacement. A valid legacy step `++r`, with r a local, takes the [prefix-update path through `cc-name-alone?`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1402-L1432). That helper writes its own lexer snapshot into `cc-peek-mark`, overwriting an outer snapshot stored in the same buffer. A dedicated allocated block preserves the post-body state independently. This counterexample establishes the general ownership problem; it does not claim the particular `r=r+1` fixture itself performs that overwrite.
 
 For a comments/whitespace-only step, the skipper reaches the window end. The comparison is false, so no expression parser is called. Continue still targets the step position, now occupied by the subsequently emitted backward JMP.
 
@@ -168,7 +168,7 @@ For a comments/whitespace-only step, the skipper reaches the window end. The com
 
 **Changed reattempt check.** Restore the complete pending `}` record, cursor 121, and original length 180. The outer compound's next-token operation returns `}` without moving the cursor, clears pending, recognizes its closing brace, and pops its scope. A fresh token read instead of the pending-aware interface would skip that owed closing brace.
 
-Source check: [for replay](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L313-L335), [snapshot layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth#L19-L28), and [mark/reset and shared peek buffer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L653-L689).
+Source check: [for replay](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L313-L335), [snapshot layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/020-cc-arena.fth#L19-L28), and [mark/reset and shared peek buffer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L655-L691).
 
 ## C16-06 — Protect an outer for
 
@@ -206,7 +206,7 @@ In legacy mode, the `int` token in `for (int k=0; …)` does not take the native
 
 **Changed reattempt check.** Parentheses inside `/* ) ( */` are skipped as comment contents and do not change depth. The header's real `)` changes one to zero. The captured step includes whitespace/comment bytes; replay skips them to the window end and does not invoke `cc-parse-expr`.
 
-Source check: [for saves/init/condition](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L247-L290), [token scanner](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L297-L311), and [reverse restoration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L337-L352).
+Source check: [for saves/init/condition](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L247-L290), [token scanner](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L297-L311), and [reverse restoration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L337-L352).
 
 ## C16-07 — Select an interface without importing its implementation
 
@@ -238,7 +238,7 @@ An expression statement may leave a value in RDI. Registers do not accumulate on
 
 **Changed reattempt check.** Legacy identifier routing still begins with `cc-parse-ident-stmt`, but a resolved `sk-typedef` now selects declaration handling. It obtains the typedef's encoded type from its symbol payload, extracts base and pointer depth, and calls `cc-parse-decl-with-base`. The starting identifier is consumed as the type name; it is not put back as a runtime variable expression.
 
-Source check: [expression adapter and identifier client](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L828-L858) and [full dispatcher](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L865-L905).
+Source check: [expression adapter and identifier client](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L828-L858) and [full dispatcher](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L865-L905).
 
 ## C16-08 — Change the triangle's behavior deliberately
 
@@ -273,7 +273,7 @@ An alternative after the original step can be acceptable if the design explicitl
 
 **Changed reattempt check.** Moving the r=1 continue after the `t.stars` update changes none of the original triangle's totals. That statement is already the final body work, so jumping to the step skips no additional work. All four array elements become 1,3,5,7; final r=4, `t.stars=16`, and the valued return of sixteen is selected. The outcome differs from the early-continue case because the skipped interval is now empty, not because continue has changed its destination.
 
-Source check: [canonical triangle](../chapters/01-compiler-entry-and-profile.md#read-enough-c-to-follow-the-example), [for continue target and replay](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L313-L338), and [for break completion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L340-L352).
+Source check: [canonical triangle](../chapters/01-compiler-entry-and-profile.md#read-enough-c-to-follow-the-example), [for continue target and replay](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L313-L338), and [for break completion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L340-L352).
 
 ## Return for a changed attempt
 

@@ -6,7 +6,7 @@ Make one prediction. Suppose `t.rows` is four and the for-body begins with `if (
 
 We will follow that missing step from source text to its emitted position, then calculate what the changed triangle does.
 
-**Profile and evidence.** We use the legacy Linux/x86-64 compiler in [112-cc-stmt.fth, revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth), with `cc-target-lp64=0`, `cc-target-sysv=0`, and default hooks. Traces are manual derivations, not compiler or generated-program runs. Assume well-formed source, sufficient storage, valid initialized objects whenever read, and bounded arithmetic and branch distances. Native differences follow the main story.
+**Profile and evidence.** We use the legacy Linux/x86-64 compiler in [112-cc-stmt.fth, revision `bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth), with `cc-target-lp64=0`, `cc-target-sysv=0`, and default hooks. Traces are manual derivations, not compiler or generated-program runs. Assume well-formed source, sufficient storage, valid initialized objects whenever read, and bounded arithmetic and branch distances. Native differences follow the main story.
 
 ## Keep the builder and the future program separate
 
@@ -126,7 +126,7 @@ That full copy is this source's uniform snapshot design. The pending-`n` example
 
 Clearing pending protects the entrance to replay; resetting from the full mark protects the return. The restored source length makes later bytes available again. None of those restorations removes the step instructions just appended to the output.
 
-The saved mark must also survive parsing the step. For a valid legacy step such as `++r`, with r a local, [the prefix-update parser calls `cc-name-alone?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1380-L1410). That helper saves a new lexer state into the shared `cc-peek-mark` buffer. If the outer replay snapshot occupied that same buffer, the new mark would overwrite it. Fresh storage M keeps the two snapshots separate. This is a general valid-step counterexample; it does not assert that the specific `r=r+1` fixture overwrites the shared mark.
+The saved mark must also survive parsing the step. For a valid legacy step such as `++r`, with r a local, [the prefix-update parser calls `cc-name-alone?`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1402-L1432). That helper saves a new lexer state into the shared `cc-peek-mark` buffer. If the outer replay snapshot occupied that same buffer, the new mark would overwrite it. Fresh storage M keeps the two snapshots separate. This is a general valid-step counterexample; it does not assert that the specific `r=r+1` fixture overwrites the shared mark.
 
 For an omitted step, the parser first skips whitespace and comments inside the temporary window. If nothing remains, it makes no expression-parser call. Continue still has a destination: the backward JMP that will occupy the empty step position.
 
@@ -194,13 +194,13 @@ Compound, `if`, and loop words can now compile calls to that named interface bef
 ' cc-parse-stmt is cc-parse-stmt-fwd
 ```
 
-The quote supplies the Forth execution token; `is` installs that implementation for later calls. This is builder call routing, not an emitted C function pointer or a syntax tree. The [declaration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L13-L17) and [final binding](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L904-L905) bracket the mutually recursive family.
+The quote supplies the Forth execution token; `is` installs that implementation for later calls. This is builder call routing, not an emitted C function pointer or a syntax tree. The [declaration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L13-L17) and [final binding](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L904-L905) bracket the mutually recursive family.
 
-**Optional provider detail.** [010's deferred-word provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L404-L429) stores the installed execution token in a cell reached by the deferred word. Its physical implementation is not needed to follow the recursive statement calls here.
+**Optional provider detail.** [010's deferred-word provider](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L404-L429) stores the installed execution token in a cell reached by the deferred word. Its physical implementation is not needed to follow the recursive statement calls here.
 
 ### A compound owns its closing brace
 
-The caller has consumed `{`. The complete [compound parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L19-L33) is:
+The caller has consumed `{`. The complete [compound parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L19-L33) is:
 
 ```forth
 : cc-parse-compound
@@ -221,15 +221,15 @@ For `{ int pad; { int n; } pad = 2; }`, let symbol count initially be M. The out
 
 The loop test consumes `}` and does not put it back. Every other token is made pending so the dispatcher can read it as the start of the next unit. Replacing that putback with an ordinary next-token call would discard each statement's leading token. Popping a scope restores the visible symbol prefix, not local-slot allocation or arena allocation. Those policies remain C15's and C02's.
 
-**Input/error boundary.** This is a well-formed-input trace. The compound loop has no dedicated EOF test or local recovery branch; an EOF token is not a closing brace and enters downstream parsing. Do not promise a particular missing-brace diagnosis from this loop alone. [The actual scope provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L152-L167) checks scope capacity with 61 and an unmatched pop with 62.
+**Input/error boundary.** This is a well-formed-input trace. The compound loop has no dedicated EOF test or local recovery branch; an EOF token is not a closing brace and enters downstream parsing. Do not promise a particular missing-brace diagnosis from this loop alone. [The actual scope provider](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth#L152-L167) checks scope capacity with 61 and an unmatched pop with 62.
 
 ### Reference: both if completion paths
 
 For these byte calculations, O and q are decimal output-file byte offsets; q names a displacement field. V is a target virtual address, with `V=0x400000+O` in this fixed-address profile. Neither is a pointer into the builder's arena. Byte lists run from lower to higher addresses, with multibyte numeric fields little-endian. A signed negative rel32 is stored as its low 32-bit two's-complement pattern. A field at q targeting offset T stores `T−(q+4)`, measured from the field's end.
 
-The default [`cc-value-test-fwd`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L186-L191) calls `cc-emit-test-rdi`, emitting `48 85 FF`. It preserves RDI and sets future ZF for zero. Those CPU flags are distinct from a Forth true flag selecting a builder `if,` branch. A typed provider may replace the hook; selecting LP64 alone does not identify every provider or make every generated value an eight-byte integer.
+The default [`cc-value-test-fwd`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L186-L191) calls `cc-emit-test-rdi`, emitting `48 85 FF`. It preserves RDI and sets future ZF for zero. Those CPU flags are distinct from a Forth true flag selecting a builder `if,` branch. A typed provider may replace the hook; selecting LP64 alone does not identify every provider or make every generated value an eight-byte integer.
 
-The parser enters with `if` consumed. It owns the parentheses; `cc-parse-expr` owns the condition expression. Here is the complete [branch algorithm](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L49-L70):
+The parser enters with `if` consumed. It owns the parentheses; `cc-parse-expr` owns the condition expression. Here is the complete [branch algorithm](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L49-L70):
 
 ```forth
 : cc-parse-if
@@ -292,7 +292,7 @@ For a short return to the branch mechanism, use C16-01 and C16-02 Part A. Explai
 
 ## A known destination still becomes a relative instruction
 
-Forward branches need placeholders because their destinations are unknown. A loop's backward destination is already known, so [these two emitters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L79-L93) calculate the field immediately:
+Forward branches need placeholders because their destinations are unknown. A loop's backward destination is already known, so [these two emitters](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L79-L93) calculate the field immediately:
 
 ```forth
 : cc-emit-jmp-vaddr                               ( target-vaddr -- )
@@ -320,7 +320,7 @@ If output position is 700 and the target is `0x400280`, corresponding to offset 
 
 The extra opcode byte changes the displacement. Subtracting 700 in both cases would point too far forward. The same formula works for an already-known forward destination. There is no general signed-range check in these helpers; the caller's fitting-rel32 premise still matters.
 
-**Reference return, C17.** The adjacent [`cc-emit-je-vaddr`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L95-L101) uses `0F 84` and the identical subtraction. JE and JZ name the same zero-flag branch encoding. C17 uses it after comparing switch values; here its full interface is known without importing that switch algorithm. These helpers live in `112` beside their users for organization, not because `cc-here-vaddr` was unavailable to `090`.
+**Reference return, C17.** The adjacent [`cc-emit-je-vaddr`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L95-L101) uses `0F 84` and the identical subtraction. JE and JZ name the same zero-flag branch encoding. C17 uses it after comparing switch values; here its full interface is known without importing that switch algorithm. These helpers live in `112` beside their users for organization, not because `cc-here-vaddr` was unavailable to `090`.
 
 ## Give each enclosing construct its own lists
 
@@ -337,7 +337,7 @@ A single `if` needs a fixed number of fields. A loop body can contain many `brea
 
 The four `cc-for-*` cells preserve the replay context described above; the two heads and walker scratch serve ordinary loops too.
 
-The names “stack-head” describe saved nesting contexts; the lists themselves are linked arena nodes. The complete [append adapters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L118-L134) select the mutable head cell:
+The names “stack-head” describe saved nesting contexts; the lists themselves are linked arena nodes. The complete [append adapters](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L118-L134) select the mutable head cell:
 
 ```forth
 : cc-add-break-fixup                              ( off -- )
@@ -349,9 +349,9 @@ The names “stack-head” describe saved nesting contexts; the lists themselves
 
 Retrieve C10's mechanism: `cc-add-fixup-to-list ( off head-cell -- )` allocates sixteen bytes, stores off at node+0, stores the previous head at node+8, and publishes the new node as head. In contrast, `cc-walk-and-patch-to-vaddr ( head target -- )` takes the fetched head value. For each node it reads off, writes `target−(0x400000+off+4)` into that output field, and follows node+8. It changes neither the owner cell nor output position and frees no nodes. Passing the address of the head cell instead would interpret the wrong memory as a node.
 
-**Reference return, C10.** The second walker, `cc-walk-and-patch-imm64-to-vaddr`, follows the same node format but writes the absolute target into eight-byte fields without subtraction. It belongs to C10's function-address uses, not to these break/continue lists. A node format does not determine the patch width; the selected walker does. Both walkers use `cc-fixup-target-tmp` and do not establish independently reentrant walker contexts. [Their complete bodies and worked derivation are in C10](10-calls-literals-and-deferred-addresses.md#open-the-patch-walkers-now), pinned to [112:139–171](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L139-L171).
+**Reference return, C10.** The second walker, `cc-walk-and-patch-imm64-to-vaddr`, follows the same node format but writes the absolute target into eight-byte fields without subtraction. It belongs to C10's function-address uses, not to these break/continue lists. A node format does not determine the patch width; the selected walker does. Both walkers use `cc-fixup-target-tmp` and do not establish independently reentrant walker contexts. [Their complete bodies and worked derivation are in C10](10-calls-literals-and-deferred-addresses.md#open-the-patch-walkers-now), pinned to [112:139–171](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L139-L171).
 
-The [current-destination wrapper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L173-L176) supplies one missing argument:
+The [current-destination wrapper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L173-L176) supplies one missing argument:
 
 ```forth
 : cc-walk-and-patch-fixups                        ( head -- )
@@ -365,7 +365,7 @@ If a list holds field offsets 361 then 341 and current output position is 405, t
 
 **Switch-free starting point.** In the switch-free traces, both `cc-switch-depth` and `cc-loop-switch-depth` are zero. Their difference is zero, so the unwind callback emits no restore instruction. The switch contrast below explains the nonzero case.
 
-The full [statement adapters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L605-L620) are:
+The full [statement adapters](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L605-L620) are:
 
 ```forth
 : cc-parse-break-stmt
@@ -407,7 +407,7 @@ Before reading the source, name the saved state: outer break head Bo, outer cont
 
 ### Read the complete while body
 
-On a source-detail pass, match this [complete parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L192-L226) to the ledger. The following byte layout then gives each edge a numerical destination:
+On a source-detail pass, match this [complete parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L192-L226) to the ledger. The following byte layout then gives each edge a numerical destination:
 
 ```forth
 : cc-parse-while
@@ -476,7 +476,7 @@ B1 through C2 are symbolic builder node addresses, not target labels. Inner node
 
 ## Reference: for setup and source capture
 
-The [first half of `cc-parse-for`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L247-L290) performs these transitions:
+The [first half of `cc-parse-for`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L247-L290) performs these transitions:
 
 1. Save the outer values of all four `cc-for-*` scratch cells on B.R, in order top, end-fixup, step-start, step-end. A nested `for` will overwrite them, so saving only the exit-list heads would be insufficient
 2. Push a symbol scope and consume `(`. Fetch the first init token. A semicolon means no init; it is already consumed
@@ -491,13 +491,13 @@ An omitted condition has a concrete implementation, not an uninitialized RDI:
     [lit] 1 cc-emit-mov-rdi-imm32 cc-mark-int-value
 ```
 
-That exact [line 280](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L276-L288) emits integer one and publishes matching expression state before the value-test callback. `cc-mark-int-value` invokes the metadata reset and, under LP64, explicitly records int type. Without that publication, a typed test could interpret a synthetic integer using stale expression metadata. The parser still emits TEST and JZ for the omitted condition; it does not optimize them away.
+That exact [line 280](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L276-L288) emits integer one and publishes matching expression state before the value-test callback. `cc-mark-int-value` invokes the metadata reset and, under LP64, explicitly records int type. Without that publication, a typed test could interpret a synthetic integer using stale expression metadata. The parser still emits TEST and JZ for the omitted condition; it does not optimize them away.
 
 Default legacy initialization here is an expression or nothing. Do not infer support for `for (int r=0; …)` from the fact that ordinary block statements accept `int`. The native branch has its own provider contract: the current first declaration token and collected parser state are available; the declaration provider consumes its declaration including the terminating semicolon. The for-scope keeps such a declared name visible through condition, body, and replayed step, then hides it. A compound body adds another nested scope, which closes before replay. Full native declarator bodies remain later material.
 
 ### Find the matching close parenthesis as tokens
 
-The [step scanner](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L297-L311) begins immediately after the condition semicolon:
+The [step scanner](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L297-L311) begins immediately after the condition semicolon:
 
 ```forth
   [lit] 0 cc-tok-pending !
@@ -525,7 +525,7 @@ After `cc-parse-stmt-fwd` emits the body, `cc-continue-stack-head @ cc-walk-and-
 
 ### For completion order
 
-After restoring the post-body lexer state, the parser emits JMP to `cc-for-top-vaddr`, patches `cc-for-end-fixup` to the new end, and patches the break list to that same end. It restores the saved outer loop switch-depth, continue head, and break head in reverse save order. Then it pops the for-scope and restores step-end, step-start, end-fixup, and top scratch cells in reverse order. [112:337–352](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L337-L352) supplies that closure.
+After restoring the post-body lexer state, the parser emits JMP to `cc-for-top-vaddr`, patches `cc-for-end-fixup` to the new end, and patches the break list to that same end. It restores the saved outer loop switch-depth, continue head, and break head in reverse save order. Then it pops the for-scope and restores step-end, step-start, end-fixup, and top scratch cells in reverse order. [112:337–352](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L337-L352) supplies that closure.
 
 ### Keep the outer for's state
 
@@ -533,7 +533,7 @@ For a nested `for`, the outer saved state might be `(Vouter,qOuter,40,45)`: cond
 
 ### The replay mark's physical layout
 
-The [replay block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L322-L335) allocates **64 bytes**, not a pair of cells. From [020's layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth#L19-L28), the mark contains:
+The [replay block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L322-L335) allocates **64 bytes**, not a pair of cells. From [020's layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/020-cc-arena.fth#L19-L28), the mark contains:
 
 | Mark byte offset | Saved cell |
 |---:|---|
@@ -548,7 +548,7 @@ The [replay block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118
 
 ### Read the complete replay block
 
-The state table in the story corresponds to this exact [112:322–335 block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L322-L335):
+The state table in the story corresponds to this exact [112:322–335 block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L322-L335):
 
 ```forth
   cc-lex-state-size cc-alloc dup cc-lex-mark >r
@@ -567,7 +567,7 @@ The state table in the story corresponds to this exact [112:322–335 block](htt
   r> cc-lex-reset
 ```
 
-The [mark/reset copy helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L666-L689) copy eight eight-byte builder cells between the lexer block and the supplied mark storage.
+The [mark/reset copy helpers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L668-L691) copy eight eight-byte builder cells between the lexer block and the supplied mark storage.
 
 The [omitted-step case](#replay-the-step-without-losing-the-next-statement) uses the exact guard `cc-src-pos @ cc-src-len @ <` after `cc-skip-ws-and-comments`; only a nonempty remainder invokes `cc-parse-expr`.
 
@@ -577,7 +577,7 @@ Resetting the mark restores lexer state, not expression metadata, emitted bytes,
 
 ### Read the complete do closure
 
-`cc-parse-do-while`, the [complete parser at 112:367–400](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L367-L400) saves/resets the same three loop-context values as `while`, then saves the current target address on B.R before parsing the body. Immediately after the body it patches continues to the current output position. Only then does it consume keyword `while`, `(`, the condition expression, `)`, and `;`.
+`cc-parse-do-while`, the [complete parser at 112:367–400](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L367-L400) saves/resets the same three loop-context values as `while`, then saves the current target address on B.R before parsing the body. Immediately after the body it patches continues to the current output position. Only then does it consume keyword `while`, `(`, the condition expression, `)`, and `;`.
 
 Its decisive closing sequence is:
 
@@ -594,13 +594,13 @@ Its decisive closing sequence is:
   r> cc-break-stack-head    ! ;
 ```
 
-That exact [tail](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L391-L400) uses JNZ because a true condition repeats. There is no initial condition JZ field to patch. The backward address was known before body emission. Break fields target the position after the JNZ, while continues target the start of condition evaluation. A continue sent to the body top would bypass the required test and could repeat indefinitely.
+That exact [tail](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L391-L400) uses JNZ because a true condition repeats. There is no initial condition JZ field to patch. The backward address was known before body emission. Break fields target the position after the JNZ, while continues target the start of condition evaluation. A continue sent to the body top would bypass the required test and could repeat indefinitely.
 
 ## Close the dispatcher without hiding its other clients
 
 **Complete dispatcher/profile reference.** This section closes the routes behind the statement interface used in the story; C16-07 checks their token-entry contracts. The main trace used structured bodies. Legacy label units have a narrower return boundary, detailed below and in C17; an arbitrary label-prefixed sequence is not silently covered by the same one-call body promise.
 
-An expression statement enters with its first token already read. The complete [adapter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L828-L833) returns it to the expression parser:
+An expression statement enters with its first token already read. The complete [adapter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L828-L833) returns it to the expression parser:
 
 ```forth
 : cc-parse-expr-stmt
@@ -611,7 +611,7 @@ An expression statement enters with its first token already read. The complete [
 
 It emits the expression's side effects and then consumes the semicolon. It does not push a discarded expression value onto a permanent generated stack or need a “discard RDI” instruction. Balanced expression temporaries remain the expression parser's responsibility. A lone semicolon bypasses this adapter entirely and emits no expression code.
 
-The final [`cc-parse-stmt` dispatcher](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L865-L905) first calls `cc-skip-storage-quals`, then `cc-next-token-keep`. C15 established that the skipper resets/collects prefix facts and puts the first nonprefix token back; that token becomes the dispatch token. The source comment's word “skip” must not erase the prefix state its declaration clients use.
+The final [`cc-parse-stmt` dispatcher](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L865-L905) first calls `cc-skip-storage-quals`, then `cc-next-token-keep`. C15 established that the skipper resets/collects prefix facts and puts the first nonprefix token back; that token becomes the dispatch token. The source comment's word “skip” must not erase the prefix state its declaration clients use.
 
 The LP64-only prelude precedes ordinary cases:
 
@@ -654,13 +654,13 @@ Every recognized route exits the dispatcher. The final expression fallback is no
 
 Here are the explicit boundaries of the three C17 clients. Switch parsing temporarily owns the break head, preserves the loop's continue head, creates its saved-RBX obligation, and supplies an exit destination that restores it. It intercepts its own `case`/`default` labels. Goto uses per-function label information and has profile-specific switch restrictions, so do not treat it as another loop continue. Identifier dispatch first recognizes an in-scope typedef name as a declaration; otherwise it distinguishes a following colon from an expression. In legacy mode a recognized label records its destination and returns as its own parser unit; with LP64 the label branch recursively parses the following statement. C17 opens the exact lookup, lookahead, unresolved-reference, and label-target mechanisms. No exercise here requires constructing those structures.
 
-The adjacent JE emitter's complete arithmetic is already covered. The native declaration hooks are providers from `115`, the typed value-test seam can be rebound by `127`, and switch-depth state/unwind comes from `110`. Full provider internals remain later chapters; selecting a flag without the intended bindings is not the same profile. Sources: [identifier dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L835-L858), [switch ownership](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L508-L596), [native declaration providers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L478-L638), and [typed test binding](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L220-L230).
+The adjacent JE emitter's complete arithmetic is already covered. The native declaration hooks are providers from `115`, the typed value-test seam can be rebound by `127`, and switch-depth state/unwind comes from `110`. Full provider internals remain later chapters; selecting a flag without the intended bindings is not the same profile. Sources: [identifier dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L835-L858), [switch ownership](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L508-L596), [native declaration providers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L482-L642), and [typed test binding](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L260-L270).
 
 ## Source and profile boundary
 
 This chapter covers `112:17–400`, the local break/continue adapters at `608–620`, expression statements at `830–833`, and the core dispatcher/final binding at `865–905`. The two generic patch walkers are retrieved from C10; switch/label/identifier mechanisms are opened in C17. The source's JE helper receives its switch consumer there. The full native declaration and typed-value providers remain later lessons, with their caller contracts stated above.
 
-The [historical book30](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/30-statements-if-while-for-return.md) supplies context; the pinned definitions settle disagreements. This edition scans for-step tokens and restores a full lexer mark plus separately saved source length. The traces assume valid retained source bytes, sufficient builder/target storage, and fitting signed rel32 fields. They establish these local predictions rather than whole-language conformance or a bootstrap result.
+The [historical book30](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/30-statements-if-while-for-return.md) supplies context; the pinned definitions settle disagreements. This edition scans for-step tokens and restores a full lexer mark plus separately saved source length. The traces assume valid retained source bytes, sufficient builder/target storage, and fitting signed rel32 fields. They establish these local predictions rather than whole-language conformance or a bootstrap result.
 
 ## Practice: account for each unfinished obligation
 

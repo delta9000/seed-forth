@@ -22,6 +22,21 @@ relations count as agreement. A **fixed point** here is agreement of named later
 generations under that predicate; it is not a theorem about every program or the
 absence of hidden compiler defects.
 
+## The additional plumbing lineage
+
+The newer plumbing route bootstraps native seed-cc/seed-ar, then builds kaem.
+Stage 1 uses seed-cc for small stage0 file/hash/unpack tools and GNU make 3.82;
+stage 2 uses that make and explicit config.h files for sed, gzip, patch,
+diffutils, grep, gawk, tar and 80 coreutils programs. Recipes avoid shell
+metacharacters and use no configure script. The lexer and bash stages are
+separate: the pin records a lexer-stage execution audit, while completing a
+GCC rebuild entirely under replaced plumbing remains outside that result.
+The recipe record still lists two coreutils patches and `sed -f`'s rejected
+`"rt"` mode; its long-double-gap wording predates the new layer 132, so this
+edition does not infer that patch removal or a new rebuild occurred.
+See [stages and retained limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/plumbing/README.md#L1-L113),
+[lexer audit and final checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/plumbing/README.md#L258-L282).
+
 ## Compare the same file inventory first
 
 compare() enumerates relative paths for files in each installed tree, sorts them
@@ -41,7 +56,7 @@ runtime instead. The ordinary predicate remains exact recorded file-content hash
 equality, with the usual digest assumption stated.
 
 Sources: [inventory and content
-comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156).
+comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156).
 
 ## Compare archive members without claiming container identity
 
@@ -62,9 +77,9 @@ Duplicate or exotic names would require further validation to claim a universal
 member-identity check. Keep that bounded implementation detail visible.
 
 Sources: [ordered member-name/hash
-fallback](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156),
+fallback](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156),
 [archive timestamp
-reason](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L523).
+reason](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L547).
 
 ## Require both generation edges
 
@@ -84,9 +99,9 @@ lineage. No new report.json or stage-4 hash has been produced by this chapter. A
 source inspection of the boolean is not a new observed fixed point.
 
 Sources: [paired acceptance and
-report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L175-L204),
+report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L175-L204),
 [recorded direct-GCC
-endpoint](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541).
+endpoint](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565).
 
 ## Reconstruct the producers from the small result
 
@@ -110,13 +125,13 @@ names an executable producer and its inputs, rather than a directory label
 alone.
 
 Sources: [initial direct-profile
-production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L320),
+production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L332),
 [generator
-chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L56-L138),
+chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L56-L138),
 [hosted producer
-handoff](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L11-L39),
+handoff](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L11-L39),
 [later
-generations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L8-L25).
+generations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L8-L25).
 
 ## Retain comparisons without turning them into ancestors
 
@@ -140,9 +155,9 @@ independent learner execution, fresh reproduction, general compiler correctness
 and direct-GCC-to-Linux boot as separate obligations.
 
 Sources: [host-supported test
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L431),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L455),
 [optional runtime oracle
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L76-L91).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L76-L91).
 
 ## Work through an acceptance report by hand
 
@@ -168,15 +183,15 @@ false. The recipe asks for both edges, so a single final adjacent match cannot
 substitute for its actual condition.
 
 Sources: [inventory and content
-comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156),
+comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156),
 [ordered member-name/hash
-fallback](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156),
+fallback](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156),
 [archive timestamp
-reason](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L523),
+reason](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L547),
 [paired acceptance and
-report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L175-L204),
+report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L175-L204),
 [recorded direct-GCC
-endpoint](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541).
+endpoint](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565).
 
 ## Trace one final byte backward through the graph
 
@@ -205,17 +220,17 @@ paper address belongs in the first category with supplied premises, not in the
 execution category.
 
 Sources: [initial direct-profile
-production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L320),
+production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L332),
 [generator
-chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L56-L138),
+chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L56-L138),
 [hosted producer
-handoff](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L11-L39),
+handoff](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L11-L39),
 [later
-generations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L8-L25),
+generations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L8-L25),
 [host-supported test
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L431),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L455),
 [optional runtime oracle
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L76-L91).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L76-L91).
 
 ## End with an achievement whose boundaries can be retained
 
@@ -239,13 +254,13 @@ learning task; a reader who reproduces the build has completed a distinct
 operational task. Both can be valuable without confusing one for the other.
 
 Sources: [paired acceptance and
-report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L175-L204),
+report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L175-L204),
 [recorded direct-GCC
-endpoint](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541),
+endpoint](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565),
 [host-supported test
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L431),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L455),
 [optional runtime oracle
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L76-L91).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L76-L91).
 
 ## Keep the capstone graph useful when a claim is challenged
 
@@ -296,27 +311,27 @@ capstone reproducible as a claim, even before a reader undertakes the full
 operational reproduction.
 
 Sources: [inventory and content
-comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156),
+comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156),
 [ordered member-name/hash
-fallback](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156),
+fallback](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156),
 [archive timestamp
-reason](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L523),
+reason](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L547),
 [paired acceptance and
-report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L175-L204),
+report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L175-L204),
 [recorded direct-GCC
-endpoint](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541),
+endpoint](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565),
 [initial direct-profile
-production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L320),
+production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L332),
 [generator
-chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L56-L138),
+chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L56-L138),
 [hosted producer
-handoff](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L11-L39),
+handoff](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L11-L39),
 [later
-generations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L8-L25),
+generations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L8-L25),
 [host-supported test
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L431),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L455),
 [optional runtime oracle
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L76-L91).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L76-L91).
 
 ## Use the endpoint to choose the next observation
 
@@ -368,7 +383,7 @@ and cannot silently become this route's evidence. The current capstone ends at
 the recorded GCC 4.0.4 toolchain and bounded later-generation agreement, with
 that kernel continuation explicitly open.
 
-Sources: [inventory and content comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156), [ordered member-name/hash fallback](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L137-L156), [archive timestamp reason](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L523), [paired acceptance and report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L175-L204), [recorded direct-GCC endpoint](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541), [initial direct-profile production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L320), [generator chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L56-L138), [hosted producer handoff](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L11-L39), [later generations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L8-L25), [host-supported test boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L431), [optional runtime oracle boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L76-L91).
+Sources: [inventory and content comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156), [ordered member-name/hash fallback](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L137-L156), [archive timestamp reason](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L547), [paired acceptance and report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L175-L204), [recorded direct-GCC endpoint](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565), [initial direct-profile production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L332), [generator chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L56-L138), [hosted producer handoff](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L11-L39), [later generations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L8-L25), [host-supported test boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L455), [optional runtime oracle boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L76-L91).
 
 ## Stop, then change the boundary
 

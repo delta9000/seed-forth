@@ -4,7 +4,7 @@
 
 This chapter opens those small runtime bodies. By the end, you should be able to predict each supported name's request and result, trace the inline heap state, and identify the assumptions that make a buffer or string operation meaningful. You should also be able to explain why sharing familiar C-library names does not establish a hosted C library.
 
-**Edition and evidence.** The implementation is the default legacy direct-ELF profile at [`7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b). Our primary bodies are [`090`, runtime emitters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L535-L1003), with registration and entry code in [`116`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L585-L884). Results below are source-based paper derivations. No compiler, generated program, Forth example, build, or Linux bootstrap was executed to establish them. Kernel interface references specify the boundary; they do not demonstrate that an emitted executable reached it.
+**Edition and evidence.** The implementation is the default legacy direct-ELF profile at [`bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e). Our primary bodies are [`090`, runtime emitters](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L535-L1003), with registration and entry code in [`116`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L585-L884). Results below are source-based paper derivations. No compiler, generated program, Forth example, build, or Linux bootstrap was executed to establish them. Kernel interface references specify the boundary; they do not demonstrate that an emitted executable reached it.
 
 ## Choose a useful route
 
@@ -39,11 +39,11 @@ Before `SYSCALL`, `rax` identifies the operation. On an ordinary return, `rax` c
 
 An ordinary generated function returns a scalar in `rax`; the caller's `48 89 C7` then copies it to `rdi`, the expression-result register. That move does not reinterpret bytes as characters, convert counts to elements, or normalize an error. The called body decides what `rax` means.
 
-A **file descriptor**, or fd, is a small integer identifying an open endpoint in this process. Descriptor 0 conventionally denotes stdin and 1 stdout; neither must be a terminal or even remain open. Here, the `fp` argument to `fputs` and its relatives is used as that integer. These bodies never dereference a hosted `FILE` structure. The legacy typedef registrations admit familiar spellings such as `FILE` and `size_t` by mapping them to the legacy integer type; that is no promise of hosted stream layout or standard fixed-width typedef sizes. See [`cc-emit-libc-typedefs`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L815-L846).
+A **file descriptor**, or fd, is a small integer identifying an open endpoint in this process. Descriptor 0 conventionally denotes stdin and 1 stdout; neither must be a terminal or even remain open. Here, the `fp` argument to `fputs` and its relatives is used as that integer. These bodies never dereference a hosted `FILE` structure. The legacy typedef registrations admit familiar spellings such as `FILE` and `size_t` by mapping them to the legacy integer type; that is no promise of hosted stream layout or standard fixed-width typedef sizes. See [`cc-emit-libc-typedefs`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L815-L846).
 
 ### The entry stub is the first caller
 
-Linux starts at the executable's entry address, not at the C function named `main`. C09's 120-byte header places the 26-byte entry stub at file offset 120. Under the stated Linux initial-stack contract, the stub reads argc from `[rsp]`, forms argv as `rsp+8`, and calls the resolved `main`. On return it copies `rax` to `rdi`, puts 60 in `rax`, and issues the exit syscall. Those are the operations emitted by [`cc-emit-entry-stub`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L585-L622).
+Linux starts at the executable's entry address, not at the C function named `main`. C09's 120-byte header places the 26-byte entry stub at file offset 120. Under the stated Linux initial-stack contract, the stub reads argc from `[rsp]`, forms argv as `rsp+8`, and calls the resolved `main`. On return it copies `rax` to `rdi`, puts 60 in `rax`, and issues the exit syscall. Those are the operations emitted by [`cc-emit-entry-stub`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L585-L622).
 
 With an initially 16-aligned stack and no intervening stack change, that first `CALL` makes `main` enter with `rsp` eight bytes below the original value. This local fact is not a proof of every later nested call's alignment or of general ABI interoperability. The stub supplies no third `envp` argument and contains no hosted initialization, constructor walk, buffered-stream flush, or exit-handler mechanism. In C01's bounded, single-threaded triangle trace, a returned sixteen becomes the argument of exit. It does not print `16`.
 
@@ -51,7 +51,7 @@ With an initially 16-aligned stack and no intervening stack change, that first `
 
 There are **sixteen emitter definitions** in the runtime region of `090`, supplying **nineteen callable names**. The difference comes from `cc-emit-syscall-shim`: four providers specialize the same shape for `open`, `read`, `write`, and `close`.
 
-Eleven bodies are **eager**: [`cc-emit-shims`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L659-L740) registers each name with the current target address, then emits its body. The records use the legacy integer result type except for void `exit` and `free`; the eight-byte result can carry an address without supplying a hosted library signature. This happens before user functions are parsed. Even an unused eager name occupies bytes.
+Eleven bodies are **eager**: [`cc-emit-shims`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L659-L740) registers each name with the current target address, then emits its body. The records use the legacy integer result type except for void `exit` and `free`; the eight-byte result can carry an address without supplying a hosted library signature. This happens before user functions are parsed. Even an unused eager name occupies bytes.
 
 | Eager order | File start | Region length | Next file offset |
 |---|---:|---:|---:|
@@ -80,7 +80,7 @@ Writing a heap-state cell at runtime does not rewrite the stored executable file
 
 ### Late names wait for a call or an address
 
-The eight remaining names are `malloc`, `open`, `read`, `write`, `close`, `strlen`, `memcpy`, and `strrchr`, in that table order. [`cc-late-shims`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L757-L804) has one 32-byte builder-side row per name:
+The eight remaining names are `malloc`, `open`, `read`, `write`, `close`, `strlen`, `memcpy`, and `strrchr`, in that table order. [`cc-late-shims`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L757-L804) has one 32-byte builder-side row per name:
 
 | Row offset | Eight-byte field |
 |---:|---|
@@ -109,7 +109,7 @@ The excerpt is the inner body of `cc-emit-late-shims`. If either head is nonzero
 
 `cc-emit-open-shim`, `cc-emit-read-shim`, `cc-emit-write-shim`, and `cc-emit-close-shim` supply syscall numbers 2, 0, 1, and 3. `cc-emit-malloc-late` obtains the registered `calloc` target for its tail jump. The other rows name their direct emitters. A program with no pending use emits none of these late bodies.
 
-One extra raw name, `cc-name-memset`, is only an external prototype on this path. It supplies no twentieth body. A remaining call **or address** fixup reaches error 206 in [`cc-check-fns-defined`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L812-L884); missing `main` reaches 207. Recognizing a spelling and supplying an implementation are different steps.
+One extra raw name, `cc-name-memset`, is only an external prototype on this path. It supplies no twentieth body. A remaining call **or address** fixup reaches error 206 in [`cc-check-fns-defined`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L812-L884); missing `main` reaches 207. Recognizing a spelling and supplying an implementation are different steps.
 
 ## Follow one star
 
@@ -134,7 +134,7 @@ Changing the paper callsite changes the displacement. It does not change the shi
 
 Let the caller's `rsp` immediately before `CALL` be S, at a valid call boundary. `CALL` stores its return address at S−8 and enters the shim with `rsp=S−8`. The first instruction, `PUSH RDI`, stores the eight-byte value 42 at S−16. Little-endian storage makes its first byte `2A`; seven zero bytes follow. Only the first byte is requested for output.
 
-These are the exact instruction bytes from [`cc-emit-putchar-shim`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L549-L571), decoded as data for this trace:
+These are the exact instruction bytes from [`cc-emit-putchar-shim`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L549-L571), decoded as data for this trace:
 
 | Shim offset | Bytes | Instruction and newly established fact |
 |---:|---|---|
@@ -165,7 +165,7 @@ For the last column, B contains `2A` and is readable. `fputc` reloads the saved 
 
 ## Reading one character: zero is a separate branch
 
-[`cc-emit-getchar-shim`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L584-L623) also pushes `rdi` for scratch, then requests `read(0,rsp,1)`. Afterward it executes `TEST RAX,RAX` and `JNZ`. The test asks whether the result is zero, **not whether it is positive**.
+[`cc-emit-getchar-shim`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L584-L623) also pushes `rdi` for scratch, then requests `read(0,rsp,1)`. Afterward it executes `TEST RAX,RAX` and `JNZ`. The test asks whether the result is zero, **not whether it is positive**.
 
 - A successful one-byte read follows the nonzero branch and zero-extends the scratch byte into `rax`. Input byte `FF` therefore yields 255
 - A returned zero follows the other branch, loads −1, and skips the byte load. For this nonzero-count ordinary input request, that is the EOF path
@@ -185,13 +185,13 @@ Take a writable twelve-byte buffer B and an open descriptor 7. Supply the genera
 rdi = B        rsi = 4        rdx = 3        rcx = 7
 ```
 
-The [`fread` body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L778-L813) first pushes size 4. It multiplies size by count, moves twelve to `rdx`, B to `rsi`, and descriptor 7 to `rdi`. It clears `eax` for syscall zero. Before the request, the state is therefore `read(7,B,12)`.
+The [`fread` body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L778-L813) first pushes size 4. It multiplies size by count, moves twelve to `rdx`, B to `rsi`, and descriptor 7 to `rdi`. It clears `eax` for syscall zero. Before the request, the state is therefore `read(7,B,12)`.
 
 Suppose that one read supplies ten bytes. A short successful read is permitted by the [Linux read contract](https://kernel.googlesource.com/pub/scm/docs/man-pages/man-pages/+/44930b7b8eacbfff12acd1dcfbb66dd818e35254/man/man2/read.2); twelve requested is not twelve obtained. The shim pops the saved size into `rcx`, replacing the syscall-clobbered register with a known divisor. Since `rax=10` is positive, it clears `edx` and performs unsigned `DIV RCX` on `rdx:rax`. The quotient is 2 and remainder 2. The function returns the quotient, two complete four-byte elements.
 
 Ten bytes were nevertheless transferred into `[B,B+10)`. Eight of them form the two complete elements counted by the return value; two are a partial third element. Nothing in this body undoes that partial transfer or supplies the remaining two bytes. The region `[B+10,B+12)` has not gained valid new input from this request. There is also no trailing-NUL store. Do not hand B to a string scan merely because the read returned nonnegative.
 
-Now change only the operation to `fwrite(B,4,3,7)` and require B's twelve bytes to be readable. The [`fwrite` body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L758-L776) requests one twelve-byte write. A supplied raw result of ten is returned as **ten bytes**, with no division. Its return unit differs from `fread`'s positive-result unit.
+Now change only the operation to `fwrite(B,4,3,7)` and require B's twelve bytes to be readable. The [`fwrite` body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L758-L776) requests one twelve-byte write. A supplied raw result of ten is returned as **ten bytes**, with no division. Its return unit differs from `fread`'s positive-result unit.
 
 For `fread`, zero and negative results bypass division and return unchanged. For `fwrite`, all returning raw results pass through. Both bodies multiply sizes without an overflow check and make one request, without a progress loop or interruption retry. Our successful example uses a positive size and an unoverflowed product fitting the actual buffer. A zero product still reaches a zero-count syscall; the body does not short-circuit before it. In `fread`, a zero or negative result skips division, so zero size alone is not evidence that division by zero executes.
 
@@ -203,19 +203,19 @@ These cards complete the contracts needed alongside the worked traces. Arguments
 
 **`getchar()` — `cc-emit-getchar-shim`, 48 bytes.** Read one byte from fd 0 into pushed scratch. Zero becomes −1; every nonzero result selects a zero-extended scratch byte. The error limitation is the nonzero test described above.
 
-**`fputc(c,fp)` — `cc-emit-fputc-shim`, 29 bytes.** Push c, move the descriptor from `rsi` to `rdi`, use `rsp` as the one-byte buffer, and issue write. Then `0F B6 04 24` loads the saved byte into `eax`, clearing the high half of `rax`; `POP RCX` discards scratch. It returns c's low byte even when the supplied write result is negative. Count the emitted lengths `1+7+3+3+7+2+4+1+1=29`, despite the source's thirty-byte comment. See [the body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L670-L695).
+**`fputc(c,fp)` — `cc-emit-fputc-shim`, 29 bytes.** Push c, move the descriptor from `rsi` to `rdi`, use `rsp` as the one-byte buffer, and issue write. Then `0F B6 04 24` loads the saved byte into `eax`, clearing the high half of `rax`; `POP RCX` discards scratch. It returns c's low byte even when the supplied write result is negative. Count the emitted lengths `1+7+3+3+7+2+4+1+1=29`, despite the source's thirty-byte comment. See [the body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L670-L695).
 
-**`fputs(s,fp)` — `cc-emit-fputs-shim`, 33 bytes.** Save s and the descriptor, count bytes through the first NUL, then issue one write of the preceding bytes. The terminator is scanned but not written, and no newline is added. `rdx` counts the length; `0F B6 0C 17` reads `[rdi+rdx]`, with SIB `17` selecting an unscaled `rdx` index and `rdi` base. The descriptor is restored into `rdi`; the string pointer becomes `rsi`. Return the raw byte count or raw error. The entire scan through the terminator must be readable, and a positive result smaller than the length is partial progress. See [the body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L631-L668).
+**`fputs(s,fp)` — `cc-emit-fputs-shim`, 33 bytes.** Save s and the descriptor, count bytes through the first NUL, then issue one write of the preceding bytes. The terminator is scanned but not written, and no newline is added. `rdx` counts the length; `0F B6 0C 17` reads `[rdi+rdx]`, with SIB `17` selecting an unscaled `rdx` index and `rdi` base. The descriptor is restored into `rdi`; the string pointer becomes `rsi`. Return the raw byte count or raw error. The entire scan through the terminator must be readable, and a positive result smaller than the length is partial progress. See [the body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L631-L668).
 
-**`fopen(path,mode)` — `cc-emit-fopen-shim`, 51 bytes.** Push the path in `rdi`, load only `mode[0]` into `eax`, and form flags in `esi`: `w` selects flags 577 (`0x241`, write/create/truncate); `a` selects 1089 (`0x441`, write/create/append); every other byte selects zero, read-only. It pops the saved path back into `rdi` and puts creation mode 420, octal `0644`, in `edx` for raw open syscall 2. A negative result becomes zero; nonnegative descriptors are unchanged. Therefore successful fd 0 and failure have the same returned representation. `r+` selects read-only because the plus is never read; `wb` takes the same branch as `w`. The path must be readable through its NUL; mode must at least have a readable first byte. There is no validation of the remainder, stream object allocation, or buffering. See [the body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L697-L743).
+**`fopen(path,mode)` — `cc-emit-fopen-shim`, 51 bytes.** Push the path in `rdi`, load only `mode[0]` into `eax`, and form flags in `esi`: `w` selects flags 577 (`0x241`, write/create/truncate); `a` selects 1089 (`0x441`, write/create/append); every other byte selects zero, read-only. It pops the saved path back into `rdi` and puts creation mode 420, octal `0644`, in `edx` for raw open syscall 2. A negative result becomes zero; nonnegative descriptors are unchanged. Therefore successful fd 0 and failure have the same returned representation. `r+` selects read-only because the plus is never read; `wb` takes the same branch as `w`. The path must be readable through its NUL; mode must at least have a readable first byte. There is no validation of the remainder, stream object allocation, or buffering. See [the body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L697-L743).
 
-**`fclose(fp)` — `cc-emit-fclose-shim`, 12 bytes.** With the descriptor already in `rdi`, issue close syscall 3, clear `eax`, return zero. The zero does not certify a successful close; any returning error was overwritten. Closing is meaningful only for a descriptor the caller is responsible for releasing. See [the body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L745-L756).
+**`fclose(fp)` — `cc-emit-fclose-shim`, 12 bytes.** With the descriptor already in `rdi`, issue close syscall 3, clear `eax`, return zero. The zero does not certify a successful close; any returning error was overwritten. Closing is meaningful only for a descriptor the caller is responsible for releasing. See [the body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L745-L756).
 
 **`fwrite(ptr,size,n,fp)` / `fread(ptr,size,n,fp)` — `cc-emit-fwrite-shim` / `cc-emit-fread-shim`, 20 / 30 bytes.** Both move argument four out of `rcx` before the syscall and request `size*n` bytes. Write requires a readable source and returns raw bytes/error; read requires a writable destination and divides only a positive result by the saved size. Neither checks capacity or arithmetic overflow. The preceding trace supplies the intermediate states rather than a libc equivalence.
 
-**`open(path,flags,mode)`, `read(fd,buf,count)`, `write(fd,buf,count)`, `close(fd)` — `cc-emit-syscall-shim`, 20 bytes each.** The first three arguments already occupy the needed syscall registers. The providers set numbers 2, 0, 1, and 3. The shared body loads `eax`, requests the operation, tests the sign of `rax`, changes any negative result to −1, and returns. It does not store an error number, retry, or process a stream object. Read and write counts remain bytes; zero read with positive requested count is the ordinary EOF case, while a zero-count request establishes no new input. Open uses the caller's flags and mode rather than `fopen`'s first-byte translation. The length is `5+2+3+2+7+1=20`, not the stale twenty-two-byte comment. See [the shared body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L907-L927).
+**`open(path,flags,mode)`, `read(fd,buf,count)`, `write(fd,buf,count)`, `close(fd)` — `cc-emit-syscall-shim`, 20 bytes each.** The first three arguments already occupy the needed syscall registers. The providers set numbers 2, 0, 1, and 3. The shared body loads `eax`, requests the operation, tests the sign of `rax`, changes any negative result to −1, and returns. It does not store an error number, retry, or process a stream object. Read and write counts remain bytes; zero read with positive requested count is the ordinary EOF case, while a zero-count request establishes no new input. Open uses the caller's flags and mode rather than `fopen`'s first-byte translation. The length is `5+2+3+2+7+1=20`, not the stale twenty-two-byte comment. See [the shared body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L907-L927).
 
-**`exit(n)` — `cc-emit-exit-shim`, 10 bytes.** Put 60 in `rax`, leave n in `rdi`, issue the syscall. Its final `RET` is not the expected successful path. There is no stdio flush or `atexit` walk. Our process-ending description assumes this single-threaded program; raw syscall 60 terminates the calling thread, and Linux exposes the low eight status bits to the waiting parent. See [the shim](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L573-L582) and [the versioned exit implementation](https://github.com/torvalds/linux/blob/v6.12/kernel/exit.c#L988-L1002).
+**`exit(n)` — `cc-emit-exit-shim`, 10 bytes.** Put 60 in `rax`, leave n in `rdi`, issue the syscall. Its final `RET` is not the expected successful path. There is no stdio flush or `atexit` walk. Our process-ending description assumes this single-threaded program; raw syscall 60 terminates the calling thread, and Linux exposes the low eight status bits to the waiting parent. See [the shim](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L573-L582) and [the versioned exit implementation](https://github.com/torvalds/linux/blob/v6.12/kernel/exit.c#L988-L1002).
 
 ## One mapping, a moving pointer
 
@@ -227,7 +227,7 @@ The runtime `calloc` owns a **bump allocator**: return the current position, the
   [lit]   0 cc-emit-8le ;                         \ heap_pos  = 0
 ```
 
-This is the end of [`cc-emit-calloc-shim`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L815-L896). `heap_base` is at offset 97 within the region and `heap_pos` at 105. In the eager layout, their file offsets are 505 and 513, hence target addresses `0x4001F9` and `0x400201`. These cells are file-backed runtime state; the heap payload they will point to is elsewhere. There is no extra alignment padding before the cells.
+This is the end of [`cc-emit-calloc-shim`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L815-L896). `heap_base` is at offset 97 within the region and `heap_pos` at 105. In the eager layout, their file offsets are 505 and 513, hence target addresses `0x4001F9` and `0x400201`. These cells are file-backed runtime state; the heap payload they will point to is elsewhere. There is no extra alignment padding before the cells.
 
 ### First establish a usable heap
 
@@ -291,9 +291,9 @@ Moving the whole 113-byte region intact leaves these internal distances unchange
 
 **`calloc(n,size)` — `cc-emit-calloc-shim`, 113-byte region.** Save two arguments, initialize one 256 MiB anonymous mapping when the saved base is zero, restore arguments, round the product to eight bytes, return old position, store the advanced position. Ninety-seven code bytes and sixteen inline data bytes form one closed region. The safe success domain and missing checks are stated above.
 
-**`malloc(n)` — `cc-emit-malloc-shim`, 12 bytes.** Set `rsi=1`, then `JMP rel32` to the selected `calloc` target. This is a **tail jump**: it adds no return address. `calloc` eventually returns directly to the original caller using the address already on the stack. Its relative field uses the same next-instruction rule as C10. It inherits the same bounded heap behavior; there is no separate malloc arena. See [the emitter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L929-L937).
+**`malloc(n)` — `cc-emit-malloc-shim`, 12 bytes.** Set `rsi=1`, then `JMP rel32` to the selected `calloc` target. This is a **tail jump**: it adds no return address. `calloc` eventually returns directly to the original caller using the address already on the stack. Its relative field uses the same next-instruction rule as C10. It inherits the same bounded heap behavior; there is no separate malloc arena. See [the emitter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L929-L937).
 
-**`free(p)` — `cc-emit-free-shim`, one byte `C3`.** Return without examining p or touching heap state. It has no specified useful result value, deallocation, clearing, or reuse mechanism. Calling `free(H)` after the trace cannot move `heap_pos` back from H+16. See [the entire body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L898-L900).
+**`free(p)` — `cc-emit-free-shim`, one byte `C3`.** Return without examining p or touching heap state. It has no specified useful result value, deallocation, clearing, or reuse mechanism. Calling `free(H)` after the trace cannot move `heap_pos` back from H+16. See [the entire body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L898-L900).
 
 **Pause point.** Save `heap_base=H`, `heap_pos=H+16`, and “one successful 256 MiB mapping.” On returning, predict the next position after `malloc(9)` before looking at the solution for C11-05. You do not need to reconstruct mmap's six arguments to resume the bump calculation.
 
@@ -311,13 +311,13 @@ meaning       *    a    *    terminator
 
 ### Count to the first zero
 
-[`cc-emit-strlen-shim`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L939-L957), fourteen bytes, clears `eax` to start a count. `80 3C 07 00` compares `[rdi+rax]` with zero: SIB `07` selects `rax` as unscaled index and `rdi` as base. It increments `rax` only for a nonzero byte.
+[`cc-emit-strlen-shim`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L939-L957), fourteen bytes, clears `eax` to start a count. `80 3C 07 00` compares `[rdi+rax]` with zero: SIB `07` selects `rax` as unscaled index and `rdi` as base. It increments `rax` only for a nonzero byte.
 
 The comparisons at counts 0, 1, and 2 find nonzero bytes; count 3 finds NUL and returns three. Four bytes had to be readable, although the returned length is three. No maximum length travels with the pointer and no bound check stops an unterminated scan. This is why read capacity alone cannot justify a call to `strlen`.
 
 ### Remember the last match, including the terminator
 
-[`cc-emit-strrchr-shim`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L973-L1003), twenty-three bytes, clears `eax` for a no-match result and scans with `rdi` as its cursor. It loads one byte into `ecx`, compares `cl` with `sil`, records `rdi` in `rax` on equality, then tests whether the loaded byte is zero.
+[`cc-emit-strrchr-shim`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L973-L1003), twenty-three bytes, clears `eax` for a no-match result and scans with `rdi` as its cursor. It loads one byte into `ecx`, compares `cl` with `sil`, records `rdi` in `rax` on equality, then tests whether the loaded byte is zero.
 
 For `strrchr(A,'*')`, the remembered pointer changes from zero to A at the first byte, remains A at `a`, then becomes A+2 at the second star. The terminator ends the scan; A+2 is returned. Searching for absent `b` returns zero. Searching for byte zero records A+3 **before** the end test and therefore returns the terminator's address. Only the low byte of the second argument participates in the comparison.
 
@@ -325,7 +325,7 @@ The instruction `40 38 F1` includes a REX prefix so its byte-register operand is
 
 ### Copy an explicit count, with the direction stated
 
-[`cc-emit-memcpy-shim`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L959-L971) is nine bytes:
+[`cc-emit-memcpy-shim`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L959-L971) is nine bytes:
 
 ```text
 48 89 F8       mov rax,rdi
@@ -346,7 +346,7 @@ We can now distinguish three questions for every name: **what bytes are requeste
 
 The runtime has one-request I/O adapters, a small monotonic heap, and three direct memory routines. It has no general hosted stream state, uniform error convention, retry layer, allocator reclamation, or checked string bounds. Even a returned nonnegative value needs its unit: byte value, byte count, element quotient, descriptor, pointer, or forced zero.
 
-The [native runtime](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/119-cc-native-runtime.fth) and [explicit System V runtime](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth) belong to later profile interfaces. They are not interchangeable implementations silently selected by these names. Loading their provider layers is not permission to transfer their call, storage, or library promises to this default path.
+The [native runtime](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/119-cc-native-runtime.fth) and [explicit System V runtime](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth) belong to later profile interfaces. They are not interchangeable implementations silently selected by these names. Loading their provider layers is not permission to transfer their call, storage, or library promises to this default path.
 
 Nor does knowing these bytes establish that the builder wrote the whole file, Linux loaded it, or the program performed a particular I/O operation. C02's output writer discards write and close results. A source-derived request trace, a completed output file, a reached entry point, and observed application behavior remain different evidence.
 

@@ -22,7 +22,7 @@ not a byte count. Revisit the relevant trace if either answer is uncertain.
 Otherwise, try S14-01 and S14-03 before reading the worked cases.
 
 **Evidence boundary.** The primary source is [`000-seed.hex0` at revision
-7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L251-L318).
+bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L251-L318).
 GNU objdump 2.44 independently decoded the four exact body ranges from the
 nonexecutable, source-decoded image. Listings are source-checked; state
 traces are manual derivations. No seed execution, syscall experiment,
@@ -90,7 +90,7 @@ For `[77,99,a,b,c,d,e,f,n]`, entry `rdi=n`. The stored part is:
 The usual dummy and any further older cells are omitted. Predict which
 instruction must preserve n before `rdi` becomes a.
 
-The [37-byte `syscall6_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L305-L318)
+The [37-byte `syscall6_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L305-L318)
 answers with its first move:
 
 ```text
@@ -172,7 +172,7 @@ replace execution do not satisfy this ordinary-return trace.
 
 ## `emit`: save one byte, then recover the older top
 
-The [46-byte `emit_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L266-L276)
+The [46-byte `emit_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L266-L276)
 issues its own syscall rather than calling `syscall6`:
 
 ```text
@@ -237,7 +237,7 @@ With an older prefix, its top becomes cached and the rest remains in memory.
 
 ## `key`: reserve a result slot before borrowing the cache
 
-The [47-byte `key_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L283-L298)
+The [47-byte `key_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L283-L298)
 must preserve the old cache before putting descriptor zero into `rdi`:
 
 ```text
@@ -322,7 +322,7 @@ result before rereading the successful path.
 
 ## `bye`: leave execution, rather than restore a stack
 
-The [12-byte `bye_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L256-L259)
+The [12-byte `bye_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L256-L259)
 is shorter because it has no normal return contract:
 
 ```text
@@ -347,7 +347,7 @@ to return. The bytes after this body are a dictionary header, not a fallback
 continuation if that assumption fails.
 
 Chapter 7's library `die` is different at the Forth boundary. Its
-[pinned definition](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L65-L69)
+[pinned definition](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L65-L69)
 takes a status, appends five unused argument zeros and number 60, then uses
 `syscall6`. `bye` hard-codes status zero and issues SYSCALL directly.
 Neither successful exit reaches a subsequent RET. A generic bridge's

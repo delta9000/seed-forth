@@ -22,6 +22,17 @@ even** selects the neighbor with even last retained bit at an exact halfway
 point. The smaller precision used below is a teaching model, clearly separate
 from binary64’s 53 significant bits.
 
+## Select precision before the one rounding
+
+The shared exact-ratio engine now selects 23, 52 or 63 fraction bits for
+binary32, binary64 or extended80. Extended results carry an explicit integer
+bit and sign/exponent in a sixteen-byte object. Extended normal exponents run
+from −16382 to 16383, with minimum subnormal spacing 2^−16445. Extended overflow
+produces infinity; the binary64 overflow exercise still reports overflow.
+Existing 1.25 and miniature midpoint traces retain their binary64/teaching
+formats. See [format selection and rounding](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L266-L364)
+and [typed suffix selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L61-L75).
+
 ## Retain every decimal digit until the ratio exists
 
 For spelling 1.25, the mantissa integer is 125 and two fractional digits give
@@ -35,15 +46,15 @@ count, while later zeroes do. Scale is exponent−fractional-count. Positive sca
 multiplies the numerator by powers of ten; negative scale multiplies the
 denominator.
 
-The two big integers use up to 128 little-endian 32-bit limbs, each in an
+The two big integers use up to 2048 little-endian 32-bit limbs, each in an
 eight-byte Forth cell. Zero has no used limbs; readers do not inspect bytes
 beyond the used prefix. Multiply-by-ten plus carry fits the wider cell without
 requiring floating arithmetic.
 
 Sources: [big-integer representation and
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L28-L124),
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L31-L130),
 [decimal grammar and scale
-fields](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L126-L208).
+fields](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L132-L248).
 
 ## Normalize using exact integer comparison
 
@@ -63,7 +74,7 @@ upward only when the retained quotient is odd. This avoids a host parser’s fir
 rounding followed by the target’s second rounding.
 
 Sources: [normalization, quotient and exact
-remainder](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L210-L239).
+remainder](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L250-L314).
 
 ## Let a smaller midpoint show the rule
 
@@ -82,7 +93,7 @@ and increases the exponent. This carry is not discarded. The smaller model
 explains the rule without claiming the real decoder uses only three bits.
 
 Sources: [rounding and significand
-carry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L225-L257).
+carry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L266-L575).
 
 ## Choose subnormal spacing before rounding
 
@@ -102,17 +113,20 @@ exponent limits are still checked first. An absurd malformed spelling is not
 admitted simply because its numerical prefix looks tiny.
 
 Sources: [normal/subnormal decoding
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L240-L257).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L270-L575).
 
 ## Bound the grammar and workspace
 
 The spelling requires a point or decimal exponent. Unary sign belongs to the
 expression parser. A token may contain at most 4096 bytes, at most 768 mantissa
 digits from the first nonzero through the last digit, and exponent magnitude at
-most one million. f/F/l/L suffixes and hexfloat forms are explicit failures.
+most one million. The typed wrapper accepts f/F and l/L suffixes, selecting 4- and 16-byte
+formats before rounding; unsuffixed spelling selects 8. Hexfloat with a p
+exponent is admitted for extended precision. The raw binary64 decoder rejects
+hexfloat and suffixes not removed by its caller.
 
 Checked remaining scale fits the big-integer workspace; the source explains its
-bit bound below 4096 bits. Limb append checks capacity independently. A
+checked 65536-bit workspace bound. Limb append checks capacity independently. A
 workspace failure, malformed token and overflow have distinct messages even
 though they terminate through the decoder’s error boundary.
 
@@ -122,9 +136,9 @@ encodings for halfway, subnormal and carry cases, but no such new test was run
 to write this lesson.
 
 Sources: [decoder
-diagnostics](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L6-L27),
+diagnostics](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L9-L30),
 [grammar limits and workspace
-argument](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L126-L224).
+argument](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L132-L265).
 
 ## Remove decimal notation before rounding
 
@@ -146,9 +160,9 @@ arithmetic. Decimal scaling, numerator/denominator comparison and bit production
 must all respect those bounds.
 
 Sources: [big-integer representation and
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L28-L124),
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L31-L130),
 [decimal grammar and scale
-fields](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L126-L208).
+fields](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L132-L248).
 
 ## Make the halfway rule visible with fewer bits
 
@@ -171,7 +185,7 @@ discarded information and whether the remainder is below, above or exactly at
 halfway. A “has discarded bits” flag alone cannot distinguish those cases.
 
 Sources: [rounding and significand
-carry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L225-L257).
+carry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L266-L575).
 
 ## Carry through the bottom and top boundaries
 
@@ -195,7 +209,7 @@ derivations; the extreme boundary is a mathematical application of the stated
 rule. No new exhaustive literal sweep was run.
 
 Sources: [normal/subnormal decoding
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L240-L257).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L270-L575).
 
 ## Let the remainder decide the final bit
 
@@ -241,15 +255,15 @@ midpoint examples here are paper derivations, with no newly generated exhaustive
 conversion report.
 
 Sources: [big-integer representation and
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L28-L124),
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L31-L130),
 [decimal grammar and scale
-fields](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L126-L208),
+fields](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L132-L248),
 [normalization, quotient and exact
-remainder](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L210-L239),
+remainder](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L250-L314),
 [rounding and significand
-carry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L225-L257),
+carry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L266-L575),
 [normal/subnormal decoding
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L240-L257).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L270-L575).
 
 ## Separate a spelling limit from a rounding limit
 
@@ -297,7 +311,7 @@ The integer-only production and any host numerical oracle retain separate
 identities. No literal sweep, extreme-exponent run or new differential report
 was created for the manuscript.
 
-Sources: [big-integer representation and operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L28-L124), [decimal grammar and scale fields](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L126-L208), [normalization, quotient and exact remainder](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L210-L239), [rounding and significand carry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L225-L257), [normal/subnormal decoding boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L240-L257), [decoder diagnostics](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L6-L27), [grammar limits and workspace argument](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L126-L224).
+Sources: [big-integer representation and operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L31-L130), [decimal grammar and scale fields](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L132-L248), [normalization, quotient and exact remainder](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L250-L314), [rounding and significand carry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L266-L575), [normal/subnormal decoding boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L270-L575), [decoder diagnostics](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L9-L30), [grammar limits and workspace argument](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L132-L265).
 
 ## Stop, then change the boundary
 

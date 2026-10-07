@@ -275,8 +275,8 @@ a new execution claim merely because the paper result is consistent.
 
 ### Check G11-06 — Retain grammar limits
 
-Suffix-unsupported rejects; runtime float arithmetic does not broaden literal
-grammar. Accept an explanation that follows the changed premise and retains the
+The typed wrapper strips the admitted f/F or l/L suffix and selects its
+format before rounding. The raw decoder rejects an unstripped suffix. Accept an explanation that follows the changed premise and retains the
 unmodified contracts. Do not accept a new execution claim merely because the
 paper result is consistent.
 

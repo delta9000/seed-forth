@@ -6,6 +6,10 @@ The Forth builder still produces an executable. But this time, running the resul
 
 Keep that choice open while we follow one artifact through its two lives. By the end of this first session, you should be able to name the exact pair Stage A compares and explain what its recorded result establishes. You need C19's distinction between building a program and running it; no shell programming or M1 assembly syntax is assumed.
 
+The historical Stage-A observation predates the added layer 132 and the current
+32-file Forth census. Matching recipe blobs do not establish that the newer
+compiler inputs produced the same bytes; the result retains its named old head.
+
 ## The program we built becomes the next producer
 
 A **producer** is a running program that creates something. An **artifact** is the saved result of a step. The same file can be an artifact now and, when executed later, supply a producer for the next step.
@@ -25,7 +29,7 @@ We therefore have two ways to build a program that is supposed to implement M2-P
 
 Both artifacts are executable files. They need not contain the same instructions, runtime arrangement, or file layout to implement the same computation. C19 already showed how one compiler chooses a particular entry stub and runtime prefix. Comparing compiler ELF bytes would ask whether the *implementations themselves* were byte-identical. Stage A asks a different, operational question: do these two implementations emit exactly the same output for the chosen input?
 
-Source: [the two producer builds in `stage-a-check.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/stage-a-check.sh#L42-L56) and [the reference compiler selection and build](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/build-gcc-refs.sh#L24-L43).
+Source: [the two producer builds in `stage-a-check.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/stage-a-check.sh#L42-L56) and [the reference compiler selection and build](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/build-gcc-refs.sh#L24-L43).
 
 ## Run both programs on the same demanding input
 
@@ -102,7 +106,7 @@ The second byte differs, and the lengths differ. A reader might regard the space
 
 After both self-compilations and `cmp` succeed, the script counts the newly produced v1 text file and prints the equality line and `PASS`. There is no separate nonempty-output check, required byte count, or stored-hash check. Thus even two empty files would satisfy the byte comparator; the observed count tells us the recorded result below was not that case.
 
-Source: [the same input vector, both invocations, comparator, and reporting](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/stage-a-check.sh#L59-L78).
+Source: [the same input vector, both invocations, comparator, and reporting](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/stage-a-check.sh#L59-L78).
 
 ## Read a result without making it larger
 
@@ -142,7 +146,7 @@ The two-stage story contains three lists that are easy to mistake for one anothe
 
 `cat` copies input files to its output in the order named. A **pipe**, written `|`, feeds one program's output into another program's input. The monolith helper uses those operations to send the Forth library, compiler layers, and finally the C monolith into `seed-forth`.
 
-The selection rule in [`tools/compiler-layers.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/compiler-layers.sh#L1-L10) matches filenames with three initial digits followed by `-cc-` and ending in `.fth`. It lists matching files in the shell's filename-expansion order, omitting `120-cc-main.fth` until the end. Its optional argument selects a root directory, defaulting to `.` (the current directory). The helper lists names; it does not verify source identities or enforce a fixed count. For the pinned tree, the full stream begins with these **31 Forth files**, counting `010`:
+The selection rule in [`tools/compiler-layers.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/compiler-layers.sh#L1-L10) matches filenames with three initial digits followed by `-cc-` and ending in `.fth`. It lists matching files in the shell's filename-expansion order, omitting `120-cc-main.fth` until the end. Its optional argument selects a root directory, defaulting to `.` (the current directory). The helper lists names; it does not verify source identities or enforce a fixed count. For the pinned tree, the full stream begins with these **32 Forth files**, counting `010`:
 
 ```text
 010-lib.fth
@@ -174,6 +178,7 @@ The selection rule in [`tools/compiler-layers.sh`](https://github.com/delta9000/
 128-cc-float-literal.fth
 129-cc-bitfield.fth
 131-cc-aggregate-abi.fth
+132-cc-long-double.fth
 140-cc-link.fth
 120-cc-main.fth
 ```
@@ -182,11 +187,11 @@ The prepared C text follows immediately. The Forth files are copied without remo
 
 Why hold 120 back? Its final bare `cc-main` executes the driver, which reads the remaining input as C, produces its output, and ends the builder. A library placed after that call would arrive during C input, too late to define a Forth dependency. The relevant rule is “all needed definitions before the invocation,” not “smallest filename number first.” C19's [last-file session](19-translation-units-and-process-entry.md#reference-the-last-file-executes-not-merely-defines) supplies that transition.
 
-Loading optional provider definitions does not select their profiles. The [actual driver](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/120-cc-main.fth#L28-L40) calls the legacy `cc-parse-program`; it does not thereby switch to native LP64, System V, or relocatable-object output. Extra matching files in a changed working tree would also change the actual stream, so the list above is an edition-specific input census.
+Loading optional provider definitions does not select their profiles. The [actual driver](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/120-cc-main.fth#L28-L40) calls the legacy `cc-parse-program`; it does not thereby switch to native LP64, System V, or relocatable-object output. Extra matching files in a changed working tree would also change the actual stream, so the list above is an edition-specific input census.
 
 ### Second list: construct the C monolith
 
-The [monolith helper's construction loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/build-m2planet-monolith.sh#L63-L80) first copies four headers **unchanged**, in this order:
+The [monolith helper's construction loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/build-m2planet-monolith.sh#L63-L80) first copies four headers **unchanged**, in this order:
 
 ```text
 cc.h
@@ -227,9 +232,9 @@ There is also an optional input edit. With `STAGE0_COMPAT=1`, two specified guar
 
 Even after the C-file filtering, the unchanged `cc.h` contains `#include "cc_globals.h"`. You can inspect that line in the [pinned upstream header](https://github.com/oriansj/M2-Planet/blob/0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb/cc.h#L181).
 
-The helper runs the legacy Forth compiler from the seed-forth repository root. In this profile, [include loading](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/040-cc-prep.fth#L851-L867) first tries the literal filename. If that fails, it tries `tests/cc/` plus the filename. A clean pinned root has no top-level `cc_globals.h`, so that lookup can reach `tests/cc/cc_globals.h`.
+The helper runs the legacy Forth compiler from the seed-forth repository root. In this profile, [include loading](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/040-cc-prep.fth#L851-L867) first tries the literal filename. If that fails, it tries `tests/cc/` plus the filename. A clean pinned root has no top-level `cc_globals.h`, so that lookup can reach `tests/cc/cc_globals.h`.
 
-The [repository fixture](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/cc_globals.h) and the [upstream header](https://github.com/oriansj/M2-Planet/blob/0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb/cc_globals.h) have the same Git blob identity, `0633b632d001175429a8217653a0e1b3b89300b7`. That is a checked source-identity fact at these pins. An unexpected root file or a different checkout could change the lookup's result.
+The [repository fixture](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/cc_globals.h) and the [upstream header](https://github.com/oriansj/M2-Planet/blob/0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb/cc_globals.h) have the same Git blob identity, `0633b632d001175429a8217653a0e1b3b89300b7`. That is a checked source-identity fact at these pins. An unexpected root file or a different checkout could change the lookup's result.
 
 The separate `bootstrap.sh` route compiles its monolith with the working directory inside M2-Planet, so the literal include reaches the upstream copy directly. The equal header content connects these particular routes; assuming that relative includes always find the same bytes would hide the dependency.
 
@@ -270,7 +275,7 @@ An assignment before a command supplies an **environment variable** to that comm
 
 Before this call, Stage A removes its old `cc-out-v1` and files matching `self-*-amd64.M1`, preventing those retained products from substituting for a failed fresh result.
 
-The [wrapper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/build-m2planet-monolith.sh#L36-L55) makes the destination parent directory and converts `CC_OUT` to an absolute path. It removes the old destination and `<CC_OUT>.tmp`, then recreates that temporary directory. It chooses these paths:
+The [wrapper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/build-m2planet-monolith.sh#L36-L55) makes the destination parent directory and converts `CC_OUT` to an absolute path. It removes the old destination and `<CC_OUT>.tmp`, then recreates that temporary directory. It chooses these paths:
 
 | Item | With Stage A's `CC_OUT` | Direct call without `CC_OUT` |
 |---|---|---|
@@ -283,21 +288,21 @@ The unchanged last row is the important one. If supported, the wrapper gives the
 
 The helper probes `unshare -rm` with a bind mount. A successful probe is a preliminary operation; the actual compiler launch performs its own mount in a new invocation and can still fail. If the probe fails, it leaves the output at the real, shared `/tmp/cc-out`. This fallback is part of the implementation, despite a stronger comment in the calling Stage-A script. Separate `BUILDROOT` values do not prevent two fallback executions from colliding at that shared file. Even with private temporary views, two runs sharing one `BUILDROOT` collide on their retained inputs and outputs.
 
-When the private path is used, the [execution branch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/build-m2planet-monolith.sh#L82-L106) opens the input pipe and seed executable before changing the `/tmp` view. It keeps the seed open as file descriptor 3, an already-open file handle, and executes it through `/proc/self/fd/3`. This preserves access even if the seed's ordinary pathname lies under the directory being covered.
+When the private path is used, the [execution branch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/build-m2planet-monolith.sh#L82-L106) opens the input pipe and seed executable before changing the `/tmp` view. It keeps the seed open as file descriptor 3, an already-open file handle, and executes it through `/proc/self/fd/3`. This preserves access even if the seed's ordinary pathname lies under the directory being covered.
 
 Before preparing the source, the wrapper repeats the two M2 sentinel checks and conditionally calls `build.sh` if root `seed-forth` is not executable. Unlike Stage A, it has no second explicit executable-seed test after that call.
 
 The wrapper removes the selected old output, runs the pipeline, and records its exit status. It rejects a nonzero status or a missing regular output file. On success it moves the file to `CC_OUT`, removes the private temporary directory when used, and marks the compiler executable. Its final `OK` line reports the byte count, path, and recorded compiler status; it enforces no particular size or hash. Stage A additionally tests that the destination is executable.
 
-Those checks are useful but have different strengths. A regular-file test does not validate ELF structure. Executable permission does not show that the program has run. C19's [writer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth#L171-L195) requests one write and discards its write/close results. Later successful self-compilation and comparison add observations that the output-exists check alone cannot supply.
+Those checks are useful but have different strengths. A regular-file test does not validate ELF structure. Executable permission does not show that the program has run. C19's [writer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth#L171-L195) requests one write and discards its write/close results. Later successful self-compilation and comparison add observations that the output-exists check alone cannot supply.
 
 ## Reference: establish the comparison environment
 
-The [Stage-A setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/stage-a-check.sh#L20-L47) begins by changing to the repository root. `cd` changes the working directory. It defaults `M2_PLANET` to `vendor/M2-Planet` and `BUILDROOT` to `/tmp/seed-bootstrap`, creates the latter directory, and defines a failure handler that prints a reason and exits with status one.
+The [Stage-A setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/stage-a-check.sh#L20-L47) begins by changing to the repository root. `cd` changes the working directory. It defaults `M2_PLANET` to `vendor/M2-Planet` and `BUILDROOT` to `/tmp/seed-bootstrap`, creates the latter directory, and defines a failure handler that prints a reason and exits with status one.
 
 The shell settings `set -euo pipefail` make many unhandled command errors, unset-variable uses, and pipeline failures terminate the script. They are not a replacement for reading the explicit checks: shell error handling has context-dependent exceptions, and the recipe uses `|| fail` around important operations.
 
-An executable root `seed-forth` is reused. If it is absent or not executable, Stage A calls `build.sh`, which uses the external assembler selected by `HEX0` to assemble `000-seed.hex0`, then sets executable permission. The build script first changes to its own repository root, so a relative `HEX0` is resolved there. Its default assembler path is `vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed`. If the selected `HEX0` is not executable, `build.sh` prints setup/override guidance and exits with status one before assembly. Otherwise its central call supplies `000-seed.hex0` as input and root `seed-forth` as output. It reports the resulting byte count rather than requiring a particular count. Stage A tests executability again afterward. Neither that test nor [`build.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/build.sh#L14-L29) verifies the seed's hash. In particular, an executable leftover seed is not silently given a fresh provenance check.
+An executable root `seed-forth` is reused. If it is absent or not executable, Stage A calls `build.sh`, which uses the external assembler selected by `HEX0` to assemble `000-seed.hex0`, then sets executable permission. The build script first changes to its own repository root, so a relative `HEX0` is resolved there. Its default assembler path is `vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed`. If the selected `HEX0` is not executable, `build.sh` prints setup/override guidance and exits with status one before assembly. Otherwise its central call supplies `000-seed.hex0` as input and root `seed-forth` as output. It reports the resulting byte count rather than requiring a particular count. Stage A tests executability again afterward. Neither that test nor [`build.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/build.sh#L14-L29) verifies the seed's hash. In particular, an executable leftover seed is not silently given a fresh provenance check.
 
 Next the script checks that M2-Planet's `cc.c` and nested `M2libc/bootstrappable.c` exist. These **sentinels** are representative required files, not a verification of every source byte. It converts the M2 and build directories to absolute paths so that later `cd` operations do not redirect their meanings.
 
@@ -305,7 +310,7 @@ Next the script checks that M2-Planet's `cc.c` and nested `M2libc/bootstrappable
 
 The helper requires exactly one argument: the destination directory. Any other argument count prints usage and exits with status two. After prerequisite checks it recursively removes that entire destination, recreates it, and obtains its absolute path as `D`. Making `D` absolute preserves the output location while the builds change working directory. The helper rebuilds its destination afresh; it does not call `make` or reuse a submodule's old compiler binary. It defaults `CC` to `gcc` and `MESCC_TOOLS` to `vendor/mescc-tools`, checks that the selected C compiler is available, and requires source sentinels in both M2-Planet and mescc-tools.
 
-Here are the three [actual reference builds](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/build-gcc-refs.sh#L24-L50):
+Here are the three [actual reference builds](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/build-gcc-refs.sh#L24-L50):
 
 | Working directory | Compiler flags | Source order | Output below `gcc-ref/` |
 |---|---|---|---|
@@ -344,7 +349,7 @@ A source revision identifies the recipe we are reading. A run identifies an occa
 
 ### The input identities for this edition
 
-The seed-forth implementation revision is `7d7e1996d1753118181d43e1a413960d3a1ec24b`. Its recorded submodule identities include:
+The seed-forth implementation revision is `bbcc1732152af2d884737272eed870d2410ffe8e`. Its recorded submodule identities include:
 
 | Source checkout | Commit |
 |---|---|
@@ -357,13 +362,13 @@ The seed-forth implementation revision is `7d7e1996d1753118181d43e1a413960d3a1ec
 
 A **submodule** is a separately versioned source checkout whose selected commit is recorded by the containing repository. The two M2libc rows are distinct dependencies, even though they share a directory name. The stage0-posix and bootstrap-seeds rows matter to the default seed-assembler route when the root seed needs building; the final Stage-A comparison does not execute a full stage0 chain.
 
-The public [pinned source tree](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b/vendor), [upstream table](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/REPRODUCIBLE.md#L18-L61), and [M2-Planet](https://github.com/oriansj/M2-Planet/tree/0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb), [mescc-tools](https://github.com/oriansj/mescc-tools/tree/9b1375115f9175d876c360dbbfd7e231dd9f2a2f), and [stage0-posix](https://github.com/oriansj/stage0-posix/tree/45d90f5955b6907dc6cdea9ebafce558359edcd3) trees locate those dependencies. Stage A itself checks file presence, not these commit values or a clean checkout.
+The public [pinned source tree](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e/vendor), [upstream table](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/REPRODUCIBLE.md#L18-L61), and [M2-Planet](https://github.com/oriansj/M2-Planet/tree/0a67a6829a0c1d0aedb89e1dc38a7e3ab67592cb), [mescc-tools](https://github.com/oriansj/mescc-tools/tree/9b1375115f9175d876c360dbbfd7e231dd9f2a2f), and [stage0-posix](https://github.com/oriansj/stage0-posix/tree/45d90f5955b6907dc6cdea9ebafce558359edcd3) trees locate those dependencies. Stage A itself checks file presence, not these commit values or a clean checkout.
 
 ### A recorded hash is not a performed hash check
 
 A **hash** is a compact digest of file content. Recording a digest helps identify a particular artifact; merely printing a known digest beside an unexamined file would not establish its identity.
 
-The pinned [`REPRODUCIBLE.md` Stage-A record](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/REPRODUCIBLE.md#L301-L323) reports a 202,405-byte `cc-out-v1`, a 2,367,260-byte `self-v1-amd64.M1`, and these SHA-256 values:
+The pinned [`REPRODUCIBLE.md` Stage-A record](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/REPRODUCIBLE.md#L301-L323) reports a 202,405-byte `cc-out-v1`, a 2,367,260-byte `self-v1-amd64.M1`, and these SHA-256 values:
 
 ```text
 seed-forth
@@ -392,7 +397,7 @@ For the standalone verification step, the outer build root is:
 /home/runner/work/seed-forth/seed-forth/build-out/verify
 ```
 
-The [verification caller](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/verify.sh#L143-L149) passes its `stage-a` child directory as `BUILDROOT`. Thus the exact compared pair has that outer path followed respectively by:
+The [verification caller](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/verify.sh#L143-L149) passes its `stage-a` child directory as `BUILDROOT`. Thus the exact compared pair has that outer path followed respectively by:
 
 ```text
 /stage-a/self-v1-amd64.M1
@@ -401,7 +406,7 @@ The [verification caller](https://github.com/delta9000/seed-forth/blob/7d7e1996d
 
 The job reports standalone Stage A OK and the 2,367,260-byte equality at `14:04:51.7876120Z`. It also reports the separate wider-chain results discussed next. The available job log contains selected child summaries, not the complete inner transcripts. The run has no downloadable output artifacts and no printed Stage-A SHA-256. We can read its reported successful comparison but cannot inspect those actual M1 bytes from an attached artifact here.
 
-The same run's [mdBook job](https://github.com/delta9000/seed-forth/actions/runs/37474668625/job/112306845085) passed for the original `book/` source selected by the repository's [root configuration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book.toml). That is not an execution record for the new `books/c-compiler/` teaching examples. A green overall run also does not erase skipped work: the optional gcc64 verification was explicitly skipped.
+The same run's [mdBook job](https://github.com/delta9000/seed-forth/actions/runs/37474668625/job/112306845085) passed for the original `book/` source selected by the repository's [root configuration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book.toml). That is not an execution record for the new `books/c-compiler/` teaching examples. A green overall run also does not erase skipped work: the optional gcc64 verification was explicitly skipped.
 
 ### Keep a result's perimeter visible
 
@@ -418,7 +423,7 @@ Stage A also has a trust perimeter: it depends on the chosen seed and Forth/C so
 
 ## Reference: follow the wider chain without changing the comparison
 
-Only after the two-text-file story is clear should we add another generation. The larger [`bootstrap-chain.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/bootstrap-chain.sh#L117-L149) first runs `bootstrap.sh` freshly. It obtains its v1 compiler and its M1/hex2 assembly tools from that route, rather than obtaining v1 from the standalone monolith helper. Its default output architectures are `x86` and `amd64`.
+Only after the two-text-file story is clear should we add another generation. The larger [`bootstrap-chain.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/bootstrap-chain.sh#L117-L149) first runs `bootstrap.sh` freshly. It obtains its v1 compiler and its M1/hex2 assembly tools from that route, rather than obtaining v1 from the standalone monolith helper. Its default output architectures are `x86` and `amd64`.
 
 An **assembler** translates the textual instruction representation into machine bytes. For the next table, treat the M1/hex2 pair as a named transformation with additional architecture definitions, runtime text, ELF envelope, and options. The implementation of that transformation belongs to C21/C22. M1 text alone is not its entire input.
 
@@ -434,7 +439,7 @@ For one selected architecture, the wider chain has these steps:
 | F | v3 compiles the self-source; compare `self-v2-$ARCH.M1` with `self-v3-$ARCH.M1` | Successive producers' M1 text |
 | G | v3 compiles a hello program; assemble it, run it, and check captured text and zero exit | A generated program's behavior |
 
-Source: [the actual A–G operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/bootstrap-chain.sh#L169-L270). G checks a shell-captured string; shell command substitution removes trailing newlines. Its string test is not a raw stdout-file byte comparison.
+Source: [the actual A–G operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/bootstrap-chain.sh#L169-L270). G checks a shell-captured string; shell command substitution removes trailing newlines. Its string test is not a raw stdout-file byte comparison.
 
 At F, the exact comparator is:
 
@@ -457,7 +462,7 @@ The monolith helper's optional `STAGE0_COMPAT=1` edits these exact guard spellin
 (Architecture & ARCH_FAMILY_X86) && (reg == REGISTER_ZERO)
 ```
 
-It replaces each matched expression with `0 /* STAGE0_COMPAT: see REPRODUCIBLE.md */`. This deliberately suppresses the choice in v1. Stage A does not clear an inherited `STAGE0_COMPAT`, while its reference build uses the original sources. The pinned [compatibility record](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/REPRODUCIBLE.md#L431-L440) and [mode explanation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/REPRODUCIBLE.md#L516-L524) report that this mode changes the expected Stage-A relationship and makes that default-reference comparison fail by design. It targets agreement with a later M2-built producer, rather than repairing the default reference check.
+It replaces each matched expression with `0 /* STAGE0_COMPAT: see REPRODUCIBLE.md */`. This deliberately suppresses the choice in v1. Stage A does not clear an inherited `STAGE0_COMPAT`, while its reference build uses the original sources. The pinned [compatibility record](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/REPRODUCIBLE.md#L431-L440) and [mode explanation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/REPRODUCIBLE.md#L516-L524) report that this mode changes the expected Stage-A relationship and makes that default-reference comparison fail by design. It targets agreement with a later M2-built producer, rather than repairing the default reference check.
 
 We are using the documented recipe distinction to interpret these tests. It is not a claim that arbitrary logical expressions or all generated programs are equivalent across the two compiler families.
 
@@ -465,9 +470,9 @@ We are using the documented recipe distinction to interpret these tests. It is n
 
 There are nearby checks of executable bytes, but their operands answer different questions:
 
-- The [chain's cross-route checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/bootstrap-chain.sh#L280-L284) compare its `cc-out-v2-amd64` with `bootstrap.sh`'s `cc-out-v2`, and separately its v3 with that route's v3. They compare **the same generation across routes**, not v2 with v3
-- [`verify.sh`'s monolith check](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/verify.sh#L149) compares standalone Stage A's v1 ELF with `chain/bootstrap/out/cc-out-v1`. Neither side is `m2-ref`
-- [`bootstrap.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L230-L262) compares v2 produced through M1/hex2 with v2 produced through the Forth assembler. It also compares rebuilt M1 and hex2 executables with their preceding tool artifacts
+- The [chain's cross-route checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/bootstrap-chain.sh#L280-L284) compare its `cc-out-v2-amd64` with `bootstrap.sh`'s `cc-out-v2`, and separately its v3 with that route's v3. They compare **the same generation across routes**, not v2 with v3
+- [`verify.sh`'s monolith check](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/verify.sh#L149) compares standalone Stage A's v1 ELF with `chain/bootstrap/out/cc-out-v1`. Neither side is `m2-ref`
+- [`bootstrap.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L230-L262) compares v2 produced through M1/hex2 with v2 produced through the Forth assembler. It also compares rebuilt M1 and hex2 executables with their preceding tool artifacts
 
 The observed CI job reports chain A equality for x86 at 2,326,006 text bytes and amd64 at 2,367,260. It reports F equality for x86 at 2,358,665 text bytes and amd64 at 2,400,072. The F counts are M1 sizes. The same-generation cross-route ELF summary and the separate monolith check also passed. No compiler-ELF sizes or hashes accompany those particular summary comparisons.
 
@@ -475,7 +480,7 @@ The observed CI job reports chain A equality for x86 at 2,326,006 text bytes and
 
 After its architecture chains, the script selects the first `.c` file listed in each `test/test*` directory, not every C file in every directory. From the M2-Planet working directory, it runs v1 and the reference with `--architecture x86 --expand-includes`, one selected source, and a 30-second timeout.
 
-Its [classification rule](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/bootstrap-chain.sh#L286-L316) is:
+Its [classification rule](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/bootstrap-chain.sh#L286-L316) is:
 
 1. Both statuses zero: compare their emitted files with `cmp -s`; a successful comparison increments `identical`, while any nonzero comparison result increments `differ`
 2. Statuses different: increment `differ`
@@ -493,7 +498,7 @@ C21/C22 own assembly mechanisms. C23/C24 own the later native/private-stack and 
 
 ## Optional retrieval: the prologue program
 
-Set the compiler-building story aside briefly and retrieve the builder/target distinction with the [original prologue's Fibonacci source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/00-prologue.md#L9-L17):
+Set the compiler-building story aside briefly and retrieve the builder/target distinction with the [original prologue's Fibonacci source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/00-prologue.md#L9-L17):
 
 ```c
 int fib(int n) { if (n < 2) return n; return fib(n - 1) + fib(n - 2); }

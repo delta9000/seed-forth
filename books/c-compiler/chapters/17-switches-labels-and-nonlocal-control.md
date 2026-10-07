@@ -14,7 +14,7 @@ default: pad = 0;
 
 Predict `pad` for n=2 and n=5. In particular, does entering `case 2` also execute the assignment after `case 5`, or must another comparison succeed first? The missing break after the first assignment will let us distinguish two orders that would otherwise look interchangeable.
 
-**Profile and evidence.** We use the legacy Linux/x86-64 path in [112-cc-stmt.fth, revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth), with `cc-target-lp64=0` unless a native section says otherwise. The traces are manual derivations, not runs or a C-conformance claim. Assume adequate storage and balanced expression temporaries. Helpers and profile limits are identified where used; pinned definitions settle differences from the historical [book30](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/30-statements-if-while-for-return.md).
+**Profile and evidence.** We use the legacy Linux/x86-64 path in [112-cc-stmt.fth, revision `bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth), with `cc-target-lp64=0` unless a native section says otherwise. The traces are manual derivations, not runs or a C-conformance claim. Assume adequate storage and balanced expression temporaries. Helpers and profile limits are identified where used; pinned definitions settle differences from the historical [book30](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/30-statements-if-while-for-return.md).
 
 ## Emit the bodies before their selector
 
@@ -86,7 +86,7 @@ Put the same switch inside a loop and replace its `break` with `continue`. The d
 
 [C16](16-conditions-and-loops.md) supplied two separate lists of unfinished jumps. A switch installs its own break list but leaves the enclosing loop's continue list in use. `cc-loop-switch-depth` remembers how many switches were open when that loop began. `cc-switch-depth` counts the switches open at the current source position; parsing the switch's entry save increments it once. Neither variable counts how often the generated loop will run. Their difference tells the compiler how many switch saves this continue crosses.
 
-The exact [continue consumer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L608-L620) emits:
+The exact [continue consumer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L608-L620) emits:
 
 ```forth
 : cc-parse-continue-stmt
@@ -96,7 +96,7 @@ The exact [continue consumer](https://github.com/delta9000/seed-forth/blob/7d7e1
   cc-add-continue-fixup ;
 ```
 
-The difference is a count of switches crossed, not a count of braces or all enclosing constructs. Its provider in [110](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L759-L771) is:
+The difference is a count of switches crossed, not a count of braces or all enclosing constructs. Its provider in [110](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L759-L771) is:
 
 ```forth
 variable cc-switch-depth
@@ -127,7 +127,7 @@ After B's parser and the inner loop's parser finish, the outer loop's continue h
 
 Switch depth is different: each switch increments it once on entering its emitted-save region and decrements it once after emitting its normal cleanup. It need not save a copy on the builder's return stack because well-nested recursion balances the counter. A return or goto encountered while compiling a body emits another runtime exit path; it does not close the parser's lexical switch. Later source statements still need the same depth information.
 
-[C15's return path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L774-L803) places the result, emits `cc-switch-depth` pops, then emits the epilogue. Resetting RSP during frame teardown is not a substitute for restoring RBX's contents. None of these parsers maintains a separate validity counter that reliably diagnoses every `break` or `continue` outside an allowed construct. An unowned fixup is not a valid exit merely because its node can be allocated.
+[C15's return path](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L774-L803) places the result, emits `cc-switch-depth` pops, then emits the epilogue. Resetting RSP during frame teardown is not a substitute for restoring RBX's contents. None of these parsers maintains a separate validity counter that reliably diagnoses every `break` or `continue` outside an allowed construct. An unowned fixup is not a valid exit merely because its node can be allocated.
 
 ## Work a complete switch layout
 
@@ -139,7 +139,7 @@ Keep these quantities apart: the builder's Forth data/return stacks, the builder
 
 For two short checks, (1) a JMP's four-byte field begins at output offset 101 and its target is offset 160: what displacement belongs there? (2) does builder `>r` emit a generated PUSH? [Check the answers](../practice/17-solutions.md#entry-check), or refresh [C10's field/list contracts](10-calls-literals-and-deferred-addresses.md#a-node-has-two-builder-cells-even-for-a-four-byte-patch).
 
-`cc-emit-push-rbx` appends `53`; `cc-emit-mov-rbx-rdi` appends `48 89 FB`; `cc-emit-pop-rbx` appends `5B`. Legacy comparison uses a seven-byte CMP RBX with a sign-extended imm32. The constants two and five fit that signed-32 range. `cc-emit-je-vaddr` emits `0F 84` followed by a four-byte displacement, six bytes in total. Its absolute target argument still produces a relative branch, measured from the end of that field. Assume every displacement fits rel32. Source: [JE encoder](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L94-L101).
+`cc-emit-push-rbx` appends `53`; `cc-emit-mov-rbx-rdi` appends `48 89 FB`; `cc-emit-pop-rbx` appends `5B`. Legacy comparison uses a seven-byte CMP RBX with a sign-extended imm32. The constants two and five fit that signed-32 range. `cc-emit-je-vaddr` emits `0F 84` followed by a four-byte displacement, six bytes in total. Its absolute target argument still produces a relative branch, measured from the end of that field. Assume every displacement fits rel32. Source: [JE encoder](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L94-L101).
 
 For this exercise, **stipulate** that expression emission has just ended at offset 1000. Use replacement regions of 12, 7, and 10 bytes for the three bodies, respectively. These are chosen replacement-body extents, not measured encodings of the assignments. Everything else below uses the actual listed control-instruction widths.
 
@@ -188,19 +188,19 @@ The earlier `(constant, target)` pairs are implemented as linked nodes. Here are
 | 8 | Absolute target virtual address V of the body's next instruction |
 | 16 | Next builder-node pointer, zero at the end |
 
-[`cc-add-switch-case`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L431-L467) receives `(K,V)`, allocates 24 bytes, stores V at node+8 and K at node, links node+16 to the old head, and installs the new head. It temporarily saves the node on the builder's return stack so it can consume K and V without losing the allocation. It emits no instruction.
+[`cc-add-switch-case`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L431-L467) receives `(K,V)`, allocates 24 bytes, stores V at node+8 and K at node, links node+16 to the old head, and installs the new head. It temporarily saves the node on the builder's return stack so it can consume K and V without losing the allocation. It emits no instruction.
 
 The resulting physical chain is `head → {5,V5,...} → {2,V2,0}`. The address of a node in compiler memory is not V2 or V5: those values identify instructions in the generated program. `cc-switch-default-vaddr` holds the separate default target.
 
 `cc-emit-switch-dispatch` starts at the head and, for each node, loads K from node+0, emits its comparison, loads V from node+8, emits JE to V, then follows node+16 until it reaches zero. This is the offset-level implementation of the newest-first walk already traced.
 
-Source: [dispatch walker](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L491-L502). The walk neither frees its nodes nor clears the head.
+Source: [dispatch walker](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L491-L502). The walk neither frees its nodes nor clears the head.
 
 ### Parser detail: how the switch is assembled
 
 Now follow the parser that builds this layout, including the compiler state it protects across nested switches.
 
-The complete control algorithm of [`cc-parse-switch`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L508-L596) is:
+The complete control algorithm of [`cc-parse-switch`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L508-L596) is:
 
 1. Save outer case head, default target, break head, and switch type on B.R, in that order. Set the three current heads/target to zero
 2. Require `(`; parse the controlling expression; call the integer-use hook with its type; record its promoted type through `cc-unary-type`; require `)`
@@ -241,16 +241,16 @@ For the same source constant −1:
 | LP64 unsigned 32-bit int | 4,294,967,295 (`0x00000000FFFFFFFF`) | RBX equals that zero-extended value |
 | Legacy route | K unchanged | Legacy imm32 encoding contract applies |
 
-The controls' value-producing paths must supply the corresponding representation. `cc-unary-type` in `100` promotes nonpointer types smaller than four bytes to int; it is a type-metadata operation, not itself an emitted conversion. The integer-use hook initially drops its type input. A later [binary64 provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L247-L251) rejects its floating types with 232. Naming that hook does not establish complete controlling-expression type validation in every profile.
+The controls' value-producing paths must supply the corresponding representation. `cc-unary-type` in `100` promotes nonpointer types smaller than four bytes to int; it is a type-metadata operation, not itself an emitted conversion. The integer-use hook initially drops its type input. A later [binary64 provider](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L287-L291) rejects its floating types with 232. Naming that hook does not establish complete controlling-expression type validation in every profile.
 
-[`cc-emit-switch-compare`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L449-L502) chooses between:
+[`cc-emit-switch-compare`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L449-L502) chooses between:
 
 - `48 81 FB imm32`: seven-byte CMP RBX,sign-extended-imm32
 - Under LP64, for K outside signed-32 range: ten-byte MOVABS RDI,K followed by `48 39 FB`, CMP RBX,RDI
 
 The range test computes the low-64-bit sum `K+2^31`, divides **unsigned** by `2^32`, and chooses the wide form for a nonzero quotient. Values in signed-32 range yield a shifted unsigned value below `2^32`, including negative values whose cell arithmetic wraps appropriately. Thus −1 can use imm32, but unsigned-32 4,294,967,295 must use MOVABS. Writing `FF FF FF FF` into the short form would compare with 64-bit −1, the wrong value for that unsigned case. Legacy always selects the short form, so this chapter's legacy numeric examples stay in its faithful signed-32 comparison range.
 
-Sources for the supporting contracts: [promoted metadata and integer-use defaults in 100](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L175-L217), [encoders in 090](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L258-L273), and [JE encoder in 112](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L94-L101).
+Sources for the supporting contracts: [promoted metadata and integer-use defaults in 100](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L175-L217), [encoders in 090](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L258-L273), and [JE encoder in 112](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L94-L101).
 
 ## Recursion must restore the owner, not just the target
 
@@ -272,7 +272,7 @@ Loops swap break **and** continue ownership, as C16 established, but leave the c
 
 Under LP64, the dispatcher additionally recognizes `case` and `default` while parsing a nested statement. It checks nonzero switch depth, records the label, and recursively parses the following statement. Thus a case in an ordinary inner block can still use the open switch's case head. The switch body's own reader intercepts its immediate case/default tokens directly; it records a label and returns to its body loop rather than recursively consuming a following statement in that branch. These two entry routes share registration helpers but have different token boundaries.
 
-Legacy dispatch lacks those extra case/default branches. Its supported route is the inline switch-body interception, not a promise that labels nested arbitrarily within other statements work. An inner switch naturally installs its own owner, so a label parsed inside that inner switch belongs to it. The exact [LP64 dispatcher extension](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L865-L880) rejects a case/default seen through that route at depth zero with 170.
+Legacy dispatch lacks those extra case/default branches. Its supported route is the inline switch-body interception, not a promise that labels nested arbitrarily within other statements work. An inner switch naturally installs its own owner, so a label parsed inside that inner switch belongs to it. The exact [LP64 dispatcher extension](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L865-L880) rejects a case/default seen through that route at depth zero with 170.
 
 ## Labels have a function-wide identity
 
@@ -291,7 +291,7 @@ An unfinished JMP field is enough for the instruction. A shared table row for `d
 
 A switch case is a constant and a target, owned by the current switch. A named label instead has an identifier, can be referenced before definition, and belongs to the current function. The label table is separate from the ordinary symbol table. Braces do not remove its rows.
 
-The [table and workspace selectors](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L623-L685) use five parallel arrays of eight-byte cells. `cc-label-count` bounds the active prefix. `cell[]` turns `(id,array-base)` into `array-base+8*id`.
+The [table and workspace selectors](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L623-L685) use five parallel arrays of eight-byte cells. `cc-label-count` bounds the active prefix. `cell[]` turns `(id,array-base)` into `array-base+8*id`.
 
 | Array accessor | Meaning of cell id |
 |---|---|
@@ -303,7 +303,7 @@ The [table and workspace selectors](https://github.com/delta9000/seed-forth/blob
 
 ### Lookup, creation, and definition are different events
 
-The [small table operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L686-L737) have distinct contracts:
+The [small table operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L686-L737) have distinct contracts:
 
 1. `cc-label-vaddr-of ( id -- V )` fetches the target cell. `cc-label-set-vaddr ( V id -- )` stores it. `cc-label-fixups ( id -- list-cell-address )` returns the **address of the owner cell**, not its head value
 2. `cc-label-find ( name-address length -- id-or-neg1 )` supplies the name/length array bases and active count to `cc-name-find`. That helper compares lengths then bytes, searching count−1 down through zero. An absent name yields −1
@@ -315,11 +315,11 @@ Zero target is a sentinel because these generated code addresses are nonzero. ID
 
 For legacy, definition fetches the row's head and calls `cc-walk-and-patch-fixups`, resolving every pending goto to the current position. The walker does not clear the head or reclaim nodes, and this definition word does neither afterward. Later duplicate definitions are rejected by the nonzero target. For LP64, definition intentionally does **not** walk the list: its nodes have another shape and require a later completion event.
 
-Function entry resets `cc-label-count` to zero, not every backing byte. The next created row overwrites its name pair and zeros its target, head, and depth before that row becomes active. Thus equal spelling in different functions does not inherit an old address or an old pending list. The verified entry consumers are [legacy `cc-parse-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L273-L280), [private-stack native `cc-native-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L55-L60), and [System V `cc-sysv-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1233-L1238). Their complete frame mechanisms belong to C18 and later provider chapters.
+Function entry resets `cc-label-count` to zero, not every backing byte. The next created row overwrites its name pair and zeros its target, head, and depth before that row becomes active. Thus equal spelling in different functions does not inherit an old address or an old pending list. The verified entry consumers are [legacy `cc-parse-function`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L273-L280), [private-stack native `cc-native-function`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/117-cc-native-program.fth#L55-L60), and [System V `cc-sysv-function`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1314-L1319). Their complete frame mechanisms belong to C18 and later provider chapters.
 
 ## A legacy goto finishes at the label
 
-After `goto` has been consumed, [`cc-parse-goto-stmt`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L770-L802) reads the target. A nonidentifier is error 173. The name is looked up or created. In the legacy branch, the compiler then emits one POP RBX for **every** currently open switch before choosing the jump form:
+After `goto` has been consumed, [`cc-parse-goto-stmt`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L770-L802) reads the target. A nonidentifier is error 173. The name is looked up or created. In the legacy branch, the compiler then emits one POP RBX for **every** currently open switch before choosing the jump form:
 
 - Defined target: fetch its absolute V and pass it to `cc-emit-jmp-vaddr`, which emits `E9 rel32` directly
 - Undefined target: emit a JMP placeholder and add its field offset to that label's owner cell through `cc-add-fixup-to-list`
@@ -344,7 +344,7 @@ The nodes contain offsets, not addresses of their output fields in builder memor
 
 The unconditional full unwind imposes an important **legacy restriction**: the destination must be outside every switch. Even a goto from one point to another within the same switch emits all current pops; the later switch cleanup would no longer have the expected save. Recording a depth column does not fix this legacy branch because it does not read the destination depth.
 
-There is also a completion limit. Legacy [`cc-parse-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L293-L310) emits its implicit return and pops scope without calling `cc-native-finish-gotos`. A legacy `goto missing;` whose label is never defined is therefore not caught by that native finisher at legacy function completion. Do not claim error 174 for that route, or confuse named-label completion with the separate unresolved-function checks in program completion. Our usable legacy examples require every referenced label to be defined.
+There is also a completion limit. Legacy [`cc-parse-function`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L293-L310) emits its implicit return and pops scope without calling `cc-native-finish-gotos`. A legacy `goto missing;` whose label is never defined is therefore not caught by that native finisher at legacy function completion. Do not claim error 174 for that route, or confuse named-label completion with the separate unresolved-function checks in program completion. Our usable legacy examples require every referenced label to be defined.
 
 ## Native gotos reconcile source and destination depth
 
@@ -352,7 +352,7 @@ LP64 selects a different branch inside the same goto parser. A known target has 
 
 The solution is a **trampoline**: a short generated block elsewhere that performs the adjustment then jumps to the true label. The original placeholder is eventually patched to the trampoline, not straight to the label.
 
-The [depth-adjustment helper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L744-L767) is complete here:
+The [depth-adjustment helper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L744-L767) is complete here:
 
 ```forth
 : cc-native-goto-adjust ( source-depth target-depth -- )
@@ -385,7 +385,7 @@ Using the generic two-cell walker on a native goto list would interpret source d
 
 The Forth stack at the start of a node iteration is `[id,node]`. Before adjustment the shuffles arrange `[id,node,source-depth,target-depth]`; adjustment consumes only the last two. The final jump consumes its fetched V and leaves `[id,node]` for advancing. The finisher neither clears all heads nor frees arena storage. Its normal lifecycle calls it once before the next function resets the active label count.
 
-The private-stack native function provider in [117](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L64-L74) and System V provider in [121](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1245-L1253) both emit an implicit return/epilogue **before** calling this finisher. Normal function fall-through therefore returns rather than accidentally falling into trampoline code. A forward goto still has the active frame and appropriate source saves when it jumps to its trampoline; the trampoline runs before that path has returned.
+The private-stack native function provider in [117](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/117-cc-native-program.fth#L64-L74) and System V provider in [121](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1326-L1334) both emit an implicit return/epilogue **before** calling this finisher. Normal function fall-through therefore returns rather than accidentally falling into trampoline code. A forward goto still has the active frame and appropriate source saves when it jumps to its trampoline; the trampoline runs before that path has returned.
 
 ### Work two distinct source depths to one label
 
@@ -416,7 +416,7 @@ pad = 2;
 
 Assume `int_ptr` resolves to an `sk-typedef` with payload encoding int-pointer depth one, `pad` is an ordinary local, and `done` does not name a typedef. The first statement is a declaration; the second begins with a named label; the third is an expression. Ordinary symbol lookup supplies the first distinction. A following colon supplies the second.
 
-The exact [lookahead body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L819-L826) is:
+The exact [lookahead body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L819-L826) is:
 
 ```forth
 : cc-peek-after-is-colon?
@@ -444,7 +444,7 @@ The shared `cc-peek-mark` works because the interval between mark and decision o
 
 ### Typedef first, then colon, then expression
 
-[`cc-parse-ident-stmt`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L838-L858) implements this decision order:
+[`cc-parse-ident-stmt`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L838-L858) implements this decision order:
 
 1. Search the ordinary symbol table using the current identifier's name span
 2. If found and kind is `sk-typedef`, fetch its encoded type, extract base and pointer depth, and call C15's `cc-parse-decl-with-base`. Return without colon lookahead
@@ -454,7 +454,7 @@ The shared `cc-peek-mark` works because the interval between mark and decision o
 
 As in [C15](15-declarations-and-recursive-records.md), the typedef payload's depth supplies the starting depth for each declarator, so the admitted legacy `int_ptr p;` gives p depth one. The parser does not treat the spelling `int_ptr` as a type merely because it resembles one; it requires the row's kind.
 
-Under LP64, the earlier dispatcher branch asks `cc-native-type-start-fwd` or tests keyword `typedef`. The actual [provider in 115](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L83-L91) recognizes existing typedef identifiers, so an ordinary native typedef-led declaration goes to `cc-native-decl-fwd` before reaching this legacy adapter. This is the statement-level declaration seam opened by C15, not an additional declaration implementation in this chapter.
+Under LP64, the earlier dispatcher branch asks `cc-native-type-start-fwd` or tests keyword `typedef`. The actual [provider in 115](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L83-L91) recognizes existing typedef identifiers, so an ordinary native typedef-led declaration goes to `cc-native-decl-fwd` before reaching this legacy adapter. This is the statement-level declaration seam opened by C15, not an additional declaration implementation in this chapter.
 
 There are two boundaries worth keeping visible. First, a name that currently resolves as a typedef takes the declaration route before any colon check; the separate label table alone does not provide complete C namespace disambiguation for that collision. Our label examples avoid it. Second, the legacy label branch returns after the colon, whereas the LP64 branch consumes the labeled substatement recursively. A surrounding compound/function body's repeated statement calls can pick up the legacy label's following statement next. A single-body caller such as `while (n) again: pad=1;` cannot be assumed to receive the whole labeled statement from one legacy call. C16's “one statement” contract deliberately excluded this legacy label-prefix boundary.
 
@@ -481,7 +481,7 @@ The top-level initialization stores each default object's address in its paired 
 | Names | A | 8,192 bytes |
 | Lengths | A+8,192 | 8,192 bytes |
 | Target addresses | A+16,384 | 8,192 bytes |
-| Fixup heads | A+24,576 | 8,192 bytes |
+| Fixup heads | A+24,579 | 8,192 bytes |
 | Definition depths | A+32,768 | 8,192 bytes |
 
 The whole mapping is `1024*40=40,960` bytes, ten 4,096-byte pages. Each column spans two pages. The mapping request uses `cc-workspace-map` with failure code 171. Re-selecting a nonzero cached base does not allocate again. These selectors change all five bases and the limit together; they do not reset the count, migrate active rows, copy names, or expand the node arena. Select them before normal initialization, not halfway through a live function. The source comment attributes the chosen bound to a 739-label function in its direct-GCC workload; that is a source-reported motivation, not a count measured in this chapter.

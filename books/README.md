@@ -103,15 +103,15 @@ units.
 - [Seed byte audit](seed-forth/AUDIT.md) assigns every file byte and shows
   which regions are explained so far
 
-The source maps account for 576 colon definitions across fourteen compiler/assembler
+The source maps account for 579 colon definitions across fourteen compiler/assembler
 files, plus the separate preprocessor-region inventory. The control/function/
 program ledger distinguishes 160 declarations from ten top-level forms;
 coverage does not mean those forms were executed here. The [pipeline
 map](c-compiler/pipeline-map.csv) separately covers 33 regions/273 lines in five
 complete shell scripts. The [assembler ledger](c-compiler/assembler-regions.csv)
 adds all 785 lines in 42 regions, 99 declarations and two initialization
-forms; its 50 colon definitions are included in the 576 total. Source-blob
-checks cover 71 pinned project files;
+forms; its 50 colon definitions are included in the 579 total. Source-blob
+checks cover 72 pinned project files;
 none of these counts is a claim of whole-bootstrap implementation coverage.
 G01 adds three inspected source blobs and a bounded teaching story, not a new
 complete-definition or whole-module inventory.

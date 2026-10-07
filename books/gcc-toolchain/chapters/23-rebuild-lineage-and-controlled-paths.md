@@ -21,6 +21,21 @@ compiler product built by a named predecessor. DESTDIR changes where
 installation is staged while the configured prefix remains the logical installed
 path. Paths can become bytes inside executables, making them comparison inputs.
 
+## The additional plumbing lineage
+
+The newer plumbing route bootstraps native seed-cc/seed-ar, then builds kaem.
+Stage 1 uses seed-cc for small stage0 file/hash/unpack tools and GNU make 3.82;
+stage 2 uses that make and explicit config.h files for sed, gzip, patch,
+diffutils, grep, gawk, tar and 80 coreutils programs. Recipes avoid shell
+metacharacters and use no configure script. The lexer and bash stages are
+separate: the pin records a lexer-stage execution audit, while completing a
+GCC rebuild entirely under replaced plumbing remains outside that result.
+The recipe record still lists two coreutils patches and `sed -f`'s rejected
+`"rt"` mode; its long-double-gap wording predates the new layer 132, so this
+edition does not infer that patch removal or a new rebuild occurred.
+See [stages and retained limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/plumbing/README.md#L1-L113),
+[lexer audit and final checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/plumbing/README.md#L258-L282).
+
 ## Name each arrow before comparing the boxes
 
 Stage C’s installed GCC, whose compiler proper and driver were built by Forth,
@@ -38,9 +53,9 @@ original Forth-built Stage C compiler executable itself to equal stage 2: the
 compared set is the later GCC-produced installed generations.
 
 Sources: [generation identities and
-criterion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L8-L25),
+criterion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L8-L25),
 [actual build and comparison
-sequence](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L170-L191).
+sequence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L170-L191).
 
 ## Reuse coordinates, stage installation separately
 
@@ -61,7 +76,7 @@ adaptations for each build, removing stale generated/compiled state. Retained
 per-stage logs name compiler and installed tree.
 
 Sources: [fresh source and common path
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L135).
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L135).
 
 ## Retain the source adaptation that a real GCC needs
 
@@ -80,9 +95,9 @@ trees do not become unsupported evidence hidden behind “GCC 4.0.4.” The sele
 configuration and source set define the artifact comparison’s domain.
 
 Sources: [poison exemption and source
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L35-L62),
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L35-L62),
 [checked adaptation
-application](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L97).
+application](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L97).
 
 ## Keep target tools and build overrides in the lineage
 
@@ -103,9 +118,9 @@ producer claim; it does not assert a source-only machine with no operational
 dependencies.
 
 Sources: [configure environment and make/install
-inputs](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L99-L135),
+inputs](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L99-L135),
 [stack
-setting](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L169-L174).
+setting](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L169-L174).
 
 ## Explain a mismatch before treating it as a defect
 
@@ -126,7 +141,7 @@ work. The lesson prepares the exact comparison in G25 rather than declaring a
 fresh fixed point from source inspection.
 
 Sources: [recorded fixed-point
-lineage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541).
+lineage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565).
 
 ## Name generations by the compiler that made them
 
@@ -149,9 +164,9 @@ necessary for build work without being source code compiled into GCC. Preserve
 it with the recipe rather than calling it part of a new target ABI.
 
 Sources: [generation identities and
-criterion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L8-L25),
+criterion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L8-L25),
 [actual build and comparison
-sequence](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L170-L191).
+sequence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L170-L191).
 
 ## Hold path inputs constant without overwriting generations
 
@@ -174,7 +189,7 @@ producing inputs at the intended boundary. Its comparison does not broadly erase
 embedded path bytes after production.
 
 Sources: [fresh source and common path
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L135).
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L135).
 
 ## Retain the parser intervention as an intervention
 
@@ -202,13 +217,13 @@ retained account. G24 opens the documented mismatch that made the runtime arrow
 visible, and G25 reads exactly what the successful comparison accepts.
 
 Sources: [poison exemption and source
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L35-L62),
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L35-L62),
 [checked adaptation
-application](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L97),
+application](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L97),
 [configure environment and make/install
-inputs](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L99-L135),
+inputs](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L99-L135),
 [stack
-setting](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L169-L174).
+setting](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L169-L174).
 
 ## Distinguish an input control from a comparison exception
 
@@ -251,17 +266,17 @@ The manuscript has not created three generations or calculated fresh
 installed-tool hashes.
 
 Sources: [fresh source and common path
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L135),
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L135),
 [poison exemption and source
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L35-L62),
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L35-L62),
 [checked adaptation
-application](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L97),
+application](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L97),
 [configure environment and make/install
-inputs](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L99-L135),
+inputs](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L99-L135),
 [stack
-setting](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L169-L174),
+setting](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L169-L174),
 [recorded fixed-point
-lineage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541).
+lineage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565).
 
 ## A build label cannot identify its executable producer
 
@@ -311,7 +326,7 @@ A future reproduction should preserve every generation's installed inventory,
 hashes, commands, prepared source and reports so both lineage and comparison can
 be challenged independently.
 
-Sources: [generation identities and criterion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L8-L25), [actual build and comparison sequence](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L170-L191), [fresh source and common path construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L135), [poison exemption and source selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L35-L62), [checked adaptation application](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L78-L97), [configure environment and make/install inputs](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L99-L135), [stack setting](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L169-L174), [recorded fixed-point lineage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L512-L541).
+Sources: [generation identities and criterion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L8-L25), [actual build and comparison sequence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L170-L191), [fresh source and common path construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L135), [poison exemption and source selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L35-L62), [checked adaptation application](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L78-L97), [configure environment and make/install inputs](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L99-L135), [stack setting](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L169-L174), [recorded fixed-point lineage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L536-L565).
 
 ## Stop, then change the boundary
 

@@ -44,9 +44,9 @@ evaluation order here is an implementation choice, not a promise that all C
 compilers evaluate arguments identically.
 
 Sources: [scalar staging and
-conversion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L944-L976),
+conversion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L995-L1027),
 [register and outgoing-stack
-placement](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L987-L1069).
+placement](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1038-L1120).
 
 ## Keep a value before asking another function for one
 
@@ -69,9 +69,9 @@ selected provider. G15 opens the aggregate extensions; nothing in this scalar
 story requires completing that chapter first.
 
 Sources: [push tracking and live-span
-save/restore](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L977-L1040),
+save/restore](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1028-L1091),
 [selected call preparation and
-restoration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L235-L341).
+restoration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L221-L327).
 
 ## Align at the moment the consumer requires
 
@@ -91,9 +91,9 @@ expression. The call boundary must be derived from the current machine state and
 restored ownership, not from a memorized function frame size.
 
 Sources: [fresh aligned outgoing
-block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1041-L1077),
+block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1092-L1128),
 [selected aligned outgoing
-block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L235-L274).
+block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L221-L260).
 
 ## Move stack copies before register loads
 
@@ -115,9 +115,9 @@ establishes argument transport, while G02/G05 finish the symbol and relocation
 contract.
 
 Sources: [direct and indirect call
-emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1078-L1120),
+emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1129-L1171),
 [selected target
-preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L288-L341).
+preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L274-L327).
 
 ## Receive values in the matching entry plan
 
@@ -139,9 +139,9 @@ This carrier switch does not widen an int object. A returned −1 int must be
 treated as a signed 32-bit result before wider internal use.
 
 Sources: [parameters, function frame and target
-activation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1121-L1276),
+activation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1172-L1357),
 [selected parameter plan and
-spills](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390).
+spills](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376).
 
 ## Test the shared contract without pretending to execute
 
@@ -162,7 +162,7 @@ expose every preservation or alignment error. A changed nested argument and a
 live outer value provide more discriminating evidence.
 
 Sources: [explicit argument records and
-classification](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L95-L174).
+classification](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L96-L157).
 
 ## Give seven inputs distinct destinations
 
@@ -194,13 +194,13 @@ object. Read the spill operation together with the parameter metadata rather
 than inferring storage width from the name RDI.
 
 Sources: [scalar staging and
-conversion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L944-L976),
+conversion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L995-L1027),
 [register and outgoing-stack
-placement](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L987-L1069),
+placement](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1038-L1120),
 [parameters, function frame and target
-activation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1121-L1276),
+activation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1172-L1357),
 [selected parameter plan and
-spills](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390).
+spills](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376).
 
 ## Derive the alignment, then restore ownership
 
@@ -230,13 +230,13 @@ example. The restored caller state must still differ. Equal final alignment does
 not mean the two calls owned identical starting stacks.
 
 Sources: [fresh aligned outgoing
-block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1041-L1077),
+block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1092-L1128),
 [selected aligned outgoing
-block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L235-L274),
+block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L221-L260),
 [direct and indirect call
-emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1078-L1120),
+emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1129-L1171),
 [selected target
-preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L288-L341).
+preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L274-L327).
 
 ## Keep the target alive until CALL consumes it
 
@@ -261,13 +261,13 @@ broader argument classes arrive. A later disassembly can check the predicted
 transfers, but no new scalar fixture has been executed here.
 
 Sources: [direct and indirect call
-emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1078-L1120),
+emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1129-L1171),
 [selected target
-preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L288-L341),
+preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L274-L327),
 [parameters, function frame and target
-activation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1121-L1276),
+activation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1172-L1357),
 [selected parameter plan and
-spills](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390).
+spills](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376).
 
 ## Locate a call error before looking at its result
 
@@ -315,13 +315,13 @@ protection made nested evaluation safe. The chapter's placement and alignment
 predictions remain supplied states rather than new execution evidence.
 
 Sources: [direct and indirect call
-emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1078-L1120),
+emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1129-L1171),
 [selected target
-preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L288-L341),
+preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L274-L327),
 [parameters, function frame and target
-activation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1121-L1276),
+activation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1172-L1357),
 [selected parameter plan and
-spills](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390).
+spills](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376).
 
 ## Stop, then change the boundary
 

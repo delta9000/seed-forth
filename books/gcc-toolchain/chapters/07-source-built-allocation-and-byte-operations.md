@@ -40,7 +40,7 @@ payload plus header and return that mapping to Linux on free. Small slabs stay
 until process exit: repeated free is reuse, not slab reclamation.
 
 Sources: [headers, slabs and
-mappings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L8-L103).
+mappings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L8-L103).
 
 ## Let failure leave the old owner alive
 
@@ -63,7 +63,7 @@ storage. A fresh mapping’s zero-fill property alone cannot implement calloc ov
 reused slots.
 
 Sources: [calloc and realloc failure
-preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L105-L148).
+preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L105-L148).
 
 ## Copy in the direction that preserves unread bytes
 
@@ -84,7 +84,7 @@ pointers refer into the original region; a matching index is not an allocated
 copy.
 
 Sources: [byte
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/memory.c#L4-L63).
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/memory.c#L4-L63).
 
 ## Read terminators without confusing them with bounds
 
@@ -106,7 +106,7 @@ fallback from corrupting a returned pointer. A link can find a string function
 while a caller still used the wrong return interface.
 
 Sources: [string bounds, searches and
-duplication](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/string.c#L5-L132).
+duplication](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/string.c#L5-L132).
 
 ## Map memory through the public contract
 
@@ -122,16 +122,16 @@ allocator requested sizes. Calling munmap on an arbitrary malloc payload would
 skip the header and bypass the allocator’s ownership rule.
 
 Other source members expose process, descriptor and path operations used by the
-workload. exit has no atexit table in this runtime; abort has its explicit
+workload. exit now has a 64-slot handler table and a flush hook; abort has its explicit
 signal fallback. Do not call this a full libc merely because a concrete
 generator’s references are satisfied.
 
 Sources: [public mapping
-contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/mapping.c#L6-L38),
+contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/mapping.c#L6-L38),
 [termination
-policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/process.c#L5-L42),
+policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/process.c#L7-L94),
 [process API
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/process-api.c#L1-L40).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/process-api.c#L1-L40).
 
 ## Separate a requested object from its allocation block
 
@@ -163,7 +163,7 @@ bounded allocator is a source-built runtime service, not a general proof against
 corrupt metadata.
 
 Sources: [headers, slabs and
-mappings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L8-L103).
+mappings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L8-L103).
 
 ## Make failure leave the old owner intact
 
@@ -192,7 +192,7 @@ from malloc. The paper example supplies the old contents and branches; it does
 not claim an allocation failure was induced here.
 
 Sources: [headers, slabs and
-mappings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L8-L103).
+mappings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L8-L103).
 
 ## Let overlap decide the copying direction
 
@@ -215,11 +215,11 @@ conversion: obtaining or releasing storage is an operating-system boundary,
 while copying bytes inside a valid span is a runtime algorithm.
 
 Sources: [calloc and realloc failure
-preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L105-L148),
+preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L105-L148),
 [byte
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/memory.c#L4-L63),
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/memory.c#L4-L63),
 [string bounds, searches and
-duplication](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/string.c#L5-L132).
+duplication](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/string.c#L5-L132).
 
 ## Use a byte ledger to keep object ownership visible
 
@@ -268,17 +268,17 @@ behavior. The chapter has supplied these observation questions without
 allocating, inducing failures or accessing mapped test pages.
 
 Sources: [headers, slabs and
-mappings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L8-L103),
+mappings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L8-L103),
 [calloc and realloc failure
-preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L105-L148),
+preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L105-L148),
 [byte
-operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/memory.c#L4-L63),
+operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/memory.c#L4-L63),
 [public mapping
-contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/mapping.c#L6-L38),
+contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/mapping.c#L6-L38),
 [termination
-policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/process.c#L5-L42),
+policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/process.c#L7-L94),
 [process API
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/process-api.c#L1-L40).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/process-api.c#L1-L40).
 
 ## Separate source closure from interface closure
 
@@ -320,7 +320,7 @@ events. They can support one another while remaining different evidence. This
 book supplies the source mechanisms and paper cases; it has not run a new
 allocator or generator workload.
 
-Sources: [headers, slabs and mappings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L8-L103), [calloc and realloc failure preservation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/alloc.c#L105-L148), [string bounds, searches and duplication](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/string.c#L5-L132), [public mapping contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/mapping.c#L6-L38), [termination policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/process.c#L5-L42), [process API source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/process-api.c#L1-L40).
+Sources: [headers, slabs and mappings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L8-L103), [calloc and realloc failure preservation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/alloc.c#L105-L148), [string bounds, searches and duplication](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/string.c#L5-L132), [public mapping contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/mapping.c#L6-L38), [termination policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/process.c#L7-L94), [process API source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/process-api.c#L1-L40).
 
 ## Stop, then change the boundary
 

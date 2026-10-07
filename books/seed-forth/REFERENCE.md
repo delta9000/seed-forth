@@ -3,7 +3,7 @@
 [Reading route](chapters/00-start-here.md) · [Volume contents](README.md) · [Byte audit](AUDIT.md)
 
 This reference describes `000-seed.hex0` and `010-lib.fth` at
-[`7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b).
+[`bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e).
 It is a lookup companion to the explanations, not a portable Forth specification.
 
 Jump to: [entry and evidence](#entry-and-evidence), [notation](#notation-and-global-preconditions),
@@ -19,10 +19,10 @@ at its fixed addresses. Its ELF segment requests read, write, and execute
 permissions. Host policy can reject that request. Reading the manuscript
 and following its paper traces requires no installation.
 
-The pinned [`build.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/build.sh)
+The pinned [`build.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/build.sh)
 is the build entry. It runs the assembler selected by `HEX0`, defaulting to
 `vendor/stage0-posix/bootstrap-seeds/POSIX/AMD64/hex0-seed`, on
-[`000-seed.hex0`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0),
+[`000-seed.hex0`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0),
 then marks the output executable. The script checks for that assembler
 and contains the repository's missing-submodule guidance. This description
 is source inspection, not an installation procedure tested here.
@@ -36,7 +36,7 @@ and [validation record](../VALIDATION.md) for the distinction between
 static decoding, earlier repository CI, and the new unexecuted teaching
 examples. Earlier CI success is not a fresh-reader setup test.
 
-The [source's authorship notice](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L1-L17)
+The [source's authorship notice](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L1-L17)
 credits AI collaboration under human architectural direction and identifies
 an MIT license. The [opening](chapters/00-why-inspect-a-seed.md) retains the
 original prologue's provenance context and bounds what inspection or
@@ -211,7 +211,7 @@ they must preserve that value and its ownership. See [S4][s4].
 ## Seed memory map
 
 These are **process virtual addresses**, from the pinned
-[headers/startup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L19-L74).
+[headers/startup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L19-L74).
 Ranges include their start and exclude their end. The single PT_LOAD segment
 covers `[0x400000, 0x1400000)`, 16 MiB. Only its first 1,772 bytes come from
 the file; the remainder is initially zero-valued memory under the loader
@@ -263,7 +263,7 @@ representation and R's native control entries are different structures.
 ## Library recovery index
 
 The complete definitions remain in the pinned
-[`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth).
+[`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth).
 These links recover their mechanisms without repeating the listing.
 
 | If you need to recover… | Read |
@@ -322,35 +322,35 @@ to resume the learning route, return to the [volume contents](README.md).
 [s17zero]: chapters/17-inline-branch-operands.md#eleven-instructions-consume-the-flag-before-choosing
 [s18parser]: chapters/18-decimal-parser-and-repl.md#a-parser-consumes-a-pair-and-returns-a-pair
 [s18repl]: chapters/18-decimal-parser-and-repl.md#the-final-loop-decides-what-a-found-name-means-now
-[dup_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L81-L85
-[drop_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L91-L95
-[swap_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L101-L106
-[to_r_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L112-L119
-[r_from_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L125-L132
-[r_at_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L138-L146
-[fetch_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L152-L155
-[store_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L161-L168
-[cfetch_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L174-L177
-[cstore_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L183-L190
-[plus_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L196-L200
-[nand_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L206-L211
-[zeq_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L217-L223
-[divide_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L229-L238
-[star_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L244-L250
-[bye_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L256-L260
-[emit_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L266-L277
-[key_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L283-L299
-[syscall6_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L305-L319
-[find_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L325-L361
-[here_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L367-L372
-[comma_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L378-L386
-[execute_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L392-L397
-[state_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L489-L494
-[latest_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L500-L505
-[tick_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L511-L514
-[colon_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L520-L537
-[semicolon_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L543-L550
-[lit_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L568-L576
-[bracket_lit_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L582-L601
-[branch_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L607-L612
-[zbranch_code]: https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L618-L632
+[dup_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L81-L85
+[drop_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L91-L95
+[swap_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L101-L106
+[to_r_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L112-L119
+[r_from_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L125-L132
+[r_at_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L138-L146
+[fetch_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L152-L155
+[store_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L161-L168
+[cfetch_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L174-L177
+[cstore_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L183-L190
+[plus_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L196-L200
+[nand_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L206-L211
+[zeq_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L217-L223
+[divide_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L229-L238
+[star_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L244-L250
+[bye_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L256-L260
+[emit_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L266-L277
+[key_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L283-L299
+[syscall6_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L305-L319
+[find_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L325-L361
+[here_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L367-L372
+[comma_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L378-L386
+[execute_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L392-L397
+[state_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L489-L494
+[latest_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L500-L505
+[tick_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L511-L514
+[colon_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L520-L537
+[semicolon_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L543-L550
+[lit_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L568-L579
+[bracket_lit_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L582-L601
+[branch_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L607-L612
+[zbranch_code]: https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L618-L632

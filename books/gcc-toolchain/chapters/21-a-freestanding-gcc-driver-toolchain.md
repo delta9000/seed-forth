@@ -39,9 +39,9 @@ hashes let a reviewer compare the selected inputs, not just trust directory
 names that could later be replaced.
 
 Sources: [stage-B hash verification and
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L76-L94),
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L76-L94),
 [configure, census and GCC tool
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L104-L180).
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L104-L180).
 
 ## Distinguish search prefixes from compiled defaults
 
@@ -59,7 +59,7 @@ alone does not rewrite embedded defaults. Reconfiguration/rebuilding and a new
 record would be required for a relocated production path claim.
 
 Sources: [baked defaults and -B
-search](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L246).
+search](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L270).
 
 ## Follow one command to a process result
 
@@ -80,9 +80,9 @@ source and Linux execution support; a command copied into another work directory
 is not automatically the same fixture.
 
 Sources: [freestanding behavior and
-evidence](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L248-L259),
+evidence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L272-L283),
 [fixture entry and syscall
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/e2e-freestanding-hello.c#L1-L21).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/e2e-freestanding-hello.c#L1-L21).
 
 ## Audit the tools that actually ran
 
@@ -102,9 +102,9 @@ is a scoped comparison, not equality of every ELF header, debug record or
 runtime behavior.
 
 Sources: [end-to-end check
-setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/e2e-freestanding-check.py#L1-L80),
+setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/e2e-freestanding-check.py#L1-L80),
 [execution paths, guards and
-oracle](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L248-L259).
+oracle](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L272-L283).
 
 ## Leave the header obligation open
 
@@ -125,7 +125,7 @@ identified runtime. Direct production ancestry is narrower than “no trusted
 platform.”
 
 Sources: [include limit and next-stage
-sysroot](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L255-L285).
+sysroot](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L279-L309).
 
 ## Resolve programs before resolving target symbols
 
@@ -147,11 +147,11 @@ input of the next identified executable. This turns a final exit status into a
 traceable producer chain rather than an opaque assertion that “gcc worked.”
 
 Sources: [stage-B hash verification and
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L76-L94),
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L76-L94),
 [configure, census and GCC tool
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L104-L180),
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L104-L180),
 [baked defaults and -B
-search](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L246).
+search](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L270).
 
 ## Keep the no-libc contract small enough to inspect
 
@@ -174,13 +174,13 @@ the two text sections match. The final target must consume the object made by
 the source-built assembler for the production ancestry claim.
 
 Sources: [freestanding behavior and
-evidence](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L248-L259),
+evidence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L272-L283),
 [fixture entry and syscall
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/e2e-freestanding-hello.c#L1-L21),
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/e2e-freestanding-hello.c#L1-L21),
 [end-to-end check
-setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/e2e-freestanding-check.py#L1-L80),
+setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/e2e-freestanding-check.py#L1-L80),
 [execution paths, guards and
-oracle](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L248-L259).
+oracle](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L272-L283).
 
 ## Leave hosted inputs for their own producer handoff
 
@@ -201,7 +201,7 @@ freestanding result to its pinned report. It has not rerun the driver probe,
 observed new process execution or supplied a new host-assembler comparison.
 
 Sources: [include limit and next-stage
-sysroot](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L255-L285).
+sysroot](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L279-L309).
 
 ## A path is an input to executable selection
 
@@ -249,17 +249,17 @@ target executable. It attributes the recorded fixture and explains the path
 controls required to reproduce it.
 
 Sources: [stage-B hash verification and
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L76-L94),
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L76-L94),
 [configure, census and GCC tool
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L104-L180),
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L104-L180),
 [baked defaults and -B
-search](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L246),
+search](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L270),
 [end-to-end check
-setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/e2e-freestanding-check.py#L1-L80),
+setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/e2e-freestanding-check.py#L1-L80),
 [execution paths, guards and
-oracle](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L248-L259),
+oracle](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L272-L283),
 [include limit and next-stage
-sysroot](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L255-L285).
+sysroot](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L279-L309).
 
 ## Ask what the driver invocation actually joins
 
@@ -312,7 +312,7 @@ launched the driver or created a fresh output object. A new reader can explain
 the complete small chain on paper before undertaking a separately retained
 operational run.
 
-Sources: [stage-B hash verification and installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L76-L94), [configure, census and GCC tool installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L104-L180), [baked defaults and -B search](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L246), [freestanding behavior and evidence](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L248-L259), [fixture entry and syscall source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/e2e-freestanding-hello.c#L1-L21), [end-to-end check setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/e2e-freestanding-check.py#L1-L80), [execution paths, guards and oracle](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L248-L259), [include limit and next-stage sysroot](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L255-L285).
+Sources: [stage-B hash verification and installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L76-L94), [configure, census and GCC tool installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L104-L180), [baked defaults and -B search](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L270), [freestanding behavior and evidence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L272-L283), [fixture entry and syscall source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/e2e-freestanding-hello.c#L1-L21), [end-to-end check setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/e2e-freestanding-check.py#L1-L80), [execution paths, guards and oracle](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L272-L283), [include limit and next-stage sysroot](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L279-L309).
 
 ## Stop, then change the boundary
 

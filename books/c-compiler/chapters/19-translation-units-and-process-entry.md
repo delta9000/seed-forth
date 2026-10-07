@@ -10,7 +10,7 @@ There is no caller in its C source. Who calls `main`, and who receives the seven
 
 We will follow this program from source to a complete predicted file layout, then follow the generated instructions from process entry to exit. The later reference sessions open the other file-scope forms. The first story carries its needed byte and frame facts with it.
 
-**Profile and evidence.** The inspected implementation is [`116-cc-prog.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth) and [`120-cc-main.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/120-cc-main.fth), at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`. Use a fresh legacy Linux/x86-64 builder, `cc-target-lp64=0`, `cc-target-sysv=0`, and the ordinary default hooks. Counts, bytes, and machine states below are source-derived predictions; no compiler, Forth program, generated executable, or build was run. C20 retains the separate work of comparing actual Stage-A artifacts.
+**Profile and evidence.** The inspected implementation is [`116-cc-prog.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth) and [`120-cc-main.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/120-cc-main.fth), at revision `bbcc1732152af2d884737272eed870d2410ffe8e`. Use a fresh legacy Linux/x86-64 builder, `cc-target-lp64=0`, `cc-target-sysv=0`, and the ordinary default hooks. Counts, bytes, and machine states below are source-derived predictions; no compiler, Forth program, generated executable, or build was run. C20 retains the separate work of comparing actual Stage-A artifacts.
 
 For the paper trace, assume admitted syntax, retained source bytes, sufficient builder capacity, and nonwrapping address/count arithmetic. When we reach target execution, additionally assume the image is loaded at its specified addresses, a valid initially 16-aligned Linux process stack, and a successful exit request in this single-threaded process. Those assumptions make the transitions meaningful; they are not measurements of a created file.
 
@@ -51,7 +51,7 @@ The first two calls read the C input and prepare the source stream for the lexer
 
 Next, `cc-emit-elf-header` writes 64 bytes of ELF header and one 56-byte load-segment description. ELF is the file envelope that tells the loader where the image belongs and where execution begins. The next offset is therefore `64+56=120`. Its entry field already names `0x400078`, the target address of offset 120. It does not yet name the still-unseen C definition of `main`.
 
-The one load segment begins at file offset zero and virtual address `0x400000`. Its flags permit reading, writing, and execution. Its file size starts at zero, awaiting finalization; its memory size starts at 81,920 bytes. These are header fields, not generated instructions. [The exact header and size finalizer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/080-cc-elf.fth#L9-L80) explain why the program can contain both code and writable runtime state in this image.
+The one load segment begins at file offset zero and virtual address `0x400000`. Its flags permit reading, writing, and execution. Its file size starts at zero, awaiting finalization; its memory size starts at 81,920 bytes. These are header fields, not generated instructions. [The exact header and size finalizer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/080-cc-elf.fth#L9-L80) explain why the program can contain both code and writable runtime state in this image.
 
 ## Reserve the first call before knowing its destination
 
@@ -72,7 +72,7 @@ At offset 129 the emitter appends opcode E8. The cursor is now 130, the first by
 
 Nothing has called `main` yet. In particular, emitting the final SYSCALL bytes does not terminate the builder. The builder proceeds to construct the remainder of the file.
 
-Source: [entry-byte appends and field recording](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L573-L622).
+Source: [entry-byte appends and field recording](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L573-L622).
 
 ## The runtime occupies bytes even when this program does not call it
 
@@ -100,7 +100,7 @@ The builder now registers eight late-runtime names, one external prototype, and 
 
 Thus there are already three different products: bytes describing the executable, bytes containing code and runtime state, and builder-only name/type records. Appending a symbol record does not necessarily enlarge the target file.
 
-Sources: [runtime registration order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L638-L846) and [the counted eager emitters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L559-L900).
+Sources: [runtime registration order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L638-L846) and [the counted eager emitters](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L559-L900).
 
 ## Read the definition and give the call a destination
 
@@ -130,7 +130,7 @@ The entire generated function is therefore 34 bytes. Each row starts at the list
 
 The first row has `1+3+7=11` bytes. The following rows have `7+3+5+3+5=23`, giving `11+23=34`. The cursor becomes 556. The parser then hides the function's parameter/local scope; `main` itself was registered outside that scope and remains visible.
 
-The source-to-byte bridge uses [function registration and body emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L220-L310), [valued return](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L783-L803), and [the fixed prologue/epilogue encoders](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L335-L359). Default hooks add no extra restore code here.
+The source-to-byte bridge uses [function registration and body emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L220-L310), [valued return](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L783-L803), and [the fixed prologue/epilogue encoders](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L335-L359). Default hooks add no extra restore code here.
 
 ## Close the promises before closing the file
 
@@ -162,7 +162,7 @@ Back in `cc-main`, `cc-finalize-globals` finds no user data and no BSS allocatio
 
 The result is a **predicted 556-byte image**, ready for a write attempt. The driver passes the NUL-terminated path `/tmp/cc-out` to `cc-write-output`, then ends the builder with `bye`. The writer opens with write/create/truncate flags, requests one write of the buffer, and closes. It rejects a failed open, but discards the write and close results. A 556-byte output cursor does not establish that a 556-byte file was successfully stored.
 
-Sources: [completion order and checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L849-L884), [global placement](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L478-L514), and [one-write output path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth#L171-L195).
+Sources: [completion order and checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L849-L884), [global placement](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L478-L514), and [one-write output path](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth#L171-L195).
 
 ## Now let the target follow those bytes
 
@@ -231,7 +231,7 @@ A's row exists before the constant parser reads `A+3`; newest-first symbol looku
 
 The loop expects an identifier, otherwise error 190. After each registration it increments the default, then consumes a separator. A comma normally continues; a comma followed by `}` stops and puts the brace back. A direct `}` also stops and is put back. Any other separator reaches 192. On the shared exit, the brace and semicolon expectations consume `};` once. Empty enums do not pass the first identifier requirement. Use admitted constant expressions and bounded arithmetic; the loop adds no duplicate-enumerator or overflow analysis of its own.
 
-Source: [enum state, optional tag, and separator ownership](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L30-L99).
+Source: [enum state, optional tag, and separator ownership](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L30-L99).
 
 ### A typedef carries an encoding, not an object address
 
@@ -255,7 +255,7 @@ The plain branch requires an identifier and records the staged encoding. Despite
 
 The local error sites make this narrow contract inspectable: 193 for an unsupported keyword base; 194 for a missing typedef lookup; 195 for a found non-typedef; 196 for a base that is neither keyword nor identifier; 197 for a missing function-pointer name; and 198 for a missing plain alias name. Shared punctuation/tag helpers retain their own checks.
 
-Sources: [both typedef paths](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L98-L195) and [packed type representation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/060-cc-types.fth#L19-L75).
+Sources: [both typedef paths](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L98-L195) and [packed type representation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/060-cc-types.fth#L19-L78).
 
 ## Reference: classify without consuming
 
@@ -293,7 +293,7 @@ This is a classifier for the admitted forms, not a complete declarator grammar. 
 
 `cc-parse-top-decl` routes function definitions to `cc-parse-function`, prototypes to `cc-register-fn-proto`, and the remaining class to `cc-parse-global-decl`. Those parsers start with the type token pending and own the actual consumption. This is why scanning ahead need not duplicate their work or force them to resume mid-declaration.
 
-Sources: [classifier and skip helper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L226-L289), [definition lookahead and dispatcher](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L517-L570), and [lexer mark/reset](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L649-L689).
+Sources: [classifier and skip helper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L226-L289), [definition lookahead and dispatcher](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L517-L570), and [lexer mark/reset](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L651-L691).
 
 ## Reference: a repeated prototype must not hide a body
 
@@ -319,7 +319,7 @@ int main(void) { return later(); }
 
 If step 4 instead appended a new zero-address row, newest-first lookup would hide D behind an unresolved name. Avoiding that append preserves the usable definition. The parser does not thereby compare all repeated signatures or establish C linkage compatibility. Its invariant is narrower: a prototype does not replace an already-visible function record with a fresh unresolved row.
 
-Source: [prototype registration and its three lookup branches](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L291-L333); the definition-side completion is [C18's prototype-resolution trace](18-functions-and-call-frame-accounting.md).
+Source: [prototype registration and its three lookup branches](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L291-L333); the definition-side completion is [C18's prototype-resolution trace](18-functions-and-call-frame-accounting.md).
 
 ## Reference: declarations produce slots before addresses
 
@@ -382,7 +382,7 @@ The final data buffer contains sixteen zero bytes for `t`, followed by `07 00 00
 
 The old comment in `116` about eliding unsupported file-scope variables describes an earlier limitation. The inspected `cc-parse-global-decl` body allocates these objects. Use the body, not that historical sentence, to decide what the current legacy producer does.
 
-Source: [global scratch state, scalar sizing, name reuse, and array branch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L335-L476), with [data/BSS allocation and initializer stores](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1169-L1232).
+Source: [global scratch state, scalar sizing, name reuse, and array branch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L335-L476), with [data/BSS allocation and initializer stores](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1169-L1232).
 
 ## Reference: place the objects after all emitted bodies
 
@@ -416,7 +416,7 @@ The sequence is one-way: finish bodies, append data/padding, resolve globals, fi
 
 **Pause point.** Save D=16, `t` slot 0, `g` slot 16, `a` tagged offset 0, code-end 1003, and BSS base 1032. If you obtain a wrong address, first decide whether you selected the wrong area or added the wrong offset. Recompute with code-end 1008 before trying a new declaration form.
 
-Sources: [global finalization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L478-L514), [global-reference emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1211-L1232), and [ELF size completion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/080-cc-elf.fth#L65-L80).
+Sources: [global finalization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L478-L514), [global-reference emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1211-L1232), and [ELF size completion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/080-cc-elf.fth#L65-L80).
 
 ## Reference: runtime names have three completion policies
 
@@ -465,7 +465,7 @@ Four small providers specialize `cc-emit-syscall-shim`: open supplies 2, read 0,
 
 For a fresh symbol table, registration contributes `11+8+1+12=32` rows before source parsing. Our minimal `main` adds one global function row and no parameter/local rows, leaving 33 visible rows. This metadata count is independent of its 556 output bytes.
 
-Sources: [raw names and eager registration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L630-L740), [late table/providers/walks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L743-L804), and [external/typedef registrations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L806-L846).
+Sources: [raw names and eager registration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L630-L740), [late table/providers/walks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L743-L804), and [external/typedef registrations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L806-L846).
 
 ## Reference: unresolved use and missing main are different failures
 
@@ -500,7 +500,7 @@ This explains the order in the complete orchestration word:
 
 Check before the late pass, and valid waiting runtime uses would appear unresolved. Patch main before establishing a nonzero destination, and absence could be mistaken for a valid target calculation. Append global data before late bodies, and the final code/data placement would no longer follow the current driver. Each ordering constraint comes from a value that a later step requires.
 
-Source: [final checks and orchestration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L849-L884).
+Source: [final checks and orchestration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L849-L884).
 
 ## Reference: the last file executes, not merely defines
 
@@ -515,7 +515,7 @@ The twelve explicit `c,` operations construct `/tmp/cc-out\0` while loading the 
 
 Defining `cc-main` compiles a Forth word. The final bare `cc-main` at the bottom of `120` **invokes** it. Loading this file therefore starts input reading, compilation, the output-write attempt, and builder termination. It is not a passive library load suitable for source inspection by execution.
 
-The dependency comment describes the core order from `010` primitives through arena/I/O, preprocessing, tokens, types, symbols, ELF, emitters, expressions, declarations, statements, functions, and program construction. Every called definition/provider must be available before the executing final call. In the pinned tree, optional compiler libraries can have numbers greater than 120. The inspected [`tools/compiler-layers.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/compiler-layers.sh) therefore lists matching compiler libraries except `120`, then prints `120` last. Numeric order alone is not the executing-file rule.
+The dependency comment describes the core order from `010` primitives through arena/I/O, preprocessing, tokens, types, symbols, ELF, emitters, expressions, declarations, statements, functions, and program construction. Every called definition/provider must be available before the executing final call. In the pinned tree, optional compiler libraries can have numbers greater than 120. The inspected [`tools/compiler-layers.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/compiler-layers.sh) therefore lists matching compiler libraries except `120`, then prints `120` last. Numeric order alone is not the executing-file rule.
 
 The driver calls the legacy `cc-parse-program` directly. Loading a native provider or changing a width flag alone does not replace that call with `cc-native-program`, a System V driver, or an object-file producer. Those other paths have their own entry, type, frame, and finalization contracts.
 
@@ -523,7 +523,7 @@ The reset boundary matters too. `cc-main` calls the input/preprocessing routines
 
 Finally, the file operation is the builder's I/O, not a request emitted for the target. `cc-write-output` opens with flags 577 (`O_WRONLY|O_CREAT|O_TRUNC`) and creation mode 493 (octal 0755). A negative descriptor reaches error 22. Otherwise it requests `cc-out-pos` bytes once, discards that result, closes, and discards the close result. “Requested all bytes” is the bounded source fact; no progress loop or full-transfer check turns it into observed complete writing.
 
-Source: [the complete last file](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/120-cc-main.fth#L1-L40), with [its input/reset contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth#L53-L84) and [its output operation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth#L171-L195).
+Source: [the complete last file](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/120-cc-main.fth#L1-L40), with [its input/reset contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth#L53-L84) and [its output operation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth#L171-L195).
 
 ## Practice: complete a unit, then disturb one assumption
 

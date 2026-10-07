@@ -47,7 +47,7 @@ Looking up after append would select ID 8 and miss the prototype's pending lists
 
 **Next step.** If only one number was wrong, recompute the relative field from its end. If lifetime was wrong, track only count, ID, and marker before adding patch bytes.
 
-Source check: [`114`, publication and both clears](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L232-L281).
+Source check: [`114`, publication and both clears](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L232-L281).
 
 ## C18-02 — Follow the parameter tokens
 
@@ -75,7 +75,7 @@ Unnamed `(int)` reaches the required-name step with current token `)`, so error 
 
 **Next step.** If the type was correct but the delimiter wrong, retry with only three token columns: current token, pending flag, next unread token.
 
-Source check: [`114`, parameter loop and special case](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L45-L147).
+Source check: [`114`, parameter loop and special case](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L45-L147).
 
 ## C18-03 — Keep type and descriptor channels separate
 
@@ -105,7 +105,7 @@ The typedef preserves its payload's base and existing pointer depth. It does not
 
 **Next step.** Keep type, descriptor, and payload in separate columns. Then change the first parameter to a scalar and verify that no descriptor survives into the second row by accident.
 
-Source check: [`114`, type branches and append stack](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L47-L109).
+Source check: [`114`, type branches and append stack](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L47-L109).
 
 ## C18-04 — Reconstruct a complete call frame
 
@@ -140,7 +140,7 @@ The callee's slot holding `n` contains a copied argument value. It is a differen
 
 **Next step.** If the layout failed, draw only the three addresses S, S−8, and S−16 before adding any local slot.
 
-Source check: [`114`, prefix and tail selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L286-L310) and [`090`, prologue/epilogue](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L331-L359).
+Source check: [`114`, prefix and tail selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L286-L310) and [`090`, prologue/epilogue](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L331-L359).
 
 ## C18-05 — Distinguish three limits
 
@@ -162,7 +162,7 @@ With six parameters plus a 27-int array, its computed base slot is 32, but attem
 
 **Next step.** Mark the exact failure point in the builder timeline. Then list only the mutations before it; do not infer a rollback or a partial success.
 
-Source check: [`114`, parameter append/claim/count order and spills](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L95-L170), [`110`, slot check](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L36-L46), and [array construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L462-L503).
+Source check: [`114`, parameter append/claim/count order and spills](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L95-L170), [`110`, slot check](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L36-L46), and [array construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L462-L503).
 
 ## C18-06 — Reconstruct the exits
 
@@ -186,7 +186,7 @@ The builder continues parsing after explicit-return emission and later appends t
 
 **Next step.** Trace RAX, RBX, and RSP separately. If only semicolon handling was wrong, leave out machine state and repeat the two token paths.
 
-Source check: [`110`, switch unwind and return](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L740-L803).
+Source check: [`110`, switch unwind and return](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L740-L803).
 
 ## C18-07 — Test the actual call boundary
 
@@ -222,7 +222,7 @@ Own-argument balance proves that the sequence removes the stack space it added. 
 
 **Next step.** Use a ledger of owners before using addresses: switch, outer argument, inner argument, return control, saved RBP. Remove a cell only when its owner finishes with it.
 
-Source check: [`100`, staging and legacy call emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L580-L666); the chapter states the external alignment comparison and its limits.
+Source check: [`100`, staging and legacy call emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L586-L672); the chapter states the external alignment comparison and its limits.
 
 ## C18-08 — Restore names without reusing slots
 
@@ -257,7 +257,7 @@ The function parser resets local count, label count, break head, continue head, 
 
 **Next step.** Trace one ID and one slot through the pop and append. They may have equal numbers briefly without identifying the same kind of object.
 
-Source check: [`114`, resets and scope lifecycle](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L273-L310), [`070`, scope pop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L160-L167), and C15's local-static contract.
+Source check: [`114`, resets and scope lifecycle](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L273-L310), [`070`, scope pop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth#L160-L167), and C15's local-static contract.
 
 ## C18-09 — Choose a provider from evidence
 
@@ -279,7 +279,7 @@ Before calling any trace a general System V implementation, evidence would be ne
 
 **Next step.** Identify three independent facts in a new trace: active driver, parameter location, and local-frame size policy. One shared helper name cannot determine all three.
 
-Source check: [`117`, native parameters and delayed frame patch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L1-L77) and [`121`, saved-slot/count policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1234-L1253).
+Source check: [`117`, native parameters and delayed frame patch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/117-cc-native-program.fth#L1-L77) and [`121`, saved-slot/count policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1315-L1334).
 
 ## After checking a solution
 

@@ -5,7 +5,7 @@ These chapters are saved work in progress after the
 C16–C18 have passed technical/practice reviews. C19 now completes the paper
 program route; its full reference/practice
 review has also passed source-derived checks. The described implementation remains pinned to
-`7d7e1996d1753118181d43e1a413960d3a1ec24b`.
+`bbcc1732152af2d884737272eed870d2410ffe8e`.
 
 | Draft | Practice | Current review boundary |
 |---|---|---|

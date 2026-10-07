@@ -29,7 +29,15 @@ Use these supplied C08-style rows. C15 will construct the local records; C19 own
 
 The symbol rows and memory contents are inputs to a paper fixture, not observed output. Assume live, correctly laid-out storage, enough builder and target-stack capacity, and no overlap between expression staging and the objects. Unmentioned array elements need no initialized value for our address calculation.
 
-**Evidence and profile.** The chapter describes inspected [100-cc-expr.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth) at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`. Every trace and exercise answer is manually derived and unexecuted. The core uses the legacy direct-ELF profile: `cc-target-lp64=0`, `cc-target-sysv=0`, eight-byte local/field slots. Optional sections explicitly change the profile and supplied layout. No compiler build, Forth/C execution, generated-program execution, source repair, or conformance claim accompanies these traces.
+**Evidence and profile.** The chapter describes inspected [100-cc-expr.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth) at revision `bbcc1732152af2d884737272eed870d2410ffe8e`. Every trace and exercise answer is manually derived and unexecuted. The core uses the legacy direct-ELF profile: `cc-target-lp64=0`, `cc-target-sysv=0`, eight-byte local/field slots. Optional sections explicitly change the profile and supplied layout. No compiler build, Forth/C execution, generated-program execution, source repair, or conformance claim accompanies these traces.
+
+## Opaque scalar dereferences
+
+The default `cc-opaque-scalar-fwd` drops type/descriptor and returns false.
+It now lives in `100`, before typed dereferences, rather than in initializer
+layer `118`. A selected long-double provider returns true for its shared
+opaque descriptor; that address is a scalar lvalue, while ordinary records
+retain the aggregate path. See [recognition and dereference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L224-L246).
 
 ## Three results, one question: value or place?
 
@@ -51,7 +59,7 @@ Keep the two machines separate throughout:
 | Produce `r` | 2, read from `RBP−40` | `lv-local` | 4 | `int` | 0 |
 | Ask to materialize | Still 2; no further load emitted | `lv-local` | 4 | `int` | 0 |
 
-Slot identity survives because a later destination consumer may need to store back to `r`. Materialization has no pending dereference to discharge. It does **not** universally erase assignability. [Source: legacy scalar local producer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L852-L859).
+Slot identity survives because a later destination consumer may need to store back to `r`. Materialization has no pending dereference to discharge. It does **not** universally erase assignability. [Source: legacy scalar local producer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L861-L868).
 
 ### `t.stars`: choose an offset before loading
 
@@ -65,7 +73,7 @@ Dot lookup searches D for `stars` and returns offset 8. The emitter appends addi
 | Select `stars` | `G+8` | `lv-deref`, no local slot, type `int`, descriptor 0 |
 | Materialize field | 4 | `lv-value`, no local slot; type remains `int` |
 
-Only the last row appends the qword load of `t.stars`. Adding the offset does not read the field. D is not added to G and is never the target object address. [Sources: global producer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L754-L792), [field selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1108-L1158).
+Only the last row appends the qword load of `t.stars`. Adding the offset does not read the field. D is not added to G and is never the target object address. [Sources: global producer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L760-L798), [field selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1130-L1180).
 
 ### `w[2]`: preserve the base while producing an index
 
@@ -83,7 +91,7 @@ Stack pictures run bottom-to-top from left to right. Only expression-owned targe
 | Require `]`; mark and publish | Current kind=`lv-deref`, type=`int` | `B+16` | `[]` |
 | Materialize, if requested | Kind becomes `lv-value` | 5 | `[]` |
 
-The builder's saved type and stride are not pushed onto the target stack. Conversely the emitted PUSH saves B for the future program, not for Forth's return stack. Two different preservation problems occur at the same recursion boundary. [Source: identifier subscript](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L373-L437).
+The builder's saved type and stride are not pushed onto the target stack. Conversely the emitted PUSH saves B for the future program, not for Forth's return stack. Two different preservation problems occur at the same recursion boundary. [Source: identifier subscript](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L379-L443).
 
 Stop before the last row and you have a destination for a future store. The named **C14 store-consumer contract** is to preserve that destination while obtaining the right-hand value, then emit a store of the appropriate width and publish the assignment result. Its grammar and staging are not assumed here. A plain store need not first read `w[2]`.
 
@@ -107,7 +115,7 @@ There is one shared mutable expression record, not an AST node for every express
 
 “Current” is important: recursive parsing replaces these cells. A retained arena descriptor can outlive the current expression, but the cell holding its address will not preserve an outer expression automatically. Q is metadata, not a processor flag; F is a builder record address, not a member address; N does not follow from a variable happening to contain zero.
 
-The [five kind constants](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L96-L110) are:
+The [five kind constants](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L96-L110) are:
 
 | Kind | Number | Interpretation |
 |---|---:|---|
@@ -136,7 +144,7 @@ This complete reset is the central invariant:
   [lit] 0 cc-last-expr-array-inner ! ;
 ```
 
-[Source: `cc-mark` and wrappers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L112-L141).
+[Source: `cc-mark` and wrappers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L112-L141).
 
 `cc-mark (slot kind --)` consumes the two builder cells and clears the other seven. `cc-mark-not-lvalue` supplies sentinel/`lv-value`; `cc-mark-local-lvalue` supplies `lv-local` after its caller's slot; `cc-mark-deref` turns a byte flag into kind 3 or 2 and uses the sentinel slot. None emits a load.
 
@@ -168,7 +176,7 @@ Here is the actual materializer, after the hook bindings described below:
   then, ;
 ```
 
-[Source: field hooks, decay, materialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L253-L291).
+[Source: field hooks, decay, materialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L259-L297).
 
 First call array decay, whose default emits and changes nothing. A provider may transform array metadata at this boundary; therefore “materialize is always a no-op for every array” would be too broad. Then test whether a dereference is pending. Legacy chooses byte versus qword from K. LP64 supplies T and F to the field-aware load, then asks the field-value-type hook for the loaded value's type.
 
@@ -176,13 +184,13 @@ After a pending load, write S=sentinel and K=`lv-value` directly. This is delibe
 
 A second materialization sees no pending dereference and appends no second scalar load. Default `lv-local` similarly needs no load and keeps its slot. Do not replace these cases with the slogan “materialization makes everything non-assignable.” The caller needing a fresh non-lvalue result must publish one through its own operation.
 
-`cc-check-static-init` is a separate guard. It exits with 219 exactly when `cc-native-static-init` is true and `cc-expr-unevaluated` is false. It does not prohibit every parse in a static initializer or every use of a name. This file calls it at particular runtime-producing sites; C14 opens unevaluated `sizeof`, and the later initializer chapter owns entry into static-init mode. [Source: state and guard](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L40-L55).
+`cc-check-static-init` is a separate guard. It exits with 219 exactly when `cc-native-static-init` is true and `cc-expr-unevaluated` is false. It does not prohibit every parse in a static initializer or every use of a name. This file calls it at particular runtime-producing sites; C14 opens unevaluated `sizeof`, and the later initializer chapter owns entry into static-init mode. [Source: state and guard](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L40-L55).
 
 ## Turn a member name into an offset
 
 `cc-find-field (name-address name-length descriptor -- offset)` owns seven scratch cells: `cc-ff-needle-addr`, `cc-ff-needle-len`, `cc-ff-desc`, and results `cc-ff-result-desc`, `cc-ff-result-type`, `cc-ff-result-array`, `cc-ff-result-record`. It searches the descriptor's published count, not its allocated capacity.
 
-For `stars`, record 0's length four does not match five. Record 1's length five does; `bytes-eq` then checks all five bytes. On the first match the helper records the field-record address, associated descriptor, and type. It copies array length only under LP64, otherwise records zero, and returns the byte offset. `start` passes the length check but fails the byte comparison. No match ends with error 90; no successful result or rollback state is promised after that failure. [Source: complete search](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L293-L339).
+For `stars`, record 0's length four does not match five. Record 1's length five does; `bytes-eq` then checks all five bytes. On the first match the helper records the field-record address, associated descriptor, and type. It copies array length only under LP64, otherwise records zero, and returns the byte offset. `start` passes the length check but fails the byte comparison. No match ends with error 90; no successful result or rollback state is promised after that failure. [Source: complete search](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L299-L345).
 
 The field parser adds this offset to the target base, then publishes the field result. Before lookup it requires a nonzero D (error 100), and after the operator it requires an identifier token (error 101). These checks differ from “valid descriptor with no matching field” (90).
 
@@ -220,13 +228,13 @@ The helper saves element type and byte-step flag on the builder return stack bef
   r> cc-last-expr-type ! ;
 ```
 
-[Source: the four paths and publication](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L373-L437).
+[Source: the four paths and publication](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L379-L443).
 
 This legacy helper preserves the element type, not a general aggregate-descriptor graph. Do not infer arbitrary struct-array support from its ability to emit an eight-byte step. Nor does the bracket check establish runtime bounds checking: our `w[2]` is in range because the fixture states count four and index two.
 
 ### General postfix subscript: first obtain the pointer
 
-`cc-parse-postfix-index` first calls `cc-index-base-fwd`; its local default is a no-op. In the legacy branch it materializes the existing result to obtain the pointer value, saves its type, stages the pointer, and parses the index. Exact `char *` means stride one and byte pending; otherwise stride eight and qword pending. If the saved pointer depth is positive, publication reduces it by one. Its missing-`]` error is 99, distinct from the identifier helper's 92. [Source: general postfix subscript](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1042-L1105).
+`cc-parse-postfix-index` first calls `cc-index-base-fwd`; its local default is a no-op. In the legacy branch it materializes the existing result to obtain the pointer value, saves its type, stages the pointer, and parses the index. Exact `char *` means stride one and byte pending; otherwise stride eight and qword pending. If the saved pointer depth is positive, publication reduces it by one. Its missing-`]` error is 99, distinct from the identifier helper's 92. [Source: general postfix subscript](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1064-L1127).
 
 Consider a supplied pointer field `label` whose type is `char *`, stored at target address H and containing pointer P. Before the subscript, K=`lv-deref`, RDI means H, and T=`char *`. The helper first appends a qword load, giving P. It preserves that type while literal 2 replaces current metadata, then adds two without a shift and publishes a byte-pending address `P+2`, type `char`. A later materialization reads that byte. Loading the pointer and loading the selected character are separate operations.
 
@@ -244,7 +252,7 @@ An enum constant is handled before any suffix peek: emit its stored integer usin
 - `[` selects the special identifier-index helper only when LP64 is off
 - Otherwise put the peeked token back, then dispatch by kind to function, global, or local reference; another kind raises 95
 
-With LP64 on, `[` is also put back: the normal producer supplies the typed base and the postfix helper later consumes the bracket. This is why the LP64 and legacy paths reach the same `w[2]` spelling through different helpers. [Source: identifier dispatch and defaults](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L861-L926).
+With LP64 on, `[` is also put back: the normal producer supplies the typed base and the postfix helper later consumes the bracket. This is why the LP64 and legacy paths reach the same `w[2]` spelling through different helpers. [Source: identifier dispatch and defaults](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L870-L935).
 
 `cc-tok-punct? (code -- flag)` and `cc-tok-kw? (id -- flag)` test both kind and payload without advancing input. C06 explained why: a nonpunctuation token can retain an old punctuation number in a stale payload cell. Putting back the current token marks it for one replay; it does not rewind source bytes.
 
@@ -262,7 +270,7 @@ The earlier `r`/`t` traces covered two entries in this complete legacy reference
 | Other global inline array | Global first-element address | `lv-value`; no retained type/count here |
 | Other global scalar | Global slot address | `lv-deref`, saved T |
 
-[Sources: all global and local branches](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L746-L859).
+[Sources: all global and local branches](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L752-L868).
 
 These are exact producer results, not a claim that metadata is equally rich in both profiles. The legacy special identifier-index path can consult the original symbol even though the bare-array producer would have reset its type. Whole-record value operations also need their later profile contracts; carrying an address alone grants no general assignment or arithmetic permission.
 
@@ -270,7 +278,7 @@ These are exact producer results, not a claim that metadata is equally rich in b
 
 `cc-parse-func-ref (id --)` queries its descriptor hook before emitting. For a known nonzero function address, it emits MOVABS of that address. For value zero, meaning a forward prototype here, it emits an imm64 placeholder and records its operand offset in the symbol's **address-fixup** list. C10 already opened that list and its completion event; this is neither a CALL instruction nor its relative-call list.
 
-When `cc-expr-unevaluated` is true, this unknown-address path discards the ID/patch offset instead of registering a fixup. C14 will explain why temporary expression emission can then be removed. Legacy publishes a non-lvalue with no retained descriptor. LP64 publishes `ty-func` at pointer depth one plus the queried descriptor. [Source: function reference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L721-L744).
+When `cc-expr-unevaluated` is true, this unknown-address path discards the ID/patch offset instead of registering a fixup. C14 will explain why temporary expression emission can then be removed. Legacy publishes a non-lvalue with no retained descriptor. LP64 publishes `ty-func` at pointer depth one plus the queried descriptor. [Source: function reference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L727-L750).
 
 ### Numbers, characters, and strings
 
@@ -278,7 +286,7 @@ When `cc-expr-unevaluated` is true, this unknown-address path discards the ID/pa
 
 For a number, LP64 invokes C07's `cc-integer-literal-type`; both profiles record whether the literal value is zero in N. C10's `cc-emit-mov-rdi-int` chooses the supported immediate form. A character token similarly records null provenance, explicitly publishes `int` under LP64, and uses the imm32 emitter. None performs a target memory load. A variable whose runtime value is zero does not thereby receive N=true.
 
-A string producer emits or places decoded bytes and their address, then the operand publishes `char *`. Legacy emits a jump over one decoded string plus NUL and MOVABS of its address. The native default concatenates adjacent string tokens: remove each temporary terminator, read the next token, put back the first nonstring, emit one final NUL, record the decoded extent including that NUL in A, patch the jump, and emit the address. Thus `"A\0" "B"` occupies four decoded bytes, not two visible letters. C10 owns the detailed byte placement and escape decoding. [Sources: string producers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L668-L719), [operand dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L938-L966).
+A string producer emits or places decoded bytes and their address, then the operand publishes `char *`. Legacy emits a jump over one decoded string plus NUL and MOVABS of its address. The native default concatenates adjacent string tokens: remove each temporary terminator, read the next token, put back the first nonstring, emit one final NUL, record the decoded extent including that NUL in A, patch the jump, and emit the address. Thus `"A\0" "B"` occupies four decoded bytes, not two visible letters. C10 owns the detailed byte placement and escape decoding. [Sources: string producers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L674-L725), [operand dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L947-L975).
 
 An identifier delegates to the name producer. An opening parenthesis asks the cast probe first, then falls back to grouping. An unrecognized operand start raises 97. Cast recognition is a named type-query interface supplied by 110 and opened in C14; it is not an assumption that every parenthesis begins a cast.
 
@@ -295,7 +303,7 @@ The entire grouping helper is short:
   then, ;
 ```
 
-[Source: preserving grouping](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L928-L936).
+[Source: preserving grouping](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L937-L945).
 
 It calls an inner grammar that does not mandate final materialization, then consumes the required closing parenthesis. Legacy uses assignment grammar; LP64 uses comma grammar. Those entry points parse lower-precedence forms too, including our one-name or one-field examples. Their full grammar is C13/C14's work.
 
@@ -309,7 +317,7 @@ The deferred entry points solve definition order and recursion, not phase confus
 - `cc-try-cast-fwd ( -- handled?)` binds in 110 to `cc-try-cast`: after an opening parenthesis, a failed type-start probe puts its candidate token back; success consumes the cast and publishes its result
 - `cc-sizeof-type-start-fwd ( -- flag)` binds in 110 to `cc-type-start?`, testing the current token; `cc-sizeof-type-fwd ( -- ty desc)` binds to `cc-native-sizeof-type`, parsing a type name and supplying its descriptor
 
-[Sources: same-file closure](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2602-L2634), [cast provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L642-L670), [type-query bindings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L805-L808). This chapter requires only the stated index/grouping contracts. C13 next opens precedence, and C14 supplies the complete grammar, stores, casts, and evaluator closure.
+[Sources: same-file closure](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2625-L2657), [cast provider](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L642-L670), [type-query bindings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L805-L808). This chapter requires only the stated index/grouping contracts. C13 next opens precedence, and C14 supplies the complete grammar, stores, casts, and evaluator closure.
 
 ## Optional profile depth: type-directed places
 
@@ -319,7 +327,7 @@ Read this section when a four-byte int, an inline matrix, or a System V local se
 
 `cc-expr-symbol-desc (id -- desc)` returns the symbol's associated descriptor only for bases struct, array, or function, otherwise zero. `cc-expr-type-size (ty desc -- bytes)` uses array-node size for a plain array, struct total size for a plain struct with nonzero descriptor, and `ty-size` for pointers and other cases. It does not make descriptor zero a completed record.
 
-`cc-expr-pointee-type` removes one pointer layer if present. `cc-expr-pointee-size` then sizes that result, except that LP64 `void *` gets a one-byte arithmetic step. That exception is separate from `ty-size(void)=0`; do not change a `sizeof` answer to explain pointer stepping. `cc-unary-type` keeps pointer types, promotes a nonpointer smaller than four bytes to `int`, and otherwise keeps its input. These helpers manipulate builder type words, not target values. [Source: type helpers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L143-L185).
+`cc-expr-pointee-type` removes one pointer layer if present. `cc-expr-pointee-size` then sizes that result, except that LP64 `void *` gets a one-byte arithmetic step. That exception is separate from `ty-size(void)=0`; do not change a `sizeof` answer to explain pointer stepping. `cc-unary-type` keeps pointer types, promotes a nonpointer smaller than four bytes to `int`, and otherwise keeps its input. These helpers manipulate builder type words, not target values. [Source: type helpers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L143-L185).
 
 `cc-mark-typed-deref (ty desc --)` has three address-representation exceptions before its scalar case:
 
@@ -327,7 +335,7 @@ Read this section when a four-byte int, an inline matrix, or a System V local se
 2. Plain function: publish a typed value retaining its address
 3. Plain struct with descriptor: publish a typed value representing the complete object's address
 
-Only the remaining case creates a pending byte/nonbyte dereference according to `ty-size`, then republishes T/D. Loading the first word of a plain aggregate would not produce the aggregate value representation. [Source: typed dereference marking](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L224-L240).
+Only the remaining case creates a pending byte/nonbyte dereference according to `ty-size`, then republishes T/D. Loading the first word of a plain aggregate would not produce the aggregate value representation. [Source: typed dereference marking](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L228-L246).
 
 LP64 global production preserves symbol qualifiers and inner shape across publication. A positive inline count yields an address-like typed value with one added pointer layer and A=count; otherwise it uses typed-dereference marking. LP64 local production similarly uses LEA for inline arrays and plain aggregates. Scalar locals take the load hook, then the caller republishes T/D/Q/I. This last division of responsibility is consequential.
 
@@ -345,7 +353,7 @@ With 121's provider loaded **and `cc-target-sysv` true**, the hook is:
   else, cc-emit-load-local-typed then, ;
 ```
 
-[Sources: default typed local load](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1340-L1347), [System V replacement](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L285-L290).
+[Sources: default typed local load](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1340-L1347), [System V replacement](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L285-L290).
 
 The producer now leaves the local's address pending and clears its special slot identity. Later materialization supplies the load. If int storage at L contains −3, legacy predicts a qword read at production; default LP64 predicts a signed four-byte read at production; System V predicts LEA at production and that signed four-byte read at materialization. All yield −3 under independently suitable storage premises, but they read at different times and retain different destination representations. Merely loading 121 while its target flag is zero takes the fallback branch.
 
@@ -355,13 +363,13 @@ The default typed loads choose one-, two-, four-, or eight-byte operations and t
 
 The LP64 postfix-index path saves Q on the builder return stack. If A is zero it materializes the base; an inline matrix with A nonzero already denotes storage and skips that conversion. It saves T/D on the builder data stack, I on the return stack, and the base on the generated stack before recursively parsing the index. Afterward it calls the integer-use hook on the index type.
 
-Stride is pointee size, multiplied by saved I when nonzero. `cc-emit-scale-rdi` emits nothing for one, a specialized shift for eight, otherwise IMUL by an immediate. Its RCX counterpart emits nothing for one and IMUL otherwise. Restoring the base and adding gives the selected address. After `]` validation, nonzero I publishes the saved typed value and turns I into the new A; otherwise it reduces pointer depth and invokes typed-dereference marking. Finally it restores Q. The index's own metadata cannot replace the outer element shape. [Sources: scalers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L242-L251), [typed index algorithm](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1057-L1084).
+Stride is pointee size, multiplied by saved I when nonzero. `cc-emit-scale-rdi` emits nothing for one, a specialized shift for eight, otherwise IMUL by an immediate. Its RCX counterpart emits nothing for one and IMUL otherwise. Restoring the base and adding gives the selected address. After `]` validation, nonzero I publishes the saved typed value and turns I into the new A; otherwise it reduces pointer depth and invokes typed-dereference marking. Finally it restores Q. The index's own metadata cannot replace the outer element shape. [Sources: scalers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L248-L257), [typed index algorithm](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1079-L1106).
 
 For a supplied LP64 inline int matrix at M, represented with A=4 and I=3, literal index 2 advances by `2*(4*3)=24` bytes and leaves a row with A=3. A subsequent scalar index would step four. This is a local algorithm example; the full ranked-array node producer and its legality rules belong to C23/G03.
 
 Native field selection saves whether dot began on `lv-temporary`. It performs the same descriptor lookup and offset addition, then publishes either a typed inline-array address with A/I or a typed dereference. It records F and combines inherited Q with the selected field's qualifiers using bitwise OR. For a member of a temporary record, a nonarray member is materialized and then marked `lv-temporary`; an array member retains its inline-storage address/extent and also gets that kind. Address representation therefore does not grant assignability to a temporary member. Full aggregate production/transport belongs to G15; this local consumer behavior is in 100.
 
-System V decay in `cc-sysv-array-decay` qualifies a ranked array's node when applicable. For retained nonzero inner width it constructs a qualified row node, publishes an array-pointer typed value, and restores Q. Its body is gated by System V, not merely LP64. `cc-sysv-index-base` rejects a nonpointer base; `cc-sysv-member-base` checks struct base and dot/arrow depth/shape. Both local defaults do nothing, so those legality checks must not be attributed to the unbound core. [Sources: decay](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L162-L177), [base policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L221-L246).
+System V decay in `cc-sysv-array-decay` qualifies a ranked array's node when applicable. For retained nonzero inner width it constructs a qualified row node, publishes an array-pointer typed value, and restores Q. Its body is gated by System V, not merely LP64. `cc-sysv-index-base` rejects a nonpointer base; `cc-sysv-member-base` checks struct base and dot/arrow depth/shape. Both local defaults do nothing, so those legality checks must not be attributed to the unbound core. [Sources: decay](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L162-L177), [base policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L221-L246).
 
 ## Reference: callback contracts and their actual defaults
 
@@ -387,11 +395,11 @@ A hook is a callable contract with a replaceable provider. It is not permission 
 
 The call dispatch saves return qualifiers, type, and descriptor before nested arguments overwrite current expression state, then republishes after the call. This names the caller boundary without requiring argument parsing here. The field defaults do not themselves enforce every qualifier or C legality rule. In 129, `cc-bf?` recognizes a bitfield exactly when System V is enabled, the record pointer is nonzero, and its recorded bit width is nonzero; otherwise these providers take their default paths.
 
-Provider sources: [123 function-address relocation wrapper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L96-L101), [129 field operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth#L99-L147), [131 aggregate field load](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L60-L72), [123 object strings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L113-L129), [126 intrinsics](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/126-cc-varargs.fth#L213-L227), [121 name and signature providers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L895-L941).
+Provider sources: [123 function-address relocation wrapper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L96-L101), [129 field operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth#L100-L152), [131 aggregate field load](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L61-L73), [123 object strings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L113-L129), [126 intrinsics](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/126-cc-varargs.fth#L220-L234), [121 name and signature providers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L945-L992).
 
 ### Typed value operations declared beside the metadata
 
-These [initial bindings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L187-L222) are independent contracts, not one generic “native operation.”
+These [initial bindings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L187-L222) are independent contracts, not one generic “native operation.”
 
 | Hook | Exact initial behavior | State or later responsibility |
 |---|---|---|
@@ -408,11 +416,11 @@ These [initial bindings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1
 | `cc-value-shape-fwd` | `cc-value-shape-default (source desc destination desc --)` drops all four | Pure shape check before assignment/conversion, C14 |
 | `cc-value-init-fwd` | `cc-value-init-default (source destination --)` drops both | Separate initializer seam, not invoked for every expression |
 
-127's `cc-fp-test/not/negate/complement/integer-use` providers select floating behavior using their System V nonpointer-float predicates and otherwise keep the integer path; `cc-fp-ternary` remains empty. `cc-fp-initialize` converts when either type is a supported floating type. 131 wraps computing uses with aggregate/opaque-scalar rejection through `cc-ag-test/not/negate/complement/integer-use`, and binds `cc-ag-plus`, `cc-ag-initialize`, and `cc-ag-ternary`. Its aggregate predicate is a nonpointer struct with System V enabled. These providers distinguish transporting a record's address from computing with it. G10/G15 open their algorithms; C13/C14 open the current callers.
+127's `cc-fp-test/not/negate/complement/integer-use` providers select floating behavior using their System V nonpointer-float predicates and otherwise keep the integer path; `cc-fp-ternary` remains empty. `cc-fp-initialize` converts when either type is a supported floating type. 131 wraps computing uses with aggregate/opaque-scalar rejection through `cc-ag-test/not/negate/complement/integer-use`, and binds `cc-ag-plus`, `cc-ag-initialize`, and `cc-ag-ternary`. Its aggregate predicate is a nonpointer struct with System V enabled. These providers distinguish transporting a record's address from computing with it. 132 replaces the long-double computing hooks with x87 providers. G10/G15 open their algorithms; C13/C14 open the current callers.
 
 For shape, 121 installs `cc-sysv-value-shape`, gated by System V and using current null provenance where required. 131 installs `cc-ld-value-shape`, adding long-double mismatch policy before delegating. These pure checks should not be described as emitting conversions. Likewise a false handled flag means “continue with the ordinary path,” whereas a no-op policy hook has no handled result to test.
 
-Provider sources: [127 literal and floating type predicates](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L7-L69), [127 value operations](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L164-L250), [121 shape policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L734-L747), [131 initializer policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L379-L390), [131 value/conditional providers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L418-L459), [131 shape wrapper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L501-L507).
+Provider sources: [127 literal and floating type predicates](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L7-L65), [127 value operations](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L200-L290), [121 shape policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L761-L776), [131 initializer policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L365-L376), [131 value/conditional providers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L406-L447), [131 shape wrapper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L527-L532).
 
 ## Practice: explain the first changed fact
 

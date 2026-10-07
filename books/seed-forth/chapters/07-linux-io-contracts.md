@@ -12,7 +12,7 @@ Bring the address/value distinction from [Chapter 2](02-addresses-and-bytes.md),
 
 Check two prerequisites: does `[5000] c@` return an address or a byte value? What signed value does `2^64-9` represent? The answers are the byte at address 5000, and -9. If either distinction is uncertain, recover that earlier contract first. Otherwise, try S7-01 and S7-03 before choosing how much scaffolding to use.
 
-**Evidence boundary.** This chapter describes revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`. Definitions and primitive behavior are source-inspected; all examples are paper derivations. No syscall, seed program, file creation, or interactive-input experiment was executed for this chapter. Addresses below are invented model locations, not usable scratch addresses in a running seed.
+**Evidence boundary.** This chapter describes revision `bbcc1732152af2d884737272eed870d2410ffe8e`. Definitions and primitive behavior are source-inspected; all examples are paper derivations. No syscall, seed program, file creation, or interactive-input experiment was executed for this chapter. Addresses below are invented model locations, not usable scratch addresses in a running seed.
 
 ## A running program already has a host
 
@@ -60,7 +60,7 @@ An **application binary interface**, or ABI, specifies the machine-level agreeme
 | `f` | Argument 6 | `r9` |
 | Returned value | Replaces the number | `rax` on return |
 
-The seed subsequently moves returned `rax` into `rdi`, its data-stack top register. This complete mapping appears in [`syscall6_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L300-L318).
+The seed subsequently moves returned `rax` into `rdi`, its data-stack top register. This complete mapping appears in [`syscall6_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L300-L318).
 
 Do not treat this as an ordinary C function call. The usual x86-64 System V integer-argument convention uses `rcx` for argument four; Linux syscalls use `r10`. The `SYSCALL` instruction puts the user continuation address in `rcx` and saved processor flags in `r11`, overwriting their earlier contents. It does not push a `CALL`-style return destination on the user's stack. Linux's [versioned entry-source comments](https://github.com/torvalds/linux/blob/v6.12/arch/x86/entry/entry_64.S#L47-L75) document that distinction.
 
@@ -78,7 +78,7 @@ A **wrapper** adapts one interface to a more specific use. These are the actual 
 : die  [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 0 [lit] 60 syscall6 ;
 ```
 
-Their numbers and padding are pinned in [`010-lib.fth`, Linux wrappers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L47-L69).
+Their numbers and padding are pinned in [`010-lib.fth`, Linux wrappers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L47-L69).
 
 | Word | Caller supplies | Number | Normal successful outcome |
 |---|---|---:|---|
@@ -179,7 +179,7 @@ For a positive-count read from an ordinary file or byte-stream pipe, zero means 
 
 `close` takes the descriptor, appends five padding zeros and number three, then makes one call. Zero reports success. Close only a descriptor whose lifetime the caller is responsible for ending. Closing releases the descriptor for reuse. Check failures, but do not blindly retry a failed Linux close: the descriptor may already have been released. The [close documentation](https://man7.org/linux/man-pages/man2/close.2.html) explains that hazard.
 
-`die ( status -- )` uses syscall 60 with the caller's status. The seed's [`bye_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L251-L259) directly issues the same syscall with status zero. Successful termination supplies no return-stack or data-stack result to inspect afterward.
+`die ( status -- )` uses syscall 60 with the caller's status. The seed's [`bye_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L251-L259) directly issues the same syscall with status zero. Successful termination supplies no return-stack or data-stack result to inspect afterward.
 
 For this single-threaded seed, that ends the process. The raw Linux exit syscall terminates the calling thread, so this account must not silently become a multi-thread shutdown promise. The status reported to the parent uses the low eight bits: status 259 yields three, since `259 = 256+3`. This is a derived example, not an observed shell status. See the [Linux exit interface](https://man7.org/linux/man-pages/man2/exit.2.html), the [status rule](https://man7.org/linux/man-pages/man2/_exit.2.html), and the [versioned kernel mask](https://github.com/torvalds/linux/blob/v6.12/kernel/exit.c#L992-L995).
 
@@ -190,7 +190,7 @@ The seed also has direct `emit` and `key` primitives. We defer their instruction
 - `emit ( c -- )` stores the low byte of `c` in shared scratch storage and requests a one-byte write to descriptor 1. It ignores the returned write result. Its empty output stack does not certify successful output
 - `key ( -- c )` requests one byte from descriptor 0 into that same scratch location. It returns zero if the read result equals zero. Otherwise it loads the scratch byte, without checking for a negative error result
 
-Consequently, a successfully read NUL byte, whose value is zero, collides with `key`'s EOF sentinel. A negative read error takes the nonzero-result path and can expose a stale scratch byte; it is not reliably reported as an error or EOF. These are conclusions from [`emit_code` and `key_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L266-L298), not proposed improvements or executed failures. No dynamic-input experiment is needed to establish the branch distinction.
+Consequently, a successfully read NUL byte, whose value is zero, collides with `key`'s EOF sentinel. A negative read error takes the nonzero-result path and can expose a stale scratch byte; it is not reliably reported as an error or EOF. These are conclusions from [`emit_code` and `key_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L266-L298), not proposed improvements or executed failures. No dynamic-input experiment is needed to establish the branch distinction.
 
 ## Practice
 

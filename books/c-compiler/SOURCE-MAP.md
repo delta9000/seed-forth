@@ -2,7 +2,7 @@
 
 The [definition inventory](source-map.csv) provides precise navigation from
 this teaching draft to the implementation at
-[`7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b).
+[`bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e).
 Each row names a source file, its Git blob identity, a Forth definition, its
 line span and its teaching owner. Line numbers are locators within that
 immutable file, not an edition identifier by themselves.
@@ -35,7 +35,7 @@ the actual compiler/Stage-A artifact recipe and reads an identified comparison
 record. Reading a call's
 name is not the same as auditing its implementation.
 
-The inventory currently covers all 576 colon definitions in `020`, `030`,
+The inventory currently covers all 579 colon definitions in `020`, `030`,
 `050`, `060`, `070`, `080`, `090`, `100`, `110`, `112`, `114`, `116`, `120` and `130`.
 It does not yet claim a complete word inventory for all compiler layers.
 Small accessors may share one explanation; substantial state transitions get
@@ -45,8 +45,8 @@ have an explanatory home.
 ## Preprocessor regions and deliberate deferrals
 
 The [preprocessor region inventory](preprocessor-regions.csv) partitions all
-2,256 lines of `040-cc-prep.fth` into 57 contiguous regions and accounts for
-325 declared words, constants, variables, buffers and deferred entries.
+2,300 lines of `040-cc-prep.fth` into 57 contiguous regions and accounts for
+331 declared words, constants, variables, buffers and deferred entries.
 Its primary teaching homes are C03, C04 and C05. This is a separate source-line
 partition, not a machine-code byte audit.
 
@@ -83,10 +83,10 @@ still retain later teaching homes.
 
 ## Expression and declaration ownership
 
-The [parser inventory](parser-map.csv) assigns all 333 named declarations in
-`100` and `110`: 177 colon definitions, 74 variables, 60 deferred entries,
+The [parser inventory](parser-map.csv) assigns all 339 named declarations in
+`100` and `110`: 180 colon definitions, 74 variables, 63 deferred entries,
 20 constants and two created buffers. Primary homes are C10 for six names,
-C12 for 78, C13 for 57, C14 for 135 and C15 for 57. Cross-mechanism notes keep
+C12 for 80, C13 for 61, C14 for 135 and C15 for 57. Cross-mechanism notes keep
 shared uses visible without counting one declaration several times.
 
 C10 already opens call-pop and string-emission helpers; C12 explains places

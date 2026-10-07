@@ -2,7 +2,7 @@
 
 [Back to the chapter](../chapters/17-switches-labels-and-nonlocal-control.md)
 
-These answers are manual derivations from revision `7d7e1996d1753118181d43e1a413960d3a1ec24b` and the chapter's stated paper coordinates. No compiler or generated program was run.
+These answers are manual derivations from revision `bbcc1732152af2d884737272eed870d2410ffe8e` and the chapter's stated paper coordinates. No compiler or generated program was run.
 
 The hints move from the relevant distinction to a partial transition. Use the full solution whenever it helps; then try a changed case with its answer covered.
 
@@ -47,7 +47,7 @@ Valued return places its result through the selected return-value path, emits tw
 
 **Changed reattempt: after part (b).** An LP64 goto to the stated depth-one label needs no adjustment. Legacy still unconditionally emits one pop and does not support that target contract.
 
-Source check: [switch exit and break/continue](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L584-L620), [return/unwind](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L759-L803), and [goto adjustment](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L745-L802).
+Source check: [switch exit and break/continue](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L584-L620), [return/unwind](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L759-L803), and [goto adjustment](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L745-L802).
 
 ## C17-02 — Remove the default without losing the exit
 
@@ -85,7 +85,7 @@ The no-match displacement is zero because the next instruction is the pop. The s
 
 **Changed reattempt: after part (b).** The empty-switch entry is PUSH at 1000, MOV at 1001–1003, initial JMP at 1004–1008. The empty body still gets its body-end JMP at 1009–1013. Dispatch starts at 1014 and has no comparison pairs. No-match JMP is 1014–1018, pop is 1019, and the next instruction is 1020. Patches are q=1005 to 1014: 5, bytes `05 00 00 00`; q=1010 to 1019: 5, `05 00 00 00`; q=1015 to 1019: 0, `00 00 00 00`.
 
-Source check: [body-end, selector, and common exit ordering](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L563-L596).
+Source check: [body-end, selector, and common exit ordering](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L563-L596).
 
 ## C17-03 — Convert before choosing an encoding
 
@@ -114,7 +114,7 @@ In (b), short field `FF FF FF FF` would compare RBX with 64-bit −1, `0xFFFFFFF
 
 **Changed reattempt check.** For signed 64-bit K=−2,147,483,649, no four-byte conversion applies. K is below signed-32 range and uses the wide thirteen-byte comparison sequence, nineteen bytes with JE. Its full immediate bit pattern is `0xFFFFFFFF7FFFFFFF`, stored `FF FF FF 7F FF FF FF FF`. Truncating to the short field would store `FF FF FF 7F`, which sign-extends to positive 2,147,483,647, a different value.
 
-Source check: [label conversion and compare selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L449-L486).
+Source check: [label conversion and compare selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L449-L486).
 
 ## C17-04 — Restore one owner without stealing another
 
@@ -136,7 +136,7 @@ Inner case nodes and break-fixup nodes remain allocated in the arena after contr
 
 **Changed reattempt check.** Replacing the inner switch with a loop means the loop saves/replaces both break and continue heads and saves the prior loop snapshot. Its new loop snapshot is the still-open outer switch depth one. The outer case head C, default D, and type T remain current; no switch-depth increment or entry PUSH RBX is caused by entering the loop. On loop completion, it restores its prior loop snapshot and both heads. This selective ownership differs from a switch even if both constructs can collect breaks.
 
-Source check: [switch save/restore and native scope gate](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L508-L596), [while ownership](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L192-L226), and [symbol scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth#L152-L167).
+Source check: [switch save/restore and native scope gate](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L508-L596), [while ownership](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L192-L226), and [symbol scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth#L152-L167).
 
 ## C17-05 — Use the selected table, not an imagined larger one
 
@@ -155,7 +155,7 @@ For direct base A, row stride is eight bytes and `1023*8=8184`:
 | Selected cell | Calculation | Builder address |
 |---|---|---|
 | Target V | `A+16384+8184` | A+24,568 |
-| Fixup head | `A+24576+8184` | A+32,760 |
+| Fixup head | `A+24579+8184` | A+32,760 |
 | Definition depth | `A+32768+8184` | A+40,952 |
 | First byte after all arrays | `A+1024*40` | A+40,960 |
 
@@ -167,7 +167,7 @@ The depth cell spans through A+40,959 inclusive. These are builder addresses of 
 
 **Changed reattempt check.** Function entry sets count to zero. It need not clear old backing bytes because lookup now ranges over no rows. Creating the next row uses ID zero, overwrites its name address and length, explicitly zeros target/fixup/depth, then makes count one. Other rows' old bytes remain outside the active prefix. The old row-zero node list is no longer reached through the new zero head; this does not reclaim its arena storage. A retained name pointer in an inactive old row cannot make its spelling visible through count-bounded lookup.
 
-Source check: [selected storage, accessors, and creation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L635-L737), and [legacy per-function reset](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L273-L280).
+Source check: [selected storage, accessors, and creation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L635-L737), and [legacy per-function reset](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L273-L280).
 
 ## C17-06 — Close a legacy forward reference
 
@@ -204,7 +204,7 @@ For a never-defined target in a separate legacy function, do not promise 174. Th
 
 **Changed reattempt check, after the [native depth-adjustment section](../chapters/17-switches-labels-and-nonlocal-control.md#native-gotos-reconcile-source-and-destination-depth).** From depth one to a known target also at depth one, legacy emits one pop because it always uses the full source depth; it does not read destination depth. A later normal switch exit would expect the save that has already been removed, so the chapter excludes this legacy target. LP64 calculates `1−1=0`, emits no adjustment, and jumps directly. This comparison establishes the local depth behavior, not all possible same-depth switch-ancestry or source-language legality rules.
 
-Source check: [definition, adjustment, and both goto branches](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L724-L802), and [legacy completion without the native finisher](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/114-cc-func.fth#L293-L310).
+Source check: [definition, adjustment, and both goto branches](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L724-L802), and [legacy completion without the native finisher](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/114-cc-func.fth#L293-L310).
 
 ## C17-07 — Finish native gotos from different depths
 
@@ -242,7 +242,7 @@ The ordinary function-end epilogue precedes these blocks. Normal fall-through re
 
 The second block starts at 3407 and needs one PUSH at 3407. Its JMP remains at 3408–3412 with q=3409 and displacement −113, bytes `8F FF FF FF`. Original q=3001 now targets 3407: `3407−3005=402`, bytes `92 01 00 00`. First free offset remains 3413 because the two blocks still contain three one-byte adjustments and two five-byte jumps in total. The equal total size does not imply unchanged internal boundaries or equivalent saved values. These pushes do not execute the skipped switch controlling expressions.
 
-Source check: [native node, adjuster, and finisher](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L745-L768), [117 completion order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L64-L74), and [121 completion order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1245-L1253).
+Source check: [native node, adjuster, and finisher](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L745-L768), [117 completion order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/117-cc-native-program.fth#L64-L74), and [121 completion order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1326-L1334).
 
 ## C17-08 — Preserve the right token and the right parser boundary
 
@@ -270,7 +270,7 @@ Under LP64 with the named native type-start provider, `int_ptr p;` is recognized
 
 Under LP64, label definition is followed by recursive `cc-parse-stmt-fwd`, which consumes `pad=1;` before returning through the label adapter to the while. That assignment is included in the while body's emitted region. These are source-derived parser boundaries, not executed outcomes. The label's non-typedef premise matters because otherwise the earlier declaration route would intervene.
 
-Source check: [colon detector and identifier adapter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L819-L858), [native-first dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L865-L879), and [actual native type-start predicate](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L83-L91).
+Source check: [colon detector and identifier adapter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L819-L858), [native-first dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/112-cc-stmt.fth#L865-L879), and [actual native type-start predicate](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth#L83-L91).
 
 ## A later independent check
 

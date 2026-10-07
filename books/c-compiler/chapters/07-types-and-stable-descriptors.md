@@ -6,7 +6,7 @@ By the end of this chapter, you should be able to pack and recover a type word, 
 
 The conceptual prerequisite is [C02's ownership and arena contracts](02-buffers-arenas-and-failure.md), together with C01's distinction between the compiler and its generated program. C06 is useful background, but its lexer machinery is not required here. We introduce the small current-token interface when needed. Symbol lookup and scopes belong to C08; declaration grammar belongs to C15. Later target chapters open calling conventions and advanced aggregate rules.
 
-**Evidence boundary.** The primary source is [060-cc-types.fth at this edition's pinned revision](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/060-cc-types.fth). Every numeric state below is a manual derivation from inspected definitions, not compiler output. Addresses are invented paper addresses in valid owned storage. Assume bounded nonnegative counts and no arithmetic wrap unless a boundary is explicitly discussed. No compiler build, Forth/C execution, or conformance test is claimed.
+**Evidence boundary.** The primary source is [060-cc-types.fth at this edition's pinned revision](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/060-cc-types.fth). Every numeric state below is a manual derivation from inspected definitions, not compiler output. Addresses are invented paper addresses in valid owned storage. Assume bounded nonnegative counts and no arithmetic wrap unless a boundary is explicitly discussed. No compiler build, Forth/C execution, or conformance test is claimed.
 
 ## Bring addresses; learn the bit notation here
 
@@ -24,6 +24,13 @@ A **bit** holds zero or one. Number bit positions from zero at the least-signifi
 A **left shift by sixteen** moves a value's bit pattern sixteen places toward larger positions; for our bounded inputs it is multiplication by 65,536. An unsigned **right shift by sixteen** discards the low sixteen bits; integer division by 65,536 gives that result. Division here discards a remainder: `131074 / 65536 = 2`.
 
 A **mask** selects bit positions. Bitwise `and` keeps a one only where both operands have one. Thus `value and 255` retains only its low eight bits. Bitwise `or` keeps a position when either operand has one. These are operations on bit patterns, even when the result is later used as a true/false flag.
+
+## The one-byte boolean base
+
+Base code 17 is `ty-bool`. `_Bool` has size/alignment one in both models and
+is unsigned; conversion yields zero or one rather than retaining an arbitrary
+low byte. Its packed scalar type is `17*65536 = 1114112`. The existing integer
+and descriptor exercises retain their supplied types. See [base and size rules](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/060-cc-types.fth#L35-L110).
 
 ## One word describes a kind and pointer depth
 
@@ -75,6 +82,7 @@ These are all base-kind declarations in `060`:
 | 9, 10, 11, 12 | `ty-uchar`, `ty-ushort`, `ty-uint`, `ty-ulong` |
 | 13, 14 | `ty-ldouble`, `ty-array` |
 | 15, 16 | `ty-llong`, `ty-ullong` |
+| 17 | `ty-bool` |
 
 The unsigned names describe unsigned integer kinds; `llong` means long long. These code numbers are identifiers, not byte sizes or a universal ordering of types. In particular, code 14 does not mean a fourteen-byte array.
 
@@ -82,12 +90,13 @@ The unsigned names describe unsigned integer kinds; `llong` means long long. The
 
 Two variables in `060` initially contain zero: `cc-target-lp64` and `cc-bootstrap-floatbits`. The first selects the LP64 scalar model when nonzero. The second selects a restricted floating-value representation inside that model. Loading these definitions does not enable either option.
 
-`ty-size` checks pointer depth first, then void and plain char, then the LP64 cases. Consequently every encoded pointer below occupies eight bytes regardless of its base or depth. For the **nonpointer base kinds listed below**, the source yields:
+`ty-size` checks pointer depth first, then void and plain char/_Bool, then the LP64 cases. Consequently every encoded pointer below occupies eight bytes regardless of its base or depth. For the **nonpointer base kinds listed below**, the source yields:
 
 | Kind | Legacy size, bytes | LP64 size, bytes; floatbits off |
 |---|---:|---:|
 | `void` | 0 | 0 |
 | Plain `char` | 1 | 1 |
+| `_Bool` | 1 | 1 |
 | Unsigned char | 8 | 1 |
 | Signed/unsigned short | 8 | 2 |
 | Signed/unsigned int | 8 | 4 |
@@ -97,9 +106,9 @@ Two variables in `060` initially contain zero: `cc-target-lp64` and `cc-bootstra
 | `double` | 8 | 8 |
 | `long double` | 8 | 16 |
 
-The legacy column describes helper results, not a promise that the legacy declaration grammar accepts every spelling. Its early special case is plain `char`; extending that one-byte result to `ty-uchar` would misread this implementation.
+The legacy column describes helper results, not a promise that the legacy declaration grammar accepts every spelling. Its early one-byte cases are plain `char` and `_Bool`; extending that one-byte result to `ty-uchar` would misread this implementation.
 
-With LP64 and bootstrap-floatbits both enabled, all three floating kinds return eight instead. This is a bootstrap transport convention for integer bit patterns. It does not implement floating arithmetic or conversions. LP64 describes data sizes; it does not choose a calling convention. The [native provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth) and [System V selector](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth) supply distinct later paths.
+With LP64 and bootstrap-floatbits both enabled, all three floating kinds return eight instead. This is a bootstrap transport convention for integer bit patterns. It does not implement floating arithmetic or conversions. LP64 describes data sizes; it does not choose a calling convention. The [native provider](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth) and [System V selector](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth) supply distinct later paths.
 
 **Alignment** is a placement requirement expressed in bytes. Alignment four means choose an offset divisible by four when the enclosing base is suitably aligned. `ty-align` uses `ty-size`, except that size zero becomes alignment one. Thus LP64 `int` has size/alignment 4/4, and any pointer has 8/8. The zero-size void answer is not permission to declare a void object.
 
@@ -109,7 +118,7 @@ Neither `ty-size` nor `ty-align` resolves aggregates. A nonpointer `ty-struct` o
 
 **Rank** is an ordering used when combining integer types. Equal size need not mean equal rank or equal identity. LP64 long and long long both occupy eight bytes, but have different base codes; long long ranks higher. `ty-long-long?` recognizes either long-long base only at pointer depth zero. An eight-byte pointer to long long is not a long-long scalar.
 
-As a bounded consumer example, [100's `cc-expr-common-type-default`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth) preserves that distinction when equal-size integer operands include long long. Signed long plus signed long long selects long long; unsigned long plus signed long long selects unsigned long long under that helper. Expression conversions and target overrides will be opened later. Our present obligation is to retain information those decisions need, rather than collapse every eight-byte integer to one code.
+As a bounded consumer example, [100's `cc-expr-common-type-default`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth) preserves that distinction when equal-size integer operands include long long. Signed long plus signed long long selects long long; unsigned long plus signed long long selects unsigned long long under that helper. Expression conversions and target overrides will be opened later. Our present obligation is to retain information those decisions need, rather than collapse every eight-byte integer to one code.
 
 ## A number's spelling also carries type information
 
@@ -168,7 +177,7 @@ Both `struct tri` and `struct node` have base `ty-struct`. At depth zero their t
 
 Three sizes must stay separate. The header occupies **56 builder bytes**. A field record occupies a profile-dependent number of **builder bytes**. The value in header offset zero describes the **generated C object's bytes**. A 16-byte `tri` does not have a sixteen-byte metadata header.
 
-The connection to names is a deliberately small interface for now. In [070-cc-sym.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth), a struct-tag symbol keeps its descriptor in its value cell. A struct-typed variable uses `cc-sym-set-struct-desc` and `cc-sym-struct-desc-of`. Those accessors select the legacy extra column or LP64's separate descriptor column. A field record has its own descriptor slot. C08 explains how a name finds its symbol; C07 needs only the guarantee that the correct descriptor travels alongside the type word.
+The connection to names is a deliberately small interface for now. In [070-cc-sym.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth), a struct-tag symbol keeps its descriptor in its value cell. A struct-typed variable uses `cc-sym-set-struct-desc` and `cc-sym-struct-desc-of`. Those accessors select the legacy extra column or LP64's separate descriptor column. A field record has its own descriptor slot. C08 explains how a name finds its symbol; C07 needs only the guarantee that the correct descriptor travels alongside the type word.
 
 ### A record tells us where one field lives
 
@@ -185,7 +194,7 @@ For table address T and field index i, the record address is `T + i*R`, where R 
 
 All readers take the record address. Setters take the value followed by the record address. For a scalar int field, descriptor zero means no aggregate descriptor is needed. A struct pointer can have the same eight-byte storage size while needing its pointee descriptor for a later field access.
 
-`cc-sd-record-bytes-default` returns 40 in legacy and 48 in native LP64. The callable `cc-sd-record-bytes` is deferred: `defer` creates an indirect word, tick obtains an implementation's execution token, and `is` binds it. The [129 provider](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/129-cc-bitfield.fth) returns **72** when the explicit System V target is selected, otherwise the default. Its extra cells retain bitfield information and a second array dimension. We need its stride contract here, not its bitfield algorithm.
+`cc-sd-record-bytes-default` returns 40 in legacy and 48 in native LP64. The callable `cc-sd-record-bytes` is deferred: `defer` creates an indirect word, tick obtains an implementation's execution token, and `is` binds it. The [129 provider](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/129-cc-bitfield.fth) returns **72** when the explicit System V target is selected, otherwise the default. Its extra cells retain bitfield information and a second array dimension. We need its stride contract here, not its bitfield algorithm.
 
 Likewise, `cc-sf-array-inner` and its setter are deferred. `cc-sf-array-inner-default` discards the record address and returns zero. `cc-sf-set-array-inner-default` accepts zero without writing; nonzero exits with code 213. The System V provider uses the cell at offset 64. This is an explicit capability boundary, not an unimplemented cell you may write in a forty-byte record.
 
@@ -195,9 +204,9 @@ Choose the profile before allocating descriptors and keep it consistent while th
 
 The header stores layout results; `060` does not assign field offsets. Two later **producer interfaces** explain the results we will consume without requiring their grammars.
 
-The legacy [`cc-sd-append-field` in 110](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth) places a field at the previous total size, then adds eight and increments field count. Every legacy field consumes an eight-byte slot, including a char field. For `tri`, after appending `rows` the state is `(count=1, size=8, offset=0)`; after `stars` it is `(count=2, size=16, offset=8)`.
+The legacy [`cc-sd-append-field` in 110](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth) places a field at the previous total size, then adds eight and increments field count. Every legacy field consumes an eight-byte slot, including a char field. For `tri`, after appending `rows` the state is `(count=1, size=8, offset=0)`; after `stars` it is `(count=2, size=16, offset=8)`.
 
-The native LP64 producer [`cc-nadd-field` in 115](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth) uses field size/alignment and maintains the largest alignment. For an ordinary struct it rounds the current size upward before placing the next field. The aggregate producer rounds the final size to the aggregate alignment. For positive alignment a, that rounding is `(n+a−1)/a*a`; integer division removes the incomplete multiple. For example, rounding 5 to alignment 4 gives `8/4*4 = 8`.
+The native LP64 producer [`cc-nadd-field` in 115](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/115-cc-native.fth) uses field size/alignment and maintains the largest alignment. For an ordinary struct it rounds the current size upward before placing the next field. The aggregate producer rounds the final size to the aggregate alignment. For positive alignment a, that rounding is `(n+a−1)/a*a`; integer division removes the incomplete multiple. For example, rounding 5 to alignment 4 gives `8/4*4 = 8`.
 
 Thus LP64 `tri` places its first four-byte int at offset 0 and its second at offset 4. Its final size/alignment is 8/4. `t.stars` consequently means base-of-t plus 8 in legacy and base-of-t plus 4 in this LP64 layout. The type word for each field remains 131072 in both. The changed profile changes the interpretation of that word and the descriptor's layout results.
 
@@ -241,7 +250,7 @@ Why can other metadata keep D? No operation moves the header. Why can it not kee
 
 `cc-sd-grow` starts from twice the current capacity, raises it to at least eight, doubles until the requested count fits, and caps it at the member limit. The normal entry through `cc-sd-field-rec` has already checked that requested count. Direct callers must preserve that precondition. Growth clears the new table, copies **old capacity × stride** bytes, invokes `cc-sd-table-moved ( old new bytes -- )`, then stores the new pointer and capacity. Its scratch descriptor variable makes this shared mutable machinery, not independent overlapping allocations.
 
-`cc-sd-table-moved-default`, the default moved hook, drops its three arguments. In native mode, `cc-nqualified-move` updates qualification entries keyed by field-record address. For native LP64 record index 2, the old address is T+96 and its replacement is U+96 because this profile uses a 48-byte stride; the offset is preserved while the base changes. [070's qualification records](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth) are linked 24-byte nodes containing next pointer, record address, and qualifier set. The reader finds the newest matching record; a nonzero setter adds a node, while a zero setter adds nothing. The move hook preserves those associations. It does not refresh arbitrary cached pointers in callers.
+`cc-sd-table-moved-default`, the default moved hook, drops its three arguments. In native mode, `cc-nqualified-move` updates qualification entries keyed by field-record address. For native LP64 record index 2, the old address is T+96 and its replacement is U+96 because this profile uses a 48-byte stride; the offset is preserved while the base changes. [070's qualification records](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth) are linked 24-byte nodes containing next pointer, record address, and qualifier set. The reader finds the newest matching record; a nonzero setter adds a node, while a zero setter adds nothing. The move hook preserves those associations. It does not refresh arbitrary cached pointers in callers.
 
 The arena does not free outgrown tables. Our ninth-field example has retained 56+320+640=1016 bytes, although only 56+640 are currently used by its header/table. A first field reserves eight records, so “less than twice as much table space as fields” is not true for every small aggregate. At larger sizes doubling amortizes growth, but retained tables remain a real cost. If an initially empty LP64 descriptor appends fields one at a time through count 513, the allocated capacities are 8,16,32,64,128,256,512,1023: 2039 retained record slots. Record stride must still be supplied before converting that count to bytes.
 
@@ -279,7 +288,7 @@ Arrays provide another reason to carry a descriptor. Four consecutive ints have 
 | 40 | `cc-ad-align` | Alignment, bytes |
 | 48 | `cc-ad-qualified` | Element qualifier set |
 
-These words fetch; none allocates or validates a node. The named producer we need is [`cc-sysv-array-node ( type descriptor count inner -- descriptor )`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth). It allocates 56 bytes, fills the cells, and canonicalizes a nonzero inner dimension into a nested element-array node. “Canonicalizes” means it gives equivalent row shapes the same structural form regardless of the entry form. The completed nodes each retain one dimension and store zero in `inner`.
+These words fetch; none allocates or validates a node. The named producer we need is [`cc-sysv-array-node ( type descriptor count inner -- descriptor )`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth). It allocates 56 bytes, fills the cells, and canonicalizes a nonzero inner dimension into a nested element-array node. “Canonicalizes” means it gives equivalent row shapes the same structural form regardless of the entry form. The completed nodes each retain one dimension and store zero in `inner`.
 
 For LP64 int, inputs `(131072,0,2,3)` describe two rows of three ints. Call the outer address A and the inner address B. The manually derived completed nodes are:
 
@@ -296,7 +305,7 @@ The qualifier cell uses masks 1, 2, and 4 (bit positions 0, 1, and 2) for const,
 
 ## Lookup consumes a live field list
 
-A descriptor becomes useful when a consumer can answer “where is this field?” [`cc-find-field` in 100](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth) takes `(name-address name-length descriptor -- offset)`. This is member lookup within an already selected aggregate, not C08's symbol lookup among program names.
+A descriptor becomes useful when a consumer can answer “where is this field?” [`cc-find-field` in 100](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth) takes `(name-address name-length descriptor -- offset)`. This is member lookup within an already selected aggregate, not C08's symbol lookup among program names.
 
 It scans indices zero through field-count minus one. At each record it compares lengths, then compares that many name bytes through `bytes-eq`. The first match supplies the field offset. It also stores the matched record, type, and associated descriptor in `cc-ff-result-record`, `cc-ff-result-type`, and `cc-ff-result-desc`. LP64 copies the inline array length into `cc-ff-result-array`; legacy sets that result to zero. Failure to find a field exits with code 90.
 
@@ -338,6 +347,6 @@ C08 will connect these representations to names and scope lifetimes. C15 will re
 
 ### Evidence and limits
 
-The `060` mechanisms covered here include all base declarations and mode flags; type packing/extraction, size, alignment, unsigned and long-long predicates; all suffix/literal helpers; every array, header, and field accessor/mutator; zeroed allocation; field-cap/stride policies; table growth and move notification; and the deferred inner-array interface. [010](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth) defines `bytes-eq`; [020](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth) supplies retained arena storage, [030](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth) supplies shared indexing/lookup helpers, and [070](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/070-cc-sym.fth) supplies metadata associations. The named later providers are used only to bound those interfaces and the manual layout examples.
+The `060` mechanisms covered here include all base declarations and mode flags; type packing/extraction, size, alignment, unsigned and long-long predicates; all suffix/literal helpers; every array, header, and field accessor/mutator; zeroed allocation; field-cap/stride policies; table growth and move notification; and the deferred inner-array interface. [010](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth) defines `bytes-eq`; [020](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/020-cc-arena.fth) supplies retained arena storage, [030](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth) supplies shared indexing/lookup helpers, and [070](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/070-cc-sym.fth) supplies metadata associations. The named later providers are used only to bound those interfaces and the manual layout examples.
 
-The [historical types-and-symbols chapter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/24-types-and-symbols.md) is comparison material, not an alternative layout contract: this edition uses separate growing tables and a fixed 56-byte header. Source-matched derivations remain different from executed tests, complete C/ABI compliance, or evidence that representative readers have mastered the material. Those outcomes are not established by this manuscript.
+The [historical types-and-symbols chapter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/24-types-and-symbols.md) is comparison material, not an alternative layout contract: this edition uses separate growing tables and a fixed 56-byte header. Source-matched derivations remain different from executed tests, complete C/ABI compliance, or evidence that representative readers have mastered the material. Those outcomes are not established by this manuscript.

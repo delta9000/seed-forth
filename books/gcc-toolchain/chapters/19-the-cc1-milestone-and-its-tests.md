@@ -38,7 +38,7 @@ expected kind of assembly under supplied flags. That assembly alone is not a
 loaded ELF executable. Its consumer chain must appear in the next record.
 
 Sources: [census/link versus
-behavior](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L1-L36).
+behavior](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L1-L36).
 
 ## Put the host-supported chain on the page
 
@@ -58,7 +58,7 @@ whether GCC uses the project’s as/ld. Neither result can be relabeled as the
 other merely because both eventually run a small program.
 
 Sources: [torture producer and header
-setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L447).
+setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L471).
 
 ## Classify the first failed boundary
 
@@ -78,9 +78,9 @@ timeout; parallelism cannot exceed six. A timeout is a classified outcome under
 that setup, not proof of infinite execution.
 
 Sources: [resource and retention
-policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L425-L431),
+policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L449-L455),
 [per-test phase
-results](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture.py#L250-L335).
+results](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture.py#L250-L335).
 
 ## Do not turn unknown exception scripts into passes
 
@@ -99,9 +99,9 @@ policy and classifications, not just one passing percentage. Changing the
 accepted exception set changes the meaning of the aggregate count.
 
 Sources: [exact exception scripts and result
-classes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L449-L469),
+classes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L473-L493),
 [pinned exception
-inventory](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture-x.json#L1-L20).
+inventory](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture-x.json#L1-L20).
 
 ## Read the surviving evidence at its actual scope
 
@@ -120,7 +120,7 @@ independent oracle roles available. An educational exercise can correctly
 classify a supplied report without having run the corresponding program.
 
 Sources: [runner evidence
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L469).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L493).
 
 ## A completed link can preserve a wrong declaration
 
@@ -143,7 +143,7 @@ distinguish the ancestry of production bytes from tools used to investigate
 them.
 
 Sources: [census/link versus
-behavior](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L1-L36).
+behavior](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L1-L36).
 
 ## Follow the entire torture-test producer chain
 
@@ -164,7 +164,7 @@ cc1 ever produced accepted assembly. A timeout is also a recorded test outcome
 rather than permission to invent a successful target status.
 
 Sources: [torture producer and header
-setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L447).
+setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L471).
 
 ## Preserve the named test set and its exceptions
 
@@ -186,13 +186,13 @@ run or revised count. It closes the cc1 milestone while keeping the downstream
 tools and hosted runtime as the next concrete obligations.
 
 Sources: [resource and retention
-policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L425-L431),
+policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L449-L455),
 [per-test phase
-results](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture.py#L250-L335),
+results](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture.py#L250-L335),
 [exact exception scripts and result
-classes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L449-L469),
+classes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L473-L493),
 [pinned exception
-inventory](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture-x.json#L1-L20).
+inventory](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture-x.json#L1-L20).
 
 ## Keep expectation separate from observation
 
@@ -241,17 +241,17 @@ here. The next chapters close output-tool and hosted-runtime boundaries that
 these host-supported tests leave open.
 
 Sources: [torture producer and header
-setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L447),
+setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L471),
 [resource and retention
-policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L425-L431),
+policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L449-L455),
 [per-test phase
-results](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture.py#L250-L335),
+results](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture.py#L250-L335),
 [exact exception scripts and result
-classes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L449-L469),
+classes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L473-L493),
 [pinned exception
-inventory](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture-x.json#L1-L20),
+inventory](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture-x.json#L1-L20),
 [runner evidence
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L469).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L493).
 
 ## Trace a result through the test chain without losing its source
 
@@ -303,7 +303,7 @@ expected-failure classifications. The next milestone needs the source-built
 output tools to replace the borrowed services in an actual joined production
 chain.
 
-Sources: [census/link versus behavior](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L1-L36), [torture producer and header setup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L447), [resource and retention policies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L425-L431), [per-test phase results](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture.py#L250-L335), [exact exception scripts and result classes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L449-L469), [pinned exception inventory](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/torture-x.json#L1-L20), [runner evidence boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L413-L469).
+Sources: [census/link versus behavior](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L1-L36), [torture producer and header setup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L471), [resource and retention policies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L449-L455), [per-test phase results](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture.py#L250-L335), [exact exception scripts and result classes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L473-L493), [pinned exception inventory](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/torture-x.json#L1-L20), [runner evidence boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L437-L493).
 
 ## Stop, then change the boundary
 

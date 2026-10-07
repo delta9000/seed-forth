@@ -21,6 +21,15 @@ G04 supplies caller/callee transport and G09 supplies typed conversions.
 XMM registers hold the transient SSE operands/results; the ordinary expression
 carrier can hold the raw payload without becoming its arithmetic interpretation.
 
+## The computing provider follows transport
+
+The final arithmetic provider is `132-cc-long-double.fth`; `131` remains the
+call planner. Each x87 result is popped into a private sixteen-byte frame
+object, so no x87 value survives a call, branch or expression boundary. Numeric
+conversion to `_Bool` tests nonzero rather than byte truncation; float/double
+increment and decrement use typed payload hooks. See [x87 conversions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/132-cc-long-double.fth#L1-L108)
+and [binary32/binary64 updates](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L244-L290).
+
 ## Carry the encoding without converting its value
 
 The selected provider carries raw binary32/binary64 payloads in RDI/RCX and
@@ -39,9 +48,9 @@ and binary64 change representation and can round. A wider internal slot does not
 preserve arbitrary extra precision for binary32 arithmetic.
 
 Sources: [payload and storage
-hooks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L1-L29),
+hooks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L1-L25),
 [transport and conversion
-encodings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L71-L103).
+encodings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L67-L119).
 
 ## Select arithmetic at the operand type
 
@@ -62,7 +71,7 @@ includes unordered. The generated boolean is int. This is code emitted by Forth
 now, consumed by SSE later under the stated target environment.
 
 Sources: [common types, comparisons and
-arithmetic](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L175-L225).
+arithmetic](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L213-L265).
 
 ## Convert numbers instead of renaming bits
 
@@ -82,7 +91,7 @@ finite examples do not establish every exception, rounding-mode or NaN
 conversion policy.
 
 Sources: [unsigned boundary and width
-conversions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L104-L174).
+conversions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L120-L212).
 
 ## Cross the ABI in the selected bank
 
@@ -103,9 +112,9 @@ matching names can still disagree if one expects an integer class and the other
 expects floating.
 
 Sources: [return and result
-hooks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L166-L174),
+hooks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L204-L212),
 [separate scalar
-banks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L150-L177).
+banks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L133-L160).
 
 ## Keep spelling and wider formats bounded
 
@@ -115,22 +124,21 @@ lexer. It does not split a malformed floating spelling into a plausible integer
 prefix and ignore the rest.
 
 The literal provider delegates to 128’s integer-only decimal decoder, then emits
-a binary64 payload. At this pin f/F/l/L literal suffixes and hexadecimal
-floating forms are rejected. Runtime binary32 arithmetic exists even though a
-suffixed binary32 literal is outside this decoder; conversion from an admitted
-double literal supplies float values.
+a binary64 payload. At this pin the typed spelling wrapper strips f/F for binary32 and l/L for
+extended precision; no suffix selects binary64. The extended decoder also
+admits hexadecimal floating spelling with a required p exponent. The raw
+binary64 decoder still rejects hexfloat and unstripped suffixes.
 
-Long double is the opaque sixteen-byte X87 representation opened in G15. Its
-transport does not imply arithmetic, casts or tests. Static floating
-initializers also remain a checked boundary rather than silently using the
-integer constant evaluator.
+Long double keeps G15's sixteen-byte opaque representation, but layer 132 now
+supplies x87 arithmetic, casts, tests and initialization. Layer 125 evaluates
+static floating constants with layer 128's exact rounding hooks.
 
 Sources: [number scan and literal
-hook](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L31-L70),
+hook](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L27-L66),
 [checked
-spelling](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L174-L208),
+spelling](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L210-L248),
 [scalar-use
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L415-L459).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L403-L447).
 
 ## Give one value several representations
 
@@ -159,11 +167,11 @@ with the wrong interpretation. Choosing the comparison requires knowing which
 operation was requested.
 
 Sources: [payload and storage
-hooks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L1-L29),
+hooks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L1-L25),
 [transport and conversion
-encodings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L71-L103),
+encodings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L67-L119),
 [common types, comparisons and
-arithmetic](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L175-L225).
+arithmetic](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L213-L265).
 
 ## Extend the call contract by class
 
@@ -186,33 +194,32 @@ intermediate operations. Its purpose is not to reinterpret unsigned bits as a
 negative source number.
 
 Sources: [unsigned boundary and width
-conversions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L104-L174),
+conversions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L120-L212),
 [return and result
-hooks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L166-L174),
+hooks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L204-L212),
 [separate scalar
-banks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L150-L177).
+banks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L133-L160).
 
 ## Preserve the profile's limits
 
-The parser's accepted floating spellings and the emitter's arithmetic support
-are related but distinct. The selected decimal reader produces binary64, while
-suffixes and hexadecimal floating spellings remain outside the stated support.
-Static floating initializers are also a separate consumer gap. A working runtime
-addition does not fill that gap.
+The parser's accepted spelling, runtime arithmetic and static evaluation are
+separate providers. Typed suffixes now select binary32 or extended80, and layer
+125/128 supplies static floating leaves. Raw binary64 hexfloat remains outside
+the admitted grammar.
 
-Long double belongs to the later transport story. Its argument/result class does
-not imply that this provider can perform all long-double arithmetic. A toolchain
+Long double uses the later x87 transport/computation story. Layer 132 adds
+its numeric operations; unsupported bitwise/remainder uses remain bounded. A toolchain
 may later contain products compiled by GCC with broader behavior than the Forth
 compiler that built the first GCC. Keep that producer transition visible when a
 hosted fixture formats a floating value. This chapter's supplied payload and
 conversions have not been executed as new fixtures.
 
 Sources: [number scan and literal
-hook](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L31-L70),
+hook](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L27-L66),
 [checked
-spelling](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L174-L208),
+spelling](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L210-L248),
 [scalar-use
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L415-L459).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L403-L447).
 
 ## Keep rounding and interpretation at their named steps
 
@@ -248,11 +255,9 @@ intermediate magnitude and restores scale. Its correctness question is
 numerical, so a direct payload-copy comparison would not be an appropriate
 oracle.
 
-Finally, keep acceptance gaps in the same ledger. The decimal decoder rejects f
-suffixes even though the compiler can convert a double value to float. The
-static consumer does not acquire floating leaves from runtime arithmetic
-support. Long-double transport remains a later class, without a claim that all
-its arithmetic exists here.
+Keep the selected provider in the ledger: typed suffix handling selects
+precision before rounding, the constant evaluator converts static leaves, and
+132 computes long-double expressions over the address representation.
 
 A prospective fixture should choose accepted spellings and inspect results at
 the boundary it tests: memory bytes for storage, numeric values for conversion
@@ -260,19 +265,19 @@ and comparison, register evidence for a call. The lesson has supplied such
 questions and payloads; no new floating target or numerical oracle was run.
 
 Sources: [common types, comparisons and
-arithmetic](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L175-L225),
+arithmetic](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L213-L265),
 [unsigned boundary and width
-conversions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L104-L174),
+conversions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L120-L212),
 [return and result
-hooks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L166-L174),
+hooks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L204-L212),
 [separate scalar
-banks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L150-L177),
+banks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L133-L160),
 [number scan and literal
-hook](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L31-L70),
+hook](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L27-L66),
 [checked
-spelling](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L174-L208),
+spelling](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L210-L248),
 [scalar-use
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L415-L459).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L403-L447).
 
 ## Keep binary32 arithmetic narrower than its carrier
 
@@ -308,12 +313,10 @@ The provider's special strategy preserves magnitude under its admitted numerical
 conversion. A bit-preserving move has no such responsibility because it is
 transport, not arithmetic.
 
-The decoder and static initializer retain separate limits. An admitted double
-spelling can become a float through conversion while an f suffix remains
-rejected. A runtime expression can be evaluated while a static floating leaf is
-not supported. Long double's later opaque transport does not supply its
-arithmetic here. Keep all three limits beside a prospective example before
-inferring that it will compile.
+The decoder and initializer have separate contracts. This pin admits f/F and
+l/L through the typed wrapper and supplies static floating conversion. Long
+double computation uses 132; unsupported record classes and raw binary64
+hexfloat remain separate limits.
 
 A later report should identify which of these five events it tested. Storing
 correct bytes for 1.5 is a useful transport check; returning a correct sum tests
@@ -321,7 +324,7 @@ arithmetic and calling as well; an accepted initializer would test another
 consumer. This chapter has supplied their mechanisms and distinctions without
 executing a new floating fixture.
 
-Sources: [payload and storage hooks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L1-L29), [transport and conversion encodings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L71-L103), [common types, comparisons and arithmetic](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L175-L225), [unsigned boundary and width conversions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L104-L174), [return and result hooks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L166-L174), [separate scalar banks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L150-L177), [number scan and literal hook](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L31-L70), [checked spelling](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L174-L208), [scalar-use boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L415-L459).
+Sources: [payload and storage hooks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L1-L25), [transport and conversion encodings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L67-L119), [common types, comparisons and arithmetic](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L213-L265), [unsigned boundary and width conversions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L120-L212), [return and result hooks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L204-L212), [separate scalar banks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L133-L160), [number scan and literal hook](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L27-L66), [checked spelling](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L210-L248), [scalar-use boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L403-L447).
 
 ## Stop, then change the boundary
 

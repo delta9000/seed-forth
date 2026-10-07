@@ -2,7 +2,7 @@
 
 [Back to the chapter](../chapters/12-places-values-and-delayed-loads.md)
 
-These solutions are checked manual derivations from revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`, not compiler output. No builds, Forth/C examples, generated programs, or source-fix experiments were run. Memory values are stipulated premises; every proposed emitted effect is conditional on the chapter's valid-storage assumptions.
+These solutions are checked manual derivations from revision `bbcc1732152af2d884737272eed870d2410ffe8e`, not compiler output. No builds, Forth/C examples, generated programs, or source-fix experiments were run. Memory values are stipulated premises; every proposed emitted effect is conditional on the chapter's valid-storage assumptions.
 
 The default is legacy unless a problem changes it. K/S/T/D mean kind, local slot, encoded type, and associated descriptor. Q/F/N/A/I mean qualification, field-record pointer, null provenance, array count, and inner row width. “Sentinel” means the Forth `true` value, −1. Stack top is on the right.
 

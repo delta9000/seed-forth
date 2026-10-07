@@ -42,7 +42,7 @@ the producer question: who built the generator, what descriptions/configuration
 did it read and which exact bytes did its consumer use?
 
 Sources: [bounded gencheck production
-lesson](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L150-L168).
+lesson](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L174-L192).
 
 ## Build the first parser generator from verified sources
 
@@ -62,9 +62,9 @@ licenses retain the lineage of actual descriptions and adaptations. Flex 2.6.4
 is not a hidden required ancestor.
 
 Sources: [oyacc and ordinary Heirloom
-production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L32-L93),
+production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L32-L93),
 [preparation provenance and
-licenses](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexer-inputs/PROVENANCE.md#L1-L35).
+licenses](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexer-inputs/PROVENANCE.md#L1-L35).
 
 ## Make a temporary scanner, then replace it
 
@@ -86,9 +86,9 @@ adaptation reason; neither a comment-only edit nor an independently checked
 skeleton transform makes source preparation disappear from the trust graph.
 
 Sources: [temporary and final scanner
-chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L148),
+chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L148),
 [restricted-scanner and skeleton
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35).
 
 ## Let header probes produce their own answers
 
@@ -107,9 +107,9 @@ builders. An output hash without its producer/source/configuration tuple is a
 checksum, not a reconstruction of how that file entered the route.
 
 Sources: [production header
-probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L111),
+probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L111),
 [artifact and recipe
-manifest](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L139-L168).
+manifest](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L139-L168).
 
 ## Revisit the complete GCC generators
 
@@ -132,9 +132,9 @@ generators and consumers. A selected-library proof does not become full
 libiberty closure merely because the generated header has the right markers.
 
 Sources: [RTL generator/oracle
-separation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L287-L318),
+separation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L311-L342),
 [machine-mode result and replay
-lineage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L352-L411).
+lineage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L376-L435).
 
 ## Draw a generator as an executable node
 
@@ -157,15 +157,15 @@ compiler invocation. Without that label, a byte match can conceal a
 host-produced production input.
 
 Sources: [bounded gencheck production
-lesson](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L150-L168),
+lesson](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L174-L192),
 [oyacc and ordinary Heirloom
-production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L32-L93),
+production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L32-L93),
 [preparation provenance and
-licenses](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexer-inputs/PROVENANCE.md#L1-L35),
+licenses](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexer-inputs/PROVENANCE.md#L1-L35),
 [temporary and final scanner
-chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L148),
+chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L148),
 [restricted-scanner and skeleton
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35).
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35).
 
 ## Retain the prepared source as a real input
 
@@ -186,13 +186,13 @@ not identify which adaptation or source version produced it. Preserve both kinds
 of records without asking one to do the other's job.
 
 Sources: [temporary and final scanner
-chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L148),
+chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L148),
 [restricted-scanner and skeleton
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35),
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35),
 [production header
-probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L111),
+probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L111),
 [artifact and recipe
-manifest](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L139-L168).
+manifest](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L139-L168).
 
 ## Ask what a small generator comparison proves
 
@@ -214,9 +214,9 @@ pinned records for existing generator results. No new parser, scanner or GCC
 generator was compiled or executed for the manuscript.
 
 Sources: [RTL generator/oracle
-separation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L287-L318),
+separation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L311-L342),
 [machine-mode result and replay
-lineage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L352-L411).
+lineage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L376-L435).
 
 ## Retain a replacement chain without skipping its temporary node
 
@@ -263,21 +263,21 @@ generator sizes and comparisons to the pin; it has not regenerated scanners or
 repeated those measurements.
 
 Sources: [oyacc and ordinary Heirloom
-production](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L32-L93),
+production](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L32-L93),
 [preparation provenance and
-licenses](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexer-inputs/PROVENANCE.md#L1-L35),
+licenses](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexer-inputs/PROVENANCE.md#L1-L35),
 [temporary and final scanner
-chain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L148),
+chain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L148),
 [restricted-scanner and skeleton
-boundaries](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35),
+boundaries](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexer-inputs/PROVENANCE.md#L12-L35),
 [production header
-probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L111),
+probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L111),
 [artifact and recipe
-manifest](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L139-L168),
+manifest](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L139-L168),
 [RTL generator/oracle
-separation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L287-L318),
+separation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L311-L342),
 [machine-mode result and replay
-lineage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L352-L411).
+lineage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L376-L435).
 
 ## Follow the retained genmodes failure through its repair
 
@@ -331,7 +331,7 @@ Retaining them makes the achievement stronger and more precise. We have not
 rerun these checks, reapplied the repair or generated new comparison outputs for
 the book.
 
-Sources: [bounded gencheck production lesson](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L150-L168), [production header probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L94-L111), [artifact and recipe manifest](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L139-L168), [RTL generator/oracle separation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L287-L318), [machine-mode result and replay lineage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L352-L411).
+Sources: [bounded gencheck production lesson](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L174-L192), [production header probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L94-L111), [artifact and recipe manifest](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L139-L168), [RTL generator/oracle separation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L311-L342), [machine-mode result and replay lineage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L376-L435).
 
 ## Stop, then change the boundary
 

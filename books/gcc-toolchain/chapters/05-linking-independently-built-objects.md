@@ -40,7 +40,7 @@ identities are tracked separately, including archives, so output alias checking
 does not depend only on whichever members were selected.
 
 Sources: [input spans, headers and section
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L62-L257).
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L62-L257).
 
 ## Choose a definition before choosing its address
 
@@ -61,9 +61,9 @@ provider's name and owner, leaving the source interface agreement from G03/G04
 as a separate premise.
 
 Sources: [global registration and symbol
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L260-L376),
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L260-L376),
 [resolved values and
-entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L403-L445).
+entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L403-L445).
 
 ## Give both zeroes a place
 
@@ -85,7 +85,7 @@ the RW start is offset 0x2000. This padding is a predicted consequence of the
 layout, not user code.
 
 Sources: [four placement passes and payload
-copies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L378-L418).
+copies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L378-L418).
 
 ## Patch the field its consumer will read
 
@@ -105,7 +105,7 @@ addend comes from RELA, not from the old field bytes. The static treatment of
 PLT32 does not manufacture a dynamic procedure-linkage table.
 
 Sources: [relocation kinds, widths and range
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L448-L514).
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L448-L514).
 
 ## Name an actual entry and describe loading
 
@@ -126,9 +126,9 @@ startup's ABI or eventually terminate. A text symbol can have the right location
 and the wrong behavior.
 
 Sources: [entry
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L433-L445),
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L433-L445),
 [executable program
-headers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L516-L553).
+headers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L516-L553).
 
 ## Finish the write before replacing the destination
 
@@ -150,7 +150,7 @@ test. An old executable still present at the path is not evidence that this
 failed link produced a new one.
 
 Sources: [alias checks, temporary output and
-orchestration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L554-L609).
+orchestration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L554-L609).
 
 ## Finish the call from the consumer's coordinates
 
@@ -181,11 +181,11 @@ tell us whether the encoded number is absolute, signed-relative or subject to
 another check.
 
 Sources: [global registration and symbol
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L260-L376),
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L260-L376),
 [resolved values and
-entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L403-L445),
+entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L403-L445),
 [relocation kinds, widths and range
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L448-L514).
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L448-L514).
 
 ## Make validation precede interpretation
 
@@ -217,9 +217,9 @@ way to report the first rejected promise without calling every failure a bad ELF
 file.
 
 Sources: [input spans, headers and section
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L62-L257),
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L62-L257),
 [four placement passes and payload
-copies](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L378-L418).
+copies](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L378-L418).
 
 ## Draw the executable's two extents
 
@@ -244,11 +244,11 @@ branch. Our complete numerical example is a derivation from supplied placement,
 with those observations pending.
 
 Sources: [entry
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L433-L445),
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L433-L445),
 [executable program
-headers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L516-L553),
+headers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L516-L553),
 [alias checks, temporary output and
-orchestration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L554-L609).
+orchestration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L554-L609).
 
 ## Make the relocation kind part of the numerical question
 
@@ -299,15 +299,15 @@ identity at that boundary. The paper model supplies a successful bounded
 calculation, not observations of these failure paths.
 
 Sources: [global registration and symbol
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L260-L376),
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L260-L376),
 [resolved values and
-entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L403-L445),
+entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L403-L445),
 [relocation kinds, widths and range
-checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L448-L514),
+checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L448-L514),
 [entry
-validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L433-L445),
+validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L433-L445),
 [executable program
-headers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L516-L553).
+headers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L516-L553).
 
 ## Read the producer and consumer guards in opposite directions
 
@@ -344,7 +344,7 @@ addresses, first redo the same rule with its measured inputs; only then compare
 the resulting field. This is how the lesson transfers without pretending its
 illustrative placement was a dump.
 
-Sources: [input spans, headers and section validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L62-L257), [global registration and symbol validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L260-L376), [resolved values and entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L403-L445), [relocation kinds, widths and range checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L448-L514), [entry validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L433-L445), [executable program headers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L516-L553).
+Sources: [input spans, headers and section validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L62-L257), [global registration and symbol validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L260-L376), [resolved values and entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L403-L445), [relocation kinds, widths and range checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L448-L514), [entry validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L433-L445), [executable program headers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L516-L553).
 
 ## Stop, then change the boundary
 

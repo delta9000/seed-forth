@@ -16,7 +16,7 @@ Try these checks:
 
 If these are new, begin with the next two sections. If they are secure, attempt C9-01 through C9-04 and use the references to check your reasoning. For a short first session, stop after the slot-16 boundary. On a later pass, read the frame and ELF sections before the typed-depth section.
 
-**Evidence boundary.** This chapter describes inspected source at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`: [080-cc-elf.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/080-cc-elf.fth) and the instruction machinery in [090-cc-emit.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth). All emitted-byte tables below are **manual compositions from those definitions**, not output captured from a compiler run. All future-machine states are conditional paper derivations. No compiler build, Forth/C execution, or generated-program execution was performed for this chapter.
+**Evidence boundary.** This chapter describes inspected source at revision `bbcc1732152af2d884737272eed870d2410ffe8e`: [080-cc-elf.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/080-cc-elf.fth) and the instruction machinery in [090-cc-emit.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth). All emitted-byte tables below are **manual compositions from those definitions**, not output captured from a compiler run. All future-machine states are conditional paper derivations. No compiler build, Forth/C execution, or generated-program execution was performed for this chapter.
 
 The main profile is the legacy, fixed-address Linux/x86-64 executable: eight-byte integer operations and eight-byte frame slots. LP64 storage and System V calling policy are separate explicit selections. Assume sufficient builder capacity, valid target addresses and stack space, intact return destinations, and arithmetic inputs within the stated example's domain. A correct byte derivation alone does not establish loader acceptance, successful file writing, or whole-program correctness.
 
@@ -101,7 +101,7 @@ The **ModR/M byte** splits into `mod | reg | r/m`, with 2, 3, and 3 bits. For ou
 
 For the subtraction, `CF = 11 | 001 | 111`. `mod=11` means registers, RCX is the `reg` operand, and RDI is the `r/m` operand. Opcode `29 /r` places the result in the `r/m` operand. The `/r` notation says both operand fields participate; it is not an additional emitted byte.
 
-Do not turn that direction into a universal rule. `cc-emit-imul-rdi-rcx` emits `48 0F AF F9`. For this IMUL form, the **reg field is the destination**. `F9 = 11 | 111 | 001` selects RDI times RCX. SUB uses CF and this IMUL uses F9 for the same left/right register roles. Decode the opcode's form before naming the destination. [The inspected arithmetic definitions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L281-L331) make the distinction explicit.
+Do not turn that direction into a universal rule. `cc-emit-imul-rdi-rcx` emits `48 0F AF F9`. For this IMUL form, the **reg field is the destination**. `F9 = 11 | 111 | 001` selects RDI times RCX. SUB uses CF and this IMUL uses F9 for the same left/right register roles. Decode the opcode's form before naming the destination. [The inspected arithmetic definitions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L281-L331) make the distinction explicit.
 
 A notation such as `C7 /0` instead uses the middle field as an **opcode extension**, fixed to zero. In `48 C7 C7`, the last C7 is `11 | 000 | 111`: register destination RDI, operation extension zero. The opcode's first C7 and the operand-selection C7 happen to have equal byte values but different jobs.
 
@@ -135,7 +135,7 @@ For nonnegative local slots:
 
 A signed byte reaches −128 but not −136. Adding 64 to 7D changes its `mod` bits from `01` to `10`, yielding BD and a signed four-byte displacement. The load grows from four to seven bytes; the addressed value remains an eight-byte qword.
 
-The actual predicate is broader than “slots below sixteen”: it selects disp8 for `−16 <= slot < 16`. For example slot −3 gives +16 and address bytes `7D 10`. Such coordinates can describe native stack parameters. They are not allocated legacy locals. The default allocation limit of 32 slots belongs to `cc-fn-add-slots` in [110-cc-decl.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L29-L46), which rejects a claim beyond its limit with error 162. An encoder's ability to name an address does not make that address owned memory. The four-byte form also requires the mathematical displacement `−8*(slot+1)` to fit a signed 32-bit field, with no prior arithmetic wrap. This helper writes the low four bytes without checking that condition; its ability to emit them is not an unrestricted-address guarantee.
+The actual predicate is broader than “slots below sixteen”: it selects disp8 for `−16 <= slot < 16`. For example slot −3 gives +16 and address bytes `7D 10`. Such coordinates can describe native stack parameters. They are not allocated legacy locals. The default allocation limit of 32 slots belongs to `cc-fn-add-slots` in [110-cc-decl.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L29-L46), which rejects a claim beyond its limit with error 162. An encoder's ability to name an address does not make that address owned memory. The four-byte form also requires the mathematical displacement `−8*(slot+1)` to fit a signed 32-bit field, with no prior arithmetic wrap. This helper writes the low four bytes without checking that condition; its ability to emit them is not an unrestricted-address guarantee.
 
 **Stop/resume.** Save “left=2, right=1, RBP=P, RSP=S; slot 16 is P−136.” On returning, derive the new load and store lengths without copying the table. The changed full fragment should follow from those two changes; its arithmetic instructions need no alteration.
 
@@ -217,11 +217,11 @@ The default `cc-emit-epilogue` appends `48 89 EC 5D C3`: MOV RSP,RBP discards th
 
 Before those five bytes, the emitter invokes `cc-emit-restore-callee-fwd`, initially bound to `cc-emit-restore-noop`. The System V provider can add a restore, so “five bytes” is a **default** total. A matching prologue/epilogue shape is not a proof of complete System V interoperability: call-boundary alignment, argument placement, preserved registers, and nested temporary lifetimes also matter. C10 supplies the restricted call sequence; C18 and the later target chapters own whole-function policy.
 
-The first code at `0x400078` is a 26-byte entry stub that obtains process arguments, calls main, and requests Linux exit using the result. The [bounded entry seam in 116-cc-prog.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L585-L622) supplies that promise. C19 opens its full control path. Process entry itself is not an ordinary call with a caller's saved return address.
+The first code at `0x400078` is a 26-byte entry stub that obtains process arguments, calls main, and requests Linux exit using the result. The [bounded entry seam in 116-cc-prog.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/116-cc-prog.fth#L585-L622) supplies that promise. C19 opens its full control path. Process entry itself is not an ordinary call with a caller's saved return address.
 
 ## Reference: addresses, movement, and memory updates
 
-Use this section when an emitter in later chapters needs a byte-level explanation. All byte rows remain manual compositions. [090's movement and memory definitions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L27-L179) implement these contracts.
+Use this section when an emitter in later chapters needs a byte-level explanation. All byte rows remain manual compositions. [090's movement and memory definitions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L27-L179) implement these contracts.
 
 ### Preserve values and distinguish addresses from contents
 
@@ -259,7 +259,7 @@ DIL and DI name the low eight and sixteen bits of RDI; EDI names the low 32. A w
 
 `cc-emit-shl-rdi-imm8` emits `48 C1 E7` plus a count byte. `cc-emit-shl-rdi-3` supplies count 3. Within a nonoverflowing index calculation that multiplies by eight. Eight is the element width of this use, not a universal `sizeof(int)` in every profile. `cc-emit-add-rdi-imm32` emits `48 81 C7` plus a sign-extended immediate, useful for adding a field offset to a base address.
 
-The memory-update helpers in [090's post-runtime arithmetic region](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1005-L1096) are easy to miss if one stops reading at the runtime bodies:
+The memory-update helpers in [090's post-runtime arithmetic region](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1005-L1096) are easy to miss if one stops reading at the runtime bodies:
 
 | Emitter | Manually composed form | Effect |
 |---|---|---|
@@ -283,7 +283,7 @@ The special index code in the first case means no index, not “add RSP twice.�
 
 A displacement-only `mod=00,r/m=101` form in 64-bit addressing instead supplies **RIP-relative** memory: address = next instruction address + signed disp32. For instance, the runtime's `48 8B 05` plus a four-byte field loads RAX from that calculated location. A seven-byte instruction beginning at offset 200 with displacement 20 accesses the location corresponding to offset 227. The CPU adds from 207, not 200. C11 applies this rule to the allocator's inline data slots.
 
-One more interface is `F3 A4`, REP MOVSB. With direction flag DF clear and valid nonoverlapping spans, it copies bytes from RSI to RDI, advancing both and reducing RCX to zero. DF set reverses the address progression. This flag is separate from ZF/SF/OF/CF; arithmetic comparisons do not establish its required direction. C11 states the runtime's DF premise rather than inventing a CLD instruction. The [pinned runtime bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L965-L971) and Intel's [MOVS/REP descriptions](https://cdrdv2-public.intel.com/835752/253667-sdm-vol-2b.pdf) are the relevant seams.
+One more interface is `F3 A4`, REP MOVSB. With direction flag DF clear and valid nonoverlapping spans, it copies bytes from RSI to RDI, advancing both and reducing RCX to zero. DF set reverses the address progression. This flag is separate from ZF/SF/OF/CF; arithmetic comparisons do not establish its required direction. C11 states the runtime's DF premise rather than inventing a CLD instruction. The [pinned runtime bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L965-L971) and Intel's [MOVS/REP descriptions](https://cdrdv2-public.intel.com/835752/253667-sdm-vol-2b.pdf) are the relevant seams.
 
 ## Reference: arithmetic has width and failure conditions
 
@@ -320,7 +320,7 @@ The divisor must be nonzero and the quotient must fit the signed destination. In
 
 This section is optional on the first pass, but it prevents an important overgeneralization: not every loaded C integer occupies eight memory bytes. In C07's LP64 model, signed/unsigned char, short, int, and long have widths 1, 2, 4, and 8. Expression registers and these frame-slot coordinates still use 64-bit registers/eight-byte slots. A four-byte memory access does not imply a four-byte RDI register.
 
-The [typed encoder block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L1234-L1384) delegates type checking through `cc-emit-type-check-fwd`, initially bound to `cc-emit-type-check-noop`. Its stack interface is type in, type out. A later provider may check or map the storage type before dispatch. A known size alone is not proof that an aggregate or floating value can use integer arithmetic. The typed pointer and conversion dispatchers do not each have their own LP64 gate: they use the supplied type and installed provider. The local wrappers below contain explicit legacy/LP64 branches; do not generalize their switch to every typed primitive.
+The [typed encoder block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth#L1234-L1384) delegates type checking through `cc-emit-type-check-fwd`, initially bound to `cc-emit-type-check-noop`. Its stack interface is type in, type out. A later provider may check or map the storage type before dispatch. A known size alone is not proof that an aggregate or floating value can use integer arithmetic. The typed pointer and conversion dispatchers do not each have their own LP64 gate: they use the supplied type and installed provider. The local wrappers below contain explicit legacy/LP64 branches; do not generalize their switch to every typed primitive.
 
 ### Loads choose both width and extension
 
@@ -366,7 +366,7 @@ These helpers do not choose the common C type or perform promotions automaticall
 
 ### Loading providers is not selecting their profile
 
-The default has `cc-target-lp64=0` and `cc-target-sysv=0`. [121's `cc-sysv-enable`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1256-L1260) explicitly enables System V, LP64, and direct preprocessing, disables bootstrap floatbits, and resets named target state. Its appropriate program driver is also required. LP64 alone does not select that ABI; the native TinyCC path uses a private all-stack convention.
+The default has `cc-target-lp64=0` and `cc-target-sysv=0`. [121's `cc-sysv-enable`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1337-L1341) explicitly enables System V, LP64, and direct preprocessing, disables bootstrap floatbits, and resets named target state. Its appropriate program driver is also required. LP64 alone does not select that ABI; the native TinyCC path uses a private all-stack convention.
 
 The bounded provider seams are:
 
@@ -375,7 +375,7 @@ The bounded provider seams are:
 - `cc-sysv-value-type-check` checks evaluated values under System V. Later `cc-fp-storage-type` preserves that check and maps active binary32 storage to an unsigned four-byte payload; mapping storage is not floating arithmetic conversion
 - `cc-fp-convert` and `cc-fp-convert-right` replace the source-aware conversion hooks. Their floating recognition requires System V; nonfloating inputs fall back to the integer defaults
 
-These are inspected hooks in [121-cc-sysv.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth) and [127-cc-binary64.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L1-L23), with [conversion delegation here](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L129-L162). Their presence does not establish complete floating, aggregate, varargs, or ABI behavior. Those mechanisms remain later-volume work.
+These are inspected hooks in [121-cc-sysv.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth) and [127-cc-binary64.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L1-L23), with [conversion delegation here](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L164-L198). Their presence does not establish complete floating, aggregate, varargs, or ABI behavior. Those mechanisms remain later-volume work.
 
 ## Reference: the complete executable envelope
 

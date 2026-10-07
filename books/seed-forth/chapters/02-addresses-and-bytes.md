@@ -14,7 +14,7 @@ This chapter assumes [Chapter 1](01-values-and-words.md): stack top at the right
 
 Already comfortable with byte-addressed memory? Try S2-01 and S2-02 first. Correct answers with reasons let you skip to “Build the byte writer.” If you know conventional Forth, still read the `here`/`latest` distinction: these words do not return the same kind of thing in this seed.
 
-**Edition and evidence.** This is the Linux/x86-64 seed at [commit 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b), the pinned `direct-gcc-overlay` edition. Primitive contracts come from inspected source. All traces below are manually derived, not executed observations.
+**Edition and evidence.** This is the Linux/x86-64 seed at [commit bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e), the pinned `direct-gcc-overlay` edition. Primitive contracts come from inspected source. All traces below are manually derived, not executed observations.
 
 **Paper model only.** Addresses such as 1000 and 2008 are invented teaching locations, not scratch space in a running seed. Do not enter these memory-writing examples into a live session. The code excerpts explain existing definitions; this chapter does not provide a memory-allocation or execution setup.
 
@@ -59,7 +59,7 @@ The seed supplies these contracts. Here `a` means an address, `v` a cell value, 
 | `c@` (“c-fetch”) | `( a -- b )` | Reads one byte; returns a cell value from 0 to 255 |
 | `c!` (“c-store”) | `( v a -- )` | Writes only the low byte of `v` at `a` |
 
-These are the inspected [`fetch_code`, `store_code`, `cfetch_code`, and `cstore_code` primitives](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L146-L189). A fetch replaces its address on the stack with the fetched value. A store consumes both the value and the address. Neither store leaves a success result.
+These are the inspected [`fetch_code`, `store_code`, `cfetch_code`, and `cstore_code` primitives](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L146-L189). A fetch replaces its address on the stack with the fetched value. A store consumes both the value and the address. Neither store leaves a success result.
 
 Notice the order for stores: **value below, address on top**. Starting with stack `[65, 1000]`, `c!` writes 65 at address 1000 and leaves an empty stack. It does not store 1000 at address 65. Any older stack items remain below the consumed pair.
 
@@ -101,7 +101,7 @@ The seed's exported words are deliberately worth checking:
 
 Consequently, `latest @` fetches 1900. But `here @` would fetch an eight-byte cell from the payload beginning at 1000. It would not fetch the cursor again. `here` has already fetched that cursor.
 
-The implementation confirms this asymmetry: [`latest_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L495-L504) pushes a fixed sysvar address; [`here_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L362-L371) reads the HERE cell. Similar names are not a substitute for their stack contracts.
+The implementation confirms this asymmetry: [`latest_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L495-L504) pushes a fixed sysvar address; [`here_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L362-L371) reads the HERE cell. Similar names are not a substitute for their stack contracts.
 
 ## Find the cell we need to update
 
@@ -132,11 +132,11 @@ For source readers, these are the **actual pinned sysvar locations**, not the il
 | LATEST | `0x413008` |
 | HERE | `0x413010` |
 
-The [`sysvar_init` layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L60-L71) initializes HERE's **contents** to `0x401000`; compiling definitions advances those contents. The table's cell addresses remain fixed in this edition. `here-addr` avoids repeating the numeric address, but still depends on the eight-byte width and LATEST/HERE adjacency. Moving the whole layout together preserves the derivation; changing that adjacency does not.
+The [`sysvar_init` layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L60-L71) initializes HERE's **contents** to `0x401000`; compiling definitions advances those contents. The table's cell addresses remain fixed in this edition. `here-addr` avoids repeating the numeric address, but still depends on the eight-byte width and LATEST/HERE adjacency. Moving the whole layout together preserves the derivation; changing that adjacency does not.
 
 ## Build the byte writer
 
-The full [`010-lib.fth` definition](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L12-L23) is:
+The full [`010-lib.fth` definition](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L12-L23) is:
 
 ```forth
 : c,

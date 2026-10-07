@@ -22,6 +22,17 @@ configure-probe distinctions. A **snapshot** is retained input bytes; a **cache
 key** identifies a particular captured input set, while an artifact hash
 identifies output bytes.
 
+## A native frozen driver
+
+seed-cc and seed-ar now replace Python orchestration for admitted commands;
+the seed bootstraps both from C. Their source capture/cache contract keeps the
+same production boundary, with native driver/header identities replacing the
+Python adapter identity and a separate cache. The repository reports bootstrap,
+Python-built and native self-rebuilt bytes agreeing, plus isolated command/tree
+equivalence; these are attributed records, not new book runs. Historical GCC
+configure/census scripts below still use their recorded Python route.
+See [bootstrap, identities and evidence](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/SEED-CC.md#L20-L146).
+
 ## Capture the producer before running it
 
 Toolchain gathers annotated seed, existing seed executable, library, numbered
@@ -41,7 +52,7 @@ snapshot frozen does not imply every external user source dependency has been
 frozen.
 
 Sources: [capture and compiler
-invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L242).
+invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L254).
 
 ## Verify reuse before assigning its ancestry
 
@@ -63,9 +74,9 @@ defines/include options do not mutate the runtime compile’s private header
 policy.
 
 Sources: [runtime cache and
-producers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L244-L320),
+producers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L256-L332),
 [archive, cache and publication
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L99).
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L105).
 
 ## Freeze the configuration question too
 
@@ -86,9 +97,9 @@ remains the producer of the inherited probe answers. A single current-source
 hash cannot collapse both histories.
 
 Sources: [configure identity and retained
-probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L125-L148),
+probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L149-L172),
 [configuration replay
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L397-L411).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L421-L435).
 
 ## Let the Makefile choose the work
 
@@ -108,7 +119,7 @@ Compiling all selected objects and linking cc1 are separate outcomes; neither
 alone establishes cc1’s generated programs work.
 
 Sources: [Makefile-selected object list and census
-scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L1-L95).
+scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L1-L95).
 
 ## Inspect declarations even after names resolve
 
@@ -129,9 +140,9 @@ not a declaration of universal language support or an observed new build in this
 book.
 
 Sources: [implicit declaration failure and lint
-role](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L25-L36),
+role](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L25-L36),
 [optional lint
-invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L108-L152).
+invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L108-L152).
 
 ## Freeze the producer before reusing its product
 
@@ -159,11 +170,11 @@ becomes a claim about identified executing bytes and selected layers, not a
 property inferred from the directory containing an object.
 
 Sources: [capture and compiler
-invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L242),
+invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L254),
 [runtime cache and
-producers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L244-L320),
+producers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L256-L332),
 [archive, cache and publication
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L99).
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L105).
 
 ## Separate observing configure from replaying its decisions
 
@@ -185,9 +196,9 @@ Preserve the test source, invocation and acceptance event when a result is
 important to the argument.
 
 Sources: [configure identity and retained
-probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L125-L148),
+probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L149-L172),
 [configuration replay
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L397-L411).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L421-L435).
 
 ## Let Make choose the translation units
 
@@ -210,11 +221,11 @@ a candidate semantic boundary, not a request to trust whichever tool printed
 new cold-cache, configure or census run was made.
 
 Sources: [Makefile-selected object list and census
-scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L1-L95),
+scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L1-L95),
 [implicit declaration failure and lint
-role](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L25-L36),
+role](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L25-L36),
 [optional lint
-invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L108-L152).
+invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L108-L152).
 
 ## Read a report without confusing its counters
 
@@ -262,21 +273,21 @@ details would permit a new result to disagree with the inspected mechanism. The
 book has recorded no new cache timing, census or replay outcome.
 
 Sources: [capture and compiler
-invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L242),
+invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L254),
 [runtime cache and
-producers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L244-L320),
+producers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L256-L332),
 [archive, cache and publication
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L99),
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L105),
 [configure identity and retained
-probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L125-L148),
+probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L149-L172),
 [configuration replay
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L397-L411),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L421-L435),
 [Makefile-selected object list and census
-scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L1-L95),
+scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L1-L95),
 [implicit declaration failure and lint
-role](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L25-L36),
+role](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L25-L36),
 [optional lint
-invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L108-L152).
+invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L108-L152).
 
 ## A differential failure can repair the evidence model
 
@@ -327,7 +338,7 @@ created a new snapshot, repaired source, rerun a generator or observed a cache
 race. The learning task is to trace which input, producer, oracle or expectation
 changed before deciding what a reported difference means.
 
-Sources: [capture and compiler invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L242), [runtime cache and producers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L244-L320), [archive, cache and publication policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L99), [configure identity and retained probes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L125-L148), [configuration replay boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L397-L411), [Makefile-selected object list and census scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L1-L95), [implicit declaration failure and lint role](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L25-L36), [optional lint invocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/census.py#L108-L152).
+Sources: [capture and compiler invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L254), [runtime cache and producers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L256-L332), [archive, cache and publication policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L105), [configure identity and retained probes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L149-L172), [configuration replay boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L421-L435), [Makefile-selected object list and census scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L1-L95), [implicit declaration failure and lint role](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L25-L36), [optional lint invocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/census.py#L108-L152).
 
 ## Stop, then change the boundary
 

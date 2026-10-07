@@ -40,7 +40,7 @@ naming the producer and time would hide the reconstruction’s actual dependency
 change.
 
 Sources: [source view, generators and build
-scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L1-L35).
+scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L1-L35).
 
 ## Preserve the original selection with explicit overrides
 
@@ -60,9 +60,9 @@ tested book card. A reader checking a prospective command should prefer the
 actual parser’s admitted options.
 
 Sources: [flags and recursive make
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L35),
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L35),
 [command selection and job
-bounds](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L137-L197).
+bounds](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L137-L197).
 
 ## Require the actual tools, not just their component objects
 
@@ -82,7 +82,7 @@ or unresolved runtime name. It is therefore useful to retain individual compiler
 and linker outputs even when the top-level make returned a broad error status.
 
 Sources: [six outputs and failed-invocation
-reports](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L49-L136).
+reports](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L49-L136).
 
 ## Treat built and exercised as different states
 
@@ -104,9 +104,9 @@ run must retain generator identities, source-view manifest, tool hashes,
 failures and command statuses before it becomes new evidence.
 
 Sources: [stage-B report
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L170-L195),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L194-L219),
 [later joined-toolchain
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L259).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L283).
 
 ## The output linker is a product before it is a dependency
 
@@ -128,7 +128,7 @@ a compiler census does not establish that the final tool was linked and
 runnable.
 
 Sources: [source view, generators and build
-scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L1-L35).
+scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L1-L35).
 
 ## Carry regenerated inputs into the original build
 
@@ -150,11 +150,11 @@ The newest stage account must be read with its recipe rather than merging every
 note into one simultaneous run.
 
 Sources: [flags and recursive make
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L35),
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L35),
 [command selection and job
-bounds](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L137-L197),
+bounds](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L137-L197),
 [six outputs and failed-invocation
-reports](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L49-L136).
+reports](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L49-L136).
 
 ## Test the service at its new boundary
 
@@ -176,11 +176,11 @@ build as completed. It explains how the source-built output tools fit the
 recorded route and what a later observation would need to retain.
 
 Sources: [six outputs and failed-invocation
-reports](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L49-L136),
+reports](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L49-L136),
 [stage-B report
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L170-L195),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L194-L219),
 [later joined-toolchain
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L259).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L283).
 
 ## Read the six-tool boundary one executable at a time
 
@@ -228,17 +228,17 @@ missing executables. A future reproduction should retain source view, generator
 identities, component commands and every required output.
 
 Sources: [source view, generators and build
-scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L1-L35),
+scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L1-L35),
 [flags and recursive make
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L35),
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L35),
 [command selection and job
-bounds](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L137-L197),
+bounds](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L137-L197),
 [six outputs and failed-invocation
-reports](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L49-L136),
+reports](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L49-L136),
 [stage-B report
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L170-L195),
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L194-L219),
 [later joined-toolchain
-boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L259).
+boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L283).
 
 ## Separate compilation work from build-system work
 
@@ -291,7 +291,7 @@ slice would still not replace the stage's six-output condition. This chapter
 provides the full selected report contract and roles, with no new binutils build
 or exercise.
 
-Sources: [source view, generators and build scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L1-L35), [flags and recursive make policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L12-L35), [command selection and job bounds](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L137-L197), [six outputs and failed-invocation reports](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/binutils.py#L49-L136), [stage-B report boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L170-L195), [later joined-toolchain boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L197-L259).
+Sources: [source view, generators and build scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L1-L35), [flags and recursive make policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L12-L35), [command selection and job bounds](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L137-L197), [six outputs and failed-invocation reports](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/binutils.py#L49-L136), [stage-B report boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L194-L219), [later joined-toolchain boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L221-L283).
 
 ## Stop, then change the boundary
 

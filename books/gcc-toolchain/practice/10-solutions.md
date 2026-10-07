@@ -78,7 +78,7 @@ which original reasoning still applies. Keep the other supplied contracts.
 Use the model in G10-07: Does float arithmetic imply acceptance of 1.0f by this
 decoder?
 
-Change the premise: Try hexadecimal floating spelling. What follows under this
+Change the premise: Try the typed spelling 0x1p0L. What follows under this
 changed premise? State the result or remaining obligation and explain which
 original reasoning still applies. Keep the other supplied contracts.
 
@@ -127,7 +127,7 @@ boundary, and the third supplies a starting step.
 
 1. Lexical recognition does not imply decoder acceptance.
 2. Read the decoder’s spelling gate.
-3. Admitted double literals can convert to float even while f suffixes are rejected.
+3. The wrapper selects binary32 for f/F before rounding.
 
 ## Worked solutions
 
@@ -234,8 +234,8 @@ equal numerically. NaN equality excludes unordered while not-equal includes it.
 The original question asks: Does float arithmetic imply acceptance of 1.0f by
 this decoder?
 
-No. The decoder explicitly rejects suffixes; admitted double literals can be
-converted to float.
+Arithmetic alone does not establish spelling support. This pin’s typed wrapper
+does accept 1.0f: it strips f and selects binary32 before exact rounding.
 
 **Check your explanation:** Lexical recognition does not imply decoder
 acceptance. A matching final answer without that reason leaves the mechanism
@@ -243,8 +243,8 @@ uncertain. If your answer differs, compare the supplied premises first, then
 locate the first transition at which your model departs from the chapter.
 
 **Common wrong path:** inferring literal grammar from emitted float arithmetic.
-Admitted double literals can convert to float even while f suffixes are
-rejected.
+The typed wrapper selects binary32 for f/F; an unsuffixed literal can also
+convert from double.
 
 ## Changed-task checks
 
@@ -293,7 +293,8 @@ is consistent.
 
 ### Check G10-07 — Bound literal support
 
-It is also explicitly unsupported, rather than parsed as an integer prefix.
+Extended L-suffixed hexfloat with a p exponent is admitted; raw binary64
+hexfloat remains rejected. The selected format must be named.
 Accept an explanation that follows the changed premise and retains the
 unmodified contracts. Do not accept a new execution claim merely because the
 paper result is consistent.

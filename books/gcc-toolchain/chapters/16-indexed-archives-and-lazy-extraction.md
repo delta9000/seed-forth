@@ -22,6 +22,14 @@ machine address. Extraction selects a whole object member. The model below
 supplies named exports and dependencies rather than a measured libseed.a
 selection dump.
 
+## Native archive updates
+
+The Python archive adapter's fresh-output restrictions remain its contract.
+Native seed-ar additionally replaces the first same-basename member in place
+and appends new members, rewriting the whole archive/index through Forth. It
+accepts r without c; members have no dates, so u always replaces. A fresh archive
+still matches the Python adapter's bytes. See [the differences](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/SEED-CC.md#L89-L106).
+
 ## Build an envelope with an index
 
 The Forth builder reads and validates ordinary object inputs, collects their
@@ -41,9 +49,9 @@ The driver’s archive adapter rejects incremental replacement instead of claimi
 full GNU ar behavior.
 
 Sources: [indexed deterministic archive
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L1-L221),
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L1-L221),
 [fresh-archive adapter
-contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L102-L110).
+contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L126-L134).
 
 ## Validate the envelope before following an index
 
@@ -63,7 +71,7 @@ identity is retained separately for output alias checking, even if no member
 supplied a needed name.
 
 Sources: [envelope/index validation and archive
-lifetime](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L222-L382).
+lifetime](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L222-L382).
 
 ## Let one demand introduce another
 
@@ -84,7 +92,7 @@ The fixed point concerns membership and unresolved demands inside this archive;
 it is unrelated to G25’s compiler-byte comparison.
 
 Sources: [strong demand and repeated member
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L413).
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L413).
 
 ## Use strength at the demand boundary
 
@@ -104,9 +112,9 @@ from that same member can select both definitions and expose a duplicate strong
 symbol. Names, members and runtime paths must not be conflated.
 
 Sources: [strength and index
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L398),
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L398),
 [member granularity and command-order
-behavior](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L64).
+behavior](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L66).
 
 ## Close one archive before moving to the next input
 
@@ -128,7 +136,7 @@ main. Explicit libm lookup has its separately documented source-built fallback;
 no host shared library directory appears in this static route.
 
 Sources: [library path and extraction
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L49-L64).
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L51-L66).
 
 ## Rescan the archive when a new need appears
 
@@ -151,7 +159,7 @@ The algorithm has a rescan boundary tied to the current archive, not an
 unrestricted promise to revisit all earlier inputs.
 
 Sources: [envelope/index validation and archive
-lifetime](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L222-L382).
+lifetime](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L222-L382).
 
 ## Move the need across the command-line boundary
 
@@ -174,7 +182,7 @@ when tracing the unresolved set. Treating every name in an undefined listing as
 the same demand would select too many members.
 
 Sources: [strong demand and repeated member
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L413).
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L413).
 
 ## Validate the index before trusting the shortcut
 
@@ -196,13 +204,13 @@ its member graph and names explicitly; no new archive was generated or
 extraction report recorded for this lesson.
 
 Sources: [indexed deterministic archive
-construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L1-L221),
+construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L1-L221),
 [fresh-archive adapter
-contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L102-L110),
+contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L126-L134),
 [strength and index
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L398),
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L398),
 [member granularity and command-order
-behavior](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L64).
+behavior](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L66).
 
 ## An extracted member changes more than the needed name
 
@@ -249,15 +257,15 @@ startup/environment and helper graphs on paper; no archive manipulation or new
 link-selection trace was performed.
 
 Sources: [envelope/index validation and archive
-lifetime](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L222-L382),
+lifetime](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L222-L382),
 [strong demand and repeated member
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L413),
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L413),
 [strength and index
-selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L398),
+selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L398),
 [member granularity and command-order
-behavior](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L64),
+behavior](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L66),
 [library path and extraction
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L49-L64).
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L51-L66).
 
 ## Use the archive index as a map, then verify the destination
 
@@ -308,7 +316,7 @@ executable's symbols can confirm what arrived but may not explain every omitted
 member. Our graphs and order changes are supplied paper cases, with no new
 archive or extraction run.
 
-Sources: [indexed deterministic archive construction](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L1-L221), [fresh-archive adapter contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L102-L110), [envelope/index validation and archive lifetime](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L222-L382), [strong demand and repeated member selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L413), [strength and index selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/141-archive.fth#L384-L398), [member granularity and command-order behavior](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L43-L64), [library path and extraction order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L49-L64).
+Sources: [indexed deterministic archive construction](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L1-L221), [fresh-archive adapter contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L126-L134), [envelope/index validation and archive lifetime](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L222-L382), [strong demand and repeated member selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L413), [strength and index selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/141-archive.fth#L384-L398), [member granularity and command-order behavior](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L45-L66), [library path and extraction order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L51-L66).
 
 ## Stop, then change the boundary
 

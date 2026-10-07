@@ -40,7 +40,7 @@ test would miss the generation difference. Preserve full record/pointer
 identities when investigating it.
 
 Sources: [GCC equal-key consumer and recorded
-difference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29).
+difference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29).
 
 ## Find the runtime crossing that makes ties visible
 
@@ -61,9 +61,9 @@ to the exact Stage D lineage. Source equality and public function-contract
 validity do not force deterministic tie order across different implementations.
 
 Sources: [runtime replacement
-account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29),
+account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29),
 [fixed-point tie
-diagnosis](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L523-L535).
+diagnosis](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L547-L559).
 
 ## Give the replacement its own provenance
 
@@ -84,9 +84,9 @@ producer must all accompany “musl’s sort”; a familiar name is not sufficie
 provenance.
 
 Sources: [source and producer
-provenance](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L1-L12),
+provenance](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L1-L12),
 [helper adaptation and caller
-preconditions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L40-L56).
+preconditions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L40-L56).
 
 ## Follow an element rotation without borrowing allocation
 
@@ -108,9 +108,9 @@ calls. General equal keys need not keep input order; “already sorted runs stay
 put” is a narrower fact.
 
 Sources: [algorithm, space and stability
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L31-L56),
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L31-L56),
 [local helper and rotation
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/qsort.c#L1-L80).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/qsort.c#L1-L80).
 
 ## Test ordering, permutation and generation separately
 
@@ -132,7 +132,7 @@ reproducible” or “equal compiler outputs prove correct compilation.” Both
 statements exceed the recorded result.
 
 Sources: [production and oracle verification
-scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L58-L91).
+scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L58-L91).
 
 ## Make equality of keys visibly different from identity
 
@@ -152,7 +152,7 @@ set. Equal-key freedom permits different orders, not loss or duplication. An
 oracle that checks only nondecreasing keys would miss this defect.
 
 Sources: [GCC equal-key consumer and recorded
-difference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29).
+difference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29).
 
 ## Follow the reported tie into machine output
 
@@ -175,9 +175,9 @@ production and does not rewrite the final unequal executable bytes until they
 match. The prepared source and resulting object remain part of the lineage.
 
 Sources: [runtime replacement
-account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29),
+account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29),
 [fixed-point tie
-diagnosis](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L523-L535).
+diagnosis](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L547-L559).
 
 ## State the useful property narrowly
 
@@ -201,13 +201,13 @@ diagnosis and relink outcome are attributed to the pinned account rather than
 newly observed.
 
 Sources: [source and producer
-provenance](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L1-L12),
+provenance](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L1-L12),
 [helper adaptation and caller
-preconditions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L40-L56),
+preconditions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L40-L56),
 [algorithm, space and stability
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L31-L56),
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L31-L56),
 [local helper and rotation
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/qsort.c#L1-L80).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/qsort.c#L1-L80).
 
 ## A lawful ordering can still be a changed production input
 
@@ -252,19 +252,19 @@ tests, verify their millions of keys afresh or reproduce the seven-executable
 intervention.
 
 Sources: [GCC equal-key consumer and recorded
-difference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29),
+difference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29),
 [runtime replacement
-account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29),
+account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29),
 [fixed-point tie
-diagnosis](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L523-L535),
+diagnosis](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L547-L559),
 [source and producer
-provenance](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L1-L12),
+provenance](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L1-L12),
 [helper adaptation and caller
-preconditions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L40-L56),
+preconditions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L40-L56),
 [algorithm, space and stability
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L31-L56),
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L31-L56),
 [local helper and rotation
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/qsort.c#L1-L80).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/qsort.c#L1-L80).
 
 ## Retain the intervention without calling every sort stable
 
@@ -316,7 +316,7 @@ stability, semantics and exact bytes. The reported relink and successful later
 agreement retain the pinned source account. No sorting test, host oracle or
 seven-executable rebuild was repeated for the book.
 
-Sources: [GCC equal-key consumer and recorded difference](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29), [runtime replacement account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L14-L29), [fixed-point tie diagnosis](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L523-L535), [source and producer provenance](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L1-L12), [helper adaptation and caller preconditions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L40-L56), [algorithm, space and stability limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/SORT.md#L31-L56), [local helper and rotation source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/qsort.c#L1-L80).
+Sources: [GCC equal-key consumer and recorded difference](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29), [runtime replacement account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L14-L29), [fixed-point tie diagnosis](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L547-L559), [source and producer provenance](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L1-L12), [helper adaptation and caller preconditions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L40-L56), [algorithm, space and stability limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/SORT.md#L31-L56), [local helper and rotation source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/qsort.c#L1-L80).
 
 ## Stop, then change the boundary
 

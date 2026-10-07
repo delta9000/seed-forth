@@ -19,7 +19,13 @@ Consuming increments the line; peeking does not. Saving an address does not pres
 
 Positions and lengths below count bytes; stacks run bottom-to-top from left to right; source base B names owned storage. Tables show post-state. In C code blocks, `\n` is two written bytes inside an escape spelling. In explicitly labeled escaped-byte descriptions, `\n` denotes one LF, `\r` one CR, and `\\` one backslash. `␠` denotes one ASCII space. No address in a paper trace is a proposed live address.
 
-**Evidence and profile.** This chapter follows inspected [050-cc-lex.fth](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth), with [020's state layout](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth#L12-L28) and [030's reader](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth#L86-L105), at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`. All traces are checked manual derivations, not executions. Unless a section changes the premise, use C01's default legacy direct-ELF profile, with `cc-target-sysv=0`, preserved source storage, bounded counts, and an initially clear pending flag. This account establishes neither complete C-standard conformance nor a newly verified build or bootstrap.
+**Evidence and profile.** This chapter follows inspected [050-cc-lex.fth](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth), with [020's state layout](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/020-cc-arena.fth#L12-L28) and [030's reader](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth#L86-L105), at revision `bbcc1732152af2d884737272eed870d2410ffe8e`. All traces are checked manual derivations, not executions. Unless a section changes the premise, use C01's default legacy direct-ELF profile, with `cc-target-sysv=0`, preserved source storage, bounded counts, and an initially clear pending flag. This account establishes neither complete C-standard conformance nor a newly verified build or bootstrap.
+
+## One added keyword
+
+`_Bool` follows `inline` in the keyword table: `kw-bool` is 34. Existing IDs
+remain unchanged, so the preceding token traces still apply. Keyword recognition
+alone does not select a declaration provider. See [the table](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L51-L134).
 
 ## A kind grants meaning to particular cells
 
@@ -82,7 +88,7 @@ defer cc-lex-extra-fwd
   then, ;
 ```
 
-[Source: top-level dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L625-L643).
+[Source: top-level dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L627-L645).
 
 First remove separators. Next give the deferred **extra hook** a chance to handle a token; nonzero means the token is ready, so return. Otherwise test the length-based EOF condition and classify the first byte. The default hook returns zero and changes nothing.
 
@@ -130,7 +136,7 @@ The table hides stale fields intentionally. Expand one row: after `(`, `tok-num=
 
 ## Names use spans; keywords use a small table
 
-`cc-lex-ident-or-kw` starts at `B+pos`, counts identifier-continuation bytes, and stores their borrowed span. Its caller has already established a valid starting byte. [030's classifiers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/030-cc-io.fth) accept ASCII letters/underscore initially and additionally digits afterward. Thus `rows2` is one name, while initial `2` selects number scanning.
+`cc-lex-ident-or-kw` starts at `B+pos`, counts identifier-continuation bytes, and stores their borrowed span. Its caller has already established a valid starting byte. [030's classifiers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/030-cc-io.fth) accept ASCII letters/underscore initially and additionally digits afterward. Thus `rows2` is one name, while initial `2` selects number scanning.
 
 `kw,` is a dictionary-building helper, not a C-token reader. When loading the Forth file it reads the next Forth token, emits a one-byte length, then emits the name bytes. `kw-table` consists of those packed entries followed by a zero length. It has these 34 entries, with IDs fixed by order:
 
@@ -143,7 +149,7 @@ The table hides stale fields intentionally. Expand one row: after `(`, `tok-num=
 | 24–29 | `break`, `continue`, `goto`, `switch`, `case`, `default` |
 | 30–33 | `union`, `float`, `double`, `inline` |
 
-Each constant is named `kw-` plus its spelling. [Source: table, constants, and matcher](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L51-L174).
+Each constant is named `kw-` plus its spelling. [Source: table, constants, and matcher](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L51-L176).
 
 `cc-check-keyword` carries `(entry-address, id)` on the stack. It compares lengths first, then exact bytes only for equal lengths. Failure advances the entry address by `length+1` and ID by one. Success stores that ID and sets keyword kind; reaching the zero terminator sets identifier kind. For `int`, the first entry matches. For `integer`, even the first comparison fails on length; it is not recognized as keyword-plus-suffix. Matching is case-sensitive.
 
@@ -199,7 +205,7 @@ Here is the actual decimal loop:
   tk-num tok-kind ! ;
 ```
 
-[Source: classifiers and number scanning](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L233-L341).
+[Source: classifiers and number scanning](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L235-L343).
 
 The hex and octal loops, `cc-lex-number-hex` and `cc-lex-number-oct`, use 16 or 8 and their corresponding classifier. Their callers have already consumed `0x`/`0X` or the leading octal zero. `cc-lex-number` chooses hex for `0x`/`0X`, octal for zero followed by **any decimal digit**, and decimal otherwise. A standalone zero therefore uses the decimal loop.
 
@@ -226,11 +232,11 @@ These are lexer predictions, not promises that a later parser accepts the comple
 
 ### Explicit interface: the later floating-token hook
 
-Loading [121](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L32-L52) binds `cc-lex-extra-fwd` to `cc-sysv-lex-extra`. It first skips whole `__extension__` names only when `cc-target-sysv` is true, including subsequent whitespace/comments, then calls `cc-sysv-lex-number-fwd`. Name-boundary checking prevents it from dropping the prefix of `__extension__x`. Loading does not itself enable the target.
+Loading [121](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L32-L52) binds `cc-lex-extra-fwd` to `cc-sysv-lex-extra`. It first skips whole `__extension__` names only when `cc-target-sysv` is true, including subsequent whitespace/comments, then calls `cc-sysv-lex-number-fwd`. Name-boundary checking prevents it from dropping the prefix of `__extension__x`. Loading does not itself enable the target.
 
-[127](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/127-cc-binary64.fth#L25-L69) binds that numeric hook to `cc-f64-lex`. With SysV enabled it can scan a digit-starting or dot-plus-digit number-like run. A point, or the relevant exponent marker, makes it supply `tk-float` and the complete spelling span, with `tok-num=0`. With no floating marker it restores the starting cursor and returns false for the ordinary integer scanner. Under default `cc-target-sysv=0` it immediately returns false.
+[127](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/127-cc-binary64.fth#L24-L65) binds that numeric hook to `cc-f64-lex`. With SysV enabled it can scan a digit-starting or dot-plus-digit number-like run. A point, or the relevant exponent marker, makes it supply `tk-float` and the complete spelling span, with `tok-num=0`. With no floating marker it restores the starting cursor and returns false for the ordinary integer scanner. Under default `cc-target-sysv=0` it immediately returns false.
 
-A separate consumer later sends a floating token's span through `cc-f64-parse-fwd`; [128 binds that decoder to `cc-f64-parse`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/128-cc-float-literal.fth#L256-L257). That is where its checked literal grammar/conversion belongs. Token recognition, decoding, type support, and arithmetic are separate interfaces. Their existence does not make 050 a complete floating-literal implementation or alter our default-profile `1.5` trace.
+A separate consumer later sends a floating token's span through `cc-f64-parse-fwd`; [128 binds that decoder to `cc-f64-parse`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/128-cc-float-literal.fth#L356-L356). That is where its checked literal grammar/conversion belongs. Token recognition, decoding, type support, and arithmetic are separate interfaces. Their existence does not make 050 a complete floating-literal implementation or alter our default-profile `1.5` trace.
 
 ## Keep a string's spelling; decode a character's value
 
@@ -262,7 +268,7 @@ The numeric branches end with the same operation:
     drop  cc-esc-v @ [lit] 255 and  cc-esc-n @ exit,
 ```
 
-[Source: decoder and character reader](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L387-L442).
+[Source: decoder and character reader](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L389-L444).
 
 This decoder receives no length and uses direct `c@` reads. It depends on readable backing bytes, including the byte examined to stop a numeric run. Even the octal loop fetches a byte before testing the three-digit count. It cannot, by itself, enforce a supplied source or string-span endpoint. Do not derive behavior for an escape at an inaccessible memory boundary from ordinary source peek's EOF protection.
 
@@ -299,7 +305,7 @@ There is no actual closing-apostrophe check. For isolated `'ab'`, the reader ret
 | `star`, `slash`, `percent`, `caret` | `*=` 269 (`pt-star-eq`); `/=` 270 (`pt-slash-eq`); `%=` 271 (`pt-percent-eq`); `^=` 274 (`pt-caret-eq`) |
 | `dot` | `...` 277 (`pt-ellipsis`) |
 
-Single-byte cases use their byte directly: `(` 40, `)` 41, `.` 46, `;` 59, `=` 61, `[` 91, `]` 93, for example. Codes 256–277 do not collide with any byte. [Source: codes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L25-L48) and [handlers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L451-L619).
+Single-byte cases use their byte directly: `(` 40, `)` 41, `.` 46, `;` 59, `=` 61, `[` 91, `]` 93, for example. Codes 256–277 do not collide with any byte. [Source: codes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L25-L48) and [handlers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L453-L621).
 
 Trace `<<=x`: the dispatcher consumes the first `<`, leaving position 1. `cc-punct-lt` sees another `<`, consumes it, then sees `=` and consumes it. Position becomes 3, kind punctuation, number 275; x remains unread. For `<<x`, its last test fails without consuming x, so the result is 265 at position 2.
 
@@ -323,7 +329,7 @@ A parser may read `[` to decide what follows `w`, then want its next operation t
   true cc-tok-pending ! ;
 ```
 
-[Source: pending-token interface](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L648-L664).
+[Source: pending-token interface](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L650-L666).
 
 Return to the fixture immediately after `[`: position=6, line=1, kind=5, number=91, pending=0. Putback changes only pending to −1. Calling `cc-next-token-keep` clears it to zero and returns the same record at position 6. Calling keep again skips the space and reads 4, reaching position 8.
 
@@ -348,7 +354,7 @@ Further lookahead needs a snapshot. `cc-lex-mark ( buf -- )` saves the block; `c
 : cc-lex-reset  cc-lex-state cc-lex-copy ;
 ```
 
-[Source: copying and mark storage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/050-cc-lex.fth#L666-L689).
+[Source: copying and mark storage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/050-cc-lex.fth#L668-L691).
 
 Starting with source and destination addresses, the copy loop subtracts eight before each transfer. It therefore copies offsets 56, 48, 40, 32, 24, 16, 8, 0. Every cell is copied, including stale payloads and pending. Supply valid 64-byte storage with an independent lifetime; this is not a size-checked buffer API or a general overlap-safe byte mover.
 
@@ -426,4 +432,4 @@ This ledger covers all **39 colon definitions** in 050 without requiring every r
 | `cc-lex-extra-default`, `cc-next-token` | 2 | Dispatch and explicit 121→127 hook / 128 decoder interfaces |
 | `cc-next-token-keep`, `cc-putback-token`, `cc-lex-copy`, `cc-lex-mark`, `cc-lex-reset` | 5 | Replay, eight-cell snapshot, shared mark and lifetime limits |
 
-The [historical lexer chapter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/23-the-lexer.md) is comparison material. Its older counts and whole-input execution claims are not substituted for the inspected eight-kind/34-keyword source or promoted to fresh observations. In particular, preprocessing performs macro expansion; tokenization consumes its result. No tests, compiler builds, or C/Forth examples were run for this chapter, and real-reader learnability remains untested.
+The [historical lexer chapter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/book/23-the-lexer.md) is comparison material. Its older counts and whole-input execution claims are not substituted for the inspected eight-kind/34-keyword source or promoted to fresh observations. In particular, preprocessing performs macro expansion; tokenization consumes its result. No tests, compiler builds, or C/Forth examples were run for this chapter, and real-reader learnability remains untested.

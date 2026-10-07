@@ -40,7 +40,7 @@ compiler/runtime remains the producer. The new target-header tree is a named
 input whose hash and installation commands belong in the step record.
 
 Sources: [inputs, headers and configuration
-ordering](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L11-L25).
+ordering](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L11-L25).
 
 ## Build the compiler with Forth, its libraries with GCC
 
@@ -61,9 +61,9 @@ build-tree layout expectations. They are identified adjustments, not silent
 source patches.
 
 Sources: [producer transition and build
-adjustments](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L24-L54),
+adjustments](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L24-L54),
 [libgcc and
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L180-L243).
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L180-L243).
 
 ## Let musl’s own build populate the target runtime
 
@@ -83,9 +83,9 @@ combined-tree links are added. Changing build-tree orchestration is still a
 recorded dependency; it is not claimed to be an untouched build directory.
 
 Sources: [source versus build-tree
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L40-L54),
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L40-L54),
 [musl
-configure/build/install](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L244-L265).
+configure/build/install](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L244-L265).
 
 ## Let the hosted fixture exercise the new edges
 
@@ -100,14 +100,15 @@ the intended libgcc helper. Merely returning zero would not expose whether that
 compiler support edge was exercised.
 
 Long-double formatting in this generated hosted program is musl/GCC behavior.
-G10/G13’s Forth producer deliberately has narrower long-double computing and
+G10/G13’s Forth producer now supplies x87 computation and exact floating
+formatting, but it retains separately bounded
 printf contracts. A product can grow beyond its producer’s implementation
 surface without retroactively granting those features to the producer.
 
 Sources: [hello output and libgcc
-witness](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L267-L285),
+witness](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L267-L285),
 [hosted fixture
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/stage-c-hello.c#L1-L62).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/stage-c-hello.c#L1-L62).
 
 ## Retain step completion rather than a single hopeful status
 
@@ -127,11 +128,11 @@ musl as its own runtime, making the runtime change relevant to G24’s equal-key
 sorting and G25’s byte-comparison predicate.
 
 Sources: [retained and resumed
-steps](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L56-L59),
+steps](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L56-L59),
 [step
-report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L287-L302),
+report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L287-L302),
 [Stage C
-account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L261-L285).
+account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L285-L309).
 
 ## Put headers before the questions that need them
 
@@ -154,11 +155,11 @@ provenance differ. A reader should be able to locate the adjusted build input
 without being told that all upstream inputs were magically unchanged.
 
 Sources: [inputs, headers and configuration
-ordering](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L11-L25),
+ordering](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L11-L25),
 [producer transition and build
-adjustments](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L24-L54),
+adjustments](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L24-L54),
 [libgcc and
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L180-L243).
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L180-L243).
 
 ## Close the target link with the right kinds of inputs
 
@@ -185,13 +186,13 @@ library hashes without a target run would identify inputs while leaving behavior
 unobserved.
 
 Sources: [source versus build-tree
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L40-L54),
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L40-L54),
 [musl
-configure/build/install](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L244-L265),
+configure/build/install](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L244-L265),
 [hello output and libgcc
-witness](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L267-L285),
+witness](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L267-L285),
 [hosted fixture
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/stage-c-hello.c#L1-L62).
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/stage-c-hello.c#L1-L62).
 
 ## Make the hosted boundary an entrance to rebuilding
 
@@ -212,11 +213,11 @@ record new output. The later generation comparisons remain separately attributed
 evidence with a narrower declared equality predicate.
 
 Sources: [retained and resumed
-steps](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L56-L59),
+steps](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L56-L59),
 [step
-report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L287-L302),
+report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L287-L302),
 [Stage C
-account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L261-L285).
+account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L285-L309).
 
 ## Witness each library edge in the hosted fixture
 
@@ -264,23 +265,23 @@ starting compiler for rebuilding, while the next chapters ask separately about
 controlled paths and generated-byte equality.
 
 Sources: [producer transition and build
-adjustments](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L24-L54),
+adjustments](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L24-L54),
 [libgcc and
-installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L180-L243),
+installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L180-L243),
 [source versus build-tree
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L40-L54),
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L40-L54),
 [musl
-configure/build/install](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L244-L265),
+configure/build/install](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L244-L265),
 [hello output and libgcc
-witness](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L267-L285),
+witness](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L267-L285),
 [hosted fixture
-source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/stage-c-hello.c#L1-L62),
+source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/stage-c-hello.c#L1-L62),
 [retained and resumed
-steps](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L56-L59),
+steps](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L56-L59),
 [step
-report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L287-L302),
+report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L287-L302),
 [Stage C
-account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L261-L285).
+account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L285-L309).
 
 ## Read a resumed Stage C record without inventing new production
 
@@ -332,7 +333,7 @@ library hashes or opened target files. Its attributed result remains useful as
 the next producer in the recorded lineage, with fresh reproduction a separate
 task.
 
-Sources: [inputs, headers and configuration ordering](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L11-L25), [producer transition and build adjustments](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L24-L54), [libgcc and installation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L180-L243), [source versus build-tree policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L40-L54), [musl configure/build/install](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L244-L265), [hello output and libgcc witness](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L267-L285), [hosted fixture source](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/gcc/stage-c-hello.c#L1-L62), [retained and resumed steps](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L56-L59), [step report](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L287-L302), [Stage C account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L261-L285).
+Sources: [inputs, headers and configuration ordering](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L11-L25), [producer transition and build adjustments](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L24-L54), [libgcc and installation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L180-L243), [source versus build-tree policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L40-L54), [musl configure/build/install](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L244-L265), [hello output and libgcc witness](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L267-L285), [hosted fixture source](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/gcc/stage-c-hello.c#L1-L62), [retained and resumed steps](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L56-L59), [step report](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L287-L302), [Stage C account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L285-L309).
 
 ## Stop, then change the boundary
 

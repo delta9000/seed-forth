@@ -243,7 +243,7 @@ preconditions on which its predicted behavior depends.
 **Checked example.** A defensible four-sentence answer is:
 
 1. I inspected the Linux/x86-64 seed at revision
-   `7d7e1996d1753118181d43e1a413960d3a1ec24b` and its 76-region,
+   `bbcc1732152af2d884737272eed870d2410ffe8e` and its 76-region,
    1,772-file-byte ledger
 2. From the source-defined initial state I derived the complete 32-byte
    `inc` entry, checked both CALL targets, and traced its predicted effect

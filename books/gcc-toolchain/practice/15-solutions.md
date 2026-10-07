@@ -285,7 +285,8 @@ is consistent.
 
 ### Check G15-06 — Transport long double
 
-That computing use rejects under the bounded transport-only contract. Accept an
+Layer 132 now admits long-double addition. It loads the extended payloads and
+pops the sum into a private sixteen-byte frame object; transport stays X87. Accept an
 explanation that follows the changed premise and retains the unmodified
 contracts. Do not accept a new execution claim merely because the paper result
 is consistent.

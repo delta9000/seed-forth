@@ -32,7 +32,7 @@ S15-05, consulting the full byte listings as needed. No opcode memorization
 or live seed session is required.
 
 **Edition and method.** Every source link pins
-[`000-seed.hex0` at 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0).
+[`000-seed.hex0` at bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0).
 The header fields and all eleven non-header listings were checked against
 that source. Bounded GNU objdump 2.44 disassembly of the exact source-decoded,
 nonexecutable inspection image agreed with the 114 instruction boundaries
@@ -65,38 +65,38 @@ links to its exact source header.
 
 | Header offset | Previous-link value | Flags | Length | Name bytes | Name | Code offset | Code start / xt |
 |---|---|---|---|---|---|---|---|
-| `00BA` | `0x000000` | `00` | `03` (3) | `64 75 70` | [`dup`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L76-L80) | `00C7` | `0x4000C7` |
-| `00D0` | `0x4000BA` | `00` | `04` (4) | `64 72 6F 70` | [`drop`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L86-L90) | `00DE` | `0x4000DE` |
-| `00E7` | `0x4000D0` | `00` | `04` (4) | `73 77 61 70` | [`swap`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L96-L100) | `00F5` | `0x4000F5` |
-| `0101` | `0x4000E7` | `00` | `02` (2) | `3E 72` | [`>r`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L107-L111) | `010D` | `0x40010D` |
-| `0119` | `0x400101` | `00` | `02` (2) | `72 3E` | [`r>`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L120-L124) | `0125` | `0x400125` |
-| `0131` | `0x400119` | `00` | `02` (2) | `72 40` | [`r@`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L133-L137) | `013D` | `0x40013D` |
-| `014E` | `0x400131` | `00` | `01` (1) | `40` | [`@`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L147-L151) | `0159` | `0x400159` |
-| `015D` | `0x40014E` | `00` | `01` (1) | `21` | [`!`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L156-L160) | `0168` | `0x400168` |
-| `017C` | `0x40015D` | `00` | `02` (2) | `63 40` | [`c@`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L169-L173) | `0188` | `0x400188` |
-| `018D` | `0x40017C` | `00` | `02` (2) | `63 21` | [`c!`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L178-L182) | `0199` | `0x400199` |
-| `01AC` | `0x40018D` | `00` | `01` (1) | `2B` | [`+`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L191-L195) | `01B7` | `0x4001B7` |
-| `01C0` | `0x4001AC` | `00` | `04` (4) | `6E 61 6E 64` | [`nand`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L201-L205) | `01CE` | `0x4001CE` |
-| `01DA` | `0x4001C0` | `00` | `02` (2) | `30 3D` | [`0=`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L212-L216) | `01E6` | `0x4001E6` |
-| `01F5` | `0x4001DA` | `00` | `01` (1) | `2F` | [`/`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L224-L228) | `0200` | `0x400200` |
-| `0212` | `0x4001F5` | `00` | `01` (1) | `2A` | [`*`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L239-L243) | `021D` | `0x40021D` |
-| `022D` | `0x400212` | `00` | `03` (3) | `62 79 65` | [`bye`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L251-L255) | `023A` | `0x40023A` |
-| `0246` | `0x40022D` | `00` | `04` (4) | `65 6D 69 74` | [`emit`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L261-L265) | `0254` | `0x400254` |
-| `0282` | `0x400246` | `00` | `03` (3) | `6B 65 79` | [`key`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L278-L282) | `028F` | `0x40028F` |
-| `02BE` | `0x400282` | `00` | `08` (8) | `73 79 73 63 61 6C 6C 36` | [`syscall6`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L300-L304) | `02D0` | `0x4002D0` |
-| `02F5` | `0x4002BE` | `00` | `04` (4) | `66 69 6E 64` | [`find`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L320-L324) | `0303` | `0x400303` |
-| `0359` | `0x4002F5` | `00` | `04` (4) | `68 65 72 65` | [`here`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L362-L366) | `0367` | `0x400367` |
-| `0378` | `0x400359` | `00` | `01` (1) | `2C` | [`,`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L373-L377) | `0383` | `0x400383` |
-| `03A3` | `0x400378` | `00` | `07` (7) | `65 78 65 63 75 74 65` | [`execute`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L387-L391) | `03B4` | `0x4003B4` |
-| `0488` | `0x4003A3` | `00` | `05` (5) | `73 74 61 74 65` | [`state`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L484-L488) | `0497` | `0x400497` |
-| `04AA` | `0x400488` | `00` | `06` (6) | `6C 61 74 65 73 74` | [`latest`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L495-L499) | `04BA` | `0x4004BA` |
-| `04CD` | `0x4004AA` | `00` | `01` (1) | `27` | [`'`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L506-L510) | `04D8` | `0x4004D8` |
-| `04E2` | `0x4004CD` | `00` | `01` (1) | `3A` | [`:`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L515-L519) | `04ED` | `0x4004ED` |
-| `053F` | `0x4004E2` | `01` | `01` (1) | `3B` | [`;`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L538-L542) | `054A` | `0x40054A` |
-| `0593` | `0x40053F` | `00` | `03` (3) | `6C 69 74` | [`lit`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L563-L567) | `05A0` | `0x4005A0` |
-| `05B2` | `0x400593` | `01` | `05` (5) | `5B 6C 69 74 5D` | [`[lit]`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L577-L581) | `05C1` | `0x4005C1` |
-| `0601` | `0x4005B2` | `00` | `06` (6) | `62 72 61 6E 63 68` | [`branch`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L602-L606) | `0611` | `0x400611` |
-| `0617` | `0x400601` | `00` | `07` (7) | `30 62 72 61 6E 63 68` | [`0branch`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L613-L617) | `0628` | `0x400628` |
+| `00BA` | `0x000000` | `00` | `03` (3) | `64 75 70` | [`dup`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L76-L80) | `00C7` | `0x4000C7` |
+| `00D0` | `0x4000BA` | `00` | `04` (4) | `64 72 6F 70` | [`drop`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L86-L90) | `00DE` | `0x4000DE` |
+| `00E7` | `0x4000D0` | `00` | `04` (4) | `73 77 61 70` | [`swap`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L96-L100) | `00F5` | `0x4000F5` |
+| `0101` | `0x4000E7` | `00` | `02` (2) | `3E 72` | [`>r`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L107-L111) | `010D` | `0x40010D` |
+| `0119` | `0x400101` | `00` | `02` (2) | `72 3E` | [`r>`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L120-L124) | `0125` | `0x400125` |
+| `0131` | `0x400119` | `00` | `02` (2) | `72 40` | [`r@`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L133-L137) | `013D` | `0x40013D` |
+| `014E` | `0x400131` | `00` | `01` (1) | `40` | [`@`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L147-L151) | `0159` | `0x400159` |
+| `015D` | `0x40014E` | `00` | `01` (1) | `21` | [`!`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L156-L160) | `0168` | `0x400168` |
+| `017C` | `0x40015D` | `00` | `02` (2) | `63 40` | [`c@`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L169-L173) | `0188` | `0x400188` |
+| `018D` | `0x40017C` | `00` | `02` (2) | `63 21` | [`c!`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L178-L182) | `0199` | `0x400199` |
+| `01AC` | `0x40018D` | `00` | `01` (1) | `2B` | [`+`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L191-L195) | `01B7` | `0x4001B7` |
+| `01C0` | `0x4001AC` | `00` | `04` (4) | `6E 61 6E 64` | [`nand`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L201-L205) | `01CE` | `0x4001CE` |
+| `01DA` | `0x4001C0` | `00` | `02` (2) | `30 3D` | [`0=`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L212-L216) | `01E6` | `0x4001E6` |
+| `01F5` | `0x4001DA` | `00` | `01` (1) | `2F` | [`/`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L224-L228) | `0200` | `0x400200` |
+| `0212` | `0x4001F5` | `00` | `01` (1) | `2A` | [`*`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L239-L243) | `021D` | `0x40021D` |
+| `022D` | `0x400212` | `00` | `03` (3) | `62 79 65` | [`bye`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L251-L255) | `023A` | `0x40023A` |
+| `0246` | `0x40022D` | `00` | `04` (4) | `65 6D 69 74` | [`emit`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L261-L265) | `0254` | `0x400254` |
+| `0282` | `0x400246` | `00` | `03` (3) | `6B 65 79` | [`key`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L278-L282) | `028F` | `0x40028F` |
+| `02BE` | `0x400282` | `00` | `08` (8) | `73 79 73 63 61 6C 6C 36` | [`syscall6`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L300-L304) | `02D0` | `0x4002D0` |
+| `02F5` | `0x4002BE` | `00` | `04` (4) | `66 69 6E 64` | [`find`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L320-L324) | `0303` | `0x400303` |
+| `0359` | `0x4002F5` | `00` | `04` (4) | `68 65 72 65` | [`here`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L362-L366) | `0367` | `0x400367` |
+| `0378` | `0x400359` | `00` | `01` (1) | `2C` | [`,`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L373-L377) | `0383` | `0x400383` |
+| `03A3` | `0x400378` | `00` | `07` (7) | `65 78 65 63 75 74 65` | [`execute`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L387-L391) | `03B4` | `0x4003B4` |
+| `0488` | `0x4003A3` | `00` | `05` (5) | `73 74 61 74 65` | [`state`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L484-L488) | `0497` | `0x400497` |
+| `04AA` | `0x400488` | `00` | `06` (6) | `6C 61 74 65 73 74` | [`latest`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L495-L499) | `04BA` | `0x4004BA` |
+| `04CD` | `0x4004AA` | `00` | `01` (1) | `27` | [`'`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L506-L510) | `04D8` | `0x4004D8` |
+| `04E2` | `0x4004CD` | `00` | `01` (1) | `3A` | [`:`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L515-L519) | `04ED` | `0x4004ED` |
+| `053F` | `0x4004E2` | `01` | `01` (1) | `3B` | [`;`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L538-L542) | `054A` | `0x40054A` |
+| `0593` | `0x40053F` | `00` | `03` (3) | `6C 69 74` | [`lit`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L563-L567) | `05A0` | `0x4005A0` |
+| `05B2` | `0x400593` | `01` | `05` (5) | `5B 6C 69 74 5D` | [`[lit]`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L577-L581) | `05C1` | `0x4005C1` |
+| `0601` | `0x4005B2` | `00` | `06` (6) | `62 72 61 6E 63 68` | [`branch`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L602-L606) | `0611` | `0x400611` |
+| `0617` | `0x400601` | `00` | `07` (7) | `30 62 72 61 6E 63 68` | [`0branch`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L613-L617) | `0628` | `0x400628` |
 
 This table is a byte-reconstruction recipe, not merely an index of words.
 For every row, serialize the link into eight little-endian bytes, append
@@ -120,7 +120,7 @@ name bytes. Earlier body audits did not account for these bytes. Reconstruct
 one header yourself before trusting that total.
 
 Startup initializes the contents of LATEST's cell at `0x413008` to
-[`0x400617`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L67-L72),
+[`0x400617`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L67-L72),
 the `0branch` header. Walk the ledger upward from its last row: each link
 names the preceding row's header. Eventually `drop` links to `dup`, whose
 zero link terminates the walk. All 32 entries occur once. The four unnamed
@@ -142,7 +142,7 @@ still select the old body. Do not turn “shadowed during name lookup” into
 
 ## find: length first, then every byte
 
-[`find_code`, 86 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L325-L361),
+[`find_code`, 86 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L325-L361),
 has contract `( c-addr u -- xt-or-zero )`. Its caller supplies readable token
 bytes and their length. The code neither scans for a terminator nor changes
 case. The current header is kept separate from the two comparison pointers:
@@ -220,7 +220,7 @@ The successful header is stored in **LAST_FOUND**, the cell at `0x413018`.
 The miss block contains no such store. If a prior hit found `here`, a later
 miss leaves LAST_FOUND holding `0x400359`; it does not clear it or make it a
 valid description of the missing token. The normal
-[REPL miss path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L664-L689)
+[REPL miss path](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L664-L689)
 checks the returned xt first. Zero takes reporting and stack cleanup;
 only the nonzero branch reads LAST_FOUND to inspect flags. That ordering is
 why the stale value is harmless on this path, not a promise that stale state
@@ -243,7 +243,7 @@ are STATE at `0x413000`, LATEST at `0x413008`, HERE at `0x413010`, and
 LAST_FOUND at `0x413018`. The address of a cell and the value in that cell
 remain different even when both values happen to look like addresses.
 
-[`here_code`, 17 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L367-L372),
+[`here_code`, 17 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L367-L372),
 pushes HERE's **contents**:
 
 ```text
@@ -254,8 +254,8 @@ offset range    bytes                           decoded instruction
 [0377,0378)   C3                              ret
 ```
 
-[`state_code`, 19 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L489-L494),
-and [`latest_code`, 19 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L500-L505),
+[`state_code`, 19 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L489-L494),
+and [`latest_code`, 19 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L500-L505),
 push their cells' **addresses**:
 
 ```text
@@ -280,7 +280,7 @@ RET returns to the caller with one additional data item. Thus `state @`
 reads the mode, `latest @` reads the newest header, but `here @` reads a
 cell at the current emission cursor. It does not repeat HERE's fetch.
 
-[`comma_code`, 32 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L378-L386),
+[`comma_code`, 32 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L378-L386),
 has contract `( v -- )` and writes a cell:
 
 ```text
@@ -309,7 +309,7 @@ cell, and also why advancing HERE is not enough to prove an allocation safe.
 
 ## execute: restore the data top, then jump
 
-[`execute_code`, 13 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L392-L397),
+[`execute_code`, 13 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L392-L397),
 consumes an xt before entering its target:
 
 ```text
@@ -345,7 +345,7 @@ CALL would have introduced a different return-stack obligation.
 ## read_char: preserve the stack, return a byte and ZF
 
 Before following the larger token loop, isolate its 35-byte helper,
-[`read_char`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L453-L467).
+[`read_char`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L453-L467).
 It has no net data-stack effect. Instead it returns the character in RDX and
 sets ZF exactly when that character is one of four whitespace bytes:
 
@@ -397,7 +397,7 @@ reader, with no Unicode decoding or general Unicode whitespace rule.
 
 ## read_word: turn a stream into one borrowed token
 
-[`read_word`, 117 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L398-L452),
+[`read_word`, 117 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L398-L452),
 is an unnamed helper with contract `( -- c-addr u )`. It returns address
 `T=0x412800`, the token input buffer, and a length. Zero length indicates no
 ordinary token before the EOF indication. On a normal token, `1≤u≤255`.
@@ -557,7 +557,7 @@ why EOF has ZF=0 in read_char, and why a 256-byte token never returns normally.
 
 ## Reporting is a write; fatal reporting exits
 
-[`report_token`, 30 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L468-L477),
+[`report_token`, 30 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L468-L477),
 uses RBX and the shared buffer, not a fresh stack pair:
 
 ```text
@@ -586,7 +586,7 @@ the caller loads the previous top from `[rbp]` and advances RBP. That explicit
 cleanup repairs the cached-top invariant. Arbitrary callers must account
 for the clobber rather than treating report_token as transparent.
 
-[`fatal_token`, 17 bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L478-L483),
+[`fatal_token`, 17 bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L478-L483),
 is a separate assigned region, including its own call and exit syscall:
 
 ```text
@@ -612,7 +612,7 @@ paths, not established safe recovery from arbitrary bad source.
 
 ## Tick joins reading to lookup
 
-Finally, [`tick_code`, ten bytes](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L511-L514),
+Finally, [`tick_code`, ten bytes](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L511-L514),
 implements `'` by composing the helpers:
 
 ```text

@@ -4,7 +4,7 @@ For `a = b += 3`, the parser must remember where `a` lives while it temporarily 
 
 This chapter closes the expression parser. You will follow a complete expression from its first operand through postfix operations, unary operators, assignments, and its final consumer. Then you will follow the constant evaluator, which computes a builder cell instead of appending runtime arithmetic. The central question is always: **what must survive the next recursive call, and who owns it?**
 
-**Edition and evidence.** This account uses [`100-cc-expr.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth) and the type-query/cast handshake in [`110-cc-decl.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L573-L670), at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`. Source descriptions are inspected implementation; every numerical trace is a **manual prediction**, not an executed result. No compiler build, Forth example, C example, generated program, or bootstrap was run for this chapter. Target callbacks are bounded interfaces, not claims of full C or ABI conformance.
+**Edition and evidence.** This account uses [`100-cc-expr.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth) and the type-query/cast handshake in [`110-cc-decl.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L573-L670), at revision `bbcc1732152af2d884737272eed870d2410ffe8e`. Source descriptions are inspected implementation; every numerical trace is a **manual prediction**, not an executed result. No compiler build, Forth example, C example, generated program, or bootstrap was run for this chapter. Target callbacks are bounded interfaces, not claims of full C or ABI conformance.
 
 ## Choose a route and recover the state
 
@@ -42,9 +42,9 @@ Here is the complete controlling loop's entry point:
   cc-parse-operand cc-parse-postfix-ops ;
 ```
 
-[`cc-parse-operand`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L938-L966) reads one token. A literal provider gets first refusal: its default returns false, while a handled result must have consumed/published its literal. Otherwise numbers use the immediate-width emitter, characters use their decoded integer value, strings use C12's literal producer, and names use C08/C12's lookup dispatch. Numeric and character zero record null provenance; that is a fact about the parsed expression, not a runtime zero test. LP64 numbers also receive their checked integer type. An opening parenthesis first probes for a cast, then falls back to grouping. An unrecognized start reaches error 97.
+[`cc-parse-operand`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L947-L975) reads one token. A literal provider gets first refusal: its default returns false, while a handled result must have consumed/published its literal. Otherwise numbers use the immediate-width emitter, characters use their decoded integer value, strings use C12's literal producer, and names use C08/C12's lookup dispatch. Numeric and character zero record null provenance; that is a fact about the parsed expression, not a runtime zero test. LP64 numbers also receive their checked integer type. An opening parenthesis first probes for a cast, then falls back to grouping. An unrecognized start reaches error 97.
 
-The [postfix loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1160-L1196) reads another token and dispatches `++`/`--`, `[`, or `.`/`->`. With LP64 enabled it also recognizes `(` as an indirect call on the current expression. Each operation updates the same expression record; the next suffix consumes that updated result. The first non-postfix token is put back. There is one default reset at the beginning of the primary, not an unconditional reset between suffixes.
+The [postfix loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1182-L1218) reads another token and dispatches `++`/`--`, `[`, or `.`/`->`. With LP64 enabled it also recognizes `(` as an indirect call on the current expression. Each operation updates the same expression record; the next suffix consumes that updated result. The first non-postfix token is put back. There is one default reset at the beginning of the primary, not an unconditional reset between suffixes.
 
 **Paper chain, legacy profile.** Supply a valid local `head`, whose value H points to a record. Its descriptor says field `s` is a `char *` stored at offset 8. Memory at H+8 contains Q, and byte Q+1 contains 65. No declaration parsing is needed yet; these are the supplied C08 rows and live-storage premises.
 
@@ -57,7 +57,7 @@ The [postfix loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118
 
 Arrow materializes the base pointer if needed, looks up the field, and adds its offset. Indexing then materializes the *pointer field*, obtaining Q; it saves that base while parsing the index. Its pre-index `char *` type selects stride one. The update loads the old byte, increments that byte in memory, and leaves the old value as the expression result. Predicted byte Q+1 becomes 66. Adding an offset was never itself a load.
 
-C12 opens field lookup and indexing in detail. The composition rule adds an important lifetime: save pre-index type, descriptor/row information, and qualification before the index's recursive expression overwrites the shared metadata. In LP64, an inline matrix already denotes storage, so indexing avoids manufacturing a decayed pointer first; row width multiplies element stride, and indexing a row republishes the remaining array extent. Field selection carries the selected field record into typed loads/stores. A scalar member selected from an aggregate temporary remains a non-lvalue temporary. These are [the actual index/member callers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1042-L1158), not extra syntax in the suffix loop.
+C12 opens field lookup and indexing in detail. The composition rule adds an important lifetime: save pre-index type, descriptor/row information, and qualification before the index's recursive expression overwrites the shared metadata. In LP64, an inline matrix already denotes storage, so indexing avoids manufacturing a decayed pointer first; row width multiplies element stride, and indexing a row republishes the remaining array extent. Field selection carries the selected field record into typed loads/stores. A scalar member selected from an aggregate temporary remains a non-lvalue temporary. These are [the actual index/member callers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1064-L1180), not extra syntax in the suffix loop.
 
 Grouping uses assignment grammar in legacy mode and comma grammar in LP64, then requires `)`, error 96 otherwise. It deliberately avoids public `cc-parse-expr`, whose final materialization could consume the pending address. Consequently `(*p)++` can still update the pointee, and `(a)=7` can still retain a legacy local slot.
 
@@ -65,7 +65,7 @@ Grouping uses assignment grammar in legacy mode and comma grammar in LP64, then 
 
 A call parser enters with `(` already consumed. The identifier dispatcher distinguishes a named call from a plain name; LP64's postfix loop additionally permits a call through a computed expression. The distinction matters before any ABI choices.
 
-Assume f is a valid callee and a/b are valid scalar locals. For `f(a=2, b+=3)`, the comma separates two arguments. It must not disappear into a comma-expression parser. The [legacy call path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L580-L666) calls public expression parsing, but legacy expressions have no comma operator. The LP64 argument parser explicitly calls assignment parsing and then materializes. Under LP64, `f((a=2,b+=3),4)` instead has two arguments because parentheses provide a nested comma-expression boundary. Parentheses are doing grammar work, not merely decoration.
+Assume f is a valid callee and a/b are valid scalar locals. For `f(a=2, b+=3)`, the comma separates two arguments. It must not disappear into a comma-expression parser. The [legacy call path](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L586-L672) calls public expression parsing, but legacy expressions have no comma operator. The LP64 argument parser explicitly calls assignment parsing and then materializes. Under LP64, `f((a=2,b+=3),4)` instead has two arguments because parentheses provide a nested comma-expression boundary. Parentheses are doing grammar work, not merely decoration.
 
 Legacy call parsing performs these steps:
 
@@ -99,19 +99,19 @@ From independent initial state `b=4`:
 - `b++` leaves 4 and stores 5
 - `++b` stores 5 and leaves 5
 
-In the [legacy postfix path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1013-L1040), a local's old value is already in RDI, so an in-place slot increment preserves it. A pending address moves into RCX; a byte/qword load obtains the old value and the matching memory update changes storage. The result is marked non-lvalue, then its operand type is restored. `b++--` therefore reaches the second suffix without an assignable result and fails with 98. Valid fields and indexed elements are not categorically excluded.
+In the [legacy postfix path](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1035-L1062), a local's old value is already in RDI, so an in-place slot increment preserves it. A pending address moves into RCX; a byte/qword load obtains the old value and the matching memory update changes storage. The result is marked non-lvalue, then its operand type is restored. `b++--` therefore reaches the second suffix without an assignable result and fails with 98. Valid fields and indexed elements are not categorically excluded.
 
-The [prefix path](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1380-L1438) has a plain-local fast path. `cc-name-alone?` marks the full lexer state, peeks for a suffix/call, then resets. Thus `--b->n` is not misread as decrementing the pointer variable b. A plain local is bumped then loaded; otherwise the parser puts the candidate back, recursively parses a unary operand, requires a pending address (113 otherwise), bumps through RCX, and loads the new value. Both legacy update forms change storage by one, even for a pointer. Native typed updates use pointee stride instead.
+The [prefix path](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1402-L1460) has a plain-local fast path. `cc-name-alone?` marks the full lexer state, peeks for a suffix/call, then resets. Thus `--b->n` is not misread as decrementing the pointer variable b. A plain local is bumped then loaded; otherwise the parser puts the candidate back, recursively parses a unary operand, requires a pending address (113 otherwise), bumps through RCX, and loads the new value. Both legacy update forms change storage by one, even for a pointer. Native typed updates use pointee stride instead.
 
 ## The parenthesis handshake: type or expression?
 
 After `(`, a parser cannot decide from punctuation alone whether `(char)321` is a cast or `(a)` is grouping. It asks a type-start query supplied by the declaration file, without requiring declarations themselves to have been taught.
 
-The contract is concrete. [`cc-type-start?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L583-L624) examines the current token. In legacy mode it recognizes supported type keywords, qualifiers, `struct`, `enum`, and identifiers whose symbol kind is typedef. Under LP64 it delegates to `cc-native-type-start-fwd`. `cc-parse-type-name` consumes a type name and leaves the following token pending. It returns the encoded type and publishes `cc-cast-desc`; native providers additionally publish qualification and array-shape facts through their named handoff cells.
+The contract is concrete. [`cc-type-start?`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L583-L624) examines the current token. In legacy mode it recognizes supported type keywords, qualifiers, `struct`, `enum`, and identifiers whose symbol kind is typedef. Under LP64 it delegates to `cc-native-type-start-fwd`. `cc-parse-type-name` consumes a type name and leaves the following token pending. It returns the encoded type and publishes `cc-cast-desc`; native providers additionally publish qualification and array-shape facts through their named handoff cells.
 
 The legacy type-name algorithm clears `cc-cast-desc`, skips initial qualifiers, and chooses a base. A struct uses soft tag lookup to publish its descriptor; enum uses the integer base and optional tag; a typedef supplies base and existing pointer depth. Keyword combinations start from int, with char/void selecting those bases. Qualifiers are skipped and additional stars are counted, including qualifiers after stars; the encoded type combines base and total pointer depth. This is the actual restricted type-name grammar. Full native declarators and qualification records belong to C23/G03.
 
-[`cc-try-cast`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L626-L670) consumes one candidate after `(`. If it is not a type start, it puts that token back and returns false; grouping resumes from it. On success:
+[`cc-try-cast`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L626-L670) consumes one candidate after `(`. If it is not a type start, it puts that token back and returns false; grouping resumes from it. On success:
 
 1. Parse the destination type and save it on the builder return stack
 2. Reject an LP64 array type-name with 238 and require `)`
@@ -125,7 +125,7 @@ The cast path separates three hooks. Under LP64, `cc-cast-types-fwd` checks sour
 
 ### `sizeof`: a query with two implementation routes
 
-Legacy [`cc-parse-sizeof`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1289-L1378) requires parentheses and dispatches a small syntax set:
+Legacy [`cc-parse-sizeof`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1311-L1400) requires parentheses and dispatches a small syntax set:
 
 | Form | Legacy source algorithm |
 |---|---|
@@ -147,7 +147,7 @@ For a valid LP64 scalar `int x`, `sizeof(x++)` therefore visits the update parse
 
 C13 established the emitted branch skeleton for `condition ? left : right`: test condition, branch to false, emit true, jump over false, then join. Both source arms are parsed. Only one emitted arm runs for a particular condition.
 
-The [actual arm grammar](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2123-L2176) is profile-dependent:
+The [actual arm grammar](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2145-L2198) is profile-dependent:
 
 - Legacy: true arm assignment, false arm assignment
 - LP64: true arm comma expression, false arm assignment
@@ -179,7 +179,7 @@ Assignment parses a ternary expression, snapshots its kind and local slot, and l
 
 The predicted final state is a=7, b=7, expression value 7, with no expression-owned generated temporaries. Nothing consulted “the current local slot” after the inner parse to rediscover A. A survived in builder return state. An old value survived on the generated stack only where the compound operation needed it.
 
-This distinction is the [legacy local assignment algorithm](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2300-L2336). A result equal to a stored value is still a non-lvalue result; it does not retain permission to assign through the completed assignment expression.
+This distinction is the [legacy local assignment algorithm](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2323-L2359). A result equal to a stored value is still a non-lvalue result; it does not retain permission to assign through the completed assignment expression.
 
 ### A memory destination needs its address saved too
 
@@ -188,7 +188,7 @@ Supply a valid pointer p with value P, a writable qword at P initially holding 1
 - `*p = b+3`: save `[P]`; parse RHS to 7; recover P; store 7. There is no need to read the old pointee 10
 - `*p += b+3`: save `[P,10]`; parse RHS to 7; recover 10 for addition, yielding 17; recover P; store 17
 
-In the compound case, destination P outlives the old value because it is pushed first and popped last. Builder return state preserves kind and compound spelling. The old value's width comes from `lv-deref-byte` versus `lv-deref`; the matching final store uses one byte or eight bytes. These [plain and compound dereference paths](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2337-L2394) are both present.
+In the compound case, destination P outlives the old value because it is pushed first and popped last. Builder return state preserves kind and compound spelling. The old value's width comes from `lv-deref-byte` versus `lv-deref`; the matching final store uses one byte or eight bytes. These [plain and compound dereference paths](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2360-L2417) are both present.
 
 For plain assignment, the actual appended rearrangement first moves RHS to RCX and pops destination to RDI, then uses push/move/pop to obtain the store convention RDI=value, RCX=address. For compound assignment, after combining old RDI with RHS RCX, a pop directly restores destination into RCX. This small asymmetry follows from what each path saved, not from a different store interface. A destination kind without a supported local/address path fails with 120.
 
@@ -211,7 +211,7 @@ The expression-owned generated stack evolves as `[B+16]`, `[B+16,1]`, `[B+16,1,2
 
 ### The public boundary and LP64 comma
 
-[`cc-parse-comma` and `cc-parse-expr`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2403-L2419) keep two different promises:
+[`cc-parse-comma` and `cc-parse-expr`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2426-L2442) keep two different promises:
 
 ```forth
 : cc-parse-comma
@@ -240,7 +240,7 @@ The static-initializer guard here, and at selected native loads/calls/updates/as
 
 An array bound or expanded preprocessing condition needs a builder value. It cannot wait for the generated program to run. The constant parser therefore walks related precedence rules but calls the operator table's `bo-eval` word, not `bo-emitter`.
 
-The [builder arithmetic words](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1557-L1604) provide operations the seed host does not supply directly:
+The [builder arithmetic words](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1579-L1626) provide operations the seed host does not supply directly:
 
 - Negation computes zero minus n; inversion uses NAND of n with itself
 - XOR computes `(a OR b) AND NOT(a AND b)` using a saved intermediate
@@ -255,7 +255,7 @@ For bounded -7 and 3, division predicts -2, remainder -1. For -7 shifted right o
 
 ### Grammar without generated arithmetic
 
-The [default operand/unary/binary parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2490-L2551) accepts numbers, characters, enum constants, and parenthesized constant expressions. A non-enum name outside PP fails with 125; in PP mode a remaining identifier supplies zero. LP64 numeric tokens also undergo literal-suffix validation. Bad operand starts and missing closing parentheses reach 126 and 127.
+The [default operand/unary/binary parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2513-L2574) accepts numbers, characters, enum constants, and parenthesized constant expressions. A non-enum name outside PP fails with 125; in PP mode a remaining identifier supplies zero. LP64 numeric tokens also undergo literal-suffix validation. Bad operand starts and missing closing parentheses reach 126 and 127.
 
 Unary recursion accepts `-`, `+`, `!`, and `~`. Logical not normalizes to 0/1 and clears unsignedness. LP64 adds `sizeof` through the unevaluated size query. This is not the full runtime expression grammar: no assignment, update, call, ordinary dereference, or comma operator is supplied by the default constant grammar.
 
@@ -269,7 +269,7 @@ For `2 + 3 * 4`, the additive invocation holds builder value 2 while multiplicat
 
 At binary application, suppression discards operands and operator row and supplies placeholder zero instead of calling the evaluator. Typed PP additionally maintains its flag rules while suppressing the operation. Unary parsing and operand validation still occur. Consequently a dead division can avoid 124 while malformed syntax still fails.
 
-The [constant conditional](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2580-L2605) saves outer skip, suppresses the true arm when condition is zero, parses it recursively, restores outer skip, saves true-arm unsignedness and value, requires `:`, and suppresses the false arm when condition is nonzero. After parsing false, it keeps the selected value, ORs the arms' unsignedness, and restores outer skip. Missing colon reaches 128. Both arms have this constant grammar; they do not inherit runtime assignment/comma arms.
+The [constant conditional](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2603-L2628) saves outer skip, suppresses the true arm when condition is zero, parses it recursively, restores outer skip, saves true-arm unsignedness and value, requires `:`, and suppresses the false arm when condition is nonzero. After parsing false, it keeps the selected value, ORs the arms' unsignedness, and restores outer skip. Missing colon reaches 128. Both arms have this constant grammar; they do not inherit runtime assignment/comma arms.
 
 ### Trace: an expanded preprocessing condition
 
@@ -293,7 +293,7 @@ The wrapper is small enough to inspect whole:
   cc-cx-save cc-lex-reset ;
 ```
 
-Source: [`cc-pp-eval-text`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2607-L2628).
+Source: [`cc-pp-eval-text`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2630-L2651).
 
 1. Save L in `cc-cx-save` and U separately on the builder return stack. Set reader position to A−S and limit to A+12−S; clear pending-token replay. Set PP true and skip false
 2. Parse the left builder cell 1. Even with the System V constant provider loaded, PP selects the default grammar
@@ -304,7 +304,7 @@ Source: [`cc-pp-eval-text`](https://github.com/delta9000/seed-forth/blob/7d7e199
 
 The source-relative offsets can be negative when A lies below S. Both endpoints use the same base; the parser does not require this scratch text to have been copied into the original source buffer.
 
-**Exactly what returns?** The [64-byte lexer block](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/020-cc-arena.fth#L14-L28) contains eight cells: source position, source line, token kind, token number/punctuation value, token-string address, token-string length, keyword ID, and pending-token flag. All eight are restored, including any old pending token. Source length is outside that block and restored separately. `cc-src-buf` is used as the coordinate base, not replaced. PP is set to false, not restored from a saved prior value. Skip is initialized false and nested parsers restore their outer value; the wrapper does not save a caller's arbitrary skip state. Unsigned scratch is not part of the lexer snapshot.
+**Exactly what returns?** The [64-byte lexer block](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/020-cc-arena.fth#L14-L28) contains eight cells: source position, source line, token kind, token number/punctuation value, token-string address, token-string length, keyword ID, and pending-token flag. All eight are restored, including any old pending token. Source length is outside that block and restored separately. `cc-src-buf` is used as the coordinate base, not replaced. PP is set to false, not restored from a saved prior value. Skip is initialized false and nested parsers restore their outer value; the wrapper does not save a caller's arbitrary skip state. Unsigned scratch is not part of the lexer snapshot.
 
 This is a **successful-return** contract. A `cc-die` path is not exception cleanup that promises to restore state and resume. The single `cc-cx-save` buffer is not a nestable stack of PP invocations. Do not expand the claim into “everything is rolled back.”
 
@@ -316,7 +316,7 @@ This section completes the native branches physically present in 100/110. It doe
 
 ### Private stack calls and result metadata
 
-The [default native argument parser](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L482-L578) parses assignment arguments, materializes each, rejects a plain struct argument with 212, and pushes one eight-byte slot per value. It handles the empty `)` case and checks the nonempty list's closing delimiter with 121. It then reverses the argument slots in place: for each i below n/2, swap offsets 8i and 8(n−1−i) from RSP using RAX/RCX scratch. With three arguments, `[arg0,arg1,arg2]` becomes `[arg2,arg1,arg0]`, top at the right. After CALL pushes its return address, arg0 is nearest that return address.
+The [default native argument parser](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L488-L584) parses assignment arguments, materializes each, rejects a plain struct argument with 212, and pushes one eight-byte slot per value. It handles the empty `)` case and checks the nonempty list's closing delimiter with 121. It then reverses the argument slots in place: for each i below n/2, swap offsets 8i and 8(n−1−i) from RSP using RAX/RCX scratch. With three arguments, `[arg0,arg1,arg2]` becomes `[arg2,arg1,arg0]`, top at the right. After CALL pushes its return address, arg0 is nearest that return address.
 
 A named function goes directly to a known address or receives a rel32 fixup when its symbol address is zero. During unevaluated parsing, the native unresolved-call path discards the placeholder's registration rather than attaching it to a live call list. After the call, `cc-native-drop-args` adds 8n to RSP if n is nonzero, and RAX is copied to RDI.
 
@@ -324,29 +324,29 @@ For a named pointer object, load its target from a local slot or global storage 
 
 Named-call dispatch queries result qualification and `(type,descriptor)` **before** parsing nested arguments and preserves them on the builder return stack. The defaults return no qualifiers; a direct function's declared type is its result type, while other callable symbols default to int, with associated descriptor from the symbol query. The default postfix indirect provider itself publishes int/descriptor zero. `cc-native-function-desc-fwd` defaults to discarding the symbol ID and returning zero; later signature providers supply richer identity.
 
-The default call/indirect hooks are bound to these private-stack bodies. [`121`'s call providers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L921-L941) supply signature-backed queries, and its scalar call paths at [1070–1106](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1070-L1106) are the G04 scheduling boundary. `131` wraps them for G15 aggregate transport. C23 owns the complete private-frame convention. Unknown-identifier and intrinsic hooks from C12 remain bounded: defaults return a negative sentinel and false respectively; successful providers must supply a symbol or consume the complete intrinsic. They do not grant arbitrary names permissive call semantics.
+The default call/indirect hooks are bound to these private-stack bodies. [`121`'s call providers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L972-L992) supply signature-backed queries, and its scalar call paths at [1121–1157](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1121-L1157) are the G04 scheduling boundary. `131` wraps them for G15 aggregate transport. C23 owns the complete private-frame convention. Unknown-identifier and intrinsic hooks from C12 remain bounded: defaults return a negative sentinel and false respectively; successful providers must supply a symbol or consume the complete intrinsic. They do not grant arbitrary names permissive call semantics.
 
 ### Typed update and address operations
 
-[`cc-native-inc-dec`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L968-L1004) receives delta (+1 or −1) and postfix flag. It checks static-init restrictions, snapshots qualifiers/type/descriptor/field record into `cc-change-*`, and invokes the integer-use policy. For `lv-local`, emit its LEA; otherwise require a pending address, error 113. Then:
+[`cc-native-inc-dec`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L977-L1026) receives delta (+1 or −1) and postfix flag. It checks static-init restrictions, snapshots qualifiers/type/descriptor/field record into `cc-change-*`, after `cc-change-check-fwd` validates the value; its default invokes the integer-use policy. For `lv-local`, emit its LEA; otherwise require a pending address, error 113. Then:
 
 1. Push destination and load the old value through `cc-field-load-fwd(type,field)`
 2. For postfix only, push old value too
-3. Choose step one for a scalar or pointee size for a pointer; multiply by delta and append the addition
-4. Convert the new value to the destination type
+3. Call `cc-change-value-fwd`; its default adds delta times scalar step one or pointee size
+4. In the default hook, convert from promoted type to destination type (including boolean 0/1)
 5. For postfix, pop old value into RDX; pop destination into RCX and store through the field hook
 6. For postfix, restore old value from RDX into RDI; otherwise keep the new value
 7. Publish field value type plus saved descriptor and qualifiers as a typed non-lvalue
 
 For LP64 `int *p` with value P, postfix `p++` predicts stored P+4 and returned P. For a legacy pointer update, the stored value advances by one. The same token is therefore not a profile-independent stride promise. Field hooks may alter storage width/promotion; G14 owns bitfields. `cc-change-*` is one completed update's scratch, not persistent state across recursive operand parsing.
 
-The [native address-of branch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1440-L1515) recursively parses unary, rejects `lv-temporary` with 116, and asks the field-use hook whether this field can supply an address. A local produces LEA. Other accepted address-like states are pending memory, a nonzero associated descriptor, retained array extent, or function type; unsupported shapes fail 116. Arrays call `cc-array-address-fwd(type,descriptor,count,inner)`, whose default drops extents and adds one pointer level. Other types gain a level except the special already-value `func *` case. Type, descriptor, and saved qualifiers are then republished. System V's ranked-array provider preserves a complete array node rather than relying on that default.
+The [native address-of branch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1462-L1537) recursively parses unary, rejects `lv-temporary` with 116, and asks the field-use hook whether this field can supply an address. A local produces LEA. Other accepted address-like states are pending memory, a nonzero associated descriptor, retained array extent, or function type; unsupported shapes fail 116. Arrays call `cc-array-address-fwd(type,descriptor,count,inner)`, whose default drops extents and adds one pointer level. Other types gain a level except the special already-value `func *` case. Type, descriptor, and saved qualifiers are then republished. System V's ranked-array provider preserves a complete array node rather than relying on that default.
 
 This is why `&*p` can reuse the already computed address under the native path without loading the pointee. Field-use defaults consume the field pointer without checking; G14's replacement can reject address-taking for a bitfield. An interface default is not a complete legality checker.
 
 ### The precise `sizeof` rollback boundary
 
-[`cc-native-sizeof`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L1249-L1287) saves O=`cc-out-pos`, G=`cc-gfixup-count`, and E=`cc-expr-unevaluated`. It sets unevaluated true before either expression or type parsing.
+[`cc-native-sizeof`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L1271-L1309) saves O=`cc-out-pos`, G=`cc-gfixup-count`, and E=`cc-expr-unevaluated`. It sets unevaluated true before either expression or type parsing.
 
 After `(`, read a candidate token and ask the type-start hook. A type route obtains `(type,descriptor)` through `cc-sizeof-type-fwd`, then calls the size-policy hook. Its local caller also accepts following bracketed constant counts, multiplying the size by each and requiring `]`, before requiring `)`. An expression route puts the candidate back, resets the initial expression mark, parses the grouped expression and any following postfix operations, then queries size. Without an opening parenthesis, put back the candidate and parse unary.
 
@@ -356,7 +356,7 @@ For `sizeof(x++)`, E permits otherwise guarded unevaluated work, O removes tempo
 
 ### Two scalar conversion paths at a conditional join
 
-The true arm's saved tuple is `(type,descriptor,inner,null,qualified)`. At the false arm's completion, the native parser puts its saved true jump beside that tuple and invokes `cc-aggregate-ternary-fwd`. Default behavior returns false and leaves everything for scalar processing. A handled provider must consume the tuple/fixup, complete the join, and publish the result; `131` supplies that [aggregate temporary contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L438-L459), whose full lesson belongs to G15.
+The true arm's saved tuple is `(type,descriptor,inner,null,qualified)`. At the false arm's completion, the native parser puts its saved true jump beside that tuple and invokes `cc-aggregate-ternary-fwd`. Default behavior returns false and leaves everything for scalar processing. A handled provider must consume the tuple/fixup, complete the join, and publish the result; `131` supplies that [aggregate temporary contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L426-L447), whose full lesson belongs to G15.
 
 For the scalar fallback, `cc-expr-save-native-types` joins saved true facts with current false facts in C13's `cc-expr-left/right-*` scratch. The array policy and value-ternary policy hooks then check/adjust the common-type decision. Defaults are no-ops.
 
@@ -369,13 +369,13 @@ true conversion
 joined result
 ```
 
-This is a schematic layout, not copied source or measured machine bytes. The false arm was parsed last, but its source type cannot be used to convert the true arm's runtime value. [`cc-sysv-ternary-split`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L668-L669) returns the System V flag; the original default returns false. Floating conversion policy is a G10 seam, not opened here.
+This is a schematic layout, not copied source or measured machine bytes. The false arm was parsed last, but its source type cannot be used to convert the true arm's runtime value. [`cc-sysv-ternary-split`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L695-L696) returns the System V flag; the original default returns false. Floating conversion policy is a G10 seam, not opened here.
 
 Finally publish common type and selected common descriptor. Pointer results combine left/right qualifiers with OR; common row width is retained. Null provenance was input to the policy; it is not automatically preserved by the final reset/publish. This local algorithm completes the runtime ternary contract without claiming all provider type rules have been taught.
 
 ### Native assignment still owns its stores
 
-[`cc-parse-native-assign`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2218-L2298) rejects temporary destinations with 120, checks static-init mode, and turns a local into an address with LEA. Otherwise it accepts pending memory or the plain-struct address convention. Before recursive RHS parsing it saves, in order, qualifiers, field record, type, descriptor, and operator on the builder return stack. Push destination on the generated stack; for compound assignment, field-load and push old value too. Only after RHS parsing/materialization returns does it restore those facts into `cc-assign-*`.
+[`cc-parse-native-assign`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2240-L2321) rejects temporary destinations with 120, checks static-init mode, and turns a local into an address with LEA. Otherwise it accepts pending memory or the plain-struct address convention. Before recursive RHS parsing it saves, in order, qualifiers, field record, type, descriptor, and operator on the builder return stack. Push destination on the generated stack; for compound assignment, field-load and push old value too. Only after RHS parsing/materialization returns does it restore those facts into `cc-assign-*`.
 
 For plain scalar assignment, call `cc-value-shape-fwd(source type/descriptor,destination type/descriptor)`, convert RHS to destination type, pop destination into RCX, and field-store. Default shape policy drops all four cells; richer pointer/signature compatibility comes from 121. Publish the field value type, saved descriptor, and qualification. This conversion before store differs from the legacy byte-store path's unqualified RDI value.
 
@@ -393,13 +393,13 @@ Do not treat “native constants” as one switch. There are three relevant cont
 
 Direct-preprocessing mode alone is neither gate. LP64 outside PP alone does not enable the typed-PP evaluator. Under System V, PP still routes through the default grammar and then uses its typed arithmetic branch because LP64 is enabled.
 
-[`cc-cx-eval`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2438-L2476) receives `(left,right,row,left-unsigned)`. The right unsigned flag is current. A shift keeps the saved left flag; other operations OR left and right flags. Numeric PP operands mark unsignedness from a checked unsigned suffix or a high-bit-set cell. Comparisons use sign-aware helpers: if signs differ, signed less-than selects the negative operand, while unsigned less-than places the high-bit-set operand above the other. Equal-sign cases use the seed comparison. Comparison results clear unsignedness.
+[`cc-cx-eval`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2461-L2499) receives `(left,right,row,left-unsigned)`. The right unsigned flag is current. A shift keeps the saved left flag; other operations OR left and right flags. Numeric PP operands mark unsignedness from a checked unsigned suffix or a high-bit-set cell. Comparisons use sign-aware helpers: if signs differ, signed less-than selects the negative operand, while unsigned less-than places the high-bit-set operand above the other. Equal-sign cases use the seed comparison. Comparison results clear unsignedness.
 
 Unsigned division/remainder use the seed unsigned divisor operation; unsigned right shift divides by `2^n` without sign restoration. Other cases dispatch the table evaluator. Skip suppression still prevents executing the dead binary operation. Logical results are signed 0/1; conditional results combine the arm flags even while keeping only one arm's value. These are local flag algorithms, not a complete C integer-type lattice or a proof over arbitrary shift counts.
 
 For a bounded changed case, typed PP `-1 < 1U` combines flags as unsigned: the all-ones cell represents the larger unsigned value, so the predicted result is 0 and its resulting flag is signed. For `8U >> 1`, the left flag remains unsigned and the predicted value is 4. Those examples require PP **and** LP64; importing ordinary eight-byte runtime type metadata into this one-flag evaluator would describe a different mechanism.
 
-[`125`'s public selector](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/125-cc-consteval.fth#L401-L417) uses a typed static-constant parser returning `(value,type,descriptor,symbol)`. Its integer wrapper rejects a symbolic identity or noninteger type and then the public selector drops the type to preserve the caller's single-cell result contract. The full tuple, symbolic addresses, relocations, and typed grammar belong to G09/G02. In 100, `cc-parse-static-const-fwd` and the identifier/address/string leaf hooks initially point to `cc-const-unsupported`, which terminates with 240. They do not magically provide symbolic evaluation before a target binds them.
+[`125`'s public selector](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/125-cc-consteval.fth#L594-L610) uses a typed static-constant parser returning `(value,type,descriptor,symbol)`. Its integer wrapper rejects a symbolic identity or noninteger type and then the public selector drops the type to preserve the caller's single-cell result contract. The full tuple, symbolic addresses, relocations, and typed grammar belong to G09/G02. In 100, `cc-parse-static-const-fwd` and the identifier/address/string leaf hooks initially point to `cc-const-unsupported`, which terminates with 240. They do not magically provide symbolic evaluation before a target binds them.
 
 ## Close the deferred references
 
@@ -412,9 +412,9 @@ The grammar is recursive and Forth definitions arrive in source order. Deferred 
 ' cc-parse-unary  is cc-parse-unary-fwd
 ```
 
-These are [all four final bindings](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L2630-L2634). The constant path is separately bound to the *deferred public* `cc-parse-const`, not directly and permanently to its default body. That extra indirection is why later target rebinding remains visible to parenthesized constants and other forward callers. `cc-pp-eval` separately binds to `cc-pp-eval-text`, closing C05's evaluator promise.
+These are [all four final bindings](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/100-cc-expr.fth#L2653-L2657). The constant path is separately bound to the *deferred public* `cc-parse-const`, not directly and permanently to its default body. That extra indirection is why later target rebinding remains visible to parenthesized constants and other forward callers. `cc-pp-eval` separately binds to `cc-pp-eval-text`, closing C05's evaluator promise.
 
-After 110 defines the type parser, [`cc-try-cast-fwd`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L670) binds to `cc-try-cast`; its [last three lines](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L805-L808) connect the sizeof type-start query and `(type,descriptor)` adapter. Native type-name/type-start providers in 115/121 remain C23/G03's fuller grammar. Their result contract is usable here without teaching every declarator first.
+After 110 defines the type parser, [`cc-try-cast-fwd`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L670) binds to `cc-try-cast`; its [last three lines](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/110-cc-decl.fth#L805-L808) connect the sizeof type-start query and `(type,descriptor)` adapter. Native type-name/type-start providers in 115/121 remain C23/G03's fuller grammar. Their result contract is usable here without teaching every declarator first.
 
 The remaining value seams have narrow roles. Literal defaults return unhandled; test/not/negate/complement defaults append the existing scalar operations; plus/ternary defaults perform no additional work; integer-use defaults consume the proposed type; shape defaults discard their four facts. `cc-value-init-fwd` defaults to discarding source/destination and is a later initializer seam, not a step that every expression executes. G10's floating and G15's aggregate providers may replace these policies. Callers still own the recursion, staging, and publication just traced.
 

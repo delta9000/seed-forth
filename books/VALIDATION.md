@@ -2,10 +2,11 @@
 
 The live repository README now serves the teaching edition's entrance.
 The checker's historical README input is the exact pinned
-[source-edition copy](source-edition/README-7d7e199.md.txt), independently
+[source-edition copy](source-edition/README-bbcc173.md.txt), independently
 checked against its original Git blob identity. This keeps old source
 citations stable while the reader gateway changes; the other source inputs
-still come from the supplied source root.
+come from the supplied source root, or a temporary snapshot read from the local
+pinned Git commit by the default checker. The older README copy remains retained.
 
 This manuscript checkpoint contains the first volume's complete draft paper
 route: entry/motivation guides, nineteen teaching chapters, ninety-five

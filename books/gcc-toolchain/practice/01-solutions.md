@@ -302,7 +302,8 @@ proof that the runtime was rebuilt during that invocation.
 
 At runtime, `_start` calls `__seed_init_runtime` and then `main`; `main`
 calls `answer`, receives seven, and returns seven. Startup passes it to
-Linux exit using RDI and syscall number 60. The initializer's `startup.o`
+the C exit wrapper using RDI; handlers and pending output precede
+_Exit’s syscall 60. The initializer's `startup.o`
 and the eager `start.o` must not be merged into one imagined artifact.
 
 **Rubric:** include source-to-object, support-byte-to-object, archive, link,
@@ -431,11 +432,11 @@ alignment, and C storage width. These are three different invariants.
 The questions and solutions use the chapter's exact-pin source contracts
 and explicitly illustrative placements. The changed unused-declaration rule
 comes from
-[`cc-om-export-needed?`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L421-L452).
+[`cc-om-export-needed?`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L426-L457).
 The four-byte absolute and relative rules come from
-[`lnk-relocation`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L448-L494).
+[`lnk-relocation`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L448-L494).
 Name resolution, rather than cross-file C signature checking, is visible in
-[the linker's symbol registration](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L260-L342).
+[the linker's symbol registration](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L260-L342).
 
 These are checked paper derivations, not executed fixture results. A
 supported solution, an independent attempt, and a later changed-context

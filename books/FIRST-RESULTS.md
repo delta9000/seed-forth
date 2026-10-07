@@ -251,7 +251,7 @@ chapter before continuing.
 ## Source and run status
 
 The Forth contracts come from the pinned seed's
-[`emit` and `bye`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L251-L276)
+[`emit` and `bye`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L251-L276)
 and the S1/S2 source-checked explanations. The C fixture uses the fresh
 legacy Linux/x86-64 profile: ordinary default hooks, `cc-target-lp64=0`,
 `cc-target-sysv=0`. Its exact construction and valid-input/capacity/loader
@@ -260,7 +260,7 @@ model, not a second observed executable.
 
 A runnable entrance still needs a verified starting seed, exact fixture
 files, clean reset and output capture, and an actual clean-start check. The
-pinned [build entry](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/build.sh)
+pinned [build entry](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/build.sh)
 requires an identified initial hex0 translator; it does not conjure one from
 source. Until those entrance checks are performed, this page promises a
 paper result, not a tested installation recipe.

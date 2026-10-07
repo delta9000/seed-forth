@@ -42,7 +42,7 @@ that GCC/toolchain
 “Direct” means that M2-Planet, pnut and TinyCC executables are not required
 compiler ancestors on this branch. It does not remove the frontend,
 calling convention, objects, linker, runtime, headers or generated-source
-work. The [direct compiler driver](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/gcc-direct-cc.py#L155-L242)
+work. The [direct compiler driver](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/gcc-direct-cc.py#L164-L254)
 selects the System V object profile; it does not invoke those intermediate
 compilers.
 
@@ -168,7 +168,7 @@ input. The recipe compares the resulting `cc-out-v2` with `cc-out-v2-fasm`.
 That is a well-defined replacement: named input, replaced service, output
 representation and acceptance rule. The later equality of `self-v2` and
 `self-v3` M1 text is a different claim. See the actual
-[replacement and later comparisons](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L222-L264).
+[replacement and later comparisons](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L222-L264).
 
 This short example belongs in the main narrative. Executing the complete M2
 route, studying its upstream compiler, and completing C20–C22's full assembler
@@ -203,7 +203,7 @@ then complete a relocation calculation; finally account for the joined
 program's producer chain. A clearly illustrative PC-relative field with
 `S=0x401090`, `P=0x401081`, `A=-4` gives `S+A-P=11`, hence four bytes
 `0B 00 00 00`. This is the
-[linker's stated formula](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/140-cc-link.fth#L464-L493),
+[linker's stated formula](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/140-cc-link.fth#L464-L493),
 not a claimed object dump from the proposed fixture.
 
 **Changed task:** use an eight-byte absolute pointer to the same symbol,
@@ -225,12 +225,12 @@ The direct driver loads common native support before selecting different
 providers. “Optional TinyCC” must therefore never mean “all native frontend
 code is optional.” The source shows specific reuse:
 
-- [Object-mode selection](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L436-L443)
+- [Object-mode selection](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L441-L448)
   enables System V; the object-program driver rejects a remaining
   runtime-initializer queue
-- [System V translation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L1256-L1265)
+- [System V translation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L1337-L1346)
   uses the shared native declaration machinery
-- [Object initializer handling](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L179-L181)
+- [Object initializer handling](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L178-L180)
   calls `cc-ni-value` from the shared initializer traversal
 
 G01 introduces the LP64/profile change. G03 owns shared declarations,
@@ -267,7 +267,7 @@ artifact's representation and consumer, then distinguish production tools
 from test support. The early `cc1` torture tests use host assembly/link and
 header support. Their success cannot be relabeled as a closed source-built
 output toolchain. The later
-[binutils and driver route](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/driver.py#L76-L169)
+[binutils and driver route](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/driver.py#L76-L169)
 provides the needed output tools. At the freestanding stage, do not infer
 host-header independence from a sample that includes no headers.
 
@@ -275,7 +275,7 @@ host-header independence from a sample that includes no headers.
 produces a temporary scanner; `flex-tmp` regenerates flex's scanner; the new
 scanner object replaces the old one before final flex is linked. Identify
 what changed and which downstream artifact used it. The
-[recipe](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/lexers.py#L116-L143)
+[recipe](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/lexers.py#L116-L143)
 is the source of the acceptance conditions; do not invent an equality gate
 merely because another bootstrap example had one.
 
@@ -292,7 +292,7 @@ taught before use and implementation exercises requiring their depth sessions.
 does agreement between later compiler builds tell us?
 
 Follow the
-[target-library and musl stage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-c.py#L164-L259)
+[target-library and musl stage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-c.py#L164-L259)
 to libgcc/libgcov/crt, an explicit musl sysroot and a selected static hosted
 program. The recipe installs musl source headers before compiler
 configuration; GCC subsequently builds target libraries, rather than
@@ -311,7 +311,7 @@ bridge, G22 hosted closure, and G23–G25 the rebuilding and comparison story.
 **Practice progression:** interpret a bounded comparison report. Distinguish
 equal ordinary files, equal-size but unequal files, archive containers whose
 member names/order/content agree, and a comparison that failed to run. The
-[Stage-D rules](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/stage-d.py#L99-L189)
+[Stage-D rules](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/stage-d.py#L99-L189)
 select actual installed files; the documented 54-file result is a recorded
 result, not a hardcoded gate for every run.
 
@@ -340,12 +340,12 @@ comparison does not prove general correctness, benign sources or Linux boot.
 | Kernels and Linux | Separate K01–K08 continuation | A TinyCC-lineage smoke or supplied-kernel handoff is not a direct-GCC-built Linux boot |
 
 The distinct pnut routes are visible in the
-[i386 comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/pnut/sf-pnut-check.sh#L80-L151)
-and [amd64 recipe](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/amd64.recipe#L10-L68).
-The [direct TinyCC recipe](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/tcc.recipe#L15-L87)
-and its [source-provenance account](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/REPRODUCIBLE.md#L589-L655)
+[i386 comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/pnut/sf-pnut-check.sh#L80-L151)
+and [amd64 recipe](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/amd64.recipe#L10-L68).
+The [direct TinyCC recipe](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tools/tcc.recipe#L15-L87)
+and its [source-provenance account](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/REPRODUCIBLE.md#L589-L655)
 keep source reuse separate from executable ancestry. The
-[K1 record](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/k1/README.md#L255-L281)
+[K1 record](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/k1/README.md#L255-L281)
 has its own lineage and limits. A direct-GCC kernel chapter needs its own
 kernel/configuration/image provenance and observed boot/userspace acceptance.
 

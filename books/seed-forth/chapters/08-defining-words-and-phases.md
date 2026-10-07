@@ -44,7 +44,7 @@ ordinary, non-immediate `:` and the whole-byte store in `immediate`; familiar
 Forth spellings do not guarantee familiar implementation details.
 
 **Edition and evidence.** We describe the Linux/x86-64 seed at
-[`7d7e1996d1753118181d43e1a413960d3a1ec24b`](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b).
+[`bbcc1732152af2d884737272eed870d2410ffe8e`](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e).
 Every trace is manually derived from inspected source, not an executed
 observation. Code excerpts explain existing definitions; assume their stated
 dependencies are available. Model addresses are not usable scratch locations
@@ -96,9 +96,9 @@ is the precise implementation contract behind Chapter 1's deferred literal.
 There is still no ordinary bare-number fallback in the outer loop.
 
 These decisions are visible in the pinned
-[`repl`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L664-L689),
-[`colon_code` and `semicolon_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L515-L549),
-and [`bracket_lit_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L577-L600).
+[`repl`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L664-L689),
+[`colon_code` and `semicolon_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L515-L549),
+and [`bracket_lit_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L577-L600).
 
 ## Give the name, header, and code different addresses
 
@@ -142,9 +142,9 @@ Thus, after defining `seven`, `' seven execute` has the same data effect
 as executing `seven`. Tick obtains the address; `execute` uses it. Passing
 a header address or a failed lookup's zero to `execute` violates the
 contract. Lookup and these primitives are in
-[`find_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L320-L360),
-[`execute_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L387-L396),
-and [`tick_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L506-L513).
+[`find_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L320-L360),
+[`execute_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L387-L396),
+and [`tick_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L506-L513).
 
 ## Change the newest word's flag
 
@@ -177,7 +177,7 @@ would be cleared; the inspected dispatcher only uses bit zero.
 In `: helper ... ; immediate`, the final `immediate` runs after `;` restores
 interpret mode, and marks the newest word, `helper`. `immediate` itself is
 ordinary, not immediate. The
-[source definition](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L180-L189)
+[source definition](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L180-L189)
 changes metadata that the outer loop will consult on later tokens.
 
 ## Emit a body that will push one value
@@ -226,7 +226,7 @@ but are not special syntax. Executing `ret,` writes a return opcode at
 HERE; that store does not itself return from the newly generated word.
 Executing `push-body,` consumes `v` while arranging a future push of `v`.
 These are different actions at different times. The
-[template and definitions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L191-L222)
+[template and definitions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L191-L222)
 are the evidence for the count and behavior.
 
 ## Phase 1: make `constant` itself
@@ -385,8 +385,8 @@ The exact mathematical displacement must fit signed 32 bits:
 `-2147483648` through `2147483647`. `,4` writes low bits; it does not check
 that range. A farther target can silently encode the wrong destination.
 Assume a suitable executable target and a valid return-stack contract too.
-The library's [`call,`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L224-L234)
-and the seed's internal [`compile_call`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L551-L561)
+The library's [`call,`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L224-L234)
+and the seed's internal [`compile_call`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L551-L561)
 implement the same five-byte layout.
 
 ## Put a literal cell after a call, then skip it
@@ -396,7 +396,7 @@ cell at HERE and advance HERE by eight. Its final payload and cursor effect
 match `,8` in this profile; it is a direct cell store rather than the
 library's sequence of byte stores. It differs from `c,`, which writes one
 byte. The punctuation names `,`, `,8`, and `c,` designate separate words.
-See [`comma_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L373-L385).
+See [`comma_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L373-L385).
 
 Suppose a call to `lit` starts at model address `A`:
 
@@ -415,7 +415,7 @@ Older return-stack entries remain underneath this temporary destination.
 This is a calling-layout contract, not permission to call `lit` arbitrarily:
 the caller must provide the eight-byte cell immediately after the call.
 An ordinary `execute` of its xt does not supply that layout. The inspected
-[`lit_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L563-L575)
+[`lit_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L563-L575)
 rewrites exactly this return destination. `[lit]`'s 13-byte compile-time
 product now has a fully stated runtime explanation.
 
@@ -497,9 +497,9 @@ comment marker. The word “exactly” matters: `char (x` can obtain the first
 byte 40 because `(x` is not the single-token comment marker `(`. That
 does not make whitespace into a token. The helper definitions and named
 constants are at
-[`010-lib.fth`, lines 236–263](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L236-L263);
+[`010-lib.fth`, lines 236–263](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L236-L263);
 the reader's exact-marker rules are in
-[`read_word`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L398-L451).
+[`read_word`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L398-L451).
 
 ## Practice
 

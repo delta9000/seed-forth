@@ -333,9 +333,9 @@ with [Return stack and shuffles](04-return-stack-and-shuffles.md).
 ## Source and evidence
 
 The definitions of `and`, `or` and `-` are excerpts from
-[`010-lib.fth`, lines 25–42](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L25-L42).
+[`010-lib.fth`, lines 25–42](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L25-L42).
 The primary primitive evidence is
-[`nand_code` and `zeq_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L200-L222),
+[`nand_code` and `zeq_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L200-L222),
 with addition in `plus_code` immediately before them. The symbolic and numeric
 arguments above are derived from those inspected contracts. No source file
 was changed and no seed execution is claimed. Full scope is in the

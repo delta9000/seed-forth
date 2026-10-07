@@ -120,7 +120,7 @@ boundary, and the third supplies a starting step.
 
 1. Language arithmetic and library formatting are separate providers.
 2. Read the supported conversion cases.
-3. Floating formatting belongs to the later musl product rather than this formatter.
+3. The separate floatfmt provider supplies double/extended80 conversions at this pin.
 
 ### Hints for G13-07
 
@@ -216,7 +216,8 @@ integer.
 The original question asks: May printf use %f merely because double arithmetic
 is implemented?
 
-No. The bounded formatter rejects floating conversions.
+Arithmetic alone is insufficient evidence, but this pin supplies a separate
+exact floating formatter. %f takes a promoted double; %Lf takes long double.
 
 **Check your explanation:** Language arithmetic and library formatting are
 separate providers. A matching final answer without that reason leaves the
@@ -225,8 +226,8 @@ first, then locate the first transition at which your model departs from the
 chapter.
 
 **Common wrong path:** using later hosted output to broaden seed printf support.
-Floating formatting belongs to the later musl product rather than this
-formatter.
+Both the seed formatter and later musl product supply floating output under
+their respective contracts.
 
 ### Solution G13-07 — Report an observed write
 

@@ -43,7 +43,7 @@ exactly. Beginning at 18 would require end 22 and fails. A BSS reservation
 cannot host this relocation: there are no file-backed bytes to patch there.
 
 Sources: [relocation width, ownership and
-bounds](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L297-L330).
+bounds](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L297-L330).
 
 ## Reserve storage without inventing file bytes
 
@@ -67,7 +67,7 @@ expression's signed overflow. The constant evaluator and relocation consumer
 have separate checks.
 
 Sources: [section cursors, reservation, alignment and
-patching](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L150-L222).
+patching](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L150-L222).
 
 ## Keep two stable identities before numbering the file
 
@@ -92,11 +92,11 @@ translates it to that final index. Rearranging the symbol table must not
 rearrange a call's meaning.
 
 Sources: [persistent object
-records](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L28-L104),
+records](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L28-L104),
 [storage, export and
-calls](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L414-L457),
+calls](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L419-L462),
 [copied symbol names and
-definitions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L224-L296).
+definitions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L224-L296).
 
 ## Let one reorder expose the distinction
 
@@ -118,7 +118,7 @@ field is `FC FF FF FF FF FF FF FF`. The original zero call field is not an
 implicit addend.
 
 Sources: [local-first symbols and RELA
-serialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L370-L410).
+serialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L370-L410).
 
 ## Build the envelope after the records agree
 
@@ -142,9 +142,9 @@ excludes arbitrary sections, TLS, COMDAT, dynamic linkage and exception-unwind
 machinery.
 
 Sources: [section metadata
-initialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L331-L358),
+initialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L331-L358),
 [object envelope and build
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L411-L450).
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L411-L450).
 
 ## Bound each resource separately
 
@@ -167,9 +167,9 @@ Keep the original source assumptions about valid readable name spans and bounded
 input; a checked count is not a universal memory-safety proof.
 
 Sources: [independent workspaces and
-capacities](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L32-L125),
+capacities](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L32-L125),
 [adapter record
-capacity](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L7-L32).
+capacity](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L7-L32).
 
 ## Publish only a complete object
 
@@ -191,7 +191,7 @@ will validate the stored object as a consumer rather than trusting its
 producer's intention.
 
 Sources: [temporary ownership and
-publication](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L451-L507).
+publication](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L451-L507).
 
 ## Walk the record through three owners
 
@@ -225,13 +225,13 @@ that reader. The file is an interface between independently running tools, not a
 memory image of the compiler's tables.
 
 Sources: [persistent object
-records](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L28-L104),
+records](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L28-L104),
 [storage, export and
-calls](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L414-L457),
+calls](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L419-L462),
 [copied symbol names and
-definitions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L224-L296),
+definitions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L224-L296),
 [local-first symbols and RELA
-serialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L370-L410).
+serialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L370-L410).
 
 ## Reconcile the section ledger
 
@@ -263,11 +263,11 @@ writing a zero-filled payload. G05 will carry the extent into an executable
 segment whose memory size can exceed its file size.
 
 Sources: [section cursors, reservation, alignment and
-patching](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L150-L222),
+patching](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L150-L222),
 [section metadata
-initialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L331-L358),
+initialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L331-L358),
 [object envelope and build
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L411-L450).
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L411-L450).
 
 ## Plan an observation that can disagree
 
@@ -294,7 +294,7 @@ Keep a format check and a publication check as separate entries in the eventual
 record.
 
 Sources: [temporary ownership and
-publication](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L451-L507).
+publication](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L451-L507).
 
 ## Change one record, then ask which consumer notices
 
@@ -345,13 +345,13 @@ reached consumer validation. Those are different experiments even when both
 concern the same four-byte field.
 
 Sources: [persistent object
-records](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L28-L104),
+records](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L28-L104),
 [storage, export and
-calls](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L414-L457),
+calls](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/123-cc-object-program.fth#L419-L462),
 [copied symbol names and
-definitions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L224-L296),
+definitions](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L224-L296),
 [local-first symbols and RELA
-serialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/081-cc-object.fth#L370-L410).
+serialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/081-cc-object.fth#L370-L410).
 
 ## Stop, then change the boundary
 

@@ -42,9 +42,9 @@ cannot choose that public value universally: mmap needs MAP_FAILED, while
 descriptor functions commonly need −1.
 
 Sources: [raw register
-bridge](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L1-L33),
+bridge](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L1-L33),
 [public error
-translation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/mapping.c#L6-L38).
+translation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/mapping.c#L6-L38).
 
 ## Give errno its own storage
 
@@ -60,33 +60,31 @@ previous error. Single-threaded storage is not thread-local storage and must not
 be presented as a multithreaded runtime guarantee.
 
 Sources: [errno object and address
-relocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L35-L54).
+relocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L35-L54).
 
 ## Make the first call before there is a C caller
 
-The runtime-aware start.o exports _start and contains two unresolved calls, to
-__seed_init_runtime and main. It reads argc and the argv address from the
-initial Linux stack before alignment. It aligns RSP and pushes those two inputs
-so initialization cannot destroy them, calls the initializer, restores them,
-sets the vector count to zero and calls main.
+The runtime-aware start.o exports _start and contains three unresolved calls:
+__seed_init_runtime, main and exit. It saves argc/argv around initialization,
+then computes envp=argv+argc+1 in RDX, clears the vector count and calls main.
 
 The initializer’s ordinary C source sets the program basename and environment
 pointer. Its archive member is startup.o, distinct from the Forth-built start.o.
 Default linking supplies start.o eagerly and selects startup.o when its
-initializer is demanded. main’s return passes to RDI and syscall 60; this path
-does not call the C exit wrapper.
+initializer is demanded. main’s return passes to RDI and the C exit wrapper. Its relocation fields
+start at text offsets 16, 30 and 38, each with addend −4.
 
 The smaller raw startup object calls main directly and is 32 bytes, while the
-runtime-aware one is 41. Choosing the smaller builder changes the startup
+runtime-aware one is 44. Choosing the smaller builder changes the startup
 contract. Matching the exported name _start cannot establish that both perform
 initialization.
 
 Sources: [raw
-startup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L56-L81),
+startup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L56-L81),
 [runtime-aware
-startup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L103-L133),
+startup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L103-L139),
 [C
-initializer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/startup.c#L1-L25).
+initializer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/startup.c#L1-L25).
 
 ## Ask for a frame, not an arbitrary backtrace
 
@@ -106,9 +104,9 @@ allocation or callback execution. Preserve both the target-specific repair and
 that evidence boundary.
 
 Sources: [parent-frame
-leaf](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L83-L93),
+leaf](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L83-L93),
 [C_alloca adapter and recorded
-failure](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L320-L350).
+failure](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L344-L374).
 
 ## Return through the owner of the saved state
 
@@ -129,21 +127,21 @@ environment. A frame that has already returned is not a valid destination;
 changing register bytes does not recreate its lifetime.
 
 Sources: [signal-return
-leaf](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L95-L101),
+leaf](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L95-L101),
 [setjmp and longjmp
-state](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L135-L181).
+state](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L141-L187).
 
 ## Keep termination policies visible
 
-The C exit function repeatedly requests syscall 60 with the low status byte and
-cannot turn a denied request into an ordinary return. abort first tries SIGABRT
-with the installed disposition, then resets it and retries, falling back to
-exit(134) if delivery fails. These are C runtime policies above the raw bridge.
+The C exit function removes and runs handlers newest first, then calls the
+stdio flush hook and _Exit. The fixed handler table has 64 slots. _Exit repeatedly
+requests syscall 60 with the low status byte. abort tries SIGABRT with the
+installed disposition, resets it and retries, then falls back to _Exit(134)
+without handlers or a flush. These are policies above the raw bridge.
 
-The runtime documents unbuffered stream writes and no atexit callbacks for this
-exit contract. Do not import a full hosted exit-handler sequence into G01’s
-direct startup syscall. Signal termination, ordinary exit status and printed
-bytes remain different outputs.
+Returning from main now follows the ordinary exit-handler and buffered-output
+path. The smaller raw startup still uses a direct exit syscall. Signal
+termination, ordinary exit status and printed bytes remain different outputs.
 
 The support objects provide syscall, errno, startup, frame, signal-return and
 nonlocal-return services. Their production by Forth is independent from their
@@ -152,7 +150,7 @@ the actual live-stack/signal assumptions, rather than count matching exported
 names.
 
 Sources: [exit and abort
-policy](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/process.c#L5-L42).
+policy](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/process.c#L7-L94).
 
 ## Translate an interface rather than copying registers
 
@@ -183,11 +181,11 @@ so a program must use the operation's result to decide whether errno is
 relevant.
 
 Sources: [raw register
-bridge](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L1-L33),
+bridge](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L1-L33),
 [public error
-translation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/mapping.c#L6-L38),
+translation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/mapping.c#L6-L38),
 [errno object and address
-relocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L35-L54).
+relocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L35-L54).
 
 ## Read the first stack before main's frame exists
 
@@ -210,11 +208,11 @@ providing argc, argv, environment and errno has obligations that the no-libc
 example intentionally avoids.
 
 Sources: [raw
-startup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L56-L81),
+startup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L56-L81),
 [runtime-aware
-startup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L103-L133),
+startup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L103-L139),
 [C
-initializer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/startup.c#L1-L25).
+initializer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/startup.c#L1-L25).
 
 ## Resume a continuation with an explicit contract
 
@@ -238,13 +236,13 @@ should exercise each contract separately; successful startup alone would not
 validate nonlocal control or signal restoration.
 
 Sources: [parent-frame
-leaf](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L83-L93),
+leaf](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L83-L93),
 [C_alloca adapter and recorded
-failure](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L320-L350),
+failure](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L344-L374),
 [signal-return
-leaf](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L95-L101),
+leaf](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L95-L101),
 [setjmp and longjmp
-state](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L135-L181).
+state](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L141-L187).
 
 ## Keep a runtime object census beside the first call
 
@@ -258,7 +256,7 @@ nonlocal return each restore state owned under a different contract.
 |---|---|---|
 | Raw syscall bridge | Prepared C inputs and kernel interface | Raw kernel result returned |
 | errno accessor | Its own aligned BSS storage | Pointer to that int supplied |
-| Runtime-aware entry | Initial stack and initializer provider | main result passed to exit syscall |
+| Runtime-aware entry | Initial stack and initializer provider | main result passed to C exit |
 | Parent-frame leaf | Fixed RBP frame chain | Saved parent frame read |
 | Signal return | Kernel-owned signal frame | Kernel resumes interrupted state |
 | Nonlocal return | Still-live saved continuation | setjmp site resumes with normalized result |
@@ -290,19 +288,19 @@ ABI. Its numerical examples and saved-state descriptions were inspected and
 derived, not run as new runtime tests.
 
 Sources: [raw register
-bridge](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L1-L33),
+bridge](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L1-L33),
 [public error
-translation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/mapping.c#L6-L38),
+translation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/mapping.c#L6-L38),
 [errno object and address
-relocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L35-L54),
+relocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L35-L54),
 [parent-frame
-leaf](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L83-L93),
+leaf](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L83-L93),
 [C_alloca adapter and recorded
-failure](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L320-L350),
+failure](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L344-L374),
 [signal-return
-leaf](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L95-L101),
+leaf](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L95-L101),
 [setjmp and longjmp
-state](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L135-L181).
+state](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L141-L187).
 
 ## Let one initialized global connect startup and archives
 
@@ -343,7 +341,7 @@ The chapter's startup trace is inspected source and supplied state. It gives a
 reader enough to identify the real first caller and its inputs while leaving
 actual process capture and failure checks open.
 
-Sources: [raw startup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L56-L81), [runtime-aware startup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L103-L133), [C initializer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/runtime/gcc-seed/startup.c#L1-L25), [parent-frame leaf](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/122-cc-sysv-runtime.fth#L83-L93), [C_alloca adapter and recorded failure](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/gcc-direct/README.md#L320-L350).
+Sources: [raw startup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L56-L81), [runtime-aware startup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L103-L139), [C initializer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/runtime/gcc-seed/startup.c#L1-L25), [parent-frame leaf](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/122-cc-sysv-runtime.fth#L83-L93), [C_alloca adapter and recorded failure](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/gcc-direct/README.md#L344-L374).
 
 ## Stop, then change the boundary
 

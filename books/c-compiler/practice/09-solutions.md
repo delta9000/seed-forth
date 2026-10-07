@@ -2,7 +2,7 @@
 
 [Return to the chapter](../chapters/09-instructions-inside-an-executable.md#practice-bytes-state-and-boundaries)
 
-These are manually checked byte/state derivations from the pinned [080 executable emitter](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/080-cc-elf.fth) and [090 instruction emitters](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth). They are not compiler-output observations or execution tests. The chapter's valid-memory, bounded-input, and profile assumptions apply. Byte strings below are manual compositions, with lower-address bytes first; logical stack top is at the right.
+These are manually checked byte/state derivations from the pinned [080 executable emitter](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/080-cc-elf.fth) and [090 instruction emitters](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/090-cc-emit.fth). They are not compiler-output observations or execution tests. The chapter's valid-memory, bounded-input, and profile assumptions apply. Byte strings below are manual compositions, with lower-address bytes first; logical stack top is at the right.
 
 Try the exercise before opening its solution if that serves your goal. Use as much help as you need. The changed-case answers are separated at the end so a retry can begin from the answer-free prompts in the chapter. Correct results should include the stated reasoning; accidental agreement on one number is insufficient to diagnose a wrong coordinate or width.
 

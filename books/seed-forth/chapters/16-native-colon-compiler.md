@@ -32,7 +32,7 @@ Experienced readers can attempt S16-02 and S16-04 first, then use the
 listings to explain any discrepancy.
 
 **Evidence boundary.** This is a static audit of the Linux/x86-64 seed at
-[revision 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b).
+[revision bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e).
 The listings were compared with the source bytes and bounded GNU objdump
 2.44 disassembly. Traces and generated layouts are checked manual
 derivations, not observed executions. No seed execution or build is needed.
@@ -106,7 +106,7 @@ not add three to the compiling 99.
 
 ## Colon: preserve the name and restore the old data stack
 
-The [complete `colon_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L520-L536)
+The [complete `colon_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L520-L536)
 is 82 bytes. Symbolic system-cell operands abbreviate fixed addresses:
 STATE=`0x413000`, LATEST=`0x413008`, HERE=`0x413010`.
 
@@ -198,7 +198,7 @@ bit. A valid-looking header is not evidence of a callable completed word.
 
 ## compile_call: emit a distance, then consume only the xt
 
-The [38-byte helper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L551-L562)
+The [38-byte helper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L551-L562)
 is not a dictionary word. The outer loop's ordinary compile path and
 `[lit]` share it. Its contract is `( prefix xt -- prefix )`, with five
 bytes appended at HERE. It does not read STATE or modify LATEST.
@@ -250,7 +250,7 @@ bytes is not a proof that the sign-extended result reaches the requested
 
 ## lit: turn its return address into an inline-data address
 
-The [18-byte `lit_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L568-L575)
+The [18-byte `lit_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L568-L575)
 does not parse a number or inspect STATE. Its caller must provide an
 eight-byte value immediately after the CALL, followed by valid continuation
 code. That is a **call-site contract**, additional to the stack effect
@@ -299,7 +299,7 @@ to an ordinary compiled call to `lit` without its eight-byte payload.
 
 ## [lit]: choose between a present value and future code
 
-The [64-byte immediate body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L582-L600)
+The [64-byte immediate body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L582-L600)
 reads the following token itself. Here we use bounded interfaces:
 `read_word` preserves the prefix and pushes address/length;
 `parse_decimal_code` replaces those with value/flag, also preserving the
@@ -380,7 +380,7 @@ how many source characters each word contains.
 
 ## Semicolon: append a return, then leave compile mode
 
-The [35-byte `semicolon_code`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L543-L549)
+The [35-byte `semicolon_code`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L543-L549)
 is immediate, so the outer loop executes it while building `lift`:
 
 ```text

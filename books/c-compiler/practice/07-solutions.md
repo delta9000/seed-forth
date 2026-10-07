@@ -53,7 +53,7 @@ With legacy selected, `cc-integer-literal-type` itself takes its early branch: n
 
 **Wrong path to diagnose.** Giving decimal and hexadecimal spellings one type because their values match discards inspected input. Giving LL a long type because both are eight bytes discards rank information.
 
-**Changed case.** For valid LP64 `9223372036854775808LL`, division by 2^63 equals one. Even without U, the long-long branch selects `ty-ullong`, word `16*65536 = 1048576`, size eight. Unsuffixed decimal at that value instead selects `ty-ulong`, word 786432. These are the source's bounded typing decisions, including its stated extension; no overflow or full-language proof is inferred.
+**Changed case.** For valid LP64 `9223372036854775808LL`, division by 2^63 equals one. Even without U, the long-long branch selects `ty-ullong`, word `16*65536 = 1048579`, size eight. Unsuffixed decimal at that value instead selects `ty-ulong`, word 786432. These are the source's bounded typing decisions, including its stated extension; no overflow or full-language proof is inferred.
 
 ## C7-03 — Separate three kinds of bytes
 

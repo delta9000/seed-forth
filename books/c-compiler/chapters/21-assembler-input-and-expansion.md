@@ -27,7 +27,7 @@ The names `jump` and `nop` acquire their meanings from the two declarations we s
 
 Before following the walk, predict which items disappear, which are copied, and which grow. Write a rough expanded line; leave the `!` references unresolved. If the distinction between text and bytes is rusty, check one small fact first: `4142` contains four text characters but describes two bytes.
 
-Our results are paper derivations from [`130-asm.fth` at the book's pinned revision](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth). They are not reports of new runs. We use the Linux/AMD64 seed's 64-bit cells and byte-addressed memory. Nothing in this first walk depends on knowing the eventual target addresses.
+Our results are paper derivations from [`130-asm.fth` at the book's pinned revision](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth). They are not reports of new runs. We use the Linux/AMD64 seed's 64-bit cells and byte-addressed memory. Nothing in this first walk depends on knowing the eventual target addresses.
 
 ## The first two lines save slices, not instructions
 
@@ -52,7 +52,7 @@ The expanded buffer is still empty. Neither the word `DEFINE` nor any of these s
 
 These are **M1 definition records**, not Forth dictionary words. The Forth implementation has a word named `asm-def-store` that writes a record. Reading `DEFINE jump EB` does not teach the Forth interpreter a callable word named `jump`. The assembler is now reading assembly input as data.
 
-Source: [definition storage and lookup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L621-L660).
+Source: [definition storage and lookup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L621-L660).
 
 ## Follow the third line without solving its address
 
@@ -84,7 +84,7 @@ After the third line the expanded text is therefore:
 
 The three source characters in `"A"` have contributed six expanded text characters, `41 00 `, describing two eventual bytes. This is the representation change that an unexplained phrase such as “copy the string” would hide.
 
-Source: [direct double-quote translation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L696-L715) and [the expansion dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L729-L762).
+Source: [direct double-quote translation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L696-L715) and [the expansion dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L729-L762).
 
 ## Finish the same walk
 
@@ -144,7 +144,7 @@ Return to the first definition record. Its pointer to `EB` was safe because the 
 
 The assembler's Forth vocabulary depends on the seed and `010-lib.fth`; it does not import the C-compiler layers. The intended load order is a **fresh seed process**, then 010, then 130. At 130's start, `skip-vm-pages` assigns Forth's allocation pointer, HERE, to **0x414000**. This puts subsequent large allocations above the seed's fixed runtime pages, including the data stack, I/O scratch, token buffer, and system variables.
 
-The assignment is not “advance beyond whatever was previously allocated.” The [010 definition](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L379-L391) stores one fixed address and requires HERE still to be below the data-stack region when called. Loading 130 after the whole compiler could rewind allocation into occupied storage. Treat the assembler as its own small program, not a harmless extra layer appended to C20's compiler stream.
+The assignment is not “advance beyond whatever was previously allocated.” The [010 definition](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L379-L391) stores one fixed address and requires HERE still to be below the data-stack region when called. Loading 130 after the whole compiler could rewind allocation into occupied storage. Treat the assembler as its own small program, not a harmless extra layer appended to C20's compiler stream.
 
 Loading 130 defines `asm-main`; it does **not** invoke it. The caller supplies that invocation explicitly. The relevant stream boundary is:
 
@@ -158,13 +158,13 @@ remaining M1/hex2 input bytes
 
 This is a stream diagram, not a shell command. The newline separates the Forth invocation token from the assembly data. When `asm-main` runs, `asm-load-stdin` reads the remaining standard input as raw assembly text. The default target base is **0x600000**; a caller can replace that value before invocation. The target base is an address assigned to eventual output bytes, not either buffer's Forth-process address. Supplying a base also does not create an ELF header. C22 will follow the later driver and the explicitly supplied header input.
 
-Source: [standalone dependency and allocation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L1-L65), [base initialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L163-L174), and [caller/driver boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L767-L785).
+Source: [standalone dependency and allocation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L1-L65), [base initialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L163-L174), and [caller/driver boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L767-L785).
 
 ### Read the cells and bytes in the implementation
 
 For the source excerpts below, Forth stack top is at the right. A stack comment `( addr len -- )` means the word consumes an address and length and returns no values. `@` fetches a 64-bit cell; `!` stores one. `c@` fetches one byte; `c!` stores the low byte. `+!` adds to a stored cell. `>r` temporarily moves a value to the return stack, `r@` copies it without removing it, and `r>` retrieves it. None of these Forth operations is the assembly token `!end`; the two languages are being read at different times.
 
-`create` gives a data area a Forth name; `allot` reserves additional bytes without initializing them. A `variable` supplies a cell. `[lit]` and `[char]` put literal values into the implementation; they are not syntax that the assembly-input number parser accepts. These are the local contracts needed from [010's storage vocabulary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L379-L402).
+`create` gives a data area a Forth name; `allot` reserves additional bytes without initializing them. A `variable` supplies a cell. `[lit]` and `[char]` put literal values into the implementation; they are not syntax that the assembly-input number parser accepts. These are the local contracts needed from [010's storage vocabulary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L379-L402).
 
 The two storage triples are:
 
@@ -173,7 +173,7 @@ The two storage triples are:
 | Raw input | `asm-src-buf` | `asm-src-cap` = 4,194,304 | `asm-src-len` |
 | Expanded text | `asm-exp-buf` | `asm-exp-cap` = 4,194,304 | `asm-exp-len` |
 
-Both capacities are four mebibytes, or 4 × 1,048,576 bytes. Lengths count **bytes**, not tokens, definitions, or eventual machine instructions. Neither buffer is a NUL-terminated string. The length controls when reading stops. In particular, the characters `00` in expanded text are not a terminator for that text buffer.
+Both capacities are four mebibytes, or 4 × 1,048,579 bytes. Lengths count **bytes**, not tokens, definitions, or eventual machine instructions. Neither buffer is a NUL-terminated string. The length controls when reading stops. In particular, the characters `00` in expanded text are not a terminator for that text buffer.
 
 ### One reader, two selected buffers
 
@@ -197,7 +197,7 @@ The three character words turn that state into a small interface:
 
 For example, after selecting raw text `90` of length two, the initial position is zero. Two guarded calls to `asm-next-char` return ASCII `9` then ASCII `0` and leave position two. `asm-eof?` is now true. A peek returns zero and leaves position two. An unguarded next would return zero and leave position three; it would not discover another input character.
 
-Source: [buffer selection and cursor primitives](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L55-L113).
+Source: [buffer selection and cursor primitives](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L55-L113).
 
 ### Capacity means the proposed next length
 
@@ -214,7 +214,7 @@ The loader's one unused slot is not documented here as a stored NUL sentinel; th
 
 Every ordinary expansion separator passes through `asm-exp-emit-byte`, too. If a two-character body fits but its separator does not, the expansion can fail at that final append. The code checks individual appends; it does not preflight an entire token and roll back partially appended text.
 
-Source: [`asm-check-cap`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L47-L53), [input loading](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L85-L97), and [expanded-byte append](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L115-L119).
+Source: [`asm-check-cap`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L47-L53), [input loading](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L85-L97), and [expanded-byte append](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L115-L119).
 
 ## Later session: find the actual token boundaries
 
@@ -228,7 +228,7 @@ Outside a quoted token, either `#` or `;` begins a comment. `asm-skip-rest-of-li
 
 `asm-read-bareword` stops **before** whitespace, `#`, or `;`. That makes a comment marker work immediately after a bare token: `90#note` returns `90` first; the next call skips `#note`. No separating space is required.
 
-Source: [010's whitespace predicate](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L93-L95) and [the comment/bareword loops](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L309-L352).
+Source: [010's whitespace predicate](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L93-L95) and [the comment/bareword loops](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L309-L352).
 
 ### A quote gets its special role at token start
 
@@ -255,7 +255,7 @@ The three returned token slices are `90` of length two, `"A;B"` of length five, 
 
 The result's last two hex tokens came from the contents of one single-quoted raw token. Token boundaries need not be preserved across the transformation.
 
-Source: [quoted and bare scans and the dispatch between them](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L329-L368).
+Source: [quoted and bare scans and the dispatch between them](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L329-L368).
 
 ### Matching delimiters are a premise, not a diagnosed guarantee
 
@@ -292,7 +292,7 @@ The record's fields are:
 
 For our record 0, the value at offset 0 is R+7, not the letters `jump` and not an instruction address. The value at offset 16 is R+12. Seeing four cells written does not imply that any pointed-to letters were copied.
 
-Source: [record constants, allocation, addressing, and storage](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L621-L638).
+Source: [record constants, allocation, addressing, and storage](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L621-L638).
 
 ### Search backward through what exists now
 
@@ -323,7 +323,7 @@ The first token has no match and is copied as `jump `. The last contributes `EB 
 
 A missing expansion is not always visibly rejected. In `FACE DEFINE FACE 90 FACE`, the first `FACE` is copied and the last becomes `90`; the expansion is `FACE 90 `. Because `FACE` is already a valid even-length hexadecimal spelling, it can become bytes FA CE. A misspelled or undefined macro-looking name can therefore survive as literal bytes if its spelling happens to fit the byte grammar.
 
-Source: [reverse definition lookup](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L640-L660), [010's exact-byte comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L453-L469), and [later bare-hex validation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L543-L559).
+Source: [reverse definition lookup](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L640-L660), [010's exact-byte comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L453-L469), and [later bare-hex validation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L543-L559).
 
 ### Dispatch once, then move on
 
@@ -368,7 +368,7 @@ The declaration stores a four-byte body slice including its quotes. Using `x` co
 
 This is a distinction between **token reading** and **token meaning**. The later reader reuses the quote-aware scanner, but does not thereby rerun the earlier expander. Direct quotes receive special meaning only when `asm-expand-pass` itself encounters them in raw input. Likewise, `DEFINE` or quote-starting names cannot override the higher-priority dispatch cases merely by appearing in the definition table.
 
-Source: [keyword storage and recognition](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L662-L671), [expansion loop](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L729-L762), and [later token dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L581-L594).
+Source: [keyword storage and recognition](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L662-L671), [expansion loop](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L729-L762), and [later token dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L581-L594).
 
 ## Later session: open the two copy operations
 
@@ -399,7 +399,7 @@ Even empty bodies differ. Direct `""` contributes `00 `, length three; direct `'
 
 These loops operate on **bytes**, not Unicode code points. If a body contains a multibyte text encoding, each encoded byte is processed separately. There is no decoding or escape-language layer hidden inside `asm-hex-digit`.
 
-Source: [copy scratch and unchanged-byte copying](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L673-L686), [hexadecimal character generation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L688-L694), and [both string handlers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L696-L727).
+Source: [copy scratch and unchanged-byte copying](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L673-L686), [hexadecimal character generation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L688-L694), and [both string handlers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L696-L727).
 
 ## Later session: decide what a number means before parsing it
 
@@ -439,7 +439,7 @@ For example:
 
 The last row is not a supported number. It demonstrates why “classified numeric” cannot mean “validated numeric.” Similarly, declaring a label whose spelling begins with a digit or `-` does not make it safely referenceable through these sigils: the reference would be sent to number parsing instead of label lookup. Use names beginning with another suitable nonseparator character for the examples here.
 
-Source: [current-token staging and numeric classification](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L370-L388).
+Source: [current-token staging and numeric classification](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L370-L388).
 
 ### Convert digits only under a valid-input contract
 
@@ -451,7 +451,7 @@ This direction is the inverse of the earlier `asm-hex-digit` for valid digit val
 
 The later bare-hex path does validate its token's characters before converting pairs. The number parser's hexadecimal branch calls `hex-val` **without** first calling `asm-hex-char?`. Do not transfer the bare-token validator's guarantees to that different call site.
 
-Source: [digit recognition and conversion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L212-L234) and [010's unsigned digit test](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L77-L81).
+Source: [digit recognition and conversion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L212-L234) and [010's unsigned digit test](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L77-L81).
 
 ### Trace the whole number parser
 
@@ -488,7 +488,7 @@ Neither branch validates every character, requires a digit after a sign or prefi
 
 The parser returns a cell value. It does not write an output field, choose a width, look up a label, or subtract an instruction address. For numeric forms, the later handler uses this value as an immediate. Field-width policy and storage of its low bytes belong to C22.
 
-Source: [all numeric-parser state and branches](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L236-L293) and [010's comparison domain](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L123-L136).
+Source: [all numeric-parser state and branches](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L236-L293) and [010's comparison domain](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L123-L136).
 
 ## The boundary we hand to the next chapter
 
@@ -515,7 +515,7 @@ This is a bounded AMD64-oriented grammar. It does not promise padding directives
 
 These limits do not amount to universal malformed-input rejection. Some malformed forms are diagnosed by later checks, some take unchecked parser paths, and an undefined even-length hex-looking name can be valid literal data. The source's compatibility and comparison comments motivate the implementation; C22 will identify the actual finite comparisons and what each establishes.
 
-Source: [the declared scope](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L1-L38), [field interface](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L474-L490), and [bare-token whole-pair requirement](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L543-L579).
+Source: [the declared scope](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L1-L38), [field interface](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L474-L490), and [bare-token whole-pair requirement](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L543-L579).
 
 ## Practice: preserve the representation boundary
 

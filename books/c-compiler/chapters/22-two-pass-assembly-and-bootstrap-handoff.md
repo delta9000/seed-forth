@@ -12,7 +12,7 @@ We will finish that seven-byte puzzle before putting the assembler into the boot
 
 You need C21's distinction between raw and expanded text and C19's distinction between a file offset and a target address. Here is a quick recovery check: two hex characters such as `41` describe one output byte; `:end` names a position but emits no byte. If either step is uncertain, keep those two rules beside the first table. No additional shell syntax or upstream compiler internals are needed for the first session.
 
-All new traces in this chapter are source-derived predictions, not results of running the examples. The implementation is [`130-asm.fth` at the book's pinned revision](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth). Existing remote test evidence is identified separately below.
+All new traces in this chapter are source-derived predictions, not results of running the examples. The implementation is [`130-asm.fth` at the book's pinned revision](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth). Existing remote test evidence is identified separately below.
 
 ## First find positions, without filling the fields
 
@@ -40,7 +40,7 @@ At the end, IP is `0x600007`. The table contains two names and target addresses.
 
 This is a different solution to forward references from C10's patch lists. A patch list saves output locations for later repair. Here the input stays available, so a second walk can resolve each reference against a completed table. The tradeoff is another walk and storage for the expanded input.
 
-Source: [`asm-do-label-decl`, first-pass reference counting, and bare-hex counting](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L403-L579).
+Source: [`asm-do-label-decl`, first-pass reference counting, and bare-hex counting](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L403-L579).
 
 ## Rewind the reading position, keep the discoveries
 
@@ -59,7 +59,7 @@ It deliberately does **not** call `asm-init` again. That word resets both IP and
 
 The distinction matters even for backward references. Every pass-2 lookup sees the completed first-pass table, not only declarations already revisited on the second walk. Label declarations do nothing in pass 2, so the table is not populated twice.
 
-Sources: [`asm-reset-pos`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L83) and [the actual reset sequence in `asm-main`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L767-L781).
+Sources: [`asm-reset-pos`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L83) and [the actual reset sequence in `asm-main`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L767-L781).
 
 ## Fill the forward field from its end
 
@@ -103,7 +103,7 @@ byte:   EB 02 41 00 90 EB F9
 
 Seven described bytes have become seven predicted output bytes. No ELF header has appeared. `130` emits what the input describes; it does not surround arbitrary input with an executable envelope.
 
-Source: [`asm-do-ref` subtracts IP plus width before emission](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L496-L517).
+Source: [`asm-do-ref` subtracts IP plus width before emission](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L496-L517).
 
 ## Why both walks agree at each token boundary
 
@@ -189,7 +189,7 @@ At base `0x600000`, `a` is at offset 0 and `end` is at offset 16:
 
 Changing the last reference to `%end` would use `16−(12+4)=0`. Changing `$258` to `$a` would fail: the absolute address `0x600000` is too large for this two-byte label field. Both changed inputs still have the same first-pass size. Knowing where everything goes is different from knowing that every requested value is accepted.
 
-Sources: [reference handlers and explicit-base scanner](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L376-L541) and [first-character dispatch](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L584-L594).
+Sources: [reference handlers and explicit-base scanner](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L376-L541) and [first-character dispatch](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L584-L594).
 
 ### Accepted values are not quite the usual field ranges
 
@@ -209,7 +209,7 @@ A rejected label value exits through code 244; a rejected number uses 245. An ac
 
 For a one-byte forward reference, `EB !far` followed by N zero bytes and then `:far` has value N. For a backward reference, `:back` followed by N zero bytes and then `EB !back` has value `−(N+2)`. The two extra bytes are the opcode and its field. C22-04 asks you to derive each boundary rather than memorize two unrelated limits.
 
-Source: [`asm-half`, both bounds constructors, and `asm-fit`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L417-L472).
+Source: [`asm-half`, both bounds constructors, and `asm-fit`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L417-L472).
 
 ## Reference: emit low bytes without changing their meaning
 
@@ -219,7 +219,7 @@ The seed's division is unsigned. A negative value is held as a 64-bit two's-comp
 
 This separates three representations that appear on the same page: `@0x1234` is input text, `0x1234` is a cell value used during assembly, and `34 12` names the two resulting bytes. Displaying those bytes as hex is our notation, not an extra output transformation.
 
-Sources: [`asm-emit-le`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L295-L303), [the byte append](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L124-L134), and [010's unsigned-division contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L112-L122).
+Sources: [`asm-emit-le`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L295-L303), [the byte append](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L124-L134), and [010's unsigned-division contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L112-L122).
 
 ## Reference: the label table borrows names and owns addresses
 
@@ -249,7 +249,7 @@ Pass 1 stores `x=base` and then `x=base+1`. The `!x` field starts at offset 1 an
 
 This is not a rule that chooses the nearest preceding declaration at each reference. A reference earlier in the text also sees the final table, including later duplicate declarations. C22-05 changes the position of the reference to expose that distinction.
 
-Sources: [storage, append, and newest-first search](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L154-L210) and [010's exact byte comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L453-L469).
+Sources: [storage, append, and newest-first search](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L154-L210) and [010's exact byte comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L453-L469).
 
 ## Reference: the pass loop gives every token one owner
 
@@ -261,7 +261,7 @@ In pass 2, the unchanged token needs no repeated validation. `asm-do-hex` resets
 
 This is the concrete source behind the earlier token-boundary invariant. It also bounds it: the assembler is relying on unchanged input and its own fixed-width dispatch, not proving arbitrary transformations preserve layout.
 
-Source: [validation, pair emission, dispatch, loop, and `asm-init`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L543-L609).
+Source: [validation, pair emission, dispatch, loop, and `asm-init`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L543-L609).
 
 ## Reference: the caller starts three walks, not two expansions
 
@@ -288,11 +288,11 @@ The assembler's caller explicitly supplies the `asm-main` token between the Fort
 
 There is one expansion walk and then two assembly walks. The rewind changes a position, not the representation. `asm-init` is used once for table initialization; `asm-reset-pos` is used for the narrower rewind. The pass flag routes the same token kinds to sizing or emission behavior.
 
-Source: [default base](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L163-L174), [initialization](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L607-L609), and [driver plus caller contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L764-L785).
+Source: [default base](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L163-L174), [initialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L607-L609), and [driver plus caller contract](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L764-L785).
 
 ## Reference: a complete buffer is followed by a write attempt
 
-`asm-out-cap` is 1,048,576 bytes. `asm-out-buf` reserves that storage; `asm-out-pos` marks the next free byte. `asm-out-init` sets the position to zero. Before each append, `asm-emit-byte` uses C21's `asm-check-cap` to check the prospective occupancy, position plus one. Exactly 1,048,576 bytes are permitted; the next append fails with 241 before its store. Likewise exactly 8,192 label records are permitted; the next store fails with 242. Pass 1 does not precheck the eventual output-buffer capacity.
+`asm-out-cap` is 1,048,579 bytes. `asm-out-buf` reserves that storage; `asm-out-pos` marks the next free byte. `asm-out-init` sets the position to zero. Before each append, `asm-emit-byte` uses C21's `asm-check-cap` to check the prospective occupancy, position plus one. Exactly 1,048,579 bytes are permitted; the next append fails with 241 before its store. Likewise exactly 8,192 label records are permitted; the next store fails with 242. Pass 1 does not precheck the eventual output-buffer capacity.
 
 `asm-out-path` holds `/tmp/asm-out` followed by NUL: 12 pathname characters plus the terminator, 13 bytes total. 010's `s,` copies the next Forth token without adding a length or terminator; the explicit zero-byte store supplies the NUL.
 
@@ -319,13 +319,13 @@ There are no 248 or 249 failure sites in this pinned file. Nor is this table a p
 
 An undefined reference or range failure in pass 2 occurs before the output file is opened, even if some bytes have already been assembled in memory. An old `/tmp/asm-out` can therefore remain from a previous run. Checking that a file exists is insufficient unless the caller also rules out stale output. The fixture recipes remove it before invocation; the bootstrap wrapper removes its selected fixed path too.
 
-Sources: [output buffer and writer](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L121-L152), [token diagnostic](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L411-L415), [path data](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/130-asm.fth#L764-L765), [010's byte-copy and `s,`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L441-L451), and [syscall wrappers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth#L47-L69).
+Sources: [output buffer and writer](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L121-L152), [token diagnostic](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L411-L415), [path data](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/130-asm.fth#L764-L765), [010's byte-copy and `s,`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L441-L451), and [syscall wrappers](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth#L47-L69).
 
 ## Reference: supply 120 header bytes, then assemble a 148-byte fixture
 
 The seven-byte fragment established the assembler's work without borrowing credibility from an executable wrapper. Now supply the actual wrapper used by a small fixture.
 
-The input order in [`m1-jump42-check.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/m1-jump42-check.sh#L40-L46) is:
+The input order in [`m1-jump42-check.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/m1-jump42-check.sh#L40-L46) is:
 
 ```text
 amd64_defs.M1 → ELF-amd64.hex2 → m1-jump42.M1
@@ -357,7 +357,7 @@ Here is an accounting of the [supplied header](https://github.com/oriansj/M2libc
 
 The first 64 bytes are the ELF header; the next 56 form one program-header entry. Their sum is 120. The label `ELF_program_headers` is therefore at offset 64, and `ELF_text` at offset 120. The source also declares `ELF_program_header__text` at 64; two different names may name the same position.
 
-Now append the actual [fixture body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/m1-jump42.M1#L5-L13). The table shows its text after definitions have been made available, together with the derived byte contribution:
+Now append the actual [fixture body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/m1-jump42.M1#L5-L13). The table shows its text after definitions have been made available, together with the derived byte contribution:
 
 | Fixture text | Offset before | Width | Predicted bytes |
 |---|---:|---:|---|
@@ -388,7 +388,7 @@ The adjacent fixtures illustrate the distinction. `exit42` contributes 16 body b
 
 [C20](20-complete-compiler-and-stage-a.md) ended with M2-Planet producing assembly text. Text cannot yet serve as an executable tool. We now know the missing transformation well enough to follow one source-built handoff.
 
-The filenames here belong to [`bootstrap.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh), not to a new run of the small fixtures. Read this as the inspected recipe. No bootstrap was run for this chapter.
+The filenames here belong to [`bootstrap.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh), not to a new run of the small fixtures. Read this as the inspected recipe. No bootstrap was run for this chapter.
 
 ### First let the Forth assembler make a compiler executable
 
@@ -405,7 +405,7 @@ The two pinned header files have the same Git blob, `32ccc7c7d43ba28041a34d10bbb
 
 The larger [`libc-full.M1`](https://github.com/oriansj/M2libc/blob/eee5091e7a1af90b7b87389153647be9a24a8cdd/amd64/libc-full.M1#L17-L59) supplies `_start`, runtime setup calls, a call to the program, and an exit path. We use those supplied interfaces here; this chapter does not open the full upstream runtime implementation. The [larger definitions](https://github.com/oriansj/M2libc/blob/eee5091e7a1af90b7b87389153647be9a24a8cdd/amd64/amd64_defs.M1) and [header](https://github.com/oriansj/M2libc/blob/eee5091e7a1af90b7b87389153647be9a24a8cdd/amd64/ELF-amd64.hex2) are pinned separately from their small-fixture counterparts.
 
-Source: [`forth_asm` input order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L131-L141) and [step 3](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L213-L219).
+Source: [`forth_asm` input order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L131-L141) and [step 3](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L213-L219).
 
 ### Use that compiler to describe M1, then turn the description into M1
 
@@ -441,7 +441,7 @@ cc-out-v2-fasm + M1 C sources
 
 Text equivalent: M2-Planet compiles the M1 implementation into assembly text; the Forth assembler then turns that text into the executable M1 tool. A parallel construction makes hex2. There is no attempt to execute either `.M1` text file.
 
-Sources: [compile helper and exact source vectors](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L166-L176) and [step 4's compilation and assembly calls](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L222-L228).
+Sources: [compile helper and exact source vectors](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L166-L176) and [step 4's compilation and assembly calls](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L222-L228).
 
 ### Compare the old and new routes on the same text
 
@@ -459,7 +459,7 @@ C20 introduced `cmp`: it compares exact bytes, with no semantic normalization. H
 
 If that required comparison succeeds, the source-built tools have replaced the assembly step and matched the Forth route's exact output for this input. That is the concrete handoff. The recipe uses no host C compiler, assembler, or linker in this construction, but still relies on its declared seed, pinned source inputs, shell, filesystem utilities, and operating system. The C-source-built M2-Planet programs are themselves compilers; “no host compiler in this route” must not become “no compiler was involved.” Equality does not prove that those sources or trusted components are benign.
 
-Sources: [`m1_hex2` helper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L143-L154), [step 5's exact comparison](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L231-L236), and [declared trust boundary](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L6-L26).
+Sources: [`m1_hex2` helper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L143-L154), [step 5's exact comparison](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L231-L236), and [declared trust boundary](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L6-L26).
 
 ### Later checks ask different questions
 
@@ -480,7 +480,7 @@ Step 8 changes from byte equality to a behavior check. The final compiler emits 
 
 The `run_forth` wrapper adds practical acceptance checks around fixed output paths: it removes stale output, runs the requested input in the chosen working directory, requires zero exit and a produced file, moves the file to its named destination, and requires executable permission. It uses a private `/tmp` when its namespace setup succeeds, otherwise the shared path. These checks do not turn the writer's ignored write result into a complete-write guarantee; the later comparisons serve a separate purpose.
 
-Sources: [wrapper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L97-L129), [steps 6–7](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L239-L262), and [step 8's behavior check](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/bootstrap.sh#L265-L274).
+Sources: [wrapper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L97-L129), [steps 6–7](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L239-L262), and [step 8's behavior check](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/bootstrap.sh#L265-L274).
 
 ## Reference: choose the oracle that answers your question
 
@@ -496,17 +496,17 @@ The existing small recipes do not all exercise the same input path:
 
 The first test alone cannot demonstrate the Forth macro-expansion path: the reference M1 tool already performed that work before the Forth assembler received the input. The third includes numeric sigils and macro expansion, but is still only one selected input.
 
-[`die-gates.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/die-gates.sh#L18-L90) has seventeen specific cases, one for each code 231 through 247. It removes old output, checks the expected exit code, and requires that no new `/tmp/asm-out` exist. It captures stderr without asserting its contents. It does not cover output-open failure 230 or every boundary value in the range table.
+[`die-gates.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/die-gates.sh#L18-L90) has seventeen specific cases, one for each code 231 through 247. It removes old output, checks the expected exit code, and requires that no new `/tmp/asm-out` exist. It captures stderr without asserting its contents. It does not cover output-open failure 230 or every boundary value in the range table.
 
 The larger tests also keep representations distinct:
 
-- [`m2planet-check.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/m2planet-check.sh#L37-L98) compares two assembly routes on the same self-M1. Its final tiny-C check compares the M1 text emitted by two compiler executables; it does not assemble and run that tiny C program
-- [`mescc-tools-check.sh`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/mescc-tools-check.sh#L43-L88) compiles each tool once to M1, then compares the ELFs obtained by two assembly routes on that same text. The “reference” operand is the output of the reference assembler pipeline, not the host-compiled tool executable
-- Its [tiny behavioral checks](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/mescc-tools-check.sh#L95-L121) compare M1-produced text and, separately, four bytes produced by hex2. The four bytes `7F 45 4C 46` are a magic-number fragment, not a complete ELF or a program that the check runs
+- [`m2planet-check.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/m2planet-check.sh#L37-L98) compares two assembly routes on the same self-M1. Its final tiny-C check compares the M1 text emitted by two compiler executables; it does not assemble and run that tiny C program
+- [`mescc-tools-check.sh`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/mescc-tools-check.sh#L43-L88) compiles each tool once to M1, then compares the ELFs obtained by two assembly routes on that same text. The “reference” operand is the output of the reference assembler pipeline, not the host-compiled tool executable
+- Its [tiny behavioral checks](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/mescc-tools-check.sh#L95-L121) compare M1-produced text and, separately, four bytes produced by hex2. The four bytes `7F 45 4C 46` are a magic-number fragment, not a complete ELF or a program that the check runs
 
 The reference-builder helper defaults to GCC but permits a `CC` override. Calling a particular producer “GCC-built” therefore also needs the actual recipe context, not only a filename ending in `-ref`.
 
-Sources for the small paths: [exit42](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/exit42-check.sh#L37-L78), [jump42](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/jump42-check.sh#L26-L57), [m1-jump42](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/asm/m1-jump42-check.sh#L24-L64), and [reference builder](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tests/cc/build-gcc-refs.sh#L24-L43).
+Sources for the small paths: [exit42](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/exit42-check.sh#L37-L78), [jump42](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/jump42-check.sh#L26-L57), [m1-jump42](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/asm/m1-jump42-check.sh#L24-L64), and [reference builder](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/tests/cc/build-gcc-refs.sh#L24-L43).
 
 ### What the recorded CI summary adds
 

@@ -21,6 +21,16 @@ record layout. An **eightbyte** is an ABI classification chunk, not a
 declaration that every member has eight-byte storage. A snapshot is an owned
 copy whose bytes survive later argument evaluation.
 
+## A long-double computing state
+
+For supplied `long double x=1.0L; x+=2.0L;`, the numeric result is three.
+Layer 132 loads extended payloads, performs the operation and pops the result
+into a private sixteen-byte frame object; the assignment stores the ten-byte
+payload into x. The argument ABI remains sixteen-aligned stack transport, and
+a result still crosses st(0). Exact literal/static bytes come from 125/128,
+not a host floating parser. See [operators and owned results](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/132-cc-long-double.fth#L109-L193)
+and [static initialization](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/132-cc-long-double.fth#L201-L239).
+
 ## Classify the bytes behind the address
 
 The record expression carrier contains an address. The classifier recursively
@@ -40,7 +50,7 @@ leaves even inside nested arrays. This is a bounded classifier, not the entire
 AMD64 aggregate ABI.
 
 Sources: [recursive classifier and
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L1-L78).
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L1-L79).
 
 ## Require enough registers for the whole value
 
@@ -60,7 +70,7 @@ or sixteen according to class and are rounded to whole slots. Named parameter
 planning consumes the same locations, making the caller and callee agree.
 
 Sources: [argument records and whole-value
-location](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L95-L194).
+location](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L96-L177).
 
 ## Snapshot before another expression can change it
 
@@ -80,9 +90,9 @@ stack copying for the same reason. The two sides must use ownership-aware
 sequencing, not just the same nominal type.
 
 Sources: [snapshot and outgoing-copy
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L175-L287),
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L158-L273),
 [entry register spill
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390).
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376).
 
 ## Return to caller-owned storage when registers are insufficient
 
@@ -103,35 +113,34 @@ available until the copy finishes, so changing expression metadata too early
 cannot silently shorten it.
 
 Sources: [caller result
-capture](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L276-L287),
+capture](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L262-L273),
 [small and hidden
-returns](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L391-L423).
+returns](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L377-L411).
 
-## Move X87 data without promising arithmetic
+## Separate X87 transport and computation
 
 Long-double arguments use sixteen-aligned stack copies, even when GP or XMM
 registers remain. Results use x87 st(0); the callee loads the ten-byte extended
 payload, and the caller stores it into its sixteen-byte result object. Its
 padding and ABI allocation size differ from the encoded precision.
 
-The provider explicitly rejects arithmetic, tests and casts that would require
-long-double computing or conversion. Transporting the bytes through an existing
-signature is therefore narrower than supporting long-double expressions. A later
-GCC-produced compiler can implement a broader language than its Forth-built
-producer.
+Layer 131's transport-only defaults are now replaced by layer 132 for long
+double computation: +, −, *, /, comparisons, truth tests, numeric conversions,
+unary operations, updates and exact static initialization. Bitwise operators
+and remainder on long double remain rejected. Results live in owned frame
+objects rather than remaining on the x87 stack.
 
-Record calls with unspecified/variadic signature forms remain restricted;
-refined identifier-list definitions have a separately admitted entry form, while
-K&R float entry conversion rejects. Ordinary aggregate va_arg remains absent.
-These boundaries prevent a familiar ABI class name from becoming an unsupported
-language claim.
+Records cross prototyped, unprototyped and variadic calls with unchanged default
+promotions, and va_arg retrieves INTEGER, MEMORY and admitted X87 records.
+K&R float entry conversion still rejects. Unsupported floating record members
+and vector classes remain separate limits.
 
 Sources: [opaque long-double
-identity](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L253-L278),
+identity](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L253-L278),
 [signature form
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L129-L149),
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L122-L132),
 [X87 scalar-use and variadic
-completion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L425-L519).
+completion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L413-L544).
 
 ## Roll back a partial record assignment
 
@@ -160,7 +169,7 @@ after return. Adding aggregate classification cannot excuse losing any of those
 earlier obligations.
 
 Sources: [argument records and whole-value
-location](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L95-L194).
+location](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L96-L177).
 
 ## Snapshot the value at the argument boundary
 
@@ -183,9 +192,9 @@ storage's lifetime has ended. Follow the producer's result representation into
 the expression consumer and its owned snapshot.
 
 Sources: [snapshot and outgoing-copy
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L175-L287),
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L158-L273),
 [entry register spill
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390).
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376).
 
 ## Let hidden inputs remain visible in the plan
 
@@ -210,15 +219,15 @@ decision and actual transport; these supplied aggregate states are still paper
 examples.
 
 Sources: [caller result
-capture](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L276-L287),
+capture](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L262-L273),
 [small and hidden
-returns](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L391-L423),
+returns](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L377-L411),
 [opaque long-double
-identity](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L253-L278),
+identity](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L253-L278),
 [signature form
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L129-L149),
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L122-L132),
 [X87 scalar-use and variadic
-completion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L425-L519).
+completion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L413-L544).
 
 ## Protect incoming values before copying the stack
 
@@ -256,7 +265,7 @@ lets the implementation honor these interactions.
 
 X87 transport similarly needs an explicit stack class and result boundary.
 Sixteen-byte argument alignment can add padding beyond the value's payload.
-Returning through ST0 does not grant arithmetic support in the Forth producer.
+Returning through ST0 is the transport contract; layer 132 supplies computation.
 Unsupported floating record members remain an admission limit even though
 separate scalar floating values use XMM registers.
 
@@ -267,21 +276,21 @@ assignments could miss lost stack-copy values. These are supplied contracts and
 inspection questions; no new aggregate caller/callee program was run.
 
 Sources: [argument records and whole-value
-location](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L95-L194),
+location](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L96-L177),
 [snapshot and outgoing-copy
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L175-L287),
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L158-L273),
 [entry register spill
-order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390),
+order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376),
 [caller result
-capture](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L276-L287),
+capture](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L262-L273),
 [small and hidden
-returns](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L391-L423),
+returns](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L377-L411),
 [opaque long-double
-identity](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L253-L278),
+identity](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L253-L278),
 [signature form
-limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L129-L149),
+limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L122-L132),
 [X87 scalar-use and variadic
-completion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L425-L519).
+completion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L413-L544).
 
 ## Read the classifier before counting registers
 
@@ -321,17 +330,17 @@ interface into reference-like behavior. This distinction is especially visible
 when later argument evaluation mutates the original record after the earlier
 snapshot was taken.
 
-Signature forms also remain bounded. Some unspecified/variadic record calls are
-rejected, and ordinary aggregate va_arg is absent. Supporting a fixed-signature
-record call does not fill those separate semantic paths. A reported platform ABI
-name must therefore be read with this classifier's admitted subset.
+Signature forms now admit unspecified/variadic record calls and aggregate
+va_arg. Classifier admission remains bounded: binary32/binary64 record members
+and vectors are not supplied. The wider signature support does not remove
+those class limits.
 
 The paper two-long example and rollback case let a reader derive the plan
 without a complete generated-function audit. A future execution can inspect
 actual spills, snapshots, result storage and target status. No new record
 program or X87 transport has been observed for these manuscripts.
 
-Sources: [recursive classifier and limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L1-L78), [argument records and whole-value location](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L95-L194), [snapshot and outgoing-copy order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L175-L287), [entry register spill order](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L343-L390), [caller result capture](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L276-L287), [small and hidden returns](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L391-L423), [opaque long-double identity](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/121-cc-sysv.fth#L253-L278), [signature form limits](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L129-L149), [X87 scalar-use and variadic completion](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/131-cc-aggregate-abi.fth#L425-L519).
+Sources: [recursive classifier and limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L1-L79), [argument records and whole-value location](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L96-L177), [snapshot and outgoing-copy order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L158-L273), [entry register spill order](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L329-L376), [caller result capture](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L262-L273), [small and hidden returns](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L377-L411), [opaque long-double identity](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/121-cc-sysv.fth#L253-L278), [signature form limits](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L122-L132), [X87 scalar-use and variadic completion](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/131-cc-aggregate-abi.fth#L413-L544).
 
 ## Stop, then change the boundary
 

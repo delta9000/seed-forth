@@ -40,7 +40,7 @@ work through the two passes below: construction, then execution prediction.
 Save an intermediate address table if you stop between them.
 
 **Evidence boundary.** The edition is Linux/x86-64 at
-[revision 7d7e1996d1753118181d43e1a413960d3a1ec24b](https://github.com/delta9000/seed-forth/tree/7d7e1996d1753118181d43e1a413960d3a1ec24b).
+[revision bbcc1732152af2d884737272eed870d2410ffe8e](https://github.com/delta9000/seed-forth/tree/bbcc1732152af2d884737272eed870d2410ffe8e).
 The capstone is a checked static derivation from that source. The created
 entry is a **predicted runtime-memory artifact**, not bytes collected from
 a running seed. No seed execution, build, or novice setup trial has been
@@ -105,7 +105,7 @@ The learned library contracts connect to this accounting:
 
 Those dependencies explain why we learned contracts before auditing their
 implementation. The pinned
-[`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/010-lib.fth)
+[`010-lib.fth`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/010-lib.fth)
 is a separate source file. Its text, and the definitions it would create
 when loaded, are not additional bytes inside the 1,772-byte seed image.
 
@@ -117,7 +117,7 @@ contains the displayed definition, with ordinary spaces and a final
 newline. Its tokens are available successfully and intact. The initial
 logical data stack is empty, and no borrowed return-stack values remain.
 
-The [startup stores](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L63-L75)
+The [startup stores](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L63-L75)
 give these concrete values:
 
 | Quantity | Initial value |
@@ -129,9 +129,9 @@ give these concrete values:
 | `rbp`, `rdi` | B, 0; the zero is an empty-stack dummy |
 
 The literal target is
-[`lit`'s code at `0x4005A0`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L563-L575).
+[`lit`'s code at `0x4005A0`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L563-L575).
 Addition's target is
-[`+`'s code at `0x4001B7`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L191-L199).
+[`+`'s code at `0x4001B7`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L191-L199).
 These are execution tokens, abbreviated xts, not their header addresses.
 All addresses below are virtual addresses. Byte strings proceed from
 lower to higher address; multibyte fields are little-endian; cells are
@@ -170,7 +170,7 @@ There is no alignment padding, name terminator, or separate xt field.
 Colon sets LATEST to `0x401000`, HERE to `0x40100D`, and STATE to one.
 The name-reading/copying temporaries are removed; the compiling data
 stack is empty again. The
-[colon implementation](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L520-L537)
+[colon implementation](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L520-L537)
 publishes LATEST before the body exists. Publication is not a completion
 check or a promise that a later error will roll back the entry.
 
@@ -200,9 +200,9 @@ The displacement fits signed 32-bit range. The runtime inverse check is
 After the complete 13-byte literal sequence, HERE is `0x40101A`.
 
 This connects the immediate
-[`[lit]` body](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L577-L601)
+[`[lit]` body](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L577-L601)
 to the shared
-[`compile_call` helper](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L551-L562).
+[`compile_call` helper](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L551-L562).
 The helper writes the low four displacement bytes without checking range;
 our arithmetic supplies that check for this call.
 
@@ -274,7 +274,7 @@ interpreted `[lit] 5`, `rdi=5`, `rbp=B-8=0x410FF8`, and `[B-8]=0` is the
 saved dummy. Reading/finding `inc` temporarily pushes its xt; `execute`
 consumes that xt and tail-jumps to `0x40100D`, restoring the same data
 representation. The
-[REPL's CALL to `execute`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/000-seed.hex0#L664-L689)
+[REPL's CALL to `execute`](https://github.com/delta9000/seed-forth/blob/bbcc1732152af2d884737272eed870d2410ffe8e/000-seed.hex0#L664-L689)
 saved `0x4006EA`. The tail jump adds no second return destination.
 
 Let the native stack pointer immediately before that outer CALL be S,
