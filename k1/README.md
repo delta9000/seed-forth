@@ -123,9 +123,18 @@ chain-built tools, including the kernel and stage logs. Retain that image
 and the serial log for comparison. A missing marker or nonzero wrapper
 status is not a completed Linux validation.
 
-The direct raw-input K0/K1 smoke has passed. A subsequent full attempt
-was interrupted after K1's direct TinyCC proof and did not record a
-complete musl/GNU/Linux result. Full Linux validation is still pending.
+The full route has passed once (2026-10-07) under QEMU 10.2.1/KVM with
+`JOBS=6 K1_MEM=24G` and ordinary guest RAM, in about 1h15m: stages 10-12
+passed (GCC 10.5.0 with 0 test failures), finish kexec'd the chain-built
+Linux 7.2.8, and `serial.log` held all three markers above with QEMU
+status 85.  Its bzImage is the same size as the `tools/chain-root.sh`
+build's, with a good gzip CRC; the bytes differ in places, as other
+K1-versus-host artifacts do.  The run needed K1 to clear RFLAGS.DF on
+exception entry (`isr_common` in `k1.S`): a page fault inside musl's
+backward `memmove` otherwise zeroed the page below the new one, which
+corrupted the kernel's gzip payload.  An earlier attempt with
+`K1_RAM_FILE` on an SSD wrote 4.5 TB of dirty-page writeback and stalled
+in GCC 10.5.0; prefer ordinary RAM when the host can hold the guest.
 
 ## Boot
 
@@ -269,10 +278,11 @@ the `-g` symbols `build.sh` adds by default; `K1_CFLAGS=" "` drops them).
   This smoke stops before the GNU/Linux ladder; it does not claim a fresh
   complete Linux rebuild.
 - **`tests/ktest.c` (M2):** built with the chain's tcc-musl
-  (`k1/tcc-musl.sh`), 48 checks: `yes | head` with SIGPIPE, fork without
+  (`k1/tcc-musl.sh`), 49 checks: `yes | head` with SIGPIPE, fork without
   exec, handlers, masking, SIGCHLD, SIGTERM and SIGSEGV wait statuses,
   files, symlinks, hard links, `utimensat`/mtime order, rename, chmod,
   readdir, getcwd, dup2/fcntl, 10 MiB malloc + realloc (mremap), mmap,
+  a page fault taken with DF set,
   posix_spawn (CLONE_VM|CLONE_VFORK), poll, clock_gettime, uname, vfork.
   The same binary passes on Linux and under K1.
 - **Linux hand-off (M3):** `tests/kexec.c` under K1 boots a stock
