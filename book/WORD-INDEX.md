@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  1345 names and 97 ideas.
+carry none.  1350 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -962,12 +962,14 @@ for which chapter depends on which, the
 - `cc-prep-directory` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-emit-byte` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §1 The contract, the sink and the scratch area](22-the-preprocessor.md#1-the-contract-the-sink-and-the-scratch-area)
 - `cc-prep-eor?` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
+- `cc-prep-file-dirs` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-file-lens` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-file-paths` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-handle-define` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#define` and `#undef`](22-the-preprocessor.md#define-and-undef)
 - `cc-prep-handle-directive` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, The dispatcher](22-the-preprocessor.md#the-dispatcher)
 - `cc-prep-handle-directive-fwd` — *compiler word (defer, `040-cc-prep.fth`)* — [Ch 22 §5 Macro expansion](22-the-preprocessor.md#5-macro-expansion)
 - `cc-prep-handle-include` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#include`](22-the-preprocessor.md#include)
+- `cc-prep-handle-include-next` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#include`](22-the-preprocessor.md#include)
 - `cc-prep-handle-undef` — *compiler word (`040-cc-prep.fth`)* — [Ch 22, `#define` and `#undef`](22-the-preprocessor.md#define-and-undef)
 - `cc-prep-ident-addr` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-prep-ident-len` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
@@ -975,6 +977,8 @@ for which chapter depends on which, the
 - `cc-prep-in-file` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §3 Regions, owed newlines and the byte walkers](22-the-preprocessor.md#3-regions-owed-newlines-and-the-byte-walkers)
 - `cc-prep-inc-depth` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-end` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22, `#include`](22-the-preprocessor.md#include)
+- `cc-prep-inc-found` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
+- `cc-prep-inc-from` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-mode` — *compiler word (variable, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-pool` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-inc-slot-addr` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
@@ -993,6 +997,7 @@ for which chapter depends on which, the
 - `cc-prep-name-define` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, The dispatcher](22-the-preprocessor.md#the-dispatcher)
 - `cc-prep-name-error` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, The dispatcher](22-the-preprocessor.md#the-dispatcher)
 - `cc-prep-name-include` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, The dispatcher](22-the-preprocessor.md#the-dispatcher)
+- `cc-prep-name-include-next` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, The dispatcher](22-the-preprocessor.md#the-dispatcher)
 - `cc-prep-name-undef` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22, The dispatcher](22-the-preprocessor.md#the-dispatcher)
 - `cc-prep-open-include` — *compiler word (`040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)
 - `cc-prep-path-buf` — *compiler word (create, `040-cc-prep.fth`)* — [Ch 22 §4 `#include` and its bounded file pool](22-the-preprocessor.md#4-include-and-its-bounded-file-pool)

@@ -68,25 +68,25 @@ to its call site.
 | 20  | `030-cc-io.fth:72` | `cc-load-stdin`: the source fills the 1 MiB input buffer. |
 | 21  | `030-cc-io.fth:110` | `cc-emit-byte`: the output fills the 1 MiB output buffer. |
 | 22  | `030-cc-io.fth:170` | `cc-write-output`: `open(2)` on the output path returned an error. |
-| 30  | `040-cc-prep.fth:584` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
-| 31  | `040-cc-prep.fth:572` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
-| 32  | `040-cc-prep.fth:590,594` | Included file fills its legacy 256 KiB slot or direct input fills the shared 1 MiB pool. |
-| 33  | `040-cc-prep.fth:449,490,500` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
-| 34  | `040-cc-prep.fth:185` | Macro count exceeds 1,024 in legacy mode (11 built in) or 4,096 in direct mode. |
-| 35  | `040-cc-prep.fth:161` | Macro pool (64 KiB legacy, 256 KiB direct) full: `cc-pp-to-pool` makes it the sink with this code, and `cc-prep-emit-byte` dies when a macro name or body would overflow it. |
-| 36  | `040-cc-prep.fth:1244` | `cc-prep-emit-byte`: preprocessed source fills the 2 MiB source buffer (the sink `cc-preprocess` sets up with this code). |
-| 37  | `040-cc-prep.fth:119` | A temporary buffer fills: a macro argument, or a replacement with its arguments put in, longer than 64 KiB (the sink `cc-pp-temp-begin` sets up with this code). |
-| 38  | `040-cc-prep.fth:1198` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
-| 39  | `040-cc-prep.fth:1573` | `cc-preprocess`: an `#if` still open at the end of the program. |
-| 40  | `040-cc-prep.fth:1497` | `#error` in a group that is not dropped. |
-| 41  | `040-cc-prep.fth:1213` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
-| 42  | `040-cc-prep.fth:399` | `cc-pp-need-name`: `#ifdef`, `#ifndef` or `defined` with no name after it. |
-| 43  | `040-cc-prep.fth:113` | `cc-pp-scratch-alloc`: the 2 MiB macro scratch area is used up (about 32 macro calls nested in each other's arguments). |
-| 44  | `040-cc-prep.fth:691` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
-| 45  | `040-cc-prep.fth:965` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
-| 46  | `040-cc-prep.fth:676` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
-| 47  | `040-cc-prep.fth:406,1375` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a `#define`'s parameter list (anything but names and commas in it). |
-| 48  | `040-cc-prep.fth:1349` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
+| 30  | `040-cc-prep.fth:595` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
+| 31  | `040-cc-prep.fth:583` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
+| 32  | `040-cc-prep.fth:601,605` | Included file fills its legacy 256 KiB slot or direct input fills the shared 1 MiB pool. |
+| 33  | `040-cc-prep.fth:451,497,507` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
+| 34  | `040-cc-prep.fth:187` | Macro count exceeds 1,024 in legacy mode (11 built in) or 4,096 in direct mode. |
+| 35  | `040-cc-prep.fth:163` | Macro pool (64 KiB legacy, 256 KiB direct) full: `cc-pp-to-pool` makes it the sink with this code, and `cc-prep-emit-byte` dies when a macro name or body would overflow it. |
+| 36  | `040-cc-prep.fth:1589` | `cc-prep-emit-byte`: preprocessed source fills the 2 MiB source buffer (the sink `cc-preprocess` sets up with this code). |
+| 37  | `040-cc-prep.fth:121` | A temporary buffer fills: a macro argument, or a replacement with its arguments put in, longer than 64 KiB (the sink `cc-pp-temp-begin` sets up with this code). |
+| 38  | `040-cc-prep.fth:1209` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
+| 39  | `040-cc-prep.fth:1600` | `cc-preprocess`: an `#if` still open at the end of the program. |
+| 40  | `040-cc-prep.fth:1523` | `#error` in a group that is not dropped. |
+| 41  | `040-cc-prep.fth:1224` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
+| 42  | `040-cc-prep.fth:401` | `cc-pp-need-name`: `#ifdef`, `#ifndef` or `defined` with no name after it. |
+| 43  | `040-cc-prep.fth:115` | `cc-pp-scratch-alloc`: the 2 MiB macro scratch area is used up (about 32 macro calls nested in each other's arguments). |
+| 44  | `040-cc-prep.fth:702` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
+| 45  | `040-cc-prep.fth:976` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
+| 46  | `040-cc-prep.fth:687` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
+| 47  | `040-cc-prep.fth:408,1394` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a `#define`'s parameter list (anything but names and commas in it). |
+| 48  | `040-cc-prep.fth:1368` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 50  | `060-cc-types.fth:192` | `cc-sd-field-rec`: a struct with more than 16 fields. |
 | 60  | `070-cc-sym.fth:61` | `cc-sym-add`: more than 4,096 symbols. |
 | 61  | `070-cc-sym.fth:129` | `cc-scope-push`: scopes nested more than 64 deep. |

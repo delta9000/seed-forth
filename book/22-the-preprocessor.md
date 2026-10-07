@@ -11,7 +11,7 @@ Proof link: pnut.c, exactly as shipped, comes out token for token what GCC's cpp
 then uses `ROWS` four times.  Before the parser sees the program,
 something has to delete that line and make each `ROWS` mean 4.  That
 is the preprocessor's job, and in this compiler it does all of it in
-one pass over the text, before the lexer starts.  The 1,576-line file
+one pass over the text, before the lexer starts.  The 1,603-line file
 `040-cc-prep.fth` handles `#include "…"` (spliced in recursively),
 object-like and function-like `#define`s with any body, `#undef`, and
 conditional compilation with `#if`, `#ifdef`, `#ifndef`, `#elif`,
@@ -49,6 +49,8 @@ The file's header comment states the whole contract.
 \      angle includes are dropped in favour of built-in header shims.
 \      Direct mode resolves quoted names relative to their includer, then
 \      explicit include directories; angle names use those directories.
+\      #include_next resumes the search after the directory that held the
+\      current file.
 \   2. #define NAME BODY and #define NAME(PARAMS) BODY record a macro, and
 \      #undef NAME forgets it.  Outside directives every identifier is
 \      looked up: a macro's name is replaced by its body (for a function-
@@ -693,6 +695,11 @@ variable cc-prep-source-len
 create cc-prep-file-paths  cc-prep-direct-depth 1+ cc-prep-path-cap * allot
 create cc-prep-file-lens   cc-prep-direct-depth 1+ [lit] 8 * allot
 variable cc-prep-inc-mode                         \ 1=quote, 2=angle
+\ Which include directory each live file came from (-1: the main file, the
+\ includer's directory or an absolute name), indexed by depth like the paths.
+create cc-prep-file-dirs   cc-prep-direct-depth 1+ [lit] 8 * allot
+variable cc-prep-inc-from                         \ first directory searched
+variable cc-prep-inc-found                        \ directory that opened
 
 : cc-prep-config-reset
   [lit] 0 cc-prep-direct !  [lit] 0 cc-prep-include-count !
@@ -738,7 +745,8 @@ variable cc-prep-inc-mode                         \ 1=quote, 2=angle
   cc-prep-path-out @ cc-prep-inc-depth @ 1+ cc-prep-file-lens cell[] !
   cc-prep-path-buf cc-prep-path-out @
   cc-prep-inc-depth @ 1+ cc-prep-path-cap * cc-prep-file-paths +
-  cc-prep-copy-path ;
+  cc-prep-copy-path
+  cc-prep-inc-found @ cc-prep-inc-depth @ 1+ cc-prep-file-dirs cell[] ! ;
 
 \ ===========================================================================
 \ File loading.  Reads a file into the current include-pool slot.
@@ -754,7 +762,10 @@ variable cc-prep-load-name-u
 \ per depth.  Direct mode uses the includer and explicit directories,
 \ packing live files into the pool.  Dies with 31 at the depth limit,
 \ 30 if no path opens, and 32 when the include pool is full.
+\ The directory search starts at cc-prep-inc-from; past directory 0 the
+\ includer's directory is skipped too.
 : cc-prep-open-include
+  true cc-prep-inc-found !
   \ Absolute names are already complete in either include form.
   cc-prep-load-name-u @ if,
     cc-prep-load-name-a @ c@ [char] / = if,
@@ -762,19 +773,19 @@ variable cc-prep-load-name-u
       cc-prep-build-path cc-prep-path-buf cc-prep-try-open exit,
     then,
   then,
-  cc-prep-inc-mode @ [lit] 1 = if,
+  cc-prep-inc-mode @ [lit] 1 = cc-prep-inc-from @ 0= and if,
     cc-prep-current-path cc-prep-inc-depth @ cc-prep-file-lens cell[] @
     cc-prep-directory cc-prep-load-name-a @ cc-prep-load-name-u @
     cc-prep-build-path cc-prep-path-buf cc-prep-try-open
     dup 0< 0= if, exit, then, drop
   then,
-  [lit] 0
+  cc-prep-inc-from @
   begin, dup cc-prep-include-count @ < while,
     dup cc-prep-path-cap * cc-prep-include-dirs +
     over cc-prep-include-lens cell[] @
     cc-prep-load-name-a @ cc-prep-load-name-u @ cc-prep-build-path
     cc-prep-path-buf cc-prep-try-open
-    dup 0< 0= if, nip exit, then, drop 1+
+    dup 0< 0= if, swap cc-prep-inc-found ! exit, then, drop 1+
   repeat,
   drop true ;
 
@@ -1722,11 +1733,32 @@ from them comes from the compiler itself: the built-in macros of §8,
 the built-in typedefs such as `FILE` and `intptr_t` (Ch 31), and the
 libc shims such as `putchar` and `malloc` (Chs 26 and 31).
 
-### `#define` and `#undef`
+Direct mode also takes `#include_next`, which libc and compiler
+headers use to wrap a header of the same name further down the search
+list (a `limits.h` that adds to the system one, say).
+`cc-prep-load-file` records in `cc-prep-file-dirs` which directory
+each live file came from, or -1 when it came from none: the main
+file, a quoted neighbour, an absolute name.  `#include_next` starts
+the search one directory past the current file's, skipping the
+includer's directory; from -1 that is directory 0 with the includer
+first, so it acts as plain `#include`, which is what GCC does there.
 
 ```forth file=040-cc-prep.fth
   then, ;
 
+\ cc-prep-handle-include-next
+\ Pre: pos points just past "include_next".  Search the directories after
+\ the one that held the current file.  A file that came from no directory
+\ has -1 there, so the search starts over as for #include, as in GCC.
+: cc-prep-handle-include-next
+  cc-prep-inc-depth @ cc-prep-file-dirs cell[] @ 1+ cc-prep-inc-from !
+  cc-prep-handle-include ;
+
+```
+
+### `#define` and `#undef`
+
+```forth file=040-cc-prep.fth
 \ ---------------------------------------------------------------------------
 \ #define and #undef
 \ ---------------------------------------------------------------------------
@@ -1889,9 +1921,11 @@ so a macro may use one defined after it, as in C.
 \ ---------------------------------------------------------------------------
 \ Pre: pos is at the line's '#'.  Read the directive's name and dispatch.
 \ In a dropped group only the conditionals count.  #error dies with 40.
-\ Anything else is dropped.  Always ends at the end of the line.
+\ Legacy mode has no directories and drops #include_next.  Anything else
+\ is dropped.  Always ends at the end of the line.
 
 create cc-prep-name-include  s, include
+create cc-prep-name-include-next  s, include_next
 create cc-prep-name-define   s, define
 create cc-prep-name-undef    s, undef
 create cc-prep-name-error    s, error
@@ -1905,7 +1939,12 @@ create cc-prep-name-error    s, error
     cc-pp-cond-directive if, cc-prep-skip-to-eol exit, then,
     cc-pp-skipping? 0= if,
       cc-prep-name-include [lit] 7 cc-prep-ident= if,
+        [lit] 0 cc-prep-inc-from !
         cc-prep-handle-include cc-prep-skip-to-eol exit,
+      then,
+      cc-prep-name-include-next [lit] 12 cc-prep-ident=
+      cc-prep-direct @ and if,
+        cc-prep-handle-include-next cc-prep-skip-to-eol exit,
       then,
       cc-prep-name-define [lit] 6 cc-prep-ident= if,
         cc-prep-handle-define cc-prep-skip-to-eol exit,
@@ -2014,6 +2053,7 @@ create cc-builtin-name-O_TRUNC       s, O_TRUNC
   [lit] 0 cc-prep-inc-top !
   cc-prep-source-path cc-prep-source-len @ cc-prep-file-paths cc-prep-copy-path
   cc-prep-source-len @ cc-prep-file-lens !
+  true cc-prep-file-dirs !
   cc-in-buf cc-prep-src-addr !
   cc-in-len @ cc-prep-src-len !
   [lit] 0 cc-prep-src-pos !
