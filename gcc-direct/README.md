@@ -566,6 +566,10 @@ exemption is made to match. The repository's collect2 patch is applied as in
 the gcc64 route. No host compiler, assembler, linker, C library or parser
 generator takes part.
 
+The stage-D GCC continues into the gcc64 climb (gcc-4.7.4, binutils-2.41,
+gcc-10.5.0, gcc-15.2.0) through `gcc64/run-gcc64.sh`'s `bridge` stage, with
+no TinyCC; see [gcc64/README.md](../gcc64/README.md#bridge-from-the-direct-route-no-tinycc).
+
 ## Plumbing from the seed
 
 Replacing the host shell, make and text tools with upstream versions built by
