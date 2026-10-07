@@ -1,0 +1,378 @@
+# 23. The direct TinyCC profile
+
+[C19](19-translation-units-and-process-entry.md) followed one small program to a 556-byte buffer:
+
+```c
+int main(void) { return 7; }
+```
+
+Keep the same C source, but compile it with the switches and file list that the repository uses for TinyCC. Before reading on, predict three things. Does `main` still begin at offset 522? Is the first instruction executed in the new process still the one that reads `argc`? Does `main` still reserve 256 stack bytes it never uses?
+
+All three answers change, although no C token changed. The answers come from a different **profile**: a named set of storage, calling, preprocessing and runtime contracts selected before parsing begins. This chapter follows that profile from process entry, through a call with three differently sized parameters, to the declarations and limits that let one Forth compiler accept the TinyCC and portable-libc sources. [C24](24-tinycc-initialization-runtime-and-closure.md) then follows initialization, the kernel boundary and the route from raw archives to a TinyCC fixed point.
+
+You need C19's three coordinates and its entry story, C18's frame vocabulary, C15's declaration records, and the C10 rule that a CALL's displacement is measured from the end of its field. One local bridge replaces the rest: **LP64** names object sizes (`char` 1, `short` 2, `int` 4, `long` and pointers 8 bytes); it does **not** name a calling convention. If that distinction is uncertain, read C07's [size table](07-types-and-stable-descriptors.md#sizes-require-a-profile-rank-requires-identity) before the call trace. C20/C22 are not prerequisites: no M1, hex2 or Stage-A artifact appears here.
+
+**Profile and evidence.** The implementation is [`115-cc-native.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth), [`117-cc-native-program.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth), [`118-cc-native-init.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth) and [`119-cc-native-runtime.fth`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/119-cc-native-runtime.fth) at revision `7d7e1996d1753118181d43e1a413960d3a1ec24b`, together with the earlier layers they extend. The selected profile is the one written by the [TinyCC compile driver](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/tcc-compile.fth#L1-L12): `cc-target-lp64=true`, `cc-prep-direct=true`, `cc-bootstrap-floatbits=1`, an extra 8 MiB compiler arena, and the [file list ending at `119`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/tcc-start.fth#L65-L84). Files `120` onward are not loaded, so the System V, object and later target providers are absent rather than merely switched off. Offsets and bytes below are source-derived. During drafting, the two small programs were also compiled once with that file list and these switches; the resulting bytes agreed with every offset given here. That spot check is not a retained, attributed artifact, and nothing in the chapter depends on it.
+
+## Name the profile before reading a byte
+
+C19's driver called `cc-parse-program`. The TinyCC driver's final word differs in exactly one call:
+
+```text
+legacy cc-main:  ... cc-emit-elf-header  cc-parse-program    cc-finalize-globals cc-finalize-elf ...
+tcc-main:        ... cc-emit-elf-header  cc-native-program   cc-finalize-globals cc-finalize-elf ...
+```
+
+The ELF header is still C09's 120 bytes, and the load base is still `0x400000`. Globals are still appended after the code by `cc-finalize-globals`. Everything between those two points belongs to the profile.
+
+Four switches select it before any C byte is read:
+
+| Switch | Effect we will use | What it does not mean |
+|---|---|---|
+| `cc-target-lp64` | Typed object widths, typed loads/stores, native declaration and call paths | Not System V; not a register calling convention |
+| `cc-prep-direct` | Real headers and include-directory search in the Forth preprocessor (C05) | Not a host `cpp`; no preprocessed file is an input |
+| `cc-bootstrap-floatbits=1` | Floating types are accepted as eight-byte bit carriers; three refusal bodies are emitted | Not floating arithmetic |
+| `[lit] 8388608 cc-arena-map` | An additional 8 MiB mapping for compiler records (C02's arena) | Not a heap for the generated program |
+
+The driver also writes its output differently. C19's writer issued one write and ignored the count. [`tcc-write-output`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/tools/tcc-compile.fth#L17-L27) loops until every byte is written, and fails with 121–124 on an open error, a negative write, a zero-length write or a close error. That is a builder property; it does not change one generated byte.
+
+## The entry stub makes two calls
+
+`cc-native-program` begins with [`cc-native-entry`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L76-L85). Its first action is a hook. With `118` loaded, the hook is [`cc-ni-entry`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L310-L313): clear the initializer queue and emit a CALL placeholder whose destination does not exist yet. Then come the argument and exit instructions. The table already shows both CALL fields in their final, patched form; we derive them below.
+
+| File offset | Bytes | Later target operation |
+|---:|---|---|
+| 120 | `E8 EA 02 00 00` | `call` the initializer dispatcher |
+| 125 | `48 8B 3C 24` | `mov rdi,[rsp]`: read argc |
+| 129 | `48 8D 74 24 08` | `lea rsi,[rsp+8]`: form argv's address |
+| 134 | `56` | `push rsi`: argv becomes the deeper argument |
+| 135 | `57` | `push rdi`: argc is nearest the return address |
+| 136 | `E8 B5 02 00 00` | `call main` |
+| 141 | `48 89 C7` | `mov rdi,rax`: copy the returned value |
+| 144 | `B8 3C 00 00 00` | `mov eax,60`: select Linux exit |
+| 149 | `0F 05` | `syscall` |
+
+The stub is `5+4+5+1+1+5+3+5+2=31` bytes, so its successor begins at 151. Compared with C19's 26-byte stub, three changes matter:
+
+- The first CALL runs before `main`. C24 shows what the dispatcher does; for this program it will turn out to be one `ret`
+- `argc` and `argv` are **pushed**, not left in RDI and RSI. The callee will look for them on the stack
+- The exit selector uses a 5-byte `mov eax,60` instead of C19's 7-byte `mov rax,60`. Writing EAX clears the upper half of RAX, so the selected value is the same
+
+The two PUSHes are not cleaned up. They do not need to be: the process never returns to whatever started it.
+
+## Thirteen kernel doors and three refusals
+
+Next, [`cc-native-runtime`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/119-cc-native-runtime.fth#L90-L111) emits small bodies and registers each name as a defined function at the address of its first byte. This happens before any user declaration is read. As in C19, these bodies are **eager**: they occupy bytes whether or not the program calls them.
+
+Each body is a **leaf**: it has no frame, so its first argument is at `rsp+8`, just above the return address. [`cc-native-syscall`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/119-cc-native-runtime.fth#L28-L44) emits one five-byte load per argument (into RDI, RSI, RDX in turn), then a fixed 23-byte tail: select the syscall number, `syscall`, compare the result with −4095, keep it if it is below that value as an unsigned number, otherwise replace it with −1, and return. For an argument count k, a body therefore occupies `23+5k` bytes:
+
+| Name | Linux number | Arguments | Declared result | Start offset | Length |
+|---|---:|---:|---|---:|---:|
+| `exit` | 60 | 1 | void | 151 | 28 |
+| `read` | 0 | 3 | long | 179 | 38 |
+| `write` | 1 | 3 | long | 217 | 38 |
+| `open` | 2 | 3 | int | 255 | 38 |
+| `close` | 3 | 1 | int | 293 | 28 |
+| `lseek` | 8 | 3 | long | 321 | 38 |
+| `unlink` | 87 | 1 | int | 359 | 28 |
+| `mkdir` | 83 | 2 | int | 387 | 33 |
+| `chmod` | 90 | 2 | int | 420 | 33 |
+| `access` | 21 | 2 | int | 453 | 33 |
+| `mprotect` | 10 | 3 | int | 486 | 38 |
+| `time` | 201 | 1 | long | 524 | 28 |
+| `gettimeofday` | 96 | 2 | int | 552 | 33 |
+
+The thirteen lengths sum to 434, ending at offset 585. The first body, for instance, is:
+
+```text
+48 8B 7C 24 08          mov rdi,[rsp+8]      one argument
+B8 3C 00 00 00          mov eax,60
+0F 05                   syscall
+48 3D 01 F0 FF FF       cmp rax,-4095
+72 07                   jb  +7               keep a non-error result
+48 C7 C0 FF FF FF FF    mov rax,-1
+C3                      ret
+```
+
+The `jb` skips exactly the seven-byte `mov`. Its comparison is unsigned, so every result from −4095 through −1 (the kernel's error range) becomes −1, while every other result is returned unchanged. C24 explains why that normalization exists and what it gives up.
+
+Because `cc-bootstrap-floatbits` is 1, [`cc-native-unavailable`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/119-cc-native-runtime.fth#L59-L88) then adds three **refusal bodies**, for `localtime`, `ldexp` and `longjmp`. Each first appends a message, then 41 bytes of code that write the message to standard error, exit with status 125, and end with `ud2`. The message is the 34-byte prefix `seed-forth bootstrap: unsupported ` followed by the name and a newline:
+
+| Name | Message bytes | Code bytes | Function address (offset) |
+|---|---:|---:|---:|
+| `localtime` | 585–628 (44) | 629–669 | 629 |
+| `ldexp` | 670–709 (40) | 710–750 | 710 |
+| `longjmp` | 751–792 (42) | 793–833 | 793 |
+
+Data and code are interleaved in one segment. That is safe here because nothing falls into a message: the preceding body ends with `ret` or `ud2`, and the registered name points past its message, at the code. The three refusal bodies add `85+81+83=249` bytes. User declarations start at offset 834.
+
+## `main` without a fixed frame
+
+The declaration loop now reads `int main(void) { return 7; }`. [`cc-native-function`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L32-L73) registers `main` at the current address and records it in `cc-main-vaddr`. It emits C18's prologue with a frame size of **zero**, and saves the offset of that four-byte size field for later.
+
+| File range | Bytes | Reason |
+|---|---|---|
+| 834–844 | `55 48 89 E5 48 81 EC 00 00 00 00` | Save RBP, establish frame, reserve a size patched at the end |
+| 845–851 | `48 C7 C7 07 00 00 00` | Put seven in RDI |
+| 852–854 | `48 63 FF` | `movsxd rdi,edi`: convert the value to the `int` return type |
+| 855–857 | `48 89 F8` | Transfer it to RAX |
+| 858–862 | `48 89 EC 5D C3` | Restore and return |
+| 863–865 | `48 31 C0` | Fallback result zero |
+| 866–870 | `48 89 EC 5D C3` | Fallback epilogue |
+
+There are two differences from C19's 34 bytes. Under LP64, [`cc-parse-return`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L785-L803) converts the value to the function's declared return type, which costs three bytes here even though seven is already a valid `int`. And the frame is no longer a fixed 256 bytes. At the closing brace, after the fallback return, the function rounds `8 × (local slots)` up to a multiple of 16 and patches the saved field. `main` has no locals, so the field stays `00 00 00 00`.
+
+`main` occupies 37 bytes and ends at 870. The declaration loop then reaches end of input, and three completions run in order:
+
+1. [`cc-ni-finish`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/118-cc-native-init.fth#L315-L324) patches the entry's first CALL to the current position, emits one CALL per queued initializer (none), and emits `C3`. The dispatcher is the single byte at offset 871
+2. [`cc-check-fns-defined`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L855-L869) finds no unresolved uses and a nonzero `main`
+3. [`cc-patch-call-main`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/116-cc-prog.fth#L615-L622) fills the second CALL
+
+Both fields use C19's rule, measured from the end of the field:
+
+```text
+dispatcher call: field 121–124, next instruction 125, target 871: 871 − 125 = 746 = 0x2EA → EA 02 00 00
+main call:       field 137–140, next instruction 141, target 834: 834 − 141 = 693 = 0x2B5 → B5 02 00 00
+```
+
+There are no globals, so the file is 872 bytes. Its predicted behavior: the process calls the dispatcher, which returns at once; it pushes argv and argc, calls `main`, receives 7 in RAX, and requests exit status 7. The exit status agrees with C19's prediction, yet `main` moved from offset 522 to 834 and the file grew from 556 to 872 bytes. Equal behavior did not require equal bytes, or even equal sizes.
+
+**Stop/resume point.** Keep four numbers: 151 (end of entry), 585 (end of kernel bodies), 834 (`main`), 871 (dispatcher). On returning, rebuild each from its rule: `31` stub bytes, `23+5k` per kernel body, three refusal bodies, then 37 bytes of `main`. If the arithmetic works but the CALL fields do not, redraw only the field and the next instruction. Then try C23-01.
+
+## Copied values in private slots
+
+The return-seven program never passes an argument. Here is one that passes three, with three different widths:
+
+```c
+long add3(long a, int b, char c) { return a + b + c; }
+int main(void) { return add3(30, 10, 2) - 35; }
+```
+
+Pause and predict where `b` lives when `add3` starts. In C18's legacy profile, the caller would place arguments in registers and the callee would copy them into its own frame. Under System V (G04), the first six integer arguments would also arrive in registers. Neither is what happens here.
+
+### The caller pushes, then reverses
+
+[C14's depth section](14-expressions-and-constant-evaluation.md#private-stack-calls-and-result-metadata) opened the caller's half of this convention. Arguments are evaluated **left to right**, and each finished value is pushed as one eight-byte slot. Let S be RSP before the first push:
+
+| After | S−8 | S−16 | S−24 | RSP |
+|---|---:|---:|---:|---|
+| `push 30` | 30 | | | S−8 |
+| `push 10` | 30 | 10 | | S−16 |
+| `push 2` | 30 | 10 | 2 | S−24 |
+| swap `[rsp+0]` with `[rsp+16]` | 2 | 10 | 30 | S−24 |
+
+The [reversal](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L484-L501) swaps slot pairs from the outside in: for n arguments, offsets `8i` and `8(n−1−i)` for each i below n/2. With three arguments that is one swap; the middle slot stays put. Each swap is four eight-byte moves through RAX and RCX. After reversal, the first argument sits at the lowest address. `call add3` pushes the return address at S−32, and after the call `add rsp,24` discards the three slots. The result arrives in RAX and is copied to RDI.
+
+Left-to-right evaluation with reversal is not the same as pushing right to left. The final layout agrees, but the order of side effects does not: in `f(g(), h())`, `g` runs first here.
+
+### The callee reads above its saved RBP
+
+[`cc-native-params`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L6-L30) gives parameter i (counting from zero) the local slot number `−(i+3)`. The emitter's [local-address rule](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/090-cc-emit.fth#L64-L97) is `rbp − 8×(slot+1)`, and its encoder accepts negative slots. A negative slot therefore names an address *above* RBP:
+
+| Parameter | Slot | `rbp − 8×(slot+1)` | Address | Holds |
+|---|---:|---|---|---:|
+| (saved RBP) | | | S−40 = RBP | |
+| (return address) | | | RBP+8 | |
+| `long a` | −3 | `rbp − 8×(−2)` | RBP+16 = S−24 | 30 |
+| `int b` | −4 | `rbp − 8×(−3)` | RBP+24 = S−16 | 10 |
+| `char c` | −5 | `rbp − 8×(−4)` | RBP+32 = S−8 | 2 |
+
+No instruction copies a parameter into the callee's frame. There is no six-argument register limit and no spill sequence: the eighth parameter of `sum(int a, …, int h)` is simply slot −10 at RBP+72. The cost is a memory read every time a parameter is used.
+
+### Equal slots, unequal objects
+
+Every slot is eight bytes. The objects are not. LP64's typed local load (`lea rdi,[rbp+disp]` followed by a load through RDI) reads:
+
+```text
+a: lea rdi,[rbp+16]   mov    rdi,[rdi]          8 bytes
+b: lea rdi,[rbp+24]   movsxd rdi,dword [rdi]    4 bytes, sign-extended
+c: lea rdi,[rbp+32]   movsx  rdi,byte [rdi]     1 byte, sign-extended
+```
+
+Why is reading only the first byte of c's slot correct? The caller stored a full 64-bit value. On this little-endian machine, the lowest-addressed byte of a slot is its least significant byte, so a narrow load at the slot's address reads the low bits. For values that fit the parameter's type, those low bits are the value.
+
+For values that do not fit, the slot still supplies its low bits, because the caller performs **no conversion to the parameter type**. [`cc-native-parse-args`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L514-L528) materializes each argument and pushes it; it never consults the callee's parameter list. In `c(300)` with `int c(char x) { return x; }`, the slot holds `0x12C`, and the callee's byte load reads `0x2C`, so the predicted result is 44. Nor does anything count arguments: calling a two-parameter function with one argument compiles, and the callee reads whatever slot lies above.
+
+Here `a+b+c` is computed as `long`, and the return path needs no conversion. Back in `main`, the call's published type is `long` (the declared result of `add3`), `42−35=7`, and converting to `main`'s `int` return type costs one `movsxd`. The predicted exit status is 7.
+
+### What makes this “private”
+
+A **calling convention** is an agreement between caller and callee about where arguments, results and saved registers live. This one is **private** in a precise sense: it works only because every caller and every callee in the image was produced by this same compiler run. The source says so directly: “All linked code is generated together. No system libc or host object is used.” Nothing here could call a function compiled by GCC, or by TinyCC, without an adapter.
+
+That requirement shapes the whole route. The TinyCC compiler built here, `tcc-seed`, is one image produced from one translation unit containing both portable libc and TinyCC. C24 shows the 25-line input file that makes that one unit.
+
+Source: [the private call sequence](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L482-L578) and [the canonical book's statement of the convention](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/book/34-direct-tinycc.md#L780-L796).
+
+## Choose a second session
+
+Both opening puzzles are now resolved. Choose a question for the next session:
+
+- **How does a function get its frame and its address?** Read the function and frame references, then try C23-04 through C23-06
+- **Which declarations does this profile need, and where does it stop?** Read the declaration and boundary references, then try C23-07 and C23-08
+- **Which convention is in force at a given call?** Read the three-conventions reference, then try C23-09
+
+The first two routes open the rest of `117` and the profile-specific parts of `115`. The full shared declaration machinery has its complete home in G03, because the direct-GCC route uses it as well.
+
+## Reference: a definition publishes, then patches, then fills its frame
+
+`cc-native-function` runs for every function declarator. Its order matters:
+
+1. A by-value aggregate result (struct or union type, pointer depth zero) fails with **212**, even for a prototype
+2. Find an existing `sk-func` record with this name, or add one with address zero. A name that exists as some other kind is shadowed by a new function record
+3. Store the declared type and descriptor in the record, **replacing** any earlier type
+4. If the next token is not `{`, this was a prototype; stop
+5. A record that already has a nonzero address fails with **211**. This covers a second definition, and also a definition of a name the runtime already defined: a body for `close` is rejected
+6. Store the current address, walk the record's CALL fixups and patch each rel32 to it, then walk its address fixups and patch each imm64
+7. If the name is `main`, record the address in `cc-main-vaddr`
+8. Publish the return type and descriptor for C15's `return` conversion, reset the lexer to the saved parameter tokens, open a fresh declaration context and scope, and clear the per-function counters
+9. Install the parameters, read `{`, emit the zero-sized prologue and save its field offset
+10. Parse statements until `}`, emit the fallback return, finish pending `goto`s, and patch the frame field with `round16(8 × local-count)`
+
+Step 3's replacement has a visible consequence for the runtime names. Pre-registration gives `read` a `long` result before any header is read, so an undeclared call still has a correct type. A later source prototype replaces that type with whatever the prototype says, while the record's address continues to name the kernel body.
+
+A use before any declaration fails earlier: an unknown identifier reaches C12's [unknown-name hook](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/100-cc-expr.fth#L869-L884), whose default leaves the name unresolved, and the identifier parser fails with **93**. A declared function that is used but never defined keeps a nonempty fixup list. At the end, `cc-check-fns-defined` writes that function's name to standard error under LP64, then fails with **206**. A program without `main` fails with **207**.
+
+Parameters follow C's adjustment of array parameters to pointers (`nc-array` becomes one more pointer level). A by-value aggregate parameter fails with **212**. A parameter list must end in `)` or continue with `,`; anything else is **184**. `(void)` is recognized by peeking one token after `void` and restoring the lexer if it was not `)`, so `void *p` still declares a parameter. An ellipsis ends the list; the callee receives no hidden argument count.
+
+Source: [parameters and definitions](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L6-L74) and [the fixup walkers](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/112-cc-stmt.fth#L136-L171).
+
+## Reference: locals still occupy whole slots
+
+A native local is laid out by [`cc-native-local-layout-default`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L546-L548). For an object of s bytes, it reserves `ceil(s/8)` slots and returns the highest-numbered one. Since slot numbers grow downward in memory, that slot holds the object's **lowest** address. [`cc-fn-add-slots`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/110-cc-decl.fth#L42-L46) then advances the count, checking it against `cc-native-frame-limit` (131,072 slots) with error **162**.
+
+Take C07's layout of `struct rec { char tag; int count; long total; }`: offsets 0, 4 and 8, size 16. In
+
+```c
+int main(void) { struct rec r; int i; char name[3]; char c; /* ... */ }
+```
+
+the locals receive:
+
+| Local | Size | Slots | Slot | Address | Count afterward |
+|---|---:|---:|---:|---|---:|
+| `r` | 16 | 2 | 1 | RBP−16 (`count` at RBP−12, `total` at RBP−8) | 2 |
+| `i` | 4 | 1 | 2 | RBP−24 | 3 |
+| `name` | 3 | 1 | 3 | RBP−32 | 4 |
+| `c` | 1 | 1 | 4 | RBP−40 | 5 |
+
+The patched frame size is `round16(5×8)=48`. LP64 packs fields *inside* `r`; it does not pack separate locals into shared slots. A `char` local still costs a whole slot. C18's legacy frame instead always reserved 256 bytes and stopped at 32 slots; here a large frame is limited only by the slot cap and the stack the process actually has.
+
+## Reference: the declaration machinery this profile depends on
+
+`115` supplies one declaration parser shared by this profile and the System V target. G03 owns its complete account. This reference names what the TinyCC sources need from it, and where it refuses.
+
+**A context per declaration.** Each declaration allocates a zeroed 240-byte record and points `cc-nctx` at it. Its named fields run from `nc-ty` at offset 0 to `nc-storage` at offset 232; `nc-params` alone spans 64 bytes, because it holds a saved lexer mark. Aggregate members and function bodies save the enclosing context and restore it afterward, so a declaration nested inside a struct cannot overwrite its parent's partly parsed state. Source: [`cc-ncontext` and the accessors](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L16-L47).
+
+**Counting type keywords.** [`cc-nbase-raw`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L199-L235) counts each type keyword into nine slots, steps over qualifiers between keywords, then [derives the base from the counts](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L152-L190). Order cannot matter: `long unsigned long`, `unsigned long long int` and `long long unsigned` all name unsigned long long, eight bytes. Two `long`s select long long only under LP64. In this profile an invalid combination still selects some base rather than failing; the System V target replaces the permissive check. Without floatbits, a floating keyword fails with **214**.
+
+**Tags, enums and typedef names.** Struct and union tags live in their own namespace (`cc-nfind-tag` searches only `sk-struct` records), so `typedef struct T T;` is unambiguous. [`cc-naggregate`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L446-L476) installs the descriptor before reading members, so a member can point to its own struct. C07 derived the member offsets that [`cc-nadd-field`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L401-L419) assigns; anonymous members are promoted into the parent with their offset added. An identifier used as a base must be a typedef: an unknown name fails with **194**, and another kind with **195**.
+
+**Declarators, bounded.** [`cc-ndeclarator`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L362-L382) accepts pointers, one- and two-dimensional arrays, functions, function pointers, arrays of function pointers, and functions returning pointers. Parentheses that contain no star only group: `(*(sorters[2][2]))(…)` declares what `(*sorters[2][2])(…)` declares. Shapes outside the profile fail with **238**, its boundary code. Examples are a star inside an inner group, a general pointer to an array, and an array of functions. A function's parameter tokens are skipped on first reading but marked, so a definition can return to them after classification.
+
+**Objects and tentative storage.** [`cc-nobject`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/115-cc-native.fth#L551-L594) places a new file-scope or `static` object in the data area if an `=` follows, otherwise in BSS, aligned to its type. A repeated declaration reuses the symbol. If the new declaration is larger, as in `int a[1]; int a[3];`, it allocates new BSS storage and redirects every **existing** global-reference fixup from the old slot to the new one, so earlier uses do not keep the obsolete address. C24 shows what happens when the repeated declaration carries an initializer.
+
+**What remains outside.** Designated initializers, more than two array dimensions, nested array fields, aggregate values across calls, and real floating arithmetic are not part of this profile. The TinyCC and portable-libc sources are compiled within it; that is a fact about those pinned sources, not a promise about arbitrary C.
+
+## Reference: the program driver's order
+
+[`cc-native-program`](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/117-cc-native-program.fth#L91-L100) is ten lines:
+
+| Step | Bytes emitted | Records changed |
+|---|---|---|
+| `cc-native-entry` | 31-byte stub with two unpatched CALL fields | Initializer queue emptied; entry patch offsets saved |
+| `cc-native-runtime-fwd` | 434 bytes of kernel bodies; 249 more with floatbits | Thirteen (or sixteen) defined function records |
+| Declaration loop | Every function definition, in source order, plus initializer routines (C24) | Symbols, descriptors, global fixups, queued initializers |
+| `cc-native-init-finish-fwd` | Dispatcher: one CALL per queued initializer, then `ret` | Entry's first CALL patched |
+| `cc-check-fns-defined` | None | Fails 206/207 if a use or `main` is missing |
+| `cc-patch-call-main` | None | Entry's second CALL patched |
+
+The legacy runtime's eleven eager bodies, eight late bodies and built-in typedefs from C19 are absent: `cc-native-program` never calls `cc-emit-shims`. Portable libc supplies `malloc`, `printf` and the rest from C source, compiled in the same image.
+
+## Reference: three conventions in one route
+
+The TinyCC route involves three calling conventions. Keep them attached to the code that uses them:
+
+| Code | Convention | Where argument 1 is on entry |
+|---|---|---|
+| Legacy compiler output (C18) | Restricted register sequence, copied into a fixed frame | RDI |
+| Every function inside `tcc-seed`, `simple-patch`, `bintools` (this chapter) | Private all-stack | `[rsp+8]`; `[rbp+16]` after the prologue |
+| Every program TinyCC compiles, including the next TinyCC | TinyCC's own x86-64 System V output | RDI |
+
+The kernel bodies are the one place where the private convention meets another agreement: Linux's syscall registers. Each body moves stack slots into RDI, RSI and RDX itself.
+
+`tcc-seed` uses the private convention internally, but the code it **emits** is TinyCC's ordinary output. The next compiler, `tcc-boot0`, is a System V program, and from there on the private convention does not appear. The private profile is a construction tool, not something passed down the chain.
+
+## Practice: predict the slot before the byte
+
+These ten paper tasks progress from completion to independent prediction and diagnosis. No execution is requested. The [graduated hints and solutions](../practice/23-solutions.md) are separate. The tables above are references; the aim is to choose the right rule.
+
+### C23-01 — Complete the image map
+
+For `int main(void) { return 7; }` under the chapter's profile, fill in without looking back:
+
+```text
+entry stub     = ___–___        kernel bodies = ___–___
+refusals       = ___–___        main          = ___–___
+dispatcher at  = ___            file length   = ___
+```
+
+Then derive both CALL fields in the entry stub, naming the field's end and the target for each.
+
+### C23-02 — Turn floatbits off
+
+Keep the same program and every other switch, but set `cc-bootstrap-floatbits` to 0. Which bodies disappear? Give the new `main` offset, dispatcher offset, file length and both CALL fields. Which bytes inside `main` change?
+
+### C23-03 — Read a kernel door
+
+Give the byte length of `mkdir`'s body, and list its argument loads with their stack offsets. For raw kernel results −2, −4095, −4096 and 3, give the value the body returns. Why must the conditional jump skip exactly seven bytes, and why is an unsigned comparison the right one?
+
+### C23-04 — Stage four arguments
+
+For `f(1, 2, 3, 4)` with `int f(int a, int b, int c, int d)`, draw the four slots relative to S after the pushes and after reversal. Name each swap. Then give the RBP-relative address of `d` in the callee, and the instruction that discards the slots after the call.
+
+### C23-05 — Narrow reads from wide slots
+
+With `int c(char x) { return x; }` and `int w(int x) { return x == 2; }`, predict `c(300)`, `c(-1)` and `w(v)` where `long v = 4294967298;`. Which instruction decides each result, and why is no conversion emitted by the caller? What happens if a two-parameter function is called with one argument?
+
+### C23-06 — Frame accounting
+
+A function declares, in order, `long t; char s[9]; struct rec r; short h;`, with `struct rec` as in the chapter. Give each local's slot and RBP-relative address, the final local count, and the patched frame size. What would the frame size be if `h` were removed?
+
+### C23-07 — Records and failures
+
+Trace this file through `cc-native-function`, naming each record change and patch:
+
+```c
+int g(int x);
+int main(void) { return g(4); }
+int g(int x) { return x + 3; }
+```
+
+Then predict the outcome code for each independent change: (a) delete the definition of `g`; (b) delete the prototype; (c) add a second definition of `g`; (d) add `int close(int fd) { return 0; }`; (e) add the prototype `struct s h(void);` after a complete `struct s` definition.
+
+### C23-08 — Declarations at the boundary
+
+Classify each as accepted or failing, giving the size or code: `long unsigned long a;`, `unsigned long long int b;`, `int (*(*p))(void);`, `int m[2][3];`, `int a[1]; int a[4];` (give `sizeof a` after both), and, separately with floatbits 0, `double d;`.
+
+### C23-09 — Which convention is in force?
+
+For each call site, name the convention, where the first argument is at the callee's first instruction, and who produced both caller and callee: (a) TinyCC's `tcc_compile` calling portable libc's `malloc` inside `tcc-seed`; (b) the same call inside `tcc-boot0`; (c) C19's legacy `main` calling `putchar`; (d) portable libc calling `write` inside `tcc-seed`. Could a System V object compiled by GCC be linked into `tcc-seed` without an adapter? Say exactly what would disagree.
+
+### C23-10 — Return without the tables
+
+After working on something else, answer each with its deciding rule first:
+
+- Why does the same return-seven source give a 556-byte file in C19 and an 872-byte file here?
+- A reviewer says “the private ABI pushes arguments right to left.” What is correct about the final layout, and what is wrong about evaluation order?
+- A `char` parameter and a `char` local are each one byte. How much frame space does each cost the callee?
+- Does `cc-target-lp64` alone select the private convention?
+
+If the image questions go wrong, rebuild the offset chain from the stub. If the slot questions go wrong, redraw the three-argument stack. Use the feedback to repair that one step, then try an answer-free changed case from the solution page.
+
+## What we can now carry forward
+
+One unchanged C source produced a different image because the profile changed underneath it. The entry stub gained a call before `main` and passed `argc` and `argv` on the stack. Thirteen kernel bodies and three refusal bodies occupy bytes before any user code. `main` lost its fixed frame and gained a return conversion. Each of those bytes has a rule.
+
+Under the private convention, the caller evaluates left to right, reverses its slots, and discards them after the call. The callee reads parameters in place above its saved RBP, with typed loads that take only an object's own bytes from an eight-byte slot. LP64 decides those widths. It does not decide where the slots are, and the convention does not convert or count arguments. The whole convention depends on one compiler producing every caller and callee in the image.
+
+[C24](24-tinycc-initialization-runtime-and-closure.md) fills the dispatcher, explains why the kernel bodies return −1, and follows this profile from raw archives through `tcc-seed` to TinyCC's own executable and object fixed points.

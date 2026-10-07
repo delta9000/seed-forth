@@ -64,7 +64,7 @@ execution and reader-validation obligations remain explicit.
 | [Two small results](FIRST-RESULTS.md) | Preserved stack state, output request versus storage, and a C entry-call/exit result | Four separately counted H1/H2 prompts with [feedback](practice/first-results-solutions.md); no observed run |
 | [G01: A program from two files](gcc-toolchain/chapters/01-a-program-from-two-files.md) | Declaration versus definition, selected LP64/System V/object profile, one relative field and absolute contrast, runtime-aware startup and eager/lazy inputs | Seven chapter exercises with [feedback](gcc-toolchain/practice/01-solutions.md); bounded source/practice and model-assisted prerequisite reviews complete |
 
-The stable chapter inventory is **269 exercises**: 95 S, 167 C and seven G.
+The stable chapter inventory is **289 exercises**: 95 S, 187 C and seven G.
 The four entrance prompts and existing mixed checks are separate. G01's
 addresses are illustrative placements, not an observed object dump; its
 command card is source-derived and unexecuted. Its profile entrance does
@@ -78,7 +78,7 @@ C23 + local source/generation/comparison bridge -> C24: alternate TinyCC closure
 G19 + G20 -> G21: joined GCC and output tools (planned)
 ```
 
-C23/C24 remain planned. Their local bridges remove blanket C20/C22 reading
+C23/C24 are drafted as an alternate route. Their local bridges remove blanket C20/C22 reading
 gates; a full cross-route comparison exercise still requires the relevant
 complete C20/C22 mechanisms. This is a learning-contract distinction, not a
 claim of TinyCC executable ancestry.
@@ -302,13 +302,16 @@ C20 + C21 -> C22: label placement, byte emission and source-built-tool handoff
 | [C20 Complete compiler and Stage A](c-compiler/chapters/20-complete-compiler-and-stage-a.md) | Reconstruct producers, three input lists, physical output paths and the exact M1 comparison; bound the recorded result | Eight exercises and [feedback](c-compiler/practice/20-solutions.md); source/practice review and final readback complete |
 | [C21 Assembler input and expansion](c-compiler/chapters/21-assembler-input-and-expansion.md) | Derive exact expanded text, borrowed-slice ownership, narrow token/number grammar and capacity boundaries | Ten exercises and [feedback](c-compiler/practice/21-solutions.md); source/practice reviewed |
 | [C22 Two-pass assembly and handoff](c-compiler/chapters/22-two-pass-assembly-and-bootstrap-handoff.md) | Preserve sizing/emission invariants, derive fields and supplied ELF bytes, and name each handoff predicate | Twelve exercises and [feedback](c-compiler/practice/22-solutions.md); source/practice reviewed |
+| [C23 The direct TinyCC profile](c-compiler/chapters/23-the-direct-tinycc-profile.md) (alternate) | Name the profile, derive the private entry/runtime/`main` image, and trace caller-owned slots into typed callee loads | Ten exercises and [feedback](c-compiler/practice/23-solutions.md); unreviewed draft |
+| [C24 TinyCC initialization, runtime and closure](c-compiler/chapters/24-tinycc-initialization-runtime-and-closure.md) (alternate) | Derive queued initializer routines and the static guard, explain kernel-error normalization, and bound each recipe check up to the TinyCC fixed point | Ten exercises and [feedback](c-compiler/practice/24-solutions.md); unreviewed draft |
 
-The current C route has **167 main exercises** and six four-question mixed
-checks. The seed and C routes retain their **262 main exercises**; G01 adds
-seven for **269 chapter exercises** overall; mixed questions
+The current C route has **187 main exercises** and six four-question mixed
+checks. The seed and C routes retain their **282 main exercises**; G01 adds
+seven for **289 chapter exercises** overall; mixed questions
 are separate. C16–C18 technical/practice and first-reading reviews are complete.
 C19's full technical/practice manuscript review is complete; C20's source/practice review
 and final readback are complete. C21/C22 have completed source/practice review.
+C23/C24 are unreviewed drafts.
 New teaching answers remain source-derived predictions.
 C20 separately reads an existing remote Stage-A execution record; it does not
 turn that result into execution or human-reader validation of the new examples.
@@ -344,7 +347,7 @@ keeps both the current explanations and the deferred regions inspectable.
 
 The H1/H2 paper entrance and G01 object/profile bridge now exist. The next
 main-route work is operational setup validation and the deeper G02/G04/G05/G06
-mechanisms behind that bounded two-file story. C23/C24 remain planned alternate TinyCC work, rather than the next
+mechanisms behind that bounded two-file story. C23/C24 are drafted alternate TinyCC work, rather than the next
 mandatory chapters because of their numbers. G01 identifies the actual object driver, final selected call provider,
 runtime-aware startup, archive inputs and one relocation. Actual object
 records, file results and cold/cache runs remain unverified before its
@@ -360,7 +363,7 @@ The resulting 556-byte example is a predicted output-buffer layout, not an
 observed file or run. C20 now identifies actual build inputs, artifact roles
 and Stage-A comparison rules, distinguishes parity from fixed-point claims,
 and states the limits of its attributed records. C21/C22 now supply complete bounded Forth assembly
-and the source-built-tool handoff. C23/C24 still owe the native/TinyCC routes. Full
+and the source-built-tool handoff. C23/C24 now draft the alternate native/TinyCC route. Full
 stage0/DDC/handoff/pnut and historical lineage references remain distinct,
 as do the planned toolchain and kernel volumes. Access to the actual compared
 CI artifacts and a tested fresh-reader reproduction route remain outstanding.
