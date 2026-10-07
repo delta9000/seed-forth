@@ -45,6 +45,19 @@ variable cc-om-count
 : om-flags cc-om-record [lit] 96 + ;
 : om-output cc-om-record [lit] 104 + ;
 : om-symbol cc-om-record [lit] 112 + ;
+\ Lookup by name goes through a hash table (cc-name-hash, 030):
+\ cc-om-bucket holds the newest record whose name hashes there (0 for
+\ none), and cc-om-hnext the next older record in the same bucket.
+create cc-om-bucket  cc-name-buckets [lit] 8 * allot
+create cc-om-hnext   cc-om-direct-cap 1+ [lit] 8 * allot
+: cc-om-hash-reset ( -- )
+  [lit] 0 begin, dup cc-name-buckets < while,
+    [lit] 0 over cc-om-bucket cell[] !  1+
+  repeat, drop ;
+: cc-om-link ( id -- )
+  dup om-name @ over om-nlen @ cc-name-hash cc-om-bucket cell[]   ( id b )
+  2dup @ swap cc-om-hnext cell[] !
+  ! ;
 \ Flags:1 extern-only,2 tentative,4 initialized,8 block static,
 \ 16 referenced,32 anonymous. A later definition replaces extern-only.
 : cc-om-flag ( flag record -- ) om-flags dup @ rot or swap ! ;
@@ -53,18 +66,26 @@ variable cc-om-count
   [lit] 1 cc-om-count +! cc-om-count @ >r
   r@ cc-om-record [lit] 128 cc-nzero
   r@ om-kind ! r@ om-bind ! r@ om-nlen ! r@ om-name !
+  r@ cc-om-link
   [lit] 1 r@ om-align ! r> ;
 variable cc-om-find-name
 variable cc-om-find-length
+\ The oldest record of that name that is neither a block static nor
+\ anonymous: the walk along the name's bucket runs newest first, so the
+\ last match it meets is the one.
 : cc-om-find ( name length -- record|0 )
   cc-om-find-length ! cc-om-find-name !
-  [lit] 1 begin, dup cc-om-count @ <= while,
+  [lit] 0                                                ( found )
+  cc-om-find-name @ cc-om-find-length @ cc-name-hash cc-om-bucket cell[] @
+  begin, dup while,                                      ( found id )
     dup om-flags @ [lit] 40 and 0= if,
       dup om-nlen @ cc-om-find-length @ = if,
-        dup om-name @ cc-om-find-name @ cc-om-find-length @ bytes-eq if, exit, then,
+        dup om-name @ cc-om-find-name @ cc-om-find-length @ bytes-eq if,
+          nip dup
+        then,
       then,
-    then, 1+
-  repeat, drop [lit] 0 ;
+    then, cc-om-hnext cell[] @
+  repeat, drop ;
 : cc-om-from-symbol ( symbol -- record )
   dup cc-sym-kind-of sk-global = if, cc-sym-val-of exit, then,
   dup cc-sym-name-addr cell[] @ swap cc-sym-name-len cell[] @ cc-om-find
@@ -440,7 +461,7 @@ defer cc-om-address-index-fwd
   repeat, 2drop ;
 : cc-sysv-object-enable
   cc-sysv-enable true cc-sysv-object-mode !
-  [lit] 0 cc-om-count ! [lit] 0 cc-om-relocations ! ;
+  [lit] 0 cc-om-count ! [lit] 0 cc-om-relocations ! cc-om-hash-reset ;
 : cc-sysv-object-program
   cc-obj-init cc-sysv-translation-unit
   cc-ni-head @ if, [lit] 238 cc-die then,

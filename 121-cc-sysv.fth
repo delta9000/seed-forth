@@ -7,14 +7,15 @@ variable cc-target-sysv
 [lit] 1398362966 constant cc-sysv-signature-tag
 create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
 
-\ An ordinary identifier never resolves to a struct/union tag. The reverse
-\ scan still chooses the innermost ordinary declaration; member names live
-\ in their aggregate descriptors and enumerators remain ordinary names.
+\ An ordinary identifier never resolves to a struct/union tag. The walk
+\ along the name's bucket (070), newest first, still chooses the innermost
+\ ordinary declaration; member names live in their aggregate descriptors
+\ and enumerators remain ordinary names.
 : cc-sysv-find-ordinary ( a u -- id|-1 )
   cc-target-sysv @ 0= if, cc-sym-find-default exit, then,
-  cc-nf-u ! cc-nf-a ! cc-sym-count @
-  begin, dup while,
-    1-
+  cc-nf-u ! cc-nf-a !
+  cc-nf-a @ cc-nf-u @ cc-name-hash cc-sym-bucket cell[] @ 1-     ( id )
+  begin, dup 0< 0= while,
     dup cc-sym-kind-of sk-struct <> if,
       dup cc-sym-name-len cell[] @ cc-nf-u @ = if,
         dup cc-sym-name-addr cell[] @ cc-nf-a @ cc-nf-u @ bytes-eq if,
@@ -22,7 +23,8 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
         then,
       then,
     then,
-  repeat, drop true ;
+    cc-sym-hnext cell[] @
+  repeat, ;
 : cc-sysv-find-tag ( a u -- id|-1 )
   cc-target-sysv @ if, cc-nfind-tag else, cc-sym-find-default then, ;
 ' cc-sysv-find-ordinary is cc-sym-find

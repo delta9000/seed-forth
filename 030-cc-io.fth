@@ -231,6 +231,20 @@ variable cc-nf-lens
     1-                                           \ i--
   repeat, ;                                      \ not found: i = -1
 
+\ cc-name-hash ( a u -- h )  djb2 over the name, as the linker hashes
+\ symbols (140-cc-link.fth), masked to cc-name-buckets.  The macro and
+\ symbol tables (040, 070) keep, per hash, their newest entry in a bucket
+\ and link the older ones behind it, so a lookup compares only the names
+\ that share its hash.
+[lit] 4096 constant cc-name-buckets
+: cc-name-hash
+  [lit] 5381 >r
+  begin, dup while,
+    over c@ r> [lit] 33 * + >r
+    1- swap 1+ swap
+  repeat, 2drop
+  r> cc-name-buckets 1- and ;
+
 \ Direct GCC source workspace is opt-in; default buffers stay dictionary-backed.
 \ Measured raw/expanded/output maxima are 2,782,995/5,415,887/3,901,856 bytes.
 \ Raw and output round to whole MiB. Expanded text splices in every included

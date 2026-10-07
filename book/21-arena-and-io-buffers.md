@@ -318,7 +318,7 @@ leaks are all impossible.
 
 ## 2. The source reader and output writer
 
-The 269-line file `030-cc-io.fth` has four sections: A, the input and
+The 283-line file `030-cc-io.fth` has four sections: A, the input and
 source buffers and the reader; B, the output buffer and emitters; C,
 the final file write; D, three helpers the next files share.
 
@@ -650,6 +650,20 @@ variable cc-nf-lens
     1-                                           \ i--
   repeat, ;                                      \ not found: i = -1
 
+\ cc-name-hash ( a u -- h )  djb2 over the name, as the linker hashes
+\ symbols (140-cc-link.fth), masked to cc-name-buckets.  The macro and
+\ symbol tables (040, 070) keep, per hash, their newest entry in a bucket
+\ and link the older ones behind it, so a lookup compares only the names
+\ that share its hash.
+[lit] 4096 constant cc-name-buckets
+: cc-name-hash
+  [lit] 5381 >r
+  begin, dup while,
+    over c@ r> [lit] 33 * + >r
+    1- swap 1+ swap
+  repeat, 2drop
+  r> cc-name-buckets 1- and ;
+
 \ Direct GCC source workspace is opt-in; default buffers stay dictionary-backed.
 \ Measured raw/expanded/output maxima are 2,782,995/5,415,887/3,901,856 bytes.
 \ Raw and output round to whole MiB. Expanded text splices in every included
@@ -693,10 +707,13 @@ or `_` starts one, and digits may follow.  Every compiler table is a
 set of parallel arrays of 8-byte cells, one array per field, indexed
 by entry number; `cell[]` turns an index into a cell address, so
 `i cc-sym-kind cell[] @` reads entry `i`'s kind.  `cc-name-find` is
-the one lookup: the macro table and the symbol table both keep each
-name as an address array and a length array, and both want the newest
-entry with a given name, so a later `#define` wins and an inner
-variable hides an outer one.  It answers the entry's index, or -1.
+the plain lookup: a table that keeps each name as an address array and
+a length array wants the newest entry with a given name, so a later
+entry hides an earlier one.  It answers the entry's index, or -1.
+Small tables (labels, a macro's parameters) use it as it is.  The
+macro table, the symbol table and the object records hold thousands
+of names when the compiler builds GCC, so they also file each entry
+under `cc-name-hash` and compare only the names in one bucket.
 
 ## 3. Why one big buffer instead of streaming?
 
