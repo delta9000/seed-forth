@@ -35,6 +35,79 @@ The `verify.sh` opt-in continuation still explicitly supplies its control
 kit. The full GCC 15.2 timings and results below were recorded before
 this default stage-0 migration; they are not a new full-chain rebuild.
 
+## Bridge from the direct route (no TinyCC)
+
+The `bridge` stage replaces stages 0 to 5 with the direct route's GCC 4.0.4
+(`gcc-direct/stage-d.sh`), whose first generation was compiled by the Forth
+C compiler with no TinyCC. It leaves stage 6 onward the layout stages 4 and 5
+leave:
+
+```sh
+GCC64_DIRECT=STAGE_D_WORK GCC64_OYACC=OYACC GCC64_FLEX=FLEX \
+    gcc64/run-gcc64.sh --new DIR      # bridge stage6 ... stage12
+```
+
+`GCC64_DIRECT` is a finished stage-D work directory. Its report
+(`report.txt` from `stage-d.sh`, or `report.json` from `stage-d.py`) must
+record the stage 2 = 3 = 4 fixed point, and `prefix/` must hash to that
+fixed point. Stage C's toolchain and sysroot are found by asking that GCC
+for its configured `as` and `libc.a`. `GCC64_OYACC` and `GCC64_FLEX` are the
+Forth-built oyacc and flex 2.5.11 from the lexers stage. The bridge builds:
+
+| Path | What | Built by |
+|---|---|---|
+| `bu/` | binutils-2.30, configured exactly as stage 4 (`BU230_CONF`, `-g0`) | the direct GCC, with stage C's Forth-built as/ld/ar |
+| `tools/bin/` | oyacc and flex 2.5.11, copied | the Forth compiler |
+| `sysroot/` | stage C's musl-1.1.24, copied (stage 7 replaces it) | the Forth-built GCC |
+| `g4/` | gcc-A, by the same `build-gcc4.sh` as stage 5 | the direct GCC |
+
+After the bridge, `build-gcc4.sh` (stage 6 too) uses oyacc and flex 2.5.11
+instead of host bison and flex-2.6.4 (`GCC4_YACC`, `GCC4_LEX`), with the
+`gcc/system.h` YYBYACC exemption stage D applies (`GCC4_BYACC=1`). No tcc,
+host bison or host m4 runs before stage 7. `bridge/inputs.txt` records the
+inputs' sha256. `bridge/direct.env` marks the BUILDROOT as bridged, for
+stage 6 and the pins step.
+
+**Result** (cloud run, 2026-10-07, at the canonical BUILDROOT). The bridge
+and stages 6 to 12 passed, with all their tests. Stage 6's gcc-B = gcc-C
+holds. Stage 7's gmp, mpfr and mpc `make check` reported 0 failures. GCC
+15.2's bootstrap reported "Comparison successful". The pins step reported
+23 as pinned and 0 differing. The 13 outputs the bridge builds differently
+(binutils-2.30, flex, gcc-A, and gcc-B's executables, which link route D's
+musl) were not compared. Against the TinyCC route:
+
+- **GCC 15.2.0 is byte-identical**: `g15/bin/gcc`, `cc1`, `cc1plus`,
+  `libgcc.a` and `libstdc++.a` match the pins that route T's run recorded.
+  Two first compilers that share no code, tcc 0.9.27 and the Forth
+  compiler, lead to the same final GCC.
+- **12 more identical** along the way: gcc-B's
+  `crtbegin.o`/`crtend.o`, the stage-7 sysroot (`libc.a`, `libgmp.a`,
+  `libmpfr.a`, `libmpc.a`), `g47/bin/gcc`, gcc-4.7.4's and gcc-10.5.0's
+  `libstdc++.a`, and binutils-2.41's `as`, `ld` and `ar`.
+- **6 differ, both causes found** (pinned as `direct` in `HASHES`):
+  - gcc-B's `libgcc.a` differs in three members (`_eprintf.o`,
+    `unwind-dw2.o`, `unwind-dw2-fde-glibc.o`), and only in debug info. With
+    `--strip-debug` they are identical. Their DWARF line numbers point into
+    `bits/alltypes.h`. Route T's copy carries tcc's 23-line `va_list` patch
+    (`patches/gcc64/musl-1.1.24`); route D's musl headers are pristine.
+  - gcc-4.7.4's `cc1`/`cc1plus` and gcc-10.5.0's `gcc`/`cc1`/`cc1plus` also
+    differ in code, from the **assembler**. Given the same `.s`, gcc-B's
+    output for gcc-4.7.4's `config/i386/i386.c` (byte-identical in both
+    routes), binutils-2.30 `as` built by tcc and `as` built by the Forth
+    compiler (stage B) produce one object. `as` built by GCC 4.0.4 (at -O0
+    or -O2) and `as` built by host GCC 13 produce another. They choose
+    different branch encodings (`je rel8` vs `je rel32`, absorbed by
+    alignment padding). The two encodings mean the same thing.
+    gcc-10.5.0's binaries inherit the difference through gcc-4.7.4's
+    `libgcc.a`, which that `as` also assembles. That two C
+    compilers which share no code disagree with two GCCs suggests a
+    C-semantics gap that tcc 0.9.27 and the Forth compiler share, or
+    undefined behaviour in gas 2.30 that GCC compiles differently. This
+    is not investigated yet.
+
+In the bridged run, binutils-2.41 is still identical to route T's
+(`bu2/`), so from stage 9 on both routes use one assembler.
+
 ## The chain
 
 ```
