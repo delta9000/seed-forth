@@ -992,15 +992,30 @@ static void link_objects(struct names *objects, const char *output)
 }
 
 /* Sibling private temporary plus rename: preserve an existing destination
-   on errors, and do not follow destination symlinks during publication. */
+   on errors, and do not follow destination symlinks during publication.
+   A destination that is a character device (configure scripts link with
+   -o /dev/null) is written in place, as GCC does. */
 static void publish(const char *source, const char *destination, long mode)
 {
     long mask = st_umask_value(), fd = -17, r;
-    char *parent = st_pparent(destination);
+    char *parent;
     char *temporary = 0;
     struct buf data;
+    struct st_stat s;
     int attempt;
     st_read_file(source, &data);
+    if (st_lstat(destination, &s) == 0 && (s.mode & ST_S_IFMT) == ST_S_IFCHR) {
+        fd = st_open(destination, ST_O_WRONLY | ST_O_CLOEXEC, 0);
+        if (fd < 0)
+            st_fail_os(fd, destination, 0);
+        r = st_write_fd_all((int)fd, data.data, data.len);
+        st_close((int)fd);
+        if (r < 0)
+            st_fail_os(r, destination, 0);
+        b_free(&data);
+        return;
+    }
+    parent = st_pparent(destination);
     for (attempt = 0; attempt < 100 && fd == -17; attempt = attempt + 1) {
         char name[16];
         char *base;

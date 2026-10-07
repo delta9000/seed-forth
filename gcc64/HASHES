@@ -4,6 +4,9 @@
 #   root  the file embeds absolute paths under BUILDROOT (prefixes, sysroot, tcc's
 #         CONFIG_TCCDIR, flex's m4 path, ...), so the hash holds only for the
 #         BUILDROOT on the "root" line; run-gcc64.sh --new <that path> reproduces it.
+#   direct  after the bridge (GCC64_DIRECT, route D's GCC instead of stages 0-5), at the
+#         canonical BUILDROOT, this value replaces the file's "root" one; without the
+#         bridge the line is ignored.  Why these differ: gcc64/README.md, "Bridge".
 root /tmp/claude-0/-home-user-seed-forth/cc676fea-56ac-5a23-8fc7-209074f2e383/scratchpad/gcc64/clean
 514bc4d3af6b79d2fc99d1178933f3e2ee093ff7ce7362d92dc81708f13fa5c1  tccboot/kit/build/tcc-boot2  any
 58a727bf581d451c9b958beed99ba3267f898779e29078af4dc8d833d8014440  p0/bin/tcc  root
@@ -48,3 +51,9 @@ c090255e79666c8300120f7632b96dcd6e0cc207c5c458531bdf679e83edab59  bu/bin/objdump
 7eb1981d85093f287792a8093fd94d80df4557498491a0eed170fb84321fd486  g4s/libexec/gcc/x86_64-unknown-linux-gnu/4.0.4/collect2  root
 da889d9a4143b1073b1caa30d0e70dca1b62a60f7af5fbf2e88b44a042a85750  g4s/lib/gcc/x86_64-unknown-linux-gnu/4.0.4/crtbegin.o  any
 e389bbbcd60d56547aedb01b698464ccc9d8a6f00dd326de71cfad8cd12abde7  g4s/lib/gcc/x86_64-unknown-linux-gnu/4.0.4/crtend.o  any
+78b58e37594c31121867c0f7585e0b1d998c6481b86852e17477baacfd26b8ae  g4s/lib/gcc/x86_64-unknown-linux-gnu/4.0.4/libgcc.a  direct
+fc669456040c033bfe49c7e8d67e66b03d6369c7745efb2e354feaa9c041a869  g47/libexec/gcc/x86_64-linux-musl/4.7.4/cc1  direct
+38003023976df72deb3cc04a3d32c1aa98030a03614347cb83b4df19bc4dbae3  g47/libexec/gcc/x86_64-linux-musl/4.7.4/cc1plus  direct
+a08b1b4a24d4cc3dc69de2bfc633128e36c0990aaa19aa07ced8d9dface0ac46  g10/bin/gcc  direct
+4f71568d6f9b64daaf40ac5f602317f3a884386adc294217ecdfb7f306a85290  g10/libexec/gcc/x86_64-linux-musl/10.5.0/cc1  direct
+9fc35598c85c9327c14148f734b19dac8310d7ebf8588dd5332a2a8e4287fc4c  g10/libexec/gcc/x86_64-linux-musl/10.5.0/cc1plus  direct

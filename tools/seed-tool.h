@@ -28,6 +28,7 @@
 #define ST_S_IFDIR 0040000
 #define ST_S_IFREG 0100000
 #define ST_S_IFLNK 0120000
+#define ST_S_IFCHR 0020000
 
 /* Linux AMD64 struct stat, as returned by the stat family of syscalls. */
 struct st_stat {
