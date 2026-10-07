@@ -386,10 +386,9 @@ human readers will learn or retain them. The labeled changed cases are
 supported application; a later mixed check must separately test selection
 without naming the representation in its prompt.
 
-Current document checks cover 269 chapter exercise pairs plus four entrance
+Current document checks cover 437 chapter exercise pairs plus four entrance
 pairs, 91 source rows, 77 stable units and 71 exact-pin project source blobs.
-The 576-definition inventory retains its previous scope; G01's supplied
-interfaces do not add complete implementation coverage for G02–G17. Static
+The 576-definition inventory retains its previous scope; the G02–G25 mechanism drafts do not claim a new exhaustive source-region or definition inventory. Static
 checks also protect the exact new teaching inputs, selected displayed fields,
 command spellings, and bounded relocation/alignment arithmetic. They do not
 run the command card, its generated programs or the linker.
@@ -403,6 +402,14 @@ files. It is not a validated general book-export pipeline. Relative Markdown
 links were retained but are not portable PDF navigation, and the PDFs are
 untagged. No G01 visual rendering or accessibility certification follows from
 this limited pilot.
+
+## G02–G25 manuscript continuation
+
+All twenty-four planned continuations are drafted in order, with 168 original exercises and separate answer-free changed prompts, graduated hints, worked solutions and changed-task checks. The series README, narrative map and coverage ledgers list the new paths and drafted status. Exact-pin locators and local links are checked by `python3 books/check.py`; the G exercise-count assertion now requires seven sets for every G01–G25 chapter. Reference-link parsing excludes inline code so ranked C array declarators are not mistaken for Markdown links.
+
+The local continuation document pass succeeded: 161 Markdown files, 437 chapter exercise pairs, four entrance pairs, 77 acyclic teaching units and all pinned-source locators passed `python3 books/check.py`. `git diff --check` also passed after normalizing the edited CSV ledgers to LF. These checks retain their static scope.
+
+These additions use source inspection, supplied paper calculations and attribution to pinned reports. They add no fresh GCC/binutils/runtime build, generated-program execution, independent manuscript review or reader-validation result. Earlier G01 and S/C reviews retain their historical scope.
 
 ## Still unverified
 
@@ -422,9 +429,7 @@ this limited pilot.
 
 ## Next coherent unit
 
-The next manuscript work opens G02's object records and complete writer
-mechanisms, then the needed declaration, ABI, linker and runtime sessions
-behind G01's supplied interfaces. The [hybrid narrative plan](HYBRID-NARRATIVE.md)
+G02–G25 now have paper mechanism chapters and separate practice companions. The next validation work is independent manuscript/practice review, reader attempts and retained fixture execution; none has been completed for these additions. The [hybrid narrative plan](HYBRID-NARRATIVE.md)
 keeps the native/private-stack TinyCC application as an optional complete
 route. Kernel work retains its own source, lineage and observed-boot
 obligations. Fresh-start execution remains a separate validation task.

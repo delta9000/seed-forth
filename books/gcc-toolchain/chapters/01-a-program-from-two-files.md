@@ -488,22 +488,23 @@ decimal rather than practice hexadecimal borrowing.
 
 You can now explain an unfinished use, its later patch, and the agreements
 that let the result cross independently compiled functions. The following
-implementation obligations remain; this one trace does not complete them.
+chapters open those implementation mechanisms; this one trace does not complete them.
 Files recur because ownership is by mechanism, not by whole filename.
 
-| Home | Mechanism still to open |
+| Home | Mechanism opened by the continuation |
 |---|---|
-| G02 | `081` writer and `123` stable-record/export bridge: section records, symbol identities, object storage, validation and publication |
-| G03 | Shared `115`/`118` declarations, signatures, descriptors and initializer structure; `123` signature/implicit-declaration bridge |
-| G04 and G15 | `121`, final `131` providers and `123` function wrapper: argument planning, live values, frames, full alignment cases, aggregate/X87 transport |
-| G05 | `140`: complete resolution and validation, section placement, relocation kinds/ranges, executable headers and publication |
-| G06 | `122`: both startup contracts, C/Linux register bridge, errno, frame, signal and nonlocal-return helpers |
-| G07 and G13 | Runtime allocation, byte/string services, streams, and their failure contracts |
-| G08 and G09 | Target headers/predefines; `123` static initializer/relocation lowering through shared `118` traversal and the final scalar-leaf provider |
-| G10–G12 and G14 | Loaded `127`/`128` floating and literal mechanisms, `126` variadics, and `129` bitfields, none demonstrated by this integer-only fixture |
-| G16 and G17 | `141` archive selection/order, complete runtime/source inventories, cache identity and driver boundaries |
+| [G02](02-objects-symbols-and-relocation-records.md) | `081` writer and `123` stable-record/export bridge: section records, symbol identities, object storage, validation and publication |
+| [G03](03-signatures-declarators-and-ranked-arrays.md) | Shared `115`/`118` declarations, signatures, descriptors and initializer structure; `123` signature/implicit-declaration bridge |
+| [G04](04-a-shared-scalar-argument-planner.md) and [G15](15-aggregate-values-and-x87-transport.md) | `121`, final `131` providers and `123` function wrapper: argument planning, live values, frames, full alignment cases, aggregate/X87 transport |
+| [G05](05-linking-independently-built-objects.md) | `140`: complete resolution and validation, section placement, relocation kinds/ranges, executable headers and publication |
+| [G06](06-raw-syscalls-startup-and-runtime-control.md) | `122`: both startup contracts, C/Linux register bridge, errno, frame, signal and nonlocal-return helpers |
+| [G07](07-source-built-allocation-and-byte-operations.md) and [G13](13-streams-and-bounded-formatting.md) | Runtime allocation, byte/string services, streams, and their failure contracts |
+| [G08](08-target-headers-and-honest-feature-probes.md) and [G09](09-typed-constants-and-symbolic-addresses.md) | Target headers/predefines; `123` static initializer/relocation lowering through shared `118` traversal and the final scalar-leaf provider |
+| [G10](10-floating-values-and-conversion.md)–[G12](12-variadic-cursors-and-argument-classes.md) and [G14](14-bitfield-layout-and-preserving-stores.md) | Loaded `127`/`128` floating and literal mechanisms, `126` variadics, and `129` bitfields, none demonstrated by this integer-only fixture |
+| [G16](16-indexed-archives-and-lazy-extraction.md) and [G17](17-frozen-driver-configure-and-source-census.md) | `141` archive selection/order, complete runtime/source inventories, cache identity and driver boundaries |
 
-These are named future homes, not links to unwritten chapters. The
+G02–G25 are now paper chapters with separate practice companions; their new
+execution and independent review remain pending. The
 [main-route map](../../HYBRID-NARRATIVE.md) connects this result to source
 generators, GCC output tools, hosted programs, and rebuild evidence.
 

@@ -17,13 +17,12 @@ existing exercises and source homes.
 |---|---|---|
 | H1 — A Forth result | Trace a reusable word; separate its stack result, requested output byte and stored byte | [Two small results](FIRST-RESULTS.md) now teaches the stack/output bridge and a supplied byte-store transfer; S1/S2/S7 remain depth. Operational setup and observed output remain pending |
 | H2 — A simple C ELF | Distinguish builder, buffer, saved file, entry and process result; explain one final call field | [Two small results](FIRST-RESULTS.md) now supplies the C/function/entry primer and 556-byte layout bridge, then C19 opens its derivation. Setup and execution remain pending |
-| H3 — Objects, System V, linking and runtime | Resolve a use across two objects, explain one relocation and preserve the selected calling/startup contract | [G01](gcc-toolchain/chapters/01-a-program-from-two-files.md) drafts the bounded two-file/profile story and seven practice sets; bounded source/practice and model-assisted prerequisite reviews complete. Full G02/G04/G05/G06 mechanisms, actual fixture records and observed results remain owed |
-| H4 — Generators, GCC and output tools | Identify generated-source producers and join GCC output with source-built binutils in a freestanding program | Planned G17–G21 route; G21 needs both G19's compiler and G20's output tools. Generator choice and distributed fixture remain owed |
-| H5 — Hosted closure and rebuild | Identify runtime/header/startup producers and interpret controlled file/member comparisons | Planned G22–G25 with the required G16 archive contract; existing bounded reports remain attributed results |
+| H3 — Objects, System V, linking and runtime | Resolve a use across two objects, explain one relocation and preserve the selected calling/startup contract | [G01](gcc-toolchain/chapters/01-a-program-from-two-files.md) drafts the bounded two-file/profile story and seven practice sets; bounded source/practice and model-assisted prerequisite reviews complete. G02–G16 now draft the mechanisms; actual fixture records and new observed results remain owed |
+| H4 — Generators, GCC and output tools | Identify generated-source producers and join GCC output with source-built binutils in a freestanding program | Drafted G17–G21 paper route; G21 needs both G19's compiler and G20's output tools. Generator choice and distributed fixture remain owed |
+| H5 — Hosted closure and rebuild | Identify runtime/header/startup producers and interpret controlled file/member comparisons | Drafted G22–G25 with the required G16 archive contract; existing bounded reports remain attributed results |
 
 The H labels supplement the 77 stable editorial units; they are not new
-chapters. G01 now supplies H3's bounded entrance; H4/H5 and the remaining H3
-implementation-depth units are planned.
+chapters. G01 supplies H3's bounded entrance; G02–G25 now draft the remaining H3 mechanisms and H4/H5 route. Independent review and new execution remain pending.
 New H1/H2 launch/reset/capture instructions also require source review and
 clean-start validation before a runnable route can be promised. Preview,
 worked paper result, observed runnable checkpoint and independent learner
@@ -64,7 +63,9 @@ execution and reader-validation obligations remain explicit.
 | [Two small results](FIRST-RESULTS.md) | Preserved stack state, output request versus storage, and a C entry-call/exit result | Four separately counted H1/H2 prompts with [feedback](practice/first-results-solutions.md); no observed run |
 | [G01: A program from two files](gcc-toolchain/chapters/01-a-program-from-two-files.md) | Declaration versus definition, selected LP64/System V/object profile, one relative field and absolute contrast, runtime-aware startup and eager/lazy inputs | Seven chapter exercises with [feedback](gcc-toolchain/practice/01-solutions.md); bounded source/practice and model-assisted prerequisite reviews complete |
 
-The stable chapter inventory is **269 exercises**: 95 S, 167 C and seven G.
+The [GCC-toolchain series](gcc-toolchain/README.md) continues with G02–G16 for object/ABI/link/runtime depth, G17–G21 for generators/GCC/output tools, and G22–G25 for hosted closure and rebuild evidence. Every new chapter has seven original exercises and a separate practice companion; source-derived drafts and attributed reports remain distinct from new execution and independent review.
+
+The stable chapter inventory is **437 exercises**: 95 S, 167 C and 175 G.
 The four entrance prompts and existing mixed checks are separate. G01's
 addresses are illustrative placements, not an observed object dump; its
 command card is source-derived and unexecuted. Its profile entrance does
@@ -75,7 +76,7 @@ or G16's archive implementation.
 C19 capability + local direct-profile bridge -> G01: a program from two files
 C15 + C18 + C19 + local producer/profile bridge -> C23: alternate private TinyCC profile
 C23 + local source/generation/comparison bridge -> C24: alternate TinyCC closure
-G19 + G20 -> G21: joined GCC and output tools (planned)
+G19 + G20 -> G21: joined GCC and output tools (paper draft)
 ```
 
 C23/C24 remain planned. Their local bridges remove blanket C20/C22 reading
@@ -304,8 +305,8 @@ C20 + C21 -> C22: label placement, byte emission and source-built-tool handoff
 | [C22 Two-pass assembly and handoff](c-compiler/chapters/22-two-pass-assembly-and-bootstrap-handoff.md) | Preserve sizing/emission invariants, derive fields and supplied ELF bytes, and name each handoff predicate | Twelve exercises and [feedback](c-compiler/practice/22-solutions.md); source/practice reviewed |
 
 The current C route has **167 main exercises** and six four-question mixed
-checks. The seed and C routes retain their **262 main exercises**; G01 adds
-seven for **269 chapter exercises** overall; mixed questions
+checks. The seed and C routes retain their **262 main exercises**; G01–G25 add
+175 for **437 chapter exercises** overall; mixed questions
 are separate. C16–C18 technical/practice and first-reading reviews are complete.
 C19's full technical/practice manuscript review is complete; C20's source/practice review
 and final readback are complete. C21/C22 have completed source/practice review.
@@ -343,8 +344,7 @@ keeps both the current explanations and the deferred regions inspectable.
 ## What the next units must earn
 
 The H1/H2 paper entrance and G01 object/profile bridge now exist. The next
-main-route work is operational setup validation and the deeper G02/G04/G05/G06
-mechanisms behind that bounded two-file story. C23/C24 remain planned alternate TinyCC work, rather than the next
+main-route work is independent review and operational setup validation for the drafted G02–G25 mechanisms and their teaching fixtures. C23/C24 remain planned alternate TinyCC work, rather than the next
 mandatory chapters because of their numbers. G01 identifies the actual object driver, final selected call provider,
 runtime-aware startup, archive inputs and one relocation. Actual object
 records, file results and cold/cache runs remain unverified before its
@@ -362,7 +362,7 @@ and Stage-A comparison rules, distinguishes parity from fixed-point claims,
 and states the limits of its attributed records. C21/C22 now supply complete bounded Forth assembly
 and the source-built-tool handoff. C23/C24 still owe the native/TinyCC routes. Full
 stage0/DDC/handoff/pnut and historical lineage references remain distinct,
-as do the planned toolchain and kernel volumes. Access to the actual compared
+as do the newly drafted toolchain and planned kernel volumes. Access to the actual compared
 CI artifacts and a tested fresh-reader reproduction route remain outstanding.
 
 Both volumes' new examples need an authorized, named execution profile and a

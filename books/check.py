@@ -151,7 +151,8 @@ def check_documents():
         prose = "\n".join(visible_lines(text))
         references = {name.strip().lower(): target for name, target in
                       re.findall(r"^\[([^\]]+)\]:\s+(\S+)", prose, re.M)}
-        for used in re.findall(r"\[[^\]]+\]\[([^\]]+)\]", prose):
+        reference_prose = re.sub(r"`[^`]*`", "", prose)
+        for used in re.findall(r"\[[^\]]+\]\[([^\]]+)\]", reference_prose):
             assert used.strip().lower() in references, f"Undefined reference {path.name}: {used}"
         targets = re.findall(r"\]\(([^\s)]+)\)", prose) + list(references.values())
         for target in targets:
@@ -201,7 +202,7 @@ def check_documents():
     g_pairs = 0
     for chapter in sorted((ROOT / "gcc-toolchain/chapters").glob("[0-9][0-9]-*.md")):
         number = int(chapter.name[:2])
-        counts = {1: 7}
+        counts = {number: 7 for number in range(1, 26)}
         assert number in counts, f"Declare exercise coverage for toolchain chapter {number}"
         expected = {f"G{number}-{i:02}" for i in range(1, counts[number]+1)}
         solution = ROOT / f"gcc-toolchain/practice/{number:02}-solutions.md"

@@ -7,7 +7,7 @@ closure and a bounded rebuild comparison. The [hybrid narrative](HYBRID-NARRATIV
 and [unit-by-unit route map](narrative-map.csv) distinguish the first sessions,
 supplied contracts, implementation depth and alternate routes. H1–H5 are
 learning milestones. The H1/H2 paper entrance and bounded G01 first story
-are drafted; operational setup and observed fixture runs remain pending.
+are drafted, and G02–G25 now complete the planned toolchain paper route; operational setup and observed fixture runs remain pending.
 
 Begin with [Two small results](FIRST-RESULTS.md): distinguish a Forth stack
 value, a requested output byte and a C process result. Its [four entrance
@@ -29,7 +29,7 @@ emission/runtime, expressions/declarations, statements, function frames and
 translation-unit/process entry, the bounded Stage-A recipe and evidence,
 then the complete standalone Forth assembler and its source-built-tool handoff.
 Its 167 main exercises have separate feedback; six mixed checks add 24 questions.
-The edition now has 269 chapter exercises: 95 seed, 167 C and seven G01.
+The edition now has 437 chapter exercises: 95 seed, 167 C and 175 G.
 The four H1/H2 entrance prompts are counted separately. The earlier 262
 chapter exercises remain intact. C19's full technical/practice manuscript review is complete; C16–C18's
 reported technical, practice and first-reading reviews are complete. C20 has
@@ -64,7 +64,7 @@ and appendix, including material not rewritten yet.
 |---|---|---|
 | [Seed and Forth](seed-forth/README.md) | Build useful Forth words, then audit how the seed implements them | Complete paper route drafted; all seed bytes and library definitions covered; execution and reader validation pending |
 | [A C compiler in Forth](c-compiler/README.md) | Follow a small C program through preprocessing, tokens, types, code generation and an explicit bootstrap check | Default compiler, Stage-A recipe/evidence and complete bounded assembler/handoff drafted through C22; source/practice reviewed; native/TinyCC and broader bootstrap closure remain planned |
-| [From compiler to toolchain](gcc-toolchain/README.md) | Follow the main objects/System V/link/runtime → generators/GCC/output tools → hosted/rebuild route | G01 bounded profile entrance drafted; source/practice and model-assisted prerequisite reviews complete; G02–G25 remain planned, including complete object/ABI/link/runtime mechanisms |
+| [From compiler to toolchain](gcc-toolchain/README.md) | Follow the main objects/System V/link/runtime → generators/GCC/output tools → hosted/rebuild route | G01–G25 paper route drafted with 175 exercise/feedback pairs; G01 retains its earlier reviews; G02–G25 independent review, execution and reader validation pending |
 | Kernels and Linux | Explain the toolchain-to-kernel transition and a precisely observed boot outcome | Planned; the current direct-GCC-to-Linux route needs its own evidence |
 
 The four-book division is an editorial plan. It can change as the dependency

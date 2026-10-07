@@ -14,8 +14,7 @@ ELF → H3 objects/System V/link/runtime → H4 generators/GCC/output tools →
 H5 hosted closure/rebuild**. H labels organize first sessions and future
 fixtures; they do not add to the 77 stable unit IDs. FIRST-RESULTS now supplies
 the H1/H2 paper bridge and G01 drafts the bounded H3 entrance; operational
-setup and observed fixtures remain pending. The currently written S/C chapters, all exercises and source homes
-remain intact.
+setup and observed fixtures remain pending. The S/C chapters, all exercises and source homes remain intact. G02–G25 now supply the remaining toolchain paper route, with 168 new original/changed practice pairs; new execution and independent review remain pending.
 
 The unit graph below governs complete implementation/reference work and its
 depth exercises. The narrative map separately states which contracts a first
@@ -31,7 +30,7 @@ remain alternate executable routes, with their full teaching and lineage
 obligations preserved. A short C20/C22 comparison case illustrates dependency replacement; the
 full M2/assembler lab is optional for the main route. Shared native/LP64 declarations and initializer traversal are
 still required mechanisms in direct GCC: G01 states their interface roles,
-and the planned deeper homes below retain their implementations.
+and the deeper homes below now retain their direct-route implementation drafts.
 
 Every milestone must distinguish required production inputs, temporarily
 supplied teaching components, comparison controls and optional routes. An
@@ -44,7 +43,7 @@ representative-reader validation remain outstanding.
 
 **Volume 1, Seed and Forth, has a complete draft teaching path.** Its [opening](seed-forth/chapters/00-why-inspect-a-seed.md), [route guide](seed-forth/chapters/00-start-here.md), chapters S01–S19, separate feedback, six mixed return checks and [compact reference](seed-forth/REFERENCE.md) cover the seed and its first library. The [audit ledger](seed-forth/source-audit.csv) assigns an explanation to all **76 regions / 1,772 original file bytes**, including all 32 dictionary headers. All **63 library colon definitions and 11 constant-created names** have substantive teaching homes.
 
-The [S19 capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) derives a fresh 32-byte `inc` entry and its predicted stack/control behavior. Those are predicted **process-memory bytes**, not an observed execution or additional bytes in the original seed file. The hand-encoded native Forth colon compiler is distinct from the **C compiler written in Forth**. Volume 2 now has drafted chapters C01–C22, reaching the default compiler, a complete predicted process-entry path, the Stage-A recipe/evidence story and the complete bounded Forth assembler with its source-built-tool handoff; the remainder of that volume, G02–G25 and Volume 4 remain planned. Volume 3 now has its bounded G01 entrance draft. No complete C-compiler, toolchain or kernel manuscript, or newly verified chain, is claimed.
+The [S19 capstone](seed-forth/chapters/19-audit-synthesis-and-capstone.md) derives a fresh 32-byte `inc` entry and its predicted stack/control behavior. Those are predicted **process-memory bytes**, not an observed execution or additional bytes in the original seed file. The hand-encoded native Forth colon compiler is distinct from the **C compiler written in Forth**. Volume 2 now has drafted chapters C01–C22, reaching the default compiler, a complete predicted process-entry path, the Stage-A recipe/evidence story and the complete bounded Forth assembler with its source-built-tool handoff; C23/C24 and Volume 4 remain planned. Volume 3 now has all G01–G25 paper chapters. No newly executed toolchain or kernel chain is claimed.
 
 Draft completeness is a teaching-coverage claim. The new examples have not been executed, the fresh-reader installation route has not been tested, and no real-reader learning validation, universal correctness proof, or security proof is claimed. The first volume supports source reading and paper derivation under its explicit Linux/x86-64, storage, input and call assumptions. It links the pinned build entry without presenting that link as a tested setup tutorial.
 
@@ -52,7 +51,7 @@ The [C-volume entrance](c-compiler/README.md) leads through [C01: the compiler/p
 
 The representation route continues with [C06: tokens and lookahead](c-compiler/chapters/06-tokens-and-lookahead.md), [C07: types and stable descriptors](c-compiler/chapters/07-types-and-stable-descriptors.md), and [C08: names and lexical scope](c-compiler/chapters/08-names-and-lexical-scope.md). The emission route adds [C09: instructions inside an executable](c-compiler/chapters/09-instructions-inside-an-executable.md), [C10: calls, literals and deferred addresses](c-compiler/chapters/10-calls-literals-and-deferred-addresses.md), and [C11: a bounded legacy runtime](c-compiler/chapters/11-a-bounded-legacy-runtime.md). 
 
-The parser route now continues through [C12: places and delayed loads](c-compiler/chapters/12-places-values-and-delayed-loads.md), [C13: precedence and short-circuiting](c-compiler/chapters/13-precedence-and-short-circuit.md), [C14: expressions and constant evaluation](c-compiler/chapters/14-expressions-and-constant-evaluation.md), and [C15: declarations and recursive records](c-compiler/chapters/15-declarations-and-recursive-records.md). Twenty-two C feedback companions support **167 C chapter exercises**; together with the seed volume, the seed/C routes retain **262 main exercises**. G01 adds seven, for **269 chapter exercises** overall; the four H1/H2 entrance prompts are separate. Mixed return-check questions are counted separately. Six mixed checks revisit the C route: [source and storage](c-compiler/practice/return-check.md), [macros and source identity](c-compiler/practice/return-check-2.md), [restoring the right state](c-compiler/practice/return-check-3.md), [bytes, patches and runtime results](c-compiler/practice/return-check-4.md), [one spelling, different consumers](c-compiler/practice/return-check-5.md), and [where this path finishes](c-compiler/practice/return-check-6.md). Each contains four questions, for 24 C mixed questions. The source ledgers account for all 57 preprocessor regions and **576 colon definitions across fourteen compiler/assembler files**. The parser ledger retains 333 declarations; the new control/function/program ledger has **170 rows: 160 declarations plus ten top-level forms**. C20 explains the exact standalone Stage-A recipe and its separately attributed result; C21/C22 explain the standalone assembler; C23 onward remains planned.
+The parser route now continues through [C12: places and delayed loads](c-compiler/chapters/12-places-values-and-delayed-loads.md), [C13: precedence and short-circuiting](c-compiler/chapters/13-precedence-and-short-circuit.md), [C14: expressions and constant evaluation](c-compiler/chapters/14-expressions-and-constant-evaluation.md), and [C15: declarations and recursive records](c-compiler/chapters/15-declarations-and-recursive-records.md). Twenty-two C feedback companions support **167 C chapter exercises**; together with the seed volume, the seed/C routes retain **262 main exercises**. G01–G25 add 175, for **437 chapter exercises** overall; the four H1/H2 entrance prompts are separate. Mixed return-check questions are counted separately. Six mixed checks revisit the C route: [source and storage](c-compiler/practice/return-check.md), [macros and source identity](c-compiler/practice/return-check-2.md), [restoring the right state](c-compiler/practice/return-check-3.md), [bytes, patches and runtime results](c-compiler/practice/return-check-4.md), [one spelling, different consumers](c-compiler/practice/return-check-5.md), and [where this path finishes](c-compiler/practice/return-check-6.md). Each contains four questions, for 24 C mixed questions. The source ledgers account for all 57 preprocessor regions and **576 colon definitions across fourteen compiler/assembler files**. The parser ledger retains 333 declarations; the new control/function/program ledger has **170 rows: 160 declarations plus ten top-level forms**. C20 explains the exact standalone Stage-A recipe and its separately attributed result; C21/C22 explain the standalone assembler; C23 onward remains planned.
 
 The integrated route adds [C16: conditions and loops](c-compiler/chapters/16-conditions-and-loops.md), [C17: switches and labels](c-compiler/chapters/17-switches-labels-and-nonlocal-control.md), [C18: functions and frames](c-compiler/chapters/18-functions-and-call-frame-accounting.md), and [C19: translation units and process entry](c-compiler/chapters/19-translation-units-and-process-entry.md). C19 derives a 556-byte output-buffer layout for `int main(void){return 7;}` and a conditional exit-value trace. This is a predicted artifact, not a stored-file observation, program execution or Stage-A comparison.
 
@@ -80,7 +79,7 @@ its selected ordinary scalar call uses the final `131` provider. The seven
 bounded contracts. Bounded source/practice and model-assisted prerequisite reviews are complete.
 
 The full object writer, declaration/initializer traversal, call/frame planner,
-linker, runtime and archive mechanisms remain G02–G17 obligations. G01's
+linker, runtime and archive mechanisms now have G02–G17 paper drafts; new execution and exhaustive added-source inventories remain pending. G01's
 source-derived command card and predicted exit seven are unexecuted; no
 actual object size, field offset, symbol-table index, function length or
 complete archive-member selection is supplied. Current checks cover **71
@@ -131,7 +130,7 @@ Native instruction listings were also checked by bounded GNU objdump 2.44 disass
 3. **From Compiler to Closed Toolchain (`gcc-toolchain`)**: enter through the drafted [G01 two-file story](gcc-toolchain/chapters/01-a-program-from-two-files.md), retrieving the C19 capability and direct-profile bridge. It explicitly supplies the needed frontend/provider interfaces while retaining their complete mechanisms in the later depth units. Build the conceptual path through objects, ABI, runtime, generators, `cc1`, binutils, hosted musl/libgcc, and the recorded GCC 4.0.4 fixed point
 4. **Kernels and Linux (`kernels-linux`)**: begin from an explicitly identified direct-chain toolchain. The proposed finish is a newly evidenced kernel/Linux path with a chosen user-visible acceptance criterion. The current direct-GCC-to-Linux outcome is **pending**, and the technical route and scope still require their own pinned source inventory
 
-An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. Volume 2 now supplies its contract bridges, profile comparison, source-to-predicted-program route, Stage-A recipe/evidence account, complete bounded assembler and source-built handoff, and local source maps; its later teaching and tested setup remain outstanding. Volume 3 now supplies the bounded G01 paper entrance; its operational setup and remaining depth are owed. Volume 4's entry package remains planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
+An independent volume needs an entry artifact, how to obtain or rebuild it, a short prerequisite diagnostic/primer, local references, explicit trusted interfaces, and an outcome it actually finishes. Volume 1 now supplies its source pin, entry assumptions, paper route and local reference; a tested execution/setup route remains outstanding. Volume 2 now supplies its contract bridges, profile comparison, source-to-predicted-program route, Stage-A recipe/evidence account, complete bounded assembler and source-built handoff, and local source maps; its later teaching and tested setup remain outstanding. Volume 3 now supplies G01–G25 paper chapters and practice companions; independent review, operational setup, teaching-fixture execution and reader validation remain owed. Volume 4's entry package remains planned. Readers may use a pinned entry artifact without redoing every earlier derivation, while an audit route follows its full provenance.
 
 ## Learning order is not source order
 
@@ -199,7 +198,7 @@ Exercises inherit these edges. For example, a write-all implementation waits unt
 
 ## Destination ledger
 
-IDs below are stable editorial destinations for full-depth prerequisite work; [narrative-map.csv](narrative-map.csv) separately records first-session contracts. S00–S19, C01–C22 and G01 have drafted manuscripts: 43 drafted and 34 planned units in the 77-unit graph. C23–C24, G02–G25 and all K units remain planned. G01 bounded source/practice and model-assisted prerequisite reviews are complete. C19's full technical/practice manuscript review is complete; unit manuscript state is separate from review and execution state. `entry` means the stated volume entrance; an equivalent entry bridge requires an explicit diagnostic/refresher, not an unexplained prerequisite. Named local bridges are required contracts supplied in that unit; their targeted refresher links are alternative ways to acquire those contracts. Listed prerequisites are conjunctive, with semicolons used in the CSV. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
+IDs below are stable editorial destinations for full-depth prerequisite work; [narrative-map.csv](narrative-map.csv) separately records first-session contracts. S00–S19, C01–C22 and G01–G25 have drafted manuscripts: 67 drafted and 10 planned units in the 77-unit graph. C23–C24 and all K units remain planned. New G02–G25 independent manuscript/practice reviews and execution remain pending. G01 bounded source/practice and model-assisted prerequisite reviews are complete. C19's full technical/practice manuscript review is complete; unit manuscript state is separate from review and execution state. `entry` means the stated volume entrance; an equivalent entry bridge requires an explicit diagnostic/refresher, not an unexplained prerequisite. Named local bridges are required contracts supplied in that unit; their targeted refresher links are alternative ways to acquire those contracts. Listed prerequisites are conjunctive, with semicolons used in the CSV. The source column uses canonical chapter IDs; [coverage.csv](coverage.csv) supplies every exact path, immutable link, outcome, edge, migration status, and revision concern.
 
 ### Volume 1: Seed and Forth
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -257,30 +256,30 @@ IDs below are stable editorial destinations for full-depth prerequisite work; [n
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
 |---|---|---|---|---|
 | G01 — A program from two files | C19, local direct-profile bridge | Follow declaration/use through one object relocation and illustrative link; distinguish LP64/System V/ET_REL, selected scalar result/alignment, real startup/runtime/archive inputs and unexecuted evidence. | 34, 35, 36, 37, 38, 44, A2, A3, A6, A7 | drafted |
-| G02 — Objects, symbols, and relocation records | G01 | Trace section bytes, stable symbol identities, BSS, and a relocation before placement is known. | 35 | planned |
-| G03 — Signatures, declarators, and ranked arrays | G02, C07, C15 | Open shared 115 native declarations and selected 118 initializer structure alongside type/signature identity, symbols, pointer shapes and ranked arrays. | 34, 36, 47 | planned |
-| G04 — A shared scalar argument planner | G03, C18 | Assign integer arguments and results, protect temporaries, and account for stack alignment at every call. | 34, 36, 48 | planned |
-| G05 — Linking independently built objects | G02 | Validate, resolve, place, relocate, and publish a bounded ELF link with a complete numerical example. | 37 | planned |
-| G06 — Raw syscalls, startup, and runtime control | G04, G05 | Trace the C-to-Linux bridge, errno, entry, and separately specified frame/nonlocal-return helpers. | 38 | planned |
-| G07 — Source-built allocation and byte operations | G06 | Follow allocation extents, failure preservation, memory/string operations, and mapped/process interfaces. | 39 | planned |
-| G08 — Target headers and honest feature probes | G03, C05 | Explain target predefines, selector hooks and which header branches they select without claiming unsupported GNU compatibility. | 40 | planned |
-| G09 — Typed constants and symbolic addresses | G03, G02, C14 | Trace shared 118 initializer traversal into selected static constant/relocation providers; distinguish it from executable runtime queues and preserve unevaluated-branch contracts. | 34, 41 | planned |
-| G10 — Floating values and conversion | G04, G09 | Separate payload transport, numeric conversion, storage width, and floating arithmetic. | 45 | planned |
-| G11 — Decimal literals rounded once | G10 | Convert an exact decimal ratio to binary64 with rounding and subnormal boundary cases. | 46 | planned |
-| G12 — Variadic cursors and argument classes | G04, G10 | Walk an interleaved register/overflow argument list; defer X87 details explicitly until G15. | 42 | planned |
-| G13 — Streams and bounded formatting | G07, G12 | Trace stream position, partial-object I/O, sticky errors, and supported integer formatting. | 43 | planned |
-| G14 — Bitfield layout and preserving stores | G03, G09, C12 | Trace allocation, promotion, extraction, and writes that preserve neighboring bits. | 47 | planned |
-| G15 — Aggregate values and X87 transport | G04, G10, G12, G14 | Assign record arguments/results with register rollback, snapshots, hidden returns, and explicit alignment limits. | 42, 48 | planned |
-| G16 — Indexed archives and lazy extraction | G02, G05 | Trace selection to a fixed point within one archive and explain command-line ordering. | 44 | planned |
-| G17 — Frozen driver, configure, and source census | G05, G07, G08, G09, G11, G13, G15, G16 | Separate source capture, cache identity, configure observations, and Makefile-selected compilation work. | 49 | planned |
-| G18 — Source generators must have builders | G17 | Track oyacc, Heirloom lex, flex, and GCC generators with source preparation and production/oracle separation. | 49 | planned |
-| G19 — The cc1 milestone and its tests | G18 | Explain declaration failures despite successful linking and scope execution-torture evidence using host output tools. | 49 | planned |
-| G20 — Building the downstream binutils | G18 | Connect regenerated parser/scanner inputs to Forth-built assembler/linker tools and their retained reports. | gcc-direct/README.md | planned |
-| G21 — A freestanding GCC driver toolchain | G19, G20 | Follow driver, cc1, as, and ld invocation provenance through a no-libc executable. | gcc-direct/README.md | planned |
-| G22 — Hosted closure with libgcc and musl | G21 | Follow the sysroot, runtime libraries, startup objects, and a hosted program built by Stage C. | gcc-direct/README.md | planned |
-| G23 — Rebuild lineage and controlled paths | G22 | Identify who builds GCC stages 2, 3, and 4 and hold embedded-path inputs constant. | gcc-direct/README.md | planned |
-| G24 — Equal sort keys and unequal bytes | G23 | Explain why legal qsort tie ordering can change generated bytes and how the recorded runtime change affects the comparison. | runtime/gcc-seed/SORT.md | planned |
-| G25 — Fixed-point evidence and toolchain capstone | G24 | Read file/member comparisons, retain provenance and assumptions, and distinguish recorded equality from general correctness. | A3 | planned |
+| G02 — Objects, symbols, and relocation records | G01 | Trace section bytes, stable symbol identities, BSS, and a relocation before placement is known. | 35 | drafted |
+| G03 — Signatures, declarators, and ranked arrays | G02, C07, C15 | Open shared 115 native declarations and selected 118 initializer structure alongside type/signature identity, symbols, pointer shapes and ranked arrays. | 34, 36, 47 | drafted |
+| G04 — A shared scalar argument planner | G03, C18 | Assign integer arguments and results, protect temporaries, and account for stack alignment at every call. | 34, 36, 48 | drafted |
+| G05 — Linking independently built objects | G02 | Validate, resolve, place, relocate, and publish a bounded ELF link with a complete numerical example. | 37 | drafted |
+| G06 — Raw syscalls, startup, and runtime control | G04, G05 | Trace the C-to-Linux bridge, errno, entry, and separately specified frame/nonlocal-return helpers. | 38 | drafted |
+| G07 — Source-built allocation and byte operations | G06 | Follow allocation extents, failure preservation, memory/string operations, and mapped/process interfaces. | 39 | drafted |
+| G08 — Target headers and honest feature probes | G03, C05 | Explain target predefines, selector hooks and which header branches they select without claiming unsupported GNU compatibility. | 40 | drafted |
+| G09 — Typed constants and symbolic addresses | G03, G02, C14 | Trace shared 118 initializer traversal into selected static constant/relocation providers; distinguish it from executable runtime queues and preserve unevaluated-branch contracts. | 34, 41 | drafted |
+| G10 — Floating values and conversion | G04, G09 | Separate payload transport, numeric conversion, storage width, and floating arithmetic. | 45 | drafted |
+| G11 — Decimal literals rounded once | G10 | Convert an exact decimal ratio to binary64 with rounding and subnormal boundary cases. | 46 | drafted |
+| G12 — Variadic cursors and argument classes | G04, G10 | Walk an interleaved register/overflow argument list; defer X87 details explicitly until G15. | 42 | drafted |
+| G13 — Streams and bounded formatting | G07, G12 | Trace stream position, partial-object I/O, sticky errors, and supported integer formatting. | 43 | drafted |
+| G14 — Bitfield layout and preserving stores | G03, G09, C12 | Trace allocation, promotion, extraction, and writes that preserve neighboring bits. | 47 | drafted |
+| G15 — Aggregate values and X87 transport | G04, G10, G12, G14 | Assign record arguments/results with register rollback, snapshots, hidden returns, and explicit alignment limits. | 42, 48 | drafted |
+| G16 — Indexed archives and lazy extraction | G02, G05 | Trace selection to a fixed point within one archive and explain command-line ordering. | 44 | drafted |
+| G17 — Frozen driver, configure, and source census | G05, G07, G08, G09, G11, G13, G15, G16 | Separate source capture, cache identity, configure observations, and Makefile-selected compilation work. | 49 | drafted |
+| G18 — Source generators must have builders | G17 | Track oyacc, Heirloom lex, flex, and GCC generators with source preparation and production/oracle separation. | 49 | drafted |
+| G19 — The cc1 milestone and its tests | G18 | Explain declaration failures despite successful linking and scope execution-torture evidence using host output tools. | 49 | drafted |
+| G20 — Building the downstream binutils | G18 | Connect regenerated parser/scanner inputs to Forth-built assembler/linker tools and their retained reports. | gcc-direct/README.md | drafted |
+| G21 — A freestanding GCC driver toolchain | G19, G20 | Follow driver, cc1, as, and ld invocation provenance through a no-libc executable. | gcc-direct/README.md | drafted |
+| G22 — Hosted closure with libgcc and musl | G21 | Follow the sysroot, runtime libraries, startup objects, and a hosted program built by Stage C. | gcc-direct/README.md | drafted |
+| G23 — Rebuild lineage and controlled paths | G22 | Identify who builds GCC stages 2, 3, and 4 and hold embedded-path inputs constant. | gcc-direct/README.md | drafted |
+| G24 — Equal sort keys and unequal bytes | G23 | Explain why legal qsort tie ordering can change generated bytes and how the recorded runtime change affects the comparison. | runtime/gcc-seed/SORT.md | drafted |
+| G25 — Fixed-point evidence and toolchain capstone | G24 | Read file/member comparisons, retain provenance and assumptions, and distinguish recorded equality from general correctness. | A3 | drafted |
 
 ### Shared direct-route mechanisms and alternate profiles
 
@@ -289,8 +288,7 @@ retrieves C23 plus a local source/generation/comparison bridge. Neither has
 a blanket C20/C22 reading gate. A full cross-route comparison exercise must
 still name the relevant complete C20/C22 prerequisites.
 
-G01 now supplies the bounded entrance contracts; complete implementation
-homes below remain planned, not additional drafted modules. Canonical
+G01 now supplies the bounded entrance contracts; G02–G25 now supply the implementation and toolchain paper drafts below. Canonical
 Chapter 34 is split by mechanism so its TinyCC demonstration can be optional
 without hiding code used by the direct-GCC production driver.
 
@@ -307,8 +305,7 @@ uses native declaration machinery; the [object initializer path](https://github.
 uses `cc-ni-value`. The [object completion contract](https://github.com/delta9000/seed-forth/blob/7d7e1996d1753118181d43e1a413960d3a1ec24b/123-cc-object-program.fth#L436-L443)
 rejects a remaining runtime initializer queue. Entire `115`–`119` files
 therefore cannot be dismissed as optional merely because they also serve the
-TinyCC branch. Full source-region inventories for these planned modules are
-still owed.
+TinyCC branch. Full source-region inventories for these newly drafted modules are still owed; the prose does not expand the earlier definition inventory.
 
 ### Volume 4: Kernels and Linux
 | ID and unit | Prerequisites | Observable outcome | Canonical source | Status |
@@ -362,12 +359,13 @@ These destinations are reference obligations. They are not extra volumes and the
 | Appendix A4 | `draft_covered` | All three original worked mechanisms have substantive homes; optional variants and execution/reader evidence remain separate |
 | Appendices A2/A3/A5/A6/A7 | `partial` | Exact remaining cross-volume, reference and verification obligations are retained below and in the CSV |
 | Canonical Chapters 25/26; `080-cc-elf.fth` and `090-cc-emit.fth` | `draft_covered` | C09–C11 cover all 150 declarations, including 122 colon definitions; selected later patch consumers are opened without claiming their whole modules |
-| Canonical Chapters 27–29; `100-cc-expr.fth` and `110-cc-decl.fth` | `draft_covered` | C10/C12–C15 account for all 333 declarations, including 177 colon definitions; local return/unwind definitions are explained, and C16–C19 now supply their default statement/function/program context; later native providers remain planned |
-| Canonical Chapters 30/31 | `draft_covered` | C16–C19 and earlier retrieved mechanisms cover default statement/function/program construction and local LP64 branches; C19 source/manuscript review is complete, and full separately implemented providers remain planned |
+| Canonical Chapters 27–29; `100-cc-expr.fth` and `110-cc-decl.fth` | `draft_covered` | C10/C12–C15 account for all 333 declarations, including 177 colon definitions; local return/unwind definitions are explained, and C16–C19 now supply their default statement/function/program context; shared native mechanisms now have G03/G09 drafts; private alternate providers remain planned |
+| Canonical Chapters 30/31 | `draft_covered` | C16–C19 and earlier retrieved mechanisms cover default statement/function/program construction and local LP64 branches; C19 source/manuscript review is complete, and selected direct providers now have G03/G04/G15 drafts; alternate private providers remain planned |
 | Canonical Chapter 32 | `partial` | C19 explains the driver; C20 explains Stage-A and bounded A–G/evidence distinctions; C22 explains assembly/source-built-tool handoff; stage0/DDC/handoff and pnut/TinyCC context remains C24/R-lineage |
 | Canonical Chapter 33; `130-asm.fth` | `draft_covered` | C21/C22 explain the complete bounded assembler: all 785 lines/42 regions, 99 declarations including 50 colon definitions, two initializations, supplied-envelope trace and exact handoff predicates; broader lineage and execution remain separate |
-| Canonical Chapters 34/35/36/37/38/44 | `partial` | G01 supplies only LP64/profile, object/use, selected scalar call/result, illustrative relocation, actual startup and archive-selection contracts; full writers/providers/link/runtime/archive and TinyCC closure remain owed |
-| Canonical Chapters 39–43 and 45–49 | `planned` | Named runtime/target/floating/aggregate/generator modules are future homes, not taught merely because G01 identifies their providers |
+| Canonical Chapter 34 | `partial` | G03/G04/G09/G15 draft shared native declarations, initializer traversal and selected System V calls; C23/C24 retain the separate private-ABI TinyCC closure |
+| Canonical Chapters 35–38 and 44 | `draft_covered` | G02–G06/G16 now draft object records, signatures/calls, linking, syscall/startup/control and indexed archives; complete new definition inventories, execution and independent review remain pending |
+| Canonical Chapters 39–43 and 45–49 | `draft_covered` | G07–G15 and G17–G19 now draft allocation, headers, typed constants, variadics, streams, floating/literals, bitfields/aggregates and generator/cc1 evidence; new execution and independent reviews remain pending |
 | `112`, `114`, `116` and `120` sources | `draft_covered` | All 160 declarations and ten top-level forms have explanatory homes; the C19 source/manuscript review is complete; execution and reader evidence remain separate |
 | Five Stage-A recipe scripts | `draft_covered` | C20 explains every one of 33 regions/273 lines; recipe coverage is separate from Forth definitions, the broader bootstrap implementations and recorded execution |
 | Navigation/editorial files | `partial` | Complete first-volume routes, C01–C22 source maps, FIRST-RESULTS and the bounded G01 entrance exist; the edition-wide glossary, bibliography, later routes and generated index remain incomplete |
@@ -453,7 +451,7 @@ Canonical 27 is now draft-covered by C13's runtime precedence and C14's compile-
 
 The fifth mixed check contrasts equal values with different destination identities, generated short-circuiting with builder-time suppression, comma declarations with pointer depth, and exact successful reader restoration. It adds four paper questions to the separate return-check count. The four new chapters contribute **32 main exercises**: C12 eight, C13 seven, C14 ten and C15 seven.
 
-The default statement/function/program integration is now drafted in C16–C19. C20 now opens the standalone artifact/build/Stage-A recipe and attributed comparison; C21/C22 now explain assembly and its bounded tool handoff; C23/C24 native/TinyCC closure remains planned. C23/G03/G04 still own full native declarators, signatures and call planning; G02/G09 own objects, relocations and target static constants; G10/G14/G15 own floating, bitfield and aggregate providers. The local LP64 algorithms in 100/110 are drafted, while those separately implemented providers remain bounded interfaces. The newly integrated C16–C19 mechanisms are described below; C23 onward remains planned.
+The default statement/function/program integration is now drafted in C16–C19. C20 now opens the standalone artifact/build/Stage-A recipe and attributed comparison; C21/C22 now explain assembly and its bounded tool handoff; C23/C24 native/TinyCC closure remains planned. C23/G03/G04 still own full native declarators, signatures and call planning; G02/G09 own objects, relocations and target static constants; G10/G14/G15 own floating, bitfield and aggregate providers. The local LP64 algorithms in 100/110 are drafted, and G02–G16 now open the selected direct providers. Complete added-source inventories and new independent review remain pending. The C16–C19 mechanisms are described below. C23/C24 remain planned; G02–G25 now supply direct-route provider and toolchain drafts.
 
 ### Statements, functions and translation-unit closure
 
@@ -549,7 +547,7 @@ Chapter 49 is the `cc1` milestone. It cannot serve as the whole direct-GCC endin
 
 Old “in progress” paragraphs and later closure sections coexist in operator documentation. The new narrative must identify chronological milestones rather than combine incompatible statuses. It must also retain remaining orchestration/source-transformation and platform trust. “No host compiler supplies production objects” does not mean no host tools, operating system, or hardware are trusted.
 
-The planned Volume 3 conclusion is the bounded direct-GCC 4.0.4 toolchain result. The historical TinyCC → `gcc64` ladder to newer GCC releases is a different route. Historical hex0-to-kernel/Linux accounts are context, not evidence that this new direct-GCC-to-Linux path has completed. Volume 4 begins with that open obligation.
+The drafted Volume 3 conclusion is the bounded direct-GCC 4.0.4 toolchain result. The historical TinyCC → `gcc64` ladder to newer GCC releases is a different route. Historical hex0-to-kernel/Linux accounts are context, not evidence that this new direct-GCC-to-Linux path has completed. Volume 4 begins with that open obligation.
 
 ## Source annotations and synchronization policy
 

@@ -35,7 +35,7 @@ Direct GCC has its own production branch. M2/M1/hex2, pnut and private-ABI
 TinyCC are useful alternate tracks, not compulsory executable ancestors.
 The direct target still uses shared LP64 declaration machinery from `115`
 and initializer traversal from `118`; G01 now states their profile/interface
-roles, while G03/G09 retain the planned complete mechanism homes alongside
+roles, while G03/G09 now supply shared mechanism drafts alongside
 the System V/object providers. Source provenance,
 loaded definitions, selected providers and executed producers are distinct.
 
@@ -61,8 +61,7 @@ Its bounded source/practice and model-assisted prerequisite reviews are complete
 is LP64 + AMD64 System V + ET_REL; the final `131` call provider, runtime-aware
 `start.o`, distinct C-built `startup.o`, and lazy `libseed.a` inputs remain
 visible. The `0x401...` placements are illustrative, not a fixture dump.
-The command card has not been executed, and full G02–G25 mechanisms remain
-planned even where G01 supplies their required interfaces.
+The command card has not been executed. G02–G25 now supply the planned mechanism and toolchain paper drafts, with seven original/changed practice sets each; their new execution, independent manuscript review and reader validation remain pending.
 
 The bounded review checked all seven original and seven changed practice
 sets, 48 relevant source identities and source/local links. A model-assisted
@@ -72,8 +71,8 @@ prerequisite/editorial check, not independent novice validation or observed
 human learning. G01 rendered-layout review, clean-start setup and all fixture
 execution remain unverified.
 
-This adds no full-definition inventory. The chapter total is 269 (95 seed,
-167 C, seven G01), plus four separate entrance prompts. Source-blob checks
+This adds no full-definition inventory. The chapter total is 437 (95 seed,
+167 C, 175 G), plus four separate entrance prompts. Source-blob checks
 now cover 71 pinned project files, including the added `141-archive.fth`,
 `runtime/gcc-seed/startup.c` and `runtime/gcc-seed/environment.c`. The complete
 colon-definition inventory remains 576 across fourteen earlier files.
@@ -182,7 +181,7 @@ as new measurements. More workspace does not change a C data model or ABI.
 | Expansion and assembly produce seven bytes; a supplied header/fixture describes 148 | C21/C22 worked fragments, pinned M2libc header/definitions and `m1-jump42.M1` | Manual text, layout, field and byte derivations | Arbitrary fragments are not runnable ELFs; predicted target exit is conditional; no file or execution observation |
 | Source-built tools have distinct handoff comparisons | Pinned `bootstrap.sh` bounded step/helper spans and named test predicates in C22 | Inspected recipes, with historical CI summaries separately attributed to head `764bdc4f4902d613145f361da6a7f33010dd37b4` | Step 5 ELF route equality, step 6 M1-text equality and step 7 tool rebuilds are different checks; neither full script coverage nor a fresh run is claimed |
 | H1/H2 distinguish state, output and process result | [FIRST-RESULTS.md](FIRST-RESULTS.md), pinned seed contracts and C19 layout | Source-derived entrance traces and four separate feedback sets | No fresh setup or observed fixture execution; supplied helper length is a layout premise |
-| G01 supplies a bounded direct-profile and two-object story | Pinned driver, selected `123`/`131` paths, `140` relative/absolute rules, `122` startup, `141` archive and named runtime sources | Inspected source contracts and illustrative placement arithmetic; bounded source/practice and model-assisted prerequisite reviews complete | No actual object dump, function size, final member set, file/run result or complete G-module coverage |
+| G01 supplies a bounded direct-profile and two-object story | Pinned driver, selected `123`/`131` paths, `140` relative/absolute rules, `122` startup, `141` archive and named runtime sources | Inspected source contracts and illustrative placement arithmetic; bounded source/practice and model-assisted prerequisite reviews complete | No actual new object dump, function size, final member set or file/run result; G02–G25 now have separate paper mechanism drafts |
 | The seed image is described as 1,772 bytes | ELF `p_filesz` field and annotated source; source-byte count checked in this pass | Inspected source and static calculation | An exact byte-decoded copy was inspected as data; no manual build-script run or seed execution is claimed |
 
 ## Existing results are attributed results

@@ -17,10 +17,10 @@ chapter. Complete implementation explanations and the full seed-byte audit
 remain available as connected depth routes. Their learning goals remain
 larger than those of an introductory slice.
 
-**Current state:** S01–S19 and C01–C22 are paper drafts. The
+**Current state:** S01–S19, C01–C22 and G01–G25 are paper drafts. The
 [short first-results entrance](FIRST-RESULTS.md) and
 [G01 two-file story](gcc-toolchain/chapters/01-a-program-from-two-files.md)
-now provide the first mainline bridges. This page plans the remaining route. The new examples and
+provide the first mainline bridges; the [GCC-toolchain series](gcc-toolchain/README.md) now continues through all planned G02–G25 mechanisms and attributed results. New G02–G25 execution, independent manuscript review and reader validation remain pending. This page retains the main route and its future operational obligations. The new examples and
 clean-start setup have not been executed. Existing implementation results
 retain their own [source and evidence identities](EDITION.md). All source
 links below use the same immutable edition.
@@ -382,10 +382,10 @@ another.
 1. Keep the completed H1/H2 paper entrance usable without installation.
    Complete and validate its separate runnable setup cards with exact source,
    reset state, environment, command and retained output
-2. Continue from G01 into G02/G04/G05/G06 implementation sessions. The first
+2. Review the drafted G02–G16 implementation sessions after G01. The first
    two-file story now names the shared native/LP64 interfaces, runtime-aware
    startup and lazy archive; preserve their full-depth source homes
-3. Continue generators → GCC output tools → hosted program → rebuild evidence.
+3. Review the drafted G17–G25 generator → output tools → hosted → rebuild route.
    Open a mechanism when a concrete source or failure needs it, while naming
    all supplied production components from the start
 4. Validate each new fixture before calling it observed; then use independent
