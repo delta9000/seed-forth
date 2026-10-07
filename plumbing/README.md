@@ -5,7 +5,9 @@ Makefiles still need a shell, make, sed, awk, grep and the file utilities.
 This directory builds those tools from their pinned upstream tarballs with
 the project's own C compiler, driven by [kaem](../vendor/mescc-tools/Kaem)
 scripts. No host program runs: not a shell, not a host compiler. Status and
-history are in [gcc-direct/PLUMBING.md](../gcc-direct/PLUMBING.md).
+history are in [gcc-direct/PLUMBING.md](../gcc-direct/PLUMBING.md). The GCC
+chain that runs on these tools (binutils, stage C, stage D) is described in
+[CHAIN.md](CHAIN.md).
 
 ## Running it
 
