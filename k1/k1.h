@@ -104,6 +104,7 @@ struct dent {                   /* a name in a directory */
     struct dent *next;          /* directory order (for getdents) */
     struct dent *hnext;         /* hash chain */
     struct inode *ino;
+    u64 seq;                    /* getdents offset: rises in directory order */
     u32 nlen;
     u32 hash;
     char name[1];
@@ -121,6 +122,7 @@ struct inode {
     struct dent *dents, *dlast; /* S_IFDIR */
     struct dent **htab;         /* S_IFDIR: hash buckets, once large */
     u32 ndents, hsize;
+    u64 dseq;                   /* S_IFDIR: entries added so far */
     struct inode *parent;       /* S_IFDIR */
     char *target;               /* S_IFLNK */
     struct pipe *fifo;          /* S_IFIFO: while it is open */

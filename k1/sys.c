@@ -356,43 +356,36 @@ static i64 sys_fstatat(int dfd, const char *path, struct kstat *st, int flags)
 }
 
 /* ---- directories ---- */
+/* The offset a getdents call resumes from is 0 for ".", 1 for "..", and
+ * otherwise an entry's seq: entries never move, so a program that unlinks
+ * what it has read (rm -r) between calls skips nothing. */
 static i64 sys_getdents64(int fd, u8 *buf, u64 n)
 {
     struct file *f = fd_get(fd);
     struct inode *d;
     struct dent *e;
-    u64 idx = 0, out = 0;
+    u64 out = 0, pos;
     if (!f || !f->ino)
         return -EBADF;
     d = f->ino;
     if (!S_ISDIR(d->mode))
         return -ENOTDIR;
-    e = d->dents;
+    pos = f->pos;
+    for (e = d->dents; e && e->seq < pos; e = e->next)
+        ;
     for (;;) {
         const char *name;
         u32 nlen;
         struct inode *ip;
-        u64 rl;
-        if (idx == 0) {
-            name = ".", nlen = 1, ip = d;
-        } else if (idx == 1) {
-            name = "..", nlen = 2, ip = d->parent ? d->parent : d;
+        u64 rl, next;
+        if (pos == 0) {
+            name = ".", nlen = 1, ip = d, next = 1;
+        } else if (pos == 1) {
+            name = "..", nlen = 2, ip = d->parent ? d->parent : d, next = 2;
         } else {
-            if (idx == 2) {
-                u64 k;
-                e = d->dents;
-                for (k = 2; e && k < f->pos; k++)
-                    e = e->next;
-                if (f->pos > 2)
-                    idx = f->pos;
-            }
             if (!e)
                 break;
-            name = e->name, nlen = e->nlen, ip = e->ino;
-        }
-        if (idx < f->pos && idx < 2) {
-            idx++;
-            continue;
+            name = e->name, nlen = e->nlen, ip = e->ino, next = e->seq + 1;
         }
         rl = ALIGNUP(19 + nlen + 1, 8);
         if (out + rl > n) {
@@ -401,15 +394,14 @@ static i64 sys_getdents64(int fd, u8 *buf, u64 n)
             break;
         }
         *(u64 *)(buf + out) = ip->ino;
-        *(u64 *)(buf + out + 8) = idx + 1;
+        *(u64 *)(buf + out + 8) = next;
         *(u16 *)(buf + out + 16) = rl;
         buf[out + 18] = S_ISDIR(ip->mode) ? 4 : S_ISLNK(ip->mode) ? 10 : S_ISCHR(ip->mode) ? 2 : 8;
         memcpy(buf + out + 19, name, nlen);
         memset(buf + out + 19 + nlen, 0, rl - 19 - nlen);
         out += rl;
-        idx++;
-        f->pos = idx;
-        if (idx > 2)
+        pos = f->pos = next;
+        if (next > 2)
             e = e->next;
     }
     return out;

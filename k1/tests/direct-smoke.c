@@ -86,6 +86,27 @@ int main(int argc, char **argv)
           && strlen(buf) == strlen(cwd) + (strcmp(cwd, "/") ? 10 : 9) && chdir(cwd) == 0, "getcwd and chdir");
     check(rmdir("smoke.d/a") == 0 && rmdir("smoke.d/b") == 0 && rmdir("smoke.d") == 0, "rmdir");
     check(unlink("smoke2.txt") == 0, "unlink");
+    /* rm -r: unlink each name as readdir returns it; the directory is read in
+     * several getdents calls, and none may skip a name */
+    check(mkdir("smoke.e", 0755) == 0, "mkdir for readdir-unlink");
+    for (count = 0; count < 500; count++) {
+        sprintf(buf, "smoke.e/a-name-long-enough-to-fill-several-reads-%d", count);
+        f = fopen(buf, "w");
+        if (f)
+            fclose(f);
+    }
+    d = opendir("smoke.e");
+    count = 0;
+    while (d && (e = readdir(d))) {
+        if (e->d_name[0] == '.')
+            continue;
+        sprintf(buf, "smoke.e/%s", e->d_name);
+        if (unlink(buf) == 0)
+            count++;
+    }
+    if (d)
+        closedir(d);
+    check(count == 500 && rmdir("smoke.e") == 0, "readdir while unlinking skips nothing");
 
     r = readlink("/proc/self/exe", exe, sizeof exe - 1);
     check(r > 0 && exe[0] == '/', "readlink /proc/self/exe");
