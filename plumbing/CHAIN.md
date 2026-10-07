@@ -136,3 +136,10 @@ most often), binutils, the GCC build-tree programs and each GCC generation.
 The 249 failed lookups are of programs that do not exist there, mostly
 `config.guess` probing for `uname` variants of other systems and configure
 scripts searching `PATH` past the guard directories.
+
+## After the fixed point
+
+[LATE.md](LATE.md): the stage-D GCC builds the QEMU route's late tools
+(make 4.4.1, bash 5.2, coreutils 9.5, bison, flex and the rest) with their
+own configure scripts under these tools, replacing ladder stage 9's
+host-captured builds.
