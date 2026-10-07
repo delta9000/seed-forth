@@ -119,13 +119,12 @@ ${MK} -j4 -f ${P}/tar-1.12/Makefile
 ../../bin/chmod 755 ../../bin/tar
 cd ..
 
-# --- coreutils 5.0 (two reviewed patches, applied by our patch) ---
+# --- coreutils 5.0 (one reviewed patch, applied by our patch) ---
 ../bin/unbz2 --file ../../plumbing-inputs/coreutils-5.0.tar.bz2 --output coreutils-5.0.tar
 ../bin/untar --file coreutils-5.0.tar
 ../bin/rm coreutils-5.0.tar
 cd coreutils-5.0
 ../../bin/patch -p1 -i ${P}/coreutils-5.0/canonicalize-realloc.diff
-../../bin/patch -p1 -i ${P}/coreutils-5.0/human-long-double.diff
 ../../bin/cp ${P}/coreutils-5.0/config.h config.h
 ${MK} -j4 -f ${P}/coreutils-5.0/Makefile
 # The new install puts every program in place with mode 755; it, not the

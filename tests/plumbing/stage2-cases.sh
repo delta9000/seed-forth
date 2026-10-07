@@ -16,7 +16,7 @@ check sed-ere 'world hello' "printf 'hello world\n' | sed -r 's/([a-z]+) ([a-z]+
 check sed-join '1,2,3,4,5' "seq 1 5 | sed ':a;N;\$!ba;s/\n/,/g'"
 check sed-count '100' "seq 1 100 | sed -n '\$='"
 check sed-hold '2 1 4 3' "seq 1 4 | sed -n 'h;n;G;p' | tr '\n' ' ' | sed 's/ \$//'"
-gap sed-file 'hell0 w0rld|f00 bar baz|The Quick br0wn FOX|abc123def' "sed -f script.sed t | tr '\n' '|' | sed 's/|\$//'"
+check sed-file 'hell0 w0rld|f00 bar baz|The Quick br0wn FOX|abc123def' "sed -f script.sed t | tr '\n' '|' | sed 's/|\$//'"
 check grep-count '3' "grep -c o t"
 check grep-bre 'abc123def' "grep '[[:digit:]]\{3\}' t"
 check egrep-alt 'hello world|foo bar baz' "egrep 'wor|baz' t | tr '\n' '|' | sed 's/|\$//'"
@@ -58,3 +58,11 @@ check tar-list 'd/|d/f|d/sub/|d/sub/g' "tar -tf x.tar | sort | tr '\n' '|' | sed
 check tar-z 'tgz ok' "tar -czf x.tgz d && gzip -dc x.tgz | cmp - x.tar && echo tgz ok"
 # diff3 and sdiff are not run here: they execute DIFF_PROGRAM, /usr/bin/diff
 # (see plumbing/diffutils-2.7/config.h), which is not ours on this host.
+
+# human.c's floating fallback runs when neither block size divides the
+# other (512-byte blocks shown in units of 1000 or 3); it computes in
+# long double, unpatched.  A fully written 32 KiB file has 64 blocks.
+dd if=/dev/zero of=blocks bs=4096 count=8 2>/dev/null
+check human-ls-1000 '33 blocks' "ls -s --block-size=1000 blocks | sed 's/^ *//'"
+check human-ls-3 '10923 blocks' "ls -s --block-size=3 blocks"
+check human-du-7 $'4682\tblocks' "du --block-size=7 blocks"
