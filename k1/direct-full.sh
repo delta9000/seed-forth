@@ -9,6 +9,9 @@
 # its own configure, built by that GCC).  ladder/stage10-direct.sh then turns
 # the late tools into /usr.
 set -e
+# The recipe runner starts programs with an empty environment.
+PATH=/build-out/plumbing/bin
+export PATH
 jobs=${1#JOBS=}
 jobs=${jobs:-2}
 cd /
