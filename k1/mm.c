@@ -9,7 +9,6 @@
 
 #include "k1.h"
 
-struct e820 { u64 addr, len; u32 type; } __attribute__((packed));
 extern struct e820 e820_map[];
 extern int e820_n;
 extern u64 *kpml4, *kpd_low;
@@ -338,7 +337,7 @@ int mm_fault(struct mm *m, u64 va, int write)
         *pte = palloc() | prot_bits(v->prot);
     else {                          /* present: make its bits match, then retry */
         *pte = (*pte & ~(u64)(PTE_W | PTE_U)) | prot_bits(v->prot);
-        __asm__ volatile("invlpg (%0)" :: "r"(va) : "memory");
+        invlpg(va);
     }
     return 0;
 }

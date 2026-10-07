@@ -1,8 +1,9 @@
 # K1 — the second rung
 
-K1 is a small kernel in C, built by the chain's own tcc-0.9.27, that runs
+K1 is a small kernel in C, built by the chain's own tcc-0.9.27 or, on the
+direct-GCC route, by seed Forth alone (below), that runs
 ordinary static Linux x86-64 programs as real processes and finally hands
-the machine to a Linux bzImage.  K0 (1,309 bytes of hex0) runs the seed
+the machine to a Linux bzImage.  K0 (1,313 bytes of hex0) runs the seed
 route to TinyCC; K1 is what that TinyCC builds to host the rest of the
 ladder (musl, make, bash, configure scripts, binutils, gcc, the Linux
 build), and then boots the Linux kernel the ladder produces.
@@ -10,6 +11,7 @@ build), and then boots the Linux kernel the ladder produces.
 ```sh
 k1/run.sh                                   # K0 -> prebuilt K1 -> direct TinyCC route
 k1/run-chain.sh --seed-smoke                 # K0 builds K1, then K1 rebuilds direct TinyCC (3 GiB)
+k1/run-chain.sh --direct-smoke               # no TinyCC: seed Forth builds K1; seed-cc and kaem under it (3 GiB)
 k1/run.sh --no-repo --add DIR=t -- k1 /t/prog args   # any static program
 ```
 
@@ -83,6 +85,50 @@ exited with the expected status. Only 50 MiB of backing blocks were used.
 The full-run wrapper additionally requires the final Linux handoff,
 init greeting and Linux 7.2.8 version markers; QEMU status 85 alone is
 insufficient. These checks do not establish full-ladder resource sufficiency.
+
+## The direct-GCC route: K1 without TinyCC
+
+The direct-GCC route never builds TinyCC, so K0 builds K1 with seed Forth.
+`./seed-forth < tools/k1-direct-start.fth` builds the recipe runner (as
+`tools/tcc-ladder-start.fth` does) and runs `tools/k1-direct.recipe`:
+
+- each C file is compiled by the Forth compiler with the layers, arena and
+  driver words of `seed-cc -nostdinc -c` (`k1/boot/unit.fth`); the objects
+  are byte-identical to seed-cc's;
+- `k1.S` is `k1/k1-asm.fth`: the same instructions as hex bytes with labels
+  and relocations, written as an object by `tools/obj-asm.fth` on the
+  compiler's object writer (`081-cc-object.fth`).  The C files have no
+  inline assembly (the privileged instructions are small functions in
+  `k1.S`), so any C compiler can build them;
+- the Forth linker (`140-cc-link.fth`, Ch 37) links them at 0x200000
+  (`k1/boot/link.fth`).
+
+K0 lacks `stat`, `fstat`, `munmap` and `getpid`, which the object writer and
+the linker use to check files and name temporaries; `k1/boot/k0-syscalls.fth`
+retries those calls with what K0 has when they return ENOSYS, and changes
+nothing on Linux.  On the host the whole build takes about 7 seconds.
+
+```sh
+./seed-forth < tools/k1-direct-start.fth     # build-out/k1-direct/k1
+sh k1/tests/direct-build-check.sh             # recipe layers, execve audit, objects vs seed-cc, asm vs GNU as
+python3 k1/tests/asm-check.py                 # k1-asm.fth's object equals `as k1/k1.S`'s
+k1/run-chain.sh --direct-smoke                # K0 -> K1 (seed-built) -> seed-cc, seed-ar, kaem
+k1/run-chain.sh --direct                      # ... then plumbing stages 1, 2, lexers and bash 2.05b
+```
+
+`k1/mkboot.py --direct` writes K0's image with only what that build needs
+(`k1/direct_inputs.py`) and appends `tools/k1-direct-boot.recipe`, which
+starts K1.  `k1/mkdisk.py --direct-smoke` gives K1 the seed, the compiler
+layers, the gcc-seed runtime, seed-cc's sources and kaem's;
+`k1/direct-smoke.recipe` then has hex0-seed build seed-forth, seed Forth
+build seed-cc and seed-ar (`tools/seed-cc-start.fth`), seed-cc build kaem,
+and kaem run `k1/direct-smoke.kaem`: a program built from a seed-ar archive
+checks the runtime's system calls (`k1/tests/direct-smoke.c`: files,
+directories, `/proc/self/exe`, fork/exec/wait, pipes, large malloc and mmap,
+clocks, signals), and two stage0-posix tools run.  `--direct` adds the
+plumbing and lexer tarballs from `build-out/` and continues with
+`plumbing/stage1.kaem`, `stage2.kaem`, `lexers.kaem` and `bash.kaem`; the GCC
+stages still run through Python (`gcc-direct/*.py`) and are not in it yet.
 
 ## Full Linux validation with KVM
 
@@ -225,7 +271,8 @@ each is a place K1 differs from Linux.
   0 (one thread per process).
 - A bad user pointer faults in the kernel and kills the process with
   SIGSEGV instead of returning EFAULT.
-- `/proc` is only `self/fd` and `self/maps`; no sockets (EAFNOSUPPORT), no ttys (`ioctl` is ENOTTY, so
+- `/proc` is only `self/fd`, `self/maps` and `self/exe` (the image's
+  canonical path, which seed-cc locates its tree by); no sockets (EAFNOSUPPORT), no ttys (`ioctl` is ENOTTY, so
   every program sees a non-interactive stdin).  `getdents64` lists `.`,
   `..`, then names in creation order.
 - `statx`, `copy_file_range`, `sendfile`, `fallocate`, `rseq`, `waitid`
@@ -234,19 +281,23 @@ each is a place K1 differs from Linux.
 
 ## Files
 
-4,879 lines of C and assembly; the kernel is 101,192 bytes (208,144 with
-the `-g` symbols `build.sh` adds by default; `K1_CFLAGS=" "` drops them).
+5,019 lines of C and assembly.  Built by tcc the kernel was 101,192 bytes
+(208,144 with the `-g` symbols `build.sh` adds by default; `K1_CFLAGS=" "`
+drops them), measured before the inline assembly moved into `k1.S`; built by
+seed Forth it is 221,672 bytes, without symbols.
 
 | File | Lines | What |
 |---|---:|---|
-| `k1.S` | 376 | entry from K0, SYSCALL entry/exit, swtch, exception stubs |
-| `main.c` | 567 | boot: memory primitives, console, kprintf, TSC/RTC, fw_cfg e820, GDT/IDT/TSS/MSRs, kernel page tables, traps |
-| `mm.c` | 600 | physical pages, kmalloc, page tables, VMAs, fork copy, mmap/munmap/mremap/brk |
+| `k1.S` | 519 | entry from K0, SYSCALL entry/exit, swtch, exception stubs, port I/O, MSRs, descriptor tables and the other privileged instructions |
+| `main.c` | 531 | boot: memory primitives, kprintf, TSC/RTC, fw_cfg e820, GDT/IDT/TSS/MSRs, kernel page tables, traps |
+| `mm.c` | 599 | physical pages, kmalloc, page tables, VMAs, fork copy, mmap/munmap/mremap/brk |
 | `fs.c` | 718 | inodes, radix data, directories, path walk, pipes, FIFOs, devices, `/proc/self`, K0 import |
-| `ata.c` | 218 | IDE PIO disks, the hda archive import |
-| `proc.c` | 752 | processes, scheduler, fork/clone, exec (ELF, `#!`), exit/wait, signals, init |
-| `sys.c` | 1,207 | the syscall table |
-| `linux.c` | 120 | the bzImage hand-off |
+| `ata.c` | 207 | IDE PIO disks, the hda archive import |
+| `proc.c` | 778 | processes, scheduler, fork/clone, exec (ELF, `#!`), exit/wait, signals, init |
+| `sys.c` | 1,216 | the syscall table |
+| `linux.c` | 112 | the bzImage hand-off |
+| `k1-asm.fth` | | `k1.S` as hex bytes for `tools/obj-asm.fth` (direct route) |
+| `boot/`, `direct*.recipe`, `direct-smoke.kaem`, `direct_inputs.py` | | the direct route's build drivers, guest recipes and image inventories |
 | `mkimg.py`, `run.sh`, `build.sh` | | boot image, QEMU run, build |
 | `tcc-musl.sh`, `mkcpio.py`, `tests/` | | host-side test helpers (not part of the chain) |
 

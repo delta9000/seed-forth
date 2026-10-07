@@ -86,7 +86,7 @@ void schedule(void)
         }
         if (!timer_pending())
             break;
-        __asm__ volatile("pause");      /* everyone sleeps until an alarm */
+        cpu_pause();                    /* everyone sleeps until an alarm */
     }
     kprintf("k1: deadlock; processes:\n");
     for (p = procs; p; p = p->next)
@@ -158,6 +158,7 @@ i64 do_fork(struct tframe *tf, u64 flags, u64 newsp)
     c->sigmask = cur->sigmask;
     c->fsbase = cur->fsbase;
     memcpy(c->comm, cur->comm, sizeof c->comm);
+    memcpy(c->exe, cur->exe, sizeof c->exe);
     fx_save(fxp(cur));
     memcpy(fxp(c), fxp(cur), 512);
     set_child_frame(c, tf);
@@ -246,6 +247,30 @@ static int user_strlen(const char *s, u64 max)
     while (n < max && s[n])
         n++;
     return n < max ? (int)n : -1;
+}
+
+/* /proc/self/exe reads back as the program's canonical path: its directory
+ * as path_of names it, then its last component (a symlink there is not
+ * followed, as Linux would).  Programs that find their files beside their
+ * own executable (seed-cc) need it. */
+static void set_exe(const char *path)
+{
+    struct inode *dir;
+    char last[256];
+    u64 l;
+    cur->exe[0] = 0;
+    if (nameiparent(cur->cwd, path, &dir, last) || path_of(dir, cur->exe, sizeof cur->exe) <= 0) {
+        cur->exe[0] = 0;
+        return;
+    }
+    l = strlen(cur->exe);
+    if (l + 1 + strlen(last) + 1 > sizeof cur->exe) {
+        cur->exe[0] = 0;
+        return;
+    }
+    if (l > 1)
+        cur->exe[l++] = '/';
+    strcpy(cur->exe + l, last);
 }
 
 static i64 exec_inner(const char *path, char **argv, int argc, char **envp, int envc, int depth)
@@ -358,6 +383,7 @@ static i64 exec_inner(const char *path, char **argv, int argc, char **envp, int 
         kfree(vec);
     }
     /* point of no return */
+    set_exe(path);
     {
         const char *b = path, *q;
         for (q = path; *q; q++)
@@ -748,5 +774,5 @@ void init_start(int argc, char **argv, const char *in)
         panic("init");
     }
     sp = (u64 *)p->tf;
-    __asm__ volatile("mov %0, %%rsp\n jmp ret_user" :: "r"(sp));
+    enter_user(sp);
 }

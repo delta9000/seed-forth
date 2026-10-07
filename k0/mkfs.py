@@ -30,10 +30,12 @@ HEAP0 = ENTS + MAXENT * 24
 MMAPB = 0x80000000
 INIT, STDIN = "seed-forth", "tools/tcc-ladder-start.fth"
 
-def write(out, extra=None):
-    """extra maps image paths to bytes: files added, or contents replaced."""
+def write(out, extra=None, repo=None, stdin=STDIN):
+    """extra maps image paths to bytes: files added, or contents replaced.
+    repo (default: source_tree()) maps image paths to host files; stdin is
+    init's standard input, an image path."""
     extra = extra or {}
-    repo = source_tree()
+    repo = source_tree() if repo is None else repo
     files = sorted(set(repo) | {INIT} | set(extra))
     dirs = {"tmp"}
     for f in files:
@@ -67,7 +69,7 @@ def write(out, extra=None):
     put(-112, "<I", ENTS + 24 * len(ents))      # G_END
     put(-104, "<I", HEAP0 + len(heap))          # G_HEAP
     put(-96, "<I", MMAPB)                       # G_BUMP
-    put(88, "<6I", addr[STDIN], 0, 1, 0, 1, 0)  # P_FDS: fd 0, 1, 2
+    put(88, "<6I", addr[stdin], 0, 1, 0, 1, 0)  # P_FDS: fd 0, 1, 2
     struct.pack_into("<Q", img, 0x1000, FSIMG + 0x2000 + 3)
     for i in range(4):
         struct.pack_into("<Q", img, 0x2000 + 8 * i, (i << 30) | 0x83)

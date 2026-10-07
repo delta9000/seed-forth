@@ -19,7 +19,7 @@ entry says what kind it is and which source file holds it:
 
 A kind in parentheses other than the file is the defining word used
 (`variable`, `constant`, `create`, `defer`); plain colon definitions
-carry none.  2812 names and 97 ideas.
+carry none.  2813 names and 97 ideas.
 
 For a one-line definition of a term, see the [Glossary](GLOSSARY.md);
 for which chapter depends on which, the
@@ -2622,7 +2622,8 @@ for which chapter depends on which, the
 - `lnk-align-cap` — *compiler word (constant, `140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)
 - `lnk-alignment` — *compiler word (`140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)
 - `lnk-bad` — *compiler word (`140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)
-- `lnk-base` — *compiler word (constant, `140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)
+- `lnk-base` — *compiler word (`140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)
+- `lnk-base-address` — *compiler word (variable, `140-cc-link.fth`)* — [Ch 37 §4 Place bytes and zero-filled memory](37-direct-gcc-linker.md#4-place-bytes-and-zero-filled-memory)
 - `lnk-binding` — *compiler word (`140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)
 - `lnk-buffer-a` — *compiler word (variable, `140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)
 - `lnk-buffer-n` — *compiler word (variable, `140-cc-link.fth`)* — [Ch 37, Canonical source](37-direct-gcc-linker.md#canonical-source)

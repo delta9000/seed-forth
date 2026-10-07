@@ -1,0 +1,52 @@
+# K1 built from the seed with no TinyCC: the direct-GCC route's kernel.
+# tools/k1-direct-start.fth builds the runner and runs this recipe, on Linux
+# or under K0.  Seed Forth compiles each K1 C file with the same layers,
+# arena and driver words as seed-cc -nostdinc -c; tools/obj-asm.fth writes
+# k1/k1-asm.fth (k1.S's bytes) as an object; the Forth linker links them at
+# 0x200000.  The seed is the only program that runs.  k1/boot/k0-syscalls.fth
+# follows 010-lib.fth in every input: it stands in for the four calls K0 lacks.  Every layer is listed
+# explicitly (sorted NNN-cc-*.fth without 120-cc-main.fth and
+# 140-cc-link.fth, as tools/seed-cc-start.fth selects them);
+# k1/tests/direct-build-check.sh checks the list.
+set K ${ROOT}/build-out/k1-direct
+mkdir ${ROOT}/build-out
+mkdir ${K}
+text ${K}/empty ""
+cat ${K}/compiler.fth ${ROOT}/010-lib.fth ${ROOT}/k1/boot/k0-syscalls.fth ${ROOT}/020-cc-arena.fth ${ROOT}/030-cc-io.fth ${ROOT}/040-cc-prep.fth ${ROOT}/050-cc-lex.fth ${ROOT}/060-cc-types.fth ${ROOT}/070-cc-sym.fth ${ROOT}/080-cc-elf.fth ${ROOT}/081-cc-object.fth ${ROOT}/090-cc-emit.fth ${ROOT}/100-cc-expr.fth ${ROOT}/110-cc-decl.fth ${ROOT}/112-cc-stmt.fth ${ROOT}/114-cc-func.fth ${ROOT}/115-cc-native.fth ${ROOT}/116-cc-prog.fth ${ROOT}/117-cc-native-program.fth ${ROOT}/118-cc-native-init.fth ${ROOT}/119-cc-native-runtime.fth ${ROOT}/121-cc-sysv.fth ${ROOT}/122-cc-sysv-runtime.fth ${ROOT}/123-cc-object-program.fth ${ROOT}/124-cc-target.fth ${ROOT}/125-cc-consteval.fth ${ROOT}/126-cc-varargs.fth ${ROOT}/127-cc-binary64.fth ${ROOT}/128-cc-float-literal.fth ${ROOT}/129-cc-bitfield.fth ${ROOT}/131-cc-aggregate-abi.fth ${ROOT}/132-cc-long-double.fth
+cat ${K}/main.input ${K}/compiler.fth ${ROOT}/k1/boot/unit.fth ${ROOT}/k1/main.c
+run 0 ${K}/main.input ${K}/main.out ${K}/main.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/main.out
+rename ${K}/unit.o ${K}/main.o
+cat ${K}/mm.input ${K}/compiler.fth ${ROOT}/k1/boot/unit.fth ${ROOT}/k1/mm.c
+run 0 ${K}/mm.input ${K}/mm.out ${K}/mm.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/mm.out
+rename ${K}/unit.o ${K}/mm.o
+cat ${K}/fs.input ${K}/compiler.fth ${ROOT}/k1/boot/unit.fth ${ROOT}/k1/fs.c
+run 0 ${K}/fs.input ${K}/fs.out ${K}/fs.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/fs.out
+rename ${K}/unit.o ${K}/fs.o
+cat ${K}/proc.input ${K}/compiler.fth ${ROOT}/k1/boot/unit.fth ${ROOT}/k1/proc.c
+run 0 ${K}/proc.input ${K}/proc.out ${K}/proc.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/proc.out
+rename ${K}/unit.o ${K}/proc.o
+cat ${K}/sys.input ${K}/compiler.fth ${ROOT}/k1/boot/unit.fth ${ROOT}/k1/sys.c
+run 0 ${K}/sys.input ${K}/sys.out ${K}/sys.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/sys.out
+rename ${K}/unit.o ${K}/sys.o
+cat ${K}/linux.input ${K}/compiler.fth ${ROOT}/k1/boot/unit.fth ${ROOT}/k1/linux.c
+run 0 ${K}/linux.input ${K}/linux.out ${K}/linux.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/linux.out
+rename ${K}/unit.o ${K}/linux.o
+cat ${K}/ata.input ${K}/compiler.fth ${ROOT}/k1/boot/unit.fth ${ROOT}/k1/ata.c
+run 0 ${K}/ata.input ${K}/ata.out ${K}/ata.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/ata.out
+rename ${K}/unit.o ${K}/ata.o
+cat ${K}/asm.input ${ROOT}/010-lib.fth ${ROOT}/k1/boot/k0-syscalls.fth ${ROOT}/020-cc-arena.fth ${ROOT}/030-cc-io.fth ${ROOT}/081-cc-object.fth ${ROOT}/tools/obj-asm.fth ${ROOT}/k1/k1-asm.fth ${ROOT}/k1/boot/asm.fth
+run 0 ${K}/asm.input ${K}/asm.out ${K}/asm.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/asm.out
+cat ${K}/link.input ${ROOT}/010-lib.fth ${ROOT}/k1/boot/k0-syscalls.fth ${ROOT}/020-cc-arena.fth ${ROOT}/030-cc-io.fth ${ROOT}/140-cc-link.fth ${ROOT}/k1/boot/link.fth
+run 0 ${K}/link.input ${K}/link.out ${K}/link.err ${ROOT}/seed-forth
+same ${K}/empty ${K}/link.out
+chmod ${K}/k1
+say "k1-direct: K1 built from the seed (no TinyCC):"
+hash ${K}/k1

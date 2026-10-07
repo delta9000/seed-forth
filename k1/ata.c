@@ -27,17 +27,6 @@
 
 u64 ata_sectors[2];                     /* 0: no drive */
 
-static u16 inw(u16 port)
-{
-    u16 v;
-    __asm__ volatile("inw %1, %0" : "=a"(v) : "d"(port));
-    return v;
-}
-
-static void outw(u16 port, u16 v)
-{
-    __asm__ volatile("outw %0, %1" :: "a"(v), "d"(port));
-}
 
 static int ata_wait(int drq)
 {
@@ -87,9 +76,9 @@ static int ata_rw(int drive, u64 lba, u32 n, u8 *buf, int write)
         /* one string instruction per sector: KVM batches it, where a
          * loop of inw/outw costs one exit to QEMU per 2 bytes */
         if (write)
-            __asm__ volatile("rep outsw" : "+S"(p), "+c"(cnt) : "d"((u16)ATA_DATA) : "memory");
+            port_outsw(ATA_DATA, p, cnt);
         else
-            __asm__ volatile("rep insw" : "+D"(p), "+c"(cnt) : "d"((u16)ATA_DATA) : "memory");
+            port_insw(ATA_DATA, p, cnt);
     }
     if (write) {
         if (ata_wait(0))

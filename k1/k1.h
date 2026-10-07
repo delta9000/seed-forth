@@ -7,7 +7,7 @@ typedef int i32;
 typedef unsigned short u16;
 typedef unsigned char u8;
 
-/* tcc calls these for struct copies; they must be defined before use. */
+/* The compilers call these for struct copies; they must be declared before use. */
 void *memmove(void *d, const void *s, unsigned long n);
 void *memset(void *d, int c, unsigned long n);
 void *memcpy(void *d, const void *s, unsigned long n);
@@ -204,23 +204,20 @@ struct proc {
     u64 ret_rcx, ret_r11;       /* ... these, to code a signal interrupted */
     char comm[64];
     char cmdline[2048];         /* argv joined by spaces, for fault reports */
+    char exe[1024];             /* /proc/self/exe: the image's canonical path */
     u8 fx[512 + 16];            /* fxsave area (aligned at runtime) */
 };
 
 /* main.c */
 void kprintf(const char *fmt, ...);
 void panic(const char *msg);
-void console_write(const char *s, u64 n);
 u64 now_ns(void);
 u64 realtime_s(void);
 void qemu_exit(int code);
 extern u64 tss_rsp0_slot;
 void set_rsp0(u64 v);
-void wrmsr(u32 msr, u64 v);
-u64 rdmsr(u32 msr);
-void outb(u16 port, u8 v);
-u8 inb(u16 port);
 extern u64 cur_kstack_top;
+struct e820 { u64 addr, len; u32 type; };   /* unpacked from fw_cfg's 20-byte records */
 
 /* mm.c */
 void phys_init(void);
@@ -314,8 +311,29 @@ void fd_close_all(struct proc *p, int only_cloexec);
 /* linux.c */
 i64 boot_linux(const char *kernel, const char *initrd, const char *cmdline);
 
-/* asm (k1.S) */
+/* asm (k1.S): everything that needs an instruction C cannot express, so
+ * the C files have no inline assembly and any C compiler can build them */
 void swtch(u64 *old_ksp, u64 new_ksp);
 void ret_user(void);
 void load_cr3(u64 pa);
 u64 read_cr2(void);
+void copy_forward(void *d, const void *s, u64 n);     /* rep movsb */
+void console_write(const char *s, u64 n);             /* rep outsb to COM1 */
+void outb(u16 port, u8 v);
+u8 inb(u16 port);
+void outw(u16 port, u16 v);
+u16 inw(u16 port);
+void port_insw(u16 port, void *buf, u64 count);       /* rep insw */
+void port_outsw(u16 port, const void *buf, u64 count);
+void wrmsr(u32 msr, u64 v);
+u64 rdmsr(u32 msr);
+u64 rdtsc(void);
+void load_gdt(u64 base, u64 limit);     /* then reload CS and the data segments */
+void load_idt(u64 base, u64 limit);
+void load_tr(u64 selector);
+void invlpg(u64 va);
+void fpu_init(void);                    /* fninit */
+void cpu_halt(void);
+void cpu_pause(void);
+void enter_user(u64 *sp);               /* rsp = sp, then ret_user */
+void linux_jump(u64 pml4, u64 boot_params, u64 entry);

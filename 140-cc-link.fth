@@ -12,8 +12,12 @@
 [lit] 131072 constant lnk-hash-cap
 [lit] 268435456 constant lnk-byte-cap
 [lit] 1048576 constant lnk-align-cap
-[lit] 4194304 constant lnk-base
 [lit] 128 constant lnk-object-size
+\ The image's virtual address: 4 MiB unless a driver stores another
+\ 2 MiB-aligned address here before lnk-link (K1 links at 2 MiB).
+variable lnk-base-address
+[lit] 4194304 lnk-base-address !
+: lnk-base ( -- address ) lnk-base-address @ ;
 create lnk-objects  lnk-object-cap lnk-object-size * allot
 variable lnk-count
 variable lnk-globals

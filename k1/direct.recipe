@@ -1,0 +1,25 @@
+# K1's init on the direct-GCC route: run by the K0-built runner as
+#   /k0/build-out/amd64-runner --recipe /k1.recipe   (from /, K1's root)
+# The input disk holds sources, hex0-seed and the pinned plumbing and lexer
+# tarballs (k1/mkdisk.py --direct).  First the smoke steps
+# (k1/direct-smoke.recipe), then the plumbing stages as plumbing/README.md
+# runs them on the host: stage 1 (stage0 tools, make), stage 2 (sed, grep,
+# gawk, coreutils, tar, gzip, patch, diffutils), the parser generators and
+# bash 2.05b.  The GCC stages (gcc-direct/*.py) need the stage scripts ported
+# off Python first; this recipe stops before them.
+run 0 - /dev/console /dev/console /hex0-seed /000-seed.hex0 /seed-forth
+chmod /seed-forth
+say "k1: seed-forth built by hex0-seed"
+run 0 /tools/seed-cc-start.fth /dev/console /dev/console /seed-forth
+say "k1: seed-cc and seed-ar built by seed Forth"
+mkdir /build-out/plumbing
+mkdir /build-out/plumbing/bin
+mkdir /build-out/k1-smoke
+run 0 - /dev/console /dev/console /build-out/seed-cc/seed-cc -static vendor/mescc-tools/Kaem/kaem.c vendor/mescc-tools/Kaem/variable.c vendor/mescc-tools/Kaem/kaem_globals.c vendor/stage0-posix/mescc-tools-extra/M2libc/bootstrappable.c -o build-out/plumbing/bin/kaem
+run 0 - /dev/console /dev/console /build-out/plumbing/bin/kaem --verbose --strict --file k1/direct-smoke.kaem
+say "k1: seed-cc, seed-ar and kaem work; starting the plumbing stages"
+run 0 - /dev/console /dev/console /build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage1.kaem
+run 0 - /dev/console /dev/console /build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage2.kaem
+run 0 - /dev/console /dev/console /build-out/plumbing/bin/kaem --verbose --strict --file plumbing/lexers.kaem
+run 0 - /dev/console /dev/console /build-out/plumbing/bin/kaem --verbose --strict --file plumbing/bash.kaem
+say "k1: PASS (direct route under K1: seed to bash 2.05b; GCC stages not yet run here)"

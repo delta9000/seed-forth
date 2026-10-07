@@ -1,0 +1,18 @@
+# K1's init on the direct-GCC route, smoke test: run by the K0-built runner as
+#   /k0/build-out/amd64-runner --recipe /k1.recipe   (from /, K1's root)
+# The input disk holds sources and hex0-seed (k1/mkdisk.py --direct-smoke).
+# hex0-seed builds seed-forth, which builds seed-cc and seed-ar; seed-cc builds
+# kaem, and kaem runs k1/direct-smoke.kaem: compiles, archives and runs
+# programs that use the gcc-seed runtime's system calls.
+run 0 - /dev/console /dev/console /hex0-seed /000-seed.hex0 /seed-forth
+chmod /seed-forth
+say "k1: seed-forth built by hex0-seed"
+run 0 /tools/seed-cc-start.fth /dev/console /dev/console /seed-forth
+say "k1: seed-cc and seed-ar built by seed Forth"
+mkdir /build-out/plumbing
+mkdir /build-out/plumbing/bin
+mkdir /build-out/k1-smoke
+run 0 - /dev/console /dev/console /build-out/seed-cc/seed-cc -static vendor/mescc-tools/Kaem/kaem.c vendor/mescc-tools/Kaem/variable.c vendor/mescc-tools/Kaem/kaem_globals.c vendor/stage0-posix/mescc-tools-extra/M2libc/bootstrappable.c -o build-out/plumbing/bin/kaem
+say "k1: kaem built by seed-cc"
+run 0 - /dev/console /dev/console /build-out/plumbing/bin/kaem --verbose --strict --file k1/direct-smoke.kaem
+say "k1: PASS (seed-cc, seed-ar and kaem work under the K1 that seed Forth built)"

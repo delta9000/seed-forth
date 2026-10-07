@@ -12,8 +12,8 @@
 ;; comment starts with the file offset; the image loads at 0x100000, so
 ;; offset 0xNNN is address 0x100NNN.  Relative branches show their
 ;; arithmetic, (rel8 = target - next instruction); operands that name a
-;; label or constant show its value.  The file is 1309 bytes, loaded
-;; at 0x100000 to 0x10051D.
+;; label or constant show its value.  The file is 1313 bytes, loaded
+;; at 0x100000 to 0x100521.
 ;;
 ;; Build:  hex0-seed k0/k0.hex0 k0.bin  (stage0-posix's 229-byte hex0)
 ;; k0/k0.asm is the same program as NASM source; k0/check.sh proves
@@ -92,8 +92,8 @@
 FE 4F 51 E4                               ; 0x008  dd -(0x1BADB002 + 0x00010000)
 00 00 10 00                               ; 0x00C  dd hdr
 00 00 10 00                               ; 0x010  dd hdr
-1D 05 10 00                               ; 0x014  dd file_end
-1D 05 10 00                               ; 0x018  dd file_end
+21 05 10 00                               ; 0x014  dd file_end
+21 05 10 00                               ; 0x018  dd file_end
 20 00 10 00                               ; 0x01C  dd start32
 
 ;; ----- start32 @ 0x020 -----
@@ -132,7 +132,7 @@ B8 98 00 10 00                            ; 0x07F  mov eax, syscall_entry  (sysc
 0F 30                                     ; 0x085  wrmsr
 BF 10 30 00 50                            ; 0x087  mov edi, INIT + 16  (INIT = 0x50003000)
 BE 00 30 00 50                            ; 0x08C  mov esi, INIT  (INIT = 0x50003000)
-E8 C6 03 00 00                            ; 0x091  call sys_execve  (rel32 = 0x45C - 0x096; sys_execve = 0x10045C)
+E8 CA 03 00 00                            ; 0x091  call sys_execve  (rel32 = 0x460 - 0x096; sys_execve = 0x100460)
 EB 4E                                     ; 0x096  jmp ret_user  (rel8 = 0x0E6 - 0x098; ret_user = 0x1000E6)
 
 ;; ---- entry and exit -------------------------------------------------------
@@ -202,20 +202,20 @@ FF E1                                     ; 0x108  jmp rcx
 01 35 01                                  ; 0x10D  syscall 1 -> sys_write (handlers + 0x135)
 02 A5 00                                  ; 0x110  syscall 2 -> sys_open (handlers + 0xA5)
 03 F3 00                                  ; 0x113  syscall 3 -> sys_close (handlers + 0xF3)
-06 C0 01                                  ; 0x116  syscall 6 -> sys_lstat (handlers + 0x1C0)
-08 8B 01                                  ; 0x119  syscall 8 -> sys_lseek (handlers + 0x18B)
-09 5E 02                                  ; 0x11C  syscall 9 -> sys_mmap (handlers + 0x25E)
-21 AB 01                                  ; 0x11F  syscall 33 -> sys_dup2 (handlers + 0x1AB)
-39 77 02                                  ; 0x122  syscall 57 -> sys_fork (handlers + 0x277)
-3B 1B 03                                  ; 0x125  syscall 59 -> sys_execve (handlers + 0x31B)
-3C A6 02                                  ; 0x128  syscall 60 -> sys_exit (handlers + 0x2A6)
-3D 12 03                                  ; 0x12B  syscall 61 -> sys_wait4 (handlers + 0x312)
-4F E0 01                                  ; 0x12E  syscall 79 -> sys_getcwd (handlers + 0x1E0)
-50 F4 01                                  ; 0x131  syscall 80 -> sys_chdir (handlers + 0x1F4)
-52 10 02                                  ; 0x134  syscall 82 -> sys_rename (handlers + 0x210)
-53 32 02                                  ; 0x137  syscall 83 -> sys_mkdir (handlers + 0x232)
-57 42 02                                  ; 0x13A  syscall 87 -> sys_unlink (handlers + 0x242)
-5A 4F 02                                  ; 0x13D  syscall 90 -> ok (handlers + 0x24F)
+06 C4 01                                  ; 0x116  syscall 6 -> sys_lstat (handlers + 0x1C4)
+08 8F 01                                  ; 0x119  syscall 8 -> sys_lseek (handlers + 0x18F)
+09 62 02                                  ; 0x11C  syscall 9 -> sys_mmap (handlers + 0x262)
+21 AF 01                                  ; 0x11F  syscall 33 -> sys_dup2 (handlers + 0x1AF)
+39 7B 02                                  ; 0x122  syscall 57 -> sys_fork (handlers + 0x27B)
+3B 1F 03                                  ; 0x125  syscall 59 -> sys_execve (handlers + 0x31F)
+3C AA 02                                  ; 0x128  syscall 60 -> sys_exit (handlers + 0x2AA)
+3D 16 03                                  ; 0x12B  syscall 61 -> sys_wait4 (handlers + 0x316)
+4F E4 01                                  ; 0x12E  syscall 79 -> sys_getcwd (handlers + 0x1E4)
+50 F8 01                                  ; 0x131  syscall 80 -> sys_chdir (handlers + 0x1F8)
+52 14 02                                  ; 0x134  syscall 82 -> sys_rename (handlers + 0x214)
+53 36 02                                  ; 0x137  syscall 83 -> sys_mkdir (handlers + 0x236)
+57 46 02                                  ; 0x13A  syscall 87 -> sys_unlink (handlers + 0x246)
+5A 53 02                                  ; 0x13D  syscall 90 -> ok (handlers + 0x253)
 FF                                        ; 0x140  db 0xFF
 
 ;; ---- paths and the file table --------------------------------------------
@@ -324,13 +324,13 @@ E8 9B FF FF FF                            ; 0x1E7  call resolve  (rel32 = 0x187 
 5E                                        ; 0x1EC  pop rsi
 75 13                                     ; 0x1ED  jnz .have  (rel8 = 0x202 - 0x1EF)
 0F BA E6 06                               ; 0x1EF  bt esi, 6  ; O_CREAT
-0F 83 9A 01 00 00                         ; 0x1F3  jnc enoent  (rel32 = 0x393 - 0x1F9; enoent = 0x100393)
+0F 83 9E 01 00 00                         ; 0x1F3  jnc enoent  (rel32 = 0x397 - 0x1F9; enoent = 0x100397)
 B3 01                                     ; 0x1F9  mov bl, 1
 E8 BC FF FF FF                            ; 0x1FB  call newent  (rel32 = 0x1BC - 0x200; newent = 0x1001BC)
 EB 18                                     ; 0x200  jmp .fd  (rel8 = 0x21A - 0x202)
 ;;   .have @ 0x202
 0F BA E6 07                               ; 0x202  bt esi, 7  ; O_EXCL
-0F 82 8F 01 00 00                         ; 0x206  jc eexist  (rel32 = 0x39B - 0x20C; eexist = 0x10039B)
+0F 82 93 01 00 00                         ; 0x206  jc eexist  (rel32 = 0x39F - 0x20C; eexist = 0x10039F)
 0F BA E6 09                               ; 0x20C  bt esi, 9  ; O_TRUNC: past size stays zero
 73 08                                     ; 0x210  jnc .fd  (rel8 = 0x21A - 0x212)
 83 60 0C 00                               ; 0x212  and dword [rax + E_SIZE], 0  (E_SIZE = 0xC)
@@ -351,17 +351,17 @@ C3                                        ; 0x233  ret
 ;; ----- sys_close @ 0x234 -----
 
 E8 A3 FF FF FF                            ; 0x234  call fdp  (rel32 = 0x1DC - 0x239; fdp = 0x1001DC)
-0F 82 58 01 00 00                         ; 0x239  jc ebadf  (rel32 = 0x397 - 0x23F; ebadf = 0x100397)
+0F 82 5C 01 00 00                         ; 0x239  jc ebadf  (rel32 = 0x39B - 0x23F; ebadf = 0x10039B)
 83 23 00                                  ; 0x23F  and dword [rbx], 0
-E9 49 01 00 00                            ; 0x242  jmp ok  (rel32 = 0x390 - 0x247; ok = 0x100390)
+E9 4D 01 00 00                            ; 0x242  jmp ok  (rel32 = 0x394 - 0x247; ok = 0x100394)
 
 ;; ----- sys_read @ 0x247 -----
 ;; rdi fd, rsi buf, rdx count
 E8 90 FF FF FF                            ; 0x247  call fdp  (rel32 = 0x1DC - 0x24C; fdp = 0x1001DC)
-0F 82 45 01 00 00                         ; 0x24C  jc ebadf  (rel32 = 0x397 - 0x252; ebadf = 0x100397)
+0F 82 49 01 00 00                         ; 0x24C  jc ebadf  (rel32 = 0x39B - 0x252; ebadf = 0x10039B)
 8B 48 0C                                  ; 0x252  mov ecx, [rax + E_SIZE]  (E_SIZE = 0xC)
 2B 4B 04                                  ; 0x255  sub ecx, [rbx + 4]
-0F 86 32 01 00 00                         ; 0x258  jbe ok  (rel32 = 0x390 - 0x25E; ok = 0x100390)
+0F 86 36 01 00 00                         ; 0x258  jbe ok  (rel32 = 0x394 - 0x25E; ok = 0x100394)
 48 39 D1                                  ; 0x25E  cmp rcx, rdx
 76 02                                     ; 0x261  jbe .n  (rel8 = 0x265 - 0x263)
 89 D1                                     ; 0x263  mov ecx, edx
@@ -378,321 +378,327 @@ C3                                        ; 0x275  ret
 ;; ----- sys_write @ 0x276 -----
 ;; rdi fd, rsi buf, rdx count
 E8 61 FF FF FF                            ; 0x276  call fdp  (rel32 = 0x1DC - 0x27B; fdp = 0x1001DC)
-0F 82 16 01 00 00                         ; 0x27B  jc ebadf  (rel32 = 0x397 - 0x281; ebadf = 0x100397)
+0F 82 1A 01 00 00                         ; 0x27B  jc ebadf  (rel32 = 0x39B - 0x281; ebadf = 0x10039B)
 89 D1                                     ; 0x281  mov ecx, edx
 51                                        ; 0x283  push rcx
 FF C8                                     ; 0x284  dec eax
-75 08                                     ; 0x286  jnz .file  (rel8 = 0x290 - 0x288)
+75 0C                                     ; 0x286  jnz .file  (rel8 = 0x294 - 0x288)
 66 BA F8 03                               ; 0x288  mov dx, 0x3F8
-F3 6E                                     ; 0x28C  rep outsb
-58                                        ; 0x28E  pop rax
-C3                                        ; 0x28F  ret
-;;   .file @ 0x290
-FF C0                                     ; 0x290  inc eax
-8B 53 04                                  ; 0x292  mov edx, [rbx + 4]  ; pos
-01 CA                                     ; 0x295  add edx, ecx  ; end
-3B 50 10                                  ; 0x297  cmp edx, [rax + E_CAP]  (E_CAP = 0x10)
-76 19                                     ; 0x29A  jbe .fits  (rel8 = 0x2B5 - 0x29C)
-56                                        ; 0x29C  push rsi  ; grow to twice the new end;
-8D 0C 12                                  ; 0x29D  lea ecx, [rdx + rdx]  ; fresh heap is zero, so bytes
-89 48 10                                  ; 0x2A0  mov [rax + E_CAP], ecx  (E_CAP = 0x10)  ; past size always read as zero
-8B 7D 98                                  ; 0x2A3  mov edi, [rbp + G_HEAP]  (G_HEAP = -0x68)
-01 4D 98                                  ; 0x2A6  add [rbp + G_HEAP], ecx  (G_HEAP = -0x68)
-8B 70 08                                  ; 0x2A9  mov esi, [rax + E_DATA]  (E_DATA = 0x8)
-89 78 08                                  ; 0x2AC  mov [rax + E_DATA], edi  (E_DATA = 0x8)
-8B 48 0C                                  ; 0x2AF  mov ecx, [rax + E_SIZE]  (E_SIZE = 0xC)
-F3 A4                                     ; 0x2B2  rep movsb
-5E                                        ; 0x2B4  pop rsi
-;;   .fits @ 0x2B5
-8B 78 08                                  ; 0x2B5  mov edi, [rax + E_DATA]  (E_DATA = 0x8)
-03 7B 04                                  ; 0x2B8  add edi, [rbx + 4]
-89 53 04                                  ; 0x2BB  mov [rbx + 4], edx
-3B 50 0C                                  ; 0x2BE  cmp edx, [rax + E_SIZE]  (E_SIZE = 0xC)
-76 03                                     ; 0x2C1  jbe .cp  (rel8 = 0x2C6 - 0x2C3)
-89 50 0C                                  ; 0x2C3  mov [rax + E_SIZE], edx  (E_SIZE = 0xC)
-;;   .cp @ 0x2C6
-59                                        ; 0x2C6  pop rcx
-89 C8                                     ; 0x2C7  mov eax, ecx
-F3 A4                                     ; 0x2C9  rep movsb
-C3                                        ; 0x2CB  ret
+E3 04                                     ; 0x28C  jrcxz .wdone  (rel8 = 0x292 - 0x28E)  ; a byte loop, not rep outsb: QEMU 8.2's
+;;   .wout @ 0x28E
+AC                                        ; 0x28E  lodsb  ; TCG aborts on K0's rep outsb
+EE                                        ; 0x28F  out dx, al
+E2 FC                                     ; 0x290  loop .wout  (rel8 = 0x28E - 0x292)
+;;   .wdone @ 0x292
 
-;; ----- sys_lseek @ 0x2CC -----
+58                                        ; 0x292  pop rax
+C3                                        ; 0x293  ret
+;;   .file @ 0x294
+FF C0                                     ; 0x294  inc eax
+8B 53 04                                  ; 0x296  mov edx, [rbx + 4]  ; pos
+01 CA                                     ; 0x299  add edx, ecx  ; end
+3B 50 10                                  ; 0x29B  cmp edx, [rax + E_CAP]  (E_CAP = 0x10)
+76 19                                     ; 0x29E  jbe .fits  (rel8 = 0x2B9 - 0x2A0)
+56                                        ; 0x2A0  push rsi  ; grow to twice the new end;
+8D 0C 12                                  ; 0x2A1  lea ecx, [rdx + rdx]  ; fresh heap is zero, so bytes
+89 48 10                                  ; 0x2A4  mov [rax + E_CAP], ecx  (E_CAP = 0x10)  ; past size always read as zero
+8B 7D 98                                  ; 0x2A7  mov edi, [rbp + G_HEAP]  (G_HEAP = -0x68)
+01 4D 98                                  ; 0x2AA  add [rbp + G_HEAP], ecx  (G_HEAP = -0x68)
+8B 70 08                                  ; 0x2AD  mov esi, [rax + E_DATA]  (E_DATA = 0x8)
+89 78 08                                  ; 0x2B0  mov [rax + E_DATA], edi  (E_DATA = 0x8)
+8B 48 0C                                  ; 0x2B3  mov ecx, [rax + E_SIZE]  (E_SIZE = 0xC)
+F3 A4                                     ; 0x2B6  rep movsb
+5E                                        ; 0x2B8  pop rsi
+;;   .fits @ 0x2B9
+8B 78 08                                  ; 0x2B9  mov edi, [rax + E_DATA]  (E_DATA = 0x8)
+03 7B 04                                  ; 0x2BC  add edi, [rbx + 4]
+89 53 04                                  ; 0x2BF  mov [rbx + 4], edx
+3B 50 0C                                  ; 0x2C2  cmp edx, [rax + E_SIZE]  (E_SIZE = 0xC)
+76 03                                     ; 0x2C5  jbe .cp  (rel8 = 0x2CA - 0x2C7)
+89 50 0C                                  ; 0x2C7  mov [rax + E_SIZE], edx  (E_SIZE = 0xC)
+;;   .cp @ 0x2CA
+59                                        ; 0x2CA  pop rcx
+89 C8                                     ; 0x2CB  mov eax, ecx
+F3 A4                                     ; 0x2CD  rep movsb
+C3                                        ; 0x2CF  ret
+
+;; ----- sys_lseek @ 0x2D0 -----
 ;; rdi fd, rsi offset, rdx whence
-E8 0B FF FF FF                            ; 0x2CC  call fdp  (rel32 = 0x1DC - 0x2D1; fdp = 0x1001DC)
-0F 82 C0 00 00 00                         ; 0x2D1  jc ebadf  (rel32 = 0x397 - 0x2D7; ebadf = 0x100397)
-31 C9                                     ; 0x2D7  xor ecx, ecx
-FF CA                                     ; 0x2D9  dec edx
-78 08                                     ; 0x2DB  js .set  (rel8 = 0x2E5 - 0x2DD)
-8B 4B 04                                  ; 0x2DD  mov ecx, [rbx + 4]
-74 03                                     ; 0x2E0  jz .set  (rel8 = 0x2E5 - 0x2E2)
-8B 48 0C                                  ; 0x2E2  mov ecx, [rax + E_SIZE]  (E_SIZE = 0xC)
-;;   .set @ 0x2E5
-01 F1                                     ; 0x2E5  add ecx, esi
-89 4B 04                                  ; 0x2E7  mov [rbx + 4], ecx
-91                                        ; 0x2EA  xchg eax, ecx
-C3                                        ; 0x2EB  ret
+E8 07 FF FF FF                            ; 0x2D0  call fdp  (rel32 = 0x1DC - 0x2D5; fdp = 0x1001DC)
+0F 82 C0 00 00 00                         ; 0x2D5  jc ebadf  (rel32 = 0x39B - 0x2DB; ebadf = 0x10039B)
+31 C9                                     ; 0x2DB  xor ecx, ecx
+FF CA                                     ; 0x2DD  dec edx
+78 08                                     ; 0x2DF  js .set  (rel8 = 0x2E9 - 0x2E1)
+8B 4B 04                                  ; 0x2E1  mov ecx, [rbx + 4]
+74 03                                     ; 0x2E4  jz .set  (rel8 = 0x2E9 - 0x2E6)
+8B 48 0C                                  ; 0x2E6  mov ecx, [rax + E_SIZE]  (E_SIZE = 0xC)
+;;   .set @ 0x2E9
+01 F1                                     ; 0x2E9  add ecx, esi
+89 4B 04                                  ; 0x2EB  mov [rbx + 4], ecx
+91                                        ; 0x2EE  xchg eax, ecx
+C3                                        ; 0x2EF  ret
 
-;; ----- sys_dup2 @ 0x2EC -----
+;; ----- sys_dup2 @ 0x2F0 -----
 ;; rdi old, rsi new
-E8 EB FE FF FF                            ; 0x2EC  call fdp  (rel32 = 0x1DC - 0x2F1; fdp = 0x1001DC)
-0F 82 A0 00 00 00                         ; 0x2F1  jc ebadf  (rel32 = 0x397 - 0x2F7; ebadf = 0x100397)
-48 8B 03                                  ; 0x2F7  mov rax, [rbx]
-48 89 44 F5 58                            ; 0x2FA  mov [rbp + P_FDS + rsi*8], rax  (P_FDS = 0x58)
-96                                        ; 0x2FF  xchg eax, esi
-C3                                        ; 0x300  ret
+E8 E7 FE FF FF                            ; 0x2F0  call fdp  (rel32 = 0x1DC - 0x2F5; fdp = 0x1001DC)
+0F 82 A0 00 00 00                         ; 0x2F5  jc ebadf  (rel32 = 0x39B - 0x2FB; ebadf = 0x10039B)
+48 8B 03                                  ; 0x2FB  mov rax, [rbx]
+48 89 44 F5 58                            ; 0x2FE  mov [rbp + P_FDS + rsi*8], rax  (P_FDS = 0x58)
+96                                        ; 0x303  xchg eax, esi
+C3                                        ; 0x304  ret
 
-;; ----- sys_lstat @ 0x301 -----
+;; ----- sys_lstat @ 0x305 -----
 ;; rdi path, rsi buf: only st_mode
-56                                        ; 0x301  push rsi
-E8 80 FE FF FF                            ; 0x302  call resolve  (rel32 = 0x187 - 0x307; resolve = 0x100187)
-5F                                        ; 0x307  pop rdi
-0F 84 85 00 00 00                         ; 0x308  jz enoent  (rel32 = 0x393 - 0x30E; enoent = 0x100393)
-B6 81                                     ; 0x30E  mov dh, 0x81  ; S_IFREG
-80 78 14 02                               ; 0x310  cmp byte [rax + E_TYPE], 2  (E_TYPE = 0x14)
-75 02                                     ; 0x314  jne .m  (rel8 = 0x318 - 0x316)
-B6 41                                     ; 0x316  mov dh, 0x41  ; S_IFDIR
-;;   .m @ 0x318
-88 77 19                                  ; 0x318  mov [rdi + 25], dh
-C6 47 18 ED                               ; 0x31B  mov byte [rdi + 24], 0xED
-EB 6F                                     ; 0x31F  jmp ok  (rel8 = 0x390 - 0x321; ok = 0x100390)
+56                                        ; 0x305  push rsi
+E8 7C FE FF FF                            ; 0x306  call resolve  (rel32 = 0x187 - 0x30B; resolve = 0x100187)
+5F                                        ; 0x30B  pop rdi
+0F 84 85 00 00 00                         ; 0x30C  jz enoent  (rel32 = 0x397 - 0x312; enoent = 0x100397)
+B6 81                                     ; 0x312  mov dh, 0x81  ; S_IFREG
+80 78 14 02                               ; 0x314  cmp byte [rax + E_TYPE], 2  (E_TYPE = 0x14)
+75 02                                     ; 0x318  jne .m  (rel8 = 0x31C - 0x31A)
+B6 41                                     ; 0x31A  mov dh, 0x41  ; S_IFDIR
+;;   .m @ 0x31C
+88 77 19                                  ; 0x31C  mov [rdi + 25], dh
+C6 47 18 ED                               ; 0x31F  mov byte [rdi + 24], 0xED
+EB 6F                                     ; 0x323  jmp ok  (rel8 = 0x394 - 0x325; ok = 0x100394)
 
-;; ----- sys_getcwd @ 0x321 -----
+;; ----- sys_getcwd @ 0x325 -----
 ;; rdi buf
-B0 2F                                     ; 0x321  mov al, '/'
-AA                                        ; 0x323  stosb
-8D B5 58 02 00 00                         ; 0x324  lea esi, [rbp + P_CWD]  (P_CWD = 0x258)
-8B 4D 30                                  ; 0x32A  mov ecx, [rbp + P_CWDLEN]  (P_CWDLEN = 0x30)
-8D 41 02                                  ; 0x32D  lea eax, [rcx + 2]
-F3 A4                                     ; 0x330  rep movsb
-88 0F                                     ; 0x332  mov [rdi], cl
-C3                                        ; 0x334  ret
+B0 2F                                     ; 0x325  mov al, '/'
+AA                                        ; 0x327  stosb
+8D B5 58 02 00 00                         ; 0x328  lea esi, [rbp + P_CWD]  (P_CWD = 0x258)
+8B 4D 30                                  ; 0x32E  mov ecx, [rbp + P_CWDLEN]  (P_CWDLEN = 0x30)
+8D 41 02                                  ; 0x331  lea eax, [rcx + 2]
+F3 A4                                     ; 0x334  rep movsb
+88 0F                                     ; 0x336  mov [rdi], cl
+C3                                        ; 0x338  ret
 
-;; ----- sys_chdir @ 0x335 -----
+;; ----- sys_chdir @ 0x339 -----
 
-E8 4D FE FF FF                            ; 0x335  call resolve  (rel32 = 0x187 - 0x33A; resolve = 0x100187)
-74 57                                     ; 0x33A  jz enoent  (rel8 = 0x393 - 0x33C; enoent = 0x100393)
-BE 00 00 00 30                            ; 0x33C  mov esi, PB  (PB = 0x30000000)
-8D BD 58 02 00 00                         ; 0x341  lea edi, [rbp + P_CWD]  (P_CWD = 0x258)
-8B 4D A8                                  ; 0x347  mov ecx, [rbp + G_PBLEN]  (G_PBLEN = -0x58)
-89 4D 30                                  ; 0x34A  mov [rbp + P_CWDLEN], ecx  (P_CWDLEN = 0x30)
-F3 A4                                     ; 0x34D  rep movsb
-EB 3F                                     ; 0x34F  jmp ok  (rel8 = 0x390 - 0x351; ok = 0x100390)
+E8 49 FE FF FF                            ; 0x339  call resolve  (rel32 = 0x187 - 0x33E; resolve = 0x100187)
+74 57                                     ; 0x33E  jz enoent  (rel8 = 0x397 - 0x340; enoent = 0x100397)
+BE 00 00 00 30                            ; 0x340  mov esi, PB  (PB = 0x30000000)
+8D BD 58 02 00 00                         ; 0x345  lea edi, [rbp + P_CWD]  (P_CWD = 0x258)
+8B 4D A8                                  ; 0x34B  mov ecx, [rbp + G_PBLEN]  (G_PBLEN = -0x58)
+89 4D 30                                  ; 0x34E  mov [rbp + P_CWDLEN], ecx  (P_CWDLEN = 0x30)
+F3 A4                                     ; 0x351  rep movsb
+EB 3F                                     ; 0x353  jmp ok  (rel8 = 0x394 - 0x355; ok = 0x100394)
 
-;; ----- sys_rename @ 0x351 -----
+;; ----- sys_rename @ 0x355 -----
 ;; rdi old, rsi new
-56                                        ; 0x351  push rsi
-E8 30 FE FF FF                            ; 0x352  call resolve  (rel32 = 0x187 - 0x357; resolve = 0x100187)
-5F                                        ; 0x357  pop rdi
-74 39                                     ; 0x358  jz enoent  (rel8 = 0x393 - 0x35A; enoent = 0x100393)
-50                                        ; 0x35A  push rax
-E8 27 FE FF FF                            ; 0x35B  call resolve  (rel32 = 0x187 - 0x360; resolve = 0x100187)
-5A                                        ; 0x360  pop rdx
-74 08                                     ; 0x361  jz .set  (rel8 = 0x36B - 0x363)
-39 D0                                     ; 0x363  cmp eax, edx
-74 04                                     ; 0x365  je .set  (rel8 = 0x36B - 0x367)
-C6 40 14 00                               ; 0x367  mov byte [rax + E_TYPE], 0  (E_TYPE = 0x14)
-;;   .set @ 0x36B
-92                                        ; 0x36B  xchg eax, edx
-E8 55 FE FF FF                            ; 0x36C  call setname  (rel32 = 0x1C6 - 0x371; setname = 0x1001C6)
-EB 1D                                     ; 0x371  jmp ok  (rel8 = 0x390 - 0x373; ok = 0x100390)
+56                                        ; 0x355  push rsi
+E8 2C FE FF FF                            ; 0x356  call resolve  (rel32 = 0x187 - 0x35B; resolve = 0x100187)
+5F                                        ; 0x35B  pop rdi
+74 39                                     ; 0x35C  jz enoent  (rel8 = 0x397 - 0x35E; enoent = 0x100397)
+50                                        ; 0x35E  push rax
+E8 23 FE FF FF                            ; 0x35F  call resolve  (rel32 = 0x187 - 0x364; resolve = 0x100187)
+5A                                        ; 0x364  pop rdx
+74 08                                     ; 0x365  jz .set  (rel8 = 0x36F - 0x367)
+39 D0                                     ; 0x367  cmp eax, edx
+74 04                                     ; 0x369  je .set  (rel8 = 0x36F - 0x36B)
+C6 40 14 00                               ; 0x36B  mov byte [rax + E_TYPE], 0  (E_TYPE = 0x14)
+;;   .set @ 0x36F
+92                                        ; 0x36F  xchg eax, edx
+E8 51 FE FF FF                            ; 0x370  call setname  (rel32 = 0x1C6 - 0x375; setname = 0x1001C6)
+EB 1D                                     ; 0x375  jmp ok  (rel8 = 0x394 - 0x377; ok = 0x100394)
 
-;; ----- sys_mkdir @ 0x373 -----
+;; ----- sys_mkdir @ 0x377 -----
 
-E8 0F FE FF FF                            ; 0x373  call resolve  (rel32 = 0x187 - 0x378; resolve = 0x100187)
-75 21                                     ; 0x378  jnz eexist  (rel8 = 0x39B - 0x37A; eexist = 0x10039B)
-B3 02                                     ; 0x37A  mov bl, 2
-E8 3B FE FF FF                            ; 0x37C  call newent  (rel32 = 0x1BC - 0x381; newent = 0x1001BC)
-EB 0D                                     ; 0x381  jmp ok  (rel8 = 0x390 - 0x383; ok = 0x100390)
+E8 0B FE FF FF                            ; 0x377  call resolve  (rel32 = 0x187 - 0x37C; resolve = 0x100187)
+75 21                                     ; 0x37C  jnz eexist  (rel8 = 0x39F - 0x37E; eexist = 0x10039F)
+B3 02                                     ; 0x37E  mov bl, 2
+E8 37 FE FF FF                            ; 0x380  call newent  (rel32 = 0x1BC - 0x385; newent = 0x1001BC)
+EB 0D                                     ; 0x385  jmp ok  (rel8 = 0x394 - 0x387; ok = 0x100394)
 
-;; ----- sys_unlink @ 0x383 -----
+;; ----- sys_unlink @ 0x387 -----
 
-E8 FF FD FF FF                            ; 0x383  call resolve  (rel32 = 0x187 - 0x388; resolve = 0x100187)
-74 09                                     ; 0x388  jz enoent  (rel8 = 0x393 - 0x38A; enoent = 0x100393)
-C6 40 14 00                               ; 0x38A  mov byte [rax + E_TYPE], 0  (E_TYPE = 0x14)
-EB 00                                     ; 0x38E  jmp ok  (rel8 = 0x390 - 0x390; ok = 0x100390)
+E8 FB FD FF FF                            ; 0x387  call resolve  (rel32 = 0x187 - 0x38C; resolve = 0x100187)
+74 09                                     ; 0x38C  jz enoent  (rel8 = 0x397 - 0x38E; enoent = 0x100397)
+C6 40 14 00                               ; 0x38E  mov byte [rax + E_TYPE], 0  (E_TYPE = 0x14)
+EB 00                                     ; 0x392  jmp ok  (rel8 = 0x394 - 0x394; ok = 0x100394)
 
-;; ----- ok @ 0x390 -----
-31 C0                                     ; 0x390  xor eax, eax
-C3                                        ; 0x392  ret
-
-;; ----- enoent @ 0x393 -----
-6A FE                                     ; 0x393  push -2
-58                                        ; 0x395  pop rax
+;; ----- ok @ 0x394 -----
+31 C0                                     ; 0x394  xor eax, eax
 C3                                        ; 0x396  ret
 
-;; ----- ebadf @ 0x397 -----
-6A F7                                     ; 0x397  push -9
+;; ----- enoent @ 0x397 -----
+6A FE                                     ; 0x397  push -2
 58                                        ; 0x399  pop rax
 C3                                        ; 0x39A  ret
 
-;; ----- eexist @ 0x39B -----
-6A EF                                     ; 0x39B  push -17
+;; ----- ebadf @ 0x39B -----
+6A F7                                     ; 0x39B  push -9
 58                                        ; 0x39D  pop rax
 C3                                        ; 0x39E  ret
 
+;; ----- eexist @ 0x39F -----
+6A EF                                     ; 0x39F  push -17
+58                                        ; 0x3A1  pop rax
+C3                                        ; 0x3A2  ret
+
 ;; ---- memory and processes ------------------------------------------------
 
-;; ----- sys_mmap @ 0x39F -----
+;; ----- sys_mmap @ 0x3A3 -----
 ;; rsi length; anonymous only
-8B 7D A0                                  ; 0x39F  mov edi, [rbp + G_BUMP]  (G_BUMP = -0x60)
-57                                        ; 0x3A2  push rdi
-8D 8E FF 0F 00 00                         ; 0x3A3  lea ecx, [rsi + 4095]
-81 E1 00 F0 FF FF                         ; 0x3A9  and ecx, -4096
-01 4D A0                                  ; 0x3AF  add [rbp + G_BUMP], ecx  (G_BUMP = -0x60)
-31 C0                                     ; 0x3B2  xor eax, eax
-F3 AA                                     ; 0x3B4  rep stosb
-58                                        ; 0x3B6  pop rax
-C3                                        ; 0x3B7  ret
+8B 7D A0                                  ; 0x3A3  mov edi, [rbp + G_BUMP]  (G_BUMP = -0x60)
+57                                        ; 0x3A6  push rdi
+8D 8E FF 0F 00 00                         ; 0x3A7  lea ecx, [rsi + 4095]
+81 E1 00 F0 FF FF                         ; 0x3AD  and ecx, -4096
+01 4D A0                                  ; 0x3B3  add [rbp + G_BUMP], ecx  (G_BUMP = -0x60)
+31 C0                                     ; 0x3B6  xor eax, eax
+F3 AA                                     ; 0x3B8  rep stosb
+58                                        ; 0x3BA  pop rax
+C3                                        ; 0x3BB  ret
 
-;; ----- sys_fork @ 0x3B8 -----
+;; ----- sys_fork @ 0x3BC -----
 
-8B 5D A0                                  ; 0x3B8  mov ebx, [rbp + G_BUMP]  (G_BUMP = -0x60)
-8B 45 80                                  ; 0x3BB  mov eax, [rbp + G_FP]  (G_FP = -0x80)
-89 03                                     ; 0x3BE  mov [rbx], eax
-89 5D 80                                  ; 0x3C0  mov [rbp + G_FP], ebx  (G_FP = -0x80)
-FF 45 88                                  ; 0x3C3  inc dword [rbp + G_PID]  (G_PID = -0x78)
-8B 45 88                                  ; 0x3C6  mov eax, [rbp + G_PID]  (G_PID = -0x78)
-89 43 04                                  ; 0x3C9  mov [rbx + 4], eax
-83 C3 08                                  ; 0x3CC  add ebx, 8
-31 D2                                     ; 0x3CF  xor edx, edx
-E8 45 00 00 00                            ; 0x3D1  call xfer  (rel32 = 0x41B - 0x3D6; xfer = 0x10041B)
-81 C3 FF 0F 00 00                         ; 0x3D6  add ebx, 4095
-81 E3 00 F0 FF FF                         ; 0x3DC  and ebx, -4096
-89 5D A0                                  ; 0x3E2  mov [rbp + G_BUMP], ebx  (G_BUMP = -0x60)
-EB A9                                     ; 0x3E5  jmp ok  (rel8 = 0x390 - 0x3E7; ok = 0x100390)
+8B 5D A0                                  ; 0x3BC  mov ebx, [rbp + G_BUMP]  (G_BUMP = -0x60)
+8B 45 80                                  ; 0x3BF  mov eax, [rbp + G_FP]  (G_FP = -0x80)
+89 03                                     ; 0x3C2  mov [rbx], eax
+89 5D 80                                  ; 0x3C4  mov [rbp + G_FP], ebx  (G_FP = -0x80)
+FF 45 88                                  ; 0x3C7  inc dword [rbp + G_PID]  (G_PID = -0x78)
+8B 45 88                                  ; 0x3CA  mov eax, [rbp + G_PID]  (G_PID = -0x78)
+89 43 04                                  ; 0x3CD  mov [rbx + 4], eax
+83 C3 08                                  ; 0x3D0  add ebx, 8
+31 D2                                     ; 0x3D3  xor edx, edx
+E8 45 00 00 00                            ; 0x3D5  call xfer  (rel32 = 0x41F - 0x3DA; xfer = 0x10041F)
+81 C3 FF 0F 00 00                         ; 0x3DA  add ebx, 4095
+81 E3 00 F0 FF FF                         ; 0x3E0  and ebx, -4096
+89 5D A0                                  ; 0x3E6  mov [rbp + G_BUMP], ebx  (G_BUMP = -0x60)
+EB A9                                     ; 0x3E9  jmp ok  (rel8 = 0x394 - 0x3EB; ok = 0x100394)
 
-;; ----- sys_exit @ 0x3E7 -----
+;; ----- sys_exit @ 0x3EB -----
 
-8B 5D 80                                  ; 0x3E7  mov ebx, [rbp + G_FP]  (G_FP = -0x80)
-85 DB                                     ; 0x3EA  test ebx, ebx
-74 29                                     ; 0x3EC  jz .halt  (rel8 = 0x417 - 0x3EE)
-89 5D A0                                  ; 0x3EE  mov [rbp + G_BUMP], ebx  (G_BUMP = -0x60)
-8B 03                                     ; 0x3F1  mov eax, [rbx]
-89 45 80                                  ; 0x3F3  mov [rbp + G_FP], eax  (G_FP = -0x80)
-44 8B 63 04                               ; 0x3F6  mov r12d, [rbx + 4]
-44 0F B6 EF                               ; 0x3FA  movzx r13d, dil
-41 C1 E5 08                               ; 0x3FE  shl r13d, 8
-83 C3 08                                  ; 0x402  add ebx, 8
-B2 01                                     ; 0x405  mov dl, 1
-E8 0F 00 00 00                            ; 0x407  call xfer  (rel32 = 0x41B - 0x40C; xfer = 0x10041B)
-44 89 65 48                               ; 0x40C  mov [rbp + P_LPID], r12d  (P_LPID = 0x48)
-44 89 6D 50                               ; 0x410  mov [rbp + P_LST], r13d  (P_LST = 0x50)
-41 94                                     ; 0x414  xchg eax, r12d
-C3                                        ; 0x416  ret
-;;   .halt @ 0x417
-97                                        ; 0x417  xchg eax, edi
-E6 F4                                     ; 0x418  out 0xF4, al  ; isa-debug-exit
-F4                                        ; 0x41A  hlt
+8B 5D 80                                  ; 0x3EB  mov ebx, [rbp + G_FP]  (G_FP = -0x80)
+85 DB                                     ; 0x3EE  test ebx, ebx
+74 29                                     ; 0x3F0  jz .halt  (rel8 = 0x41B - 0x3F2)
+89 5D A0                                  ; 0x3F2  mov [rbp + G_BUMP], ebx  (G_BUMP = -0x60)
+8B 03                                     ; 0x3F5  mov eax, [rbx]
+89 45 80                                  ; 0x3F7  mov [rbp + G_FP], eax  (G_FP = -0x80)
+44 8B 63 04                               ; 0x3FA  mov r12d, [rbx + 4]
+44 0F B6 EF                               ; 0x3FE  movzx r13d, dil
+41 C1 E5 08                               ; 0x402  shl r13d, 8
+83 C3 08                                  ; 0x406  add ebx, 8
+B2 01                                     ; 0x409  mov dl, 1
+E8 0F 00 00 00                            ; 0x40B  call xfer  (rel32 = 0x41F - 0x410; xfer = 0x10041F)
+44 89 65 48                               ; 0x410  mov [rbp + P_LPID], r12d  (P_LPID = 0x48)
+44 89 6D 50                               ; 0x414  mov [rbp + P_LST], r13d  (P_LST = 0x50)
+41 94                                     ; 0x418  xchg eax, r12d
+C3                                        ; 0x41A  ret
+;;   .halt @ 0x41B
+97                                        ; 0x41B  xchg eax, edi
+E6 F4                                     ; 0x41C  out 0xF4, al  ; isa-debug-exit
+F4                                        ; 0x41E  hlt
 
 ;; Copy process state to (dl=0) or from (dl=1) the snapshot at rbx:
 ;; registers and process state, the image, then the stack.  On restore
 ;; each range is computed from what the previous copy put back.
 
-;; ----- xfer @ 0x41B -----
+;; ----- xfer @ 0x41F -----
 
-8D 45 B0                                  ; 0x41B  lea eax, [rbp + U]  (U = -0x50)
-B9 A8 04 00 00                            ; 0x41E  mov ecx, P_END - U  (P_END = 0x458; U = -0x50)
-E8 1C 00 00 00                            ; 0x423  call .r  (rel32 = 0x444 - 0x428)
-8B 45 38                                  ; 0x428  mov eax, [rbp + P_LO]  (P_LO = 0x38)
-8B 4D 40                                  ; 0x42B  mov ecx, [rbp + P_HI]  (P_HI = 0x40)
-29 C1                                     ; 0x42E  sub ecx, eax
-E8 0F 00 00 00                            ; 0x430  call .r  (rel32 = 0x444 - 0x435)
-8B 45 28                                  ; 0x435  mov eax, [rbp + U_RSP]  (U_RSP = 0x28)
-2D 80 00 00 00                            ; 0x438  sub eax, 128  ; red zone
-B9 00 00 00 40                            ; 0x43D  mov ecx, STOP  (STOP = 0x40000000)
-29 C1                                     ; 0x442  sub ecx, eax
-;;   .r @ 0x444
-89 C6                                     ; 0x444  mov esi, eax
-89 DF                                     ; 0x446  mov edi, ebx
-01 CB                                     ; 0x448  add ebx, ecx
-84 D2                                     ; 0x44A  test dl, dl
-74 02                                     ; 0x44C  jz .c  (rel8 = 0x450 - 0x44E)
-87 F7                                     ; 0x44E  xchg esi, edi
-;;   .c @ 0x450
-F3 A4                                     ; 0x450  rep movsb
-C3                                        ; 0x452  ret
+8D 45 B0                                  ; 0x41F  lea eax, [rbp + U]  (U = -0x50)
+B9 A8 04 00 00                            ; 0x422  mov ecx, P_END - U  (P_END = 0x458; U = -0x50)
+E8 1C 00 00 00                            ; 0x427  call .r  (rel32 = 0x448 - 0x42C)
+8B 45 38                                  ; 0x42C  mov eax, [rbp + P_LO]  (P_LO = 0x38)
+8B 4D 40                                  ; 0x42F  mov ecx, [rbp + P_HI]  (P_HI = 0x40)
+29 C1                                     ; 0x432  sub ecx, eax
+E8 0F 00 00 00                            ; 0x434  call .r  (rel32 = 0x448 - 0x439)
+8B 45 28                                  ; 0x439  mov eax, [rbp + U_RSP]  (U_RSP = 0x28)
+2D 80 00 00 00                            ; 0x43C  sub eax, 128  ; red zone
+B9 00 00 00 40                            ; 0x441  mov ecx, STOP  (STOP = 0x40000000)
+29 C1                                     ; 0x446  sub ecx, eax
+;;   .r @ 0x448
+89 C6                                     ; 0x448  mov esi, eax
+89 DF                                     ; 0x44A  mov edi, ebx
+01 CB                                     ; 0x44C  add ebx, ecx
+84 D2                                     ; 0x44E  test dl, dl
+74 02                                     ; 0x450  jz .c  (rel8 = 0x454 - 0x452)
+87 F7                                     ; 0x452  xchg esi, edi
+;;   .c @ 0x454
+F3 A4                                     ; 0x454  rep movsb
+C3                                        ; 0x456  ret
 
-;; ----- sys_wait4 @ 0x453 -----
+;; ----- sys_wait4 @ 0x457 -----
 ;; rsi status*
-8B 45 48                                  ; 0x453  mov eax, [rbp + P_LPID]  (P_LPID = 0x48)
-8B 4D 50                                  ; 0x456  mov ecx, [rbp + P_LST]  (P_LST = 0x50)
-89 0E                                     ; 0x459  mov [rsi], ecx
-C3                                        ; 0x45B  ret
+8B 45 48                                  ; 0x457  mov eax, [rbp + P_LPID]  (P_LPID = 0x48)
+8B 4D 50                                  ; 0x45A  mov ecx, [rbp + P_LST]  (P_LST = 0x50)
+89 0E                                     ; 0x45D  mov [rsi], ecx
+C3                                        ; 0x45F  ret
 
-;; ----- sys_execve @ 0x45C -----
+;; ----- sys_execve @ 0x460 -----
 ;; rdi path, rsi argv
-56                                        ; 0x45C  push rsi
-E8 25 FD FF FF                            ; 0x45D  call resolve  (rel32 = 0x187 - 0x462; resolve = 0x100187)
-5E                                        ; 0x462  pop rsi
-0F 84 2A FF FF FF                         ; 0x463  jz enoent  (rel32 = 0x393 - 0x469; enoent = 0x100393)
-44 8B 60 08                               ; 0x469  mov r12d, [rax + E_DATA]  (E_DATA = 0x8)
+56                                        ; 0x460  push rsi
+E8 21 FD FF FF                            ; 0x461  call resolve  (rel32 = 0x187 - 0x466; resolve = 0x100187)
+5E                                        ; 0x466  pop rsi
+0F 84 2A FF FF FF                         ; 0x467  jz enoent  (rel32 = 0x397 - 0x46D; enoent = 0x100397)
+44 8B 60 08                               ; 0x46D  mov r12d, [rax + E_DATA]  (E_DATA = 0x8)
 ;; argv block in KB, laid out for SP0:
 ;; argc, argv[], NULL, NULL envp, AT_NULL, strings
-31 C9                                     ; 0x46D  xor ecx, ecx
-;;   .cnt @ 0x46F
-48 83 3C CE 00                            ; 0x46F  cmp qword [rsi + rcx*8], 0
-74 04                                     ; 0x474  je .cntd  (rel8 = 0x47A - 0x476)
-FF C1                                     ; 0x476  inc ecx
-EB F5                                     ; 0x478  jmp .cnt  (rel8 = 0x46F - 0x47A)
-;;   .cntd @ 0x47A
-49 89 F1                                  ; 0x47A  mov r9, rsi
-BF 00 00 01 30                            ; 0x47D  mov edi, KB  (KB = 0x30010000)
-48 89 0F                                  ; 0x482  mov [rdi], rcx
-44 8D 47 08                               ; 0x485  lea r8d, [rdi + 8]
-8D 7C CF 28                               ; 0x489  lea edi, [rdi + rcx*8 + 40]
-;;   .arg @ 0x48D
-49 8B 31                                  ; 0x48D  mov rsi, [r9]
-49 83 C1 08                               ; 0x490  add r9, 8
-48 85 F6                                  ; 0x494  test rsi, rsi
-74 15                                     ; 0x497  jz .argd  (rel8 = 0x4AE - 0x499)
-8D 87 00 00 FE 0F                         ; 0x499  lea eax, [rdi + SP0 - KB]  (SP0 = 0x3FFF0000; KB = 0x30010000)
-49 89 00                                  ; 0x49F  mov [r8], rax
-41 83 C0 08                               ; 0x4A2  add r8d, 8
-;;   .str @ 0x4A6
-AC                                        ; 0x4A6  lodsb
-AA                                        ; 0x4A7  stosb
-84 C0                                     ; 0x4A8  test al, al
-75 FA                                     ; 0x4AA  jnz .str  (rel8 = 0x4A6 - 0x4AC)
-EB DF                                     ; 0x4AC  jmp .arg  (rel8 = 0x48D - 0x4AE)
-;;   .argd @ 0x4AE
-57                                        ; 0x4AE  push rdi
-44 89 C7                                  ; 0x4AF  mov edi, r8d
-31 C0                                     ; 0x4B2  xor eax, eax
-6A 04                                     ; 0x4B4  push 4
-59                                        ; 0x4B6  pop rcx
-F3 48 AB                                  ; 0x4B7  rep stosq
+31 C9                                     ; 0x471  xor ecx, ecx
+;;   .cnt @ 0x473
+48 83 3C CE 00                            ; 0x473  cmp qword [rsi + rcx*8], 0
+74 04                                     ; 0x478  je .cntd  (rel8 = 0x47E - 0x47A)
+FF C1                                     ; 0x47A  inc ecx
+EB F5                                     ; 0x47C  jmp .cnt  (rel8 = 0x473 - 0x47E)
+;;   .cntd @ 0x47E
+49 89 F1                                  ; 0x47E  mov r9, rsi
+BF 00 00 01 30                            ; 0x481  mov edi, KB  (KB = 0x30010000)
+48 89 0F                                  ; 0x486  mov [rdi], rcx
+44 8D 47 08                               ; 0x489  lea r8d, [rdi + 8]
+8D 7C CF 28                               ; 0x48D  lea edi, [rdi + rcx*8 + 40]
+;;   .arg @ 0x491
+49 8B 31                                  ; 0x491  mov rsi, [r9]
+49 83 C1 08                               ; 0x494  add r9, 8
+48 85 F6                                  ; 0x498  test rsi, rsi
+74 15                                     ; 0x49B  jz .argd  (rel8 = 0x4B2 - 0x49D)
+8D 87 00 00 FE 0F                         ; 0x49D  lea eax, [rdi + SP0 - KB]  (SP0 = 0x3FFF0000; KB = 0x30010000)
+49 89 00                                  ; 0x4A3  mov [r8], rax
+41 83 C0 08                               ; 0x4A6  add r8d, 8
+;;   .str @ 0x4AA
+AC                                        ; 0x4AA  lodsb
+AA                                        ; 0x4AB  stosb
+84 C0                                     ; 0x4AC  test al, al
+75 FA                                     ; 0x4AE  jnz .str  (rel8 = 0x4AA - 0x4B0)
+EB DF                                     ; 0x4B0  jmp .arg  (rel8 = 0x491 - 0x4B2)
+;;   .argd @ 0x4B2
+57                                        ; 0x4B2  push rdi
+44 89 C7                                  ; 0x4B3  mov edi, r8d
+31 C0                                     ; 0x4B6  xor eax, eax
+6A 04                                     ; 0x4B8  push 4
+59                                        ; 0x4BA  pop rcx
+F3 48 AB                                  ; 0x4BB  rep stosq
 ;; every phdr is a PT_LOAD, in address order, from offset 64
-41 8D 5C 24 40                            ; 0x4BA  lea ebx, [r12 + 64]
-8B 43 10                                  ; 0x4BF  mov eax, [rbx + 16]
-89 45 38                                  ; 0x4C2  mov [rbp + P_LO], eax  (P_LO = 0x38)
-45 0F B7 6C 24 38                         ; 0x4C5  movzx r13d, word [r12 + 56]  ; e_phnum
-;;   .ph @ 0x4CB
-8B 73 08                                  ; 0x4CB  mov esi, [rbx + 8]
-44 01 E6                                  ; 0x4CE  add esi, r12d
-8B 7B 10                                  ; 0x4D1  mov edi, [rbx + 16]
-8B 4B 20                                  ; 0x4D4  mov ecx, [rbx + 32]
-F3 A4                                     ; 0x4D7  rep movsb
-8B 4B 28                                  ; 0x4D9  mov ecx, [rbx + 40]
-2B 4B 20                                  ; 0x4DC  sub ecx, [rbx + 32]
-31 C0                                     ; 0x4DF  xor eax, eax
-F3 AA                                     ; 0x4E1  rep stosb
-89 7D 40                                  ; 0x4E3  mov [rbp + P_HI], edi  (P_HI = 0x40)
-83 C3 38                                  ; 0x4E6  add ebx, 56
-41 FF CD                                  ; 0x4E9  dec r13d
-75 DD                                     ; 0x4EC  jnz .ph  (rel8 = 0x4CB - 0x4EE)
-59                                        ; 0x4EE  pop rcx  ; argv block -> SP0
-81 E9 00 00 01 30                         ; 0x4EF  sub ecx, KB  (KB = 0x30010000)
-BE 00 00 01 30                            ; 0x4F5  mov esi, KB  (KB = 0x30010000)
-BF 00 00 FF 3F                            ; 0x4FA  mov edi, SP0  (SP0 = 0x3FFF0000)
-F3 A4                                     ; 0x4FF  rep movsb
-45 8B 64 24 18                            ; 0x501  mov r12d, [r12 + 24]  ; e_entry
-8D 7D B0                                  ; 0x506  lea edi, [rbp + U]  (U = -0x50)  ; all registers zero
-31 C0                                     ; 0x509  xor eax, eax
-6A 10                                     ; 0x50B  push 16
-59                                        ; 0x50D  pop rcx
-F3 48 AB                                  ; 0x50E  rep stosq
-44 89 65 18                               ; 0x511  mov [rbp + U_RIP], r12d  (U_RIP = 0x18)
-C7 45 28 00 00 FF 3F                      ; 0x515  mov dword [rbp + U_RSP], SP0  (U_RSP = 0x28; SP0 = 0x3FFF0000)
-C3                                        ; 0x51C  ret
+41 8D 5C 24 40                            ; 0x4BE  lea ebx, [r12 + 64]
+8B 43 10                                  ; 0x4C3  mov eax, [rbx + 16]
+89 45 38                                  ; 0x4C6  mov [rbp + P_LO], eax  (P_LO = 0x38)
+45 0F B7 6C 24 38                         ; 0x4C9  movzx r13d, word [r12 + 56]  ; e_phnum
+;;   .ph @ 0x4CF
+8B 73 08                                  ; 0x4CF  mov esi, [rbx + 8]
+44 01 E6                                  ; 0x4D2  add esi, r12d
+8B 7B 10                                  ; 0x4D5  mov edi, [rbx + 16]
+8B 4B 20                                  ; 0x4D8  mov ecx, [rbx + 32]
+F3 A4                                     ; 0x4DB  rep movsb
+8B 4B 28                                  ; 0x4DD  mov ecx, [rbx + 40]
+2B 4B 20                                  ; 0x4E0  sub ecx, [rbx + 32]
+31 C0                                     ; 0x4E3  xor eax, eax
+F3 AA                                     ; 0x4E5  rep stosb
+89 7D 40                                  ; 0x4E7  mov [rbp + P_HI], edi  (P_HI = 0x40)
+83 C3 38                                  ; 0x4EA  add ebx, 56
+41 FF CD                                  ; 0x4ED  dec r13d
+75 DD                                     ; 0x4F0  jnz .ph  (rel8 = 0x4CF - 0x4F2)
+59                                        ; 0x4F2  pop rcx  ; argv block -> SP0
+81 E9 00 00 01 30                         ; 0x4F3  sub ecx, KB  (KB = 0x30010000)
+BE 00 00 01 30                            ; 0x4F9  mov esi, KB  (KB = 0x30010000)
+BF 00 00 FF 3F                            ; 0x4FE  mov edi, SP0  (SP0 = 0x3FFF0000)
+F3 A4                                     ; 0x503  rep movsb
+45 8B 64 24 18                            ; 0x505  mov r12d, [r12 + 24]  ; e_entry
+8D 7D B0                                  ; 0x50A  lea edi, [rbp + U]  (U = -0x50)  ; all registers zero
+31 C0                                     ; 0x50D  xor eax, eax
+6A 10                                     ; 0x50F  push 16
+59                                        ; 0x511  pop rcx
+F3 48 AB                                  ; 0x512  rep stosq
+44 89 65 18                               ; 0x515  mov [rbp + U_RIP], r12d  (U_RIP = 0x18)
+C7 45 28 00 00 FF 3F                      ; 0x519  mov dword [rbp + U_RSP], SP0  (U_RSP = 0x28; SP0 = 0x3FFF0000)
+C3                                        ; 0x520  ret
 
-;; ----- file_end @ 0x51D -----
+;; ----- file_end @ 0x521 -----

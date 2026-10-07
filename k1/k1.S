@@ -1,5 +1,8 @@
-/* k1.S -- K1's assembly: entry from K0, syscall and trap entry, context switch.
- * Assembled by tcc-0.9.27; instructions its assembler lacks are .byte. */
+/* k1.S -- K1's assembly: entry from K0, syscall and trap entry, context switch,
+ * and the privileged instructions C cannot express.
+ * Assembled by tcc-0.9.27; instructions its assembler lacks are .byte.
+ * k1/k1-asm.fth is the same code for the Forth route, byte for byte
+ * (k1/tests/asm-check.py compares the two). */
 
     .text
     .globl _start
@@ -97,6 +100,146 @@ fx_save:
 fx_restore:
     .byte 0x48, 0x0f, 0xae, 0x0f    /* fxrstor64 (%rdi) */
     ret
+
+/* The rest of what C cannot say, one small function each (SysV arguments:
+ * rdi, rsi, rdx), so the C files need no inline assembly. */
+    .globl copy_forward
+copy_forward:                   /* (d, s, n): rep movsb */
+    mov %rdx, %rcx
+    rep movsb
+    ret
+    .globl memset
+memset:                         /* (d, c, n): rep stosb, returns d */
+    mov %rdi, %r8
+    mov %esi, %eax
+    mov %rdx, %rcx
+    rep stosb
+    mov %r8, %rax
+    ret
+    .globl console_write
+console_write:                  /* (s, n): rep outsb to COM1 */
+    mov %rsi, %rcx
+    mov %rdi, %rsi
+    mov $0x3f8, %edx
+    rep outsb
+    ret
+    .globl outb
+outb:                           /* (port, v) */
+    mov %edi, %edx
+    mov %esi, %eax
+    outb %al, %dx
+    ret
+    .globl inb
+inb:                            /* (port) */
+    mov %edi, %edx
+    xor %eax, %eax
+    inb %dx, %al
+    ret
+    .globl outw
+outw:                           /* (port, v) */
+    mov %edi, %edx
+    mov %esi, %eax
+    outw %ax, %dx
+    ret
+    .globl inw
+inw:                            /* (port) */
+    mov %edi, %edx
+    xor %eax, %eax
+    inw %dx, %ax
+    ret
+    .globl port_insw
+port_insw:                      /* (port, buf, count): rep insw */
+    mov %rdx, %rcx
+    mov %edi, %edx
+    mov %rsi, %rdi
+    rep insw
+    ret
+    .globl port_outsw
+port_outsw:                     /* (port, buf, count): rep outsw */
+    mov %rdx, %rcx
+    mov %edi, %edx
+    rep outsw
+    ret
+    .globl wrmsr
+wrmsr:                          /* (msr, v) */
+    mov %edi, %ecx
+    mov %rsi, %rax
+    mov %rsi, %rdx
+    shr $32, %rdx
+    wrmsr
+    ret
+    .globl rdmsr
+rdmsr:                          /* (msr) */
+    mov %edi, %ecx
+    rdmsr
+    shl $32, %rdx
+    or %rdx, %rax
+    ret
+    .globl rdtsc
+rdtsc:
+    rdtsc
+    shl $32, %rdx
+    or %rdx, %rax
+    ret
+/* load_gdt(base, limit) and load_idt(base, limit) build the 10-byte
+ * descriptor below rsp. load_gdt then reloads CS with a far return, then
+ * the data segments. */
+    .globl load_gdt
+load_gdt:
+    mov %si, -10(%rsp)
+    mov %rdi, -8(%rsp)
+    lgdt -10(%rsp)
+    pushq $0x10
+    lea 1f(%rip), %rax
+    push %rax
+    .byte 0x48, 0xcb                /* lretq */
+1:  mov $0x18, %ax
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %ss
+    mov $0, %ax
+    mov %ax, %fs
+    mov %ax, %gs
+    ret
+    .globl load_idt
+load_idt:
+    mov %si, -10(%rsp)
+    mov %rdi, -8(%rsp)
+    lidt -10(%rsp)
+    ret
+    .globl load_tr
+load_tr:                        /* (selector) */
+    ltr %di
+    ret
+    .globl invlpg
+invlpg:                         /* (va) */
+    invlpg (%rdi)
+    ret
+    .globl fpu_init
+fpu_init:
+    fninit
+    ret
+    .globl cpu_halt
+cpu_halt:
+    hlt
+    ret
+    .globl cpu_pause
+cpu_pause:
+    pause
+    ret
+    .globl enter_user
+enter_user:                     /* (sp): sp -> struct tframe */
+    mov %rdi, %rsp
+    jmp ret_user
+/* linux_jump(pml4, boot_params, entry): the 64-bit boot protocol's entry,
+ * rsi = boot_params, on page tables that identity-map this code */
+    .globl linux_jump
+linux_jump:
+    cli
+    mov %rdi, %cr3
+    xor %ebp, %ebp
+    xor %edi, %edi
+    jmp *%rdx
 
 /* Exceptions: stubs push an error code (0 if the CPU does not) and the
  * vector, then isr_common saves the rest and calls trap_c(frame). */
