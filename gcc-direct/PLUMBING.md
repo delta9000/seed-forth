@@ -133,11 +133,14 @@ host build is an output oracle only.
    **Done** for make (stage 1) and for sed, gzip, patch, diffutils, grep,
    gawk, tar and 80 coreutils programs (stage 2): see
    [plumbing/README.md](../plumbing/README.md). All build from pristine
-   sources except two reviewed coreutils patches (an upstream `realloc` bug
-   in `canonicalize.c`, and `long double` in `human.c`), and no shell runs.
-   Open: the runtime's `fopen` rejects mode `"rt"`, so `sed -f` fails.
+   sources except one reviewed coreutils patch (an upstream `realloc` bug
+   in `canonicalize.c`), and no shell runs.
+   The runtime's `fopen` now accepts glibc's mode `"rt"`, so `sed -f` works.
 3. Build bash, then rerun GCC 4.0.4's, binutils' and musl's configure and make
-   with a `PATH` that contains only these tools.
-   The compiler and archiver on that `PATH` can be the native
-   [seed-cc and seed-ar](../tools/SEED-CC.md), which the seed builds itself and
-   which build sed 4.0.9 and make 3.82 byte-identically to the Python driver.
+   with a `PATH` that contains only these tools. **Done**: bash 2.05b is
+   built ([plumbing/bash.kaem](../plumbing/bash.kaem)), and the bash ports of
+   the binutils, stage C and stage D recipes reach the stage 2 == 3 == 4 fixed
+   point with `PATH` holding only the plumbing tools, seed-cc as the compiler
+   and seed-ar as the archiver; see [plumbing/CHAIN.md](../plumbing/CHAIN.md).
+4. One traced run from `hex0-seed` to the fixed point inside a root with no
+   host programs: [tools/plumbing-root.sh](../tools/plumbing-root.sh).

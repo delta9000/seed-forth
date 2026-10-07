@@ -14,6 +14,13 @@
 #define HAVE_DIRENT_H 1
 #define HAVE_SA_RESTART 1
 #define HAVE_DUP2 1
+/* waitpid and a jobserver pipe, as configure finds them on Linux.  Without
+   HAVE_WAITPID, make falls back to counting SIGCHLDs and in practice runs
+   one job at a time even with -j; without MAKE_JOBSERVER, recursive makes
+   would ignore -j.  */
+#define HAVE_SYS_WAIT_H 1
+#define HAVE_WAITPID 1
+#define MAKE_JOBSERVER 1
 #define HAVE_STRCHR 1
 #define HAVE_STRDUP 1
 #define HAVE_STRERROR 1

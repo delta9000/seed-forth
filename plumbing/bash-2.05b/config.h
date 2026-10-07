@@ -60,6 +60,9 @@
 #define HAVE_STRINGS_H 1
 #define HAVE_WAITPID 1
 #define HAVE_GETRLIMIT 1
+/* config-bot.h derives this from the two answers above, but this config.h
+   does not include config-bot.h; ulimit and times need it (ulimit -s). */
+#define HAVE_RESOURCE 1
 #define HAVE_GETPWNAM 1
 #define HAVE_GETPWUID 1
 #define HAVE_GETPWENT 1
