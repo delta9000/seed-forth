@@ -114,6 +114,7 @@ sh k1/tests/direct-build-check.sh             # recipe layers, execve audit, obj
 python3 k1/tests/asm-check.py                 # k1-asm.fth's object equals `as k1/k1.S`'s
 k1/run-chain.sh --direct-smoke                # K0 -> K1 (seed-built) -> seed-cc, seed-ar, kaem
 k1/run-chain.sh --direct                      # ... then plumbing stages 1, 2, lexers and bash 2.05b
+k1/run-chain.sh --direct-linux                # ... then on to Linux and kexec (below)
 ```
 
 `k1/mkboot.py --direct` writes K0's image with only what that build needs
@@ -129,6 +130,27 @@ clocks, signals), and two stage0-posix tools run.  `--direct` adds the
 plumbing and lexer tarballs from `build-out/` and continues with
 `plumbing/stage1.kaem`, `stage2.kaem`, `lexers.kaem` and `bash.kaem`; the GCC
 stages still run through Python (`gcc-direct/*.py`) and are not in it yet.
+
+### The whole direct route under K1: `--direct-linux`
+
+`k1/run-chain.sh --direct-linux` appends `k1/direct-linux.recipe` to
+`k1/direct.recipe`: after bash 2.05b, `k1/direct-full.sh` runs
+`gcc-direct/chain.sh` (binutils 2.30, stage C, stage D to the GCC 4.0.4
+fixed point) and `gcc-direct/late-tools.sh` (the late tools, each with its
+own configure, built by that GCC: `plumbing/LATE.md`);
+`ladder/stage10-direct.sh` installs them as `/usr`; `ladder/stage11.sh
+--direct` runs gcc64's bridge and stages 6-10; stage 12 and `finish.sh` are
+the TinyCC route's.  No TinyCC and no host-captured configure output take
+part.  The disk adds `build-out/distfiles` (the archives of
+`chain-inputs.sha256`) and `build-out/stage-b-inputs/binutils-2.30.tar`
+(`plumbing/chain.SOURCES`).
+
+Result (2026-10-07, korriban, `JOBS=2 K1_MEM=24G`): 78 minutes from hex0 to
+the Linux greeting.  The chain took 1,815 s, the late tools 487 s, the
+bridge and gcc64 stages 6-10 1,715 s, then Linux.  Stage D reached its fixed
+point under K1 (54 files, 0 differ), and gmp, mpfr and mpc passed `make
+check`.  The bzImage (1,278,976 bytes, CRC-32 `0014e6cc`, sha256
+`881e96ad05da8e18...`) is byte-identical to the TinyCC route's.
 
 ## Full Linux validation with KVM
 
