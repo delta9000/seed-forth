@@ -5,7 +5,9 @@ Makefiles still need a shell, make, sed, awk, grep and the file utilities.
 This directory builds those tools from their pinned upstream tarballs with
 the project's own C compiler, driven by [kaem](../vendor/mescc-tools/Kaem)
 scripts. No host program runs: not a shell, not a host compiler. Status and
-history are in [gcc-direct/PLUMBING.md](../gcc-direct/PLUMBING.md).
+history are in [gcc-direct/PLUMBING.md](../gcc-direct/PLUMBING.md). The GCC
+chain that runs on these tools (binutils, stage C, stage D) is described in
+[CHAIN.md](CHAIN.md).
 
 ## Running it
 
@@ -23,7 +25,7 @@ build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage1.kaem
 build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage2.kaem
 ```
 
-Stage 1 takes about a minute and stage 2 about eight (four parallel jobs).
+Stage 1 takes about a minute and stage 2 about three (four parallel jobs).
 Everything is written under `build-out/plumbing/`: sources unpack into
 `src/`, programs install into `bin/`.
 
@@ -49,7 +51,7 @@ by our make from `plumbing/PKG/Makefile`:
 | [grep 2.4](grep-2.4) | `grep`, `egrep`, `fgrep` | none |
 | [gawk 3.0.4](gawk-3.0.4) | `gawk`, `awk` | none |
 | [tar 1.12](tar-1.12) | `tar` | none |
-| [coreutils 5.0](coreutils-5.0) | 80 programs (below) | two patches |
+| [coreutils 5.0](coreutils-5.0) | 80 programs (below) | one patch |
 
 The coreutils programs are `[` `basename` `cat` `chgrp` `chmod` `chown`
 `chroot` `cksum` `comm` `cp` `csplit` `cut` `date` `dd` `dir` `dircolors`
@@ -84,27 +86,19 @@ an upstream source calls a function without including its header (GNU libc
 declares more than POSIX asks), `config.h` includes the real header and
 says which file needed it.
 
-### The coreutils patches
+### The coreutils patch
 
-Both are applied by the `patch` built earlier in stage 2, and each file
-carries its provenance and reason:
-
-- [canonicalize-realloc.diff](coreutils-5.0/canonicalize-realloc.diff): an
-  upstream bug. `canonicalize.c` keeps a pointer into a buffer across a
-  `realloc` that may move it; glibc's in-place growth hides it, the runtime's
-  moving `realloc` exposes it (`readlink -f RELATIVE` crashed). Later gnulib
-  makes the same correction.
-- [human-long-double.diff](coreutils-5.0/human-long-double.diff): a compiler
-  gap. `human.c` computes its rare floating fallback in `long double`, which
-  the Forth compiler cannot yet do (error 249). The patch uses `double`; it
-  is needed by `ls`, `du`, `sum` and `shred`, and goes away when the
-  compiler gains `long double` arithmetic.
+[canonicalize-realloc.diff](coreutils-5.0/canonicalize-realloc.diff) fixes an
+upstream bug and is applied by the `patch` built earlier in stage 2; the file
+carries its provenance and reason. `canonicalize.c` keeps a pointer into a
+buffer across a `realloc` that may move it; glibc's in-place growth hides it,
+the runtime's moving `realloc` exposes it (`readlink -f RELATIVE` crashed).
+Later gnulib makes the same correction. (`human.c`, which computes its rare
+floating fallback in `long double`, once needed a second patch; it builds
+unchanged now that the compiler supports `long double`.)
 
 ## Known limits
 
-- `sed -f FILE` fails: sed opens its script with `fopen (name, "rt")`, and
-  the runtime's `fopen` rejects the `t` that glibc ignores. `sed -e` and
-  inline scripts work.
 - `diff3` and `sdiff` run `DIFF_PROGRAM`, `/usr/bin/diff`, as a `/usr`
   build does; until these tools are installed there they use whatever diff
   the host has at that path.
@@ -119,7 +113,7 @@ GCC during discovery, and host GNU tools where versions agree.
 
 | Tool | Result |
 |---|---|
-| sed | 31 of 35 scripts identical to host GNU sed 4.9; the 4 others are version differences (`-E`, message wording) and the `sed -f` gap above |
+| sed | 31 of 35 scripts identical to host GNU sed 4.9; the 4 others are version differences (`-E`, message wording) and `sed -f`, which failed then because the runtime's `fopen` rejected mode `"rt"` (fixed since; the stage-2 cases include `sed -f`) |
 | grep | 49/49 cases identical to grep 2.4 built by GCC |
 | gawk | 63/64 cases identical to gawk 3.0.4 built by GCC (the one difference is `017`, which ours reads as 17 like mawk; the oracle prints 0); the upstream `bigtest` suite passes except the `/dev/fd` test it marks as allowed to fail |
 | coreutils | 376/376 differential cases identical to coreutils 5.0 built by GCC |

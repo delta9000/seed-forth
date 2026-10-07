@@ -1,0 +1,17 @@
+# chain.kaem -- every plumbing stage, then the GCC chain, with no host program.
+#
+# Run from the repository root by the kaem that seed-cc built (see
+# plumbing/README.md); tools/plumbing-root.sh runs it inside a root whose
+# only starting executable is stage0-posix's hex0-seed.  The stages are
+# stage1.kaem (make), stage2.kaem (sed ... coreutils), lexers.kaem (oyacc,
+# lex, flex) and bash.kaem; then the chain's own bash runs gcc-direct/chain.sh:
+# binutils 2.30, stage C (GCC 4.0.4, libgcc, musl 1.1.24) and stage D (GCC
+# rebuilt three times to a fixed point).
+
+set -ex
+
+./build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage1.kaem
+./build-out/plumbing/bin/kaem --verbose --strict --file plumbing/stage2.kaem
+./build-out/plumbing/bin/kaem --verbose --strict --file plumbing/lexers.kaem
+./build-out/plumbing/bin/kaem --verbose --strict --file plumbing/bash.kaem
+./build-out/plumbing/bin/bash gcc-direct/chain.sh -j 6
