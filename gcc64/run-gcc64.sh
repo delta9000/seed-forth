@@ -67,7 +67,7 @@
 #                      instead of re-running the direct route. Reuse verifies
 #                      artifacts, not the supplied root's compiler provenance.
 #        GCC64_DIRECT, GCC64_OYACC, GCC64_FLEX  for the bridge stage: a finished
-#                      gcc-direct/stage-d.py WORK and the Forth-built oyacc and flex
+#                      gcc-direct/stage-d.sh WORK and the Forth-built oyacc and flex
 #                      2.5.11.  With GCC64_DIRECT set, the default stages are
 #                      bridge stage6 ... stage12.
 #        GCC64_REPIN=1 print the pins step's hashes instead of failing on them.
@@ -486,7 +486,7 @@ stage5() {
 }
 
 # --- bridge: the direct route's GCC 4.0.4 in place of stages 0-5 --------------------------
-# GCC64_DIRECT names a finished gcc-direct/stage-d.py WORK: GCC 4.0.4 whose first
+# GCC64_DIRECT names a finished gcc-direct/stage-d.sh (or stage-d.py) WORK: GCC 4.0.4 whose first
 # generation was compiled by the Forth compiler, at its stage 2 = 3 = 4 fixed point,
 # with the stage-C musl sysroot and Forth-built binutils-2.30 it was configured with.
 # GCC64_OYACC and GCC64_FLEX name the Forth-built oyacc and flex 2.5.11 (lexers.py).
@@ -505,26 +505,32 @@ bridge_env() {  # stage 6 after the bridge: the same parser generators as the br
 }
 bridge() {
     t_start bridge
-    local DW=${GCC64_DIRECT:?bridge needs GCC64_DIRECT=a finished gcc-direct/stage-d.py WORK}
+    local DW=${GCC64_DIRECT:?bridge needs GCC64_DIRECT=a finished gcc-direct/stage-d.sh WORK}
     local Y=${GCC64_OYACC:?bridge needs GCC64_OYACC=the Forth-built oyacc}
     local X=${GCC64_FLEX:?bridge needs GCC64_FLEX=the Forth-built flex 2.5.11}
     local DT0=x86_64-pc-linux-gnu f h got
     DW=$(cd "$DW" && pwd)
     local G=$DW/prefix/bin/gcc
-    grep -q '"fixed_point": true' "$DW/report.json" 2>/dev/null || fail "$DW/report.json: no stage-D fixed point"
-    local SC; SC=$(sed -n 's/^  "stage_c": "\(.*\)",$/\1/p' "$DW/report.json")
-    local DTC=$SC/toolchain
-    [ -d "$SC/sysroot/usr/lib" ] && [ -x "$DTC/as" ] && [ -x "$DTC/ld" ] || fail "stage C $SC: no sysroot or toolchain"
+    # stage-d.py writes report.json, stage-d.sh report.txt; either must record the fixed point
+    local R=$DW/report.json
+    if [ -f "$R" ]; then grep -q '"fixed_point": true' "$R" || fail "$R: no stage-D fixed point"
+    else R=$DW/report.txt; [ "$(head -n 1 "$R" 2>/dev/null)" = "# Stage D: fixed point reached" ] \
+        || fail "$DW: no stage-D report with a fixed point"; fi
+    [ -x "$G" ] || fail "$G: no stage-D gcc"
+    # stage C: where the direct GCC's own (absolute, configured) as and sysroot are
+    local DTC SC; DTC=$(dirname "$("$G" -print-prog-name=as)"); SC=$(dirname "$DTC")
+    [ "$("$G" -print-file-name=libc.a)" = "$SC/sysroot/usr/lib/libc.a" ] && [ -x "$DTC/as" ] && [ -x "$DTC/ld" ] \
+        || fail "stage C $SC: the direct gcc's toolchain or sysroot is missing"
     # stage 2 (prefix/) must be the fixed point stage-D's report recorded for stage 4
     for f in bin/gcc libexec/gcc/$DT0/4.0.4/cc1 libexec/gcc/$DT0/4.0.4/collect2; do
-        h=$(grep -F "\"$f\": " "$DW/report.json" | sed 's/.*: "\([0-9a-f]*\)".*/\1/')
+        h=$(sed -n -e "s|^ *\"$f\": \"\([0-9a-f]*\)\".*|\1|p" -e "s|^- $f: \([0-9a-f]*\)$|\1|p" "$R")
         got=$(sha "$DW/prefix/$f")
         [ -n "$h" ] && [ "$got" = "$h" ] || fail "direct $f is $got, not stage-D's fixed point ${h:-(unrecorded)}"
     done
     [ "$("$G" -dumpversion)" = 4.0.4 ] || fail "$G is not gcc-4.0.4"
     rm -rf "$W/bridge" "$W/bu" "$W/tools" "$W/sysroot" "$W/g4"; mkdir -p "$W/bridge" "$W/tools/bin" "$W/src"
     {
-        echo "# bridge inputs: the direct route (gcc-direct/stage-d.py), $(date -u +%FT%TZ)"
+        echo "# bridge inputs: the direct route (gcc-direct stage D), $(date -u +%FT%TZ)"
         echo "stage_d $DW"; echo "stage_c $SC"
         for f in "$G" "$DW/prefix/libexec/gcc/$DT0/4.0.4/cc1" "$DTC/as" "$DTC/ld" "$DTC/ar" "$Y" "$X"; do
             echo "sha256 $(sha "$f") $f"

@@ -38,7 +38,7 @@ this default stage-0 migration; they are not a new full-chain rebuild.
 ## Bridge from the direct route (no TinyCC)
 
 The `bridge` stage replaces stages 0 to 5 with the direct route's GCC 4.0.4
-(`gcc-direct/stage-d.py`), whose first generation was compiled by the Forth
+(`gcc-direct/stage-d.sh`), whose first generation was compiled by the Forth
 C compiler with no TinyCC. It leaves stage 6 onward the layout stages 4 and 5
 leave:
 
@@ -47,10 +47,12 @@ GCC64_DIRECT=STAGE_D_WORK GCC64_OYACC=OYACC GCC64_FLEX=FLEX \
     gcc64/run-gcc64.sh --new DIR      # bridge stage6 ... stage12
 ```
 
-`GCC64_DIRECT` is a finished stage-D work directory. Its `report.json` must
+`GCC64_DIRECT` is a finished stage-D work directory. Its report
+(`report.txt` from `stage-d.sh`, or `report.json` from `stage-d.py`) must
 record the stage 2 = 3 = 4 fixed point, and `prefix/` must hash to that
-fixed point. `GCC64_OYACC` and `GCC64_FLEX` are the Forth-built oyacc and
-flex 2.5.11 from `gcc-direct/lexers.py`. The bridge builds:
+fixed point. Stage C's toolchain and sysroot are found by asking that GCC
+for its configured `as` and `libc.a`. `GCC64_OYACC` and `GCC64_FLEX` are the
+Forth-built oyacc and flex 2.5.11 from the lexers stage. The bridge builds:
 
 | Path | What | Built by |
 |---|---|---|

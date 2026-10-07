@@ -25,7 +25,7 @@ sed -i 's/ix86_attribute_table\[\]/ix86_attribute_table\[10\]/' gcc/config/i386/
 sed -i 's/struct siginfo/siginfo_t/' gcc/config/i386/linux-unwind.h                      # musl
 sed -i 's/YYLEX/yylex()/' gcc/c-parse.in                                                  # new bison
 for p in "$PATCHES"/gcc-4.0.4/*.diff; do patch -s -p1 -F0 < "$p"; done                  # ours (collect2)
-if [ "${GCC4_BYACC:-0}" = 1 ]; then   # as gcc-direct/stage-d.py: exempt YYBYACC output from the malloc poison
+if [ "${GCC4_BYACC:-0}" = 1 ]; then   # as gcc-direct/stage-d.sh: exempt YYBYACC output from the malloc poison
     old='#if !defined(FLEX_SCANNER) && !defined(YYBISON)'
     [ "$(grep -cxF "$old" gcc/system.h)" = 1 ] || { echo "build-gcc4: unexpected gcc/system.h" >&2; exit 1; }
     sed -i 's/^#if !defined(FLEX_SCANNER) \&\& !defined(YYBISON)$/& \&\& !defined(YYBYACC)/' gcc/system.h
