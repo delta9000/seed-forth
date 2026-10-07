@@ -13,6 +13,9 @@
 #   stage 3   tests2   : tcc's own tests/tests2 under tcc-boot2 and the musl tcc
 #   stage 4   binutils-2.30 by tcc
 #   stage 5   flex-2.6.4 and gcc-4.0.4 ("gcc-A") by tcc
+#   bridge    instead of stages 0-5 (GCC64_DIRECT): the direct route's GCC 4.0.4, built
+#             from the Forth compiler without TinyCC, builds binutils-2.30 and gcc-A in
+#             the layout stage 6 expects (see bridge() and gcc64/README.md)
 #   stage 6   gcc-A builds gcc-B, gcc-B builds gcc-C; B = C
 #   stage 7   gcc-B rebuilds musl (the sysroot), gmp, mpfr, mpc (+ make check)
 #   stage 8   gcc-4.7.4 (C, C++) by gcc-B
@@ -63,6 +66,10 @@
 #                      libraries against tools/tcc.recipe and copies its kit
 #                      instead of re-running the direct route. Reuse verifies
 #                      artifacts, not the supplied root's compiler provenance.
+#        GCC64_DIRECT, GCC64_OYACC, GCC64_FLEX  for the bridge stage: a finished
+#                      gcc-direct/stage-d.py WORK and the Forth-built oyacc and flex
+#                      2.5.11.  With GCC64_DIRECT set, the default stages are
+#                      bridge stage6 ... stage12.
 #        GCC64_REPIN=1 print the pins step's hashes instead of failing on them.
 #        JOBS          make -j (default 4).
 #
@@ -403,6 +410,12 @@ TCC_ENV() {  # sets TCCENV: the variables every autoconf run gets while tcc is t
     TCCENV=(CC="$t" CPP="$t -E" CXX=false CXXCPP="$t -E -xc" CC_FOR_BUILD="$t" CPP_FOR_BUILD="$t -E"
             CXX_FOR_BUILD=false AR="$t -ar" AR_FOR_BUILD="$t -ar" RANLIB=true RANLIB_FOR_BUILD=true)
 }
+# binutils-2.30's configuration, shared by stage 4 and the bridge
+BU230_CONF=(--build=x86_64-unknown-linux-gnu --host=x86_64-unknown-linux-gnu
+    --target=x86_64-unknown-linux-gnu --prefix="$W/bu" --with-sysroot= --disable-nls
+    --disable-shared --enable-static --disable-gold --disable-plugins --disable-werror
+    --enable-deterministic-archives --enable-64-bit-bfd --disable-gdb --disable-sim
+    --disable-readline --disable-libdecnumber)
 stage4() {
     t_start stage4
     need binutils-2.30.tar.xz
@@ -412,11 +425,7 @@ stage4() {
         cd "$b"
         # sub-configures run under make and would fall back to /lib/cpp for C++ (libtool)
         export CXXCPP="$t -E -xc"
-        ../binutils-2.30/configure --build=x86_64-unknown-linux-gnu --host=x86_64-unknown-linux-gnu \
-            --target=x86_64-unknown-linux-gnu --prefix="$W/bu" --with-sysroot= --disable-nls \
-            --disable-shared --enable-static --disable-gold --disable-plugins --disable-werror \
-            --enable-deterministic-archives --enable-64-bit-bfd --disable-gdb --disable-sim \
-            --disable-readline --disable-libdecnumber "${TCCENV[@]}" CFLAGS=-g0 lt_cv_sys_max_cmd_len=32768
+        ../binutils-2.30/configure "${BU230_CONF[@]}" "${TCCENV[@]}" CFLAGS=-g0 lt_cv_sys_max_cmd_len=32768
         make -j"$JOBS" MAKEINFO=true
         make install MAKEINFO=true
     ) > "$LOG/binutils.log" 2>&1 || fail "binutils (see $LOG/binutils.log)"
@@ -465,7 +474,7 @@ stage5() {
     for f in "$S/usr/lib/"*.a; do [ -s "$f" ] || printf '!<arch>\n' > "$f"; done
     cp "$W/tc/obj/libtcc1.o" "$W/src/tcc_libtcc1.o"; cp "$W/tc/obj/va_list.o" "$W/src/tcc_va_list.o"
     "$W/bu/bin/ar" rD "$S/usr/lib/libc.a" "$W/src/tcc_libtcc1.o" "$W/src/tcc_va_list.o"
-    rm -rf "$W/g4"; need gcc-4.0.4-git-944765863e.tar
+    rm -rf "$W/g4" "$W/bridge"; need gcc-4.0.4-git-944765863e.tar
     PATH=$W/bu/bin:$PATH "$GCC64/build-gcc4.sh" "$W/tc/bin/tcc" "$W/g4" A > "$LOG/gcc4-A.log" 2>&1 \
         || fail "gcc-4.0.4 by tcc (see $LOG/gcc4-A.log)"
     local T=x86_64-unknown-linux-gnu
@@ -476,12 +485,95 @@ stage5() {
     checkguard_probes; t_end stage5
 }
 
+# --- bridge: the direct route's GCC 4.0.4 in place of stages 0-5 --------------------------
+# GCC64_DIRECT names a finished gcc-direct/stage-d.py WORK: GCC 4.0.4 whose first
+# generation was compiled by the Forth compiler, at its stage 2 = 3 = 4 fixed point,
+# with the stage-C musl sysroot and Forth-built binutils-2.30 it was configured with.
+# GCC64_OYACC and GCC64_FLEX name the Forth-built oyacc and flex 2.5.11 (lexers.py).
+# The bridge leaves stage 6 onward exactly the layout stages 4 and 5 leave:
+#   bu/       binutils-2.30, BU230_CONF as in stage 4, built by the direct GCC
+#   tools/    oyacc and flex 2.5.11, copied (they replace host bison and flex-2.6.4)
+#   sysroot/  the direct route's musl (stage C), copied; stage 7 rebuilds it anyway
+#   g4/       gcc-4.0.4 "gcc-A" by build-gcc4.sh, built by the direct GCC
+# No tcc and no host parser generator.  bridge/inputs.txt records the inputs and their
+# sha256.  bridge/direct.env marks a bridged BUILDROOT: while it exists stage 6 uses
+# oyacc and flex 2.5.11 too, and the pins step skips what route D builds differently.
+BRIDGE_ENV=$W/bridge/direct.env
+bridge_env() {  # stage 6 after the bridge: the same parser generators as the bridge
+    [ -f "$BRIDGE_ENV" ] || return 0
+    export GCC4_YACC=$W/tools/bin/oyacc GCC4_LEX=$W/tools/bin/flex GCC4_BYACC=1
+}
+bridge() {
+    t_start bridge
+    local DW=${GCC64_DIRECT:?bridge needs GCC64_DIRECT=a finished gcc-direct/stage-d.py WORK}
+    local Y=${GCC64_OYACC:?bridge needs GCC64_OYACC=the Forth-built oyacc}
+    local X=${GCC64_FLEX:?bridge needs GCC64_FLEX=the Forth-built flex 2.5.11}
+    local DT0=x86_64-pc-linux-gnu f h got
+    DW=$(cd "$DW" && pwd)
+    local G=$DW/prefix/bin/gcc
+    grep -q '"fixed_point": true' "$DW/report.json" 2>/dev/null || fail "$DW/report.json: no stage-D fixed point"
+    local SC; SC=$(sed -n 's/^  "stage_c": "\(.*\)",$/\1/p' "$DW/report.json")
+    local DTC=$SC/toolchain
+    [ -d "$SC/sysroot/usr/lib" ] && [ -x "$DTC/as" ] && [ -x "$DTC/ld" ] || fail "stage C $SC: no sysroot or toolchain"
+    # stage 2 (prefix/) must be the fixed point stage-D's report recorded for stage 4
+    for f in bin/gcc libexec/gcc/$DT0/4.0.4/cc1 libexec/gcc/$DT0/4.0.4/collect2; do
+        h=$(grep -F "\"$f\": " "$DW/report.json" | sed 's/.*: "\([0-9a-f]*\)".*/\1/')
+        got=$(sha "$DW/prefix/$f")
+        [ -n "$h" ] && [ "$got" = "$h" ] || fail "direct $f is $got, not stage-D's fixed point ${h:-(unrecorded)}"
+    done
+    [ "$("$G" -dumpversion)" = 4.0.4 ] || fail "$G is not gcc-4.0.4"
+    rm -rf "$W/bridge" "$W/bu" "$W/tools" "$W/sysroot" "$W/g4"; mkdir -p "$W/bridge" "$W/tools/bin" "$W/src"
+    {
+        echo "# bridge inputs: the direct route (gcc-direct/stage-d.py), $(date -u +%FT%TZ)"
+        echo "stage_d $DW"; echo "stage_c $SC"
+        for f in "$G" "$DW/prefix/libexec/gcc/$DT0/4.0.4/cc1" "$DTC/as" "$DTC/ld" "$DTC/ar" "$Y" "$X"; do
+            echo "sha256 $(sha "$f") $f"
+        done
+    } > "$W/bridge/inputs.txt"
+    cp "$Y" "$W/tools/bin/oyacc"; cp "$X" "$W/tools/bin/flex"
+    say "direct gcc-4.0.4 (stage-D fixed point) cc1: $(sha "$DW/prefix/libexec/gcc/$DT0/4.0.4/cc1")"
+    say "oyacc: $(sha "$W/tools/bin/oyacc")  flex-2.5.11: $(sha "$W/tools/bin/flex")"
+    # binutils-2.30 into bu/, configured as stage 4, compiled by the direct GCC (which
+    # assembles and links with the Forth-built binutils it was configured with)
+    need binutils-2.30.tar.xz
+    local s=$W/src/binutils-2.30 b=$W/src/bu-build
+    rm -rf "$s" "$b"; tar -xJf "$D/binutils-2.30.tar.xz" -C "$W/src"; mkdir -p "$b"
+    (
+        cd "$b"
+        export CXXCPP="$G -E -xc"
+        PATH=$DTC:$PATH ../binutils-2.30/configure "${BU230_CONF[@]}" CC="$G" CPP="$G -E" CXX=false \
+            CC_FOR_BUILD="$G" CPP_FOR_BUILD="$G -E" CXX_FOR_BUILD=false AR="$DTC/ar" RANLIB="$DTC/ranlib" \
+            NM="$DTC/nm" CFLAGS=-g0
+        PATH=$DTC:$PATH make -j"$JOBS" MAKEINFO=true
+        PATH=$DTC:$PATH make install MAKEINFO=true
+    ) > "$LOG/binutils.log" 2>&1 || fail "binutils by the direct gcc (see $LOG/binutils.log)"
+    rm -rf "$s" "$b"
+    for f in as ld ar nm objcopy objdump strip ranlib; do
+        [ -x "$W/bu/bin/$f" ] || fail "binutils: no bu/bin/$f"
+    done
+    say "binutils-2.30 by the direct gcc: as $(sha "$W/bu/bin/as")  ld $(sha "$W/bu/bin/ld")"
+    # sysroot: the direct route's musl-1.1.24, as stage C installed it
+    cp -a "$SC/sysroot" "$W/sysroot"
+    say "sysroot: direct musl libc.a $(sha "$W/sysroot/usr/lib/libc.a")"
+    # gcc-A: the same build-gcc4.sh as stage 5, with the direct GCC as CC
+    : > "$BRIDGE_ENV"; bridge_env
+    need gcc-4.0.4-git-944765863e.tar
+    PATH=$W/bu/bin:$PATH "$GCC64/build-gcc4.sh" "$G" "$W/g4" A > "$LOG/gcc4-A.log" 2>&1 \
+        || fail "gcc-4.0.4 by the direct gcc (see $LOG/gcc4-A.log)"
+    local T=x86_64-unknown-linux-gnu
+    say "gcc-A (gcc-4.0.4 built by the direct gcc) cc1: $(sha "$W/g4/libexec/gcc/$T/4.0.4/cc1")"
+    PATH=$W/bu/bin:$PATH "$W/g4/bin/gcc" -O2 "$TESTS/libc-test.c" -o "$W/src/lt-A" -lm
+    "$W/src/lt-A" > "$LOG/libc-test-gccA.log" || fail "libc-test under gcc-A"
+    say "gcc-A -O2 libc-test: $(tail -1 "$LOG/libc-test-gccA.log")"
+    checkguard_probes; t_end bridge
+}
+
 # --- stage 6: gcc-4.0.4 builds itself twice; B = C ---------------------------------------
 stage6() {
     t_start stage6
     local T=x86_64-unknown-linux-gnu f
     need gcc-4.0.4-git-944765863e.tar
-    rm -rf "$W/g4s" "$W/destC"
+    rm -rf "$W/g4s" "$W/destC"; bridge_env
     PATH=$W/bu/bin:$PATH "$GCC64/build-gcc4.sh" "$W/g4/bin/gcc" "$W/g4s" B > "$LOG/gcc4-B.log" 2>&1 \
         || fail "gcc-B (see $LOG/gcc4-B.log)"
     PATH=$W/bu/bin:$PATH "$GCC64/build-gcc4.sh" "$W/g4s/bin/gcc" "$W/g4s" C "$W/destC" > "$LOG/gcc4-C.log" 2>&1 \
@@ -661,13 +753,26 @@ stage12() {
 # (the canonical run's); elsewhere it is reported, not enforced.  Files a partial
 # run did not build are skipped.
 hashes() {
-    local line h f scope root got n_ok=0 n_skip=0 n_bad=0
+    local line h f scope root got n_ok=0 n_skip=0 n_bad=0 n_d=0
     : > "$LOG/hashes.txt"
     root=$(sed -n 's/^root //p' "$GCC64/HASHES")
+    local bridged=0; [ -f "$BRIDGE_ENV" ] && bridged=1
     while read -r h f scope; do
         case $h in ''|'#'*|root) continue ;; esac
         [ -f "$W/$f" ] || continue
+        # SCOPE "direct": the file's value after the bridge, at the canonical BUILDROOT; it
+        # replaces the file's "root" line there (see gcc64/README.md, "Bridge")
+        if [ "$scope" = direct ]; then [ "$bridged" = 1 ] || continue; scope=root
+        elif [ "$bridged" = 1 ] && grep -q "  $f  direct\$" "$GCC64/HASHES"; then continue; fi
         got=$(sha "$W/$f"); echo "$got  $f" >> "$LOG/hashes.txt"
+        # after the bridge, the TinyCC route's own outputs, and executables that link in
+        # route D's musl or are built by different compilers or parser generators, differ by
+        # design; everything compiled by gcc-B (libgcc, crt*, sysroot) and later must not
+        if [ "$bridged" = 1 ]; then
+            case $f in tccboot/*|p0/*|tc/*|m1/*|t1/*|bu/*|tools/*|g4/*|g4s/bin/*|g4s/libexec/*)
+                n_d=$((n_d+1)); echo "  (route D: $f not comparable)" >> "$LOG/hashes.txt"; continue ;;
+            esac
+        fi
         if [ "$scope" = root ] && [ "$W" != "$root" ]; then
             n_skip=$((n_skip+1))
         elif [ "$got" = "$h" ]; then
@@ -677,6 +782,7 @@ hashes() {
         fi
     done < "$GCC64/HASHES"
     local why=""; [ "$n_skip" = 0 ] || why=" (BUILDROOT is not $root)"
+    [ "$n_d" = 0 ] || why="$why; $n_d built differently by route D (bridge)"
     say "pins: $n_ok as pinned, $n_bad differ, $n_skip path-dependent and not comparable here$why; all in $LOG/hashes.txt"
     if [ "$n_bad" != 0 ]; then
         [ "${GCC64_REPIN:-0}" = 1 ] && { say "GCC64_REPIN=1: not failing; new values in $LOG/hashes.txt"; return 0; }
@@ -684,9 +790,13 @@ hashes() {
     fi
 }
 
-stages=("$@"); [ ${#stages[@]} -gt 0 ] || stages=(stage0 stage1 stage2 stage3 stage4 stage5 stage6 stage7 stage8 stage9 stage10 stage11 stage12)
+stages=("$@")
+if [ ${#stages[@]} = 0 ]; then
+    if [ -n "${GCC64_DIRECT:-}" ]; then stages=(bridge stage6 stage7 stage8 stage9 stage10 stage11 stage12)
+    else stages=(stage0 stage1 stage2 stage3 stage4 stage5 stage6 stage7 stage8 stage9 stage10 stage11 stage12); fi
+fi
 for s in "${stages[@]}"; do
-    case $s in stage[0-9]|stage1[0-2]) ;; *) echo "$me: unknown stage '$s' (stage0 ... stage12)" >&2; exit 1 ;; esac
+    case $s in stage[0-9]|stage1[0-2]|bridge) ;; *) echo "$me: unknown stage '$s' (stage0 ... stage12, bridge)" >&2; exit 1 ;; esac
 done
 # Check selected stages' pinned sources up front. A stage4-10 Linux
 # continuation must not require an unused GCC15 archive (or refetch stage0).
@@ -696,6 +806,7 @@ stage_sources() {
         stage4) echo binutils-2.30.tar.xz musl-1.1.24.tar.gz ;;
         stage5) echo flex-2.6.4.tar.gz gcc-4.0.4-git-944765863e.tar ;;
         stage6) echo gcc-4.0.4-git-944765863e.tar ;;
+        bridge) echo binutils-2.30.tar.xz gcc-4.0.4-git-944765863e.tar ;;
         stage7) echo musl-1.1.24.tar.gz gmp-6.2.1+dfsg.tar.xz mpfr-4.1.0.tar.xz mpc-1.2.1.tar.gz ;;
         stage8) echo gcc-4.7.4.tar.xz binutils-2.41.tar.xz ;;
         stage9) echo binutils-2.41.tar.xz ;;
