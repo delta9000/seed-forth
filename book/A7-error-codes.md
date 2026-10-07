@@ -89,9 +89,9 @@ to its call site.
 | 48  | `040-cc-prep.fth:2012,2068` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 49  | `040-cc-prep.fth` | Invalid or unsupported direct-profile directive syntax, including malformed `#line`, GNU numeric markers, unterminated comments in directives, splices splitting a directive name, and source-text continuations that would join two tokens (continuations inside or splitting comments follow phase two). See [C line control](22-the-preprocessor.md#c-line-control-for-generated-parser-sources). |
 | 50  | `060-cc-types.fth:313` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
-| 60  | `070-cc-sym.fth:99` | `cc-sym-add`: more than 8,192 live symbols. |
-| 61  | `070-cc-sym.fth:187` | `cc-scope-push`: scopes nested more than 64 deep. |
-| 62  | `070-cc-sym.fth:196` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
+| 60  | `070-cc-sym.fth:102` | `cc-sym-add`: more than 8,192 live symbols. |
+| 61  | `070-cc-sym.fth:190` | `cc-scope-push`: scopes nested more than 64 deep. |
+| 62  | `070-cc-sym.fth:199` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
 | 80  | `090-cc-emit.fth:1186` | `cc-globals-alloc`: the data area of file-scope scalars (64 KiB) is full. |
 | 81  | `090-cc-emit.fth:1215` | `cc-gfixup-add`: selected global-fixup table full (default 16,384, direct GCC 17,920), or its mapping fails. |
 | 82  | `090-cc-emit.fth:1194` | `cc-bss-alloc`: global arrays need more than the 256 MiB bss. |

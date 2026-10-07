@@ -16,7 +16,7 @@ create cc-sysv-signatures cc-sym-cap [lit] 8 * allot
   cc-nf-u ! cc-nf-a !
   cc-nf-a @ cc-nf-u @ cc-name-hash cc-sym-bucket cell[] @ 1-     ( id )
   begin, dup 0< 0= while,
-    dup cc-sym-kind-of sk-struct <> if,
+    dup cc-sym-count @ < over cc-sym-kind-of sk-struct <> and if,
       dup cc-sym-name-len cell[] @ cc-nf-u @ = if,
         dup cc-sym-name-addr cell[] @ cc-nf-a @ cc-nf-u @ bytes-eq if,
           exit,

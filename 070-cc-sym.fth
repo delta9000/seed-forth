@@ -64,10 +64,13 @@ create cc-sym-hnext   cc-sym-cap [lit] 8 * allot
   cc-name-hash cc-sym-bucket cell[] ;
 
 \ cc-sym-link ( id -- )  Put symbol id, whose name is filed, at the head
-\ of its bucket.
+\ of its bucket.  Entries at id or above were discarded without
+\ cc-scope-pop (a count stored directly): leave them out of the chain.
 : cc-sym-link
   >r  r@ cc-sym-bucket-of
-  dup @ 1-  r@ cc-sym-hnext cell[] !
+  dup @ 1-
+  begin, dup r@ < 0= while, cc-sym-hnext cell[] @ repeat,
+  r@ cc-sym-hnext cell[] !
   r> 1+ swap ! ;
 
 \ cc-sym-unlink ( id -- )  Take symbol id, the newest in its bucket, out.
@@ -126,7 +129,7 @@ variable cc-scope-depth
   cc-nf-u ! cc-nf-a !
   cc-nf-a @ cc-nf-u @ cc-name-hash cc-sym-bucket cell[] @ 1-     ( id )
   begin, dup 0< 0= while,
-    dup cc-sym-name-len cell[] @ cc-nf-u @ = if,
+    dup cc-sym-count @ < over cc-sym-name-len cell[] @ cc-nf-u @ = and if,
       dup cc-sym-name-addr cell[] @ cc-nf-a @ cc-nf-u @ bytes-eq if, exit, then,
     then,
     cc-sym-hnext cell[] @
