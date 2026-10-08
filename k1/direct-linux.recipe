@@ -1,0 +1,13 @@
+# Appended to k1/direct.recipe by k1/mkdisk.py --direct-linux: the rest of
+# the direct-GCC route under K1, from bash 2.05b to Linux, with no TinyCC and
+# no host-captured configure.  k1/direct-full.sh runs gcc-direct/chain.sh
+# (binutils 2.30, stage C, stage D) and gcc-direct/late-tools.sh;
+# ladder/stage10-direct.sh installs the late tools as /usr; stage 11 runs
+# gcc64's bridge and stages 6-10 (gcc-10.5.0, binutils-2.41); stages 12 and
+# finish are the TinyCC route's.  mkdisk.py --jobs N replaces the job counts.
+run 0 - /dev/console /dev/console /build-out/plumbing/bin/bash k1/direct-full.sh JOBS=2
+say "k1: GCC 4.0.4 fixed point and late tools built under K1"
+run 0 - /dev/console /dev/console /build-out/late/usr/bin/bash /ladder/stage10-direct.sh
+run 0 - /dev/console /dev/console /usr/bin/env JOBS=2 /usr/bin/bash /ladder/stage11.sh --direct
+run 0 - /dev/console /dev/console /usr/bin/env JOBS=2 /usr/bin/bash /ladder/stage12.sh
+run 0 - /dev/console /dev/console /usr/bin/bash /ladder/finish.sh

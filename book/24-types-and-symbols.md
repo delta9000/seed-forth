@@ -29,7 +29,7 @@ for nonzero (Ch 45).  Pointer depth
 generalises to any level (`T**`, `T***`, …).  Struct and union layouts
 live in descriptors allocated from Ch 21's arena.
 
-The 167-line file `070-cc-sym.fth` is the symbol table: ten columns
+The 204-line file `070-cc-sym.fth` is the symbol table: ten columns
 of 8192 8-byte slots each, 640 KiB in all.  Every global, local,
 function, struct tag, enum constant and typedef gets one row, and
 `cc-scope-push` / `cc-scope-pop` give lexical scopes by remembering
@@ -542,6 +542,33 @@ variable cc-qualified-fields
   else, 2drop then, ;
 variable cc-sym-count
 
+\ Lookup by name goes through a hash table, as the preprocessor's macros
+\ do (040): cc-sym-bucket holds, per cc-name-hash bucket (030), one more
+\ than the id of the newest live symbol there (0 for none), and
+\ cc-sym-hnext links each symbol to the next older one in its bucket (-1
+\ at the end).  cc-scope-pop unlinks what it discards.
+create cc-sym-bucket  cc-name-buckets [lit] 8 * allot
+create cc-sym-hnext   cc-sym-cap [lit] 8 * allot
+
+\ cc-sym-bucket-of ( id -- addr )  The bucket of symbol id's name.
+: cc-sym-bucket-of
+  dup cc-sym-name-addr cell[] @ swap cc-sym-name-len cell[] @
+  cc-name-hash cc-sym-bucket cell[] ;
+
+\ cc-sym-link ( id -- )  Put symbol id, whose name is filed, at the head
+\ of its bucket.  Entries at id or above were discarded without
+\ cc-scope-pop (a count stored directly): leave them out of the chain.
+: cc-sym-link
+  >r  r@ cc-sym-bucket-of
+  dup @ 1-
+  begin, dup r@ < 0= while, cc-sym-hnext cell[] @ repeat,
+  r@ cc-sym-hnext cell[] !
+  r> 1+ swap ! ;
+
+\ cc-sym-unlink ( id -- )  Take symbol id, the newest in its bucket, out.
+: cc-sym-unlink
+  dup cc-sym-hnext cell[] @ 1+  swap cc-sym-bucket-of ! ;
+
 [lit] 64 constant cc-scope-cap
 create cc-scope-stack  cc-scope-cap [lit] 8 * allot
 variable cc-scope-depth
@@ -602,6 +629,7 @@ accessors name each meaning instead.
   r@ cc-sym-kind      cell[] !                   \ store kind
   r@ cc-sym-name-len  cell[] !                   \ store name-len
   r@ cc-sym-name-addr cell[] !                   \ store name-addr
+  r@ cc-sym-link                                 \ file it under its hash
   \ Extra is reused across scope pops; zero it on every add so callers don't
   \ inherit a stale value (sk-local array-len, sk-func fixup-list, etc.).
   [lit] 0 r@ cc-sym-extra  cell[] !
@@ -641,14 +669,21 @@ binds namespace-aware searches, allowing `struct stat` and the function
 
 ```forth file=070-cc-sym.fth
 \ cc-sym-find ( name-addr name-len -- id-or-neg1 )
-\ cc-name-find walks the entries newest first and returns at the first
-\ match, which gives innermost-scope semantics: -1 means "not found",
-\ anything >= 0 is the matched id.
+\ The walk goes newest first along the name's bucket and returns at the
+\ first match, which gives innermost-scope semantics: -1 means "not
+\ found", anything >= 0 is the matched id.
 \ The default keeps the original single lookup for the bootstrap dialect.
 \ A target can separate C's ordinary and tag namespaces without replacing
 \ the shared symbol records or their scope lifetime.
 : cc-sym-find-default
-  cc-sym-name-addr cc-sym-name-len cc-sym-count @ cc-name-find ;
+  cc-nf-u ! cc-nf-a !
+  cc-nf-a @ cc-nf-u @ cc-name-hash cc-sym-bucket cell[] @ 1-     ( id )
+  begin, dup 0< 0= while,
+    dup cc-sym-count @ < over cc-sym-name-len cell[] @ cc-nf-u @ = and if,
+      dup cc-sym-name-addr cell[] @ cc-nf-a @ cc-nf-u @ bytes-eq if, exit, then,
+    then,
+    cc-sym-hnext cell[] @
+  repeat, ;
 defer cc-sym-find
 defer cc-sym-find-tag
 ' cc-sym-find-default is cc-sym-find
@@ -656,15 +691,17 @@ defer cc-sym-find-tag
 
 ```
 
-The default `cc-sym-find` is Ch 21's `cc-name-find` over the two name columns,
-the same lookup the macro table uses.  It walks the table
-newest-first and returns with `exit,` on the first hit.  Innermost
-declarations appear later in the table, so the reverse walk finds
-them first, and innermost-scope-wins falls out without any explicit
-scope check.  This is Ch 17's newest-wins lookup with scope added.
+The default `cc-sym-find` walks the chain of the name's hash bucket,
+as the macro table does (Ch 22): `cc-sym-add` files each symbol at the
+head of its bucket through `cc-sym-link`, so the chain runs
+newest-first and the walk returns with `exit,` on the first hit.
+Innermost declarations are added later, so the walk finds them first,
+and innermost-scope-wins falls out without any explicit scope check.
+This is Ch 17's newest-wins lookup with scope added, and hashed
+because GCC's headers declare thousands of names.
 
-The loop index runs down to `-1` when nothing matches, and that `-1`
-is the "not found" answer, so the caller reads either "found id N"
+The chain ends in `-1` when nothing matches, and that `-1` is the
+"not found" answer, so the caller reads either "found id N"
 or "not found" with no flag variable.  Once the caller has an id,
 it reads the row through one-line accessors:
 
@@ -759,8 +796,10 @@ arrives.
 : cc-scope-pop
   cc-scope-depth @ 0= if, [lit] 62 cc-die then,
   [lit] 1 cc-scope-depth -!
-  cc-scope-depth @ cc-scope-stack cell[] @
-  cc-sym-count ! ;
+  cc-scope-depth @ cc-scope-stack cell[] @       ( mark )
+  begin, cc-sym-count @ over > while,
+    [lit] 1 cc-sym-count -!  cc-sym-count @ cc-sym-unlink
+  repeat, drop ;
 ```
 
 `cc-scope-push` saves the current `cc-sym-count` onto
@@ -772,8 +811,10 @@ When the parser enters a function, it pushes a scope.  Each local
 declaration calls `cc-sym-add`, which appends.  When the function
 ends, the parser pops, which restores the count to its pre-function
 value and so deletes the locals by making them unreachable.  The
-bytes are still in the arrays, but `cc-sym-find` only walks up to
-`cc-sym-count - 1`, and later additions overwrite them.
+bytes are still in the arrays, but `cc-scope-pop` takes each
+discarded symbol off its bucket with `cc-sym-unlink` (each is the
+newest in its bucket when its turn comes, since the pop goes from the
+newest down), and later additions overwrite them.
 
 Globals are never popped because no scope is pushed at file scope.
 They sit below every scope marker, so the reverse walk always reaches

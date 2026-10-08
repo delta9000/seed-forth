@@ -95,11 +95,12 @@ dup [lit] 48 + @ [lit] 456 = assert [lit] 56 + @ [lit] 789 = assert
  forth(tag+'-symbol-one-past',fill+'drop name [lit] 3 cc-obj-local cc-obj-notype cc-obj-default cc-obj-abs [lit] 0 [lit] 0 cc-obj-symbol drop',245)
  # All sixteen cells are inside the last stable record; creation zeroes reuse.
  om=setup+'''cc-om-cap cc-om-record [lit] 128 [lit] 165 cc-nfill
-cc-om-cap 1- cc-om-count ! [lit] 123 [lit] 7 cc-obj-global cc-obj-func cc-om-new
+create om-test-name s, record7
+cc-om-cap 1- cc-om-count ! om-test-name [lit] 7 cc-obj-global cc-obj-func cc-om-new
 '''
  # cc-nfill is not part of the compiler API; write cells with a local loop.
  om=om.replace('cc-om-cap cc-om-record [lit] 128 [lit] 165 cc-nfill',': dirty [lit] 0 begin, dup [lit] 16 < while, true over [lit] 8 * cc-om-cap cc-om-record + ! 1+ repeat, drop ; dirty')
- checks='dup cc-om-cap = assert dup om-name @ [lit] 123 = assert dup om-nlen @ [lit] 7 = assert dup om-bind @ [lit] 1 = assert dup om-kind @ [lit] 2 = assert dup om-align @ [lit] 1 = assert\n'
+ checks='dup cc-om-cap = assert dup om-name @ om-test-name = assert dup om-nlen @ [lit] 7 = assert dup om-bind @ [lit] 1 = assert dup om-kind @ [lit] 2 = assert dup om-align @ [lit] 1 = assert\n'
  for offset in [32,40,48,64,72,80,88,96,104,112,120]:checks+=f'dup cc-om-record [lit] {offset} + @ 0= assert\n'
  forth(tag+'-record-last-sixteen-cells',om+checks+'drop')
  forth(tag+'-record-one-past',om+'drop [lit] 0 [lit] 0 [lit] 0 [lit] 0 cc-om-new drop',245)

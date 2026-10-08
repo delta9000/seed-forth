@@ -247,6 +247,7 @@ int dir_add(struct inode *d, const char *name, struct inode *ip)
     e->nlen = n;
     e->hash = hash(name, n);
     e->ino = ip;
+    e->seq = 3 + d->dseq++;     /* after "." and ".." (offsets 0 and 1) */
     if (d->dlast)
         d->dlast->next = e;
     else

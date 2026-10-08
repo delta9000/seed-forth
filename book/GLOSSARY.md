@@ -339,8 +339,8 @@ deep.  Ch 23.
 **Symbol table** — parallel arrays of name / kind / type / value
 indexed by an integer symbol id, plus two extra cells read through
 meaning-named accessors (array length, struct descriptor, call and
-address fixup lists).  Linear scan for lookup (`cc-name-find`);
-truncated on scope pop.  Ch 24.
+address fixup lists).  Hashed lookup (`cc-name-hash` buckets, newest
+first); truncated on scope pop.  Ch 24.
 
 **Type encoding** — every C type fits in one 64-bit word: base
 kind in bits 16–31, pointer depth in bits 0–7.  Struct types

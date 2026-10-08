@@ -68,6 +68,10 @@ variable cc-ra-n
 : cc-read-all
   cc-ra-code ! cc-ra-cap ! cc-ra-buf ! cc-ra-fd !
   [lit] 0 cc-ra-n !
+  cc-ra-fd @ 0= if,                    \ stdin: first what key-fill holds (020)
+    cc-ra-buf @ cc-ra-cap @ key-drain cc-ra-n !
+    cc-ra-n @ 1+ cc-ra-cap @ cc-ra-code @ cc-check-cap
+  then,
   begin,
     cc-ra-fd @  cc-ra-buf @ cc-ra-n @ +  cc-ra-cap @ cc-ra-n @ -  read
     dup [lit] 0 >
@@ -230,6 +234,20 @@ variable cc-nf-lens
     then,
     1-                                           \ i--
   repeat, ;                                      \ not found: i = -1
+
+\ cc-name-hash ( a u -- h )  djb2 over the name, as the linker hashes
+\ symbols (140-cc-link.fth), masked to cc-name-buckets.  The macro and
+\ symbol tables (040, 070) keep, per hash, their newest entry in a bucket
+\ and link the older ones behind it, so a lookup compares only the names
+\ that share its hash.
+[lit] 4096 constant cc-name-buckets
+: cc-name-hash
+  [lit] 5381 >r
+  begin, dup while,
+    over c@ r> [lit] 33 * + >r
+    1- swap 1+ swap
+  repeat, 2drop
+  r> cc-name-buckets 1- and ;
 
 \ Direct GCC source workspace is opt-in; default buffers stay dictionary-backed.
 \ Measured raw/expanded/output maxima are 2,782,995/5,415,887/3,901,856 bytes.

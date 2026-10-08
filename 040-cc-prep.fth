@@ -262,6 +262,29 @@ variable cc-macro-direct-base
   cc-pp-to-pool  dup >r cc-pp-emit-bytes  cc-pp-from-pool
   r> r> swap ;
 
+\ Lookup goes through a hash table (cc-name-hash, 030): cc-macro-bucket
+\ holds, per bucket, one more than the index of the newest macro whose name
+\ hashes there (0 for none), and cc-macro-hnext links each macro to the
+\ next older one in its bucket (-1 at the end), so a chain is walked
+\ newest-first.
+create cc-macro-bucket  cc-name-buckets [lit] 8 * allot
+create cc-macro-hnext   cc-macro-direct-cap [lit] 8 * allot
+
+\ cc-macro-hash-reset ( -- )  Empty every bucket (with cc-macro-count 0).
+: cc-macro-hash-reset
+  [lit] 0 begin, dup cc-name-buckets < while,
+    [lit] 0 over cc-macro-bucket cell[] !  1+
+  repeat, drop ;
+cc-macro-hash-reset
+
+\ cc-macro-link ( i -- )  Put macro i, whose name is filed, at the head of
+\ its bucket.
+: cc-macro-link
+  >r
+  r@ cc-macro-name-addr cell[] @  r@ cc-macro-name-len cell[] @  cc-name-hash
+  dup cc-macro-bucket cell[] @ 1-  r@ cc-macro-hnext cell[] !
+  r> 1+ swap cc-macro-bucket cell[] ! ;
+
 \ cc-macro-record ( name-a name-u body-a body-u params -- )  Add an entry
 \ whose name and body already sit in the pool.  Dies with code 34 if the
 \ table already holds cc-macro-cap macros.
@@ -275,6 +298,7 @@ variable cc-macro-direct-base
   r@ cc-macro-body-addr cell[] !
   r@ cc-macro-name-len  cell[] !
   r@ cc-macro-name-addr cell[] !
+  r@ cc-macro-link
   [lit] 0 r> cc-macro-busy cell[] !
   [lit] 1 cc-macro-count +! ;
 
@@ -285,9 +309,19 @@ variable cc-macro-direct-base
   true cc-macro-record ;
 
 \ cc-macro-find ( a u -- i | -1 )  The newest macro named a u, so a later
-\ #define of the same name wins.
+\ #define of the same name wins: the newest of its bucket's chain whose
+\ length and bytes match.
+variable cc-mf-a
+variable cc-mf-u
 : cc-macro-find
-  cc-macro-name-addr cc-macro-name-len cc-macro-count @ cc-name-find ;
+  cc-mf-u ! cc-mf-a !
+  cc-mf-a @ cc-mf-u @ cc-name-hash cc-macro-bucket cell[] @ 1-   ( i )
+  begin, dup 0< 0= while,
+    dup cc-macro-name-len cell[] @ cc-mf-u @ = if,
+      dup cc-macro-name-addr cell[] @ cc-mf-a @ cc-mf-u @ bytes-eq if, exit, then,
+    then,
+    cc-macro-hnext cell[] @
+  repeat, ;
 
 \ ===========================================================================
 \ The region being read
@@ -752,8 +786,13 @@ create cc-pp-file-name-len cc-prep-direct-depth 1+ [lit] 8 * allot
   dup cc-pp-file-base cc-pp-location-cell @ < if, drop exit, then,
   dup cc-pp-file-end cc-pp-location-cell @ >= if, drop exit, then,
   dup cc-pp-file-cursor cc-pp-location-cell @ < if,
-    cc-pp-file-base cc-pp-location-cell @ cc-pp-file-cursor cc-pp-location-cell !
-    [lit] 1 cc-pp-file-line cc-pp-location-cell !
+    \ Behind the cursor: take back the newlines between the two, rather
+    \ than counting again from the start of the file.
+    cc-pp-file-cursor cc-pp-location-cell @            ( address cursor )
+    begin, 2dup < while,
+      1- dup c@ nl = if, true cc-pp-file-line cc-pp-location-cell +! then,
+    repeat,
+    cc-pp-file-cursor cc-pp-location-cell !
   then,
   cc-pp-file-cursor cc-pp-location-cell @
   begin, 2dup > while,
@@ -2268,7 +2307,7 @@ defer cc-prep-target-fwd
 
 : cc-preprocess
   cc-src-init
-  [lit] 0 cc-macro-count !
+  [lit] 0 cc-macro-count !  cc-macro-hash-reset
   [lit] 0 cc-macro-pool-pos !
   [lit] 0 cc-prep-inc-depth !
   [lit] 0 cc-pp-cond-depth !

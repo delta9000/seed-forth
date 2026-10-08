@@ -111,18 +111,19 @@ for direct in (False,True):
  forth(tag+'-global-fixup-one-past',out(fix+'[lit] 789 [lit] 123 cc-gfixup-add'),81)
  forth(tag+'-global-fixup-reset',out(fix+'cc-globals-init cc-gfixup-count @ 0= assert [lit] 789 [lit] 123 cc-gfixup-add [lit] 0 cc-gfixup-out-pos cell[] @ [lit] 789 = assert [lit] 0 cc-gfixup-slot cell[] @ [lit] 123 = assert'))
  # All six macro arrays' last records are exercised and address checked.
+ # Names are real bytes: recording a macro or object record hashes its name.
  capexpr='cc-macro-cap' if direct else '[lit] 1024'
- macro=setup+('true cc-prep-direct !\n' if direct else '[lit] 0 cc-prep-direct !\n')+capexpr+' 1- cc-macro-count ! [lit] 123 [lit] 7 [lit] 456 [lit] 9 true cc-macro-record\n'
- checks=capexpr+' 1- >r r@ cc-macro-name-addr cell[] @ [lit] 123 = assert r@ cc-macro-name-len cell[] @ [lit] 7 = assert r@ cc-macro-body-addr cell[] @ [lit] 456 = assert r@ cc-macro-body-len cell[] @ [lit] 9 = assert r@ cc-macro-params cell[] @ true = assert r> cc-macro-busy cell[] @ 0= assert'
+ macro=setup+('true cc-prep-direct !\n' if direct else '[lit] 0 cc-prep-direct !\n')+'create macro-name s, macro77 '+capexpr+' 1- cc-macro-count ! macro-name [lit] 7 [lit] 456 [lit] 9 true cc-macro-record\n'
+ checks=capexpr+' 1- >r r@ cc-macro-name-addr cell[] @ macro-name = assert r@ cc-macro-name-len cell[] @ [lit] 7 = assert r@ cc-macro-body-addr cell[] @ [lit] 456 = assert r@ cc-macro-body-len cell[] @ [lit] 9 = assert r@ cc-macro-params cell[] @ true = assert r> cc-macro-busy cell[] @ 0= assert'
  forth(tag+'-macro-exact-six-arrays',out(macro+checks))
  forth(tag+'-macro-one-past',out(macro+'[lit] 0 [lit] 0 [lit] 0 [lit] 0 true cc-macro-record'),34)
  for bad in ('[lit] 0','true','[lit] 9223372036854775808','cc-om-cap 1+'):
   forth(tag+'-invalid-record-'+bad,out(setup+bad+' cc-om-record drop'),245)
- om=setup+'cc-om-cap 1- cc-om-count ! [lit] 123 [lit] 7 cc-obj-global cc-obj-func cc-om-new\n'
- forth(tag+'-stable-record-exact',out(om+'dup cc-om-cap = assert dup om-name @ [lit] 123 = assert om-align @ [lit] 1 = assert'))
+ om=setup+'create om-test-name s, record7 cc-om-cap 1- cc-om-count ! om-test-name [lit] 7 cc-obj-global cc-obj-func cc-om-new\n'
+ forth(tag+'-stable-record-exact',out(om+'dup cc-om-cap = assert dup om-name @ om-test-name = assert om-align @ [lit] 1 = assert'))
  forth(tag+'-stable-record-one-past',out(om+'drop [lit] 0 [lit] 0 cc-obj-global cc-obj-func cc-om-new drop'),245)
 # Native/direct preprocessing without workspace selection keeps its 4096 cap.
-macro='true cc-prep-direct ! cc-macro-cap [lit] 4096 = assert cc-macro-cap 1- cc-macro-count ! [lit] 123 [lit] 7 [lit] 456 [lit] 9 true cc-macro-record\n'
+macro='true cc-prep-direct ! cc-macro-cap [lit] 4096 = assert create macro-name s, macro77 cc-macro-cap 1- cc-macro-count ! macro-name [lit] 7 [lit] 456 [lit] 9 true cc-macro-record\n'
 forth('native-default-storage-macro-exact',out(macro+'cc-macro-count @ [lit] 4096 = assert'))
 forth('native-default-storage-macro-one-past',out(macro+'[lit] 0 [lit] 0 [lit] 0 [lit] 0 true cc-macro-record'),34)
 # Preprocessing twice resets names, pool, source and all busy slots as recorded.

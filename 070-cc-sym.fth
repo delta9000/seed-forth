@@ -50,6 +50,33 @@ variable cc-qualified-fields
   else, 2drop then, ;
 variable cc-sym-count
 
+\ Lookup by name goes through a hash table, as the preprocessor's macros
+\ do (040): cc-sym-bucket holds, per cc-name-hash bucket (030), one more
+\ than the id of the newest live symbol there (0 for none), and
+\ cc-sym-hnext links each symbol to the next older one in its bucket (-1
+\ at the end).  cc-scope-pop unlinks what it discards.
+create cc-sym-bucket  cc-name-buckets [lit] 8 * allot
+create cc-sym-hnext   cc-sym-cap [lit] 8 * allot
+
+\ cc-sym-bucket-of ( id -- addr )  The bucket of symbol id's name.
+: cc-sym-bucket-of
+  dup cc-sym-name-addr cell[] @ swap cc-sym-name-len cell[] @
+  cc-name-hash cc-sym-bucket cell[] ;
+
+\ cc-sym-link ( id -- )  Put symbol id, whose name is filed, at the head
+\ of its bucket.  Entries at id or above were discarded without
+\ cc-scope-pop (a count stored directly): leave them out of the chain.
+: cc-sym-link
+  >r  r@ cc-sym-bucket-of
+  dup @ 1-
+  begin, dup r@ < 0= while, cc-sym-hnext cell[] @ repeat,
+  r@ cc-sym-hnext cell[] !
+  r> 1+ swap ! ;
+
+\ cc-sym-unlink ( id -- )  Take symbol id, the newest in its bucket, out.
+: cc-sym-unlink
+  dup cc-sym-hnext cell[] @ 1+  swap cc-sym-bucket-of ! ;
+
 [lit] 64 constant cc-scope-cap
 create cc-scope-stack  cc-scope-cap [lit] 8 * allot
 variable cc-scope-depth
@@ -80,6 +107,7 @@ variable cc-scope-depth
   r@ cc-sym-kind      cell[] !                   \ store kind
   r@ cc-sym-name-len  cell[] !                   \ store name-len
   r@ cc-sym-name-addr cell[] !                   \ store name-addr
+  r@ cc-sym-link                                 \ file it under its hash
   \ Extra is reused across scope pops; zero it on every add so callers don't
   \ inherit a stale value (sk-local array-len, sk-func fixup-list, etc.).
   [lit] 0 r@ cc-sym-extra  cell[] !
@@ -91,14 +119,21 @@ variable cc-scope-depth
   r> ;
 
 \ cc-sym-find ( name-addr name-len -- id-or-neg1 )
-\ cc-name-find walks the entries newest first and returns at the first
-\ match, which gives innermost-scope semantics: -1 means "not found",
-\ anything >= 0 is the matched id.
+\ The walk goes newest first along the name's bucket and returns at the
+\ first match, which gives innermost-scope semantics: -1 means "not
+\ found", anything >= 0 is the matched id.
 \ The default keeps the original single lookup for the bootstrap dialect.
 \ A target can separate C's ordinary and tag namespaces without replacing
 \ the shared symbol records or their scope lifetime.
 : cc-sym-find-default
-  cc-sym-name-addr cc-sym-name-len cc-sym-count @ cc-name-find ;
+  cc-nf-u ! cc-nf-a !
+  cc-nf-a @ cc-nf-u @ cc-name-hash cc-sym-bucket cell[] @ 1-     ( id )
+  begin, dup 0< 0= while,
+    dup cc-sym-count @ < over cc-sym-name-len cell[] @ cc-nf-u @ = and if,
+      dup cc-sym-name-addr cell[] @ cc-nf-a @ cc-nf-u @ bytes-eq if, exit, then,
+    then,
+    cc-sym-hnext cell[] @
+  repeat, ;
 defer cc-sym-find
 defer cc-sym-find-tag
 ' cc-sym-find-default is cc-sym-find
@@ -163,5 +198,7 @@ defer cc-sym-addr-fixups
 : cc-scope-pop
   cc-scope-depth @ 0= if, [lit] 62 cc-die then,
   [lit] 1 cc-scope-depth -!
-  cc-scope-depth @ cc-scope-stack cell[] @
-  cc-sym-count ! ;
+  cc-scope-depth @ cc-scope-stack cell[] @       ( mark )
+  begin, cc-sym-count @ over > while,
+    [lit] 1 cc-sym-count -!  cc-sym-count @ cc-sym-unlink
+  repeat, drop ;

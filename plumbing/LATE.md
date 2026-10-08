@@ -142,11 +142,13 @@ Three fixes were needed to get there, all in late-tools.sh:
 3. **`/dev`.** With only `/dev/null` in the root, bash configured without
    `/dev/fd` and `/dev/stdin`; late-root.sh gives bwrap a minimal `/dev`.
 
-## Not done
+## Not done (and done since)
 
 - Stage 10's shims (`hostname`, `getconf`, `which`, `awk` and `install`
   links) are for gcc64's scripts and are left to whatever runs next.
 - No second run compared for reproducibility; the absolute prefix
   (`/build-out/late/usr`) is compiled into several programs, so a different
   output directory gives different bytes.
-- The QEMU route does not use these binaries yet.
+- Under K1 (`k1/run-chain.sh --direct-linux`, see k1/README.md) the same
+  script builds them as root, which tar and coreutils accept only with
+  `FORCE_UNSAFE_CONFIGURE=1`, which late-tools.sh sets.

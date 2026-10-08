@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write K1's input disk: the chain root's starting tree as one archive.
 
-  mkdisk.py OUT [--seed-smoke | --direct-smoke | --direct] [--jobs N]
+  mkdisk.py OUT [--seed-smoke | --direct-smoke | --direct | --direct-linux] [--jobs N]
 
 The tree is what tools/chain-root.sh puts in its root -- hex0-seed (the only
 executable), 000-seed.hex0, the Forth and C sources, tools/, ladder/,
@@ -11,7 +11,7 @@ and every tarball in build-out/distfiles -- plus
 
 --direct-smoke and --direct are the direct-GCC route (no TinyCC): the tree is
 k1/direct_inputs.py's and /k1.recipe is k1/direct-smoke.recipe or
-k1/direct.recipe.
+k1/direct.recipe; --direct-linux appends k1/direct-linux.recipe to the latter.
 """
 import argparse, os, pathlib, struct, sys
 
@@ -31,9 +31,9 @@ def tree(seed_smoke=False):
     return out
 
 
-def direct_tree(smoke):
+def direct_tree(smoke, linux=False):
     from direct_inputs import k1_tree
-    out = {name: (path, 0o644) for name, path in k1_tree(smoke).items()}
+    out = {name: (path, 0o644) for name, path in k1_tree(smoke, linux).items()}
     out["hex0-seed"] = (HEX0, 0o755)
     return out
 
@@ -70,13 +70,23 @@ def main():
                         help="direct-GCC route: seed-cc, seed-ar and kaem under K1 (k1/direct-smoke.recipe)")
     parser.add_argument("--direct", action="store_true",
                         help="direct-GCC route: the seed to bash 2.05b under K1 (k1/direct.recipe)")
+    parser.add_argument("--direct-linux", action="store_true",
+                        help="direct-GCC route to Linux: k1/direct.recipe, then k1/direct-linux.recipe")
     parser.add_argument("--jobs", type=positive_jobs,
                         help="pass this make job count explicitly into guest stages 10-12")
     args = parser.parse_args()
     dest = args.output
-    if args.seed_smoke + args.direct_smoke + args.direct > 1:
-        parser.error("choose one of --seed-smoke, --direct-smoke and --direct")
-    if args.direct_smoke or args.direct:
+    if args.seed_smoke + args.direct_smoke + args.direct + args.direct_linux > 1:
+        parser.error("choose one of --seed-smoke, --direct-smoke, --direct and --direct-linux")
+    if args.direct_linux:
+        files = direct_tree(False, linux=True)
+        recipe = (ROOT / "k1/direct.recipe").read_bytes() + (ROOT / "k1/direct-linux.recipe").read_bytes()
+        if args.jobs is not None:
+            text = recipe.decode()
+            if text.count("JOBS=2") != 3:
+                raise ValueError("expected three JOBS=2 in k1/direct-linux.recipe")
+            recipe = text.replace("JOBS=2", f"JOBS={args.jobs}").encode()
+    elif args.direct_smoke or args.direct:
         if args.jobs is not None:
             parser.error("--jobs applies to the TinyCC route's stages 10-12")
         files = direct_tree(args.direct_smoke)

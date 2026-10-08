@@ -64,34 +64,34 @@ to its call site.
 
 | Code | File:line(s) | Triggered by |
 |---:|---|---|
-| 10  | `020-cc-arena.fth:87,106` | Arena allocation past its configured cap (32 KiB by default), or failure to map the opt-in larger workspace. |
-| 20  | `030-cc-io.fth:84` | `cc-load-stdin`: the source fills the selected input buffer (default 1 MiB, direct GCC 3 MiB), or its workspace mapping fails. |
-| 21  | `030-cc-io.fth:128` | `cc-emit-byte`: the output fills its selected buffer (default 1 MiB, direct GCC 4 MiB). |
-| 22  | `030-cc-io.fth:188` | `cc-write-output`: `open(2)` on the output path returned an error. |
-| 30  | `040-cc-prep.fth:867,1786,1791,1796,1843` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
-| 31  | `040-cc-prep.fth:855` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
-| 32  | `040-cc-prep.fth:873,877` | Included file fills its legacy 256 KiB slot, or the live include stack fills the selected direct pool (default 1 MiB; the direct-GCC workspace maps 7 MiB, the same bound as its expanded source). The raw reader keeps one byte free, so the largest live stack is the capacity minus one. A failed mapping of the direct pool uses this code too. |
-| 33  | `040-cc-prep.fth:683,773,783` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
-| 34  | `040-cc-prep.fth:271` | Macro count exceeds 1,024 in legacy mode (11 built in) or 4,096 in native/direct mode with default storage; the direct-GCC workspace permits 4,608. Mapping failure uses this code too. |
+| 10  | `020-cc-arena.fth:437,456` | Arena allocation past its configured cap (32 KiB by default), or failure to map the opt-in larger workspace. |
+| 20  | `030-cc-io.fth:88` | `cc-load-stdin`: the source fills the selected input buffer (default 1 MiB, direct GCC 3 MiB), or its workspace mapping fails. |
+| 21  | `030-cc-io.fth:132` | `cc-emit-byte`: the output fills its selected buffer (default 1 MiB, direct GCC 4 MiB). |
+| 22  | `030-cc-io.fth:192` | `cc-write-output`: `open(2)` on the output path returned an error. |
+| 30  | `040-cc-prep.fth:906,1825,1830,1835,1882` | Include not found: the legacy direct/`tests/cc/` search or the native source-relative/configured-directory search. |
+| 31  | `040-cc-prep.fth:894` | Include depth exceeds its profile limit: four legacy slots or thirty-two direct levels. |
+| 32  | `040-cc-prep.fth:912,916` | Included file fills its legacy 256 KiB slot, or the live include stack fills the selected direct pool (default 1 MiB; the direct-GCC workspace maps 7 MiB, the same bound as its expanded source). The raw reader keeps one byte free, so the largest live stack is the capacity minus one. A failed mapping of the direct pool uses this code too. |
+| 33  | `040-cc-prep.fth:717,812,822` | `#include` path (with the `tests/cc/` prefix) longer than the 1,024-byte path buffer. |
+| 34  | `040-cc-prep.fth:294` | Macro count exceeds 1,024 in legacy mode (11 built in) or 4,096 in native/direct mode with default storage; the direct-GCC workspace permits 4,608. Mapping failure uses this code too. |
 | 35  | `040-cc-prep.fth:271` | Macro pool (64 KiB legacy, 256 KiB direct) full: `cc-pp-to-pool` makes it the sink with this code, and `cc-prep-emit-byte` dies when a macro name or body would overflow it. |
 | 36  | `040-cc-prep.fth:2145` | `cc-prep-emit-byte`: preprocessed source fills the selected source buffer (default 2 MiB, direct GCC 7 MiB) (the sink `cc-preprocess` sets up with this code). |
 | 37  | `040-cc-prep.fth:179` | A temporary buffer fills: a macro argument, or a replacement with its arguments put in, longer than 64 KiB (the sink `cc-pp-temp-begin` sets up with this code). |
-| 38  | `040-cc-prep.fth:1665` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
-| 39  | `040-cc-prep.fth:2297` | `cc-preprocess`: an `#if` still open at the end of the program. |
-| 40  | `040-cc-prep.fth:2199` | `#error` in a group that is not dropped. |
-| 41  | `040-cc-prep.fth:1680` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
-| 42  | `040-cc-prep.fth:586` | `cc-pp-need-name`: `#ifdef`, `#ifndef` or `defined` with no name after it. |
+| 38  | `040-cc-prep.fth:1704` | `cc-pp-cond-push`: `#if` / `#ifdef` / `#ifndef` nested more than 64 deep. |
+| 39  | `040-cc-prep.fth:2336` | `cc-preprocess`: an `#if` still open at the end of the program. |
+| 40  | `040-cc-prep.fth:2238` | `#error` in a group that is not dropped. |
+| 41  | `040-cc-prep.fth:1719` | `cc-pp-need-group`: `#elif`, `#else` or `#endif` with no `#if` open. |
+| 42  | `040-cc-prep.fth:620` | `cc-pp-need-name`: `#ifdef`, `#ifndef` or `defined` with no name after it. |
 | 43  | `040-cc-prep.fth:153,173` | `cc-pp-scratch-alloc`: the 2 MiB macro scratch area is used up (about 32 macro calls nested in each other's arguments), the direct suppression-shadow mapping fails, or the selected source capacity exceeds its fixed shadow. |
-| 44  | `040-cc-prep.fth:978` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
-| 45  | `040-cc-prep.fth:1334` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
-| 46  | `040-cc-prep.fth:963` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
-| 47  | `040-cc-prep.fth:165,593,2028,2031,2039,2051,2122` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
-| 48  | `040-cc-prep.fth:1973,2029` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
+| 44  | `040-cc-prep.fth:1017` | `cc-pp-collect-args`: a function-like macro call whose `)` never comes before the end of its region (the file, or the macro text it is in). |
+| 45  | `040-cc-prep.fth:1373` | `cc-pp-expand-call`: a function-like macro called with more arguments than it has parameters. |
+| 46  | `040-cc-prep.fth:1002` | `cc-pp-ca-record`: a macro call with more than 16 arguments. |
+| 47  | `040-cc-prep.fth:165,627,2067,2070,2078,2090,2161` | `cc-pp-need-rparen`: no `)` to close `defined(NAME` or a malformed `#define` parameter list; direct token pasting also rejects any unavailable byte in either raw operand. |
+| 48  | `040-cc-prep.fth:2012,2068` | `cc-pp-read-params`: a function-like `#define` with more than 16 parameters. |
 | 49  | `040-cc-prep.fth` | Invalid or unsupported direct-profile directive syntax, including malformed `#line`, GNU numeric markers, unterminated comments in directives, splices splitting a directive name, and source-text continuations that would join two tokens (continuations inside or splitting comments follow phase two). See [C line control](22-the-preprocessor.md#c-line-control-for-generated-parser-sources). |
 | 50  | `060-cc-types.fth:313` | `cc-sd-field-rec`: a struct or union with more members than the target allows: 1023 in LP64 modes (C99 §5.2.4.1; anonymous members counted once flattened), 16 in the legacy subset. |
-| 60  | `070-cc-sym.fth:75` | `cc-sym-add`: more than 8,192 live symbols. |
-| 61  | `070-cc-sym.fth:155` | `cc-scope-push`: scopes nested more than 64 deep. |
-| 62  | `070-cc-sym.fth:164` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
+| 60  | `070-cc-sym.fth:102` | `cc-sym-add`: more than 8,192 live symbols. |
+| 61  | `070-cc-sym.fth:190` | `cc-scope-push`: scopes nested more than 64 deep. |
+| 62  | `070-cc-sym.fth:199` | `cc-scope-pop` with no push to match (a parser bug; no C program reaches it). |
 | 80  | `090-cc-emit.fth:1186` | `cc-globals-alloc`: the data area of file-scope scalars (64 KiB) is full. |
 | 81  | `090-cc-emit.fth:1215` | `cc-gfixup-add`: selected global-fixup table full (default 16,384, direct GCC 17,920), or its mapping fails. |
 | 82  | `090-cc-emit.fth:1194` | `cc-bss-alloc`: global arrays need more than the 256 MiB bss. |
@@ -204,20 +204,20 @@ native parser; the file distinguishes its implementation.
 
 | Code | File:line(s) | Triggered by |
 |---|---|---|
-| 58 | `115-cc-native.fth:474` | Aggregate field declaration missing its semicolon. |
+| 58 | `115-cc-native.fth:479` | Aggregate field declaration missing its semicolon. |
 | 174 | `112-cc-stmt.fth:760` | Native function ends with a `goto` target still undefined. |
 | 184 | `110-cc-decl.fth:394`, `117-cc-native-program.fth:27` | Parameter list reaches EOF or native parameter list is not closed by `)`. |
-| 190 | `115-cc-native.fth:120` | Native enumerator is not an identifier. |
-| 192 | `115-cc-native.fth:128` | Native enumerator followed by neither `,` nor `}`. |
-| 194 | `115-cc-native.fth:214` | Native type identifier not found. |
-| 195 | `115-cc-native.fth:215` | Native type identifier is not a typedef. |
-| 203 | `115-cc-native.fth:314,317,331,624` | Native declarator is missing its name, or a parenthesized inner name is not an identifier or names a typedef. |
-| 205 | `115-cc-native.fth:639` | Native declaration missing its final semicolon. |
-| 210 | `115-cc-native.fth:56` | Aggregate object size requested without a descriptor. |
+| 190 | `115-cc-native.fth:125` | Native enumerator is not an identifier. |
+| 192 | `115-cc-native.fth:133` | Native enumerator followed by neither `,` nor `}`. |
+| 194 | `115-cc-native.fth:219` | Native type identifier not found. |
+| 195 | `115-cc-native.fth:220` | Native type identifier is not a typedef. |
+| 203 | `115-cc-native.fth:319,322,336,629` | Native declarator is missing its name, or a parenthesized inner name is not an identifier or names a typedef. |
+| 205 | `115-cc-native.fth:644` | Native declaration missing its final semicolon. |
+| 210 | `115-cc-native.fth:61` | Aggregate object size requested without a descriptor. |
 | 211 | `117-cc-native-program.fth:46` | Function already has a definition. |
 | 212 | `100-cc-expr.fth:528`, `117-cc-native-program.fth:20,33` | Native aggregate-by-value argument, parameter, or return, outside the private call ABI. |
 | 213 | `060-cc-types.fth:336` | Nested array field, outside the legacy/native field profile; the explicit SysV target retains checked ranked dimensions. |
-| 214 | `110-cc-decl.fth:396`, `115-cc-native.fth:230` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
+| 214 | `110-cc-decl.fth:396`, `115-cc-native.fth:235` | Floating type used in normal native mode; only the explicit bootstrap bit-transport profile accepts these type spellings. |
 | 219 | `100-cc-expr.fth:54`, `118-cc-native-init.fth:155` | Static initializer needs an evaluated nonconstant operation or a static aggregate copy. |
 | 220 | `118-cc-native-init.fth:79,80,91,99` | Invalid or empty inferred array initializer. |
 | 221 | `118-cc-native-init.fth:96,103,123` | Malformed or unterminated inferred initializer. |

@@ -69,6 +69,10 @@ CC_FOR_BUILD=$CC BUILD_CC=$CC
 # x86_64-pc-linux-gnu, and gnulib would then assume glibc's thread-safe
 # setlocale.  Name the C library instead.
 BUILD=x86_64-pc-linux-musl
+# K1 runs everything as root, and tar's and coreutils' configure refuse to
+# run as root unless told this is deliberate.
+FORCE_UNSAFE_CONFIGURE=1
+export FORCE_UNSAFE_CONFIGURE
 export PATH CONFIG_SHELL SHELL HOME TZ SOURCE_DATE_EPOCH CC CFLAGS LDFLAGS AR RANLIB NM CC_FOR_BUILD BUILD_CC
 
 # late_pin NAME: NAME's SHA-256 in plumbing/late.SOURCES.
@@ -93,6 +97,19 @@ unpack() {
   [ -d "$out/src/$name.unpack/$name" ] || die "$archive has no $name"
   mv "$out/src/$name.unpack/$name" "$out/src/$name"
   rm -rf "$out/src/$name.unpack"
+}
+
+# lrun LOG CMD...: run (chain-lib.sh), but on failure also show the end of
+# LOG, since under K1 the console is all that survives a failed run.
+lrun() {
+  local log=$1 st
+  shift
+  printf '\n$ (cd %s) %s\n' "$PWD" "$*" >> "$log"
+  "$@" >> "$log" 2>&1 && return 0
+  st=$?
+  echo "$PROG: exit $st from $1; last lines of $log:" >&2
+  tail -n 25 "$log" >&2
+  exit 1
 }
 
 # configure_args NAME: the arguments ladder stage 9's capture or
@@ -126,7 +143,7 @@ gnu() {
   unpack "$name" "$archive"
   for pt in "$ROOT"/patches/ladder/$name/*.diff; do
     [ -e "$pt" ] || continue
-    (cd "$out/src/$name" && run "$log" patch -p1 -i "$pt")
+    (cd "$out/src/$name" && lrun "$log" patch -p1 -i "$pt")
   done
   # diffutils' and findutils' man/ run help2man on the built programs; like
   # stage10.sh, install the man pages as shipped and skip the regeneration.
@@ -134,15 +151,15 @@ gnu() {
   case $name in diffutils-*) mk='SUBDIRS=lib src' ;; esac
   t0=$(date +%s)
   cd "$out/src/$name"
-  run "$log" "$CONFIG_SHELL" ./configure "--build=$BUILD" "--prefix=$P" --disable-nls \
+  lrun "$log" "$CONFIG_SHELL" ./configure "--build=$BUILD" "--prefix=$P" --disable-nls \
     --disable-dependency-tracking $(configure_args "$name")
   t1=$(date +%s)
   if [ -n "$mk" ]; then
-    run "$log" make -j "$jobs" HELP2MAN=true MAKEINFO=true "$mk"
-    run "$log" make install HELP2MAN=true MAKEINFO=true "$mk"
+    lrun "$log" make -j "$jobs" HELP2MAN=true MAKEINFO=true "$mk"
+    lrun "$log" make install HELP2MAN=true MAKEINFO=true "$mk"
   else
-    run "$log" make -j "$jobs" HELP2MAN=true MAKEINFO=true
-    run "$log" make install HELP2MAN=true MAKEINFO=true
+    lrun "$log" make -j "$jobs" HELP2MAN=true MAKEINFO=true
+    lrun "$log" make install HELP2MAN=true MAKEINFO=true
   fi
   t2=$(date +%s)
   cd "$out"
@@ -161,9 +178,9 @@ if [ ! -e "$out/logs/bzip2-1.0.8.done" ]; then
   rm -f "$out/logs/bzip2-1.0.8.log"
   unpack bzip2-1.0.8 bzip2-1.0.8.tar.gz
   cd "$out/src/bzip2-1.0.8"
-  run "$out/logs/bzip2-1.0.8.log" make "CC=$CC" "AR=$AR" "RANLIB=$RANLIB" \
+  lrun "$out/logs/bzip2-1.0.8.log" make "CC=$CC" "AR=$AR" "RANLIB=$RANLIB" \
     "CFLAGS=-O2 -D_FILE_OFFSET_BITS=64" LDFLAGS=-static bzip2 bzip2recover
-  run "$out/logs/bzip2-1.0.8.log" make install "PREFIX=$P" "CC=$CC" "AR=$AR" "RANLIB=$RANLIB" \
+  lrun "$out/logs/bzip2-1.0.8.log" make install "PREFIX=$P" "CC=$CC" "AR=$AR" "RANLIB=$RANLIB" \
     "CFLAGS=-O2 -D_FILE_OFFSET_BITS=64" LDFLAGS=-static
   cd "$out"
   echo "bzip2-1.0.8 make only" > "$out/logs/bzip2-1.0.8.done"

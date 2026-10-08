@@ -41,8 +41,13 @@ variable cc-nctx
 : cc-native-qual-note
   cc-nctx @ if, cc-qualifier-bit nc-qualified @ or nc-qualified ! then, ;
 ' cc-native-qual-note is cc-qual-note
-: cc-nzero ( a n -- )
-  begin, dup while, 1- 2dup + [lit] 0 swap c! repeat, 2drop ;
+\ cc-nzero ( a n -- )  Zero n bytes at a: rep stosb (code:, 020).
+code: cc-nzero
+  [lit] 72 c, [lit] 137 c, [lit] 249 c,                     \ mov rcx, rdi
+  [lit] 72 c, [lit] 139 c, [lit] 125 c, [lit] 0 c,          \ mov rdi, [rbp]
+  [lit] 49 c, [lit] 192 c,  [lit] 243 c, [lit] 170 c,       \ xor eax,eax  rep stosb
+  [lit] 72 c, [lit] 139 c, [lit] 125 c, [lit] 8 c,          \ mov rdi, [rbp+8]
+  [lit] 72 c, [lit] 131 c, [lit] 197 c, [lit] 16 c,  ret,   \ add rbp, 16
 : cc-ncontext
   cc-nctx-bytes cc-alloc dup cc-nctx ! cc-nctx-bytes cc-nzero ;
 : cc-nalign ( n alignment -- n' )
