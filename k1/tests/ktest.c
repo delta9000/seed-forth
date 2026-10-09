@@ -182,6 +182,25 @@ static void t_memory(void)
     CHECK(munmap(p, 1 << 20) == 0);
 }
 
+static void t_df_fault(void)
+{
+    /* musl's backward memmove runs `std; rep movsb`, so a fresh page can
+     * fault in with DF set.  The kernel must still zero it forwards (and
+     * leave the page below it alone): dirty some pages for the free list,
+     * then touch each page of a new mapping with DF set. */
+    size_t n = 64 * 4096, i, bad = 0;
+    char *p = mmap(0, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    memset(p, 0x5A, n);
+    munmap(p, n);
+    p = mmap(0, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    for (i = 0; i < n; i += 4096)
+        __asm__ volatile("std\n movb $1, (%0)\n cld" :: "r"(p + i) : "memory");
+    for (i = 0; i < n; i++)
+        bad += p[i] != (i % 4096 == 0);
+    CHECK(bad == 0);
+    munmap(p, n);
+}
+
 static void t_spawn_poll_time(void)
 {
     pid_t c;
@@ -218,6 +237,7 @@ int main(int argc, char **argv)
     t_signals();
     t_files();
     t_memory();
+    t_df_fault();
     t_spawn_poll_time();
     if (argc > 1) {         /* posix_spawn this program again, once */
         pid_t c;

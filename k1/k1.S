@@ -242,8 +242,13 @@ linux_jump:
     jmp *%rdx
 
 /* Exceptions: stubs push an error code (0 if the CPU does not) and the
- * vector, then isr_common saves the rest and calls trap_c(frame). */
+ * vector, then isr_common saves the rest and calls trap_c(frame).
+ * An interrupt gate leaves RFLAGS.DF alone, and user code may be inside
+ * musl's backward memmove (std; rep movsb) when the PIT ticks or a page
+ * faults: clear DF so the kernel's rep movsb/stosb run forwards.  iretq
+ * restores the user's own flags. */
 isr_common:
+    cld
     push %rax
     push %rcx
     push %rdx

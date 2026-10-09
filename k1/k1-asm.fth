@@ -233,6 +233,7 @@ linux_jump:
   31 ff                           \ xor %edi,%edi
   ff e2                           \ jmp *%rdx
 isr_common:
+  fc                              \ cld
   50                              \ push %rax
   51                              \ push %rcx
   52                              \ push %rdx
