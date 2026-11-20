@@ -1,5 +1,30 @@
 # Seed Forth to M2-Planet and TinyCC
 
+> **This repository is the earlier workbench, now frozen. The main result is
+> [forth-bootstrap](https://github.com/delta9000/forth-bootstrap):** from
+> stage0-posix's 229-byte `hex0-seed` to the 1,772-byte Forth below, to a C
+> compiler written in that Forth, to GCC 4.0.4 at a stage 2 = 3 = 4 fixed
+> point, to GCC 10.5.0, to Linux 7.2.8, with no TinyCC, Mes or other outside
+> compiler.  The literate book that teaches the seed, the Forth and the C
+> compiler is
+> [forth-bootstrap-book](https://github.com/delta9000/forth-bootstrap-book).
+>
+> What only this repository has:
+> - **The TinyCC route.** Seed Forth compiles TinyCC 0.9.27 directly
+>   (tcc-boot2 = tcc-boot3), and the ladder goes on to GCC 10.5.0 and Linux.
+>   Its bzImage is byte-identical to the one forth-bootstrap's direct route
+>   builds, so the two routes check each other.
+> - **pnut** built unmodified, **gcc64** on to GCC 15.2.0, and the
+>   **M2-Planet self-host** (`bootstrap.sh`, v2 = v3) with the stage0-posix
+>   handoff (`handoff.sh`).
+>
+> The last K1/QEMU work, including the direct route forth-bootstrap was taken
+> from, is on the
+> [`qemu-final`](https://github.com/delta9000/seed-forth/tree/qemu-final)
+> branch; `master` stops before it.  forth-bootstrap's
+> [HISTORY.md](https://github.com/delta9000/forth-bootstrap/blob/main/HISTORY.md)
+> records what moved and what stayed.
+
 This directory contains a minimal x86-64 Linux Forth seed and the Forth-coded
 C-subset compiler needed to reach M2-Planet compatibility and, with
 an opt-in extension, compile TinyCC directly.
